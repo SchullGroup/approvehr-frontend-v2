@@ -1,12 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button, Checkbox, EmptyState, Input, Modal } from "@/components/ui";
+import {
+  Button,
+  Callout,
+  Checkbox,
+  EmptyState,
+  Input,
+  Modal,
+} from "@/components/ui";
 import {
   useAssignableAccounts,
   useRoleMembers,
   type RoleView,
 } from "@/lib/store/permissions";
+import { nameSome } from "./role-editor";
 
 /**
  * Put people into a role.
@@ -28,6 +36,27 @@ import {
  * it would also be the only place in this product where the interface asks a
  * business owner for a UUID. A picker that is missing somebody is a gap; a UUID
  * field is a different product.
+ *
+ * ## Granting `MANAGE_ROLES` to somebody with no personnel record
+ *
+ * A real, reported case: an owner's own sign-in had no `Employee` behind it,
+ * and every action that reads "who is this" through that link — replying to a
+ * help desk ticket among them — refused with a sentence about a staff record
+ * nobody had thought to create. Loosening those checks was considered and
+ * rejected: `employeeId` is how the product knows whose leave, whose payslip
+ * and whose reply something is, and an owner is exactly the account most
+ * likely to need that trail later, not less.
+ *
+ * So the fix is discoverability, not a weaker guard, and this is where it has
+ * to live: this dialog already knows which candidates carry `employeeId:
+ * null` — that is on every `RoleMember` — and it already knows whether the
+ * role grants `MANAGE_ROLES`. Nothing here is blocked; `Owner` and any role
+ * like it work perfectly well with no linked record. The callout below just
+ * says so, and says where to fix it if the person actually is staff: the
+ * `UnlinkedAccountsPanel` on the page this dialog sits on top of, whose whole
+ * job is exactly this list. A toast timing out six seconds after the add
+ * would be easy to miss; this is visible for as long as the box the account
+ * is being chosen from.
  */
 export function AddPeopleDialog({
   role,
@@ -71,6 +100,21 @@ export function AddPeopleDialog({
           account.email.toLowerCase().includes(needle),
       );
   }, [accounts, alreadyIn, query]);
+
+  /* See the header: who is about to be granted access to manage roles while
+     having nobody to attribute their own actions to. Recomputed as `chosen`
+     changes, so ticking or unticking a name updates the callout live. */
+  const managesRoles = role.permissions.includes("MANAGE_ROLES");
+  const chosenUnlinked = useMemo(
+    () =>
+      managesRoles
+        ? accounts.filter(
+            (account) =>
+              chosen.includes(account.userId) && account.employeeId === null,
+          )
+        : [],
+    [accounts, chosen, managesRoles],
+  );
 
   return (
     <Modal
@@ -147,6 +191,18 @@ export function AddPeopleDialog({
               </li>
             ))}
           </ul>
+        )}
+
+        {chosenUnlinked.length > 0 && (
+          <Callout tone="neutral">
+            {chosenUnlinked.length === 1
+              ? `${chosenUnlinked[0]!.name} has no personnel record yet.`
+              : `${nameSome(chosenUnlinked.map((account) => account.name))} have no personnel record yet.`}{" "}
+            {role.name} works fine without one — nothing here is blocked. If
+            they are actually staff, close this and the role editor behind it,
+            then link or create their record from{" "}
+            <strong>Accounts with no personnel record</strong> on this screen.
+          </Callout>
         )}
 
         {note && <p className="text-body-sm text-muted">{note}</p>}

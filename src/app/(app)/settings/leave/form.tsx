@@ -73,7 +73,44 @@ type TypeRow = {
   carryOverMax: number;
   minNoticeDays: number;
   requiresEvidence: boolean;
+  /** Null is everyone. See `EligibleGender` in `lib/api/leave.ts`. */
+  eligibleGender: "female" | "male" | "other" | null;
 };
+
+/** The three words a company can restrict a type to, alongside "everyone". */
+const ELIGIBILITY_LABEL: Record<"female" | "male" | "other", string> = {
+  female: "Women",
+  male: "Men",
+  other: "Neither",
+};
+
+/** One copy shared by the desktop cell and the mobile card, so the option
+    list and the null-vs-string mapping cannot drift between them. */
+function EligibilitySelect({
+  type,
+  onChange,
+}: {
+  type: TypeRow;
+  onChange: (value: TypeRow["eligibleGender"]) => void;
+}) {
+  return (
+    <Select
+      value={type.eligibleGender ?? ""}
+      aria-label={`Who ${type.name} is for`}
+      onChange={(e) => {
+        const next = e.target.value;
+        onChange(next === "" ? null : (next as "female" | "male" | "other"));
+      }}
+    >
+      <option value="">Everyone</option>
+      {(["female", "male", "other"] as const).map((gender) => (
+        <option key={gender} value={gender}>
+          {ELIGIBILITY_LABEL[gender]}
+        </option>
+      ))}
+    </Select>
+  );
+}
 
 /**
  * Leave policy.
@@ -235,6 +272,7 @@ function Policy() {
               carryOverMax: row.carryOverMax,
               minNoticeDays: row.minNoticeDays,
               requiresEvidence: row.requiresEvidence,
+              eligibleGender: row.eligibleGender,
             })),
             error: null,
           });
@@ -261,6 +299,7 @@ function Policy() {
     carryOverMax: type.carryOverMax,
     minNoticeDays: type.minNoticeDays,
     requiresEvidence: type.requiresEvidence,
+    eligibleGender: type.eligibleGender ?? null,
   }));
 
   const types = isConnected ? (fetched?.rows ?? []) : demoRows;
@@ -303,6 +342,13 @@ function Policy() {
           : {}),
         ...(patch.requiresEvidence !== undefined
           ? { requiresEvidence: patch.requiresEvidence }
+          : {}),
+        /* `!== undefined`, not truthy: `null` is a real, meaningful value
+           here — it is what clears the restriction back to "everyone" — and
+           this is the only shape that can say so rather than leaving it
+           alone. */
+        ...(patch.eligibleGender !== undefined
+          ? { eligibleGender: patch.eligibleGender }
           : {}),
       });
       markSaved();
@@ -460,34 +506,159 @@ function Policy() {
               <Skeleton className="h-40 w-full" />
             </CardBody>
           ) : (
-            <TableWrap className="rounded-none border-0">
-              <THead>
-                <TH>Type</TH>
-                <TH align="right">Days a year</TH>
-                <TH>Accrual</TH>
-                <TH align="right">Carry over</TH>
-                <TH align="right">Notice</TH>
-                <TH>Evidence</TH>
-                {isConnected && (
-                  <TH>
-                    <span className="sr-only">Actions</span>
-                  </TH>
-                )}
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap className="rounded-none border-0">
+                  <THead>
+                    <TH>Type</TH>
+                    <TH align="right">Days a year</TH>
+                    <TH>Accrual</TH>
+                    <TH align="right">Carry over</TH>
+                    <TH align="right">Notice</TH>
+                    <TH>Evidence</TH>
+                    <TH>Who</TH>
+                    {isConnected && (
+                      <TH>
+                        <span className="sr-only">Actions</span>
+                      </TH>
+                    )}
+                  </THead>
+                  <TBody>
+                    {types.map((type) => (
+                      <TR key={type.id ?? type.name}>
+                        <TDPrimary
+                          title={type.name}
+                          subtitle={ACCRUAL_LABEL[type.accrual]}
+                        />
+                        <TD align="right">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={365}
+                            value={type.entitled}
+                            className="w-20 text-right"
+                            aria-label={`${type.name} days per year`}
+                            onChange={(e) => {
+                              const next = Number(e.target.value);
+                              if (!Number.isFinite(next) || next < 0) return;
+                              void editType(type, { entitled: next });
+                            }}
+                          />
+                        </TD>
+                        <TD>
+                          <Select
+                            value={type.accrual}
+                            aria-label={`${type.name} accrual`}
+                            onChange={(e) => {
+                              const next = e.target.value as Accrual;
+                              void editType(type, { accrual: next });
+                            }}
+                          >
+                            <option value="annual_upfront">Upfront</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="on_completion">On event</option>
+                          </Select>
+                        </TD>
+                        <TD align="right">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={type.entitled}
+                            value={type.carryOverMax}
+                            className="w-20 text-right"
+                            aria-label={`${type.name} carry-over maximum`}
+                            onChange={(e) => {
+                              const next = Number(e.target.value);
+                              if (!Number.isFinite(next) || next < 0) return;
+                              void editType(type, { carryOverMax: next });
+                            }}
+                          />
+                        </TD>
+                        <TD align="right">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={90}
+                            value={type.minNoticeDays}
+                            className="w-20 text-right"
+                            aria-label={`${type.name} minimum notice in days`}
+                            onChange={(e) => {
+                              const next = Number(e.target.value);
+                              if (!Number.isFinite(next) || next < 0) return;
+                              void editType(type, { minNoticeDays: next });
+                            }}
+                          />
+                        </TD>
+                        <TD>
+                          <Switch
+                            checked={type.requiresEvidence}
+                            label={
+                              type.requiresEvidence
+                                ? "Required"
+                                : "Not required"
+                            }
+                            onChange={(e) =>
+                              void editType(type, {
+                                requiresEvidence: e.target.checked,
+                              })
+                            }
+                          />
+                        </TD>
+                        <TD>
+                          <EligibilitySelect
+                            type={type}
+                            onChange={(eligibleGender) =>
+                              void editType(type, { eligibleGender })
+                            }
+                          />
+                        </TD>
+                        {/* Switch off, never delete. Requests and balances point
+                            at the row, so the API archives it: history keeps
+                            resolving, the booking form drops it. Absent in demo
+                            mode with the same reasoning as the Add button. */}
+                        {isConnected && (
+                          <TD align="right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={!type.id}
+                              onClick={() => setArchiving(type)}
+                            >
+                              <ArchiveX
+                                aria-hidden="true"
+                                className="size-3.5"
+                              />
+                              Switch off
+                            </Button>
+                          </TD>
+                        )}
+                      </TR>
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
                 {types.map((type) => (
-                  <TR key={type.id ?? type.name}>
-                    <TDPrimary
-                      title={type.name}
-                      subtitle={ACCRUAL_LABEL[type.accrual]}
-                    />
-                    <TD align="right">
+                  <li
+                    key={type.id ?? type.name}
+                    className="flex flex-col gap-3 p-4"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-body-sm font-medium text-ink">
+                        {type.name}
+                      </p>
+                      <p className="mt-0.5 text-meta text-muted">
+                        {ACCRUAL_LABEL[type.accrual]}
+                      </p>
+                    </div>
+
+                    <Field label="Days a year">
                       <Input
                         type="number"
                         min={0}
                         max={365}
                         value={type.entitled}
-                        className="w-20 text-right"
                         aria-label={`${type.name} days per year`}
                         onChange={(e) => {
                           const next = Number(e.target.value);
@@ -495,8 +666,9 @@ function Policy() {
                           void editType(type, { entitled: next });
                         }}
                       />
-                    </TD>
-                    <TD>
+                    </Field>
+
+                    <Field label="Accrual">
                       <Select
                         value={type.accrual}
                         aria-label={`${type.name} accrual`}
@@ -509,14 +681,14 @@ function Policy() {
                         <option value="monthly">Monthly</option>
                         <option value="on_completion">On event</option>
                       </Select>
-                    </TD>
-                    <TD align="right">
+                    </Field>
+
+                    <Field label="Carry over">
                       <Input
                         type="number"
                         min={0}
                         max={type.entitled}
                         value={type.carryOverMax}
-                        className="w-20 text-right"
                         aria-label={`${type.name} carry-over maximum`}
                         onChange={(e) => {
                           const next = Number(e.target.value);
@@ -524,14 +696,14 @@ function Policy() {
                           void editType(type, { carryOverMax: next });
                         }}
                       />
-                    </TD>
-                    <TD align="right">
+                    </Field>
+
+                    <Field label="Notice">
                       <Input
                         type="number"
                         min={0}
                         max={90}
                         value={type.minNoticeDays}
-                        className="w-20 text-right"
                         aria-label={`${type.name} minimum notice in days`}
                         onChange={(e) => {
                           const next = Number(e.target.value);
@@ -539,8 +711,10 @@ function Policy() {
                           void editType(type, { minNoticeDays: next });
                         }}
                       />
-                    </TD>
-                    <TD>
+                    </Field>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">Evidence</span>
                       <Switch
                         checked={type.requiresEvidence}
                         label={
@@ -552,28 +726,33 @@ function Policy() {
                           })
                         }
                       />
-                    </TD>
-                    {/* Switch off, never delete. Requests and balances point
-                        at the row, so the API archives it: history keeps
-                        resolving, the booking form drops it. Absent in demo
-                        mode with the same reasoning as the Add button. */}
+                    </div>
+
+                    <Field label="Who">
+                      <EligibilitySelect
+                        type={type}
+                        onChange={(eligibleGender) =>
+                          void editType(type, { eligibleGender })
+                        }
+                      />
+                    </Field>
+
                     {isConnected && (
-                      <TD align="right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={!type.id}
-                          onClick={() => setArchiving(type)}
-                        >
-                          <ArchiveX aria-hidden="true" className="size-3.5" />
-                          Switch off
-                        </Button>
-                      </TD>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="self-start"
+                        disabled={!type.id}
+                        onClick={() => setArchiving(type)}
+                      >
+                        <ArchiveX aria-hidden="true" className="size-3.5" />
+                        Switch off
+                      </Button>
                     )}
-                  </TR>
+                  </li>
                 ))}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
           {!isConnected && (
             <CardBody className="border-t border-line">

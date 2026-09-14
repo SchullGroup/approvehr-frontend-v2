@@ -117,6 +117,68 @@ function DeviceOffice({
   );
 }
 
+function UnattributedCount({ row }: { row: ApiAttendanceDevice }) {
+  if (row.unmappedPunches === null) {
+    return <span className="text-body-sm text-muted">—</span>;
+  }
+  if (row.unmappedPunches === 0) {
+    return <span className="tabular text-body-sm text-muted">0</span>;
+  }
+  return (
+    <Badge tone="warning" size="sm">
+      {row.unmappedPunches}
+    </Badge>
+  );
+}
+
+/** "Turn back on" for a switched-off terminal, or the four working actions —
+    one copy shared by the desktop row and the mobile card. */
+function DeviceRowActions({
+  off,
+  busy,
+  onRestore,
+  onEnrol,
+  onEdit,
+  onRotate,
+  onArchive,
+}: {
+  off: boolean;
+  busy: boolean;
+  onRestore: () => void;
+  onEnrol: () => void;
+  onEdit: () => void;
+  onRotate: () => void;
+  onArchive: () => void;
+}) {
+  if (off) {
+    return (
+      <Button variant="secondary" size="sm" disabled={busy} onClick={onRestore}>
+        <RotateCcw aria-hidden="true" className="size-3.5" />
+        Turn back on
+      </Button>
+    );
+  }
+  return (
+    <>
+      <Button variant="ghost" size="sm" onClick={onEnrol}>
+        <Users aria-hidden="true" className="size-3.5" />
+        Who it knows
+      </Button>
+      <Button variant="ghost" size="sm" onClick={onEdit}>
+        Edit
+      </Button>
+      <Button variant="ghost" size="sm" onClick={onRotate}>
+        <KeyRound aria-hidden="true" className="size-3.5" />
+        New secret
+      </Button>
+      <Button variant="ghost" size="sm" onClick={onArchive}>
+        <Power aria-hidden="true" className="size-3.5" />
+        Switch off
+      </Button>
+    </>
+  );
+}
+
 const seenAt = (iso: string): string =>
   new Date(iso).toLocaleString(undefined, {
     day: "numeric",
@@ -329,54 +391,137 @@ export function DevicesScreen() {
               }
             />
           ) : (
-            <TableWrap
-              className="rounded-none border-0"
-              caption="Registered biometric terminals, with what each one has delivered"
-            >
-              <THead>
-                <TH>Terminal</TH>
-                <TH>Where</TH>
-                <TH>Last delivery</TH>
-                <TH align="right">Mapped</TH>
-                <TH align="right">Unattributed</TH>
-                {canManage && (
-                  <TH align="right">
-                    <span className="sr-only">Actions</span>
-                  </TH>
-                )}
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-none border-0"
+                  caption="Registered biometric terminals, with what each one has delivered"
+                >
+                  <THead>
+                    <TH>Terminal</TH>
+                    <TH>Where</TH>
+                    <TH>Last delivery</TH>
+                    <TH align="right">Mapped</TH>
+                    <TH align="right">Unattributed</TH>
+                    {canManage && (
+                      <TH align="right">
+                        <span className="sr-only">Actions</span>
+                      </TH>
+                    )}
+                  </THead>
+                  <TBody>
+                    {list.devices.map((row) => {
+                      const off = row.archivedAt !== null;
+                      return (
+                        <TR key={row.id}>
+                          <TDPrimary
+                            title={
+                              <span className="flex flex-wrap items-center gap-2">
+                                {row.label}
+                                {off && (
+                                  <Badge tone="neutral" size="sm">
+                                    Switched off
+                                  </Badge>
+                                )}
+                                {!off && !row.active && (
+                                  <Badge tone="warning" size="sm">
+                                    Not accepting
+                                  </Badge>
+                                )}
+                              </span>
+                            }
+                            subtitle={row.serialNumber}
+                          />
+                          <TD>
+                            <DeviceOffice
+                              row={row}
+                              locations={locations.locations}
+                            />
+                          </TD>
+                          <TD>
+                            {row.lastSeenAt === null ? (
+                              /* Absent, not a date. */
+                              <span className="text-body-sm text-muted">
+                                Nothing yet
+                              </span>
+                            ) : (
+                              <span className="tabular text-body-sm text-ink">
+                                {seenAt(row.lastSeenAt)}
+                              </span>
+                            )}
+                          </TD>
+                          <TD align="right">
+                            <span className="tabular text-body-sm text-ink">
+                              {row.enrolments}
+                            </span>
+                          </TD>
+                          <TD align="right">
+                            <UnattributedCount row={row} />
+                          </TD>
+                          {canManage && (
+                            <TD align="right">
+                              <div className="flex flex-wrap justify-end gap-1.5">
+                                <DeviceRowActions
+                                  off={off}
+                                  busy={busy}
+                                  onRestore={() =>
+                                    void run(
+                                      () => mutations.restore(row.id),
+                                      `${row.label} is back on`,
+                                    )
+                                  }
+                                  onEnrol={() => setEnrolling(row)}
+                                  onEdit={() => setEditing(row)}
+                                  onRotate={() => setRotating(row)}
+                                  onArchive={() => setArchiving(row)}
+                                />
+                              </div>
+                            </TD>
+                          )}
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
                 {list.devices.map((row) => {
                   const off = row.archivedAt !== null;
                   return (
-                    <TR key={row.id}>
-                      <TDPrimary
-                        title={
-                          <span className="flex flex-wrap items-center gap-2">
-                            {row.label}
-                            {off && (
-                              <Badge tone="neutral" size="sm">
-                                Switched off
-                              </Badge>
-                            )}
-                            {!off && !row.active && (
-                              <Badge tone="warning" size="sm">
-                                Not accepting
-                              </Badge>
-                            )}
-                          </span>
-                        }
-                        subtitle={row.serialNumber}
-                      />
-                      <TD>
+                    <li key={row.id} className="flex flex-col gap-2 p-4">
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                          {row.label}
+                          {off && (
+                            <Badge tone="neutral" size="sm">
+                              Switched off
+                            </Badge>
+                          )}
+                          {!off && !row.active && (
+                            <Badge tone="warning" size="sm">
+                              Not accepting
+                            </Badge>
+                          )}
+                        </p>
+                        <p className="mt-0.5 text-meta text-muted">
+                          {row.serialNumber}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">Where</span>
                         <DeviceOffice
                           row={row}
                           locations={locations.locations}
                         />
-                      </TD>
-                      <TD>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">
+                          Last delivery
+                        </span>
                         {row.lastSeenAt === null ? (
-                          /* Absent, not a date. */
                           <span className="text-body-sm text-muted">
                             Nothing yet
                           </span>
@@ -385,98 +530,45 @@ export function DevicesScreen() {
                             {seenAt(row.lastSeenAt)}
                           </span>
                         )}
-                      </TD>
-                      <TD align="right">
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">Mapped</span>
                         <span className="tabular text-body-sm text-ink">
                           {row.enrolments}
                         </span>
-                      </TD>
-                      <TD align="right">
-                        {row.unmappedPunches === null ? (
-                          <span className="text-body-sm text-muted">—</span>
-                        ) : row.unmappedPunches === 0 ? (
-                          <span className="tabular text-body-sm text-muted">
-                            0
-                          </span>
-                        ) : (
-                          <Badge tone="warning" size="sm">
-                            {row.unmappedPunches}
-                          </Badge>
-                        )}
-                      </TD>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">
+                          Unattributed
+                        </span>
+                        <UnattributedCount row={row} />
+                      </div>
+
                       {canManage && (
-                        <TD align="right">
-                          <div className="flex flex-wrap justify-end gap-1.5">
-                            {off ? (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                disabled={busy}
-                                onClick={() =>
-                                  void run(
-                                    () => mutations.restore(row.id),
-                                    `${row.label} is back on`,
-                                  )
-                                }
-                              >
-                                <RotateCcw
-                                  aria-hidden="true"
-                                  className="size-3.5"
-                                />
-                                Turn back on
-                              </Button>
-                            ) : (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setEnrolling(row)}
-                                >
-                                  <Users
-                                    aria-hidden="true"
-                                    className="size-3.5"
-                                  />
-                                  Who it knows
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setEditing(row)}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setRotating(row)}
-                                >
-                                  <KeyRound
-                                    aria-hidden="true"
-                                    className="size-3.5"
-                                  />
-                                  New secret
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setArchiving(row)}
-                                >
-                                  <Power
-                                    aria-hidden="true"
-                                    className="size-3.5"
-                                  />
-                                  Switch off
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TD>
+                        <div className="flex flex-wrap gap-1.5">
+                          <DeviceRowActions
+                            off={off}
+                            busy={busy}
+                            onRestore={() =>
+                              void run(
+                                () => mutations.restore(row.id),
+                                `${row.label} is back on`,
+                              )
+                            }
+                            onEnrol={() => setEnrolling(row)}
+                            onEdit={() => setEditing(row)}
+                            onRotate={() => setRotating(row)}
+                            onArchive={() => setArchiving(row)}
+                          />
+                        </div>
                       )}
-                    </TR>
+                    </li>
                   );
                 })}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
         </Card>
 

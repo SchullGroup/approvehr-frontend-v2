@@ -124,7 +124,15 @@ export function FilterBar({
 
         {sort}
 
-        <div className="ml-auto flex items-center gap-2">
+        {/* `flex-wrap`: `actions` is sometimes a multi-option SegmentedControl
+            (the expenses register's status filter is the case that found
+            this), and at 375px that alone is close to the full width of the
+            bar. `ml-auto` already drops this block onto its own line once the
+            search box and the Filters button crowd it there; without its own
+            `flex-wrap` too, the count sat beside the control on that line
+            regardless, and the two together ran the bar 45px past the
+            viewport. */}
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {/* The count sits with the filters rather than in a stat card so the
               number and the thing narrowing it are read together. */}
           {count !== undefined && noun && (

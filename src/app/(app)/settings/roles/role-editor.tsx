@@ -387,8 +387,12 @@ function GrantedPermissions({
  * The same shape the API's own refusals use ("names up to three of them"). A
  * seven-item list inside a sentence stops being a sentence, and the reader only
  * needs enough of it to recognise the shape of what they are missing.
+ *
+ * Exported for `add-people.tsx`, which needs the identical shape for a
+ * different list (people about to be added with no personnel record) — one
+ * function so the two cannot render the "and N more" rule differently.
  */
-function nameSome(labels: string[]): string {
+export function nameSome(labels: string[]): string {
   if (labels.length <= 3) return labels.join(", ");
   return `${labels.slice(0, 3).join(", ")} and ${labels.length - 3} more`;
 }
