@@ -337,7 +337,25 @@ export type RosterState = {
  * answers instead. That file is the demo's copy of the same precedence, and the
  * comment above `DEMO_STATUS` is the standing note that the two move together.
  */
-export function useAttendanceRoster(date?: string): RosterState {
+/**
+ * `enabled` exists so a screen can decline to ask a question it already knows
+ * the answer to.
+ *
+ * An account with no employee record and no company-attendance permission gets
+ * a 403 from every attendance read, carrying one correct sentence from
+ * `attendance/router.ts#attendanceScope`. `/people/attendance` made three such
+ * reads and rendered that sentence three times in three red callouts, which
+ * reads as a product that is broken rather than a screen that has nothing for
+ * you. Both facts are known on this side before any request, so the screen
+ * passes `enabled: false` and says it once itself.
+ *
+ * Disabled is **quiet, not failed**: no request, and `error` stays null. A
+ * disabled read that reported an error would put the callout straight back.
+ */
+export function useAttendanceRoster(
+  date?: string,
+  enabled = true,
+): RosterState {
   const { isConnected } = useSession();
   const timeZone = useOrgTimezone();
   const local = useAttendanceStore();
@@ -368,7 +386,7 @@ export function useAttendanceRoster(date?: string): RosterState {
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !enabled) return;
     const ticket = latest.current + 1;
     latest.current = ticket;
     let cancelled = false;
@@ -413,7 +431,7 @@ export function useAttendanceRoster(date?: string): RosterState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, date, key, revalidation]);
+  }, [isConnected, enabled, date, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -914,7 +932,25 @@ export type TimesheetState = {
  * a month for a four-on-four-off crew — so a screen showing these figures must
  * pair them with `useRotaContext` and say which basis applies.
  */
-export function useAttendanceTimesheet(days = 15): TimesheetState {
+/**
+ * `enabled` exists so a screen can decline to ask a question it already knows
+ * the answer to.
+ *
+ * An account with no employee record and no company-attendance permission gets
+ * a 403 from every attendance read, carrying one correct sentence from
+ * `attendance/router.ts#attendanceScope`. `/people/attendance` made three such
+ * reads and rendered that sentence three times in three red callouts, which
+ * reads as a product that is broken rather than a screen that has nothing for
+ * you. Both facts are known on this side before any request, so the screen
+ * passes `enabled: false` and says it once itself.
+ *
+ * Disabled is **quiet, not failed**: no request, and `error` stays null. A
+ * disabled read that reported an error would put the callout straight back.
+ */
+export function useAttendanceTimesheet(
+  days = 15,
+  enabled = true,
+): TimesheetState {
   const { isConnected } = useSession();
   const local = useAttendanceStore();
   const { directory } = useEmployeeStore();
@@ -940,7 +976,7 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !enabled) return;
     const ticket = latest.current + 1;
     latest.current = ticket;
     let cancelled = false;
@@ -974,7 +1010,7 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, days, key, revalidation]);
+  }, [isConnected, enabled, days, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   const matched = fetched !== null && fetched.key === key;
