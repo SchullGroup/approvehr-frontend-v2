@@ -61,6 +61,7 @@ import {
 } from "@/lib/store/attendance";
 import { useSession } from "@/lib/store/session";
 import { shortDate } from "@/lib/today";
+import { AttendanceCapabilityBar } from "./capability-bar";
 import { MyAttendanceHistoryPanel } from "./my-attendance-history";
 
 /**
@@ -191,10 +192,17 @@ export function AttendanceScreen() {
           <LoadFailure subject="today's roster" error={roster.error} />
         )}
 
-        {/* Own clock-in. Deliberately the first thing on the page: the person
-            looking at this screen most often is looking for this control.
-            Shared with `/dashboard` — see `components/portal/my-clock-card.tsx`
-            for why this used to be inline here and no longer is. */}
+        {/* Closed by default and cheap to skip past — the module's settings,
+            reachable without a trip to `/settings/*`. See `capability-bar.tsx`
+            for why it sits here rather than being repeated on every screen
+            that shares one of its switches. */}
+        <AttendanceCapabilityBar />
+
+        {/* Own clock-in. Deliberately the first *open* thing on the page: the
+            person looking at this screen most often is looking for this
+            control. Shared with `/dashboard` — see
+            `components/portal/my-clock-card.tsx` for why this used to be
+            inline here and no longer is. */}
         <MyClockCard onRecorded={refresh} />
 
         {/* Everybody clocks in above. Everybody else's day is a different

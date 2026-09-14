@@ -16,6 +16,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  DescriptionList,
   Disclosure,
   EmptyState,
   Spinner,
@@ -26,11 +27,13 @@ import {
   dayLabel,
   dayOf,
   ratingWordsFrom,
+  weightLabel,
   type ApiGoal,
   type ApiPeerFeedback,
   type ApiReview,
   periodInPlay,
 } from "@/lib/api/performance";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { useCan } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSession } from "@/lib/store/session";
@@ -41,6 +44,7 @@ import {
   useObjectiveApprovals,
   useRatingScale,
   useReviewsIWrote,
+  useScoringWeights,
 } from "@/lib/store/performance";
 import { AppraisersDialog } from "./appraiser-map";
 import { ManagerQuestionButton } from "./manager-question";
@@ -397,7 +401,19 @@ export function WhatNeedsYouTab({
         </div>
       )}
 
-      {/* Not shown to somebody with no employee record at all. That is not a
+      {/* The company's list of periods failing empties this whole screen, so
+          it is reported to everybody — including an account with no staff
+          record, for whom the page would otherwise be blank with nothing
+          saying why. `error` is only ever that failure now; see
+          `useAppraisals`. */}
+      <LoadFailure
+        subject="the appraisal periods"
+        error={appraisals.error}
+        onRetry={appraisals.reload}
+      />
+
+      {/* The personal half failing where the company list arrived.
+          Not shown to somebody with no employee record at all. That is not a
           failure to recover from — it is a founder's own account, exactly as
           created at registration, and `ownEmployeeId` on the API already
           tells this same person, the moment they try to act on a goal or a
@@ -409,11 +425,17 @@ export function WhatNeedsYouTab({
           broken personal state on an account that was never meant to have
           one. A caller who *does* have a record and still hit this is a real
           failure worth surfacing, so the check is on the session, not on
-          whether the error exists. */}
-      {appraisals.error && employeeId !== null && (
-        <p className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink">
-          {appraisals.error.message}
-        </p>
+          whether the error exists.
+
+          It goes through `LoadFailure` like every other failed read in the
+          product. It used to print `error.message` into a bare red box: no
+          title saying what was missing, no advice, and no Try again. */}
+      {employeeId !== null && (
+        <LoadFailure
+          subject="your own appraisals"
+          error={appraisals.mineError}
+          onRetry={appraisals.reload}
+        />
       )}
 
       {/* The "Nobody is set to appraise you yet" notice used to be here, and
@@ -853,6 +875,23 @@ export function WhatNeedsYouTab({
        * `how-it-works.tsx` for why a spare copy is worse than none.
        */}
 
+      {/* A read-only summary, not the settings forms themselves — `weights-
+          form.tsx`/`scale-form.tsx` are two whole forms, not switches, and a
+          settings sub-form is what closed-by-default is for. Reading never
+          refuses offline (only saving does), so this needs no demo-mode
+          branch beyond the ordinary loading check. Gated on `scored` like its
+          neighbours below: a company with appraisals off has no composite
+          score for these weights to describe. */}
+      {scored && (
+        <Disclosure
+          title="How a mark is made"
+          hint="The weights behind a composite score, and what each point on the scale means."
+          level={2}
+        >
+          <ScoringSettingsBody canManage={canManagePeriods} />
+        </Disclosure>
+      )}
+
       {scored && (
         <Disclosure
           title="What was said about you"
@@ -1050,6 +1089,51 @@ export function WhatNeedsYouTab({
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * The weights and the scale, read-only, with a way to change them.
+ *
+ * Self-contained on purpose — calls both hooks itself rather than taking the
+ * scale `WhatNeedsYouTab` already holds as a prop, the same "each embedded
+ * piece owns its own hook" shape `OvertimeEnableSwitch` and the Attendance
+ * capability-bar switches already established. Not gated on
+ * `MANAGE_SETTINGS`: both hooks' own design intent is that everyone being
+ * scored can see what they are being scored against — only the outbound
+ * link's wording changes for somebody who can actually change it.
+ */
+function ScoringSettingsBody({ canManage }: { canManage: boolean }) {
+  const { weights, loading: weightsLoading } = useScoringWeights();
+  const { scale, loading: scaleLoading } = useRatingScale();
+
+  return (
+    <div className="flex flex-col gap-4">
+      {weightsLoading || scaleLoading || !weights ? (
+        <span className="flex items-center gap-2 text-body-sm text-muted">
+          <Spinner size="sm" />
+          Loading
+        </span>
+      ) : (
+        <>
+          <DescriptionList
+            layout="rows"
+            items={weights.rows.map((row) => ({
+              term: row.label,
+              value: weightLabel(row.weightBp),
+            }))}
+          />
+          <p className="text-body-sm text-muted">
+            {scale.levels
+              .map((level) => `${level.level} ${level.label}`)
+              .join(" · ")}
+          </p>
+        </>
+      )}
+      <ButtonLink size="sm" variant="secondary" href="/settings/performance">
+        {canManage ? "Manage scoring settings" : "See scoring settings"}
+      </ButtonLink>
+    </div>
+  );
+}
 
 /** Three names and a count, never a bare count. */
 function objectiveNames(goals: ApiGoal[]): string {
