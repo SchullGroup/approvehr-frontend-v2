@@ -18,7 +18,18 @@ type Toast = {
   tone: ToastTone;
   title: string;
   detail?: string;
+  /** True for exactly `EXIT_MS` before the toast actually leaves the array —
+   *  see `remove`. */
+  leaving?: boolean;
 };
+
+/* Matches `animate-scale-out`'s own duration in globals.css. A toast used to
+   vanish from the list the instant it was dismissed — by the X, or by its own
+   6-second timer — with no exit at all, the same `if (!open) return null`
+   shape Modal and Drawer had. `remove` now runs in two steps: mark it
+   `leaving` so it renders the exit animation, then actually drop it from the
+   array once that animation has had time to finish. */
+const EXIT_MS = 160;
 
 const ToastContext = createContext<{
   push: (t: Omit<Toast, "id">) => void;
@@ -51,8 +62,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const isClient = useIsClient();
 
+  /* Two steps, not one. Step one flips `leaving` so the render below swaps
+     in the exit animation; step two, after it has had time to play, is the
+     actual removal from the array. Collapsing this to a single
+     `list.filter` — the previous behaviour — is what made a toast disappear
+     mid-frame instead of leaving. */
   const remove = useCallback((id: string) => {
-    setToasts((list) => list.filter((t) => t.id !== id));
+    setToasts((list) =>
+      list.map((t) => (t.id === id ? { ...t, leaving: true } : t)),
+    );
+    window.setTimeout(() => {
+      setToasts((list) => list.filter((t) => t.id !== id));
+    }, EXIT_MS);
   }, []);
 
   const push = useCallback(
@@ -81,7 +102,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   key={toast.id}
                   role="status"
                   className={cn(
-                    "animate-scale-in pointer-events-auto flex items-start gap-3 rounded-lg border p-3.5 shadow-lg",
+                    toast.leaving ? "animate-scale-out" : "animate-scale-in",
+                    "pointer-events-auto flex items-start gap-3 rounded-lg border p-3.5 shadow-lg",
                     TONES[toast.tone],
                   )}
                 >
