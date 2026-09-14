@@ -7144,3 +7144,98 @@ one cannot be added here. Switch bonuses on under Pay setup → Extras first.
 Nothing in the file was applied, so the payroll is exactly as it was."*
 Confirmed in the database that no bonus row and no payslip line were written.
 
+
+---
+
+# A failed read had one place to go and a failed write had eighty-four
+
+A six-role UI pass over the performance module found thirteen frontend defects.
+Four of them were the same absence, so this is what closed them.
+
+## What already existed, and was not the problem
+
+`components/portal/load-failure.tsx` turns a failed **read** into a sentence and
+does it well — advice by class of failure, the server's own words wherever the
+server wrote them about *that* refusal, a **Try again** only where retrying could
+help, never a status code on screen.
+
+What it could not do is lend that judgement to a failed **write**, because its
+wording is baked to a read: "did not load", "while loading", "took too long to
+*send*". A save that is refused did not fail to load anything.
+
+So **126 sites across 84 files** each made the call by hand, and **89** of them
+ended at the same typed `"Something went wrong. Try again."` with the API's own
+sentence discarded on either side. That is the duplication `LoadFailure` was
+created to remove, one verb along.
+
+## The split that holds
+
+**The wording differs between a read and a write. The classification does not.**
+A 403 names a permission whichever verb provoked it, a 409 is a refusal rather
+than a fault either way, and retrying a 404 is futile in both directions.
+
+| File | Owns |
+|---|---|
+| `lib/api/failure.ts` | **what happened.** `kindOf`, `serverSentence`, `retryCouldHelp`, `asApiError`. No React, no wording. |
+| `components/portal/load-failure.tsx` | how a failed **read** says it. Its own sentences, unchanged. |
+| `lib/use-action.ts` | how a failed **write** says it, plus `notice`. |
+
+**Keep wording out of `failure.ts`.** The moment a sentence lands there, one of
+the two surfaces will want it phrased the other way and the split stops holding.
+
+`serverSentence` is the rule that must never be duplicated: it returns the API's
+message only where the API wrote one *about this refusal* — 400, 403, 409, 422,
+and any status this file has no opinion about. Paraphrasing a server message
+locally is how the two stop agreeing.
+
+### The refactor was proved, not believed
+
+`LoadFailure` renders on ~40 screens, so "no behaviour change" needed to be a
+measurement. Every status 0–599 × both `missingMeans` × non-`ApiError` throws,
+old implementation against new: **4805 comparisons, zero mismatches.** Worth
+re-running that way if you touch the classifier.
+
+## A read that times out can be retried. A write cannot.
+
+The one place `use-action.ts` deliberately does **not** copy `LoadFailure`.
+
+A 504 on a `GET` means the answer did not arrive. A 504 on a `POST` means *the
+answer* did not arrive — the write may well have landed. All 89 copied sites say
+"Something went wrong. Try again." there, which is both a claim this side cannot
+support and an invitation to create a second objective, a second rating, a second
+bonus on one payroll.
+
+So `actionMessage` says it is not known whether it saved and to reload first, and
+`retryIsSafe` is narrower than `retryCouldHelp` — it drops the timeout, because
+the cost of being wrong is a duplicate write rather than a wasted request.
+
+## `notice` is the warnings half
+
+A write that succeeded and still has something the reader must know: people whose
+department moved, a figure that was clamped, a note the API returned. Return a
+sentence and the toast turns amber; return `null` and nothing is flagged.
+
+Its first customer is `cancelGoal`, which returns *"Recorded as off track. Goal
+status has no separate cancelled yet"* — the server explaining its own limitation,
+which nothing was rendering.
+
+## Adopted where the defects touched, and not further
+
+The remaining sites are a mechanical pass and were deliberately left out of a
+change about fixing thirteen things. Worth doing; worth doing on its own.
+
+## Two rules the same pass re-learned
+
+- **A comment describing a rule is not a test of it.** `goal-dialogs.tsx`
+  filtered its owner picker on `managerId === employeeId` under a comment that
+  described that rule accurately. `createGoal` had since widened to `leadsWorkOf`
+  — direct reports *plus* departments you head — and the filter did not follow, so
+  a department head was never offered their own department. The comment read as a
+  decision and hid the gap. Both pickers in that file now share one mirror of the
+  API rule.
+
+- **An error under a label is a claim about that field.** Two forms carried one
+  `error` string for field errors *and* form errors and rendered all of it under
+  the first field, so a 500 from `POST /cycles` sent somebody off to retype a name
+  that was never the problem. Field errors on their field; everything else above
+  the form.

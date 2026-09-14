@@ -6,12 +6,27 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { useIsClient } from "@/hooks/use-is-client";
+import { useDismiss } from "@/hooks/use-dismiss";
 import { Button, IconButton } from "./button";
 
 /*
  * Modal and Drawer share the same overlay behaviour: focus trap, Escape to
  * close, focus restored on unmount, scroll lock, and a labelled dialog role.
+ *
+ * They also share `useDismiss`, which is what lets either one leave the way
+ * it arrived instead of `if (!open) return null` — a plain unmount the
+ * instant a caller flips the flag, with no exit at all. `useFocusTrap` still
+ * takes the real `open` value, unchanged: the moment somebody closes one of
+ * these, focus should return and the page behind should scroll again
+ * immediately — it is only the *pixels* that take another ~250ms to actually
+ * leave, via `mounted`/`closing` from `useDismiss`, which is a second, later
+ * signal layered on top rather than a replacement for the first.
+ *
+ * 250ms is the slower of the two animations either surface runs at once —
+ * the 0.25s fade on the backdrop outlasts the 0.16s/0.2s scale or slide on
+ * the panel — so nothing is cut off waiting for the shorter one to finish.
  */
+const EXIT_MS = 250;
 
 export type ModalSize = "sm" | "md" | "lg" | "xl" | "full";
 
@@ -50,14 +65,18 @@ export function Modal({
     open,
     dismissible ? onClose : undefined,
   );
+  const { mounted, closing } = useDismiss(open, EXIT_MS);
   const id = useId();
 
-  if (!isClient || !open) return null;
+  if (!isClient || !mounted) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div
-        className="absolute inset-0 bg-scrim/45 backdrop-blur-[2px] animate-fade"
+        className={cn(
+          "absolute inset-0 bg-scrim/45 backdrop-blur-[2px]",
+          closing ? "animate-fade-out" : "animate-fade",
+        )}
         onClick={dismissible ? onClose : undefined}
         aria-hidden="true"
       />
@@ -70,7 +89,8 @@ export function Modal({
         aria-describedby={description ? `${id}-desc` : undefined}
         tabIndex={-1}
         className={cn(
-          "relative z-10 flex w-full flex-col bg-surface shadow-xl animate-scale-in",
+          "relative z-10 flex w-full flex-col bg-surface shadow-xl",
+          closing ? "animate-scale-out" : "animate-scale-in",
           "max-h-[92dvh] sm:max-h-[88dvh]",
           "rounded-t-xl sm:rounded-xl",
           SIZES[size],
@@ -185,9 +205,10 @@ export function Drawer({
 }) {
   const isClient = useIsClient();
   const ref = useFocusTrap<HTMLDivElement>(open, onClose);
+  const { mounted, closing } = useDismiss(open, EXIT_MS);
   const id = useId();
 
-  if (!isClient || !open) return null;
+  if (!isClient || !mounted) return null;
 
   return createPortal(
     <div
@@ -197,7 +218,10 @@ export function Drawer({
       )}
     >
       <div
-        className="absolute inset-0 bg-scrim/45 backdrop-blur-[2px] animate-fade"
+        className={cn(
+          "absolute inset-0 bg-scrim/45 backdrop-blur-[2px]",
+          closing ? "animate-fade-out" : "animate-fade",
+        )}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -217,9 +241,16 @@ export function Drawer({
              scrolled text would otherwise paint into the rounded corners. */
           "overflow-hidden rounded-b-xl sm:rounded-xl",
           DRAWER_SIZES[size],
-          side === "right"
-            ? "animate-slide-from-right"
-            : "animate-slide-from-left",
+          /* Enter and exit travel the same axis — right slides from and to
+             the right, left from and to the left — so a drawer leaves the
+             way it came rather than by some other motion. */
+          closing
+            ? side === "right"
+              ? "animate-slide-to-right"
+              : "animate-slide-to-left"
+            : side === "right"
+              ? "animate-slide-from-right"
+              : "animate-slide-from-left",
           className,
         )}
       >

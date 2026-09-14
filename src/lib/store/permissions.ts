@@ -295,6 +295,24 @@ const DEMO_COPY: Record<
       "Record a resignation or retirement for somebody in a department they head. Not a termination, an end of contract or a death in service — those are HR's.",
     section: "people",
   },
+  MANAGE_SHIFTS: {
+    label: "Set up shifts and patterns",
+    description:
+      "Define what a shift is and which sequence of them makes a rotation. Changing a shift's hours moves every rota built on it.",
+    section: "timeOff",
+  },
+  MANAGE_ROTA: {
+    label: "Build the rota",
+    description:
+      "Put people on days, take them off, and raise a swap for a colleague who phoned in.",
+    section: "timeOff",
+  },
+  APPROVE_SHIFT_SWAP: {
+    label: "Approve shift swaps",
+    description:
+      "Sign off a swap the two employees have already agreed between themselves.",
+    section: "timeOff",
+  },
 };
 
 /** Reported, never blocked — a two-person company genuinely has one person doing both. */
@@ -328,6 +346,7 @@ const DEMO_MODULE_TITLES: Record<PermissionModule, string> = {
   exits: "Exits",
   hiring: "Recruitment",
   leave: "Leave",
+  shifts: "Shifts and the rota",
   payroll: "Payroll",
   paySetup: "Pay setup",
   loans: "Staff loans",

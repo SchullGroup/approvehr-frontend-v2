@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { CalendarRange, Sparkles } from "lucide-react";
 import {
   Button,
+  Callout,
   Checkbox,
   Disclosure,
   Field,
@@ -17,7 +18,7 @@ import {
   type ButtonVariant,
 } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
-import { ApiError } from "@/lib/api/client";
+import { actionMessage } from "@/lib/use-action";
 import { useCan } from "@/lib/permissions";
 import { useDepartments } from "@/lib/store/departments";
 import { useFeatures } from "@/lib/store/features";
@@ -101,30 +102,52 @@ export function StartPeriodDialog({
   const [remind, setRemind] = useState("");
   /** Off by default. Lets a manager add their own questions, scoped to their team. */
   const [managersCanAddQuestions, setManagersCanAddQuestions] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  /**
+   * Field errors and form errors, kept apart.
+   *
+   * One `error` string used to carry both and it was rendered on **What to
+   * call it**, so a failure belonging to the whole form — including a 500 from
+   * `POST /cycles` — appeared under the name field and sent somebody off to
+   * retype a name that was never the problem. A period whose dates were the
+   * wrong way round said so under the name too.
+   *
+   * An error under a label is a claim about that field. If it is not about
+   * that field it belongs above the form, where it does not accuse anything.
+   */
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const fail = (field: string, message: string) => {
+    setErrors({ [field]: message });
+    setFormError(null);
+  };
 
   const submit = async () => {
     if (name.trim().length < 3) {
-      setError("Name it: people will see this in their inbox.");
+      fail("name", "Name it: people will see this in their inbox.");
       return;
     }
     /* Both or neither, and in order. Checked here so the answer arrives while
        the dialog is open rather than as a server refusal after Create — the
        API enforces the same rule, and these are its own sentences. */
     if (Boolean(periodStart) !== Boolean(periodEnd)) {
-      setError("A period needs a start and an end. Set both, or clear both.");
+      fail(
+        "period",
+        "A period needs a start and an end. Set both, or clear both.",
+      );
       return;
     }
     if (periodStart && periodEnd && periodStart > periodEnd) {
-      setError("The period ends before it starts.");
+      fail("period", "The period ends before it starts.");
       return;
     }
     if (guideUrl.trim() && !/^https?:\/\//i.test(guideUrl.trim())) {
-      setError("A guide link has to start with http:// or https://.");
+      fail("guideUrl", "A guide link has to start with http:// or https://.");
       return;
     }
-    setError(null);
+    setErrors({});
+    setFormError(null);
     setSaving(true);
     try {
       const created = await periods.createCycle(
@@ -141,11 +164,10 @@ export function StartPeriodDialog({
       );
       onCreated({ id: created.id, name: created.name });
     } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not create that period.",
-      );
+      /* The whole form, so above the form. `actionMessage` is the one place
+         that turns a thrown thing into a sentence for a write — the API's own
+         words where it wrote them, and never a status code. */
+      setFormError(actionMessage(caught, "the period"));
     } finally {
       setSaving(false);
     }
@@ -191,7 +213,17 @@ export function StartPeriodDialog({
           </NoticeLine>
         )}
 
-        <Field label="What to call it" required {...(error ? { error } : {})}>
+        {formError && (
+          <Callout tone="danger" title="That period was not created">
+            {formError}
+          </Callout>
+        )}
+
+        <Field
+          label="What to call it"
+          required
+          {...(errors["name"] ? { error: errors["name"] } : {})}
+        >
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -204,7 +236,11 @@ export function StartPeriodDialog({
             somebody to put the appraisal months in the deadline box — which is
             what only having `dueDate` used to force. */}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field optional label="Period covered — from">
+          <Field
+            optional
+            label="Period covered — from"
+            {...(errors["period"] ? { error: errors["period"] } : {})}
+          >
             <Input
               type="date"
               value={periodStart}
@@ -260,7 +296,11 @@ export function StartPeriodDialog({
               Plain text. Line breaks are kept, so a blank line makes a new
               paragraph.
             </p>
-            <Field optional label="A link to your own guide">
+            <Field
+              optional
+              label="A link to your own guide"
+              {...(errors["guideUrl"] ? { error: errors["guideUrl"] } : {})}
+            >
               <Input
                 type="url"
                 inputMode="url"

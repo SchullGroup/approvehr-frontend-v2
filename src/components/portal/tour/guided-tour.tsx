@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui";
+import { useDismiss } from "@/hooks/use-dismiss";
 import { useCan } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSession } from "@/lib/store/session";
@@ -134,6 +135,12 @@ const STEPS: readonly Step[] = [
   },
 ];
 
+/* Matches `animate-scale-out`'s own duration in globals.css. `Spotlight` has
+   no `open` prop of its own — `GuidedTour` is the thing that knows whether the
+   tour is open, so `useDismiss` lives here and `closing` travels down as a
+   prop, the mirror of how Modal and Drawer own it directly. */
+const EXIT_MS = 160;
+
 export function GuidedTour() {
   const { tourSeen, dismissTour, isConnected } = useSession();
   const features = useFeatures();
@@ -183,21 +190,31 @@ export function GuidedTour() {
      read so the sidebar has settled before anything points at it — a tour that
      opens mid-load points at a nav that is about to change size. */
   const unseen = isConnected && !tourSeen && !features.loading;
-  const open = asked ?? unseen;
+  /* `steps.length === 0` can't happen today — welcome, nav and search carry
+     no `when` guard — but folding it into `useDismiss`'s input rather than a
+     second early return keeps the "should this be open" question in one
+     place. */
+  const wantOpen = (asked ?? unseen) && steps.length > 0;
+  const { mounted, closing } = useDismiss(wantOpen, EXIT_MS);
 
-  if (!open || steps.length === 0) return null;
+  if (!mounted) return null;
 
   const step = steps[Math.min(index, steps.length - 1)]!;
   const last = index >= steps.length - 1;
 
   const close = () => {
     setAsked(false);
-    setIndex(0);
+    /* `index` is deliberately left alone here: the card stays mounted for
+       `EXIT_MS` to play its exit animation, and resetting the step now would
+       flip the visible content to "1 of N" for that last frame instead of
+       fading out the step actually being read. `onOpen` above resets it for
+       the next time the tour is opened, which is the only path back to
+       `wantOpen` being true after a close. */
     void dismissTour();
   };
 
   return (
-    <Spotlight target={step.target} onDismiss={close}>
+    <Spotlight target={step.target} onDismiss={close} closing={closing}>
       <p className="text-meta font-medium text-faint">
         {index + 1} of {steps.length}
       </p>

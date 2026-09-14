@@ -973,7 +973,7 @@ function SaveState({ state }: { state: "idle" | "saving" | "saved" }) {
  * beside it — rather than a switch that appears to work and quietly parks
  * everybody's leave.
  */
-function ApprovalWorkflow() {
+export function ApprovalWorkflow() {
   const features = useFeatureSettings();
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);

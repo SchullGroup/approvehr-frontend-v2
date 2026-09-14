@@ -1116,8 +1116,9 @@ export type SwapsState = {
 /**
  * The swap list.
  *
- * Scoping is the API's, not this hook's: without `EDIT_RECORDS` you are shown
- * only swaps you asked or were asked, and `mine=true` narrows it to those for
+ * Scoping is the API's, not this hook's: without `MANAGE_ROTA` or
+ * `APPROVE_SHIFT_SWAP` you are shown only swaps you asked or were asked, and
+ * `mine=true` narrows it to those for
  * somebody who can see all of them. The demo branch applies the same rule
  * locally so the two do not disagree about what "mine" means.
  */
