@@ -1,15 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { LayoutGrid } from "lucide-react";
-import {
-  Button,
-  ButtonLink,
-  Callout,
-  Card,
-  CardBody,
-  Spinner,
-} from "@/components/ui";
+import { Button, Callout, Card, CardBody, Spinner } from "@/components/ui";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody } from "@/components/portal/shell";
 import { useCan, usePermissions } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
@@ -334,32 +329,28 @@ function SetupPrompt() {
   const first = outstanding[0]!;
   return (
     <>
-      <Callout tone="info" className="mb-4">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <p className="text-body-sm">
-            <span className="font-medium">
-              {outstanding.length} of {rows.length} still to set up.
-            </span>{" "}
-            {/* Names the next one rather than only counting. A number alone is a
-                nag; a number and the next step is a thing somebody can finish. */}
-            <span className="text-muted">
-              Next: {first.title.toLowerCase()}.
-            </span>
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* The way back to the walk. The guide offers itself once per
-                browser; without this, somebody who dismissed it — or who
-                arrived after a colleague dismissed it on a shared machine —
-                has no way to ask for it again. */}
-            <Button size="sm" variant="ghost" onClick={() => setGuiding(true)}>
-              Walk me through it
-            </Button>
-            <ButtonLink size="sm" variant="secondary" href={first.href}>
-              {first.linkLabel}
-            </ButtonLink>
-          </div>
-        </div>
-      </Callout>
+      <NoticeLine tone="accent" className="mb-4">
+        {/* Names the next one rather than only counting. A number alone is a
+            nag; a number and the next step is a thing somebody can finish. */}
+        <span>
+          {outstanding.length} of {rows.length} still to set up. Next:{" "}
+          {first.title.toLowerCase()}.
+        </span>
+        <Link href={first.href} className={NOTICE_LINK}>
+          {first.linkLabel}
+        </Link>
+        {/* The way back to the walk. The guide offers itself once per browser;
+            without this, somebody who dismissed it — or who arrived after a
+            colleague dismissed it on a shared machine — has no way to ask for
+            it again. */}
+        <button
+          type="button"
+          className={NOTICE_LINK}
+          onClick={() => setGuiding(true)}
+        >
+          Walk me through it
+        </button>
+      </NoticeLine>
       {guide}
     </>
   );
