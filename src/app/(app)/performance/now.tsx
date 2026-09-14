@@ -16,6 +16,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  DescriptionList,
   Disclosure,
   EmptyState,
   Spinner,
@@ -26,6 +27,7 @@ import {
   dayLabel,
   dayOf,
   ratingWordsFrom,
+  weightLabel,
   type ApiGoal,
   type ApiPeerFeedback,
   type ApiReview,
@@ -42,6 +44,7 @@ import {
   useObjectiveApprovals,
   useRatingScale,
   useReviewsIWrote,
+  useScoringWeights,
 } from "@/lib/store/performance";
 import { AppraisersDialog } from "./appraiser-map";
 import { ManagerQuestionButton } from "./manager-question";
@@ -872,6 +875,23 @@ export function WhatNeedsYouTab({
        * `how-it-works.tsx` for why a spare copy is worse than none.
        */}
 
+      {/* A read-only summary, not the settings forms themselves — `weights-
+          form.tsx`/`scale-form.tsx` are two whole forms, not switches, and a
+          settings sub-form is what closed-by-default is for. Reading never
+          refuses offline (only saving does), so this needs no demo-mode
+          branch beyond the ordinary loading check. Gated on `scored` like its
+          neighbours below: a company with appraisals off has no composite
+          score for these weights to describe. */}
+      {scored && (
+        <Disclosure
+          title="How a mark is made"
+          hint="The weights behind a composite score, and what each point on the scale means."
+          level={2}
+        >
+          <ScoringSettingsBody canManage={canManagePeriods} />
+        </Disclosure>
+      )}
+
       {scored && (
         <Disclosure
           title="What was said about you"
@@ -1069,6 +1089,51 @@ export function WhatNeedsYouTab({
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * The weights and the scale, read-only, with a way to change them.
+ *
+ * Self-contained on purpose — calls both hooks itself rather than taking the
+ * scale `WhatNeedsYouTab` already holds as a prop, the same "each embedded
+ * piece owns its own hook" shape `OvertimeEnableSwitch` and the Attendance
+ * capability-bar switches already established. Not gated on
+ * `MANAGE_SETTINGS`: both hooks' own design intent is that everyone being
+ * scored can see what they are being scored against — only the outbound
+ * link's wording changes for somebody who can actually change it.
+ */
+function ScoringSettingsBody({ canManage }: { canManage: boolean }) {
+  const { weights, loading: weightsLoading } = useScoringWeights();
+  const { scale, loading: scaleLoading } = useRatingScale();
+
+  return (
+    <div className="flex flex-col gap-4">
+      {weightsLoading || scaleLoading || !weights ? (
+        <span className="flex items-center gap-2 text-body-sm text-muted">
+          <Spinner size="sm" />
+          Loading
+        </span>
+      ) : (
+        <>
+          <DescriptionList
+            layout="rows"
+            items={weights.rows.map((row) => ({
+              term: row.label,
+              value: weightLabel(row.weightBp),
+            }))}
+          />
+          <p className="text-body-sm text-muted">
+            {scale.levels
+              .map((level) => `${level.level} ${level.label}`)
+              .join(" · ")}
+          </p>
+        </>
+      )}
+      <ButtonLink size="sm" variant="secondary" href="/settings/performance">
+        {canManage ? "Manage scoring settings" : "See scoring settings"}
+      </ButtonLink>
+    </div>
+  );
+}
 
 /** Three names and a count, never a bare count. */
 function objectiveNames(goals: ApiGoal[]): string {

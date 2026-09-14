@@ -71,6 +71,7 @@ import {
   type PayrollGap,
 } from "@/lib/types";
 import { MissingDetailsDialog } from "@/components/people/missing-details-dialog";
+import { DirectoryFieldSettings } from "./directory-settings";
 
 const STATUS: Record<EmploymentStatus, { tone: BadgeTone; label: string }> = {
   active: { tone: "success", label: "Active" },
@@ -360,6 +361,8 @@ export function Directory({
           <span className="text-meta text-danger-text">{error.message}</span>
         )}
       </div>
+
+      <DirectoryFieldSettings />
 
       {/* ---- Where people stand ----------------------------------------
           `byStatus` has been on every directory response since the endpoint
