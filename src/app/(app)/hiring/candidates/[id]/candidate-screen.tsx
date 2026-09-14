@@ -29,6 +29,7 @@ import {
   Money,
   ProgressMeter,
   Skeleton,
+  TextLink,
   Timeline,
   useToast,
   type TimelineEntry,
@@ -497,12 +498,12 @@ function Contact({
             {row.icon}
           </span>
           {row.href ? (
-            <a
+            <TextLink
               href={row.href}
-              className="min-w-0 truncate text-body-sm text-body hover:text-accent-text hover:underline underline-offset-4"
+              className="min-w-0 truncate text-body-sm font-normal"
             >
               {row.text}
-            </a>
+            </TextLink>
           ) : (
             <span className="min-w-0 truncate text-body-sm text-body">
               {row.text}
@@ -723,12 +724,12 @@ function Application({
                   key={other.id}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line px-2.5 py-2"
                 >
-                  <Link
+                  <TextLink
                     href={`/hiring/candidates/${other.id}`}
-                    className="min-w-0 truncate text-body-sm text-ink hover:text-accent-text hover:underline underline-offset-4"
+                    className="min-w-0 truncate text-body-sm"
                   >
                     {other.postingTitle}
-                  </Link>
+                  </TextLink>
                   <span className="tabular shrink-0 text-meta text-muted">
                     {other.statusLabel} · {other.appliedOn}
                   </span>
