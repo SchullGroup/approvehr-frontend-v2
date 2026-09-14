@@ -549,19 +549,6 @@ function Figure({
  * company on the bank-file path has never needed a collection account — and it
  * says so rather than showing nothing, since somebody looking at a shortfall
  * with no account on screen needs to know who to ask.
- *
- * ## One account, even when there are several
- *
- * A company can hold more than one — a Monnify account and a 9jaPay account
- * both credit the same wallet — and this used to list them all, on the
- * reasoning that hiding one would leave somebody looking in the wrong place.
- * In practice it did the opposite: the person reading this is about to type a
- * ten-digit number into their bank, and offering two is a decision they have
- * no basis to make and no reason to be asked for.
- *
- * So it shows the one the API marks default, falling back to the first. Money
- * paid into any of the others still credits the wallet exactly the same —
- * nothing is broken by choosing, which is what makes choosing safe.
  */
 export function FundingAccounts({
   accounts,
@@ -586,17 +573,15 @@ export function FundingAccounts({
     );
   }
 
-  /* The API flags rather than filters, so the choosing happens here. */
-  const shown = accounts.filter((a) => a.isDefault)[0] ?? accounts[0];
-  if (!shown) return null;
-
   return (
     <div className="flex flex-col gap-3">
       <p className="text-body-sm text-body">
-        Transfer into this account and the wallet is credited automatically.
+        Transfer into{" "}
+        {accounts.length === 1 ? "this account" : "any of these accounts"} and
+        the wallet is credited automatically.
       </p>
       <ul className="flex flex-col gap-2">
-        {[shown].map((account) => (
+        {accounts.map((account) => (
           <li
             key={`${account.provider}-${account.accountNumber}`}
             className="flex items-start gap-3 rounded-lg border border-line bg-canvas p-3"
@@ -621,8 +606,16 @@ export function FundingAccounts({
                     unavailable over plain http and a dead Copy button on a
                     payment instruction is worse than none. */}
                 <CopyButton value={account.accountNumber} label="Copy number" />
-                {/* No "Suggested" badge: only one account is ever shown, so
-                    there is nothing to suggest it over. */}
+                {/* Only worth saying when there is a choice to make. On a
+                    single account it is a badge on the only option, and it
+                    would also imply the others are somehow lesser — which is
+                    the exact reading the API's flag-not-filter design exists to
+                    avoid, since every account here credits the wallet. */}
+                {accounts.length > 1 && account.isDefault && (
+                  <Badge tone="neutral" size="sm">
+                    Suggested
+                  </Badge>
+                )}
               </div>
               <span className="text-body-sm text-body">{account.bankName}</span>
               {/* Null rather than blank where the provider gave none: an
