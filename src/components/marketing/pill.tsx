@@ -18,13 +18,19 @@ import { cn } from "@/lib/cn";
  *            could not — 8.6:1 with ink was the best that fill could do.
  *   dark     near-black fill, white label — 17.9:1. Secondary, and the default
  *            inside light washed cards where green would fight the tint.
- *   quiet    hairline outline on sand. Tertiary.
+ *   quiet    hairline outline on sand, ink label. Tertiary — but only on sand.
+ *            `text-slate` is near-black; on a light ground that is 17.9:1,
+ *            and on a dark one (`bg-night`, `bg-slate`) it is two near-black
+ *            colours stacked on each other. Reach for `ghost` there instead.
+ *   ghost    hairline outline on night, white label — 17.7:1. The tertiary
+ *            action inside a dark card or closing section — `quiet`'s
+ *            counterpart for a ground it was never built for.
  *   text     inline link with a travelling arrow. Used inside cards.
  *
- * All four share the same lift on hover so the site has one motion signature.
+ * All five share the same lift on hover so the site has one motion signature.
  */
 
-type Variant = "solid" | "dark" | "quiet" | "text";
+type Variant = "solid" | "dark" | "quiet" | "ghost" | "text";
 type Size = "md" | "lg";
 
 const VARIANTS: Record<Variant, string> = {
@@ -33,6 +39,8 @@ const VARIANTS: Record<Variant, string> = {
   dark: "bg-slate text-white hover:bg-slate-soft shadow-[0_1px_2px_rgb(20_18_15/0.14)]",
   quiet:
     "border border-sand-line bg-transparent text-slate hover:border-slate hover:bg-white",
+  ghost:
+    "border border-white/20 bg-transparent text-white hover:border-white/40 hover:bg-white/8",
   text: "text-slate hover:text-slate-muted p-0",
 };
 
