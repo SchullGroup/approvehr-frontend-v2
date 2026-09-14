@@ -89,7 +89,7 @@ export function CompanyProfileForm() {
             <EmptyState
               icon={<Building2 aria-hidden="true" />}
               title="You cannot manage the company profile"
-              description="Registered details feed contracts, payslips and statutory filings, so changing them is kept to the people who manage company settings. Ask whoever handles access to add that permission to your role."
+              description="Registered details feed contracts, payslips and statutory filings, so changing them is kept to the people who manage company settings. Ask whoever manages access to add that permission to your role."
             />
           </Card>
         </PageBody>

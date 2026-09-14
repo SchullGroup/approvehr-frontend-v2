@@ -93,7 +93,7 @@ export function WebhookDetailScreen({ id }: { id: string }) {
                  since it was written; this one stated the reason and stopped.
                  A refusal that explains itself and names nobody leaves the
                  reader exactly where an unexplained one does. */
-              description="A delivery log contains payroll data that was sent to another server, so it is kept to the people who manage company settings. Ask whoever handles access to add that permission to your role."
+              description="A delivery log contains payroll data that was sent to another server, so it is kept to the people who manage company settings. Ask whoever manages access to add that permission to your role."
             />
           </Card>
         </PageBody>

@@ -82,7 +82,7 @@ export function WebhooksScreen() {
             <EmptyState
               icon={<Webhook aria-hidden="true" />}
               title="You cannot manage webhooks"
-              description="A webhook sends a copy of payroll data to another server, so it is kept to the people who manage company settings. Ask whoever handles access to add that permission to your role."
+              description="A webhook sends a copy of payroll data to another server, so it is kept to the people who manage company settings. Ask whoever manages access to add that permission to your role."
             />
           </Card>
         </PageBody>

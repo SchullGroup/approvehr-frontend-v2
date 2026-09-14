@@ -65,7 +65,7 @@ export function ReportFaultButton({
       toast.push({
         title: "Reported",
         tone: "success",
-        detail: "Whoever looks after equipment has been told.",
+        detail: "It has been logged for review.",
       });
       setOpen(false);
       setFault("");
@@ -102,7 +102,7 @@ export function ReportFaultButton({
           open
           onClose={() => setOpen(false)}
           title={`Report a fault — ${assetName}`}
-          description="Say what is wrong with it. Somebody who looks after equipment will pick it up, and you will see it move along here."
+          description="Say what is wrong with it. Its status will appear here once it is sent."
           footer={
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setOpen(false)}>
