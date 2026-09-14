@@ -46,7 +46,7 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { EmployeeFileDrawer } from "@/app/(app)/people/documents";
-import { StartExitDialog } from "@/app/(app)/people/offboarding";
+import { Resign, StartExitDialog } from "@/app/(app)/people/offboarding";
 import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components-panel";
 import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
 import { StartPeriodButton } from "@/app/(app)/performance";
@@ -589,8 +589,16 @@ export function EmployeeRecord({
             {/* Secondary, like its neighbours. Recording an exit is
                 consequential rather than the thing you came here to do, and a
                 blue primary button on every employee record would read as the
-                page's suggestion. */}
-            {canRecordExit && !hasLeft && (
+                page's suggestion.
+
+                `!isSelf`: this is the HR door onto somebody else's exit — a
+                kind picker that includes TERMINATION and DEATH_IN_SERVICE,
+                open to anyone holding EDIT_RECORDS. Viewing your own record
+                with that permission must not offer it about yourself; `Resign`
+                below is the one door self-service ever gets, the same "name
+                who can" rule `isSelf` already applies to documents and
+                appraisal history on this page. */}
+            {canRecordExit && !hasLeft && !isSelf && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -603,6 +611,14 @@ export function EmployeeRecord({
             )}
           </CardBody>
         </Card>
+
+        {/* The other door onto the same `ExitProcess` lifecycle — self-service,
+            no permission required, resignation/retirement only. `Resign` is
+            the exact component `/profile` already uses; it owns its own
+            `useMyExit()` and renders either an open exit's status (a `Card`)
+            or a closed `Disclosure` to start one, so it sits beside the
+            action-button card rather than inside it. */}
+        {isSelf && <Resign />}
       </aside>
 
       {/* Detail */}
