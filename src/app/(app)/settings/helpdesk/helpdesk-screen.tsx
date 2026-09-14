@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus, Tag, Timer } from "lucide-react";
 import {
   Badge,
@@ -28,7 +28,7 @@ import {
   type TicketPriority,
 } from "@/lib/api/helpdesk";
 import { useCan } from "@/lib/permissions";
-import { useSession } from "@/lib/store/session";
+import { useHelpdeskCatalogue } from "@/lib/store/helpdesk";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 
 /**
@@ -64,15 +64,34 @@ import { useEmployeeDirectory } from "@/lib/store/employees-api";
  * nothing would have somebody promise a two-hour reply and mean 9am Monday.
  */
 export function HelpdeskSettingsScreen() {
-  const { isConnected } = useSession();
+  return (
+    <>
+      <PageHeader title="Help desk" />
+      <PageBody className="flex flex-col gap-6">
+        <CategoriesAndSlaPanel />
+      </PageBody>
+    </>
+  );
+}
+
+/**
+ * The panel's actual content, with no page chrome of its own — so
+ * `HelpdeskSettingsScreen` above can wrap it in a `PageHeader`/`PageBody` for
+ * the standalone settings route, and `help/help-screen.tsx`'s `QueueView` can
+ * mount the exact same thing inside a closed `Disclosure`. One panel, two
+ * doors, same reasoning as `PayrollSettingsForm` and `OvertimePolicyFields` —
+ * never a second copy that can say something different from the one somebody
+ * last saved. Self-contained: calls `useHelpdeskCatalogue()` and
+ * `useCan("MANAGE_SETTINGS")` itself rather than taking them as props, the
+ * same "each embedded piece owns its own hook" shape the rest of this
+ * session's module-embedded settings work already established.
+ */
+export function CategoriesAndSlaPanel() {
   const canManage = useCan("MANAGE_SETTINGS");
   const toast = useToast();
+  const { isConnected, categories, policies, error, reload } =
+    useHelpdeskCatalogue();
 
-  const [categories, setCategories] = useState<ApiTicketCategory[] | null>(
-    null,
-  );
-  const [policies, setPolicies] = useState<ApiSlaPolicy[] | null>(null);
-  const [error, setError] = useState<ApiError | null>(null);
   const [editing, setEditing] = useState<ApiTicketCategory | "new" | null>(
     null,
   );
@@ -80,193 +99,145 @@ export function HelpdeskSettingsScreen() {
     null,
   );
 
-  /**
-   * Bumped to reload. The effect owns the request, not a callback it calls.
-   *
-   * `useEffect(() => void load())` reads more directly and the React compiler
-   * refuses it: from outside, `load` may setState before its first await, which
-   * is a cascading render. A counter in the dependency list keeps the fetch
-   * inside the effect, where the cancelled guard belongs anyway.
-   */
-  const [revision, setRevision] = useState(0);
-  const reload = useCallback(() => setRevision((n) => n + 1), []);
-
-  useEffect(() => {
-    if (!isConnected) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const [cats, sla] = await Promise.all([
-          /* `includeInactive` on: this is the screen where somebody turns one
-             back on, and a switched-off category that vanished from its own
-             settings page could never be recovered. */
-          helpdeskApi.categories(true),
-          helpdeskApi.sla(true),
-        ]);
-        if (cancelled) return;
-        setCategories(cats);
-        setPolicies(sla.policies);
-        setError(null);
-      } catch (caught) {
-        if (cancelled) return;
-        setError(caught instanceof ApiError ? caught : null);
-        setCategories([]);
-        setPolicies([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isConnected, revision]);
-
   if (!isConnected) {
     return (
-      <>
-        <PageHeader title="Help desk" />
-        <PageBody>
-          <Callout tone="neutral" title="This needs the API">
-            Categories and reply targets decide where a real ticket lands and
-            when it is late. One kept in this browser would route nothing.
-          </Callout>
-        </PageBody>
-      </>
+      <Callout tone="neutral" title="This needs the API">
+        Categories and reply targets decide where a real ticket lands and when
+        it is late. One kept in this browser would route nothing.
+      </Callout>
     );
   }
 
   return (
     <>
-      <PageHeader title="Help desk" />
+      <p className="text-body-sm text-body">
+        What people can raise a request about, and how quickly you have promised
+        to answer.
+      </p>
 
-      <PageBody className="flex flex-col gap-6">
-        <p className="text-body-sm text-body">
-          What people can raise a request about, and how quickly you have
-          promised to answer.
-        </p>
+      {error && (
+        <LoadFailure
+          subject="the help desk settings"
+          error={error}
+          onRetry={reload}
+        />
+      )}
 
-        {error && (
-          <LoadFailure
-            subject="the help desk settings"
-            error={error}
-            onRetry={reload}
-          />
-        )}
-
-        <Card>
-          <CardHeader
-            title="Categories"
-            description="What a request can be about. Somebody raising one picks from this list, and the category decides who it lands with."
-            action={
-              canManage ? (
-                <Button
-                  variant="accent"
-                  size="sm"
-                  onClick={() => setEditing("new")}
-                >
-                  <Plus aria-hidden="true" className="size-4" />
-                  New category
-                </Button>
-              ) : undefined
-            }
-          />
-          <CardBody className="flex flex-col gap-3">
-            {categories === null ? (
-              <span className="flex items-center gap-2 text-body-sm text-muted">
-                <Spinner size="sm" />
-                Loading
-              </span>
-            ) : categories.length === 0 ? (
-              <EmptyState
-                compact
-                icon={<Tag aria-hidden="true" />}
-                title="No categories yet"
-                description="Requests still reach the help desk without one: they arrive unsorted, and nothing routes them."
-                {...(canManage
-                  ? {
-                      action: (
-                        <Button
-                          variant="accent"
-                          size="sm"
-                          onClick={() => setEditing("new")}
-                        >
-                          Add the first one
-                        </Button>
-                      ),
-                    }
-                  : {})}
+      <Card>
+        <CardHeader
+          title="Categories"
+          description="What a request can be about. Somebody raising one picks from this list, and the category decides who it lands with."
+          action={
+            canManage ? (
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => setEditing("new")}
+              >
+                <Plus aria-hidden="true" className="size-4" />
+                New category
+              </Button>
+            ) : undefined
+          }
+        />
+        <CardBody className="flex flex-col gap-3">
+          {categories === null ? (
+            <span className="flex items-center gap-2 text-body-sm text-muted">
+              <Spinner size="sm" />
+              Loading
+            </span>
+          ) : categories.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<Tag aria-hidden="true" />}
+              title="No categories yet"
+              description="Requests still reach the help desk without one: they arrive unsorted, and nothing routes them."
+              {...(canManage
+                ? {
+                    action: (
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        onClick={() => setEditing("new")}
+                      >
+                        Add the first one
+                      </Button>
+                    ),
+                  }
+                : {})}
+            />
+          ) : (
+            categories.map((category) => (
+              <CategoryRow
+                key={category.id}
+                category={category}
+                canManage={canManage}
+                onEdit={() => setEditing(category)}
+                onToggled={reload}
               />
-            ) : (
-              categories.map((category) => (
-                <CategoryRow
-                  key={category.id}
-                  category={category}
-                  canManage={canManage}
-                  onEdit={() => setEditing(category)}
-                  onToggled={reload}
-                />
-              ))
-            )}
-          </CardBody>
-        </Card>
+            ))
+          )}
+        </CardBody>
+      </Card>
 
-        <Card>
-          <CardHeader
-            title="Reply targets"
-            description="How long you have to answer, and to finish. Counted in working hours, so the clock stops overnight and on your holidays."
-            action={
-              canManage ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setEditingSla("new")}
-                >
-                  <Plus aria-hidden="true" className="size-4" />
-                  New target
-                </Button>
-              ) : undefined
-            }
-          />
-          <CardBody className="flex flex-col gap-3">
-            {policies === null ? (
-              <span className="flex items-center gap-2 text-body-sm text-muted">
-                <Spinner size="sm" />
-                Loading
-              </span>
-            ) : policies.length === 0 ? (
-              <EmptyState
-                compact
-                icon={<Timer aria-hidden="true" />}
-                title="No targets set"
-                description="Without one, nothing is ever late: a ticket has no promise to measure against."
-                /* The categories block sixty lines up does exactly this and
-                   this one simply omitted it: same screen, same permission,
-                   same dialog. */
-                {...(canManage
-                  ? {
-                      action: (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setEditingSla("new")}
-                        >
-                          Add the first one
-                        </Button>
-                      ),
-                    }
-                  : {})}
+      <Card>
+        <CardHeader
+          title="Reply targets"
+          description="How long you have to answer, and to finish. Counted in working hours, so the clock stops overnight and on your holidays."
+          action={
+            canManage ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setEditingSla("new")}
+              >
+                <Plus aria-hidden="true" className="size-4" />
+                New target
+              </Button>
+            ) : undefined
+          }
+        />
+        <CardBody className="flex flex-col gap-3">
+          {policies === null ? (
+            <span className="flex items-center gap-2 text-body-sm text-muted">
+              <Spinner size="sm" />
+              Loading
+            </span>
+          ) : policies.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<Timer aria-hidden="true" />}
+              title="No targets set"
+              description="Without one, nothing is ever late: a ticket has no promise to measure against."
+              /* The categories block sixty lines up does exactly this and
+                 this one simply omitted it: same screen, same permission,
+                 same dialog. */
+              {...(canManage
+                ? {
+                    action: (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setEditingSla("new")}
+                      >
+                        Add the first one
+                      </Button>
+                    ),
+                  }
+                : {})}
+            />
+          ) : (
+            policies.map((policy) => (
+              <SlaRow
+                key={policy.id}
+                policy={policy}
+                canManage={canManage}
+                onEdit={() => setEditingSla(policy)}
               />
-            ) : (
-              policies.map((policy) => (
-                <SlaRow
-                  key={policy.id}
-                  policy={policy}
-                  canManage={canManage}
-                  onEdit={() => setEditingSla(policy)}
-                />
-              ))
-            )}
-          </CardBody>
-        </Card>
-      </PageBody>
+            ))
+          )}
+        </CardBody>
+      </Card>
 
       {editing && (
         <CategoryDialog
