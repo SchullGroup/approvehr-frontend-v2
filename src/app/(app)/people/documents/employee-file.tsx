@@ -234,54 +234,52 @@ export function EmployeeFileDrawer({
         )}
       </Drawer>
 
-      {adding && file.file && (
-        <AddDocumentModal
-          whose={`${file.file.employeeName.split(" ")[0] ?? name}’s`}
-          onClose={() => setAdding(false)}
-          onAdd={async (body) => {
-            await file.add(body);
-            setAdding(false);
-            onChanged();
-            toast.push({ title: "Added to the file", tone: "success" });
-          }}
-        />
-      )}
+      <AddDocumentModal
+        open={adding && file.file !== null}
+        whose={`${file.file?.employeeName.split(" ")[0] ?? name}’s`}
+        onClose={() => setAdding(false)}
+        onAdd={async (body) => {
+          await file.add(body);
+          setAdding(false);
+          onChanged();
+          toast.push({ title: "Added to the file", tone: "success" });
+        }}
+      />
 
-      {attaching && (
-        <AttachDocumentModal
-          request={attaching}
-          onFile={documents}
-          subject="other"
-          onClose={() => setAttaching(null)}
-          onAttach={async (body) => {
-            await file.fulfil(attaching.id, body);
-            setAttaching(null);
-            onChanged();
-            toast.push({ title: "Attached", tone: "success" });
-          }}
-        />
-      )}
+      <AttachDocumentModal
+        open={attaching !== null}
+        request={attaching}
+        onFile={documents}
+        subject="other"
+        onClose={() => setAttaching(null)}
+        onAttach={async (body) => {
+          if (!attaching) return;
+          await file.fulfil(attaching.id, body);
+          setAttaching(null);
+          onChanged();
+          toast.push({ title: "Attached", tone: "success" });
+        }}
+      />
 
-      {reminding && (
-        <RemindModal
-          request={reminding}
-          onClose={() => setReminding(null)}
-          onRemind={file.remind}
-        />
-      )}
+      <RemindModal
+        open={reminding !== null}
+        request={reminding}
+        onClose={() => setReminding(null)}
+        onRemind={file.remind}
+      />
 
-      {waiving && (
-        <WaiveModal
-          request={waiving}
-          onClose={() => setWaiving(null)}
-          onWaive={async (reason) => {
-            await file.waive(waiving.id, reason);
-            setWaiving(null);
-            onChanged();
-            toast.push({ title: "Dropped", tone: "success" });
-          }}
-        />
-      )}
+      <WaiveModal
+        open={waiving !== null}
+        request={waiving}
+        onClose={() => setWaiving(null)}
+        onWaive={async (reason) => {
+          if (!waiving) return;
+          await file.waive(waiving.id, reason);
+          setWaiving(null);
+          onChanged();
+          toast.push({ title: "Dropped", tone: "success" });
+        }}
+      />
 
       <ConfirmDialog
         open={removing !== null}

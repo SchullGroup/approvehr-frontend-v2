@@ -153,23 +153,21 @@ export function BulkInviteButton({
         {label}
       </Button>
 
-      {open && (
-        <InviteStaffDialog
-          candidates={candidates}
-          roles={roles}
-          defaultRoleId={defaultRoleId}
-          busy={busy}
-          result={result}
-          banner={banner}
-          onClose={() => {
-            setOpen(false);
-            setCandidates(null);
-            setResult(null);
-            setBanner(null);
-          }}
-          onSend={(people, roleId) => void send(people, roleId)}
-        />
-      )}
+      <InviteStaffDialog
+        open={open}
+        candidates={candidates}
+        roles={roles}
+        defaultRoleId={defaultRoleId}
+        busy={busy}
+        result={result}
+        banner={banner}
+        /* Content is not reset here: it stays as it was — the sent report, or
+           the form — while the dialog animates closed, and `openDialog`
+           already resets all three of these to null before the *next* open,
+           so nothing stale survives into a second use. */
+        onClose={() => setOpen(false)}
+        onSend={(people, roleId) => void send(people, roleId)}
+      />
     </>
   );
 }

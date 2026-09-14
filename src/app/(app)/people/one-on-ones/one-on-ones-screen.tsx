@@ -182,15 +182,16 @@ export function OneOnOnesScreen() {
           <Coverage read={coverage} />
         )}
       </PageBody>
-      {starting && (
-        <StartDialog
-          onClose={() => setStarting(false)}
-          onDone={() => {
-            setStarting(false);
-            mine.reload();
-          }}
-        />
-      )}
+      {/* No `{starting && (...)}` gate — `Modal` inside decides visibility
+          from its own `open` prop, so this stays mounted. */}
+      <StartDialog
+        open={starting}
+        onClose={() => setStarting(false)}
+        onDone={() => {
+          setStarting(false);
+          mine.reload();
+        }}
+      />
     </>
   );
 }
@@ -473,16 +474,21 @@ function CoverageRow({ row }: { row: ApiCoverageRow }) {
  * interface that only offers what will work.
  */
 function StartDialog({
+  open,
   onClose,
   onDone,
 }: {
+  open: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
   const mutations = useOneOnOneMutations();
   /* Fetched because the dialog is open — the hook takes `enabled` so a picker
-     nobody has opened costs nothing. */
-  const reports = useWhoICanStartWith(true);
+     nobody has opened costs nothing. Tied to the real `open` prop, not a
+     hardcoded `true`, now that this component stays mounted while closed:
+     without this it would fetch on every page load whether or not anybody
+     ever opens the dialog. */
+  const reports = useWhoICanStartWith(open);
   const toast = useToast();
   const [employeeId, setEmployeeId] = useState("");
   const [cadence, setCadence] = useState<ApiCadence>("FORTNIGHTLY");
@@ -525,7 +531,7 @@ function StartDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Start a one-to-one"
       description="It follows the reporting line, so it has to be somebody who reports to you."

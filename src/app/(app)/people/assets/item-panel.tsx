@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   ArchiveRestore,
@@ -63,7 +64,8 @@ export const STATUS_TONE: Record<EquipmentItem["status"], BadgeTone> = {
  * and it must keep appearing on their exit checklist.
  */
 export function ItemPanel({
-  itemId,
+  itemId: itemIdProp,
+  open,
   canEdit,
   onClose,
   onEdit,
@@ -76,7 +78,8 @@ export function ItemPanel({
   onFixed,
   onFinishRepair,
 }: {
-  itemId: string;
+  itemId: string | null;
+  open: boolean;
   canEdit: boolean;
   onClose: () => void;
   onEdit: (item: EquipmentItem) => void;
@@ -90,11 +93,18 @@ export function ItemPanel({
   onFixed: (item: EquipmentItem) => void;
   onFinishRepair: (repair: Repair) => void;
 }) {
+  /* Remembers the last real id: the parent clears its prop to null the
+     instant it closes this, but the drawer has to stay mounted with real
+     content so `Drawer` below can animate its own close off the real
+     `open`. */
+  const [itemId, setItemId] = useState(itemIdProp);
+  if (itemIdProp && itemIdProp !== itemId) setItemId(itemIdProp);
+
   const { detail, loading, error } = useEquipmentItem(itemId);
 
   return (
     <Drawer
-      open
+      open={open}
       onClose={onClose}
       size="lg"
       title={detail?.name ?? "Equipment"}

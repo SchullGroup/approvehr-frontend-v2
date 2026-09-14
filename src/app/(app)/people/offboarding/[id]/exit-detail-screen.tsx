@@ -469,38 +469,39 @@ export function ExitDetailScreen({ id }: { id: string }) {
         body="Their record is kept, not deleted, so past payslips and approvals still work. Their sign-in is switched off."
       />
 
-      {withdrawing && (
-        <WithdrawDialog
-          firstName={firstName}
-          mine={mine}
-          busy={busy}
-          onClose={() => setWithdrawing(false)}
-          onWithdraw={async (reason) => {
-            const ok = await run(
-              () => exitState.withdraw(reason || undefined),
-              mine
-                ? "Your notice has been withdrawn"
-                : `${firstName} is staying`,
-            );
-            if (ok) setWithdrawing(false);
-          }}
-        />
-      )}
+      {/* No `{withdrawing && (...)}` gate: `Modal` below decides whether to
+          render from its own `open` state, so this stays mounted and keeps
+          passing the real boolean through. `firstName`, `mine` and `busy` are
+          all available regardless of `withdrawing`, so nothing here depends on
+          the gate that used to exist. */}
+      <WithdrawDialog
+        open={withdrawing}
+        firstName={firstName}
+        mine={mine}
+        busy={busy}
+        onClose={() => setWithdrawing(false)}
+        onWithdraw={async (reason) => {
+          const ok = await run(
+            () => exitState.withdraw(reason || undefined),
+            mine ? "Your notice has been withdrawn" : `${firstName} is staying`,
+          );
+          if (ok) setWithdrawing(false);
+        }}
+      />
 
-      {declining && (
-        <DeclineDialog
-          firstName={firstName}
-          busy={busy}
-          onClose={() => setDeclining(false)}
-          onDecline={async (reason) => {
-            const ok = await run(
-              () => exitState.decline(reason),
-              "Recorded, and they have been told",
-            );
-            if (ok) setDeclining(false);
-          }}
-        />
-      )}
+      <DeclineDialog
+        open={declining}
+        firstName={firstName}
+        busy={busy}
+        onClose={() => setDeclining(false)}
+        onDecline={async (reason) => {
+          const ok = await run(
+            () => exitState.decline(reason),
+            "Recorded, and they have been told",
+          );
+          if (ok) setDeclining(false);
+        }}
+      />
     </>
   );
 }
@@ -526,11 +527,13 @@ function blockerLine(blockers: string[]): string {
 /* -------------------------------------------------------------------------- */
 
 function DeclineDialog({
+  open,
   firstName,
   busy,
   onClose,
   onDecline,
 }: {
+  open: boolean;
   firstName: string;
   busy: boolean;
   onClose: () => void;
@@ -540,7 +543,7 @@ function DeclineDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Not going ahead"
       footer={
@@ -696,12 +699,14 @@ function FinalPayCard({ finalPay }: { finalPay: ApiExitFinalPay }) {
  * for the one screen in this flow that is good news.
  */
 function WithdrawDialog({
+  open,
   firstName,
   mine,
   busy,
   onClose,
   onWithdraw,
 }: {
+  open: boolean;
   firstName: string;
   /** True when this is the signed-in person's own notice. */
   mine: boolean;
@@ -713,7 +718,7 @@ function WithdrawDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={mine ? "Withdraw my notice" : `Cancel ${firstName}'s exit`}
       description={
