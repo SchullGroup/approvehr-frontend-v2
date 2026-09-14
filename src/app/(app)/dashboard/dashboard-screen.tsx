@@ -229,8 +229,21 @@ export function DashboardScreen() {
              is full width below `sm` — a stat at a quarter of a phone is
              unreadable — and each carries `min-w-0` from `SPAN_CLASS`, without
              which one item that cannot compress floors the whole track. See the
-             responsive entry in HANDOVER. */
-          <div className="grid grid-cols-12 gap-4">
+             responsive entry in HANDOVER.
+
+             `grid-flow-dense`: measured against a live account rather than
+             assumed. It does **not** eliminate a gap — if the spans in a
+             cluster do not sum to a multiple of 12 (a quarter + a half + two
+             quarters is 15), something is short a slot no matter the packing
+             algorithm; dense only chooses which row absorbs it, pulling a
+             later same-size widget forward to close an earlier gap and
+             leaving an equal one behind it. Kept anyway because that pull
+             front-loads completeness — the topmost row ends up full — and it
+             never touches DOM or tab order, only visual position. If a
+             customized arrangement ever reads as widgets shuffled for no
+             reason, this is why; the real fix is choosing spans that sum
+             evenly per cluster, not a CSS property. */
+          <div className="grid grid-cols-12 gap-4 grid-flow-dense">
             {chosen.map((widget) => {
               const Widget = WIDGET_COMPONENTS[widget.id];
               if (!Widget) return null;
