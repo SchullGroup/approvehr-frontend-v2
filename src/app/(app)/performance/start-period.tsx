@@ -61,9 +61,11 @@ import { useCycleMutations } from "@/lib/store/performance";
  * API wrapper and the database still say cycle; nothing a user reads does.
  */
 export function StartPeriodDialog({
+  open,
   onClose,
   onCreated,
 }: {
+  open: boolean;
   onClose: () => void;
   /** The new period's id. The caller decides where to go with it. */
   onCreated: (period: { id: string; name: string }) => void;
@@ -175,7 +177,7 @@ export function StartPeriodDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Start an appraisal period"
       size="sm"
@@ -457,20 +459,19 @@ export function StartPeriodButton({
         {label}
       </Button>
 
-      {open && (
-        <StartPeriodDialog
-          onClose={() => setOpen(false)}
-          onCreated={(period) => {
-            setOpen(false);
-            toast.push({
-              title: `${period.name} created`,
-              tone: "success",
-              detail: "Add the questions, then start it.",
-            });
-            router.push(`/performance/periods/${period.id}`);
-          }}
-        />
-      )}
+      <StartPeriodDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        onCreated={(period) => {
+          setOpen(false);
+          toast.push({
+            title: `${period.name} created`,
+            tone: "success",
+            detail: "Add the questions, then start it.",
+          });
+          router.push(`/performance/periods/${period.id}`);
+        }}
+      />
     </>
   );
 }
