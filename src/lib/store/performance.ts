@@ -1983,7 +1983,30 @@ export function useAppraisals(): {
   mine: ApiMyReviews;
   cycles: ApiCycle[];
   loading: boolean;
+  /**
+   * This screen has nothing to show — the company's list of periods failed.
+   *
+   * Safe to hand to `LoadFailure` with a subject naming the list, because it
+   * is only ever set when that list is genuinely absent.
+   */
   error: ApiError | null;
+  /**
+   * The **personal** half failed and the company list did not.
+   *
+   * Kept apart from `error`, and that separation is the fix for two defects
+   * that were one bug. Merged, a screen had no way to tell "the periods did
+   * not load" from "the periods loaded and *your* reviews did not", so
+   * `/performance/periods` printed "The appraisal periods did not load"
+   * directly above the periods, and `/performance` printed the raw server
+   * sentence with no title, no advice and no retry on every visit.
+   *
+   * Both surfaces guarded on `employeeId !== null` to suppress the common
+   * false positive — a founder's own account, which has no staff record and
+   * so has no reviews — and the guard could not tell that ordinary state from
+   * a real failure hitting the same account. `periods.tsx` said so in as many
+   * words: *"Splitting the two is a hook change, not a copy-paste fix."*
+   */
+  mineError: ApiError | null;
   source: Source;
   reload: () => void;
 } {
@@ -2055,10 +2078,10 @@ export function useAppraisals(): {
       fetched.data?.mine ?? { toComplete: [], aboutMe: [], peerFeedback: [] },
     cycles: isConnected ? (fetched.data?.cycles ?? []) : demoCycles,
     loading: fetched.loading,
-    /* The personal read's failure where the whole load did not fail — that is
-       what puts the "not linked to a staff record" banner above a list that is
-       now, correctly, still there. */
-    error: fetched.error ?? fetched.data?.mineError ?? null,
+    /* Two fields, never merged. `error` means this screen has nothing;
+       `mineError` means the list is fine and the personal half is not. */
+    error: fetched.error ?? null,
+    mineError: fetched.data?.mineError ?? null,
     source: isConnected ? "api" : "demo",
     reload: fetched.reload,
   };

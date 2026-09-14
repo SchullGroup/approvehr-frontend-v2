@@ -321,6 +321,47 @@ export function useDemoWorkLocations(): ApiWorkLocation[] {
   );
 }
 
+/**
+ * The name behind a work-location id, for a demo write.
+ *
+ * ## Why this exists at all
+ *
+ * Offline, `Employee.location` is a **display name** with no id behind it — the
+ * same shape `Employee.department` has — so a picker handing
+ * `useEmployeeMutations().update` a `workLocationId` is handing it something
+ * the local store cannot store. `demoDepartmentName` in `store/demo-structure.ts`
+ * is the seam that closed exactly this for departments; this is its counterpart,
+ * and it lives here because locations live here.
+ *
+ * The record page's own comment has named this as "a separate fix" since the
+ * picker was added. Rather than save silently onto nothing, that page dropped
+ * the control offline — correct, and it left the two fields beside each other
+ * behaving differently for a reason no reader could see.
+ *
+ * ## `current()`, never `read()`
+ *
+ * This is a write path: it is called while assembling a patch, long after
+ * hydration, and `read()` would answer from the seed for any location created
+ * in this browser — refusing a real one with "That work location does not
+ * exist". That is the defect `verify-stores` exists to catch, and the store it
+ * was found in had already been declared fixed once.
+ *
+ * ## An archived location is refused, not resolved
+ *
+ * Switching an office off and then assigning somebody to it is not a thing to
+ * quietly allow — the API refuses the same move, so the demo refuses it in the
+ * same words rather than teaching a different rule.
+ */
+export function demoWorkLocationName(id: string): string {
+  if (id.trim() === "") return "";
+  const state = demoStore.current();
+  const row = state.locations.find((one) => one.id === id);
+  if (!row || state.archived.includes(id)) {
+    refuse(422, "unprocessable", "That work location does not exist.");
+  }
+  return row.name;
+}
+
 /* -------------------------------------------------- reading, for a picker */
 
 export type LocationsState = {

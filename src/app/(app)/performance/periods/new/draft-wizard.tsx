@@ -313,6 +313,39 @@ export function DraftPeriodWizard() {
      one that was never there. Here it is the whole screen, so the same mistake
      is louder: the form rendered, then vanished under somebody who might
      already have typed the period's name into it. */
+  /**
+   * The permission, before anything else on this screen.
+   *
+   * `/performance/periods` refuses an employee with "Not yours to run". This
+   * route had no gate at all, so all six roles rendered it byte for byte.
+   *
+   * It was harmless only by accident: no assistant is wired here, so every
+   * role lands on the same "No assistant is connected" empty state below.
+   * Connect one and five of the six get the whole drafting wizard, type a
+   * period into it, and meet a 403 from `POST /cycles` at the end. Worth
+   * closing before the credential is set rather than after.
+   *
+   * `MANAGE_SETTINGS` and not the list screen's `canManage || canSeeCompany`:
+   * this screen only creates, and creating is what `POST /cycles` needs.
+   * Reading across the company is what gets somebody the list.
+   */
+  if (!canManage) {
+    return (
+      <>
+        <PageHeader
+          breadcrumb={[{ href: "/performance", label: "Performance" }]}
+          title="Draft a period"
+        />
+        <PageBody>
+          <EmptyState
+            title="Not yours to run"
+            description="Starting an appraisal period is done by whoever runs them. Ask them to open one."
+          />
+        </PageBody>
+      </>
+    );
+  }
+
   if (assistant.loading) {
     return (
       <>

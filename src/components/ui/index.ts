@@ -24,6 +24,7 @@ export { Money, MoneyHidden, formatMoney, SYMBOLS } from "./money";
 /* The eye button. `MoneyHidden` above is a different thing: a figure the
    reader is not permitted to see, rather than one they chose to cover. */
 export { MoneyPrivacyToggle } from "./money-privacy-toggle";
+export { ThemeToggle } from "./theme-toggle";
 export type { Currency } from "./money";
 
 export { ProgressMeter, ScoreRing, FactorBars } from "./progress";

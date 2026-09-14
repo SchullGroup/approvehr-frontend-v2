@@ -19,6 +19,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Disclosure,
   EmptyState,
   Field,
   Input,
@@ -57,6 +58,7 @@ import {
 import { PRIORITY, STATUS, TicketClockBadge } from "./ticket-labels";
 import { TicketThread } from "./ticket-thread";
 import { KbSearch } from "@/app/(app)/help/kb/kb-search";
+import { CategoriesAndSlaPanel } from "@/app/(app)/settings/helpdesk/helpdesk-screen";
 
 /**
  * `/help` — one route, two readers.
@@ -127,6 +129,10 @@ function QueueView() {
   const { categories, workingDay } = useRaiseTicket();
   const list = useTickets({ scope, view, q, categoryId }, bump);
   const pulse = useHelpdeskPulse(true, bump);
+  /* Narrower than `EDIT_RECORDS`, which is what admits somebody to this whole
+     view — a manager who can triage tickets may still lack the permission to
+     change what a category or a reply-time promise means for everybody. */
+  const canManageCatalogue = useCan("MANAGE_SETTINGS");
 
   const refresh = () => setBump((n) => n + 1);
 
@@ -317,6 +323,24 @@ function QueueView() {
             totalPages={list.totalPages}
           />
         </Card>
+
+        {/* Closed by default, and omitted rather than shown disabled for
+            anybody without `MANAGE_SETTINGS` — the same "each embedded piece
+            owns its own hook" shape the rest of this session's module-
+            embedded settings work already established. `CategoriesAndSlaPanel`
+            is the exact same component `/settings/helpdesk` renders; imported
+            here rather than reimplemented, so raising, editing or switching
+            off a category never means leaving the queue. */}
+        {canManageCatalogue && (
+          <Disclosure
+            title="Categories & reply targets"
+            hint="What a request can be about, and how quickly you have promised to answer — switched on, off, or added to, without leaving the queue."
+          >
+            <div className="flex flex-col gap-4">
+              <CategoriesAndSlaPanel />
+            </div>
+          </Disclosure>
+        )}
       </PageBody>
 
       {openId !== null && (
