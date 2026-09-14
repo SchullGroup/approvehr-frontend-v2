@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Play, Save, Trash2 } from "lucide-react";
+import { Play, Save, SearchX, Trash2 } from "lucide-react";
 import {
   Badge,
   Button,
@@ -459,6 +459,7 @@ function Result({ result }: { result: ApiReportResult }) {
 
         {result.rows.length === 0 ? (
           <EmptyState
+            icon={<SearchX aria-hidden="true" />}
             title="Nothing matched"
             description="No rows came back for those filters. That is an empty answer, not a failed one."
           />

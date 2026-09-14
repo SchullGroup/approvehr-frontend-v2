@@ -3,7 +3,7 @@
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Plus } from "lucide-react";
+import { Check, Plus, UserRoundPlus } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Avatar,
@@ -233,6 +233,7 @@ export function OnboardingScreen() {
         ) : employees.length === 0 ? (
           <Card>
             <EmptyState
+              icon={<UserRoundPlus aria-hidden="true" />}
               title="Nobody is onboarding right now"
               description="Somebody appears here while their status is Onboarding, and drops off it the moment you finish them."
               action={

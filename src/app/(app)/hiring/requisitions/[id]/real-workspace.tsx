@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Filter, UserRoundPlus } from "lucide-react";
+import { Filter, TriangleAlert, UserRoundPlus } from "lucide-react";
 import {
   Badge,
   Button,
@@ -121,6 +121,7 @@ export function RealRequisitionWorkspace({
   if (error) {
     return (
       <EmptyState
+        icon={<TriangleAlert aria-hidden="true" />}
         title="Could not load this pipeline"
         description={error.message}
         action={

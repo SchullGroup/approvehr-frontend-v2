@@ -198,6 +198,7 @@ export function SignaturesScreen() {
           <Spinner label="Loading" />
         ) : read.data.length === 0 ? (
           <EmptyState
+            icon={<FileSignature aria-hidden="true" />}
             title={
               tab === "mine"
                 ? "Nothing is waiting on your signature"
@@ -205,7 +206,7 @@ export function SignaturesScreen() {
             }
             description={
               tab === "mine"
-                ? "When somebody sends you a document to sign, it appears here — and nobody else can sign it for you."
+                ? "When somebody sends you a document to sign, it appears here, and nobody else can sign it for you."
                 : canManage
                   ? /* Points at the control rather than describing the
                        capability. The old copy said a contract "can be sent",
