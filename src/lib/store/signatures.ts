@@ -8,6 +8,7 @@ import {
   type ApiSignatureStatus,
 } from "@/lib/api/signatures";
 import { useRevalidation } from "@/lib/revalidate";
+import { createSharedResource } from "@/lib/shared-resource";
 import { useSession } from "./session";
 
 /**
@@ -109,7 +110,104 @@ export function useSignatures(
     (signal: AbortSignal) => signaturesApi.list(status, signal),
     [status],
   );
-  return useRead(`list|${status ?? "all"}`, isConnected, load);
+  const sessionKey = useSignatureCacheKey();
+  const read = useRead(`list|${status ?? "all"}`, isConnected, load);
+
+  /* Tell the sidebar what this already knows.
+     ------------------------------------------------------------------
+     `anySignature` does not revalidate on focus — see
+     `lib/shared-resource.ts`, which argues that for facts changing when an
+     administrator edits a role. This one changes when a colleague presses
+     Send, so a person following a notification link could stand on this
+     screen reading their contract while the nav had no row for it. The
+     screen is not blocked by that and it looks like a bug.
+     
+     No extra request: this **is** the same endpoint's answer, which is the
+     one thing `set` is for. Unfiltered only — a `status` narrows the rows,
+     and publishing "you have none" off a filtered read would be a guess. */
+  const filtered = status !== undefined;
+  useEffect(() => {
+    if (filtered || read.data === null) return;
+    anySignature.set(sessionKey, read.data.length);
+  }, [filtered, read.data, sessionKey]);
+
+  return read;
+}
+
+/**
+ * Whether this person has any signature at all — one fact about them, cached
+ * for the session.
+ *
+ * ## Why the sidebar needs it
+ *
+ * The nav entry was `always: true`, with a reason that was sound as far as it
+ * went: whether somebody has a document to sign is a property of the rows, and
+ * no `useCan` can answer it. The conclusion drawn was to show the row to
+ * everybody — so an employee with nothing to sign, and no permission to send,
+ * carried a permanent door to an empty screen. That was half of *"it is just
+ * showing at the side bar for both HR and Employee"*.
+ *
+ * Row-level is not unanswerable. Ask the rows.
+ *
+ * ## What counts, and why not just the pending queue
+ *
+ * `GET /signatures` rather than `/signatures/mine`: for somebody without
+ * `EDIT_RECORDS` the API narrows it to rows where they are the signer or the
+ * requester, in any state. So a person who signed their contract in March
+ * keeps the row in September — they need to reach the document and its
+ * certificate, which is exactly when somebody looks for it. `/mine` is only
+ * the pending queue and would take the row away the moment they signed.
+ *
+ * ## Shared, and skipped for anybody who can send
+ *
+ * `createSharedResource` for the reason `directReports` uses it: the sidebar,
+ * the mobile sheet and the command palette all ask, and it is one fact however
+ * many of them do. The shell passes a `null` key when the reader holds
+ * `EDIT_RECORDS` — they get the row on that ground alone, because they can
+ * send, so the request is not worth making.
+ *
+ * `null` reads as *no*: an item that appears a moment late beats one that
+ * appears and is taken away under somebody's pointer.
+ *
+ * ## What the number is, exactly
+ *
+ * **Rows `/signatures` returns to this session** — not "rows about me". The
+ * two differ for somebody holding `EDIT_RECORDS`, for whom the endpoint
+ * returns the whole company. That is not a defect and it is not read: the
+ * shell answers the nav from the permission for those people and passes a
+ * `null` key here. And were it read, `> 0` would still be the right answer to
+ * the question being asked — is there anything in this module for you.
+ *
+ * The distinction matters for the write in `useSignatures`, which is why the
+ * name of the resource is deliberately about signatures rather than about
+ * "mine".
+ */
+const anySignature = createSharedResource<number>((_employeeId, signal) =>
+  /* No id parameter — the endpoint scopes itself to the token's own claims.
+     The key exists so signing in as somebody else does not inherit the last
+     person's answer. */
+  signaturesApi.list(undefined, signal).then((rows) => rows.length),
+);
+
+/**
+ * The cache key for `anySignature`.
+ *
+ * The account id as well as the employee id, because the API counts rows this
+ * person *sent* too — and an account with no staff record can have sent one.
+ * Keyed on the employee alone, every such account would share one entry and
+ * read each other's answer.
+ */
+function useSignatureCacheKey(): string {
+  const { employeeId, user } = useSession();
+  return `${user?.id ?? "none"}|${employeeId ?? "none"}`;
+}
+
+/** True when this person has at least one. See `anySignature`. */
+export function useHaveIAnySignatures(enabled: boolean): boolean {
+  const { isConnected } = useSession();
+  const key = useSignatureCacheKey();
+  const count = anySignature.use(isConnected && enabled ? key : null);
+  return count !== null && count > 0;
 }
 
 export function useSignatureMutations() {

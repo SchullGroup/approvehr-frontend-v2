@@ -18,6 +18,8 @@ import {
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { usePermissions } from "@/lib/permissions";
 import { useReports } from "@/lib/store/insights";
+import { useOrgTimezone } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
 import { employmentTypeLabel, naira } from "@/lib/api/insights";
 import { monthLabel } from "@/lib/api/overtime";
 import { Field, Select } from "@/components/ui";
@@ -28,13 +30,20 @@ function monthKey(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-/** This month first, then back a year. Anything older is a different feature. */
-function recentMonths(count = 13): string[] {
-  const now = new Date();
+/**
+ * This month first, then back a year. Anything older is a different feature.
+ *
+ * "This month" is the company's, via `timeZone` — `todayIn` rather than a
+ * bare `new Date()`, which named October's report September for the last
+ * ninety minutes of every month in Africa/Lagos.
+ */
+function recentMonths(timeZone: string, count = 13): string[] {
+  const [year, month] = todayIn(timeZone)
+    .slice(0, 7)
+    .split("-")
+    .map(Number) as [number, number];
   return Array.from({ length: count }, (_, i) =>
-    monthKey(
-      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1)),
-    ),
+    monthKey(new Date(Date.UTC(year, month - 1 - i, 1))),
   );
 }
 
@@ -126,15 +135,26 @@ function Reports() {
    * or an error is a control that cannot answer, and this screen already has
    * three states that render neither figure nor filter.
    */
-  const months = useMemo(() => recentMonths(), []);
-  const [period, setPeriod] = useState<string>(() => months[0] ?? "");
-  const { data, loading, error, reload } = useReports(period);
+  const timeZone = useOrgTimezone();
+  const months = useMemo(() => recentMonths(timeZone), [timeZone]);
+  /**
+   * `null` until somebody picks a month, not `months[0]` snapshotted at
+   * mount: `useOrgTimezone()` answers `"Africa/Lagos"` until the session
+   * hydrates, so a company in another zone would otherwise have its first
+   * render freeze `period` on the wrong month's list — for the whole rest of
+   * the session, not just the loading flicker — with no re-sync once the
+   * real zone arrives. Falling back to `months[0]` at the point of use keeps
+   * this current with `months` for as long as nobody has chosen otherwise.
+   */
+  const [period, setPeriod] = useState<string | null>(null);
+  const effectivePeriod = period ?? months[0] ?? "";
+  const { data, loading, error, reload } = useReports(effectivePeriod);
 
   const monthPicker = (
     <div className="min-w-44">
       <Field label="Month">
         <Select
-          value={period}
+          value={effectivePeriod}
           onChange={(event) => setPeriod(event.target.value)}
         >
           {months.map((month) => (
@@ -194,6 +214,52 @@ function Reports() {
     operationalLoad,
     workforce,
   } = data;
+
+  /**
+   * A report that arrived without one of its sections.
+   *
+   * Refused as a whole rather than rendered around the gap, and **not**
+   * defaulted to zeros: "0 approvals pending" and "we were not told how many"
+   * are different facts, and this screen exists to be read as a figure
+   * somebody acts on. Absent is not zero — the rule this codebase applies to
+   * an unrated competency and an unscored week applies to a report section.
+   *
+   * It happens when the API is older than this bundle, which a browser cannot
+   * pin: a deploy puts new code in front of people while the API behind it is
+   * whatever it is. The dashboard hit the same skew and threw
+   * `Cannot read properties of undefined (reading 'trend')` from inside a
+   * render, because its sections were typed as always present. They are
+   * optional now — see `ReportsData` — and this is the honest end of that.
+   */
+  if (!headcount || !operationalLoad || !workforce) {
+    return (
+      <>
+        <PageHeader title="Reports" />
+        <PageBody>
+          <Card>
+            <CardBody className="flex flex-col items-start gap-3">
+              <p className="text-body text-ink">
+                This report came back without all of its figures, so it is not
+                shown rather than shown with gaps in it. Nothing is wrong with
+                your data.
+              </p>
+              <p className="text-body-sm text-muted">
+                It usually means the server is mid-deploy. Try again in a
+                minute; if it keeps happening, it needs looking at.
+              </p>
+              <button
+                type="button"
+                onClick={reload}
+                className="text-body-sm font-medium text-accent-text underline"
+              >
+                Try again
+              </button>
+            </CardBody>
+          </Card>
+        </PageBody>
+      </>
+    );
+  }
   const totalPeople = headcount.byDepartment.reduce((s, d) => s + d.count, 0);
   /* The employment-mix whole, which is not necessarily `totalPeople` — see the
      donut below. */

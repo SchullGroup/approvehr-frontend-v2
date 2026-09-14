@@ -11,9 +11,12 @@ import {
   type ApiActionResult,
   type ApiAssistantAction,
   type ApiChatMessage,
+  type ApiChatReply,
   type ApiProposedAction,
 } from "@/lib/api/ai";
 import { useSession } from "./session";
+import { findScriptedAnswer } from "@/lib/mock/sales-script-qa";
+import { scriptedFallback } from "@/lib/sales-script";
 
 /**
  * The assistant conversation.
@@ -190,6 +193,29 @@ export function useAssistantChat(): ChatState & ChatActions {
   const sequence = useRef(0);
 
   /** Everything after this point is a click, so `turns` is never read in render. */
+  /**
+   * A prepared reply for the last thing the visitor typed.
+   *
+   * Shaped as an `ApiChatReply` so the whole transcript path below — the
+   * out-of-order guard, the unavailable branch, the proposal handling — runs
+   * unchanged. The alternative was a second code path through the chat, which is
+   * how the scripted build and the real one drift apart.
+   *
+   * The **last** user turn, not the whole conversation: there is no model here
+   * to carry context, so pretending otherwise would be the fabrication
+   * `store/ai.ts` warns about. A prospect asking a follow-up gets an answer to
+   * the follow-up, or an honest miss.
+   */
+  function scriptedReplyFor(turns: readonly ChatTurn[]): ApiChatReply {
+    const lastUser = [...turns].reverse().find((turn) => turn.role === "user");
+    const found = lastUser ? findScriptedAnswer(lastUser.content) : null;
+    return {
+      available: true,
+      text: found ? found.answer : scriptedFallback(),
+      used: found?.used ?? [],
+    };
+  }
+
   const exchange = useCallback(async (next: ChatTurn[]): Promise<boolean> => {
     const mine = ++sequence.current;
     setTurns(next);
@@ -197,7 +223,12 @@ export function useAssistantChat(): ChatState & ChatActions {
     setError(null);
 
     try {
-      const reply = await chat(toWire(next));
+      /* Prepared, or live. One assignment rather than two paths, so
+         everything below this line is the same code in both builds — see
+         `scriptedReplyFor`. */
+      const reply: ApiChatReply = SALES_SCRIPT_ENABLED
+        ? scriptedReplyFor(next)
+        : await chat(toWire(next));
       if (sequence.current !== mine) return false;
 
       /* An assistant that went away mid-conversation. `reason` is not an
@@ -258,7 +289,10 @@ export function useAssistantChat(): ChatState & ChatActions {
       const trimmed = text.trim();
       if (trimmed.length === 0 || sending) return false;
 
-      if (!isConnected) {
+      /* The scripted build is offline **and** has something to answer from, so
+         the refusal below is not true of it. Every other offline build still
+         gets it. */
+      if (!SALES_SCRIPT_ENABLED && !isConnected) {
         setError(
           "The assistant needs the API. There are no records here for it to read.",
         );

@@ -16,16 +16,17 @@
  * `lib/store/persisted.ts` on purpose — a `<script>` tag's content cannot
  * import a TS module. Keep the key ("approvehr.theme.store") and the
  * `{v, data}` envelope shape in sync with `createPersistedState` if either
- * ever changes; `v` is hardcoded to `1` here because that store never passes
- * a custom `version`.
+ * ever changes; `v` is hardcoded to `2` here because that is the `version`
+ * `theme.ts` passes explicitly. No `matchMedia` read, on purpose — light is
+ * the default and dark is reached only by a manual choice on the Appearance
+ * screen; this never asks the OS.
  */
 export const THEME_INIT_SCRIPT = `(function(){try{
   var raw = localStorage.getItem("approvehr.theme.store");
-  var choice = "system";
+  var choice = "light";
   if (raw) {
     var p = JSON.parse(raw);
-    if (p && p.v === 1 && p.data && typeof p.data.choice === "string") choice = p.data.choice;
+    if (p && p.v === 2 && p.data && typeof p.data.choice === "string") choice = p.data.choice;
   }
-  var dark = choice === "dark" || (choice === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
-  if (dark) document.documentElement.setAttribute("data-theme", "dark");
+  if (choice === "dark") document.documentElement.setAttribute("data-theme", "dark");
 } catch (e) {}})();`;

@@ -380,6 +380,10 @@ function demoDocument(seed: SeedDocument): ApiDocument {
     category: seed.category,
     /* A key, never a URL — the same rule the API enforces. */
     storageKey: `demo/${seed.employeeId}/${seed.id}`,
+    /* False, and that is the honest answer: the demo has no bytes for these,
+       so the download is not offered rather than offered and broken. Demo mode
+       holds no files at all — see the note at the top of this file. */
+    hasFile: false,
     sizeBytes: seed.sizeBytes ?? null,
     mimeType: "application/pdf",
     verified: seed.verified,

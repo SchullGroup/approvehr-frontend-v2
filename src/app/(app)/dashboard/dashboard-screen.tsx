@@ -17,6 +17,7 @@ import { useSessionRoles, roleTier, type RoleTier } from "@/lib/roles";
 import { useDashboard, useReports } from "@/lib/store/insights";
 import { useDashboardLayout } from "@/lib/store/dashboard-layout";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
+import { cn } from "@/lib/cn";
 import { checklistRows } from "../settings/checklist";
 import { SetupGuide } from "./setup-guide";
 import { DashboardHeader } from "./header";
@@ -239,7 +240,30 @@ export function DashboardScreen() {
               const Widget = WIDGET_COMPONENTS[widget.id];
               if (!Widget) return null;
               return (
-                <div key={widget.id} className={SPAN_CLASS[widget.span]}>
+                <div
+                  key={widget.id}
+                  /* `empty:hidden` is what makes the paragraph above true.
+                     ------------------------------------------------------
+                     Every widget returns `null` when it has nothing to draw,
+                     and the header has always claimed that leaves no hole —
+                     but this wrapper was emitted either way, so a quiet widget
+                     kept its columns and the grid held a gap where it used to
+                     be. On an owner's standard dashboard that was two gaps:
+                     `my-queue` holding the first quarter of the stat row while
+                     drawing nothing, and `chart-headcount-trend` holding half a
+                     row, which left Hiring stranded beside white space.
+
+                     A `null` child leaves the div with no child nodes at all,
+                     so `:empty` matches it and `display: none` takes it out of
+                     the grid — the row closes up and the next widget moves
+                     into the slot. It cannot false-positive on a widget that
+                     drew something, because anything rendered is a child node.
+
+                     Applied here rather than inside each widget so the rule
+                     holds for all of them, including the next one somebody
+                     adds. */
+                  className={cn(SPAN_CLASS[widget.span], "empty:hidden")}
+                >
                   <Widget {...props} />
                 </div>
               );

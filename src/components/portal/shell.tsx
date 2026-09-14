@@ -3,22 +3,26 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  Bell,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Menu,
-  Search,
-  X,
-} from "lucide-react";
+import { Bell, ChevronDown, ChevronLeft, Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useCanGoBack } from "@/lib/nav-history";
 import { Logo } from "@/components/brand/logo";
-import { Avatar, Badge, MoneyPrivacyToggle } from "@/components/ui";
+import {
+  Avatar,
+  Badge,
+  MoneyPrivacyToggle,
+  ThemeToggle,
+} from "@/components/ui";
 import { CommandPalette } from "./command-palette";
+import { ClockMenu } from "./clock-menu";
 import { GuidedTour, openTour } from "./tour/guided-tour";
-import { NAV, visibleNav, type BadgeSource, type NavGroup } from "./nav";
+import {
+  NAV,
+  visibleNav,
+  type BadgeSource,
+  type NavFacts,
+  type NavGroup,
+} from "./nav";
 import { SessionRoleBadge } from "./role-badge";
 import {
   hasAnyPermission,
@@ -31,10 +35,13 @@ import { useAssistantAvailable } from "@/lib/store/ai";
 import { useUnreadCount } from "@/lib/store/notifications";
 import { useApprovalQueue } from "@/lib/store/approvals-api";
 import { useLeaveRequests } from "@/lib/store/leave-api";
-import { useAttendanceRoster } from "@/lib/store/attendance";
+import { useAttendanceRoster, type RosterState } from "@/lib/store/attendance";
+import { useAmIInAOneOnOne } from "@/lib/store/one-on-ones";
+import { useHaveIAnySignatures } from "@/lib/store/signatures";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
 import { useSession } from "@/lib/store/session";
 import { useCompanyLogo } from "@/lib/store/company";
+import { InstallPrompt } from "./install-prompt";
 import { VerificationBanner } from "./verification-banner";
 
 /**
@@ -47,7 +54,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const pathname = usePathname();
-  const badges = useNavBadges();
+  /* One roster read for the whole chrome, handed to both readers.
+     `useNavBadges` used to make this call itself; the clock menu needs the
+     same answer, and a second call would be a second `GET /attendance/roster`
+     on every page load whose answer could differ from the badge's — leaving
+     the sidebar count and the clock menu disagreeing about whether you are on
+     the clock. */
 
   /* The `/` shortcut the search button's own `kbd` promises. Ignored while
      already typing somewhere — a `/` in a note or an amount must reach the
@@ -72,17 +84,88 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  /* The sidebar is filtered by who is looking, what the company turned on, and
-     whether an assistant is answering. All three hooks answer from a cache after
-     first load, so this is not a request per render — see their headers.
-     `useAssistantAvailable` was a per-component `useState` until the nav started
-     reading it; it is a session-wide singleton now for exactly this line. */
+  /* The sidebar is filtered by who is looking, what the company turned on,
+     whether an assistant is answering, and what the rows say. Every hook here
+     answers from a cache after first load, so this is not a request per
+     render — see their headers. `useAssistantAvailable` was a per-component
+     `useState` until the nav started reading it; it is a session-wide
+     singleton now for exactly this line. */
   const { permissions } = usePermissions();
   const features = useFeatures();
   const { available: assistantWired } = useAssistantAvailable();
+  /* Asked again here rather than lifted out of `useNavBadges`: the answer is a
+     shared, session-cached fact about one person (see `useIsManager`), so a
+     second reader is a map lookup, and threading it between two hooks in this
+     file would couple the sidebar's filter to the badge counts. */
+  const isManager = useIsManager();
+  /* On its own line rather than `||`-ed into `rosterIsRead` below: a
+     short-circuit would skip a hook on whichever render an earlier term
+     answers true, and hooks must run in the same order every render. */
+  const { employeeId: myEmployeeId } = useSession();
+
+  /* The chrome's one roster read, handed to both things that need it --
+     `useNavBadges` used to make it itself, and a second call would be a second
+     `GET /attendance/roster` per page load whose answer could differ from the
+     badge's, leaving the sidebar count and the clock menu disagreeing about
+     whether you are on the clock.
+
+     Both readers are conditional, and for one kind of account neither ever
+     fires: an account with no employee record has nothing to clock, and one
+     without `EDIT_RECORDS` or a direct report is not shown the `notClockedIn`
+     count. That account is refused this read -- correctly, see
+     `attendance/router.ts#attendanceScope` -- so asking was a guaranteed 403
+     on every page it opened. Both facts are known here, so it no longer asks.
+     Nothing rendered changes either way: the badge reads 0 and the clock menu
+     is absent. */
+  const rosterIsRead =
+    Boolean(myEmployeeId) ||
+    isManager ||
+    hasPermission(permissions, "EDIT_RECORDS");
+  const roster = useAttendanceRoster(undefined, rosterIsRead);
+  const badges = useNavBadges(roster);
+
+  /* One-to-ones: showing to somebody who manages people, or who is in one as
+     the report.
+     ---------------------------------------------------------------------
+     `isManager` is already in this component for the approvals badge, so the
+     first half costs nothing. The second half is a request, and it is skipped
+     for a manager — `enabled` is false there, so the hook passes a null key
+     and fetches nothing. The item is already showing on the first ground; a
+     second reason to show it is not worth a round trip.
+
+     Which puts the one request on exactly the people this is for: an employee
+     with no reports, once per session, and the answer is usually an empty
+     list. */
+  const inAOneOnOne = useAmIInAOneOnOne(!isManager);
+
+  /* Signatures: showing to somebody who can send, or who has one of their own.
+     ---------------------------------------------------------------------
+     Same shape as above and the same skip: `EDIT_RECORDS` is the permission
+     the API requires to send, so anybody holding it gets the row on that
+     ground and the request is not made for them. Everybody else pays one
+     request per session to find out whether the module is theirs. */
+  const canSendForSignature = hasPermission(permissions, "EDIT_RECORDS");
+  const haveSignatures = useHaveIAnySignatures(!canSendForSignature);
+
+  const facts: NavFacts = useMemo(
+    () => ({
+      assistantWired,
+      rows: {
+        "one-on-ones": isManager || inAOneOnOne,
+        signatures: canSendForSignature || haveSignatures,
+      },
+    }),
+    [
+      assistantWired,
+      isManager,
+      inAOneOnOne,
+      canSendForSignature,
+      haveSignatures,
+    ],
+  );
   const groups = useMemo(
-    () => visibleNav(NAV, permissions, features, assistantWired),
-    [permissions, features, assistantWired],
+    () => visibleNav(NAV, permissions, features, facts),
+    [permissions, features, facts],
   );
 
   const nav = (
@@ -115,12 +198,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
           </button>
 
+          {/* The wordmark costs 149px and a phone has 375. With it, the whole
+              right-hand cluster sat past the right edge: the user menu's own
+              right edge measured 405 on a 375 viewport *before* the clock icon
+              was added here, so the avatar was already clipped and adding a
+              sixth control made it 443. The mark alone is 28px and everything
+              fits. `showWordmark` already existed on `Logo` for exactly this.
+              `shrink-0` on the link so the mark is never squashed instead. */}
           <Link
             href="/dashboard"
             aria-label="ApproveHR home"
-            className="text-ink hover:opacity-80"
+            className="shrink-0 text-ink hover:opacity-80"
           >
-            <Logo size={24} />
+            <Logo size={24} className="hidden sm:block" />
+            <Logo size={24} showWordmark={false} className="sm:hidden" />
           </Link>
 
           <CompanySwitcher />
@@ -150,7 +241,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 the row somebody forgot is the one that matters. It hides; what
                 decides who may *know* a salary is `VIEW_SALARIES` on the
                 server, which does not send the number at all. */}
+            {/* Light or dark. The preference and both halves that apply it
+                already existed; the only way to reach it was Settings →
+                Appearance, which is a page load away from wherever somebody
+                notices the room has got dark. The Appearance screen keeps the
+                explanation — including that this is per-browser and not synced
+                — and this is the same one setting, in the chrome. */}
+            <ThemeToggle />
+
             <MoneyPrivacyToggle />
+
+            {/* Clocking in and out without leaving the page you are on.
+                Absent for an account with no employee record, and for a
+                company that has never clocked anybody in — see the header of
+                `clock-menu.tsx` for both, and for the day-one consequence of
+                the second. */}
+            <ClockMenu roster={roster} />
 
             {/* Was a button that did nothing, labelled "3 unread" whatever the
                 truth was. Now a link to the inbox with the real count — the
@@ -215,6 +321,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               so it stays on screen through a scroll rather than scrolling
               away with the page. */}
           <VerificationBanner />
+          {/* Below the verification strip, because verifying an email is
+              something you have to do and installing the app is a suggestion.
+              Renders nothing on a desktop, nothing if it is already installed,
+              and nothing in a browser that cannot install — see the component. */}
+          <InstallPrompt />
           {children}
         </main>
       </div>
@@ -260,7 +371,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
  *   `useAttendanceRoster` hooks the approvals inbox, the leave screen and
  *   the attendance screen already call.
  */
-function useNavBadges(): Record<BadgeSource, number> {
+function useNavBadges(roster: RosterState): Record<BadgeSource, number> {
   const unread = useUnreadCount();
   const isManager = useIsManager();
   const { permissions } = usePermissions();
@@ -281,7 +392,6 @@ function useNavBadges(): Record<BadgeSource, number> {
     employeeId: employeeId ?? "",
     status: "pending",
   });
-  const roster = useAttendanceRoster();
 
   return {
     unreadNotifications: unread,
@@ -329,52 +439,6 @@ function resolveActiveHref(
   return best;
 }
 
-/**
- * The sidebar, with one module open at a time.
- *
- * ## Why the modules collapse and the rest does not
- *
- * Every item used to be on screen at once. That was fine at four or five items
- * a module and stopped being fine as the modules filled out: Recruitment went
- * from one link to six and Performance from one to seven, so a company with
- * everything switched on had a sidebar taller than the viewport, and the thing
- * you were looking for was as likely to be below the fold as in front of you.
- * Scrolling a nav to find a nav is the failure.
- *
- * Only the **module** groups collapse. The two headingless blocks — Home, My
- * approvals and Assistant at the top, Reports, Settings and Roles at the
- * bottom — stay open always, because neither is a module and both are things
- * somebody reaches from anywhere. Collapsing "your own queue" behind a click
- * would be the opposite of the point.
- *
- * ## One at a time, and the route decides which
- *
- * Opening a module closes the one that was open. What is open by default is
- * **the module the current page is in**, which is the only default that cannot
- * leave somebody looking at a screen whose own nav item is hidden.
- *
- * `override` is a deliberate click, and it is dropped the moment the route
- * moves into a different module — so navigating always wins over a stale
- * choice, and the group you are in reopens itself. That comparison is done
- * during render rather than in an effect: an effect would apply it a frame
- * late, which is a visible flash of the wrong group open.
- *
- * Clicking the open module therefore does not collapse to nothing — it clears
- * the override and falls back to the route's own group. There is no state in
- * which the sidebar shows six shut modules and no way of telling which screen
- * you are on, which a plain toggle would have allowed.
- *
- * A module that is closed while holding the current page keeps a dot on its
- * heading. That is the case the exclusive behaviour creates — click Payroll
- * while sitting on a Performance screen and Performance shuts — and the dot is
- * what stops "where am I" becoming unanswerable.
- *
- * ## Collapsed means gone, not merely invisible
- *
- * The list is `hidden`, which takes it out of the tab order and out of the
- * accessibility tree. A collapsed group whose links are still tabbable is a
- * keyboard user tabbing through thirty invisible destinations.
- */
 function SidebarNav({
   groups,
   pathname,
@@ -388,145 +452,81 @@ function SidebarNav({
 }) {
   const activeHref = resolveActiveHref(groups, pathname);
 
-  /* The module holding the current page, by heading. Null on a route that
-     belongs to one of the headingless blocks. */
-  const activeHeading =
-    groups.find(
-      (group) =>
-        group.heading !== undefined &&
-        group.items.some((item) => item.href === activeHref),
-    )?.heading ?? null;
-
-  const [override, setOverride] = useState<string | null>(null);
-  const [lastActive, setLastActive] = useState<string | null>(activeHeading);
-
-  /* Adjusted during render — the "you might not need an effect" pattern. */
-  if (activeHeading !== lastActive) {
-    setLastActive(activeHeading);
-    setOverride(null);
-  }
-
-  const openHeading = override ?? activeHeading;
-
   return (
     <nav aria-label="Main" className="flex flex-col gap-6">
-      {groups.map((group, gi) => {
-        const collapsible = group.heading !== undefined;
-        const open = !collapsible || group.heading === openHeading;
-        /* Only worth saying when the group is shut: open, the highlight on the
-           item itself already says it. */
-        const holdsActiveWhileShut =
-          collapsible && !open && group.heading === activeHeading;
-        const listId = `nav-group-${String(gi)}`;
+      {groups.map((group, gi) => (
+        <div key={group.heading ?? `g${gi}`}>
+          {group.heading && (
+            <h2 className="mb-1.5 px-2.5 text-meta font-semibold text-faint">
+              {group.heading}
+            </h2>
+          )}
+          <ul className="flex flex-col gap-0.5">
+            {group.items.map((item) => {
+              const active = item.href === activeHref;
 
-        return (
-          <div key={group.heading ?? `g${gi}`}>
-            {collapsible && (
-              <h2>
-                <button
-                  type="button"
-                  aria-expanded={open}
-                  aria-controls={listId}
-                  onClick={() =>
-                    setOverride(open ? null : (group.heading ?? null))
-                  }
-                  className={cn(
-                    "mb-1.5 flex w-full items-center gap-1.5 rounded-md px-2.5 py-1 text-meta font-semibold",
-                    "transition-colors duration-150 hover:bg-surface",
-                    open ? "text-muted" : "text-faint hover:text-muted",
-                  )}
-                >
-                  <ChevronRight
-                    aria-hidden="true"
+              const count =
+                item.badgeSource !== undefined
+                  ? badges[item.badgeSource]
+                  : item.badge;
+
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    /* The guided tour points at items by route, so it can only
+                     ever highlight one this company actually has — the list
+                     here is already filtered by permission and feature. */
+                    data-tour={`nav-item:${item.href}`}
+                    onClick={onNavigate}
                     className={cn(
-                      "size-3 shrink-0 transition-transform duration-150",
-                      open && "rotate-90",
+                      "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-body-sm font-medium",
+                      "transition-colors duration-150",
+                      active
+                        ? "bg-accent-soft text-accent-text"
+                        : "text-body hover:bg-surface hover:text-ink",
                     )}
-                  />
-                  <span className="min-w-0 flex-1 truncate text-left">
-                    {group.heading}
-                  </span>
-                  {holdsActiveWhileShut && (
-                    <>
-                      <span
-                        aria-hidden="true"
-                        className="size-1.5 shrink-0 rounded-full bg-accent"
-                      />
-                      <span className="sr-only">
-                        contains the page you are on
-                      </span>
-                    </>
-                  )}
-                </button>
-              </h2>
-            )}
-            <ul id={listId} hidden={!open} className="flex flex-col gap-0.5">
-              {group.items.map((item) => {
-                const active = item.href === activeHref;
-
-                const count =
-                  item.badgeSource !== undefined
-                    ? badges[item.badgeSource]
-                    : item.badge;
-
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      aria-current={active ? "page" : undefined}
-                      /* The guided tour points at items by route, so it can only
-                       ever highlight one this company actually has — the list
-                       here is already filtered by permission and feature. */
-                      data-tour={`nav-item:${item.href}`}
-                      onClick={onNavigate}
+                  >
+                    <span
+                      aria-hidden="true"
                       className={cn(
-                        "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-body-sm font-medium",
-                        "transition-colors duration-150",
+                        "shrink-0 [&>svg]:size-4",
                         active
-                          ? "bg-accent-soft text-accent-text"
-                          : "text-body hover:bg-surface hover:text-ink",
+                          ? "text-accent-text"
+                          : "text-faint group-hover:text-muted",
                       )}
                     >
+                      {item.icon}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {item.label}
+                    </span>
+
+                    {item.soon && (
+                      <span className="shrink-0 text-meta font-normal text-faint">
+                        Coming soon
+                      </span>
+                    )}
+                    {count !== undefined && count > 0 && !item.soon && (
                       <span
-                        aria-hidden="true"
                         className={cn(
-                          "shrink-0 [&>svg]:size-4",
+                          "tabular shrink-0 rounded-full px-1.5 py-0.5 text-meta font-semibold",
                           active
-                            ? "text-accent-text"
-                            : "text-faint group-hover:text-muted",
+                            ? "bg-accent text-white"
+                            : "bg-sunken text-muted",
                         )}
                       >
-                        {item.icon}
+                        {count}
                       </span>
-                      <span className="min-w-0 flex-1 truncate">
-                        {item.label}
-                      </span>
-
-                      {item.soon && (
-                        <span className="shrink-0 text-meta font-normal text-faint">
-                          Coming soon
-                        </span>
-                      )}
-                      {count !== undefined && count > 0 && !item.soon && (
-                        <span
-                          className={cn(
-                            "tabular shrink-0 rounded-full px-1.5 py-0.5 text-meta font-semibold",
-                            active
-                              ? "bg-accent text-white"
-                              : "bg-sunken text-muted",
-                          )}
-                        >
-                          {count}
-                        </span>
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        );
-      })}
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
     </nav>
   );
 }
@@ -775,6 +775,7 @@ export function PageHeader({
   breadcrumb,
   action,
   meta,
+  description,
   tabs,
 }: {
   title: string;
@@ -782,6 +783,20 @@ export function PageHeader({
   action?: React.ReactNode;
   /** Small status chips shown beside the title. */
   meta?: React.ReactNode;
+  /**
+   * One sentence saying what this screen is, under the title.
+   *
+   * Distinct from `meta`, which is chips *beside* the title — a status, a
+   * count, a padlock. This is for a screen whose name does not explain it, and
+   * it exists because "One-to-ones" with a padlock reading "private to the two
+   * people in them" told somebody what the permissions were and nothing about
+   * what the thing was or why it was theirs.
+   *
+   * Use it sparingly. Most screens in this product are named after the noun
+   * they list and a sentence under them is furniture; the ones that need it are
+   * the ones somebody clicks once and leaves.
+   */
+  description?: string;
   tabs?: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -889,6 +904,14 @@ export function PageHeader({
               <h1 className="text-h3 text-ink">{title}</h1>
               {meta}
             </div>
+            {description && (
+              /* `max-w-2xl` so a sentence does not run the full width of a
+                 desktop — a line somebody has to track across 1600px is a line
+                 they skip, which defeats the point of having written it. */
+              <p className="mt-1.5 max-w-2xl text-body-sm leading-relaxed text-body">
+                {description}
+              </p>
+            )}
           </div>
           {action && (
             /* Wraps, and is allowed to shrink.

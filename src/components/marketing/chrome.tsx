@@ -247,6 +247,8 @@ const FOOTER_LINKS: { heading: string; links: [string, string][] }[] = [
 ];
 
 export function MarketingFooter() {
+  const year = new Date().getFullYear(); // reads-the-clock: a copyright year on a public page with no company/zone to read
+
   return (
     <footer className="border-t border-sand-line bg-sand-deep">
       <div className="container-page py-16">
@@ -285,8 +287,7 @@ export function MarketingFooter() {
           <div className="flex items-center gap-2.5">
             <LogoMark size={18} className="text-slate" />
             <p className="text-meta text-slate-muted">
-              © {new Date().getFullYear()} ApproveHR, a Schull Technologies
-              company. Lagos, Nigeria.
+              © {year} ApproveHR, a Schull Technologies company. Lagos, Nigeria.
             </p>
           </div>
           <p className="text-meta text-slate-muted">

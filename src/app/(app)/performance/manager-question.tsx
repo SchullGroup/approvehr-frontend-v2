@@ -18,6 +18,12 @@ const KINDS: { value: ReviewQuestionKind; label: string }[] = [
   { value: "RATING", label: "A rating on the company scale" },
   { value: "TEXT", label: "In their own words" },
   { value: "BOOLEAN", label: "Yes or no" },
+  /* Safe here where it needs a rule in HR's builder: this dialog offers only
+     the manager and the person themselves, so an evidence question can never
+     reach the anonymous peer audience the API refuses it for. Asking your own
+     report for the report behind a number is the commonest version of this
+     question there is. */
+  { value: "FILE", label: "A file — a report, a dashboard, a screenshot" },
 ];
 
 const AUDIENCES: { value: ReviewAudience; label: string }[] = [

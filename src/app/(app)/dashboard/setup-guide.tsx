@@ -131,7 +131,12 @@ export function SetupGuide({
     onOpen,
   ]);
 
-  if (!open) return null;
+  /* No `if (!open) return null` here. `Modal` below is what decides whether
+     to render, from its own `useDismiss` state — this component has to stay
+     mounted and keep passing the real `open` through so `Modal` can see it go
+     false and play its exit animation. An early return here would remove the
+     whole `<Modal>` subtree the instant `open` flips, which is the exact bug
+     `useDismiss` exists to fix, one level higher than `Modal` itself. */
 
   /* Every counted row, not only the outstanding ones. Somebody halfway through
      wants to see what they have already done — a walk that showed only what is
@@ -169,7 +174,7 @@ export function SetupGuide({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={close}
       size="md"
       title="Setting up your company"

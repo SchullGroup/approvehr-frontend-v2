@@ -3,7 +3,27 @@ import path from "node:path";
 import { RATING_LABELS, RATING_MEANING } from "../src/lib/api/performance";
 
 /**
- * The 1–5 scale must say the same thing on both sides of the wire.
+ * The 1–5 **defaults** must say the same thing on both sides of the wire.
+ *
+ * ## What changed under this check, and why it still matters
+ *
+ * The scale is a company's own choice now — `RatingScaleLevel` on the API, and
+ * `/settings/performance` is where the five words are set. So neither of these
+ * constants is "the scale" any more; both are the **fallback** the API serves
+ * a company that has never chosen.
+ *
+ * That makes the check *more* load-bearing rather than less. A company that
+ * has never visited the settings screen — which is most of them — sees this
+ * set on every form, and `ReviewCycle.scoringSnapshot` freezes that same set
+ * onto the cycle when it starts. The two sides disagreeing about the default
+ * is the two sides disagreeing about the scale, for every one of those
+ * tenants, with a frozen record to match.
+ *
+ * The bare-number check below is unchanged and still checks what it always
+ * did: a mark read back as a digit. Its fix is now `ratingWordsFrom(scale)`
+ * rather than `ratingWords`, because a screen quoting the constant misquotes
+ * every company that renamed a level — the same defect this file exists for,
+ * one level up.
  *
  * This is the gate for a defect that had already happened twice over. **Three**
  * label sets existed across the two repos:
@@ -250,4 +270,7 @@ if (failures > 0) {
   console.log(`\nRating scale check FAILED: ${failures} of ${checks}.`);
   process.exit(1);
 }
-console.log(`\nRating scale check passed. ${checks} checks.`);
+console.log(
+  `\nRating scale check passed. ${checks} checks — the defaults agree, and ` +
+    `every mark is read back in words.`,
+);

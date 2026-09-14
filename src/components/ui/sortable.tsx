@@ -10,6 +10,10 @@ import {
 } from "react";
 import { GripVertical } from "lucide-react";
 import { cn } from "@/lib/cn";
+/* One implementation of "which ancestor scrolls", shared with `drag-into`.
+   It grew an axis when the hiring board needed the horizontal answer; this
+   list only ever wants the vertical one. */
+import { scrollParent } from "./drag-into";
 
 /**
  * A vertical list somebody arranges by dragging, with a keyboard path that is
@@ -362,7 +366,7 @@ export function Sortable<T>({
       /* Auto-scroll near the edges of whatever is actually scrolling — the
          drawer's own body, usually, not the window. Without it a list longer
          than the panel cannot be reordered past the fold at all. */
-      const scroller = scrollParent(rowsOf()[0] ?? null);
+      const scroller = scrollParent(rowsOf()[0] ?? null, "y");
       if (scroller) {
         const box =
           scroller === document.scrollingElement
@@ -582,26 +586,4 @@ export function Sortable<T>({
       </p>
     </>
   );
-}
-
-/**
- * The nearest ancestor that actually scrolls.
- *
- * Needed because the list is usually inside a drawer with its own
- * `overflow-y: auto`, and scrolling the window instead would move nothing.
- * Falls back to the document, which is right for a list on a plain page.
- */
-function scrollParent(node: HTMLElement | null): HTMLElement | null {
-  let current = node?.parentElement ?? null;
-  while (current) {
-    const style = window.getComputedStyle(current);
-    if (
-      /auto|scroll|overlay/.test(style.overflowY) &&
-      current.scrollHeight > current.clientHeight
-    ) {
-      return current;
-    }
-    current = current.parentElement;
-  }
-  return document.scrollingElement as HTMLElement | null;
 }

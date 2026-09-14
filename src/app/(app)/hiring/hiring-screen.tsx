@@ -31,6 +31,7 @@ import {
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
+import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { usePermissions } from "@/lib/permissions";
 import type { RoleRow } from "@/lib/api/hiring";
 import { pipelineSnapshot, useHiringOverview } from "@/lib/store/hiring";
@@ -131,6 +132,7 @@ function Overview() {
       />
 
       <PageBody className="flex flex-col gap-6">
+        <FeatureOffLine feature="hiring" />
         <div className="flex flex-wrap items-center gap-3">
           <SourceBadge live={live} />
           {loading && <span className="text-meta text-muted">Loading…</span>}

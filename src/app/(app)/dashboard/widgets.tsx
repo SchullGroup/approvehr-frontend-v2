@@ -40,6 +40,7 @@ import {
   type ReportsData,
 } from "@/lib/api/insights";
 import { useCan } from "@/lib/permissions";
+import { formatDate } from "@/lib/time";
 
 /**
  * One component per catalogue entry.
@@ -90,7 +91,7 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="h-full">
+    <Card as="article" className="h-full">
       <CardHeader title={title} level={3} description={description} />
       <CardBody>{children}</CardBody>
     </Card>
@@ -142,7 +143,7 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
   if (!anything) return null;
 
   return (
-    <Card>
+    <Card as="article">
       <CardHeader title="Needs you" />
       <CardBody className="flex flex-col gap-3">
         {nobodyOnPayroll && canAddEmployee && (
@@ -469,7 +470,15 @@ const Hiring: WidgetComponent = ({ dashboard }) => {
 
 const HeadcountTrend: WidgetComponent = ({ reports, reportsLoading }) => {
   if (reportsLoading) return <ChartLoading title="Headcount over time" />;
-  const trend = reports?.workforce.trend ?? [];
+  /* `?.` on the **section**, not only on `reports`.
+     ------------------------------------------------------------------------
+     `reports?.workforce.trend` is what put a real company's dashboard behind
+     the error boundary: the first `?.` guards the object that is null while
+     loading, and nothing guarded the section, so an API that does not send
+     `workforce` threw `Cannot read properties of undefined (reading 'trend')`
+     from inside a render. See the note at the top of `ReportsData` — every
+     section is optional now, and the compiler found the other four. */
+  const trend = reports?.workforce?.trend ?? [];
   /* One point is not a trend, and a chart with a single dot on it reads as a
      broken chart rather than as a young company. */
   if (trend.length < 2) return null;
@@ -492,7 +501,7 @@ const HeadcountTrend: WidgetComponent = ({ reports, reportsLoading }) => {
 
 const JoinersLeavers: WidgetComponent = ({ reports, reportsLoading }) => {
   if (reportsLoading) return <ChartLoading title="Joiners and leavers" />;
-  const trend = reports?.workforce.trend ?? [];
+  const trend = reports?.workforce?.trend ?? [];
   if (trend.length < 2) return null;
   const anyMovement = trend.some((row) => row.joiners > 0 || row.leavers > 0);
   /* Nobody has joined or left in the window. A pair of flat empty axes is not
@@ -545,7 +554,7 @@ const StatTurnover: WidgetComponent = ({ reports, reportsLoading }) => {
 
 const StatTenure: WidgetComponent = ({ reports, reportsLoading }) => {
   if (reportsLoading) return null;
-  const months = reports?.workforce.averageTenureMonths;
+  const months = reports?.workforce?.averageTenureMonths;
   if (months === null || months === undefined) return null;
   return (
     <Stat
@@ -565,7 +574,7 @@ const HeadcountByDepartment: WidgetComponent = ({
   reportsLoading,
 }) => {
   if (reportsLoading) return <ChartLoading title="Headcount by department" />;
-  const rows = reports?.headcount.byDepartment ?? [];
+  const rows = reports?.headcount?.byDepartment ?? [];
   if (rows.length === 0) return null;
   return (
     <Panel title="Headcount by department" description="Largest first.">
@@ -580,7 +589,7 @@ const HeadcountByDepartment: WidgetComponent = ({
 
 const EmploymentTypes: WidgetComponent = ({ reports, reportsLoading }) => {
   if (reportsLoading) return <ChartLoading title="Contract types" />;
-  const rows = reports?.headcount.byEmploymentType ?? [];
+  const rows = reports?.headcount?.byEmploymentType ?? [];
   if (rows.length === 0) return null;
   return (
     <Panel title="Contract types">
@@ -876,15 +885,22 @@ function Owed({
   );
 }
 
-/** `2026-08` as `Aug 2026`. Short, because it is an axis label as often as prose. */
+/**
+ * `2026-08` as `Aug 2026`. Short, because it is an axis label as often as
+ * prose. Always UTC: a `YYYY-MM` period has no time-of-day, so there is no
+ * moment for the company's zone to relocate — the day/month/year that
+ * `formatDate` gives is sliced down to month+year rather than reached for
+ * with a fresh Intl call, so this stays covered by the guardrail too.
+ */
 function monthLabel(period: string): string {
   const [year, month] = period.split("-");
   if (!year || !month) return period;
-  return new Date(
-    Date.UTC(Number(year), Number(month) - 1, 1),
-  ).toLocaleDateString("en-GB", {
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, 1));
+  /* NaN-guarded before formatDate, not after: formatDate returns "—" for an
+     unparseable date, and "—".split(" ") is a one-element array, so reading
+     [1] and calling .slice on it would throw instead of degrading — the
+     same shape format.ts's monthLabel guards against. */
+  if (Number.isNaN(date.getTime())) return period;
+  const [, longMonth, y] = formatDate(date, "UTC").split(" ");
+  return `${longMonth.slice(0, 3)} ${y}`;
 }

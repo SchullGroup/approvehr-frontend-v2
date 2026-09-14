@@ -1,6 +1,6 @@
 "use client";
 
-import { request } from "@/lib/api/client";
+import { request, requestPaged } from "@/lib/api/client";
 
 /**
  * One-to-ones — `/api/v1/one-on-ones`.
@@ -47,6 +47,21 @@ export type ApiOneOnOne = {
   overdueDays: number | null;
   meetings: number;
   openActions: number;
+};
+
+/**
+ * Somebody a one-to-one could be started with — a direct report, and nothing
+ * more of their record than a picker needs.
+ *
+ * A narrow read of a wide row on purpose. `/employees` returns the whole
+ * employee, pay included (redacted server-side without `VIEW_SALARIES`), and
+ * declaring three fields here is what stops the next person reaching for a
+ * fourth because it happened to be on the wire.
+ */
+export type ApiPossibleReport = {
+  id: string;
+  fullName: string;
+  jobTitle: string;
 };
 
 export type ApiOneOnOneItem = {
@@ -140,6 +155,45 @@ export const oneOnOnesApi = {
 
   start: (body: { employeeId: string; cadence?: ApiCadence }) =>
     request<ApiOneOnOne>("/one-on-ones", { method: "POST", body }),
+
+  /**
+   * Who this person could start one with. Next to `start`, because it is the
+   * list that feeds it and the two have to agree.
+   *
+   * ## One predicate, asked twice — not two definitions
+   *
+   * The screen used to offer the **whole directory** and let the API refuse
+   * each choice, and its header defended that: filtering here "would need a
+   * second definition of who reports to me on this side, and the two would
+   * drift". The objection was sound and the conclusion was wrong, because
+   * there is a way to ask without defining anything.
+   *
+   * `POST /one-on-ones` accepts a person when
+   * `employee.managerId === caller.employeeId` (one-on-ones `service.ts`).
+   * This asks `/employees?managerId=<caller>`, which is
+   * `where: { managerId: query.managerId }` in the employees service — **the
+   * same column, the same value, the same table.** Nothing is re-derived in
+   * the browser, so there is no second definition to drift from the first.
+   *
+   * ## Why an ordinary employee gets an answer
+   *
+   * `GET /employees` carries no permission — who reports to whom is not
+   * privileged, the org chart already publishes it, and money is redacted
+   * server-side. So this returns for everybody, and for most people it
+   * returns **an empty list**, which is the answer the screen needs in order
+   * to stop offering a button that only ever fails.
+   *
+   * Sorted here rather than by `sort=`: the parameter's accepted values are
+   * the employees module's business, and a name order is not worth coupling to
+   * them.
+   */
+  reports: (employeeId: string, signal?: AbortSignal) =>
+    requestPaged<ApiPossibleReport>("/employees", {
+      query: { managerId: employeeId, pageSize: 200 },
+      ...signalOf(signal),
+    }).then(({ data }) =>
+      [...data].sort((a, b) => a.fullName.localeCompare(b.fullName)),
+    ),
 
   updateSeries: (
     id: string,

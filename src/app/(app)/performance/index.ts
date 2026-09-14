@@ -50,8 +50,12 @@ export { ApprovalReasonDialog, type ApprovalAct } from "./approval-dialogs";
 export {
   AnswerField,
   AppraiserStrip,
+  AttachedEvidence,
+  PeriodFraming,
   ReadAnswer,
   draftFrom,
   filled,
+  periodWords,
+  ratingOptionsFrom,
   type Draft,
 } from "./review-parts";

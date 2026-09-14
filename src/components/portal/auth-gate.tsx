@@ -121,14 +121,42 @@ function SignIn() {
         <ConnectionBadge reachable={reachable} />
       </div>
 
-      {reachable === null && (
+      {/* Only where the answer changes what is offered.
+          ------------------------------------------------------------------
+          The probe exists so a **development** build can decide between a
+          password sign-in and the demo path. A production build has no demo
+          path, so the answer changes nothing a visitor can act on — and
+          saying "Checking whether the API is running…" to a customer signing
+          in tells them about our infrastructure while they wait. It is a
+          development concern, and it now stays in development builds. */}
+      {DEMO_ENABLED && reachable === null && (
         <p className="mt-4 flex items-center gap-2 text-body-sm text-muted">
           <Loader2 aria-hidden="true" className="size-4 animate-spin" />
           Checking whether the API is running…
         </p>
       )}
 
-      {reachable === true && (
+      {/* `!== false`, not `=== true`, and the difference is a network round
+          trip on every single sign-in.
+          ------------------------------------------------------------------
+          `useApiReachable` starts at `null` and resolves after a `ping()`, so
+          gating on `=== true` meant nobody could start typing their email
+          until that request came back. In production that wait buys nothing:
+          there is no second path to choose between, and a sign-in against an
+          API that is genuinely down fails on submit with the real reason
+          rather than a guess made beforehand.
+          The probe still runs, and `Unreachable` below still replaces the form
+          if it comes back false — so an actual outage is still named. What
+
+          What changed is that the ordinary case no longer pays for the
+          exception.
+
+          Split by build rather than applied to both: a **development** build
+          genuinely has a second path, so it waits for the answer and shows
+          either the password form or the demo picker — rendering the form
+          first would flash one that is about to be replaced. Production has
+          nothing to wait for. */}
+      {(DEMO_ENABLED ? reachable === true : reachable !== false) && (
         <>
           <p className="mt-2 text-body leading-relaxed">
             Sign in with your work email. Your role decides what you can see and
@@ -312,7 +340,10 @@ function SignIn() {
 
       {reachable === false && !DEMO_ENABLED && <Unreachable />}
 
-      {reachable !== null && (reachable || DEMO_ENABLED) && (
+      {/* Same split, same reason. The demo build's rule is unchanged: it
+          offered this even with the API down, and with no API there is
+          nothing to register against either way. */}
+      {(DEMO_ENABLED ? reachable !== null : reachable !== false) && (
         <p className="mt-8 border-t border-line pt-6 text-body-sm text-muted">
           New company?{" "}
           <Link

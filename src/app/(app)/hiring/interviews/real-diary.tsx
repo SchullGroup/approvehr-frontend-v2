@@ -12,6 +12,8 @@ import {
 } from "@/components/ui";
 import { INTERVIEW_KIND_LABEL } from "@/lib/api/recruitment";
 import { useInterviews } from "@/lib/store/recruitment";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDate, formatTime } from "@/lib/time";
 
 /**
  * The real diary: scheduled interviews across every requisition, and
@@ -87,16 +89,20 @@ function Row({
   };
   tone: "info" | "warning";
 }) {
-  const when = new Date(interview.scheduledFor);
+  const timeZone = useOrgTimezone();
+  /* `formatDate` gives "5 September 2026" — day and month split off it rather
+     than a fresh Intl call, so the chip and the time below agree on which
+     zone's day this is. Before this, the month came from a browser-local
+     Intl call and the day number from a raw `getDate()` (also browser-local)
+     — consistent with each other, but never with the company's own clock. */
+  const [day, month] = formatDate(interview.scheduledFor, timeZone).split(" ");
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3 transition-colors hover:bg-canvas">
       <div className="flex w-16 shrink-0 flex-col items-center rounded-md bg-sunken px-2 py-1.5">
         <span className="text-meta text-muted">
-          {when.toLocaleDateString("en-NG", { month: "short" })}
+          {month ? month.slice(0, 3) : ""}
         </span>
-        <span className="tabular text-h4 leading-none text-ink">
-          {when.getDate()}
-        </span>
+        <span className="tabular text-h4 leading-none text-ink">{day}</span>
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-body-sm font-medium text-ink">
@@ -112,11 +118,8 @@ function Row({
           {interview.requisitionReference}
         </p>
         <p className="tabular mt-0.5 text-meta text-muted">
-          {when.toLocaleTimeString("en-NG", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}{" "}
-          · {interview.durationMins} mins
+          {formatTime(interview.scheduledFor, timeZone)} ·{" "}
+          {interview.durationMins} mins
           {interview.location ? ` · ${interview.location}` : ""}
         </p>
       </div>

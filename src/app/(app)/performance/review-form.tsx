@@ -25,15 +25,19 @@ import {
   type AnswerBody,
   type ApiFormQuestion,
 } from "@/lib/api/performance";
-import { useReview, useReviewMutations } from "@/lib/store/performance";
+import {
+  useRatingScale,
+  useReview,
+  useReviewMutations,
+} from "@/lib/store/performance";
 import {
   AnswerField,
   AppraiserStrip,
-  RATING_LABELS,
-  RATING_OPTIONS,
+  PeriodFraming,
   ReadAnswer,
   draftFrom,
   filled,
+  ratingOptionsFrom,
   type Draft,
 } from "./review-parts";
 
@@ -93,8 +97,19 @@ export function ReviewFormModal({
 }) {
   const { review, loading, error } = useReview(reviewId);
   const { save, send } = useReviewMutations();
+  /* The company's own five words, for the overall mark. The per-question
+     pickers read the same hook themselves — one request, cached by key. */
+  const { scale } = useRatingScale();
 
   const [draft, setDraft] = useState<Record<string, Draft>>({});
+  /**
+   * True while a file is being read into memory.
+   *
+   * Save and Send are held for it. A form sent in the second between picking
+   * a file and the bytes arriving would send every other answer and silently
+   * drop the evidence — which looks to the person exactly like it worked.
+   */
+  const [reading, setReading] = useState(false);
   const [mark, setMark] = useState<string>("");
   const [summary, setSummary] = useState<string>("");
   const [failed, setFailed] = useState<string | null>(null);
@@ -188,6 +203,17 @@ export function ReviewFormModal({
         body.choiceValue = held.choice;
       } else if (question.kind === "BOOLEAN" && held.bool) {
         body.boolValue = held.bool === "yes";
+      } else if (question.kind === "FILE" && held.file) {
+        /* Only when a file was picked **in this session**. A question whose
+           evidence is already on the record has no `file` in the draft, and
+           re-sending it is not possible — the bytes are behind a download
+           route, not in the browser. So this saves a replacement and leaves
+           an unchanged answer alone, which is what `respond` expects. */
+        body.file = {
+          filename: held.file.filename,
+          contentType: held.file.mimeType,
+          contentBase64: held.file.contentBase64,
+        };
       } else if (held.text && held.text.trim()) {
         body.textValue = held.text.trim();
       } else {
@@ -248,12 +274,18 @@ export function ReviewFormModal({
         editable ? (
           <>
             <Button onClick={onClose}>Close</Button>
-            <Button loading={busy === "save"} onClick={() => void act("save")}>
+            {/* Both held while a file is still being read. See `reading`. */}
+            <Button
+              loading={busy === "save"}
+              disabled={reading}
+              onClick={() => void act("save")}
+            >
               Save and finish later
             </Button>
             <Button
               variant="accent"
               loading={busy === "send"}
+              disabled={reading}
               onClick={() => void act("send")}
             >
               {languageSeen && languageFindings.length > 0
@@ -284,6 +316,15 @@ export function ReviewFormModal({
         </p>
       )}
       <div className="flex flex-col gap-5">
+        {/* Above everything, because it is what somebody reads before they
+            answer anything. Renders nothing when the period states nothing,
+            which is most of the existing ones — nothing was back-filled. */}
+        <PeriodFraming
+          periodStart={review.periodStart}
+          periodEnd={review.periodEnd}
+          instructions={review.instructions}
+          guideUrl={review.guideUrl}
+        />
         <div className="flex flex-wrap items-center gap-2">
           {/* Only once it is sent. "Not sent yet" on an open, half-typed form
               tells the person a thing they can see — they are looking at the
@@ -350,13 +391,16 @@ export function ReviewFormModal({
                 key={question.id}
                 question={question}
                 held={value(question)}
+                reviewId={review.id}
                 onChange={(next) => patch(question.id, next)}
+                onBusyChange={setReading}
               />
             ) : (
               <ReadAnswer
                 key={question.id}
                 question={question}
                 held={value(question)}
+                reviewId={review.id}
               />
             ),
           )
@@ -374,9 +418,9 @@ export function ReviewFormModal({
                 placeholder="No overall mark"
                 onChange={(event) => setMark(event.target.value)}
               >
-                {RATING_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {RATING_LABELS[option]}
+                {ratingOptionsFrom(scale).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </Select>

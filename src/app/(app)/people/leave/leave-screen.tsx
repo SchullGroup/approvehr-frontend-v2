@@ -54,7 +54,8 @@ import {
   useLeaveRequestDetail,
   useLeaveRequests,
 } from "@/lib/store/leave-api";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
 import { TODAY, shortDate } from "@/lib/today";
 import { BookLeaveDialog } from "./book-leave";
 import { HolidayCalendarCard } from "./holiday-calendar";
@@ -128,6 +129,7 @@ export function LeaveScreen() {
      deleting one can be stated at the size they deserve. */
   const canManageSettings = useCan("MANAGE_SETTINGS");
   const session = useSession();
+  const timeZone = useOrgTimezone();
 
   /* `session.employeeId` is the person on the payroll. Never `user.id`, which is
      an account: both carry an `id`, a `firstName` and a `lastName`, so nothing
@@ -207,7 +209,7 @@ export function LeaveScreen() {
   /* Connected, the data is real and so is the date. In demo mode the seed is a
      fixed snapshot and `TODAY` is its "now" — using the real clock there would
      age the whole dataset until it stopped making sense. */
-  const today = connected ? new Date().toISOString().slice(0, 10) : TODAY;
+  const today = connected ? todayIn(timeZone) : TODAY;
 
   /* From `today`, not `new Date()`: demo mode runs on `TODAY`, and the real clock
      would open the calendar on a year the seed has nothing in. */

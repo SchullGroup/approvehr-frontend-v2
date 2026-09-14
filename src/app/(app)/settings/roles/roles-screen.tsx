@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   Trash2,
   TriangleAlert,
-  Users,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -255,30 +254,6 @@ export function RolesScreen({
             hint="fixed, and cannot be deleted"
           />
         </div>
-
-        {roles.counts.peopleWhoCanManageAccess === 1 && (
-          <Callout tone="warning">
-            <p className="font-medium text-ink">
-              One person can manage access. If they leave, nobody can change
-              these roles.
-            </p>
-            <div className="mt-2.5">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  const owner = roles.roles.find((role) =>
-                    role.permissions.includes("MANAGE_ROLES"),
-                  );
-                  if (owner) setOpenId(owner.id);
-                }}
-              >
-                <Users aria-hidden="true" className="size-3.5" />
-                Add somebody
-              </Button>
-            </div>
-          </Callout>
-        )}
 
         {conflicted.map((role) => (
           <Callout key={role.id} tone="warning">
