@@ -91,7 +91,7 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="h-full">
+    <Card as="article" className="h-full">
       <CardHeader title={title} level={3} description={description} />
       <CardBody>{children}</CardBody>
     </Card>
@@ -143,7 +143,7 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
   if (!anything) return null;
 
   return (
-    <Card>
+    <Card as="article">
       <CardHeader title="Needs you" />
       <CardBody className="flex flex-col gap-3">
         {nobodyOnPayroll && canAddEmployee && (
