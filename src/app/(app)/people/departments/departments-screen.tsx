@@ -397,6 +397,11 @@ export function DepartmentsScreen() {
 
       {assigning && (
         <AssignPeopleDialog
+          /* Keyed so assigning to a different department remounts with fresh
+             state, rather than deriving state from props during render —
+             without it, the search text and the ticked selection would carry
+             over onto the next department. */
+          key={assigning.id}
           title={`Assign people to ${assigning.name}`}
           description="Move a group into this department in one go, rather than editing records one at a time."
           effect={`Everybody chosen is reported under ${assigning.name} from now on. Past payslips keep the department they were run with.`}
@@ -483,6 +488,10 @@ export function DepartmentsScreen() {
 
       {assigningHead && (
         <AssignHeadDialog
+          /* Keyed so assigning a different department's head remounts with
+             fresh state, rather than deriving state from props during
+             render. */
+          key={assigningHead.id}
           departmentName={assigningHead.name}
           currentHeadId={assigningHead.headId}
           employees={employees.map((e) => ({
