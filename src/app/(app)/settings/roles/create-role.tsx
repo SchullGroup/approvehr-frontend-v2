@@ -59,6 +59,7 @@ export function CreateRoleDialog({
   roles,
   held,
   from,
+  open,
   onClose,
   onCreate,
 }: {
@@ -66,6 +67,7 @@ export function CreateRoleDialog({
   held: PermissionSet;
   /** Pre-selected source when arriving from a role's Duplicate action. */
   from: RoleView | null;
+  open: boolean;
   onClose: () => void;
   /** Resolves true when the role was created — people are invited after. */
   onCreate: (
@@ -113,7 +115,7 @@ export function CreateRoleDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={from ? `Duplicate ${from.name}` : "New role"}
       size="lg"

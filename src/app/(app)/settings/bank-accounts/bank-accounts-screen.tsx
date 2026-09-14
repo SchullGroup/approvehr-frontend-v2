@@ -511,34 +511,31 @@ export function BankAccountsScreen() {
         </p>
       </PageBody>
 
-      {adding && (
-        <AccountForm
-          hasPrimary={Boolean(primary)}
-          onClose={() => setAdding(false)}
-          onSave={async (body) => {
-            const ok = await run(
-              () => accounts.create(body),
-              `${body.bankName} added`,
-            );
-            if (ok) setAdding(false);
-          }}
-        />
-      )}
+      <AccountForm
+        open={adding}
+        hasPrimary={Boolean(primary)}
+        onClose={() => setAdding(false)}
+        onSave={async (body) => {
+          const ok = await run(
+            () => accounts.create(body),
+            `${body.bankName} added`,
+          );
+          if (ok) setAdding(false);
+        }}
+      />
 
-      {editing && (
-        <AccountForm
-          account={editing}
-          hasPrimary={Boolean(primary)}
-          onClose={() => setEditing(null)}
-          onSave={async (body) => {
-            const ok = await run(
-              () => accounts.update(editing.id, body),
-              "Saved",
-            );
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
+      <AccountForm
+        open={editing !== null}
+        account={editing ?? undefined}
+        hasPrimary={Boolean(primary)}
+        onClose={() => setEditing(null)}
+        onSave={async (body) => {
+          const target = editing;
+          if (!target) return;
+          const ok = await run(() => accounts.update(target.id, body), "Saved");
+          if (ok) setEditing(null);
+        }}
+      />
 
       <ConfirmDialog
         open={promoting !== null}

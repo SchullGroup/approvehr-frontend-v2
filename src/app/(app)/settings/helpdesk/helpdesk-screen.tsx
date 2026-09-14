@@ -239,30 +239,28 @@ export function CategoriesAndSlaPanel() {
         </CardBody>
       </Card>
 
-      {editing && (
-        <CategoryDialog
-          category={editing === "new" ? null : editing}
-          policies={policies ?? []}
-          onClose={() => setEditing(null)}
-          onSaved={(name) => {
-            setEditing(null);
-            toast.push({ title: `${name} saved`, tone: "success" });
-            reload();
-          }}
-        />
-      )}
+      <CategoryDialog
+        open={editing !== null}
+        category={editing === "new" ? null : editing}
+        policies={policies ?? []}
+        onClose={() => setEditing(null)}
+        onSaved={(name) => {
+          setEditing(null);
+          toast.push({ title: `${name} saved`, tone: "success" });
+          reload();
+        }}
+      />
 
-      {editingSla && (
-        <SlaDialog
-          policy={editingSla === "new" ? null : editingSla}
-          onClose={() => setEditingSla(null)}
-          onSaved={(name) => {
-            setEditingSla(null);
-            toast.push({ title: `${name} saved`, tone: "success" });
-            reload();
-          }}
-        />
-      )}
+      <SlaDialog
+        open={editingSla !== null}
+        policy={editingSla === "new" ? null : editingSla}
+        onClose={() => setEditingSla(null)}
+        onSaved={(name) => {
+          setEditingSla(null);
+          toast.push({ title: `${name} saved`, tone: "success" });
+          reload();
+        }}
+      />
     </>
   );
 }
@@ -429,11 +427,13 @@ function workingHours(minutes: number): string {
 function CategoryDialog({
   category,
   policies,
+  open,
   onClose,
   onSaved,
 }: {
   category: ApiTicketCategory | null;
   policies: ApiSlaPolicy[];
+  open: boolean;
   onClose: () => void;
   onSaved: (name: string) => void;
 }) {
@@ -489,7 +489,7 @@ function CategoryDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={category ? "Edit category" : "New category"}
       size="sm"
@@ -579,10 +579,12 @@ const PRIORITIES: TicketPriority[] = ["LOW", "NORMAL", "HIGH"];
 
 function SlaDialog({
   policy,
+  open,
   onClose,
   onSaved,
 }: {
   policy: ApiSlaPolicy | null;
+  open: boolean;
   onClose: () => void;
   onSaved: (name: string) => void;
 }) {
@@ -652,7 +654,7 @@ function SlaDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={policy ? "Edit reply target" : "New reply target"}
       size="sm"

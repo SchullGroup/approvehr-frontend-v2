@@ -436,35 +436,35 @@ export function LocationsScreen() {
         </Card>
       </PageBody>
 
-      {adding && (
-        <LocationForm
-          onClose={() => setAdding(false)}
-          onSave={async (draft) => {
-            const ok = await run(
-              () => mutations.create(toCreateInput(draft)),
-              `${draft.name} added`,
-            );
-            if (ok) setAdding(false);
-          }}
-        />
-      )}
+      <LocationForm
+        open={adding}
+        onClose={() => setAdding(false)}
+        onSave={async (draft) => {
+          const ok = await run(
+            () => mutations.create(toCreateInput(draft)),
+            `${draft.name} added`,
+          );
+          if (ok) setAdding(false);
+        }}
+      />
 
-      {editing && (
-        <LocationForm
-          location={editing}
-          onClose={() => setEditing(null)}
-          onSave={async (draft) => {
-            /* The draft goes straight in: a patch is the one shape that can say
-               "no fence" out loud, and clearing one is exactly what three nulls
-               are for. */
-            const ok = await run(
-              () => mutations.update(editing.id, draft),
-              `${draft.name} saved`,
-            );
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
+      <LocationForm
+        open={editing !== null}
+        location={editing ?? undefined}
+        onClose={() => setEditing(null)}
+        onSave={async (draft) => {
+          /* The draft goes straight in: a patch is the one shape that can say
+             "no fence" out loud, and clearing one is exactly what three nulls
+             are for. */
+          const target = editing;
+          if (!target) return;
+          const ok = await run(
+            () => mutations.update(target.id, draft),
+            `${draft.name} saved`,
+          );
+          if (ok) setEditing(null);
+        }}
+      />
 
       <ConfirmDialog
         open={archiving !== null}

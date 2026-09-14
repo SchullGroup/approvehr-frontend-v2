@@ -799,28 +799,29 @@ function Policy() {
         <HolidaysPanel defaultYear={calendarYear} />
       </PageBody>
 
-      {adding && (
-        <AddLeaveTypeDialog
-          onClose={() => setAdding(false)}
-          onSave={async (input) => {
-            await createType(input);
-            setAdding(false);
-            toast.push({
-              title: `${input.name} added`,
-              tone: "success",
-              detail: "It is available to book from now on.",
-            });
-          }}
-        />
-      )}
+      <AddLeaveTypeDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        onSave={async (input) => {
+          await createType(input);
+          setAdding(false);
+          toast.push({
+            title: `${input.name} added`,
+            tone: "success",
+            detail: "It is available to book from now on.",
+          });
+        }}
+      />
     </>
   );
 }
 
 function AddLeaveTypeDialog({
+  open,
   onClose,
   onSave,
 }: {
+  open: boolean;
   onClose: () => void;
   onSave: (input: { name: string; entitledDays: number }) => Promise<void>;
 }) {
@@ -850,7 +851,7 @@ function AddLeaveTypeDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="sm"
       title="Add a leave type"
