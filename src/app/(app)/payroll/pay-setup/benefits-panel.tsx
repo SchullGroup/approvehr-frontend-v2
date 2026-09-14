@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { HeartPulse, Info, Plus, TriangleAlert } from "lucide-react";
+import {
+  HeartPulse,
+  Info,
+  Plus,
+  TriangleAlert,
+  UserRoundCheck,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -255,7 +261,7 @@ function Plans({
       <EmptyState
         icon={<HeartPulse aria-hidden="true" />}
         title="No benefits set up yet"
-        description="An HMO, life cover, a transport scheme — anything the company gives staff beyond salary, with what it costs and what comes off their pay."
+        description="An HMO, life cover, a transport scheme: anything the company gives staff beyond salary, with what it costs and what comes off their pay."
       />
     );
   }
@@ -455,6 +461,7 @@ function People({
   if (read.data.length === 0) {
     return (
       <EmptyState
+        icon={<UserRoundCheck aria-hidden="true" />}
         title="Nobody is on a benefit yet"
         description="Put somebody on a plan and it appears here, and on their payslip from that month."
       />

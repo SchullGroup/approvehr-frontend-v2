@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Copy, TriangleAlert, UserMinus, UserPlus } from "lucide-react";
+import { Copy, TriangleAlert, UserMinus, UserPlus, Users } from "lucide-react";
 import {
   Badge,
   Button,
@@ -491,6 +491,7 @@ function PeopleTab({
       {members.length === 0 ? (
         <EmptyState
           compact
+          icon={<Users aria-hidden="true" />}
           title={
             loading
               ? "Loading…"

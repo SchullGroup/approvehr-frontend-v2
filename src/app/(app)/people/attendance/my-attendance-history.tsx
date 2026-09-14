@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil } from "lucide-react";
+import { CalendarSearch, Pencil } from "lucide-react";
 import {
   Badge,
   Button,
@@ -170,6 +170,7 @@ export function MyAttendanceHistoryPanel() {
         ) : history.rows.length === 0 ? (
           <EmptyState
             compact
+            icon={<CalendarSearch aria-hidden="true" />}
             title="Nothing in this range"
             description="Nothing was recorded, or nothing here matches the filter."
           />

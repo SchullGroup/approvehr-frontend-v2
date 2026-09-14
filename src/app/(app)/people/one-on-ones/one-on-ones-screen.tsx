@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CalendarClock, Lock, Plus } from "lucide-react";
+import { CalendarClock, Lock, MessagesSquare, Plus } from "lucide-react";
 import {
   Badge,
   Button,
@@ -234,13 +234,15 @@ function Mine({
        This is the URL, the bookmark and the stale link. */
     return isManager ? (
       <EmptyState
+        icon={<MessagesSquare aria-hidden="true" />}
         title="You have not started any yet"
-        description="Start one with somebody who reports to you. They will see it too, and so will the notes — there is no private half."
+        description="Start one with somebody who reports to you. They will see it too, and so will the notes: there is no private half."
       />
     ) : (
       <EmptyState
+        icon={<MessagesSquare aria-hidden="true" />}
         title="You are not in any one-to-ones yet"
-        description="A one-to-one follows the reporting line, and the manager starts it. If you would find a regular check-in useful, ask yours to set one up — it will appear here, and only the two of you will ever read it."
+        description="A one-to-one follows the reporting line, and the manager starts it. If you would find a regular check-in useful, ask yours to set one up. It will appear here, and only the two of you will ever read it."
       />
     );
   }

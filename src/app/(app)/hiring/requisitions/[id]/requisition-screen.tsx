@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, MapPin, Megaphone, Plus, Users } from "lucide-react";
+import {
+  FileQuestion,
+  Lock,
+  MapPin,
+  Megaphone,
+  Plus,
+  Users,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -208,6 +215,7 @@ function RealRequisitionDetail({ id }: { id: string }) {
       <PageBody>
         <Card>
           <EmptyState
+            icon={<FileQuestion aria-hidden="true" />}
             title="That requisition is not here"
             description={
               error?.message ??

@@ -73,7 +73,7 @@ export function EmploymentHistoryPanel({ employeeId }: { employeeId: string }) {
         <EmptyState
           icon={<History aria-hidden="true" className="size-5" />}
           title="Nothing recorded yet"
-          description="Confirmations, promotions, transfers and pay changes appear here as they happen — including ones made straight on this record."
+          description="Confirmations, promotions, transfers and pay changes appear here as they happen, including ones made straight on this record."
         />
       ) : (
         <CardBody className="flex flex-col gap-0 p-0">
