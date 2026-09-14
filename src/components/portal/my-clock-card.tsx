@@ -22,6 +22,7 @@ import {
   useAttendanceRoster,
   useWorkLocations,
 } from "@/lib/store/attendance";
+import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import { DayTimer } from "@/app/(app)/people/attendance/day-timer";
 
@@ -41,6 +42,9 @@ export function MyClockCard({ onRecorded }: { onRecorded?: () => void } = {}) {
   const { clockIn, clockOut, undoClockOut } = useAttendanceMutations();
   const session = useSession();
   const toast = useToast();
+  /* Creating an employee is `EDIT_RECORDS` on `POST /employees`. Read here so
+     the card offers the fix only to somebody the API would let perform it. */
+  const canAddPeople = useCan("EDIT_RECORDS");
 
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -125,7 +129,14 @@ export function MyClockCard({ onRecorded }: { onRecorded?: () => void } = {}) {
    * two clicks earlier than the API does.
    *
    * **Registering a company creates a `User`, not an `Employee`** — so the
-   * person this happens to is the owner, on day one, in every new company.
+   * person this happens to is usually the owner, on day one, in every new
+   * company. **Usually, not always**, and that assumption is what this used to
+   * get wrong: it told every such account it was "signed in to run this
+   * company", which is plainly false for a plain employee whose account was
+   * never linked to a staff record, and offered them a button to
+   * `/people/new` that `EDIT_RECORDS` gates and the API refuses. A control
+   * whose only outcome is a refusal is worse than no control. Which sentence
+   * they get is decided by that permission now, not assumed.
    * The card used to render in full, with their name, their expected hours and
    * an enabled button, and answer `403 · This account has no employee record
    * to clock in.` on press. That refusal is correct and well written and it
@@ -147,14 +158,16 @@ export function MyClockCard({ onRecorded }: { onRecorded?: () => void } = {}) {
               {session.displayName ?? "Your day"}
             </p>
             <p className="mt-0.5 text-body-sm text-muted">
-              You are signed in to run this company, not as somebody on its
-              payroll, so there is nothing here to clock. Add yourself as an
-              employee and this becomes your own day.
+              {canAddPeople
+                ? "You are signed in to run this company, not as somebody on its payroll, so there is nothing here to clock. Add yourself as an employee and this becomes your own day."
+                : "This account is not linked to an employee record, so there is nothing here to clock. Whoever looks after your people records can link it."}
             </p>
           </div>
-          <ButtonLink href="/people/new" variant="secondary" size="sm">
-            Add yourself as an employee
-          </ButtonLink>
+          {canAddPeople && (
+            <ButtonLink href="/people/new" variant="secondary" size="sm">
+              Add yourself as an employee
+            </ButtonLink>
+          )}
         </CardBody>
       </Card>
     );
