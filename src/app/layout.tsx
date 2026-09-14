@@ -10,7 +10,13 @@ export const metadata: Metadata = {
   description:
     "Your HR intelligence partner: one platform for people, payroll and hiring, built for teams across Africa.",
   icons: {
-    icon: "/brand/mark.svg",
+    /* `icon.svg`, not `mark.svg`. The mark's two main paths are `fill="white"`
+       -- it is drawn to sit on the dark plate the app icons use -- so pointed
+       at a browser tab on its own it renders white-on-transparent and vanishes,
+       leaving only the green check. `icon.svg` is the same three paths on the
+       brand indigo plate, and `src/app/favicon.ico` is that file rasterised, so
+       a browser that prefers either one shows the same icon. */
+    icon: "/brand/icon.svg",
     /* iOS ignores the manifest's icons entirely and reads this. Without it an
        app added to a Home Screen gets a screenshot of the page as its icon,
        which is unrecognisable at 60px. */
