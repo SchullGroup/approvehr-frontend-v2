@@ -60,8 +60,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      on every page load whose answer could differ from the badge's — leaving
      the sidebar count and the clock menu disagreeing about whether you are on
      the clock. */
-  const roster = useAttendanceRoster();
-  const badges = useNavBadges(roster);
 
   /* The `/` shortcut the search button's own `kbd` promises. Ignored while
      already typing somewhere — a `/` in a note or an amount must reach the
@@ -100,6 +98,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      second reader is a map lookup, and threading it between two hooks in this
      file would couple the sidebar's filter to the badge counts. */
   const isManager = useIsManager();
+  /* On its own line rather than `||`-ed into `rosterIsRead` below: a
+     short-circuit would skip a hook on whichever render an earlier term
+     answers true, and hooks must run in the same order every render. */
+  const { employeeId: myEmployeeId } = useSession();
+
+  /* The chrome's one roster read, handed to both things that need it --
+     `useNavBadges` used to make it itself, and a second call would be a second
+     `GET /attendance/roster` per page load whose answer could differ from the
+     badge's, leaving the sidebar count and the clock menu disagreeing about
+     whether you are on the clock.
+
+     Both readers are conditional, and for one kind of account neither ever
+     fires: an account with no employee record has nothing to clock, and one
+     without `EDIT_RECORDS` or a direct report is not shown the `notClockedIn`
+     count. That account is refused this read -- correctly, see
+     `attendance/router.ts#attendanceScope` -- so asking was a guaranteed 403
+     on every page it opened. Both facts are known here, so it no longer asks.
+     Nothing rendered changes either way: the badge reads 0 and the clock menu
+     is absent. */
+  const rosterIsRead =
+    Boolean(myEmployeeId) ||
+    isManager ||
+    hasPermission(permissions, "EDIT_RECORDS");
+  const roster = useAttendanceRoster(undefined, rosterIsRead);
+  const badges = useNavBadges(roster);
 
   /* One-to-ones: showing to somebody who manages people, or who is in one as
      the report.
