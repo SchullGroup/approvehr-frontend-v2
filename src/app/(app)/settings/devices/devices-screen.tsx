@@ -38,6 +38,8 @@ import {
   useDeviceMutations,
 } from "@/lib/store/attendance-devices";
 import { useWorkLocationList } from "@/lib/store/work-locations";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateTimeShort } from "@/lib/time";
 import { DeviceForm, type DeviceDraft } from "./device-form";
 import { EnrolmentsDrawer } from "./enrolments-drawer";
 import { SecretPanel } from "./secret-panel";
@@ -117,14 +119,6 @@ function DeviceOffice({
   );
 }
 
-const seenAt = (iso: string): string =>
-  new Date(iso).toLocaleString(undefined, {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
 export function DevicesScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
   const [showArchived, setShowArchived] = useState(false);
@@ -132,6 +126,7 @@ export function DevicesScreen() {
   const locations = useWorkLocationList(false);
   const mutations = useDeviceMutations();
   const toast = useToast();
+  const timeZone = useOrgTimezone();
 
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<ApiAttendanceDevice | null>(null);
@@ -382,7 +377,7 @@ export function DevicesScreen() {
                           </span>
                         ) : (
                           <span className="tabular text-body-sm text-ink">
-                            {seenAt(row.lastSeenAt)}
+                            {formatDateTimeShort(row.lastSeenAt, timeZone)}
                           </span>
                         )}
                       </TD>

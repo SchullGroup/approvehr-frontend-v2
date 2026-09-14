@@ -130,7 +130,22 @@ export function ReviewTasksTab() {
       />
 
       <Card>
-        <CardHeader title={`Waiting on a grade (${tasks.length})`} />
+        <CardHeader
+          title={`Waiting on a grade (${tasks.length})`}
+          /* Says which date this is, because there are two and they are not
+             the same one. The employee's own screen groups by the week a task
+             is *for* — "7 Sep 2026 – 13 Sep 2026" — and this groups by the day
+             it was **logged**, oldest first, so the longest wait is at the
+             top. A manager saying "the 2 Sep tasks" and an employee saying
+             "last week's" were naming the same rows with no shared label and
+             nothing on either screen saying so.
+
+             The week itself cannot be shown here: `ApiTaskForGrading` carries
+             `createdAt` and no `weekStart`/`weekEnd`, and deriving one from
+             the other would be a guess — a task logged on Monday can be for
+             the week before. See BE-38. */
+          description="Grouped by the day each task was logged, longest wait first. This is not the week the task covers."
+        />
         {loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
@@ -160,7 +175,7 @@ export function ReviewTasksTab() {
                       colSpan={4}
                       className="bg-sunken py-2 text-meta font-semibold text-muted"
                     >
-                      {group.day}
+                      Logged {group.day}
                       <span className="ml-2 font-normal">
                         {group.tasks.length === 1
                           ? "1 task"

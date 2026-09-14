@@ -24,7 +24,7 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { usePermissions } from "@/lib/permissions";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import {
   today,
   useEquipment,
@@ -144,6 +144,7 @@ function OwnKitOnly() {
 
 function Register() {
   const { mode } = useSession();
+  const timeZone = useOrgTimezone();
   const toast = useToast();
 
   const [tab, setTab] = useState<"register" | "repairs" | "kinds">("register");
@@ -311,7 +312,7 @@ function Register() {
 
   async function finishRepair(repair: Repair) {
     await run(
-      () => repairs.saveRepair(repair.id, { completedOn: today() }),
+      () => repairs.saveRepair(repair.id, { completedOn: today(timeZone) }),
       `${repair.itemName ?? "It"} is fixed`,
     );
   }

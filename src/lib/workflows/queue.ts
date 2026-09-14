@@ -235,8 +235,11 @@ export function toQueueItem(item: ApprovalItem): QueueItem {
  *   and `HREF[record_change]` would drop somebody on the directory with no way
  *   to tell which leaver the row was about.
  */
-export function queueItemFromApproval(row: ApprovalRow): QueueItem {
-  const label = deadlineLabel(row.deadlineAt);
+export function queueItemFromApproval(
+  row: ApprovalRow,
+  timeZone: string,
+): QueueItem {
+  const label = deadlineLabel(row.deadlineAt, timeZone);
   const href =
     row.subjectType === "leave_requests"
       ? `/people/leave?request=${row.subjectId}`

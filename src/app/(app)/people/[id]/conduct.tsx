@@ -32,7 +32,8 @@ import {
   lapseLabel,
   useConductRecord,
 } from "@/lib/store/conduct";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { formatDateShort, todayIn } from "@/lib/time";
 
 /**
  * Somebody's conduct record, for the employee record page.
@@ -272,7 +273,8 @@ export function ConductPanel({
 
 /* -------------------------------------------------------------------------- */
 
-function ActionRow({
+/** Exported for `tests/conduct-acknowledgement.test.tsx` — see that file. */
+export function ActionRow({
   action,
   canEdit,
   isSubject,
@@ -286,6 +288,7 @@ function ActionRow({
   onEdit: () => void;
 }) {
   const status = actionStatus(action);
+  const timeZone = useOrgTimezone();
 
   return (
     <li className="rounded-md border border-line p-3">
@@ -342,7 +345,10 @@ function ActionRow({
             {lapseLabel(action)}
             {action.issuedByName && <> · given by {action.issuedByName}</>}
             {action.acknowledgedAt && (
-              <> · confirmed {dayLabel(action.acknowledgedAt.slice(0, 10))}</>
+              <>
+                {" "}
+                · confirmed {formatDateShort(action.acknowledgedAt, timeZone)}
+              </>
             )}
           </p>
         </div>
@@ -402,10 +408,12 @@ function RecordWarningModal({
     expiresOn?: string;
   }) => Promise<void>;
 }) {
-  /* The real clock, not the demo's `TODAY`: the API refuses a future incident
-     against the wall clock, and this modal only ever mounts on a click, so
-     there is no server render to disagree with. */
-  const today = new Date().toISOString().slice(0, 10);
+  const timeZone = useOrgTimezone();
+  /* The real clock, in the company's zone, not the demo's `TODAY`: an
+     incident is dated against the company's own day, not whichever browser
+     is filing it, and this modal only ever mounts on a click, so there is no
+     server render to disagree with. */
+  const today = todayIn(timeZone);
 
   const [level, setLevel] = useState<DisciplinaryLevel | "">("");
   const [incidentOn, setIncidentOn] = useState(today);
@@ -697,7 +705,8 @@ function EditActionModal({
   }) => Promise<void>;
 }) {
   const open = action.awaitingConfirmation;
-  const today = new Date().toISOString().slice(0, 10);
+  const timeZone = useOrgTimezone();
+  const today = todayIn(timeZone);
 
   const [level, setLevel] = useState<DisciplinaryLevel>(action.level);
   const [incidentOn, setIncidentOn] = useState(action.incidentOn);
@@ -821,8 +830,7 @@ function EditActionModal({
                 {LEVEL_LABEL[action.level]}
               </Badge>
               <Badge tone="neutral" size="sm">
-                Confirmed{" "}
-                {dayLabel(action.acknowledgedAt?.slice(0, 10) ?? null)}
+                Confirmed {formatDateShort(action.acknowledgedAt, timeZone)}
               </Badge>
             </p>
             <p className="mt-1 text-body leading-relaxed text-ink">

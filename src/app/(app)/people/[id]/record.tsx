@@ -46,7 +46,7 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { EmployeeFileDrawer } from "@/app/(app)/people/documents";
-import { StartExitDialog } from "@/app/(app)/people/offboarding";
+import { Resign, StartExitDialog } from "@/app/(app)/people/offboarding";
 import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components-panel";
 import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
 import { StartPeriodButton } from "@/app/(app)/performance";
@@ -589,8 +589,16 @@ export function EmployeeRecord({
             {/* Secondary, like its neighbours. Recording an exit is
                 consequential rather than the thing you came here to do, and a
                 blue primary button on every employee record would read as the
-                page's suggestion. */}
-            {canRecordExit && !hasLeft && (
+                page's suggestion.
+
+                `!isSelf`: this is the HR door onto somebody else's exit — a
+                kind picker that includes TERMINATION and DEATH_IN_SERVICE,
+                open to anyone holding EDIT_RECORDS. Viewing your own record
+                with that permission must not offer it about yourself; `Resign`
+                below is the one door self-service ever gets, the same "name
+                who can" rule `isSelf` already applies to documents and
+                appraisal history on this page. */}
+            {canRecordExit && !hasLeft && !isSelf && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -603,6 +611,14 @@ export function EmployeeRecord({
             )}
           </CardBody>
         </Card>
+
+        {/* The other door onto the same `ExitProcess` lifecycle — self-service,
+            no permission required, resignation/retirement only. `Resign` is
+            the exact component `/profile` already uses; it owns its own
+            `useMyExit()` and renders either an open exit's status (a `Card`)
+            or a closed `Disclosure` to start one, so it sits beside the
+            action-button card rather than inside it. */}
+        {isSelf && <Resign />}
       </aside>
 
       {/* Detail */}
@@ -903,35 +919,49 @@ export function EmployeeRecord({
                  * with a dozen branches is a list worth filtering rather than
                  * scrolling.
                  *
-                 * Connected only. `useEmployeeMutations().update` still drops
-                 * `workLocationId` in demo mode — `Employee.location` there is
-                 * a display name with no id behind it, the same gap
-                 * `departmentId` had before `demoDepartmentName` closed it,
-                 * and closing this one is a separate fix. Offering the picker
-                 * offline would save silently onto nothing, so it stays
-                 * read-only text in the identity rail there instead.
+                 * Offered in both modes now. This used to be connected-only,
+                 * because `useEmployeeMutations().update` dropped
+                 * `workLocationId` offline — `Employee.location` there is a
+                 * display name with no id behind it — so a picker would have
+                 * saved silently onto nothing. Dropping the control was the
+                 * right call while that was true; `demoWorkLocationName` in
+                 * `store/work-locations.ts` is the seam that makes it untrue,
+                 * and it is the counterpart to `demoDepartmentName` on the
+                 * field directly above.
+                 *
+                 * `locations.locations` is the demo list offline and the API's
+                 * list connected, so one options array serves both.
                  */
-                ...(connected
-                  ? [
-                      {
-                        key: "workLocationId" as const,
-                        clearsToNull: true,
-                        label: "Work location",
-                        type: "picker" as const,
-                        placeholder: "Not set",
-                        value: currentLocation?.id ?? "",
-                        format: () => employee.location,
-                        options: [
-                          { value: "", label: "Not set" },
-                          ...locations.locations.map((l) => ({
-                            value: l.id,
-                            label: l.name,
-                            ...(l.addressLine ? { hint: l.addressLine } : {}),
-                          })),
-                        ],
-                      },
-                    ]
-                  : []),
+                {
+                  key: "workLocationId" as const,
+                  clearsToNull: true,
+                  label: "Work location",
+                  type: "picker" as const,
+                  placeholder: "Not set",
+                  /* Said only when it is true, and it is true in both modes.
+                     `Employee.location` is free text and a work location is a
+                     row with an address and a geofence, so a record can carry
+                     "Lagos, NG" while every office is called something like
+                     "Lagos HQ" — which is exactly what the demo seed does. The
+                     picker then reads "Not set" beside a record that plainly
+                     says Lagos, and without a sentence that looks like a bug
+                     rather than two different facts. */
+                  ...(employee.location && !currentLocation
+                    ? {
+                        help: `This record says “${employee.location}”, which is not one of the offices below. Choosing one replaces it.`,
+                      }
+                    : {}),
+                  value: currentLocation?.id ?? "",
+                  format: () => employee.location,
+                  options: [
+                    { value: "", label: "Not set" },
+                    ...locations.locations.map((l) => ({
+                      value: l.id,
+                      label: l.name,
+                      ...(l.addressLine ? { hint: l.addressLine } : {}),
+                    })),
+                  ],
+                },
               ]}
             />
 

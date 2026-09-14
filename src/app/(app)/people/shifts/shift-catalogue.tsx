@@ -55,7 +55,15 @@ export function ShiftCatalogue({
 }: {
   shifts: ApiShift[];
   patterns: ApiPattern[];
-  /** False when the reader cannot edit records. Controls are simply absent. */
+  /**
+   * `MANAGE_SHIFTS`, not the rota grant. This tab defines what a shift *is*
+   * and which sequence makes a rotation — company setup, where changing a
+   * shift's hours moves every rota already built on it. A supervisor who
+   * rosters people every week needs `MANAGE_ROTA` and should not be able to
+   * redefine the night shift under everybody at the same time.
+   *
+   * Controls the reader cannot use are simply absent.
+   */
   editable: boolean;
   onChanged: () => void;
 }) {

@@ -18,6 +18,7 @@ import {
   TableWrap,
 } from "@/components/ui";
 import { dayLabel, daysSince, type Repair } from "@/lib/store/assets";
+import { useOrgTimezone } from "@/lib/store/session";
 
 export type RepairFilter = "open" | "completed" | "all";
 
@@ -54,6 +55,8 @@ export function RepairsPanel({
   onFilterChange: (value: RepairFilter) => void;
   onFinish: (repair: Repair) => void;
 }) {
+  const timeZone = useOrgTimezone();
+
   return (
     <Card>
       <CardHeader
@@ -125,7 +128,7 @@ export function RepairsPanel({
                   <span className="block text-meta text-muted">
                     {repair.completedOn
                       ? `out ${dayLabel(repair.completedOn)}`
-                      : `${daysSince(repair.startedOn)} days`}
+                      : `${daysSince(repair.startedOn, timeZone)} days`}
                   </span>
                 </TD>
                 <TD className="text-body-sm text-body">

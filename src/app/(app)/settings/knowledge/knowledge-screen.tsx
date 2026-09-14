@@ -29,7 +29,8 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { useCan } from "@/lib/permissions";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { formatDateShort } from "@/lib/time";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import type { KbArticleListParams } from "@/lib/api/knowledge";
@@ -97,6 +98,7 @@ const SORTS: Record<
 export function KnowledgeScreen() {
   const toast = useToast();
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   /* `GET /knowledge/analytics` is MANAGE_SETTINGS on the API, and so is every
      write this screen offers — publishing, hiding, editing. Without a gate the
      four figures below came back 403 and rendered as four zeros above a list
@@ -284,7 +286,7 @@ export function KnowledgeScreen() {
                       {miss.searches}
                     </TD>
                     <TD className="text-muted">
-                      {dayLabel(miss.lastSearchedAt)}
+                      {formatDateShort(miss.lastSearchedAt, timeZone)}
                     </TD>
                     <TD align="right">
                       {articles.editable && (
@@ -649,34 +651,6 @@ export function KnowledgeScreen() {
 }
 
 /* -------------------------------------------------------------------------- */
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-/**
- * `19 Aug 2026`, formatted by hand.
- *
- * Not `toLocaleDateString`: this component renders on the server as well, and a
- * server in one locale and a browser in another produce two different strings
- * for the same date, which React reports as a hydration mismatch.
- */
-function dayLabel(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()] ?? ""} ${date.getUTCFullYear()}`;
-}
 
 /**
  * `1,200`, grouped by hand.

@@ -33,7 +33,8 @@ import {
   type Step,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { formatDate } from "@/lib/time";
 import { useImport, useImportHistory } from "@/lib/store/imports";
 import type { ApiImportBatchDetail } from "@/lib/api/imports";
 import type { Dictionary } from "@/lib/imports/spec";
@@ -354,6 +355,7 @@ function ChooseFile({
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [resuming, setResuming] = useState<string | null>(null);
+  const timeZone = useOrgTimezone();
   const history = useImportHistory(surface.dictionary.kind);
   /* Which past batch is showing its row report, and what came back for it.
      Fetched once per batch and kept — reopening the same one should not
@@ -595,14 +597,7 @@ function ChooseFile({
                       <TD>
                         <span className="flex items-center gap-1.5 text-meta text-muted">
                           <Clock aria-hidden="true" className="size-3.5" />
-                          {new Date(batch.createdAt).toLocaleDateString(
-                            "en-NG",
-                            {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            },
-                          )}
+                          {formatDate(batch.createdAt, timeZone)}
                         </span>
                       </TD>
                     </TR>

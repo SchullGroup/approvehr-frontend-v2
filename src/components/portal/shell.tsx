@@ -7,8 +7,14 @@ import { Bell, ChevronDown, ChevronLeft, Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useCanGoBack } from "@/lib/nav-history";
 import { Logo } from "@/components/brand/logo";
-import { Avatar, Badge, MoneyPrivacyToggle } from "@/components/ui";
+import {
+  Avatar,
+  Badge,
+  MoneyPrivacyToggle,
+  ThemeToggle,
+} from "@/components/ui";
 import { CommandPalette } from "./command-palette";
+import { ClockMenu } from "./clock-menu";
 import { GuidedTour, openTour } from "./tour/guided-tour";
 import {
   NAV,
@@ -29,7 +35,7 @@ import { useAssistantAvailable } from "@/lib/store/ai";
 import { useUnreadCount } from "@/lib/store/notifications";
 import { useApprovalQueue } from "@/lib/store/approvals-api";
 import { useLeaveRequests } from "@/lib/store/leave-api";
-import { useAttendanceRoster } from "@/lib/store/attendance";
+import { useAttendanceRoster, type RosterState } from "@/lib/store/attendance";
 import { useAmIInAOneOnOne } from "@/lib/store/one-on-ones";
 import { useHaveIAnySignatures } from "@/lib/store/signatures";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
@@ -48,7 +54,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const pathname = usePathname();
-  const badges = useNavBadges();
+  /* One roster read for the whole chrome, handed to both readers.
+     `useNavBadges` used to make this call itself; the clock menu needs the
+     same answer, and a second call would be a second `GET /attendance/roster`
+     on every page load whose answer could differ from the badge's — leaving
+     the sidebar count and the clock menu disagreeing about whether you are on
+     the clock. */
 
   /* The `/` shortcut the search button's own `kbd` promises. Ignored while
      already typing somewhere — a `/` in a note or an amount must reach the
@@ -87,6 +98,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      second reader is a map lookup, and threading it between two hooks in this
      file would couple the sidebar's filter to the badge counts. */
   const isManager = useIsManager();
+  /* On its own line rather than `||`-ed into `rosterIsRead` below: a
+     short-circuit would skip a hook on whichever render an earlier term
+     answers true, and hooks must run in the same order every render. */
+  const { employeeId: myEmployeeId } = useSession();
+
+  /* The chrome's one roster read, handed to both things that need it --
+     `useNavBadges` used to make it itself, and a second call would be a second
+     `GET /attendance/roster` per page load whose answer could differ from the
+     badge's, leaving the sidebar count and the clock menu disagreeing about
+     whether you are on the clock.
+
+     Both readers are conditional, and for one kind of account neither ever
+     fires: an account with no employee record has nothing to clock, and one
+     without `EDIT_RECORDS` or a direct report is not shown the `notClockedIn`
+     count. That account is refused this read -- correctly, see
+     `attendance/router.ts#attendanceScope` -- so asking was a guaranteed 403
+     on every page it opened. Both facts are known here, so it no longer asks.
+     Nothing rendered changes either way: the badge reads 0 and the clock menu
+     is absent. */
+  const rosterIsRead =
+    Boolean(myEmployeeId) ||
+    isManager ||
+    hasPermission(permissions, "EDIT_RECORDS");
+  const roster = useAttendanceRoster(undefined, rosterIsRead);
+  const badges = useNavBadges(roster);
 
   /* One-to-ones: showing to somebody who manages people, or who is in one as
      the report.
@@ -162,12 +198,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
           </button>
 
+          {/* The wordmark costs 149px and a phone has 375. With it, the whole
+              right-hand cluster sat past the right edge: the user menu's own
+              right edge measured 405 on a 375 viewport *before* the clock icon
+              was added here, so the avatar was already clipped and adding a
+              sixth control made it 443. The mark alone is 28px and everything
+              fits. `showWordmark` already existed on `Logo` for exactly this.
+              `shrink-0` on the link so the mark is never squashed instead. */}
           <Link
             href="/dashboard"
             aria-label="ApproveHR home"
-            className="text-ink hover:opacity-80"
+            className="shrink-0 text-ink hover:opacity-80"
           >
-            <Logo size={24} />
+            <Logo size={24} className="hidden sm:block" />
+            <Logo size={24} showWordmark={false} className="sm:hidden" />
           </Link>
 
           <CompanySwitcher />
@@ -197,7 +241,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 the row somebody forgot is the one that matters. It hides; what
                 decides who may *know* a salary is `VIEW_SALARIES` on the
                 server, which does not send the number at all. */}
+            {/* Light or dark. The preference and both halves that apply it
+                already existed; the only way to reach it was Settings →
+                Appearance, which is a page load away from wherever somebody
+                notices the room has got dark. The Appearance screen keeps the
+                explanation — including that this is per-browser and not synced
+                — and this is the same one setting, in the chrome. */}
+            <ThemeToggle />
+
             <MoneyPrivacyToggle />
+
+            {/* Clocking in and out without leaving the page you are on.
+                Absent for an account with no employee record, and for a
+                company that has never clocked anybody in — see the header of
+                `clock-menu.tsx` for both, and for the day-one consequence of
+                the second. */}
+            <ClockMenu roster={roster} />
 
             {/* Was a button that did nothing, labelled "3 unread" whatever the
                 truth was. Now a link to the inbox with the real count — the
@@ -312,7 +371,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
  *   `useAttendanceRoster` hooks the approvals inbox, the leave screen and
  *   the attendance screen already call.
  */
-function useNavBadges(): Record<BadgeSource, number> {
+function useNavBadges(roster: RosterState): Record<BadgeSource, number> {
   const unread = useUnreadCount();
   const isManager = useIsManager();
   const { permissions } = usePermissions();
@@ -333,7 +392,6 @@ function useNavBadges(): Record<BadgeSource, number> {
     employeeId: employeeId ?? "",
     status: "pending",
   });
-  const roster = useAttendanceRoster();
 
   return {
     unreadNotifications: unread,

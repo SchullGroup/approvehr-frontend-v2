@@ -37,6 +37,7 @@ import {
   Pagination,
   Select,
   SegmentedControl,
+  Skeleton,
   SortableTH,
   Stat,
   TBody,
@@ -70,6 +71,9 @@ import {
   type PayrollGap,
 } from "@/lib/types";
 import { MissingDetailsDialog } from "@/components/people/missing-details-dialog";
+import { useOrgTimezone } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
+import { DirectoryFieldSettings } from "./directory-settings";
 
 const STATUS: Record<EmploymentStatus, { tone: BadgeTone; label: string }> = {
   active: { tone: "success", label: "Active" },
@@ -139,6 +143,7 @@ export function Directory({
   const router = useRouter();
   const toast = useToast();
   const mutations = useEmployeeMutations();
+  const timeZone = useOrgTimezone();
 
   const list = useListQuery<Filters>({
     filters: { departmentId: "", workLocationId: "", status: "" },
@@ -340,7 +345,7 @@ export function Directory({
       }).join("; "),
     }));
     return {
-      filename: `employee-directory-${new Date().toISOString().slice(0, 10)}.csv`,
+      filename: `employee-directory-${todayIn(timeZone)}.csv`,
       body: toCsv(headers, csvRows),
     };
   };
@@ -359,6 +364,8 @@ export function Directory({
           <span className="text-meta text-danger-text">{error.message}</span>
         )}
       </div>
+
+      <DirectoryFieldSettings />
 
       {/* ---- Where people stand ----------------------------------------
           `byStatus` has been on every directory response since the endpoint
@@ -538,7 +545,20 @@ export function Directory({
         </Field>
       </FilterBar>
 
-      {rows.length === 0 && !loading ? (
+      {rows.length === 0 && loading ? (
+        <Card>
+          {/* Shape-matched, same pattern as record-history.tsx — the header
+              row above already carries a "Loading…" text cue, but that is
+              easy to miss above a blank table; this is what the content area
+              itself shows while there is genuinely nothing to render yet. */}
+          <div className="flex flex-col gap-2 p-1">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <span className="sr-only">Loading the employee directory</span>
+          </div>
+        </Card>
+      ) : rows.length === 0 && !loading ? (
         <Card>
           <EmptyState
             icon={<Search aria-hidden="true" />}

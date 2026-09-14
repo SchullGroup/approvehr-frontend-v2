@@ -12,6 +12,7 @@ import {
   Trash2,
   UserX,
   Users,
+  Wand2,
 } from "lucide-react";
 import {
   Badge,
@@ -65,6 +66,7 @@ import {
 import { useCan } from "@/lib/permissions";
 import {
   outstandingIn,
+  useAppraiserMutations,
   useCycleMutations,
   useCycleRegister,
   useRatingScale,
@@ -679,6 +681,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             <NobodyAppraising
               cycleId={cycleId}
               exceptions={stableExceptions}
+              draft={draft}
               onFixed={() => detail.reload()}
             />
           )}
@@ -827,12 +830,69 @@ const APPRAISER_EXCEPTIONS_ANCHOR = "appraiser-exceptions";
 function NobodyAppraising({
   cycleId,
   exceptions,
+  draft,
   onFixed,
 }: {
   cycleId: string;
   exceptions: ApiAppraiserMap | null;
+  /** Before the period starts, when starting it is itself the fix. */
+  draft: boolean;
   onFixed: () => void;
 }) {
+  const appraisers = useAppraiserMutations();
+  const toast = useToast();
+  const [filling, setFilling] = useState(false);
+
+  /**
+   * The same act `activateCycle` performs, on its own button.
+   *
+   * A second control for one mutation is usually how two screens come to
+   * disagree, and it is safe here for a reason worth stating: `auto` is
+   * **idempotent and only ever fills blanks** — `autoAssignFromReportingLine`
+   * skips anybody already mapped — so pressing it twice, or pressing it and
+   * then starting the period, cannot double-assign or overwrite a mapping
+   * somebody built by hand. That is not true of the payment batch this
+   * codebase refuses to give two doors.
+   *
+   * It exists because the alternative was navigating away from the screen that
+   * raised the problem to find the button that answers it.
+   */
+  const fillFromReportingLine = async () => {
+    setFilling(true);
+    try {
+      const result = await appraisers.autoAssign(cycleId);
+      toast.push({
+        title:
+          result.created === 0
+            ? "Everybody already has an appraiser"
+            : result.created === 1
+              ? "1 person given their line manager"
+              : `${result.created} people given their line manager`,
+        tone: "success",
+        /* Named, not counted. These are the people who would otherwise finish
+           the period with no mark at all, and a number tells nobody who to go
+           and look at. */
+        ...(result.withoutManager.length > 0
+          ? {
+              detail: `Still nobody appraising: ${result.withoutManager.join(", ")}. They have no manager either, so assign somebody by hand.`,
+            }
+          : {}),
+      });
+      onFixed();
+    } catch (caught) {
+      toast.push({
+        title: "That did not work",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setFilling(false);
+    }
+  };
+
   const [reviewing, setReviewing] = useState<{
     code: string;
     severity: "BLOCKER" | "WARNING";
@@ -874,9 +934,17 @@ function NobodyAppraising({
       <CardHeader
         title="Who is appraising whom"
         description={
-          exceptions.counts.unassigned > 0
-            ? "Somebody with no appraiser finishes this period with no mark. Set a manager on their record, or assign an appraiser."
-            : "What is wrong with the mapping, by name."
+          exceptions.counts.unassigned === 0
+            ? "What is wrong with the mapping, by name."
+            : draft
+              ? /* The sentence this replaced said only "set a manager on their
+                   record, or assign an appraiser" — true, and it invited
+                   somebody to do by hand what starting the period does for
+                   everybody at once. On a draft that is a hundred clicks
+                   offered in place of one, and it was reported as exactly
+                   that. */
+                "Starting the period gives everybody their line manager automatically — nobody here needs assigning by hand first. Do it now with the button below if you would rather see the mapping before you start, and assign anybody the reporting line cannot cover."
+              : "Somebody with no appraiser finishes this period with no mark. Set a manager on their record, or assign an appraiser."
         }
         action={
           <Badge
@@ -891,6 +959,20 @@ function NobodyAppraising({
         }
       />
       <CardBody className="flex flex-col gap-2">
+        {exceptions.counts.unassigned > 0 && (
+          <div>
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={filling}
+              disabled={filling}
+              onClick={() => void fillFromReportingLine()}
+            >
+              <Wand2 aria-hidden="true" className="size-4" />
+              Fill in from the reporting line
+            </Button>
+          </div>
+        )}
         {groupExceptionsByCode(flat).map((group) => {
           const tone =
             group.severity === "BLOCKER"
@@ -1079,6 +1161,39 @@ function Outstanding({
   if (!participants) return null;
   const { counts } = participants;
 
+  /**
+   * Both halves of each ratio, from one source.
+   *
+   * The manager denominator was `counts.people` — the headcount — and that is
+   * only right for a company where everybody has exactly one appraiser. It
+   * read *"Manager reviews in 0 of 10"* on a period where one of the ten has
+   * no manager review at all, on the same card that said 18 forms were
+   * outstanding (9 self + 9 manager), and two clicks away the overview strip
+   * reported 0 of 9 for the same figure.
+   *
+   * A manager review is a **review**, not a person: somebody with two
+   * appraisers owes two and somebody with none owes none. So the denominator
+   * is how many exist, counted off the same rows the numerator is counted
+   * off. `period-status.tsx` already states this rule for the report
+   * endpoint's `managerIn + managerOutstanding`; this screen reads a
+   * different endpoint and had not been given it.
+   *
+   * Self is derived the same way rather than kept on `counts.people`. It is
+   * very nearly always the headcount — everybody gets one — but `self` is
+   * nullable on a participant, and a ratio whose two halves come from
+   * different places is exactly the defect above.
+   */
+  const managerTotal = participants.rows.reduce(
+    (total, row) => total + row.managers.length,
+    0,
+  );
+  const managerIn = participants.rows.reduce(
+    (total, row) => total + row.managers.filter((one) => one.submitted).length,
+    0,
+  );
+  const selfTotal = participants.rows.filter((row) => row.self !== null).length;
+  const selfIn = participants.rows.filter((row) => row.self?.submitted).length;
+
   return (
     <Card>
       <CardHeader
@@ -1094,17 +1209,17 @@ function Outstanding({
           <Stat
             label="Self-reviews in"
             value={
-              counts.people === 0
+              selfTotal === 0
                 ? "Nobody has a form yet"
-                : `${counts.selfDone} of ${counts.people}`
+                : `${selfIn} of ${selfTotal}`
             }
           />
           <Stat
             label="Manager reviews in"
             value={
-              counts.people === 0
+              managerTotal === 0
                 ? "No manager review is due yet"
-                : `${counts.managerDone} of ${counts.people}`
+                : `${managerIn} of ${managerTotal}`
             }
           />
           <Stat label="Forms outstanding" value={String(rows.length)} />

@@ -36,6 +36,8 @@ import {
   usePaymentBatches,
   usePaymentHistory,
 } from "@/lib/store/payments";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDate } from "@/lib/time";
 import { longDate, monthLabel } from "../format";
 
 /**
@@ -84,6 +86,7 @@ const MONTH_SCAN_SIZE = 200;
 
 export function PaymentHistoryScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
+  const timeZone = useOrgTimezone();
 
   const [person, setPerson] = useState<{ id: string; name: string } | null>(
     null,
@@ -381,7 +384,7 @@ export function PaymentHistoryScreen() {
                             <span className="text-muted">
                               No pay month
                               <span className="mt-0.5 block text-meta">
-                                Raised {longDate(row.raisedAt.slice(0, 10))}
+                                Raised {formatDate(row.raisedAt, timeZone)}
                               </span>
                             </span>
                           )}

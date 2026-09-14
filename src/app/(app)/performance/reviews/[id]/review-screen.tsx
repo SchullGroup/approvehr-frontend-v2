@@ -46,7 +46,7 @@ import {
   ReadAnswer,
   draftFrom,
 } from "../../review-parts";
-import { SignOffDialog, type SignOffAct } from "./sign-off-dialog";
+import { SignOffDialog } from "./sign-off-dialog";
 
 /**
  * One appraisal, projected by who is reading it.
@@ -55,7 +55,7 @@ import { SignOffDialog, type SignOffAct } from "./sign-off-dialog";
  *
  * | Reader | What is different |
  * |---|---|
- * | The person it is about | the answer they owe: acknowledge or dispute |
+ * | The person it is about | the answer they owe: acknowledge it |
  * | The person who wrote it | the form, and finalising it into the mark of record |
  * | Records permission | both of the above, read-only, plus the employee's answer |
  *
@@ -82,11 +82,57 @@ import { SignOffDialog, type SignOffAct } from "./sign-off-dialog";
  * read-only copy of a form drifts until it renders a question the form has
  * stopped asking.
  */
+/**
+ * How much of this form is still to do, in a sentence whose noun is true.
+ *
+ * `outstanding` is **required** questions only — the API filters on
+ * `question.required && answer === null`, which is the right thing for it to
+ * carry, because required-and-unanswered is what refuses a submit. The
+ * description read *"2 questions still unanswered"* above three questions
+ * each showing "Not answered": the number was right and the noun was not.
+ *
+ * Naming the requirement also makes the number useful rather than merely
+ * accurate — what a reader wants to know is what is standing between them and
+ * sending the form. The optional ones are still counted, separately, because
+ * silently dropping an unanswered question from a summary is how a form gets
+ * sent with a blank nobody meant to leave.
+ *
+ * The same rule the payroll side keeps a helper pair for: a number under a
+ * label has to be true of the thing the label names.
+ */
+function unansweredLine(review: {
+  outstanding: string[];
+  questions: { required: boolean; answer: unknown }[];
+}): string {
+  const required = review.outstanding.length;
+  const optional = review.questions.filter(
+    (question) => !question.required && question.answer === null,
+  ).length;
+
+  const optionalPart =
+    optional === 0
+      ? ""
+      : optional === 1
+        ? " One optional question is also unanswered."
+        : ` ${String(optional)} optional questions are also unanswered.`;
+
+  if (required === 0) {
+    return optional === 0
+      ? "Every question on this form is answered."
+      : `Every required question is answered.${optionalPart}`;
+  }
+  const requiredPart =
+    required === 1
+      ? "1 required question still to answer."
+      : `${String(required)} required questions still to answer.`;
+  return `${requiredPart}${optionalPart}`;
+}
+
 export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const { review, loading, error, reload } = useReview(reviewId);
   /* The company's own words. A record of a mark is the last place that should
      be quoting a scale the company renamed — it is the screen somebody reads
-     when they are deciding whether to dispute it. */
+     when they are being told what they were marked. */
   const { scale } = useRatingScale();
   const ratingWords = ratingWordsFrom(scale.levels);
   const { actingId } = useSession();
@@ -95,7 +141,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const toast = useToast();
 
   const [answering, setAnswering] = useState(false);
-  const [signingOff, setSigningOff] = useState<SignOffAct | null>(null);
+  const [signingOff, setSigningOff] = useState(false);
   const [finalising, setFinalising] = useState(false);
 
   const isSubject = review !== null && review.subjectId === actingId;
@@ -264,9 +310,8 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             >
               <p>
                 You have been told your rating for {review.cycleName}.
-                Acknowledge that you have seen it, or say formally that you do
-                not accept it. Both are recorded; leaving it unanswered is not
-                one of the two.
+                Acknowledge that you have seen it. It is recorded with the date,
+                and leaving it unanswered is not the same thing.
               </p>
               <p className="mt-2">
                 <strong>Acknowledging is not agreeing.</strong> It records that
@@ -276,12 +321,9 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 <Button
                   variant="accent"
                   size="sm"
-                  onClick={() => setSigningOff("acknowledge")}
+                  onClick={() => setSigningOff(true)}
                 >
                   I have seen this
-                </Button>
-                <Button size="sm" onClick={() => setSigningOff("dispute")}>
-                  I do not accept it
                 </Button>
               </p>
             </Callout>
@@ -437,11 +479,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           <Card>
             <CardHeader
               title="What was asked, and what was answered"
-              description={
-                review.outstanding.length === 0
-                  ? "Every question on this form."
-                  : `${review.outstanding.length === 1 ? "1 question" : `${review.outstanding.length} questions`} still unanswered.`
-              }
+              description={unansweredLine(review)}
               {...(review.mine && !review.submitted
                 ? {
                     action: (
@@ -504,20 +542,14 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
 
       {signingOff && (
         <SignOffDialog
-          act={signingOff}
           review={review}
-          onClose={() => setSigningOff(null)}
+          onClose={() => setSigningOff(false)}
           onConfirm={async (comment) => {
             const ok = await run(
-              () =>
-                signingOff === "acknowledge"
-                  ? signOff.acknowledge(review, comment)
-                  : signOff.dispute(review, comment ?? ""),
-              signingOff === "acknowledge"
-                ? "Acknowledgement recorded"
-                : "Dispute recorded. The rating stands beside it",
+              () => signOff.acknowledge(review, comment),
+              "Acknowledgement recorded",
             );
-            if (ok) setSigningOff(null);
+            if (ok) setSigningOff(false);
           }}
         />
       )}
@@ -677,8 +709,8 @@ function FinaliseDialog({
       tone="primary"
       body={
         <span>
-          {review.subjectName} will be told, and will be asked to acknowledge it
-          or dispute it.{" "}
+          {review.subjectName} will be told, and will be asked to acknowledge
+          it.{" "}
           {review.rating === null
             ? "This form carries no overall mark, so what they read is the answers."
             : `The mark of record becomes "${ratingWords(review.rating)}".`}{" "}

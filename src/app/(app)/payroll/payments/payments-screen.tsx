@@ -2,8 +2,7 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
-import Link from "next/link";
-import { ArrowDownToLine, Banknote, Landmark, ScrollText } from "lucide-react";
+import { Banknote, Landmark } from "lucide-react";
 import {
   Badge,
   Button,
@@ -16,35 +15,18 @@ import {
   Money,
   Spinner,
   Stat,
-  TBody,
-  TD,
-  TDPrimary,
-  TH,
-  THead,
-  TR,
-  TableWrap,
-  useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { ApiError } from "@/lib/api/client";
-import {
-  availableFigure,
-  naira,
-  type ApiPaymentBatch,
-} from "@/lib/api/payments";
+import { naira } from "@/lib/api/payments";
 import { usePermissions } from "@/lib/permissions";
 import {
-  BATCH_STATUS,
-  usePaymentActions,
-  usePaymentBatches,
   usePaymentsSummary,
   useWallet,
+  useWalletStatement,
 } from "@/lib/store/payments";
-import { downloadCsv } from "@/lib/csv";
 import { FundingAccounts } from "../runs/new/pay-panel";
-import { longDate } from "./format";
-import { LedgerPanel } from "./ledger-panel";
+import { WalletStatement } from "./wallet-statement";
 
 /**
  * The wallet.
@@ -83,12 +65,12 @@ import { LedgerPanel } from "./ledger-panel";
 export function PaymentsScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
   const wallet = useWallet();
+  /* Owned here, not inside `WalletStatement`, so the headline figure and the
+     rows come from one request and cannot contradict each other. */
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const statement = useWalletStatement({ page, pageSize });
   const summary = usePaymentsSummary();
-  const list = usePaymentBatches({ pageSize: 25 });
-  const actions = usePaymentActions();
-  const toast = useToast();
-
-  const [downloading, setDownloading] = useState<string | null>(null);
 
   if (permissionsLoading) {
     return (
@@ -121,31 +103,8 @@ export function PaymentsScreen() {
     );
   }
 
-  async function download(batch: ApiPaymentBatch) {
-    setDownloading(batch.id);
-    try {
-      const file = await actions.downloadFile(batch.id);
-      downloadCsv(file.filename, file.csv);
-      toast.push({
-        title: `${file.filename} saved`,
-        tone: "success",
-        detail: "Upload it to your bank to pay these people.",
-      });
-    } catch (error) {
-      toast.push({
-        title: "No file was produced",
-        tone: "danger",
-        detail:
-          error instanceof ApiError
-            ? error.message
-            : "Something went wrong. Try again.",
-      });
-    } finally {
-      setDownloading(null);
-    }
-  }
-
   const held = wallet.wallet;
+  const statementHeld = statement.statement;
   const primary = summary.summary?.primaryAccount;
 
   return (
@@ -153,22 +112,18 @@ export function PaymentsScreen() {
       <PageHeader
         title="Wallet"
         meta={
-          sourceNote(list.live) && (
+          /* The wallet's own `live`, now that the batch list this used to
+             read is gone. Same question — is this real data — asked of the
+             thing the screen is actually about. */
+          sourceNote(wallet.live) && (
             <Badge tone="warning" size="sm" dot>
-              {sourceNote(list.live)}
+              {sourceNote(wallet.live)}
             </Badge>
           )
         }
       />
 
       <PageBody className="flex flex-col gap-6">
-        {list.error && (
-          <LoadFailure
-            subject="the payments"
-            error={list.error}
-            onRetry={list.reload}
-          />
-        )}
         {wallet.error && (
           <LoadFailure
             subject="the wallet balance"
@@ -177,27 +132,39 @@ export function PaymentsScreen() {
           />
         )}
 
-        {/* Three figures, and an em dash where one has not arrived.
+        {/* One figure, and an em dash where it has not arrived.
             -----------------------------------------------------------------
-            Never ₦0.00 for an unanswered request. `useWallet` returns null
-            while loading, on failure, and offline — and a confident zero
-            against any of those three is a claim about a company's money that
-            happens to be false. The ₦0 incident this codebase has a rule about
-            was exactly this shape one module along. */}
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {/* Label and hint move with the sign — see `availableFigure`. A
-              company that has approved more than it holds is short by an
-              amount, not in possession of a negative one. */}
+            Never ₦0.00 for an unanswered request. `useWalletStatement`
+            returns null while loading, on failure, and offline — and a
+            confident zero against any of those three is a claim about a
+            company's money that happens to be false. The ₦0 incident this
+            codebase has a rule about was exactly this shape one module
+            along. */}
+        <div className="grid items-start gap-4 sm:grid-cols-2">
+          {/* One balance, and it is the wallet's own.
+              -----------------------------------------------------------------
+              There were two tiles here -- "Available to pay with" and "In the
+              account" -- and they showed the same number, which was neither
+              of the things they claimed and not the wallet balance either.
+              Both came from `GET /payments/wallet`, which re-derives a
+              position by summing `LedgerEntry`. Nothing that moves the wallet
+              writes a ledger row, so after a payroll the tiles read
+              ₦15,012,300.55 while the wallet held ₦5,620,778.55 and said so
+              in the statement directly below them.
+
+              This reads the wallet. `GET /payments/wallet/account` returns the
+              stored balance -- the figure with a row lock behind it, both
+              sides recorded on every movement, and `reconcileWallet` checking
+              it against them -- and it is the *same request* the statement
+              below is drawn from, so the headline and the rows cannot
+              disagree. That is why `useWalletStatement` is called here and
+              passed down rather than called twice. */}
           <Stat
-            label={
-              held
-                ? availableFigure(held.availableKobo).label
-                : "Available to pay with"
-            }
+            label="Wallet balance"
             value={
-              held ? (
+              statementHeld ? (
                 <Money
-                  amount={naira(availableFigure(held.availableKobo).kobo)}
+                  amount={naira(statementHeld.balanceKobo)}
                   decimals
                   size="xl"
                 />
@@ -205,64 +172,74 @@ export function PaymentsScreen() {
                 <Unknown />
               )
             }
-            hint={
-              held
-                ? availableFigure(held.availableKobo).hint
-                : "after everything already promised"
-            }
+            hint="what the wallet holds right now"
           />
-          <Stat
-            label="In the account"
-            value={
-              held ? (
-                <Money amount={naira(held.balanceKobo)} decimals size="xl" />
+
+          {/* The account to pay into, beside the figures rather than in a card
+              of its own further down.
+              -----------------------------------------------------------------
+              It answers the question the two figures raise. Somebody reading
+              "available ₦15,012,300.55" and finding it short needs the account
+              number next, and it used to be a scroll away under a heading that
+              did not say "account number".
+
+              "Paying from" — the company's own bank account — is deliberately
+              not here and not anywhere on this screen. It is a settings fact,
+              it is on the batch where a payment is actually checked, and
+              sitting it next to this one only ever invited money being sent to
+              the wrong one of the two. */}
+          <Card>
+            <CardHeader title="Putting money in" />
+            <CardBody>
+              {wallet.loading ? (
+                <div className="flex items-center gap-2 text-body-sm text-muted">
+                  <Spinner size="sm" />
+                  Reading the account
+                </div>
+              ) : held ? (
+                <FundingAccounts accounts={held.fundingAccounts} />
               ) : (
-                <Unknown />
-              )
-            }
-            hint="on the bank statement"
-          />
-          <Stat
-            label="Already promised"
-            value={
-              held ? (
-                <Money amount={naira(held.committedKobo)} decimals size="xl" />
-              ) : (
-                <Unknown />
-              )
-            }
-            hint="approved or sent, not yet gone"
-          />
-          <Stat
-            label="Paying from"
-            value={
-              primary ? (
-                <span className="text-body-sm font-medium text-ink">
-                  {primary.bankName}
-                </span>
-              ) : (
-                <span className="text-body-sm font-medium text-muted">
-                  Not set
-                </span>
-              )
-            }
-            hint={
-              primary
-                ? /* Digits first: the masked number is what somebody checks a
-                     payout account by, and it was the half `truncate` was
-                     eating -- "Schull Technologies Limited - ***..." */
-                  `${primary.accountNumberMasked} · ${primary.accountName}`
-                : undefined
-            }
-          />
+                <Callout tone="info" title="Not available here">
+                  The wallet is a live balance from the API. There is no ledger
+                  to read offline, and a figure invented here would be a claim
+                  about a company&rsquo;s money.
+                </Callout>
+              )}
+            </CardBody>
+          </Card>
+          {/* "Already promised" was here, and it is gone on purpose.
+              -----------------------------------------------------------------
+              It rendered `committedKobo`, which counts instructions inside
+              APPROVED or SUBMITTED batches. Approving a payroll debits the
+              wallet at approval and leaves the batch it builds in DRAFT, so
+              the figure read ₦0.00 for the one case it exists to describe.
+              A tile that is always zero teaches a reader to stop looking at
+              it, and this one sits beside figures about the same money.
+
+              The underlying disagreement between the ledger-derived position
+              and the stored wallet is a separate, open piece of work. This
+              only stops the screen asserting something it cannot support. */}
+          {/* "Paying from" was here. The account salaries leave from is a
+              settings fact, not a figure about the money, and it sat in a row
+              of amounts reading as though it were one. It is still on the
+              batch, which is where somebody checking a payment looks. */}
         </div>
 
+        {/* Not an explanation of a figure this screen shows.
+            -----------------------------------------------------------------
+            This said what "Available" meant, and arrived with a merge after
+            that tile had been removed — so it explained something no longer
+            on the page. Deleting it outright would have hidden the fact it
+            was carrying, though: when a payroll is approved and its wallet
+            debit is refused for want of funds, money is promised out of this
+            balance and the single figure above cannot show it.
+
+            So it names the amount instead, and only when there is one. */}
         {held && held.committedKobo > 0 && (
           <p className="text-body-sm text-muted">
-            &ldquo;Available&rdquo; is the balance less what is already
-            promised. Two payrolls approved in one morning must not both be told
-            the same money is theirs, which is what a single balance figure
-            would do.
+            <Money amount={naira(held.committedKobo)} decimals /> of this is
+            already promised to an approved payroll the wallet has not paid out.
+            Approving another one does not make that money available twice.
           </p>
         )}
 
@@ -285,168 +262,38 @@ export function PaymentsScreen() {
           </Card>
         )}
 
-        <Card>
-          {/*
-           * No description, deliberately: `FundingAccounts` opens with this
-           * card's sentence already.
-           *
-           * There were two of them, one line apart -- "Transfers into any of
-           * these accounts credit the wallet." here, and "Transfer into any of
-           * these accounts and the wallet is credited automatically." from the
-           * component -- which read as the page repeating itself. Making the
-           * two agree about plurality, which is what happened first, was
-           * fixing the wrong half.
-           *
-           * The component's copy is the one that survives, because it travels
-           * with the accounts: the component states its own terms wherever it
-           * is placed, and a card description cannot. It also already handles
-           * both the singular and the empty case.
-           */}
-          <CardHeader title="Putting money in" />
-          <CardBody>
-            {wallet.loading ? (
-              <div className="flex items-center gap-2 text-body-sm text-muted">
-                <Spinner size="sm" />
-                Reading the account
-              </div>
-            ) : held ? (
-              <FundingAccounts accounts={held.fundingAccounts} />
-            ) : (
-              <Callout tone="info" title="Not available here">
-                The wallet is a live balance from the API. There is no ledger to
-                read offline, and a figure invented here would be a claim about
-                a company&rsquo;s money.
-              </Callout>
-            )}
-          </CardBody>
-        </Card>
+        <WalletStatement
+          statement={statement}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            /* Page three of 25 is past the end of a 100-row page. */
+            setPage(1);
+          }}
+        />
 
-        <Card>
-          <CardHeader
-            title="Payments"
-            description="Prepared when a payroll is approved. Each one opens."
-          />
-          {list.loading ? (
-            <CardBody className="flex justify-center py-10">
-              <Spinner />
-            </CardBody>
-          ) : list.batches.length === 0 ? (
-            <EmptyState
-              icon={<Banknote aria-hidden="true" />}
-              title="Nothing has been paid yet"
-              description="A payment is prepared the moment a payroll is approved, and the run itself offers to send it or hand you the bank file. Approve this month's payroll and it shows up here."
-              action={<ButtonLink href="/payroll">Go to payroll</ButtonLink>}
-            />
-          ) : (
-            <TableWrap
-              className="rounded-none border-0"
-              caption="Payments, newest first"
-            >
-              <THead>
-                <TH>Reference</TH>
-                <TH>Pays</TH>
-                <TH align="right">People</TH>
-                <TH align="right">Total</TH>
-                <TH>From</TH>
-                <TH>Status</TH>
-                <TH align="right">
-                  <span className="sr-only">Actions</span>
-                </TH>
-              </THead>
-              <TBody>
-                {list.batches.map((batch) => {
-                  const status = BATCH_STATUS[batch.status];
-                  return (
-                    <TR key={batch.id}>
-                      <TDPrimary
-                        title={
-                          <Link
-                            href={`/payroll/payments/${batch.id}`}
-                            className="hover:text-accent-text hover:underline underline-offset-4"
-                          >
-                            {batch.reference}
-                          </Link>
-                        }
-                        subtitle={batch.narration ?? undefined}
-                      />
-                      <TD>{batch.payDate ? longDate(batch.payDate) : "—"}</TD>
-                      <TD align="right" className="tabular">
-                        {batch.itemCount}
-                      </TD>
-                      <TD
-                        align="right"
-                        className="tabular font-medium text-ink"
-                      >
-                        <Money
-                          amount={naira(batch.computedTotalKobo)}
-                          decimals
-                        />
-                      </TD>
-                      <TD>
-                        <span className="text-body-sm">
-                          {batch.sourceBankName}
-                        </span>
-                        <span className="tabular mt-0.5 block text-meta text-muted">
-                          {batch.sourceAccountMasked}
-                        </span>
-                      </TD>
-                      <TD>
-                        <Badge tone={status.tone} size="sm" dot>
-                          {status.label}
-                        </Badge>
-                      </TD>
-                      <TD align="right">
-                        <div className="flex justify-end gap-2">
-                          {/* Still here, and it is not a leftover of the old
-                              console: somebody who downloaded a file and lost
-                              it needs it again, and the run it came from is
-                              months back by then. `can.downloadFile` is the
-                              server's own view of the state machine, so this
-                              cannot offer what the endpoint would refuse. */}
-                          {batch.can.downloadFile && (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              loading={downloading === batch.id}
-                              onClick={() => void download(batch)}
-                            >
-                              <ArrowDownToLine
-                                aria-hidden="true"
-                                className="size-3.5"
-                              />
-                              Bank file
-                            </Button>
-                          )}
-                          <ButtonLink
-                            href={`/payroll/payments/${batch.id}`}
-                            variant="ghost"
-                            size="sm"
-                          >
-                            Open
-                          </ButtonLink>
-                        </div>
-                      </TD>
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </TableWrap>
-          )}
-        </Card>
-
-        <LedgerPanel canRecordFunding={can("MANAGE_SETTINGS")} />
-
-        <p className="flex items-center gap-2 text-body-sm text-muted">
-          <ScrollText aria-hidden="true" className="size-4 shrink-0" />
-          Every bank file download is recorded in the{" "}
-          <Link
-            href="/settings/audit"
-            className="text-accent-text hover:underline underline-offset-4"
-          >
-            audit trail
-          </Link>
-          .
-        </p>
+        {/* The payments list was here, and is gone at the product owner's
+         * request. It listed each batch a payroll built, with the batch page
+         * behind an "Open" and the bank file behind a download.
+         *
+         * Two things went with it and are worth knowing: this was the only
+         * route on this screen to `/payroll/payments/<id>`, and the only
+         * place a company could fetch an approved batch's bank file again
+         * after losing the first download. Both still exist; nothing here
+         * points at them any more. */}
+        {/* Account activity was here — `LedgerEntry`, what the bank did.
+         * Removed because it was a second table about the same money that
+         * disagreed with the first: the ledger held two provider deposits the
+         * wallet never received (₦8,750), while the payroll debit that left
+         * the wallet wrote no ledger row, so it reported "Out ₦0.00" after a
+         * payroll had gone out. Its balances were null unless somebody typed
+         * them off a statement, and its own comment forbade computing them.
+         *
+         * The wallet statement is the honest record and it is the one that
+         * stayed. `GET /payments/ledger` still exists and the entries are
+         * still written; nothing displays them. */}
       </PageBody>
     </>
   );

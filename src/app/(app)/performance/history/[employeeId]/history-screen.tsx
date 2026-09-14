@@ -506,12 +506,33 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
                 ? "None yet"
                 : "Not asked yet",
         },
-        {
-          term: "What they said",
-          value:
-            signOff.employeeComment ??
-            "Nothing, which they were not obliged to add",
-        },
+        /**
+         * Only where they have actually said something.
+         *
+         * This rendered `employeeComment` unconditionally, so one card showed
+         * *"Their answer — Not asked yet"* and, in the next cell,
+         * *"What they said — 'I do not accept this mark…'"*, 532 characters
+         * of it. The comment outlives the state that produced it: a dispute
+         * that a send-back reversed leaves the text on the column with the
+         * flags cleared, which is **BE-21** and is fixed on the API, not here.
+         *
+         * What is this screen's to fix is which of the two it believes. The
+         * flags are the fact; a quote under a flag saying no answer exists is
+         * the card contradicting itself, and the reader has no way to know
+         * which half is stale. So the quote follows the flag, and the row is
+         * absent rather than empty when nobody has answered — the same
+         * distinction the three fields above it are drawn around.
+         */
+        ...(signOff.acknowledged || signOff.disputed
+          ? [
+              {
+                term: "What they said",
+                value:
+                  signOff.employeeComment ??
+                  "Nothing, which they were not obliged to add",
+              },
+            ]
+          : []),
         ...(signOff.reviewId
           ? [
               {

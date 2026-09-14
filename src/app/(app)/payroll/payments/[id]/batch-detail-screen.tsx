@@ -34,6 +34,7 @@ import {
   usePaymentsSummary,
 } from "@/lib/store/payments";
 import { downloadCsv } from "@/lib/csv";
+import { useOrgTimezone } from "@/lib/store/session";
 import { longDate, longDateTime, people } from "../format";
 import { CheckPanel } from "./check-panel";
 import { ReleasePanel } from "./release-panel";
@@ -68,6 +69,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
   const summary = usePaymentsSummary();
   const actions = usePaymentActions();
   const toast = useToast();
+  const timeZone = useOrgTimezone();
 
   const [busy, setBusy] = useState(false);
   const [rechecking, setRechecking] = useState(false);
@@ -392,11 +394,14 @@ export function BatchDetailScreen({ id }: { id: string }) {
           <CardHeader level={2} title="History" />
           <CardBody>
             <dl className="flex flex-col gap-3">
-              <HistoryLine term="Built" value={longDateTime(batch.createdAt)} />
+              <HistoryLine
+                term="Built"
+                value={longDateTime(batch.createdAt, timeZone)}
+              />
               {batch.approvedAt && (
                 <HistoryLine
                   term="Approved"
-                  value={`${longDateTime(batch.approvedAt)}${
+                  value={`${longDateTime(batch.approvedAt, timeZone)}${
                     batch.approvedByName ? ` by ${batch.approvedByName}` : ""
                   }`}
                 />
@@ -404,13 +409,13 @@ export function BatchDetailScreen({ id }: { id: string }) {
               {batch.submittedAt && (
                 <HistoryLine
                   term="Sent"
-                  value={longDateTime(batch.submittedAt)}
+                  value={longDateTime(batch.submittedAt, timeZone)}
                 />
               )}
               {batch.completedAt && (
                 <HistoryLine
                   term="Paid"
-                  value={longDateTime(batch.completedAt)}
+                  value={longDateTime(batch.completedAt, timeZone)}
                 />
               )}
               {batch.providerRef && (

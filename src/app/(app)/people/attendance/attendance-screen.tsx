@@ -52,6 +52,7 @@ import {
 } from "@/lib/store/attendance";
 import { useSession } from "@/lib/store/session";
 import { shortDate } from "@/lib/today";
+import { AttendanceCapabilityBar } from "./capability-bar";
 import { MyAttendanceHistoryPanel } from "./my-attendance-history";
 
 /**
@@ -112,8 +113,6 @@ type View = "today" | "timesheet";
  * itself scopes them to.
  */
 export function AttendanceScreen() {
-  const roster = useAttendanceRoster();
-  const sheet = useAttendanceTimesheet(TIMESHEET_DAYS);
   const locations = useWorkLocations();
   const session = useSession();
   /* Two separate hook calls, never short-circuited into one expression — a
@@ -128,6 +127,27 @@ export function AttendanceScreen() {
      "findable by nobody" defect HANDOVER records four times over. */
   const canImport = useCan("IMPORT_DATA");
   const canSeeRoster = isManager || canEditRecords;
+
+  /**
+   * An account with no employee record, and no permission to see everybody's,
+   * has nothing on this screen at all.
+   *
+   * Both halves are known here, before any request. The API refuses all three
+   * attendance reads for this person with one correct sentence
+   * (`attendance/router.ts#attendanceScope`), and this screen used to make all
+   * three and render that sentence **three times, in three red callouts** —
+   * above a fourth panel telling them they were "signed in to run this
+   * company". Four panels, one fact, and it read as a broken product rather
+   * than a screen with nothing for you.
+   *
+   * So the reads are declined rather than made and mourned. `enabled: false`
+   * is quiet — no request, no error — and the one explanation below is the
+   * whole screen.
+   */
+  const nothingHere = !session.employeeId && !canSeeRoster;
+
+  const roster = useAttendanceRoster(undefined, !nothingHere);
+  const sheet = useAttendanceTimesheet(TIMESHEET_DAYS, !nothingHere);
 
   const [view, setView] = useState<View>("today");
   const [correcting, setCorrecting] = useState<ApiRosterRow | null>(null);
@@ -178,45 +198,58 @@ export function AttendanceScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {roster.error && (
-          <LoadFailure subject="today's roster" error={roster.error} />
-        )}
+        {nothingHere ? (
+          <NoRecordHere canAddPeople={canEditRecords} />
+        ) : (
+          <>
+            {roster.error && (
+              <LoadFailure subject="today's roster" error={roster.error} />
+            )}
 
-        {/* Own clock-in. Deliberately the first thing on the page: the person
-            looking at this screen most often is looking for this control.
-            Shared with `/dashboard` — see `components/portal/my-clock-card.tsx`
-            for why this used to be inline here and no longer is. */}
-        <MyClockCard onRecorded={refresh} />
+            {/* Closed by default and cheap to skip past — the module's settings,
+                reachable without a trip to `/settings/*`. See `capability-bar.tsx`
+                for why it sits here rather than being repeated on every screen
+                that shares one of its switches. */}
+            <AttendanceCapabilityBar />
 
-        {/* Everybody clocks in above. Everybody else's day is a different
+            {/* Own clock-in. Deliberately the first *open* thing on the page: the
+                person looking at this screen most often is looking for this
+                control. Shared with `/dashboard` — see
+                `components/portal/my-clock-card.tsx` for why this used to be
+                inline here and no longer is. */}
+            <MyClockCard onRecorded={refresh} />
+
+            {/* Everybody clocks in above. Everybody else's day is a different
             question, and only a manager or `EDIT_RECORDS` gets to ask it —
             see "Who sees the roster" on this component. A plain employee
             gets their own recent attendance instead of the company's. */}
-        {canSeeRoster ? (
-          view === "today" ? (
-            roster.date ? (
-              <TodayView
-                roster={roster}
-                onCorrect={setCorrecting}
-                canCorrect={canEditRecords}
-              />
+            {canSeeRoster ? (
+              view === "today" ? (
+                roster.date ? (
+                  <TodayView
+                    roster={roster}
+                    onCorrect={setCorrecting}
+                    canCorrect={canEditRecords}
+                  />
+                ) : (
+                  <LoadingPanel label="Loading today's roster" />
+                )
+              ) : sheet.error ? (
+                <LoadFailure subject="the timesheet" error={sheet.error} />
+              ) : sheet.from ? (
+                <TimesheetView sheet={sheet} />
+              ) : (
+                <LoadingPanel label="Loading the timesheet" />
+              )
             ) : (
-              <LoadingPanel label="Loading today's roster" />
-            )
-          ) : sheet.error ? (
-            <LoadFailure subject="the timesheet" error={sheet.error} />
-          ) : sheet.from ? (
-            <TimesheetView sheet={sheet} />
-          ) : (
-            <LoadingPanel label="Loading the timesheet" />
-          )
-        ) : (
-          <>
-            <MyAttendanceSummary
-              sheet={sheet}
-              employeeId={session.employeeId}
-            />
-            <MyAttendanceHistoryPanel />
+              <>
+                <MyAttendanceSummary
+                  sheet={sheet}
+                  employeeId={session.employeeId}
+                />
+                <MyAttendanceHistoryPanel />
+              </>
+            )}
           </>
         )}
       </PageBody>
@@ -264,6 +297,46 @@ function LoadingPanel({ label }: { label: string }) {
  * yet in the window); both render the same quiet "nothing recorded" rather
  * than a wall of zeroes standing in for data that was never fetched.
  */
+/**
+ * The whole screen, for somebody it has nothing for.
+ *
+ * Said once. The three reads behind this screen all refuse this account with
+ * the same sentence, and rendering that sentence once per read is how one fact
+ * became three red callouts.
+ *
+ * **Not red.** Nothing has gone wrong and nothing here is theirs to fix: their
+ * account simply is not linked to an employee record. A danger callout for a
+ * state the reader cannot act on teaches people to ignore the colour.
+ *
+ * The way out depends on who is reading, and getting this wrong is what the
+ * old copy did. With `EDIT_RECORDS` this is the owner on day one — registering
+ * a company creates a `User` and no `Employee` — and they can fix it
+ * themselves in one click. Without it, they cannot: `POST /employees` needs
+ * `EDIT_RECORDS`, so offering them "Add yourself as an employee" is a button
+ * whose only outcome is a refusal. They are told who can fix it instead.
+ */
+function NoRecordHere({ canAddPeople }: { canAddPeople: boolean }) {
+  return (
+    <Card>
+      <CardBody className="flex flex-col items-start gap-3">
+        <p className="text-body font-semibold text-ink">
+          There is no attendance to show you
+        </p>
+        <p className="max-w-prose text-body-sm leading-relaxed text-body">
+          {canAddPeople
+            ? "This account runs the company but is not on its payroll, so there is no record to clock in or out against. Add yourself as an employee and this becomes your own day."
+            : "This account is not linked to an employee record, so there is nothing to clock in or out against and no attendance of your own to show. Whoever looks after your people records can link it — ask them, and this becomes your own day."}
+        </p>
+        {canAddPeople && (
+          <ButtonLink href="/people/new" variant="secondary" size="sm">
+            Add yourself as an employee
+          </ButtonLink>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 function MyAttendanceSummary({
   sheet,
   employeeId,

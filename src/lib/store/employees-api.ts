@@ -13,9 +13,11 @@ import {
   type EmployeeSummary,
 } from "@/lib/api/endpoints";
 import { demoDepartmentName } from "./demo-structure";
+import { demoWorkLocationName } from "./work-locations";
 import { useEmployeeStore } from "./employees";
-import { useSession } from "./session";
+import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
+import { todayIn } from "@/lib/time";
 
 /**
  * The employee directory, from whichever source is available.
@@ -624,6 +626,7 @@ export type EmployeePatch = Partial<Employee> & {
  */
 export function useEmployeeMutations() {
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const local = useEmployeeStore();
 
   /**
@@ -663,7 +666,7 @@ export function useEmployeeMutations() {
         firstName: draft.firstName,
         lastName: draft.lastName,
         jobTitle: draft.jobTitle ?? "Not set",
-        startDate: draft.startDate ?? new Date().toISOString().slice(0, 10),
+        startDate: draft.startDate ?? todayIn(timeZone),
         /* Omitted when nobody has agreed a figure. It used to be
            `toKobo(draft.grossMonthly ?? 0)`, which created the person on ₦0 a
            month — a figure the payroll run would then have prorated. */
@@ -712,9 +715,14 @@ export function useEmployeeMutations() {
           ? { employmentType: draft.employmentType.toUpperCase() }
           : {}),
       });
-      return toEmployee(created);
+      /* `created.invited` rides on the same response as the record — see
+         `ApiCreateInviteOutcome`. Attached onto the mapped `Employee` rather
+         than returned alongside it in a tuple, because the one caller that
+         reads it (the add-employee wizard) wants exactly this: the record it
+         already knew how to use, plus one more fact it can choose to check. */
+      return Object.assign(toEmployee(created), { invited: created.invited });
     },
-    [isConnected],
+    [isConnected, timeZone],
   );
 
   const update = useCallback(
@@ -744,18 +752,26 @@ export function useEmployeeMutations() {
             : salaryGradeId;
 
       if (!isConnected) {
-        /* The local store holds display names, so a `departmentId` has to be
-           resolved to one before it can be written. It used to be dropped here
-           with a comment saying an id means nothing to the local store — true,
-           and the consequence was that the record page's department picker
-           looked saved and moved nobody. `demoDepartmentName` is the seam;
-           `workLocationId` still has the bug, because locations live in
-           `store/attendance.ts` and that is a different fix. */
+        /* The local store holds display names, so an id has to be resolved to
+           one before it can be written. Both were dropped here once, with a
+           comment saying an id means nothing to the local store — true, and
+           the consequence was a picker that looked saved and moved nobody.
+           `demoDepartmentName` closed that for departments and this comment
+           then said `workLocationId` "still has the bug… a different fix";
+           `demoWorkLocationName` is that fix, and it lives in
+           `store/work-locations.ts` because the locations do.
+
+           Both seams refuse an id they cannot resolve rather than writing a
+           blank, so a stale picker option fails loudly instead of quietly
+           unassigning somebody. */
         local.update(id, {
           ...fields,
           ...(departmentId === undefined
             ? {}
             : { department: demoDepartmentName(departmentId) }),
+          ...(workLocationId === undefined
+            ? {}
+            : { location: demoWorkLocationName(workLocationId) }),
           ...(normalizedManagerId === undefined
             ? {}
             : { managerId: normalizedManagerId }),

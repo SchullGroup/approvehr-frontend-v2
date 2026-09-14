@@ -40,7 +40,7 @@ import {
   type TemplateColumn,
 } from "@/lib/imports/template-file";
 import { downloadXlsx, isXlsxName, readXlsx } from "@/lib/xlsx";
-import { useSession } from "./session";
+import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
 
 /**
@@ -409,6 +409,7 @@ const messageOf = (error: unknown): string =>
 
 export function useImport(dictionary: Dictionary<string>) {
   const { isConnected, can } = useSession();
+  const timeZone = useOrgTimezone();
   /**
    * The same gate `components/imports/import-flow.tsx` already applies to the
    * screen — `IMPORT_DATA`, and the whole router is behind it.
@@ -787,7 +788,10 @@ export function useImport(dictionary: Dictionary<string>) {
       const presentFields = new Set(
         Object.values(mapping).filter((field) => field !== ""),
       );
-      const local = checkMappedRows(dictionary, payload, { presentFields });
+      const local = checkMappedRows(dictionary, payload, {
+        presentFields,
+        timeZone,
+      });
       setCheck({
         filename: file.name,
         totalRows: rows.length,
@@ -959,7 +963,16 @@ export function useImport(dictionary: Dictionary<string>) {
       authoritative: true,
     });
     return true;
-  }, [dictionary, file, mapping, isConnected, fixes, decisions, selection]);
+  }, [
+    dictionary,
+    file,
+    mapping,
+    isConnected,
+    fixes,
+    decisions,
+    selection,
+    timeZone,
+  ]);
 
   /* -------------------------------------------------------------- step four */
 

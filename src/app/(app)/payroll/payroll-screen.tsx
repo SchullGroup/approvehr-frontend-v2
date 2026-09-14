@@ -15,6 +15,7 @@ import {
   CardHeader,
   EmptyState,
   Money,
+  Skeleton,
   Stat,
   TBody,
   TD,
@@ -45,7 +46,9 @@ import {
   usePayrollRun,
   usePayrollRuns,
 } from "@/lib/store/payroll";
+import { useOrgTimezone } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
+import { todayIn } from "@/lib/time";
 
 /**
  * The payroll home.
@@ -79,6 +82,7 @@ export function PayrollScreen() {
   const router = useRouter();
   const canView = useCan("VIEW_SALARIES");
   const { runs, loading, error, connected } = usePayrollRuns();
+  const timeZone = useOrgTimezone();
 
   /**
    * Net pay per calendar month, with a hole where nothing was run.
@@ -135,11 +139,11 @@ export function PayrollScreen() {
 
   /* `TODAY` is pinned to the demo dataset's day, not a question about a real
      company's calendar — same reasoning `periodStanding` in the run wizard
-     gives for reading `new Date()` instead. Connected, the real clock decides
-     what "no run yet" means; demo mode keeps the fixture's own day so the
-     seed stays coherent. */
+     gives for reading the company's own clock instead. Connected, the
+     company's clock decides what "no run yet" means; demo mode keeps the
+     fixture's own day so the seed stays coherent. */
   const currentPeriod = connected
-    ? new Date().toISOString().slice(0, 7)
+    ? todayIn(timeZone).slice(0, 7)
     : TODAY.slice(0, 7);
   const hasCurrentPeriod = runs.some((run) => run.period === currentPeriod);
   const counts = countBySeverity(detail.run?.exceptions ?? []);
@@ -212,10 +216,22 @@ export function PayrollScreen() {
 
         {error && <LoadFailure subject="payroll" error={error} />}
 
-        {/* An error is not an empty state. "No run yet" beside "you need
+        {/* Shape-matched, same pattern as record-history.tsx. `SourceBadge`
+            above already says "Loading…" in words, but that is easy to miss
+            above blank space — this is what fills the gap while `current`
+            is still null. */}
+        {loading && !error && runs.length === 0 ? (
+          <Card>
+            <CardBody className="flex flex-col gap-2">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <span className="sr-only">Loading this period’s payroll</span>
+            </CardBody>
+          </Card>
+        ) : /* An error is not an empty state. "No run yet" beside "you need
             VIEW_SALARIES" tells somebody to prepare a run they would not be
-            allowed to see, which is two wrong answers rather than one. */}
-        {!loading && !error && runs.length === 0 ? (
+            allowed to see, which is two wrong answers rather than one. */
+        !loading && !error && runs.length === 0 ? (
           <EmptyState
             icon={<CalendarClock aria-hidden="true" />}
             title={`No payroll run for ${periodLabel(currentPeriod)} yet`}

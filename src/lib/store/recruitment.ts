@@ -1051,8 +1051,15 @@ export type RealPipelineState = {
 
 /**
  * Resolves an id that might be a real pipeline `Application` id directly (the
- * connected board links these), or a careers `candidateId` to look an active
- * pipeline application up through (every other entry point only has that).
+ * connected board links these), a **recruitment `Candidate` id** (what the
+ * candidates list and any link written by hand carry), or a careers
+ * `candidateId` passed beside it to look an active pipeline application up
+ * through.
+ *
+ * All three are tried in that order, and the order is the cost model: the
+ * common case is an application id and resolves in one request. Only a miss
+ * pays for a second read, and a miss is a screen that was about to say it
+ * could not find anything.
  *
  * `Candidate.applications` can hold more than one — a person can apply to
  * more than one role — so this picks the one still in progress, or the most
@@ -1081,6 +1088,25 @@ export function useRealPipelineApplication(
     void (async () => {
       let application: ApiApplicationDetail | null = null;
       let failure: ApiError | null = null;
+
+      /* Given a candidate, find the pipeline application worth opening. More
+         than one is ordinary — a person can apply for two roles — so the one
+         still in progress wins, and the most recent otherwise. */
+      const throughCandidate = async (
+        who: string,
+      ): Promise<ApiApplicationDetail | null> => {
+        const candidate = await recruitmentApi.getCandidate(
+          who,
+          controller.signal,
+        );
+        const best =
+          candidate.applications.find((a) => a.outcome === "IN_PROGRESS") ??
+          candidate.applications[0];
+        return best
+          ? await recruitmentApi.getApplication(best.id, controller.signal)
+          : null;
+      };
+
       try {
         if (id) {
           try {
@@ -1094,19 +1120,28 @@ export function useRealPipelineApplication(
             application = null;
           }
         }
+        /* The id in the URL might be a **candidate** id rather than an
+           application one, and until now nothing tried that: the fallback
+           existed but was keyed only on the careers `candidateId` passed
+           beside it, which is null for anybody who never applied through the
+           careers page. So a recruiter following a link to a candidate the
+           API knows perfectly well got "Nothing here matches that record".
+
+           Tried only after the application read has already failed, so the
+           common case — the board linking an application id — still costs one
+           request. A 404 here is an id that is neither, which is the answer
+           the screen is about to give anyway. */
+        if (!application && id) {
+          try {
+            application = await throughCandidate(id);
+          } catch (error) {
+            if (error instanceof DOMException && error.name === "AbortError")
+              throw error;
+            application = null;
+          }
+        }
         if (!application && candidateId) {
-          const candidate = await recruitmentApi.getCandidate(
-            candidateId,
-            controller.signal,
-          );
-          const best =
-            candidate.applications.find((a) => a.outcome === "IN_PROGRESS") ??
-            candidate.applications[0];
-          if (best)
-            application = await recruitmentApi.getApplication(
-              best.id,
-              controller.signal,
-            );
+          application = await throughCandidate(candidateId);
         }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError")
