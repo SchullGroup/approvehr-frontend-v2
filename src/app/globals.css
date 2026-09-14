@@ -216,6 +216,12 @@
   /* ---- Motion -------------------------------------------------------- */
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+  /* The time-reversed curve of --ease-out-soft — invert both control points,
+     (1-x2, 1-y2, 1-x1, 1-y1) — rather than reusing --ease-out-soft for exits
+     too. Mirroring the curve is what makes an exit read as the entrance
+     played backwards instead of a different, unrelated motion; the two
+     directions of one transition should share a shape, not just a duration. */
+  --ease-in-soft: cubic-bezier(0.64, 0, 0.78, 0);
 
   /* ==================================================================== */
   /* MARKETING SURFACE                                                    */
@@ -660,6 +666,58 @@
   }
 }
 
+/* The exit half of the four enters above — `ahr-fade`, `ahr-scale-in` and the
+   two slides. Each is that keyframe's `from`/`to` swapped, so the surface
+   leaves exactly the way it arrived rather than by some other motion, and
+   each runs on `--ease-in-soft`, the mirrored curve, for the same reason.
+   Used by `useDismiss` (`hooks/use-dismiss.ts`): a surface stays mounted for
+   one of these durations after `open` goes false, so `Modal`, `Drawer`,
+   `Toast` and the guided tour's `Spotlight` all have somewhere to go instead
+   of `if (!open) return null`. Exits run a little quicker than their
+   entrances — the thing arriving is asking for attention, the thing leaving
+   is not. */
+@keyframes ahr-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ahr-scale-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+}
+
+@keyframes ahr-slide-to-right {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes ahr-slide-to-left {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
 @utility animate-rise {
   animation: ahr-rise 0.5s var(--ease-out-soft) both;
 }
@@ -670,6 +728,14 @@
 
 @utility animate-scale-in {
   animation: ahr-scale-in 0.22s var(--ease-out-soft) both;
+}
+
+@utility animate-fade-out {
+  animation: ahr-fade-out 0.25s var(--ease-in-soft) both;
+}
+
+@utility animate-scale-out {
+  animation: ahr-scale-out 0.16s var(--ease-in-soft) both;
 }
 
 @utility animate-shimmer {
@@ -715,6 +781,14 @@
 
 @utility animate-slide-from-left {
   animation: ahr-slide-from-left 0.24s var(--ease-out-soft) both;
+}
+
+@utility animate-slide-to-right {
+  animation: ahr-slide-to-right 0.2s var(--ease-in-soft) both;
+}
+
+@utility animate-slide-to-left {
+  animation: ahr-slide-to-left 0.2s var(--ease-in-soft) both;
 }
 
 /* --------------------------------------------------------------------------
@@ -790,6 +864,31 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* The transform-bearing half of the dismissible-surface animations —
+     Modal, Drawer, Toast and the guided tour's Spotlight — get a short, real
+     cross-fade here instead of the blanket 0.001ms snap above. Reduced
+     motion is not the same promise as no feedback: something should still
+     visibly arrive and leave, and it is specifically the slide and the
+     scale that raise the vestibular problem, not the fact that a surface
+     appeared. `animate-fade`/`animate-fade-out` need no entry: they are
+     already opacity-only, so the blanket rule above already leaves them as
+     a (very quick) fade and there is no transform to strip out of them.
+
+     A class selector outranks the universal `*` rule above on specificity
+     alone, so this wins regardless of which one is written first — the
+     ordering here is for a reader, not for the cascade. */
+  .animate-scale-in,
+  .animate-slide-from-right,
+  .animate-slide-from-left {
+    animation: ahr-fade 0.15s var(--ease-out-soft) both !important;
+  }
+
+  .animate-scale-out,
+  .animate-slide-to-right,
+  .animate-slide-to-left {
+    animation: ahr-fade-out 0.12s var(--ease-in-soft) both !important;
   }
 }
 
