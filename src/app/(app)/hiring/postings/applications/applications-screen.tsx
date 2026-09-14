@@ -152,6 +152,7 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
   const [postingId, setPostingId] = useState(initialPostingId);
   const [search, setSearch] = useState("");
   const [advancing, setAdvancing] = useState<ApiApplication | null>(null);
+  const [advanceError, setAdvanceError] = useState<ApiError | null>(null);
   const [declining, setDeclining] = useState<ApiApplication | null>(null);
 
   const postings = usePostings();
@@ -306,8 +307,13 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
         <AdvanceDialog
           application={advancing}
           posting={index.get(advancing.postingId)}
-          onClose={() => setAdvancing(null)}
+          error={advanceError}
+          onClose={() => {
+            setAdvancing(null);
+            setAdvanceError(null);
+          }}
           onConfirm={async (body) => {
+            setAdvanceError(null);
             try {
               const result = await applications.advance(advancing.id, body);
               toast.push({
@@ -317,7 +323,14 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
               });
               setAdvancing(null);
             } catch (error) {
-              fail(error);
+              if (
+                error instanceof ApiError &&
+                error.messageFor("requisitionId")
+              ) {
+                setAdvanceError(error);
+              } else {
+                fail(error);
+              }
             }
           }}
         />
@@ -490,11 +503,13 @@ function ApplicationRow({
 function AdvanceDialog({
   application,
   posting,
+  error,
   onClose,
   onConfirm,
 }: {
   application: ApiApplication;
   posting: ApiPosting | undefined;
+  error?: ApiError | null;
   onClose: () => void;
   onConfirm: (body: AdvanceBody) => Promise<void>;
 }) {
@@ -502,6 +517,7 @@ function AdvanceDialog({
   const [noticeDays, setNoticeDays] = useState("");
   const [expected, setExpected] = useState("");
   const [busy, setBusy] = useState(false);
+  const roleIdMessage = error?.messageFor("requisitionId");
 
   /**
    * Only ask when we know there is nothing to land on.
@@ -575,6 +591,7 @@ function AdvanceDialog({
           <Field
             label="Approved role ID"
             required
+            error={roleIdMessage}
             help="They have to land on an approved role. There is no picker for this yet. Paste the ID."
           >
             <Input
