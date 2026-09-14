@@ -1,197 +1,307 @@
-# Parity with the existing system — what is missing, and how to add it
+# Parity with the incumbent — what is missing, and how to close it
 
-The live system at `tester.approvehr.io` is the thing we have to beat, and the
-bar is not "looks better". It is **"a customer can move onto this and lose
-nothing"**. This document is the gap between the two, and the order to close it.
-
-Audited from source, not from the running site: the old React frontend at the
-repo root (`../src`), its 27 API service modules (`../src/services/api`), the
-`../MDs/` design notes, and the Postman collection. Nobody logged in — the
-credentials shared in chat are not usable by an agent, and the source is a more
-complete record anyway because it includes endpoints the UI never shipped.
-
-## The headline
-
-| | Existing system | Ours today |
-|---|---|---|
-| App routes | ~120 (plus ~10 test routes still shipped) | 30 |
-| Backend modules | 27 service files | 8 |
-| Prisma / ORM models | n/a (Django) | 42 |
-| Payroll: statutory maths | present, unverified by us | **verified, 50 assertions against statute** |
-| Payroll: allowances, deductions, loans, reimbursements | **yes** | no |
-| Employee lifecycle: offboarding | **yes, deep** | no |
-| Assets register | **yes** | no |
-| Self-service (employee's own profile) | **yes** | no |
-| Multi-company | **yes** | schema only, no UI |
-
-Read that table in both directions. We are ahead on the one thing that is
-hardest to retrofit — payroll arithmetic that is actually right — and behind on
-almost everything that surrounds it. Feature count is where we lose today.
-
-**But route count is also the old system's disease.** ~120 routes exist because
-every module grew a separate page per audience: `/performance/executive`,
-`/performance/manager`, `/performance/my-objectives`, `/performance/team-appraisals`,
-`/performance/reviews/:id/hr-view` are five routes rendering one concept to five
-readers. A business owner with 30 staff has to learn a filing system before they
-can pay anybody. Closing the gap by cloning the structure would inherit the
-problem. The plan below closes it at **one route per concept, rendered by role**.
+The bar has never been "looks better". It is **"a customer can move onto this and
+lose nothing"**. This document is the gap between us and the incumbent, and the
+order to close it.
 
 ---
 
-## What is missing, by weight
+# Revision note — 13 September 2026
 
-### Tier 1 — payroll is not complete without these
+**This document had gone badly stale, and a contributor reading it would have
+been misled about the size of their own product.** The version before this one
+was written on 20 August 2026 and recorded 16 backend modules, 86 models and 52
+frontend routes, with Phases 2 through 4 listed as pending. Between then and now,
+offboarding, assets, documents, policies, shifts, the audit trail, the wallet and
+payment execution, performance depth, the help desk, the knowledge base, the
+public careers page, webhooks and the recruitment backend all shipped. Read
+against today's tree, **most of the feature-count deficit this document was
+written to address is gone.**
 
-Everything here is money. A customer cannot migrate until all five exist,
-because without them our payroll produces a *different number* than theirs.
+Two things changed in this revision:
 
-| Gap | What the old system has | Why it blocks migration |
+1. **The benchmark moved from the old Django system to SeamlessHR's own
+   published module list.** The original audit was read from the source of the
+   legacy system we were replacing. That was the right comparison when the job
+   was migrating a customer off it. The job now is winning against the market
+   leader, so the comparison is the market leader's own support site —
+   `support.seamlesshr.com`, read module by module, with two modules fetched in
+   full.
+2. **The tier lists are gone, because they closed.** Tiers 1, 2 and 3 described
+   what was missing in August. Nearly all of it now exists. Keeping the list
+   would have meant a document whose largest section described solved problems.
+   What replaced it is a module-by-module table against the new benchmark and
+   five remaining gaps.
+
+What was **kept deliberately**: the six rules below, because they are the
+product's design philosophy and `HANDOVER.md` cites them by number; and the
+August audit of the incumbent's live figures, because that evidence does not go
+stale and it is the whole of the positioning argument.
+
+---
+
+## The headline
+
+Counted from source on 13 September 2026, so the next revision can be checked
+against something:
+
+| | Then (20 Aug) | Now |
 |---|---|---|
-| **Allowances & deductions as data** | `allowance_type` / `deduction_type` CRUD, per-employee assignment, batch assign, active/inactive toggle, priority ordering, dashboards | Our payroll splits salary into basic/housing/transport and stops. Real companies add car allowance, leave allowance, 13th month, union dues, cooperative deductions, salary advances. Today we cannot represent them, so our net pay is wrong for almost every real customer. |
-| **Loans** | full lifecycle: create → approve → activate → repayment schedule → payment history → completion certificate; `getPendingApprovals`, `getMonthlySummary` | Staff loans repaid by salary deduction are near-universal in Nigerian SMEs. Missing this means manual deduction entry every month, which is the exact drudgery we are selling against. |
-| **Reimbursements** | types CRUD, claim with document upload, approve/reject, mark as paid, summary | Expense claims land in payroll or in a separate payment. Either way they are money owed to an employee and there is nowhere to put them. |
-| **Salary structures & grades** | `salary_structure` and `salary_category` CRUD | We store a gross figure per employee. No bands, no grades, so no "everyone on Grade 4 gets a 10% rise", and the hiring module's band-position indicator has nothing real behind it. |
-| **Payment execution** | wallet, balance, transactions, `getAvailableBanks` | We generate a payment file and stop. The old system moves money. This is the single biggest "our product feels deficient" moment in a demo. |
+| Backend modules | 16 | **45** |
+| Prisma models | 86 | **140** |
+| Migrations | — | **92** |
+| Backend test files | — | **155** |
+| Frontend routes (signed-in product) | 52 | **95** |
+| Frontend routes (all groups) | — | **114** |
+| Frontend verification gates | — | **18** |
 
-Also in this tier, smaller but sharp:
+Against SeamlessHR's own published module list: **21 of roughly 26 modules are
+answered outright, two are partial, and three are genuinely missing** — one of
+which we should decline to build. The detail is the table below.
 
-- **Bulk employee import** (`employees/import`, `bulk-upload`, `bulk-update`,
-  `bulk-delete`). There are 500-, 1000- and 10,000-row Nigerian employee CSVs
-  sitting in the repo root. Onboarding a company means importing a spreadsheet.
-  We have a one-at-a-time form.
-- **Deduction remittances** (`getDeductionRemittances`, downloadable employee
-  records). We generate statutory *schedules*; they track the remittance as a
-  record with evidence.
-- **Tax configuration with effective dates** (`tax_configuration`,
-  `tax_bracket` CRUD). Our `PAYE_BANDS` is a hardcoded constant and
-  `HANDOVER.md` argues it should stay one because bands are statute, not company
-  policy. **That reasoning is half right and needs revising**: bands are not
-  company policy, but they *are* versioned — the Nigeria Tax Act 2025 changed
-  them effective January 2026. A run for a prior period must compute on the
-  bands in force then. Bands should become data with an `effectiveFrom`, owned
-  by us and shipped as a migration, not editable by the customer.
+**Route count is still the incumbent's disease, and must not become ours.** Their
+~120 routes exist because every module grew a page per audience —
+`/performance/executive`, `/performance/manager`, `/performance/my-objectives`
+are three routes rendering one concept to three readers. We are at 126 and every
+one of them has to keep earning its place.
 
-### Tier 2 — the employee lifecycle does not close
+**A second measure of the same disease, found later and worth more than the
+route count.** SeamlessHR's own public support site carries **164 help articles
+for the performance module alone** — 72 for the administrator, 27 for the
+employee, 13 for the supervisor, 31 general guides, 21 videos — plus an **80-entry
+FAQ**. The settings interface has a "Frequently Used" tab so administrators can
+bookmark the settings they need, which is a feature only a settings screen
+nobody can navigate ever grows. Documentation volume is a proxy for how much a
+product has to be explained, and 164 articles for one module is the number to
+hold this product against. **Each gap closed below lands behind
+an `OrgFeatures` flag or it erodes Rule 2.**
 
-| Gap | Detail |
-|---|---|
-| **Offboarding / exit** | The deepest module in the old system — ~90 service methods. Resignation notice, manager approval, HR approval, clearance checklist with templates and per-item verification, handover tasks, asset return with damage marking, exit interview, risk analysis, offboarding report. We have onboarding checklists and nothing on the way out. An employment record that cannot be closed properly is a legal exposure, not just a missing feature. |
-| **Assets register** | Asset CRUD, categories, assignment to employees, maintenance records. Laptops and phones are the things a leaver actually has to hand back — this is why it is Tier 2 and not Tier 3, it is load-bearing for exit. |
-| **Employee documents** | Document store per employee, plus a **document request** flow (`/employees/documents/requests`) — HR asks the employee for their degree certificate, the employee uploads it. We have an `EmployeeDocument` model and no UI. |
-| **Disciplinary actions** | `employees/disciplinary-actions`. Warning letters and their history. |
-| **Policies** | `employees/policies` + `policy-types`. Publish a handbook section, record who acknowledged it. |
-| **Shifts & work types** | `employee-shifts`, `rotating-shifts`, `work-types`, `rotating-work-types`, `work-type-definitions`, plus employee-raised shift-change requests. Our attendance assumes one working pattern. Any company with a factory, a clinic, or a security roster is unservable today. |
-| **Self-service profile** | `/profile`, `/profile/edit`. **The employee's own door into the product.** We have no route an ordinary staff member can call theirs. |
-| **Notification inbox** | `/notifications`. We built the settings page that configures notifications and never built the place they arrive. |
-| **Audit trail UI** | `/audit`. We record `AuditEvent` rows properly and have no screen that shows them. |
-| **Multi-company** | `/companies/*`. Our schema has `Organization` and `LegalEntity`; there is no UI to hold more than one. Accountants and group structures need this. |
-| **Auth completeness** | register, verify email, forgot/reset password (incl. OTP), and a **setup wizard** (`/setup-wizard`, `/company-setup`, `/administrator-setup`). Our `auth` module has `/sign-in`, `/refresh`, `/sign-out`, `/sign-out-everywhere`, `/change-password` and `/me` — solid as far as it goes, but **nobody can create an account or recover a password.** |
-| **Role & permission CRUD** | `/settings/role-permissions` with create, edit, and a permission picker; `permission-groups` service with members. Ours is a read-only matrix. |
+---
 
-### Tier 3 — depth that starts mattering above ~100 staff
+## Module by module, against SeamlessHR
 
-Real, but nobody churns over it in month one.
+Their module list, read from their support site. Ours, verified by grep against
+the schema and the service layer rather than from memory — the word "promotion"
+appears five times in this codebase and every one is a comment, which is exactly
+how an assumed gap turns out to be real, or an assumed feature turns out not to
+exist.
 
-- **Performance**: the old module is enormous (~150 service methods) —
-  competencies with heatmaps and gap analysis, scoring weights, objective
-  approval chains with send-back, review cycles with participants, questions,
-  reminders and reports, self-appraisal, manager appraisal, team comparison,
-  appraisal history and trends, even an AI judgement generator. Ours is
-  read-only goals and a review cycle.
-- **Helpdesk**: categories, SLA policies, comments, attachments, analytics,
-  "my tickets". Ours is a read-only queue.
-- **Knowledge base**: categories, attachments, analytics, settings. Ours is a
-  static article list.
-- **Recruitment**: analytics, applications as a distinct entity from candidates,
-  and **public job postings** — the careers page candidates actually apply
-  through. We have the internal ATS and no front door.
-- **Integrations**: webhooks, per-employee integrations, providers. Ours is a
-  register-interest page (deliberately, and that stays honest until there is a
-  credential store).
-- **Attendance depth**: logs, reports, correction requests as a queue.
-- **Employee record depth**: bank details as a guarded sub-resource, work
-  information, tags, bonus points, advanced search.
+| SeamlessHR module | Us | What answers it |
+|---|---|---|
+| HRMS / HRIS core | **Have** | `employees`, `departments`, `teams`; directory, record, org chart |
+| Seamless Payroll | **Have** | `payroll`, `pay-components`, `payments` — and verified against statute, which theirs is not |
+| Leave | **Have** | `leave`; entitlement, accrual, rollover, gazetted holidays |
+| Time and Attendance / SeamlessTime | **Have** | `attendance`, `shifts`, `overtime`, device enrolment |
+| Exit Management | **Have** | `offboarding`; `ExitProcess`, `ExitTask`, `ExitInterview` |
+| Recruitment Management | **Have** | `recruitment` + `careers`; requisition → offer → employee, public job board |
+| SeamlessPerformance | **Have** | `performance`; cycles, competencies, nine-box, calibration, weighted scoring |
+| Competency | **Have** | `Competency`, `CompetencyRating`; skills matrix and gap view |
+| Loan | **Have** | `loans`; schedules that deduct through the run |
+| Financial Products | **Have** | `advances` (earned wage access), `benefits` |
+| Asset Management | **Have** | `assets`; categories, assignment, maintenance, repair requests |
+| Disciplinary | **Have** | `conduct`; `DisciplinaryAction` |
+| Announcement | **Have** | `announcements` |
+| Approval Workflow / Request Manager | **Have** | `approvals` — as *one* cross-module inbox, where theirs is four queues |
+| Reports & Analytics | **Have** | `reports`, `insights`, saved reports, report builder |
+| System Control / roles | **Have** | `permissions`; escalation and last-owner guards |
+| Audit Trail | **Have** | `audit`; `AuditEvent` |
+| Company Settings | **Have** | `company`, `setup`; the wizard writes the feature flags |
+| Requisition | **Have** | `Requisition`, with approval and band |
+| Change Management | **Have** | `EmployeeChangeRequest`; staff-raised changes routed for approval |
+| Employee Self Service | **Have** | `/profile`, change requests, payslips, leave, tickets |
+| Onboarding **and confirmation** | **Partial** | `onboarding` exists; `EmploymentStatus.ONBOARDING` is a label with no probation clock behind it |
+| Job Management | **Partial** | `SalaryGrade` carries bands; no job description or role catalogue — zero hits for either |
+| Promotion | **Missing** | Nine-box and grade neighbours inform it; nothing records or executes it |
+| Redeployment | **Missing** | A department is editable on the record; no transfer request, approval or history |
+| Survey | **Missing** | One incidental mention, in an offboarding checklist comment |
+| Learning Management | **Missing** | No module, no model |
+| SeamlessProcure | **Declined** | See "What we will not build" |
 
-### What the live system actually shows
+---
 
-The audit above was read from source. On 20 August 2026 the account owner signed
-in to `tester.approvehr.io` and left the session open, so the figures below are
-that environment's own output, read (not entered) through the browser.
+## The five gaps that remain
 
-**The caveat first, because it matters:** this is a *tester* environment. Some of
-the data is obviously seeded — two runs of ₦83.50, a payment reference of
-`TRF/2024/11/001` repeated identically on all ten runs and dated 2024 for 2026
-periods. Garbage in a test database is not a product defect.
+Ranked by what it costs a thirty-person Lagos company to be without it, not by
+how visible the gap is on a feature grid. Sizing is deliberately coarse.
 
-What is a product defect is displaying arithmetic that cannot be true, without
-complaint:
+### 1. Probation and confirmation — ~1 week
+
+The cheapest real gap, and the only one with a live defect attached.
+`EmploymentStatus.ONBOARDING` is a label nothing ever moves off, and
+`modules/imports/employees.ts` maps a spreadsheet's "probation" onto it — so
+imported probationers are indistinguishable from staff nobody got round to
+activating, **and nothing tells anybody a probation is ending.** A confirmation
+everyone forgot is a legal problem six months later, not an admin one.
+
+1. `probationEndsAt` and `confirmedAt` on `Employee`, defaulted from a company
+   setting at create and at offer acceptance.
+2. Surface it where every other deadline in this product already lives — the
+   approvals inbox — at 30 and 7 days out, as a decision carrying **Confirm**,
+   **Extend** and **Do not confirm**.
+3. Write the decision to the audit trail with its decider, and generate the
+   letter from the existing document templates.
+4. Feed the performance score bands in: `modules/performance/scoring.ts` already
+   says in a comment that those bands decide confirmation, and nothing acts on it.
+
+### 2. Promotion and redeployment — ~2 weeks
+
+Every input exists and no act does. Nine-box placement, grade neighbours ("one
+grade up" is already a computed question in `grades/service.ts`), salary bands,
+department and team membership. A promotion today is somebody editing two fields
+on a record page, with nothing remembering why.
+
+**These are one feature, not their two modules**: both are *a proposed change to
+an employment record that needs approving and remembering*.
+
+1. One `EmploymentChange` model — kind (promotion, transfer, grade, pay),
+   effective date, from/to snapshot, requester, approver, reason.
+2. Route it through `approvals` like everything else.
+3. **Effective-dated, never immediate.** A promotion effective 1 October must not
+   move October's payroll when the run is prepared on 28 September. This is the
+   one place this feature can silently move money, and it is the assertion to
+   write first.
+4. Render the history on the record page. That history *is* the feature — it
+   answers "why is she on Grade 5" years later.
+5. The transfer half reuses `alignMemberDepartments`, so the cost-centre rule is
+   already written.
+
+### 3. Job descriptions and a role catalogue — ~1 week
+
+`jobTitle` is free text on the employee and free text again on the requisition.
+Grades carry the money; nothing carries the job. Low urgency, high leverage: a
+role catalogue is the join between recruitment, grades and competencies that all
+three currently do without, and it is what makes a per-role competency set
+actually assignable.
+
+1. `JobRole`: title, family, default grade, description, competency set.
+2. Employee and requisition titles reference it, free text kept as fallback so no
+   existing record breaks.
+3. Reuse it in the offer letter, which today restates a title typed twice.
+4. Bulk import from day one — Rule 6 applies, a company arrives with a
+   spreadsheet of roles.
+
+### 4. Surveys — ~2 weeks
+
+Worth building mostly because **two things already shipped are surveys wearing
+other names**: the exit interview, and the review questions in performance. A
+generic instrument lets the exit interview become configurable instead of
+hardcoded, which is a request that will arrive anyway.
+
+1. `Survey`, `SurveyQuestion`, `SurveyResponse`, with anonymity a property of the
+   survey and **enforced at read time, not by convention** — an "anonymous"
+   survey whose responses can be joined back to a person is worse than no survey.
+2. Suppress results below a threshold, so a three-person team cannot be
+   de-anonymised by subtraction.
+3. Re-point the exit interview at it rather than keeping two question engines.
+4. Behind an `OrgFeatures` flag, off by default.
+
+### 5. Learning management — ~4–6 weeks for the real thing
+
+The largest gap by build size, and **the one to be slowest about.** A real LMS is
+content hosting, video, progress tracking and assessment: a second product, in a
+category where free and specialised tools already win. What a Nigerian SME
+actually needs is narrower and sits closer to what we already hold — *proof that
+required training happened*.
+
+**Recommended: build the compliance half, not the LMS.**
+
+1. `TrainingRecord` against an employee — what, provider, date, expiry,
+   certificate file. That alone answers the audit question, and it reuses the
+   document store.
+2. Expiry feeds the approvals inbox exactly as a probation does. A lapsed
+   forklift certificate is a deadline, and deadlines have a home here.
+3. Link a required training set to the `JobRole` above, so "who is overdue" is a
+   query rather than a spreadsheet.
+4. Course content and delivery only if customers ask, and integrating an existing
+   LMS is likelier the right answer than building one.
+
+---
+
+## What we will not build
+
+**SeamlessProcure** — vendor portals, purchase requisitions, quotations,
+invoicing, inventory, budget management. It is a procurement product sold
+alongside an HR one. Copying it would cost more than the five gaps above combined
+and take the roadmap somewhere the payroll-correctness pitch cannot follow.
+
+The same judgement in miniature applies to several HRMS odds and ends on their
+support site: company QR codes, home-page slider images, product champion
+certification. These are the accretions of a system sold to large enterprises and
+shaped by their requests. Copying the list wholesale is how you arrive at ~120
+routes, which is the disease, not the benchmark.
+
+---
+
+## What we have that they do not
+
+Stated so the roadmap does not accidentally trade it away.
+
+- **Payroll maths verified against statute** — Personal Income Tax Act, Pension
+  Reform Act, NHF Act and now the Nigeria Tax Act 2025 — in integer kobo, with
+  hand-worked expected values and a reconciliation gate that refuses to render
+  arithmetic that cannot be true. This is the pitch.
+- **One cross-module approval inbox**, ranked by deadline. Theirs makes you visit
+  four queues and ships an "Approval Request Manager" as a *module* rather than a
+  property of the product.
+- **Exception detection before a run**, rather than a failed run afterwards.
+- **Progressive disclosure**: a five-person business sees six nav items. This is
+  the single biggest usability advantage over a system whose route count is its
+  own disease.
+- **One statutory engine, reachable from anywhere** — including, since September,
+  a public PAYE calculator on the marketing site that calls the real engine over
+  the network rather than a copy of it.
+- **Contrast, type scale, store-write safety, demo-data leakage and eighteen
+  other invariants verified in CI**, not eyeballed.
+
+---
+
+## What the live system actually shows
+
+Kept from the August revision, because this evidence does not go stale.
+
+On 20 August 2026 the account owner signed in to `tester.approvehr.io` — the
+incumbent's own environment — and left the session open. The figures below are
+that environment's output, read rather than entered.
+
+**The caveat first:** this is a *tester* environment and some data is obviously
+seeded. Garbage in a test database is not a product defect. What is a product
+defect is displaying arithmetic that cannot be true, without complaint:
 
 | Run | Gross | Deductions | Net | Gross − Deductions |
 |---|---|---|---|---|
 | December 2026 | ₦4,066,833.58 | ₦177,916.70 | ₦3,888,916.88 | ✓ reconciles |
 | November 2026 | ₦4,500,166.91 | ₦266,875.03 | ₦4,233,291.88 | ✓ reconciles |
-| **October 2026** | **₦1,833,500.33** | **₦88,958.37** | **₦3,218,741.96** | **₦1,744,541.96 — net exceeds gross by ₦1.47m** |
+| **October 2026** | **₦1,833,500.33** | **₦88,958.37** | **₦3,218,741.96** | **net exceeds gross by ₦1.47m** |
 | September 2026 | ₦833,500.33 | ₦88,958.37 | ₦744,541.96 | ✓ reconciles |
-| **June 2026** | **₦833,500.33** | **₦88,958.37** | **₦700,211.96** | **₦744,541.96 — out by ₦44,330** |
+| **June 2026** | **₦833,500.33** | **₦88,958.37** | **₦700,211.96** | **out by ₦44,330** |
 
-Two of ten runs do not reconcile, and one of them pays out more than it costs.
-No input data can make a net figure legitimately exceed its own gross; that is a
-computation or a display bug, and a payroll product should refuse to render it.
+Two of ten runs do not reconcile, and one pays out more than it costs. No input
+data can make a net figure legitimately exceed its own gross.
 
 Three more, independent of the seeded data:
 
-- **Deductions run at 4–11% of gross.** In Nigeria the employee pension
-  contribution alone is 8% of pensionable pay, NHF is another 2.5% of basic, and
-  PAYE on these salary levels is 12–17% of gross. Total statutory deductions
-  cannot come to less than roughly a quarter of gross. December shows 4.4%.
-- **The dashboard reports PAYE of ₦1.8m against total payroll of ₦3.2m** — an
-  effective rate of 56%. The top *marginal* PAYE band is 24%, so no salary at
-  any level can produce an effective rate above it. The figure is impossible
+- **Deductions run at 4–11% of gross.** Employee pension alone is 8% of
+  pensionable pay, NHF another 2.5% of basic, and PAYE at these salary levels
+  12–17%. Total statutory deductions cannot come to less than roughly a quarter.
+  December shows 4.4%.
+- **The dashboard reports PAYE of ₦1.8m against total payroll of ₦3.2m** — a 56%
+  effective rate, against a top *marginal* band of 24% at the time. Impossible
   rather than merely high.
-- **Runs show 0 employees while carrying millions in gross** — October and June
-  both do.
+- **Runs show 0 employees while carrying millions in gross.**
 
-And in passing: the payroll dashboard is headed "Showing data in NGN (converted
-from NGN)", a zero change renders as a red `−0.00%` chip, and another renders as
-`+ +0%`.
-
-**Why this reframes the roadmap.** The parity gap is real and Tier 1 still has to
-be built. But the thing we are behind on is feature *coverage*, and the thing
-they are behind on is whether the numbers are right — which is the harder problem
-and the one customers get audited on. Our engine carries 65 assertions with
-hand-worked expected values and a reconciliation property test; theirs ships a
-run where net exceeds gross. Two consequences for how we build:
-
-1. **Ship the invariant checks with the arithmetic, not after it.** A run whose
-   net does not equal gross less deductions must refuse to save, not render.
-   Phase 1 adds allowances and deductions to the engine, which multiplies the
-   ways a total can fail to reconcile — the property test goes in at the same
-   time as the feature.
-2. **The migration pitch is "your numbers get fixed", not "ours has more
-   screens."** That is a stronger sale and it is the one we can actually prove.
-
-### What we have that they do not
-
-Worth stating so the roadmap does not accidentally trade it away:
-
-- Payroll maths verified against the Personal Income Tax Act, Pension Reform Act
-  and NHF Act, in integer kobo, with 50 assertions and hand-worked expected
-  values. This is the pitch.
-- One cross-module **approval inbox** ranked by deadline. The old system makes
-  you visit `/leave/approvals/all`, `/performance/pending-objectives`,
-  `/payroll/loans`, and `/exit/resignation-requests` separately.
-- Exception detection before a run, rather than a failed run.
-- Contrast and type-scale verified in CI, not eyeballed.
-- A public marketing site that does not invent proof.
+**Why this frames the roadmap.** We are behind on feature *coverage* — much less
+so than in August — and they are behind on whether the numbers are right, which
+is the harder problem and the one customers get audited on. The migration pitch
+is **"your numbers get fixed"**, not "ours has more screens."
 
 ---
 
 ## The structure for adding it
 
-Six rules first, because they are what stop us rebuilding the old system's
-usability problem. The user's brief was explicit: **non-technical people, not
-HR professionals, who nonetheless want to run their own payroll.** Every item
-below is judged against that person.
+Six rules, unchanged, because they are what stop us rebuilding the incumbent's
+usability problem — and because `HANDOVER.md` cites them by number. The brief
+they are judged against: **non-technical people, not HR professionals, who
+nonetheless want to run their own payroll.**
 
 ### Rule 1 — one route per concept, rendered by role
 
@@ -201,14 +311,9 @@ you are staff, your team's if you manage, and the company's if you are an owner.
 The role check lives in the page, the nav is filtered by permission, and the URL
 you share with a colleague works for them too.
 
-This is already half-built: `resolveActiveHref` and the data-driven groups in
-`components/portal/nav.tsx` mean adding permission filtering is a prop, not a
-refactor. It is also why the **role views** work already queued must land before
-Tier 2 — everything in Tier 2 has three audiences.
-
 ### Rule 2 — progressive disclosure driven by a setup answer
 
-The setup wizard asks five questions, and the answers switch nav sections on:
+The setup wizard's questions switch nav sections on:
 
 | Question | Turns on |
 |---|---|
@@ -221,246 +326,118 @@ The setup wizard asks five questions, and the answers switch nav sections on:
 A five-person business then sees six nav items instead of thirty. Nothing is
 deleted — Settings has a "turn on more features" page — but the default is the
 smallest product that pays people correctly. **This single decision is our
-biggest usability advantage over the old system and it costs one settings
-table.**
+biggest usability advantage over the incumbent and it costs one settings table.**
 
 ### Rule 3 — do the thing, do not configure the thing
 
-Every Tier 1 item ships with Nigerian SME defaults already populated: standard
-allowance types, standard deduction types, the current PAYE bands, 8%/10%
-pension, 2.5% NHF. Configuration exists; nobody has to touch it to run their
-first payroll. The old system makes you build a salary structure before you can
-pay anyone. Ours should let you pay someone on day one and refine later.
+Everything ships with Nigerian SME defaults already populated: standard allowance
+types, standard deduction types, the current PAYE bands, 8%/10% pension, 2.5%
+NHF. Configuration exists; nobody has to touch it to run their first payroll. The
+incumbent makes you build a salary structure before you can pay anyone. Ours lets
+you pay someone on day one and refine later.
 
 ### Rule 4 — plain language and a button, never an explanation
 
-Already underway and it applies to every screen added below. The test: a
-sentence that explains *why* the product is doing something is a sentence that
-should have been a button doing it. "An absence with no approved leave behind it
-prorates against 22 working days" becomes **"Unpaid day — 1 day will be
-deducted"** with **Approve leave** and **Fix record** beside it.
+The test: a sentence that explains *why* the product is doing something is a
+sentence that should have been a button doing it. "An absence with no approved
+leave behind it prorates against 22 working days" becomes **"Unpaid day — 1 day
+will be deducted"** with **Approve leave** and **Fix record** beside it.
 
 ### Rule 5 — a screen answers one question; the rest is behind a reveal
 
-Rules 2 and 3 are one argument at two scales — do not show a five-person
-business 120 routes, and do the thing rather than configure the thing. This is
-that argument *inside* a single screen: **progressively disclose. Do not show
-the user everything at once.**
+Rules 2 and 3 are one argument at two scales. This is that argument *inside* a
+single screen.
 
 - **A screen answers one question.** Anything answering a *different* question
-  goes behind a reveal, a tab or a link. `/people/leave` answers "whose leave do
-  I decide"; a year of public holidays answers "when is Eid", so it is a
-  disclosure, not a section stacked under the table.
+  goes behind a reveal, a tab or a link.
 - **Default closed** for anything long, periodic or reference-shaped: a year of
-  holidays, an audit trail, a whole framework, a settings sub-form, a worked
-  example, a policy handbook.
-- **Default open** for anything that needs action now: a blocker, an exception,
-  a validation failure in the form you are about to save, an approval waiting on
-  the person reading. Conditional-on-a-real-problem *is* default-open — a
-  callout that only renders when `count > 0` already obeys this rule.
+  holidays, an audit trail, a whole framework, a settings sub-form, a policy
+  handbook.
+- **Default open** for anything that needs action now: a blocker, an exception, a
+  validation failure in the form you are about to save, an approval waiting on
+  the person reading.
 - **The failure mode, named so it can be refused.** Progressive disclosure must
   never hide something that stops a payroll or costs somebody money. Where a
-  section holds both reference material and a live warning, **the warning
-  renders outside the reveal and the reference goes inside it.** On the leave
-  screen the "3 dates are not gazetted yet" callout sits above the closed
-  calendar: payroll proration and overtime already charge those days while the
-  timesheet does not, and a click is not a place to keep that. The test — if
-  somebody who never opens it can still be surprised by money or a deadline, it
-  is open.
+  section holds both reference material and a live warning, **the warning renders
+  outside the reveal and the reference goes inside it.** The test — if somebody
+  who never opens it can still be surprised by money or a deadline, it is open.
 - **A collapsed section says what is inside it and how much.** "Public holidays
-  2026 · 13 dates · 3 awaiting proclamation" beats "Public holidays". A count is
-  the whole value of a closed section; without one the reader has to open it to
-  learn whether it mattered, which is the cost the reveal existed to save. And
-  absent is not zero: no count until the count is known, never a confident "0".
-- **One primitive.** `Disclosure` in `components/ui/disclosure.tsx` —
-  `aria-expanded` / `aria-controls`, a named region, `keepMounted` when closing
-  must not discard typed input, `region={false}` for form-field groups.
-  `Accordion` in `tabs.tsx` is single-open and shaped for a FAQ; it is not this
-  one with a flag. Six screens had already hand-rolled `aria-expanded` before
-  this existed. Do not make it seven.
+  2026 · 13 dates · 3 awaiting proclamation" beats "Public holidays". And absent
+  is not zero: no count until the count is known, never a confident "0".
+- **One primitive.** `Disclosure` in `components/ui/disclosure.tsx`. `Accordion`
+  in `tabs.tsx` is single-open and shaped for a FAQ; it is not this one with a
+  flag.
 
 ### Rule 6 — anywhere you can add several, there is a template to download
 
-Rules 2, 3 and 5 are about not drowning one person in one screen. This is the
-other shape of the same problem: a form that is fine for the second thing and
-insulting by the fortieth. **A Nigerian SME does not arrive with nothing.** It
-arrives with a spreadsheet — of staff, of laptops, of branches, of opening leave
-balances — and the first hour it spends in this product is either an import or it
-is typing. `people/assets/item-form.tsx` already says the quiet part in its own
-header: "the alternative is an owner with thirty laptops abandoning the form on
-the first one." So: **anywhere a person can add several of something, there is a
-bulk upload.**
+**A Nigerian SME does not arrive with nothing.** It arrives with a spreadsheet —
+of staff, of laptops, of branches, of opening leave balances — and the first hour
+it spends in this product is either an import or it is typing.
 
-- **A template they download, never a paste box.** A textarea asking for
-  comma-separated values makes the customer guess our schema, and the first
-  sentence they ever hear the product say is a complaint about their guess. The
-  template *is* the schema, in the format they already hold it in — CSV **and**
-  .xlsx, both, because offering one and refusing the other is a trap of our own
-  making, and Excel is what the file on their disk is.
-
-- **Generated from the same declaration the importer validates against.** Never
-  kept by hand beside it. A hand-kept template drifts inside one release —
-  somebody adds a required column to the checker and not to the sheet — and then
-  **every customer's first import fails on a file we gave them**, which is the
-  worst first minute this product can have. `lib/imports/template-file.ts`
-  contains no column name and no entity: it reads the dictionary.
-  `scripts/verify-template.ts` gates the loop rather than an expected list —
-  build the file, read it back the way the upload does, assert every value lands
-  on the field the dictionary names. Add a column and it is covered without
-  editing the script. Where the dictionary exists twice because the first two
-  steps must work with no database, the drift is **gated, not described**: that
-  script parses the API's copy as text, the same trick `verify-payroll.ts` uses
-  for the tax schedules.
-
+- **A template they download, never a paste box.** CSV **and** .xlsx, both,
+  because offering one and refusing the other is a trap of our own making.
+- **Generated from the same declaration the importer validates against.** A
+  hand-kept template drifts inside one release and then **every customer's first
+  import fails on a file we gave them**. `lib/imports/template-file.ts` contains
+  no column name and no entity: it reads the dictionary, and
+  `scripts/verify-template.ts` gates the loop rather than an expected list.
 - **Required columns lead, so the sheet is not bloated.** `buildDictionary`
-  orders every dictionary required, then recommended, then the rest — and it is
-  the only way to make one, so the template writer, the matching dropdowns, the
-  checker and the API's own response cannot be handed an order that has not been
-  through it. Derived, not written down: a dictionary that grows a required
-  column gets it in the right place without anybody remembering to move it. The
-  declaration keeps its readable grouping by subject; the emitted order is
-  computed. Five unmissable columns scattered across thirty-three reads as
-  bloat, and the customer deletes the wrong ones.
-
-- **The same four steps, always: download and fill in → match the columns → fix
-  what is flagged → confirm.** Somebody who has imported employees must not have
-  to learn a second flow to import equipment. That is what makes
-  `components/imports/*` parameterised and `app/(app)/people/import/page.tsx`
-  six lines: **an importer costs a dictionary, a surface, and a validate/apply
-  pair.** A fifth step, or these four in another order, is a second product to
-  learn for no gain.
-
-- **Never a success without the count of what did not land.** A success modal
-  only on a clean import. A partial result is not a success wearing a smaller
-  number — it names the rows, and the confirm button says what it will not do
-  *before* it does it: "Add 47 people, leave 3 out". `skippedRows` is **every**
-  row that did not land, including a duplicate somebody chose to skip, because a
-  row left out on purpose is still a person not in the directory. "Imported 47"
-  beside a silent 3 is the same wrong claim as a payslip reading ₦0 because no
-  attendance row existed.
-
+  orders every dictionary required, then recommended, then the rest — derived,
+  not written down.
+- **The same four steps, always:** download and fill in → match the columns → fix
+  what is flagged → confirm. An importer costs a dictionary, a surface, and a
+  validate/apply pair.
+- **Never a success without the count of what did not land.** The confirm button
+  says what it will not do *before* it does it: "Add 47 people, leave 3 out".
 - **Missing-but-required is fixable in place. Missing-but-recommended is flagged
-  and acknowledged, never blocking.** Three kinds of unfinished business, and
-  they end differently: a cell that cannot be read does not import and is
-  corrected in the table without leaving the screen; a row that looks like
-  somebody already on file **waits for a human answer**, because only the
-  customer knows whether that is a duplicate or a cousin; a recommended field
-  nobody filled in *imports*, and the person is named on a list somebody ticks —
-  refusing the record does not produce the bank account. The acknowledgement
-  resets on every re-check, because a new check is a new list. And a correction
-  typed after a check refuses to apply until it is re-checked: confirming
-  against a stale snapshot imports the unmended row while the screen shows it
-  mended.
-
+  and acknowledged, never blocking.** A cell that cannot be read does not import;
+  a row that looks like somebody already on file **waits for a human answer**; a
+  recommended field nobody filled in *imports*, and the person is named on a list
+  somebody ticks — refusing the record does not produce the bank account.
 - **The importer is never the only consumer of its validation, and they are
-  tested together.** This is a rule because of an incident, not a principle.
-  Relaxing `employee_no` from required to generated was right for a shop owner
-  whose spreadsheet has no such column — and it silently broke the legacy ETL,
-  which reuses `checkRows` rather than writing a second validator, and whose
-  idempotency key **is** `(organizationId, employeeNo)`. A generated `AHR-0001`
-  exists in no legacy database, so a second migration run cannot match it and
-  the person lands as a directory row with no payslips, no leave and no history
-  behind it. Four assertions in `tests/etl.test.ts` were the only thing that
-  caught it; `tests/imports.test.ts` went green. Two consequences that hold for
-  every entity added after this: strictness is a **function argument, never a
-  request field** — `CheckOptions.requireEmployeeNo` — because a client must not
-  choose how strict its own import is; and relaxing a rule in
-  `src/modules/imports/` is not a local change. Run both suites, and if only the
-  sibling's assertions move, ask which caller the rule was really for before
-  editing the expectation.
+  tested together.** This is a rule because of an incident: relaxing
+  `employee_no` from required to generated was right for the spreadsheet importer
+  and silently broke the legacy ETL, whose idempotency key **is**
+  `(organizationId, employeeNo)`. Strictness is a **function argument, never a
+  request field**, and relaxing a rule in `src/modules/imports/` means running
+  both suites.
 
-Employees is the only entity built on this. Every other list a customer can add
-several of is a dictionary and a surface away, and the ones worth doing first are
-ranked by how many rows a thirty-person Lagos company has on the day it signs
-up — not by how easy the screen looks.
+---
 
 ## Where the build actually got to
 
-Updated 20 August 2026, after Phases 0 and 1 shipped.
-
 | Phase | State | Evidence |
 |---|---|---|
-| **0 — the doors** | **done** | register / verify / reset password; roles editor with a privilege-escalation guard and a last-owner guard; notification inbox; setup wizard writing the feature flags; self-service profile |
-| **1 — payroll completeness** | **done** | pay components with taxable/pensionable flags, salary grades, loans with generated schedules, expenses, bulk import with a mapping preview — and the run that assembles them |
-| **2 — closing the lifecycle** | in progress | offboarding, equipment, documents, policies, shifts, audit trail |
-| **3 — money movement** | schema done, modules pending | bank accounts, batches, instructions, append-only ledger, provider seam |
-| **4 — depth** | schema done, modules pending | performance, help desk, knowledge base, public careers page, webhooks |
+| **0 — the doors** | **done** | register / verify / reset; roles editor with escalation and last-owner guards; notification inbox; setup wizard; self-service profile |
+| **1 — payroll completeness** | **done** | pay components, salary grades, loans, expenses, advances, benefits, bulk import, and the run that assembles them |
+| **2 — closing the lifecycle** | **done** | offboarding, assets, documents, policies, shifts, conduct, audit trail |
+| **3 — money movement** | **done** | wallet, bank accounts, batches, instructions, append-only ledger, provider seam that refuses rather than faking |
+| **4 — depth** | **done** | performance depth, help desk with SLAs, knowledge base, public careers page, webhooks, recruitment backend |
+| **5 — the five gaps above** | **four of five built** | probation/confirmation, promotion/redeployment, job roles and surveys all shipped with tests — see HANDOVER's four entries dated 2026-09-13. **Training records is the one left**, deliberately: §5 argues for the compliance half rather than an LMS, and it now has a better place to hang than it did, because `JobRole` exists and "a required training set per role" is the query §5.3 asks for. |
 
-Counts, so the next revision of this document can be checked against something:
-**86 data models, 16 backend modules, 347 backend tests, 52 frontend routes.**
+Two things the four gaps added that the rest of the product should now use, and
+mostly does not yet:
 
-### The two findings that changed the plan
+- **`EmploymentChange` is the one employment history.** Probation decisions,
+  promotions, transfers, regrades and pay changes all land in it, including
+  edits made straight on a record. Anything else that changes a job, a
+  department or a salary belongs there too rather than in a table of its own.
+- **`JobRole` is the join recruitment, grades and competencies were doing
+  without.** `GET /job-roles/expected/:employeeId` returns the core competency
+  set plus the role's, which is what §3 was for — and `modules/performance`
+  still builds its question set the old way. Wiring that is the payoff.
+
+The two findings from the August revision that changed the plan, kept because
+both are still load-bearing:
 
 **Our own engine had the bug we were selling against.** Additions were folded
 into gross before the salary split, so a ₦100,000 bonus raised the employee's
-pension deduction by ₦4,800 and their NHF by ₦1,500. Pension is charged on
-monthly emoluments and NHF on basic salary; a bonus is neither. The existing
-assertion only checked that gross and PAYE went up, so it passed. Fixed, and the
-assertion count went from 50 to 89 — every expected value hand-worked against a
-separate implementation written purely to check the first one.
+pension deduction and their NHF. Pension is charged on monthly emoluments and NHF
+on basic salary; a bonus is neither. The existing assertion only checked that
+gross and PAYE went *up*, so it passed for months. **An assertion that does not
+name the figure it protects protects nothing.**
 
-**The tax bands needed to become data, but not editable data.** This document
-originally said bands should be customer-owned configuration. They should not:
-a company cannot choose its own tax brackets. What they need is an *effective
-date*, because the Nigeria Tax Act 2025 changed them. They are now dated
-schedules shipped by us — and the 2025 figures are deliberately absent, because
-nobody has put the gazette in front of the code and a guessed band produces a
-confident wrong number that gets filed. Every 2026 period comes back flagged so
-a run cannot be approved without somebody being told.
-
-### Phasing
-
-Each phase is shippable and demonstrable on its own. Ordering is by how much it
-hurts to be without it, not by how easy it is.
-
-**Phase 0 — the doors (prerequisite for everything)**
-- Role views and permission-filtered nav; `/profile` self-service; notification
-  inbox; register / verify / reset password; setup wizard writing the Rule 2
-  feature flags.
-- Backend: `permissions` module, `notifications` module, extend `auth`.
-- Why first: every screen after this needs to know who is looking at it, and
-  nobody can create an account today.
-
-**Phase 1 — payroll completeness (Tier 1)**
-- Schema: `AllowanceType`, `DeductionType`, `EmployeeAllowance`,
-  `EmployeeDeduction`, `SalaryGrade`, `SalaryBand`, `LoanRepayment`,
-  `Reimbursement`, `ReimbursementType`, `TaxBand` with `effectiveFrom`,
-  `RemittanceRecord`. `Loan` already exists and gains the schedule.
-- Engine: allowances and deductions enter the calculation in the right order —
-  and the 50 assertions grow to cover it. Non-negotiable.
-- Screens: one **Pay setup** page (grades, allowances, deductions in three tabs,
-  not three routes), loans, reimbursements, bulk import with a mapping preview.
-- Why here: this is where "our product feels deficient" actually bites, because
-  it produces a wrong number rather than a missing page.
-
-**Phase 2 — closing the lifecycle (Tier 2)**
-- Offboarding as one guided flow, not six routes: resign → approve → clearance →
-  handover → assets back → interview → done, rendered as a checklist with a
-  progress bar. Templates configurable, one sensible default shipped.
-- Assets register (needed by the above), employee documents + requests,
-  disciplinary actions, policies with acknowledgement, shifts.
-- Audit trail screen over the `AuditEvent` rows we already write.
-
-**Phase 3 — money movement**
-- Wallet, bank list, payment execution against an approved run. Held until here
-  deliberately: it needs a credential store, real bank integration, and a
-  security review, and it is the one place where shipping something half-real
-  would be indefensible.
-
-**Phase 4 — depth (Tier 3)**
-- Performance beyond goals, helpdesk SLA and categories, KB depth, recruitment
-  analytics and the public careers page, integrations with webhooks,
-  multi-company UI.
-- Built only for customers who ask, and behind Rule 2 flags.
-
-**Continuous**
-- Every phase: `npm run check` clean, contrast and type-scale verified, browser
-  proof of propagation across screens, and the ETL from the Django database
-  extended to cover whatever the phase added — because parity is worth nothing
-  if existing customers cannot bring their data across.
-
-## The one thing to decide before Phase 1
-
-`web/` still has **zero tracked files in any git repo**. Everything in this
-document describes work on a codebase that exists only on one disk. That needs
-resolving before more is added to it.
+**Tax bands became data, but not editable data.** A company cannot choose its own
+tax brackets. What they need is an *effective date*, because the Nigeria Tax Act
+2025 changed them. They are dated schedules shipped by us, with citations, and a
+period whose schedule is unconfirmed comes back flagged rather than refused.

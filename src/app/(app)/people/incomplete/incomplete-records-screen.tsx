@@ -112,58 +112,103 @@ export function IncompleteRecordsScreen() {
           )}
 
           <div className="rounded-lg border border-line bg-surface">
-            <TableWrap
-              className="rounded-b-none border-0"
-              caption="Employees missing a bank account, pension PIN or tax identification number"
-            >
-              <THead>
-                <TH>Employee</TH>
-                <TH>Missing</TH>
-              </THead>
-              <TBody>
-                {rows.map(({ employee, blocking, advisory }) => (
-                  <TR key={employee.id}>
-                    <TDPrimary
-                      title={
-                        <Link
-                          href={`/people/${employee.id}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
-                          {fullName(employee)}
-                        </Link>
-                      }
-                      subtitle={`${employee.jobTitle} · ${employee.employeeNo}`}
-                    />
-                    <TD>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                        {blocking.map((gap) => (
+            <div className="hidden sm:block">
+              <TableWrap
+                className="rounded-b-none border-0"
+                caption="Employees missing a bank account, pension PIN or tax identification number"
+              >
+                <THead>
+                  <TH>Employee</TH>
+                  <TH>Missing</TH>
+                </THead>
+                <TBody>
+                  {rows.map(({ employee, blocking, advisory }) => (
+                    <TR key={employee.id}>
+                      <TDPrimary
+                        title={
                           <Link
-                            key={gap.field}
-                            href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
-                            title={gap.consequence}
-                            className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                            href={`/people/${employee.id}`}
+                            className="hover:text-accent-text hover:underline underline-offset-4"
                           >
-                            <Badge tone="danger" size="sm">
+                            {fullName(employee)}
+                          </Link>
+                        }
+                        subtitle={`${employee.jobTitle} · ${employee.employeeNo}`}
+                      />
+                      <TD>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                          {blocking.map((gap) => (
+                            <Link
+                              key={gap.field}
+                              href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
+                              title={gap.consequence}
+                              className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                            >
+                              <Badge tone="danger" size="sm">
+                                {gap.label}
+                              </Badge>
+                            </Link>
+                          ))}
+                          {advisory.map((gap) => (
+                            <Link
+                              key={gap.field}
+                              href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
+                              title={gap.consequence}
+                              className="text-meta text-muted underline decoration-dotted underline-offset-2 hover:text-accent-text hover:decoration-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                            >
                               {gap.label}
-                            </Badge>
-                          </Link>
-                        ))}
-                        {advisory.map((gap) => (
-                          <Link
-                            key={gap.field}
-                            href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
-                            title={gap.consequence}
-                            className="text-meta text-muted underline decoration-dotted underline-offset-2 hover:text-accent-text hover:decoration-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-                          >
-                            {gap.label}
-                          </Link>
-                        ))}
-                      </div>
-                    </TD>
-                  </TR>
-                ))}
-              </TBody>
-            </TableWrap>
+                            </Link>
+                          ))}
+                        </div>
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
+              {rows.map(({ employee, blocking, advisory }) => (
+                <li key={employee.id} className="flex flex-col gap-2 p-4">
+                  <div className="min-w-0">
+                    <Link
+                      href={`/people/${employee.id}`}
+                      className="text-body-sm font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                    >
+                      {fullName(employee)}
+                    </Link>
+                    <p className="mt-0.5 text-meta text-muted">
+                      {employee.jobTitle} · {employee.employeeNo}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    {blocking.map((gap) => (
+                      <Link
+                        key={gap.field}
+                        href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
+                        title={gap.consequence}
+                        className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                      >
+                        <Badge tone="danger" size="sm">
+                          {gap.label}
+                        </Badge>
+                      </Link>
+                    ))}
+                    {advisory.map((gap) => (
+                      <Link
+                        key={gap.field}
+                        href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
+                        title={gap.consequence}
+                        className="text-meta text-muted underline decoration-dotted underline-offset-2 hover:text-accent-text hover:decoration-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                      >
+                        {gap.label}
+                      </Link>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </>
       )}

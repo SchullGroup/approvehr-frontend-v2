@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CalendarClock, Lock, Plus } from "lucide-react";
+import { CalendarClock, Lock, MessagesSquare, Plus } from "lucide-react";
 import {
   Badge,
   Button,
@@ -233,13 +233,15 @@ function Mine({
        This is the URL, the bookmark and the stale link. */
     return isManager ? (
       <EmptyState
+        icon={<MessagesSquare aria-hidden="true" />}
         title="You have not started any yet"
-        description="Start one with somebody who reports to you. They will see it too, and so will the notes — there is no private half."
+        description="Start one with somebody who reports to you. They will see it too, and so will the notes: there is no private half."
       />
     ) : (
       <EmptyState
+        icon={<MessagesSquare aria-hidden="true" />}
         title="You are not in any one-to-ones yet"
-        description="A one-to-one follows the reporting line, and the manager starts it. If you would find a regular check-in useful, ask yours to set one up — it will appear here, and only the two of you will ever read it."
+        description="A one-to-one follows the reporting line, and the manager starts it. If you would find a regular check-in useful, ask yours to set one up. It will appear here, and only the two of you will ever read it."
       />
     );
   }
@@ -404,22 +406,60 @@ function Coverage({ read }: { read: ReturnType<typeof useOneOnOneCoverage> }) {
         />
       </div>
 
-      <TableWrap>
-        <THead>
-          <TR>
-            <TH>Person</TH>
-            <TH>Manager</TH>
-            <TH>Cadence</TH>
-            <TH>Last met</TH>
-            <TH>State</TH>
-          </TR>
-        </THead>
-        <TBody>
-          {rows.map((row) => (
-            <CoverageRow key={row.employeeId} row={row} />
-          ))}
-        </TBody>
-      </TableWrap>
+      <div className="hidden sm:block">
+        <TableWrap>
+          <THead>
+            <TR>
+              <TH>Person</TH>
+              <TH>Manager</TH>
+              <TH>Cadence</TH>
+              <TH>Last met</TH>
+              <TH>State</TH>
+            </TR>
+          </THead>
+          <TBody>
+            {rows.map((row) => (
+              <CoverageRow key={row.employeeId} row={row} />
+            ))}
+          </TBody>
+        </TableWrap>
+      </div>
+
+      <ul className="divide-y divide-line rounded-lg border border-line bg-surface sm:hidden">
+        {rows.map((row) => (
+          <li key={row.employeeId} className="flex flex-col gap-2 p-4">
+            <div>
+              <p className="text-body-sm font-medium text-ink">
+                {row.employeeName}
+              </p>
+              <p className="text-meta text-faint">{row.jobTitle}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+              <span>
+                Manager:{" "}
+                {row.managerName ?? <span className="text-faint">Nobody</span>}
+              </span>
+              <span>
+                {row.cadenceLabel ?? (
+                  <span className="text-faint">Not set up</span>
+                )}
+              </span>
+              <span>
+                Last met:{" "}
+                {row.lastHeldOn ?? <span className="text-faint">Never</span>}
+              </span>
+            </div>
+            <div>
+              <Badge tone={STATE_TONE[row.state]} size="sm" dot>
+                {COVERAGE_LABELS[row.state]}
+              </Badge>
+              <p className="mt-0.5 text-meta text-faint">
+                {COVERAGE_MEANING[row.state]}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

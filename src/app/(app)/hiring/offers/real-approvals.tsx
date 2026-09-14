@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check, ThumbsDown } from "lucide-react";
+import { Check, ThumbsDown, TriangleAlert } from "lucide-react";
 import {
   Badge,
   Button,
@@ -44,6 +44,7 @@ export function RealApprovals() {
     return (
       <Card>
         <EmptyState
+          icon={<TriangleAlert aria-hidden="true" />}
           title="Could not load offers"
           description={error.message}
           action={

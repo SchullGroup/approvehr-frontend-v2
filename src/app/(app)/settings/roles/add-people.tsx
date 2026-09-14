@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { Button, Checkbox, EmptyState, Input, Modal } from "@/components/ui";
 import {
   useAssignableAccounts,
@@ -120,6 +121,7 @@ export function AddPeopleDialog({
         {candidates.length === 0 ? (
           <EmptyState
             compact
+            icon={<Search aria-hidden="true" />}
             title={
               loading
                 ? "Loading…"

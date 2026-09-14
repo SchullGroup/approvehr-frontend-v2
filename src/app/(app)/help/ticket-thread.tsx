@@ -541,8 +541,8 @@ function Composer({
           note
             ? INTERNAL_LABEL
             : iRaisedIt
-              ? "No email goes out: whoever is on it sees this in their ApproveHR notifications."
-              : "No email goes out: they see this in their ApproveHR notifications."
+              ? "Whoever is on it is notified by email and in ApproveHR."
+              : "They are notified by email and in ApproveHR."
         }
       >
         <Textarea

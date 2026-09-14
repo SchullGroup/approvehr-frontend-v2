@@ -32,7 +32,7 @@ import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
-import type { KbArticleListParams } from "@/lib/api/knowledge";
+import type { ApiKbArticle, KbArticleListParams } from "@/lib/api/knowledge";
 import {
   useKbAnalytics,
   useKbArticle,
@@ -264,46 +264,89 @@ export function KnowledgeScreen() {
               description="Nothing has come up empty yet."
             />
           ) : (
-            <TableWrap
-              className="rounded-none border-0"
-              caption="Searches that returned no articles, most searched first"
-            >
-              <THead>
-                <TH>What they searched for</TH>
-                <TH align="right">Times</TH>
-                <TH>Last asked</TH>
-                <TH>
-                  <span className="sr-only-focusable">Action</span>
-                </TH>
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-none border-0"
+                  caption="Searches that returned no articles, most searched first"
+                >
+                  <THead>
+                    <TH>What they searched for</TH>
+                    <TH align="right">Times</TH>
+                    <TH>Last asked</TH>
+                    <TH>
+                      <span className="sr-only-focusable">Action</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {analytics?.unansweredSearches.map((miss) => (
+                      <TR key={miss.term}>
+                        <TDPrimary title={`“${miss.term}”`} />
+                        <TD align="right" className="tabular">
+                          {miss.searches}
+                        </TD>
+                        <TD className="text-muted">
+                          {dayLabel(miss.lastSearchedAt)}
+                        </TD>
+                        <TD align="right">
+                          {articles.editable && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() =>
+                                setWriting({
+                                  suggestedTitle: sentence(miss.term),
+                                })
+                              }
+                            >
+                              <Pencil aria-hidden="true" className="size-3.5" />
+                              Write this article
+                            </Button>
+                          )}
+                        </TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
                 {analytics?.unansweredSearches.map((miss) => (
-                  <TR key={miss.term}>
-                    <TDPrimary title={`“${miss.term}”`} />
-                    <TD align="right" className="tabular">
-                      {miss.searches}
-                    </TD>
-                    <TD className="text-muted">
-                      {dayLabel(miss.lastSearchedAt)}
-                    </TD>
-                    <TD align="right">
-                      {articles.editable && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            setWriting({ suggestedTitle: sentence(miss.term) })
-                          }
-                        >
-                          <Pencil aria-hidden="true" className="size-3.5" />
-                          Write this article
-                        </Button>
-                      )}
-                    </TD>
-                  </TR>
+                  <li key={miss.term} className="flex flex-col gap-2 p-4">
+                    <p className="text-body-sm font-medium text-ink">
+                      “{miss.term}”
+                    </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">Times</span>
+                      <span className="tabular text-body-sm text-body">
+                        {miss.searches}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">
+                        Last asked
+                      </span>
+                      <span className="text-body-sm text-muted">
+                        {dayLabel(miss.lastSearchedAt)}
+                      </span>
+                    </div>
+                    {articles.editable && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="self-start"
+                        onClick={() =>
+                          setWriting({ suggestedTitle: sentence(miss.term) })
+                        }
+                      >
+                        <Pencil aria-hidden="true" className="size-3.5" />
+                        Write this article
+                      </Button>
+                    )}
+                  </li>
                 ))}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
         </Card>
 
@@ -424,102 +467,61 @@ export function KnowledgeScreen() {
               }
             />
           ) : (
-            <TableWrap
-              className="rounded-none border-0"
-              caption="Every article with its reads and how readers rated it"
-            >
-              <THead>
-                <TH>Article</TH>
-                <TH align="right">Reads</TH>
-                <TH>Helpful?</TH>
-                <TH>State</TH>
-                <TH>
-                  <span className="sr-only-focusable">Actions</span>
-                </TH>
-              </THead>
-              <TBody>
-                {articles.articles.map((article) => {
-                  const votes = article.helpful + article.notHelpful;
-                  const poor =
-                    !unavailable &&
-                    article.notHelpful > article.helpful &&
-                    votes > 0;
-                  return (
-                    <TR key={article.id}>
-                      <TDPrimary
-                        title={
-                          article.status === "published" ? (
-                            <Link
-                              href={`/help/kb/${article.slug}`}
-                              className="underline-offset-4 hover:text-accent-text hover:underline"
-                            >
-                              {article.title}
-                            </Link>
-                          ) : (
-                            article.title
-                          )
-                        }
-                        subtitle={article.categoryName ?? "No section"}
-                      />
-                      <TD align="right">
-                        <span className="tabular inline-flex items-center gap-1.5 text-muted">
-                          <Eye aria-hidden="true" className="size-3.5" />
-                          {count(article.views)}
-                        </span>
-                      </TD>
-                      <TD>
-                        {unavailable ? (
-                          <span className="text-body-sm text-muted">
-                            Not switched on
+            <>
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-none border-0"
+                  caption="Every article with its reads and how readers rated it"
+                >
+                  <THead>
+                    <TH>Article</TH>
+                    <TH align="right">Reads</TH>
+                    <TH>Helpful?</TH>
+                    <TH>State</TH>
+                    <TH>
+                      <span className="sr-only-focusable">Actions</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {articles.articles.map((article) => (
+                      <TR key={article.id}>
+                        <TDPrimary
+                          title={
+                            article.status === "published" ? (
+                              <Link
+                                href={`/help/kb/${article.slug}`}
+                                className="underline-offset-4 hover:text-accent-text hover:underline"
+                              >
+                                {article.title}
+                              </Link>
+                            ) : (
+                              article.title
+                            )
+                          }
+                          subtitle={article.categoryName ?? "No section"}
+                        />
+                        <TD align="right">
+                          <span className="tabular inline-flex items-center gap-1.5 text-muted">
+                            <Eye aria-hidden="true" className="size-3.5" />
+                            {count(article.views)}
                           </span>
-                        ) : votes === 0 ? (
-                          <span className="text-body-sm text-faint">
-                            No votes yet
-                          </span>
-                        ) : (
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span
-                              className={cn(
-                                "tabular text-body-sm",
-                                poor ? "font-medium text-ink" : "text-muted",
-                              )}
-                            >
-                              {article.helpfulness}% of {votes}
-                            </span>
-                            {poor && (
-                              <Badge tone="warning" size="sm" dot>
-                                Needs a look
-                              </Badge>
-                            )}
-                          </span>
-                        )}
-                      </TD>
-                      <TD>
-                        {article.status === "published" ? (
-                          <Badge tone="neutral" size="sm">
-                            Live
-                          </Badge>
-                        ) : (
-                          <Badge tone="warning" size="sm" dot>
-                            Draft
-                          </Badge>
-                        )}
-                      </TD>
-                      <TD align="right">
-                        {articles.editable && (
-                          <span className="flex justify-end gap-1.5">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditingId(article.id)}
-                            >
-                              Edit
-                            </Button>
-                            {article.status === "draft" ? (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() =>
+                        </TD>
+                        <TD>
+                          <ArticleHelpfulness
+                            article={article}
+                            unavailable={unavailable}
+                          />
+                        </TD>
+                        <TD>
+                          <ArticleStateBadge article={article} />
+                        </TD>
+                        <TD align="right">
+                          {articles.editable && (
+                            <span className="flex justify-end gap-1.5">
+                              <ArticleRowActions
+                                article={article}
+                                onEdit={() => setEditingId(article.id)}
+                                onPublish={() =>
                                   void articles
                                     .publish(article.id)
                                     .then(() =>
@@ -527,31 +529,85 @@ export function KnowledgeScreen() {
                                     )
                                     .catch(report)
                                 }
-                              >
-                                Publish
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
+                                onHide={() =>
                                   setHiding({
                                     id: article.id,
                                     title: article.title,
                                   })
                                 }
-                              >
-                                Hide
-                              </Button>
-                            )}
-                          </span>
+                              />
+                            </span>
+                          )}
+                        </TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
+                {articles.articles.map((article) => (
+                  <li key={article.id} className="flex flex-col gap-2 p-4">
+                    <div className="min-w-0">
+                      <p className="text-body-sm font-medium text-ink">
+                        {article.status === "published" ? (
+                          <Link
+                            href={`/help/kb/${article.slug}`}
+                            className="underline-offset-4 hover:text-accent-text hover:underline"
+                          >
+                            {article.title}
+                          </Link>
+                        ) : (
+                          article.title
                         )}
-                      </TD>
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </TableWrap>
+                      </p>
+                      <p className="mt-0.5 text-meta text-muted">
+                        {article.categoryName ?? "No section"}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">Reads</span>
+                      <span className="tabular inline-flex items-center gap-1.5 text-body-sm text-body">
+                        <Eye aria-hidden="true" className="size-3.5" />
+                        {count(article.views)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">Helpful?</span>
+                      <ArticleHelpfulness
+                        article={article}
+                        unavailable={unavailable}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">State</span>
+                      <ArticleStateBadge article={article} />
+                    </div>
+
+                    {articles.editable && (
+                      <div className="flex gap-1.5">
+                        <ArticleRowActions
+                          article={article}
+                          onEdit={() => setEditingId(article.id)}
+                          onPublish={() =>
+                            void articles
+                              .publish(article.id)
+                              .then(() => done(`${article.title} is live`))
+                              .catch(report)
+                          }
+                          onHide={() =>
+                            setHiding({ id: article.id, title: article.title })
+                          }
+                        />
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
 
           {articles.articles.length > 0 &&
@@ -649,6 +705,88 @@ export function KnowledgeScreen() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/** The helpful/unhelpful read for one article — shared by the desktop table
+    cell and the mobile card, so the "poor" threshold cannot drift between
+    them. */
+function ArticleHelpfulness({
+  article,
+  unavailable,
+}: {
+  article: ApiKbArticle;
+  unavailable: string | null;
+}) {
+  const votes = article.helpful + article.notHelpful;
+  const poor =
+    !unavailable && article.notHelpful > article.helpful && votes > 0;
+
+  if (unavailable) {
+    return <span className="text-body-sm text-muted">Not switched on</span>;
+  }
+  if (votes === 0) {
+    return <span className="text-body-sm text-faint">No votes yet</span>;
+  }
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <span
+        className={cn(
+          "tabular text-body-sm",
+          poor ? "font-medium text-ink" : "text-muted",
+        )}
+      >
+        {article.helpfulness}% of {votes}
+      </span>
+      {poor && (
+        <Badge tone="warning" size="sm" dot>
+          Needs a look
+        </Badge>
+      )}
+    </span>
+  );
+}
+
+function ArticleStateBadge({ article }: { article: ApiKbArticle }) {
+  return article.status === "published" ? (
+    <Badge tone="neutral" size="sm">
+      Live
+    </Badge>
+  ) : (
+    <Badge tone="warning" size="sm" dot>
+      Draft
+    </Badge>
+  );
+}
+
+/** Edit, plus Publish or Hide depending on state — one copy shared by the
+    desktop row and the mobile card. */
+function ArticleRowActions({
+  article,
+  onEdit,
+  onPublish,
+  onHide,
+}: {
+  article: ApiKbArticle;
+  onEdit: () => void;
+  onPublish: () => void;
+  onHide: () => void;
+}) {
+  return (
+    <>
+      <Button variant="ghost" size="sm" onClick={onEdit}>
+        Edit
+      </Button>
+      {article.status === "draft" ? (
+        <Button variant="secondary" size="sm" onClick={onPublish}>
+          Publish
+        </Button>
+      ) : (
+        <Button variant="ghost" size="sm" onClick={onHide}>
+          Hide
+        </Button>
+      )}
+    </>
+  );
+}
 
 const MONTHS = [
   "Jan",

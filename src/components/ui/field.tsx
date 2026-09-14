@@ -52,10 +52,17 @@ function InfoTooltip({ id, text }: { id: string; text: string }) {
         aria-hidden="true"
         role="presentation"
         className={cn(
-          "invisible absolute bottom-full left-0 z-50 mb-2 w-64",
+          /* `hidden`, not `invisible`: a `visibility:hidden` panel still
+             occupies its absolutely-positioned box, and a 256px-wide one
+             anchored near the right end of a field's label row pushed the
+             whole row's (and its ancestors') scrollWidth out with it — on a
+             narrow card this read as horizontal overflow with nothing
+             visible causing it. `display:none` removes it from layout
+             entirely until it is actually shown. */
+          "hidden absolute bottom-full left-0 z-50 mb-2 w-64",
           "rounded-md border border-line bg-surface p-2.5 text-body-sm leading-relaxed text-body shadow-lg",
           "opacity-0 transition-opacity duration-100",
-          "group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100",
+          "group-hover:block group-hover:opacity-100 group-focus-within:block group-focus-within:opacity-100",
         )}
       >
         {text}

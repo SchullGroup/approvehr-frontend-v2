@@ -67,6 +67,9 @@ function fromSeed(request: LeaveRequest): LeaveRow {
   const approver = request.approverId
     ? employeeById(request.approverId)
     : undefined;
+  const decider = request.decidedById
+    ? employeeById(request.decidedById)
+    : undefined;
   return {
     id: request.id,
     employeeId: request.employeeId,
@@ -86,6 +89,8 @@ function fromSeed(request: LeaveRequest): LeaveRow {
     requestedAt: request.requestedAt ?? null,
     decidedAt: request.decidedAt ?? null,
     decidedById: request.decidedById ?? null,
+    decidedByName: decider ? fullName(decider) : null,
+    decidedByJobTitle: decider?.jobTitle ?? null,
     decisionNote: request.decisionNote ?? null,
   };
 }

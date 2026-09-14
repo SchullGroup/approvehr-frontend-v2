@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil } from "lucide-react";
+import { CalendarSearch, Pencil } from "lucide-react";
 import {
   Badge,
   Button,
@@ -170,25 +170,80 @@ export function MyAttendanceHistoryPanel() {
         ) : history.rows.length === 0 ? (
           <EmptyState
             compact
+            icon={<CalendarSearch aria-hidden="true" />}
             title="Nothing in this range"
             description="Nothing was recorded, or nothing here matches the filter."
           />
         ) : (
-          <TableWrap caption="Your attendance, one row per day">
-            <THead>
-              <TH>Date</TH>
-              <TH>Status</TH>
-              <TH>Clock in</TH>
-              <TH>Clock out</TH>
-              <TH>&nbsp;</TH>
-            </THead>
-            <TBody>
+          <>
+            <div className="hidden sm:block">
+              <TableWrap caption="Your attendance, one row per day">
+                <THead>
+                  <TH>Date</TH>
+                  <TH>Status</TH>
+                  <TH>Clock in</TH>
+                  <TH>Clock out</TH>
+                  <TH>&nbsp;</TH>
+                </THead>
+                <TBody>
+                  {history.rows.map((row) => {
+                    const pending = pendingFor(row.date);
+                    return (
+                      <TR key={row.date}>
+                        <TD>{shortDate(row.date)}</TD>
+                        <TD>
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            <Badge tone={STATUS_TONE[row.status]} size="sm">
+                              {STATUS_LABEL[row.status]}
+                            </Badge>
+                            {row.earlyByMinutes > 0 && (
+                              <Badge tone="warning" size="sm">
+                                Left early
+                              </Badge>
+                            )}
+                          </span>
+                        </TD>
+                        <TD>{row.clockIn ?? "—"}</TD>
+                        <TD>{row.clockOut ?? "—"}</TD>
+                        <TD align="right">
+                          {pending ? (
+                            <span className="text-meta text-muted">
+                              Correction pending
+                            </span>
+                          ) : (
+                            (row.status === "PRESENT" ||
+                              row.status === "LATE" ||
+                              row.status === "ABSENT") && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCorrecting(row)}
+                              >
+                                <Pencil
+                                  aria-hidden="true"
+                                  className="size-3.5"
+                                />
+                                Something wrong?
+                              </Button>
+                            )
+                          )}
+                        </TD>
+                      </TR>
+                    );
+                  })}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
               {history.rows.map((row) => {
                 const pending = pendingFor(row.date);
                 return (
-                  <TR key={row.date}>
-                    <TD>{shortDate(row.date)}</TD>
-                    <TD>
+                  <li key={row.date} className="flex flex-col gap-2 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="tabular text-body-sm font-medium text-ink">
+                        {shortDate(row.date)}
+                      </span>
                       <span className="flex flex-wrap items-center gap-1.5">
                         <Badge tone={STATUS_TONE[row.status]} size="sm">
                           {STATUS_LABEL[row.status]}
@@ -199,34 +254,33 @@ export function MyAttendanceHistoryPanel() {
                           </Badge>
                         )}
                       </span>
-                    </TD>
-                    <TD>{row.clockIn ?? "—"}</TD>
-                    <TD>{row.clockOut ?? "—"}</TD>
-                    <TD align="right">
-                      {pending ? (
-                        <span className="text-meta text-muted">
-                          Correction pending
-                        </span>
-                      ) : (
-                        (row.status === "PRESENT" ||
-                          row.status === "LATE" ||
-                          row.status === "ABSENT") && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setCorrecting(row)}
-                          >
-                            <Pencil aria-hidden="true" className="size-3.5" />
-                            Something wrong?
-                          </Button>
-                        )
-                      )}
-                    </TD>
-                  </TR>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                      <span className="tabular">In {row.clockIn ?? "—"}</span>
+                      <span className="tabular">Out {row.clockOut ?? "—"}</span>
+                    </div>
+                    {pending ? (
+                      <p className="text-meta text-muted">Correction pending</p>
+                    ) : (
+                      (row.status === "PRESENT" ||
+                        row.status === "LATE" ||
+                        row.status === "ABSENT") && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="self-start"
+                          onClick={() => setCorrecting(row)}
+                        >
+                          <Pencil aria-hidden="true" className="size-3.5" />
+                          Something wrong?
+                        </Button>
+                      )
+                    )}
+                  </li>
                 );
               })}
-            </TBody>
-          </TableWrap>
+            </ul>
+          </>
         )}
       </CardBody>
 

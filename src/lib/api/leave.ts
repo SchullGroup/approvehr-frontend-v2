@@ -127,6 +127,11 @@ type WireRequest = {
   requestedAt: string;
   decidedAt: string | null;
   decidedById: string | null;
+  /** Who actually decided it — never the same as `approverName`, which is only
+   *  who it was routed to. Null until decided, and null on an account with no
+   *  linked employee record. */
+  decidedByName: string | null;
+  decidedByJobTitle: string | null;
   decisionNote: string | null;
 };
 
@@ -220,6 +225,10 @@ export type LeaveRow = {
   requestedAt: string | null;
   decidedAt: string | null;
   decidedById: string | null;
+  /** Who actually decided it, never `approverName` — see the wire type's own
+   *  comment. Null until decided. */
+  decidedByName: string | null;
+  decidedByJobTitle: string | null;
   decisionNote: string | null;
 };
 
@@ -412,6 +421,8 @@ function toRow(wire: WireRequest): LeaveRow {
     requestedAt: dayOf(wire.requestedAt),
     decidedAt: dayOf(wire.decidedAt),
     decidedById: wire.decidedById,
+    decidedByName: wire.decidedByName,
+    decidedByJobTitle: wire.decidedByJobTitle,
     decisionNote: wire.decisionNote,
   };
 }

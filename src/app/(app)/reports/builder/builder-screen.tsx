@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Play, Save, Trash2 } from "lucide-react";
+import { Play, Save, SearchX, Trash2 } from "lucide-react";
 import {
   Badge,
   Button,
@@ -459,33 +459,76 @@ function Result({ result }: { result: ApiReportResult }) {
 
         {result.rows.length === 0 ? (
           <EmptyState
+            icon={<SearchX aria-hidden="true" />}
             title="Nothing matched"
             description="No rows came back for those filters. That is an empty answer, not a failed one."
           />
         ) : (
-          <TableWrap>
-            <THead>
-              <TR>
-                {result.columns.map((column) => (
-                  <TH key={column.key}>{column.label}</TH>
-                ))}
-              </TR>
-            </THead>
-            <TBody>
-              {result.rows.map((row, index) => (
-                <TR key={index}>
-                  {row.map((cell, cellIndex) => (
-                    <TD key={cellIndex}>
-                      <Cell
-                        value={cell}
-                        kind={result.columns[cellIndex]?.kind ?? "text"}
-                      />
-                    </TD>
+          <>
+            <div className="hidden sm:block">
+              <TableWrap>
+                <THead>
+                  <TR>
+                    {result.columns.map((column) => (
+                      <TH key={column.key}>{column.label}</TH>
+                    ))}
+                  </TR>
+                </THead>
+                <TBody>
+                  {result.rows.map((row, index) => (
+                    <TR key={index}>
+                      {row.map((cell, cellIndex) => (
+                        <TD key={cellIndex}>
+                          <Cell
+                            value={cell}
+                            kind={result.columns[cellIndex]?.kind ?? "text"}
+                          />
+                        </TD>
+                      ))}
+                    </TR>
                   ))}
-                </TR>
+                </TBody>
+              </TableWrap>
+            </div>
+
+            {/* A report's columns are whatever the reader chose, so there is no
+                fixed shape to design a card around — the first column stands
+                in for a title (it is what the reader put first) and every
+                other column is a label/value row, generic over any dataset. */}
+            <ul className="divide-y divide-line sm:hidden">
+              {result.rows.map((row, index) => (
+                <li
+                  key={index}
+                  className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0"
+                >
+                  {row.length > 0 && (
+                    <p className="text-body-sm font-medium text-ink">
+                      <Cell
+                        value={row[0] ?? null}
+                        kind={result.columns[0]?.kind ?? "text"}
+                      />
+                    </p>
+                  )}
+                  {row.slice(1).map((cell, cellIndex) => (
+                    <div
+                      key={cellIndex + 1}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <span className="text-body-sm text-muted">
+                        {result.columns[cellIndex + 1]?.label}
+                      </span>
+                      <span className="text-body-sm text-ink">
+                        <Cell
+                          value={cell}
+                          kind={result.columns[cellIndex + 1]?.kind ?? "text"}
+                        />
+                      </span>
+                    </div>
+                  ))}
+                </li>
               ))}
-            </TBody>
-          </TableWrap>
+            </ul>
+          </>
         )}
 
         {result.totals.length > 0 && (

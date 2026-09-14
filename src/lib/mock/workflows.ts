@@ -18,7 +18,15 @@ export type ApprovalKind =
   | "requisition"
   | "expense"
   | "record_change"
-  | "loan";
+  | "loan"
+  /* A probation ending. The one kind nobody requested — it is raised by the
+     sweep in the API's `employees/probation-scheduler.ts` because a date
+     arrived, not because a person asked for something. */
+  | "confirmation"
+  /* One kind for all four of promotion, transfer, regrade and pay change:
+     one table, one approval path, one queue row. See the API's
+     `EmploymentChangeKind` for why they are not four. */
+  | "employment_change";
 
 export type ApprovalItem = {
   id: string;
@@ -51,6 +59,8 @@ export type ApprovalItem = {
 };
 
 export const APPROVAL_LABEL: Record<ApprovalKind, string> = {
+  confirmation: "Confirmation",
+  employment_change: "Promotion or transfer",
   leave: "Leave",
   payroll_run: "Payroll",
   offer: "Offer",
