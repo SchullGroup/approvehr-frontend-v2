@@ -121,8 +121,11 @@ function DeviceOffice({
 
 export function DevicesScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
+  const canManage = can("MANAGE_SETTINGS");
   const [showArchived, setShowArchived] = useState(false);
-  const list = useAttendanceDevices(showArchived);
+  /* Gated: reading the registry needs the same permission registering a
+     terminal needs, so without it this is a guaranteed 403. */
+  const list = useAttendanceDevices(showArchived, canManage);
   const locations = useWorkLocationList(false);
   const mutations = useDeviceMutations();
   const toast = useToast();
@@ -147,7 +150,40 @@ export function DevicesScreen() {
     );
   }
 
-  const canManage = can("MANAGE_SETTINGS");
+  /**
+   * One answer, not four.
+   *
+   * This screen used to render the refusal *and* an info callout saying "You
+   * can see these, not change them" *and* "Terminals 0 — None registered yet"
+   * *and* an empty state reading "No terminals registered" — two of which
+   * contradict each other, and two of which are claims about a list this
+   * reader had just been refused. `GET /attendance/devices` needs
+   * MANAGE_SETTINGS, the same permission changing one needs, so the
+   * see-but-not-change reader the callout addressed does not exist.
+   *
+   * Same shape as `settings/bank-accounts`, which gates on the same
+   * permission.
+   */
+  if (!canManage) {
+    return (
+      <>
+        <PageHeader
+          title="Biometric terminals"
+          breadcrumb={[{ href: "/settings", label: "Settings" }]}
+        />
+        <PageBody>
+          <Card>
+            <EmptyState
+              icon={<Cpu aria-hidden="true" />}
+              title="Biometric terminals are not part of your access"
+              description="Registering a machine that may write attendance is the same kind of decision as drawing the fence people clock in inside, so it needs the settings permission. Ask whoever manages settings."
+              action={<ButtonLink href="/settings">Back to settings</ButtonLink>}
+            />
+          </Card>
+        </PageBody>
+      </>
+    );
+  }
 
   async function run(action: () => Promise<unknown>, success: string) {
     setBusy(true);
@@ -225,14 +261,6 @@ export function DevicesScreen() {
             timesheet. And <strong>no signing secret is issued</strong>: one
             made up in a browser would look exactly like a real credential and
             would sign deliveries nothing would accept.
-          </Callout>
-        )}
-
-        {!canManage && (
-          <Callout tone="info" title="You can see these, not change them">
-            Registering a machine that may write attendance is the same kind of
-            decision as drawing the fence people clock in inside, so it needs
-            the settings permission. Ask whoever manages settings.
           </Callout>
         )}
 
