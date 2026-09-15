@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   assistantActions,
-  chat,
   runAssistantAction,
   MAX_CHAT_MESSAGES,
   MAX_CHAT_MESSAGE_CHARS,
@@ -14,7 +13,10 @@ import {
   type ApiChatReply,
   type ApiProposedAction,
 } from "@/lib/api/ai";
+import { EMPTY_LIVE, runAi2Turn, type Live, type Step } from "./ai2-turn";
 import { useSession } from "./session";
+
+export type { Live, Step } from "./ai2-turn";
 import { findScriptedAnswer } from "@/lib/mock/sales-script-qa";
 import { scriptedFallback } from "@/lib/sales-script";
 
@@ -75,7 +77,16 @@ export type ChatTurn =
        */
       content: string;
       /** The lookups that ran, by name. Shown, never logged — see `ask-panel`. */
-      used: string[];
+      used?: string[];
+      /**
+       * What the assistant did to reach this answer, in order.
+       *
+       * Supersedes `used` on the live path: `used` was a list of names the old
+       * buffered reply carried, and a streamed turn reports each lookup as it
+       * happens — including whether it was **refused**, which a name alone
+       * cannot say. `used` stays for the scripted build, which has no stream.
+       */
+      steps?: Step[];
       /** Present when this turn proposed a change. Never edited. */
       proposed?: ApiProposedAction;
       /** Set once `confirm` succeeded. The API's re-read of what it did. */
@@ -100,6 +111,16 @@ export type ChatTurn =
 
 export type ChatState = {
   turns: ChatTurn[];
+  /**
+   * The turn in flight, or null.
+   *
+   * Held apart from `turns` because it is **provisional**: a streamed answer is
+   * on screen before anyone knows it is an answer, and the model may yet decide
+   * it needs a lookup — which makes what was shown a preamble to work it had not
+   * done. `runAi2Turn` withdraws it when the server says so. Only the finished
+   * text joins the transcript, so nothing provisional is ever sent back.
+   */
+  live: Live | null;
   /** A turn is in flight. */
   sending: boolean;
   /** The id of the turn whose action is being performed, or null. */
@@ -122,6 +143,14 @@ export type ChatActions = {
   send: (text: string) => Promise<boolean>;
   /** Send the transcript again, unchanged. Only meaningful after a failure. */
   retry: () => Promise<boolean>;
+  /**
+   * Stop the turn in flight, keeping nothing.
+   *
+   * A half-written answer is not a short answer — it is a sentence that stops,
+   * and keeping it would send it back next turn as something the assistant said.
+   * The question stays, so `retry` can ask it again.
+   */
+  stop: () => void;
   /** Perform the change this turn proposed. **Only ever from a click.** */
   confirm: (turnId: string) => Promise<void>;
   /** Put the proposal aside. Writes nothing and tells nobody — see below. */
@@ -178,6 +207,7 @@ function localRefusal(text: string, turns: readonly ChatTurn[]): string | null {
 export function useAssistantChat(): ChatState & ChatActions {
   const { isConnected } = useSession();
   const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const [live, setLive] = useState<Live | null>(null);
   const [sending, setSending] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -191,6 +221,10 @@ export function useAssistantChat(): ChatState & ChatActions {
    * screen, which is worse than no reply at all.
    */
   const sequence = useRef(0);
+  const abort = useRef<AbortController | null>(null);
+
+  /* A stream left open outlives the screen otherwise. */
+  useEffect(() => () => abort.current?.abort(), []);
 
   /** Everything after this point is a click, so `turns` is never read in render. */
   /**
@@ -218,41 +252,66 @@ export function useAssistantChat(): ChatState & ChatActions {
 
   const exchange = useCallback(async (next: ChatTurn[]): Promise<boolean> => {
     const mine = ++sequence.current;
+    const controller = new AbortController();
+    abort.current?.abort();
+    abort.current = controller;
+
     setTurns(next);
+    /* The scripted build answers instantly and streams nothing, so an empty
+       live block there would be a "thinking" state for work that is already
+       done. */
+    setLive(SALES_SCRIPT_ENABLED ? null : EMPTY_LIVE);
     setSending(true);
     setError(null);
 
     try {
-      /* Prepared, or live. One assignment rather than two paths, so
-         everything below this line is the same code in both builds — see
-         `scriptedReplyFor`. */
-      const reply: ApiChatReply = SALES_SCRIPT_ENABLED
-        ? scriptedReplyFor(next)
-        : await chat(toWire(next));
-      if (sequence.current !== mine) return false;
+      /* Prepared, or live. The scripted build has no stream to read — see
+         `scriptedReplyFor` — so it stays a single reply; everything below is
+         the same handling in both. */
+      if (SALES_SCRIPT_ENABLED) {
+        const reply: ApiChatReply = scriptedReplyFor(next);
+        if (sequence.current !== mine) return false;
 
-      /* An assistant that went away mid-conversation. `reason` is not an
-           answer and must not be appended as one — putting it in the transcript
-           would send it back next turn as though the assistant had said it. */
-      if (!reply.available) {
-        setError(
-          reply.reason ??
-            "The assistant is not available. Nothing was sent to it.",
-        );
+        const content = reply.text ?? reply.proposed?.proposal.summary ?? "";
+        if (content.trim().length === 0) {
+          setError("The assistant answered with nothing. Ask again.");
+          return true;
+        }
+
+        setTurns([
+          ...next,
+          {
+            id: nextId(),
+            role: "assistant",
+            content,
+            used: reply.used ?? [],
+            ...(reply.proposed ? { proposed: reply.proposed } : {}),
+          },
+        ]);
         return true;
       }
 
-      /* `text` when there is prose; the proposal's own summary when there is
-           not. See the field's own note above. */
-      const content = reply.text ?? reply.proposed?.proposal.summary ?? "";
+      const result = await runAi2Turn(
+        toWire(next),
+        /* Provisional, and guarded: a superseded turn's events must not land in
+           a conversation they are no longer an answer in. A stream delivers many
+           of them, so the window is the whole turn rather than its last moment. */
+        (next_live) => {
+          if (sequence.current === mine) setLive(next_live);
+        },
+        controller.signal,
+      );
+      if (sequence.current !== mine) return false;
 
-      /* Neither is a shape the API says it produces. Appending it anyway
-           would put an empty assistant message in the transcript, and the very
-           next turn would come back 400 — "An empty message says nothing" —
-           about a message nobody typed, which is an unrecoverable conversation.
-           Reported as a turn that did not go through instead, which it is. */
-      if (content.trim().length === 0) {
-        setError("The assistant answered with nothing. Ask again.");
+      if (result.text === null) {
+        /* No answer. The server's own sentence where it gave one — it knows
+           whether this was a missing key, a permission or a spent budget, and
+           nothing here does. Not appended to the transcript: `reason` is not an
+           answer, and putting it there would send it back next turn as though
+           the assistant had said it. */
+        setError(
+          result.declined ?? "The assistant answered with nothing. Ask again.",
+        );
         return true;
       }
 
@@ -261,18 +320,21 @@ export function useAssistantChat(): ChatState & ChatActions {
         {
           id: nextId(),
           role: "assistant",
-          content,
-          used: reply.used,
-          ...(reply.proposed ? { proposed: reply.proposed } : {}),
+          content: result.text,
+          used: [],
+          steps: result.steps,
         },
       ]);
       return true;
     } catch (caught) {
+      /* A stop, or the screen going away. Neither is a failure to report. */
+      if (caught instanceof DOMException && caught.name === "AbortError")
+        return false;
       if (sequence.current !== mine) return false;
       /* The API's own sentence where it wrote one — it knows whether this was
-           a rate limit, a malformed transcript or a refusal, and nothing here
-           does. Paraphrasing a server message locally is how the two stop
-           agreeing. */
+         a rate limit, a malformed transcript or a refusal, and nothing here
+         does. Paraphrasing a server message locally is how the two stop
+         agreeing. */
       setError(
         caught instanceof ApiError
           ? caught.message
@@ -280,7 +342,12 @@ export function useAssistantChat(): ChatState & ChatActions {
       );
       return true;
     } finally {
-      if (sequence.current === mine) setSending(false);
+      if (sequence.current === mine) {
+        setSending(false);
+        /* Whatever was streaming is either in the transcript now or was never
+           an answer. Either way it does not stay on screen twice. */
+        setLive(null);
+      }
     }
   }, []);
 
@@ -318,6 +385,14 @@ export function useAssistantChat(): ChatState & ChatActions {
     if (sending || !last || last.role !== "user") return false;
     return exchange(turns);
   }, [turns, sending, exchange]);
+
+  const stop = useCallback(() => {
+    sequence.current += 1;
+    abort.current?.abort();
+    abort.current = null;
+    setLive(null);
+    setSending(false);
+  }, []);
 
   const confirm = useCallback(
     async (turnId: string): Promise<void> => {
@@ -404,7 +479,10 @@ export function useAssistantChat(): ChatState & ChatActions {
 
   const reset = useCallback(() => {
     sequence.current += 1;
+    abort.current?.abort();
+    abort.current = null;
     setTurns([]);
+    setLive(null);
     setSending(false);
     setConfirming(null);
     setError(null);
@@ -412,12 +490,14 @@ export function useAssistantChat(): ChatState & ChatActions {
 
   return {
     turns,
+    live,
     sending,
     confirming,
     error,
     full: turns.length >= MAX_CHAT_MESSAGES,
     send,
     retry,
+    stop,
     confirm,
     discard,
     reset,

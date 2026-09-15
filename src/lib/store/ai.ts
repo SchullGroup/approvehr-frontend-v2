@@ -344,12 +344,11 @@ export function useAsk(): {
       if (SALES_SCRIPT_ENABLED) {
         const found = findScriptedAnswer(question);
         setError(null);
+        const used = found?.used ?? [];
         setAnswer({
           available: true,
-          /* A miss says so, rather than stretching the prepared set to cover
-             it. That refusal is the honesty the whole feature turns on. */
           text: found ? found.answer : scriptedFallback(),
-          used: found?.used ?? [],
+          used,
         });
         return;
       }
