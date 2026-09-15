@@ -344,6 +344,90 @@ export async function request<T>(
   return payload.data;
 }
 
+/**
+ * A request whose body is read rather than parsed — the streaming counterpart.
+ *
+ * Returns the `Response` itself, because the point is the body: an SSE turn is
+ * consumed a chunk at a time and there is no JSON envelope to unwrap. Everything
+ * *around* the body is the same as `request` and is here for the same reason —
+ * in particular the **one refresh, one retry** rule, which shares the single
+ * in-flight refresh promise above. A streaming call that rolled its own refresh
+ * would rotate the token out from under every other request on the page, which
+ * is the sign-out this file's header exists to describe.
+ *
+ * The retry is safe because the caller has not been handed the body yet: nothing
+ * has been rendered, so nothing has to be taken back. Once the body starts, a
+ * failure is the stream's problem and not this function's — see `ai2.ts`.
+ */
+export async function requestStream(
+  path: string,
+  options: Omit<RequestOptions, "anonymous"> & { accept?: string } = {},
+): Promise<Response> {
+  const {
+    method = "POST",
+    body,
+    query,
+    signal,
+    accept = "text/event-stream",
+  } = options;
+
+  const send = async (): Promise<Response> => {
+    const headers: Record<string, string> = { Accept: accept };
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const access = tokens.access();
+    if (access) headers["Authorization"] = `Bearer ${access}`;
+
+    return fetch(buildUrl(path, query), {
+      method,
+      headers,
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(signal ? { signal } : {}),
+    });
+  };
+
+  let response: Response;
+  try {
+    response = await send();
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError")
+      throw error;
+    throw new ApiError(
+      0,
+      "network_error",
+      "The app cannot reach the server. Check your internet connection, then " +
+        "try again.",
+    );
+  }
+
+  if (response.status === 401) {
+    const refreshed = await refreshTokens();
+    if (!refreshed) {
+      tokens.clear();
+      throw new SessionExpiredError();
+    }
+    response = await send();
+    if (response.status === 401) {
+      tokens.clear();
+      throw new SessionExpiredError();
+    }
+  }
+
+  /* A refusal still arrives as JSON — validation, rate limiting, a gateway
+     page — so the ordinary error path reads it. The stream only begins on a
+     response that was accepted. */
+  if (!response.ok) throw await toApiError(response);
+  if (!response.body) {
+    throw new ApiError(
+      response.status,
+      "no_stream",
+      "This browser could not read a streamed answer. Try again, or use a " +
+        "different browser.",
+    );
+  }
+
+  return response;
+}
+
 /** For list endpoints, which return `{ data, meta }`. */
 export async function requestPaged<T, Extra = unknown>(
   path: string,

@@ -32,20 +32,6 @@ import { useAsk, useAssistantAvailable } from "@/lib/store/ai";
  * competitor that shipped exactly that. It is also the honest way to explain a
  * short answer: "I looked at the headcount and did not find that" reads very
  * differently from a model shrugging.
- *
- * ## Not a conversation
- *
- * Each answer replaces the last. The API holds no history — every question
- * carries its own whole context — and a running transcript here would imply a
- * memory that does not exist, which is the kind of small lie that costs trust
- * the first time somebody says "as I mentioned above" and it means nothing.
- *
- * **That is still true of `/ai/ask`, and `/assistant` is a different endpoint.**
- * `/ai/chat` takes the whole conversation on every turn and can offer a change
- * to confirm, so a transcript there is the request body rather than an implied
- * memory. This panel keeps its shape; the link in its header is the only thing
- * that changed, and it is here because a chat findable only by knowing the URL
- * is the discoverability defect this module has recorded four times.
  */
 export function AskPanel() {
   const assistant = useAssistantAvailable();
@@ -122,21 +108,25 @@ export function AskPanel() {
             <p className="text-body-sm leading-relaxed whitespace-pre-wrap text-ink">
               {answer.text ?? answer.reason}
             </p>
-            {answer.used.length > 0 && (
-              <p className="mt-2 text-meta text-muted">
-                Read from: {answer.used.join(", ").replace(/_/g, " ")}
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                clear();
-                setQuestion("");
-              }}
-              className="mt-2 text-meta text-muted underline-offset-2 hover:text-accent-text hover:underline"
-            >
-              Ask something else
-            </button>
+
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-line/50 pt-2 text-meta text-muted">
+              {(answer.used?.length ?? 0) > 0 ? (
+                <span>Read from: {answer.used?.join(", ").replace(/_/g, " ")}</span>
+              ) : (
+                <span className="italic">No records queried</span>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  clear();
+                  setQuestion("");
+                }}
+                className="underline-offset-2 hover:text-accent-text hover:underline"
+              >
+                Ask something else
+              </button>
+            </div>
           </div>
         )}
       </CardBody>
