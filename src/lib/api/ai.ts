@@ -276,20 +276,17 @@ export type ApiChatReply = {
 };
 
 /**
- * Send the whole conversation and get the next turn.
+ * Sending a turn lives in `api/ai2.ts` now, and it streams.
  *
- * The last message must be `role: "user"` or the API answers 400. Every turn
- * carries the transcript because the server holds none of it.
+ * There was a buffered `chat()` here posting to `/ai2/ask`. It is gone rather
+ * than kept beside the streaming one, because two ways to send a turn is two
+ * things to keep in agreement about a transcript the server does not store —
+ * and the buffered one said nothing for the several seconds a turn spends
+ * running lookups, which is the whole reason the streaming route exists.
+ *
+ * `ApiChatMessage` and `ApiChatReply` stay: `ApiChatReply` is the shape the
+ * scripted sales build answers in, which has no stream to read.
  */
-export const chat = (
-  messages: ApiChatMessage[],
-  signal?: AbortSignal,
-): Promise<ApiChatReply> =>
-  request<ApiChatReply>("/ai/chat", {
-    method: "POST",
-    body: { messages },
-    ...(signal ? { signal } : {}),
-  });
 
 /**
  * How an action is gated.

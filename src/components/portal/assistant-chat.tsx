@@ -7,6 +7,7 @@ import {
   RotateCw,
   Send,
   Sparkles,
+  Square,
   TriangleAlert,
 } from "lucide-react";
 import {
@@ -21,6 +22,7 @@ import {
 import { MAX_CHAT_MESSAGE_CHARS } from "@/lib/api/ai";
 import { useAssistantAvailable } from "@/lib/store/ai";
 import { useAssistantChat, type ChatTurn } from "@/lib/store/ai-chat";
+import { LiveTurn, Steps } from "@/components/ai/turn-progress";
 import { AssistantOrb } from "./assistant-orb";
 
 /**
@@ -123,7 +125,7 @@ export function AssistantChat() {
         title="Ask the assistant"
         description="It reads your records to answer, and it can offer to make a change, which only happens if you confirm it."
         action={
-          chat.turns.length > 0 ? (
+          chat.turns.length > 0 && !chat.sending ? (
             <Button variant="ghost" size="sm" onClick={chat.reset}>
               Start again
             </Button>
@@ -132,7 +134,7 @@ export function AssistantChat() {
       />
 
       <CardBody className="flex flex-col gap-4">
-        {chat.turns.length === 0 ? (
+        {chat.turns.length === 0 && !chat.sending ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-start gap-3">
               {/* `resting` — a still mark, no animation. An empty state that
@@ -170,18 +172,16 @@ export function AssistantChat() {
                 />
               </li>
             ))}
+            {/* The turn in flight, in the transcript's own shape so nothing
+                jumps when it lands. It is deliberately NOT a `ChatTurn`: it has
+                no id, it is not in `turns`, and it is never sent back — see the
+                store's `live`. */}
+            {chat.live && (
+              <li>
+                <LiveTurn live={chat.live} />
+              </li>
+            )}
           </ol>
-        )}
-
-        {chat.sending && (
-          <span className="flex items-center gap-2 text-body-sm text-muted">
-            {/* The assistant's own presence rather than a generic spinner —
-                and `thinking` is the only place it belongs, per the
-                component's note. One round trip per turn, so there are no
-                named steps to report and this claims none. */}
-            <AssistantOrb size={20} phase="thinking" />
-            Looking through your records
-          </span>
         )}
 
         {chat.error && (
@@ -242,18 +242,24 @@ export function AssistantChat() {
                   {MAX_CHAT_MESSAGE_CHARS.toLocaleString()}
                 </span>
               )}
-              <Button
-                variant="accent"
-                size="sm"
-                loading={chat.sending}
-                disabled={draft.trim().length === 0 || chat.full}
-                onClick={() => void send()}
-              >
-                {!chat.sending && (
+              {/* Stop rather than a disabled Send: there is something running
+                  to stop, which is only true because this streams. */}
+              {chat.sending ? (
+                <Button variant="secondary" size="sm" onClick={chat.stop}>
+                  <Square aria-hidden="true" className="size-3.5" />
+                  Stop
+                </Button>
+              ) : (
+                <Button
+                  variant="accent"
+                  size="sm"
+                  disabled={draft.trim().length === 0 || chat.full}
+                  onClick={() => void send()}
+                >
                   <Send aria-hidden="true" className="size-3.5" />
-                )}
-                Send
-              </Button>
+                  Send
+                </Button>
+              )}
             </div>
           </div>
 
@@ -332,12 +338,18 @@ function Turn({
       )}
 
       {/* The working, shown rather than logged. An answer whose reads cannot be
-          checked is an oracle, and this product is sold against one. Same
-          wording as `ask-panel.tsx` so the two surfaces read alike. */}
-      {turn.used.length > 0 && (
-        <p className="text-meta text-muted">
-          Read from: {turn.used.join(", ").replace(/_/g, " ")}
-        </p>
+          checked is an oracle, and this product is sold against one.
+
+          A streamed turn keeps the steps it was narrated with — which say more
+          than a list of names, because a lookup that was **refused** is the one
+          case where the answer alone does not tell the whole story. `used` is
+          the scripted build's version, which has no stream. */}
+      {(turn.steps?.length ?? 0) > 0 && <Steps steps={turn.steps ?? []} />}
+
+      {(turn.steps?.length ?? 0) === 0 && (turn.used?.length ?? 0) > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-meta text-muted">
+          <span>Read from: {turn.used?.join(", ").replace(/_/g, " ")}</span>
+        </div>
       )}
 
       {turn.proposed && (
