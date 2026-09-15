@@ -256,7 +256,9 @@ export function MyDetails({
    * and start reading a specific field — which is exactly the state somebody
    * is in when they need to know what they already proposed for *this* one.
    */
-  const waiting = new Map(pending.changes.map((change) => [change.field, change]));
+  const waiting = new Map(
+    pending.changes.map((change) => [change.field, change]),
+  );
 
   async function submit() {
     if (changed.length === 0) return;
