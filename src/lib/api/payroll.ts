@@ -710,6 +710,20 @@ export type PayrollRunDetail = PayrollRun & {
    */
   funds?: RunFunds;
   batch: RunBatch | null;
+  /**
+   * Whether pressing Pay could do anything.
+   *
+   * Two facts, held in different places, and both have to hold: the company has
+   * been put on a provider by a platform admin, and the deployment has an
+   * adapter registered for it. The screen used to state that no provider was
+   * wired as a flat fact, so a deployment that had wired one still told
+   * everybody it had not.
+   *
+   * Optional because an older API does not send it, and absent is not the same
+   * claim as false — see the call site, which shows the bank-file explanation
+   * unless this is explicitly `true`.
+   */
+  payoutAvailable?: boolean;
 };
 
 /**
