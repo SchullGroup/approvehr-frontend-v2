@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { paymentsApi, type ApiAccountVerification } from "@/lib/api/payments";
+import { bankCodeFor } from "@/lib/reference/banks";
 import { useDebounced } from "@/lib/use-debounced";
 import { useSession } from "./session";
 
@@ -67,8 +68,27 @@ export function useAccountVerification(
   const digits = (accountNumber ?? "").replace(/[\s-]/g, "");
   const ready =
     isConnected && !isLoading && name.length >= 2 && isNuban(digits);
+  /*
+   * The code goes with the name, resolved from the same list the picker drew
+   * the name from.
+   *
+   * The API used to resolve the name itself, against a directory of 55 banks
+   * ported from the previous backend. This list holds 254, filtered from
+   * Paystack to the institutions that can actually receive a transfer, and
+   * only 37 of them resolved there — so most real banks came back "could not
+   * be matched to a bank we know", and five resolved to a *different* code
+   * than the one the picker had beside the name.
+   *
+   * Null for a bank this list does not carry either, in which case the API
+   * falls back to matching the name exactly as before.
+   */
+  const code = bankCodeFor(name);
   const key = ready
-    ? JSON.stringify({ bankName: name, accountNumber: digits })
+    ? JSON.stringify({
+        bankName: name,
+        ...(code ? { bankCode: code } : {}),
+        accountNumber: digits,
+      })
     : null;
   const settled = useDebounced(key, delay);
 
@@ -81,6 +101,7 @@ export function useAccountVerification(
       try {
         const body = JSON.parse(settled) as {
           bankName: string;
+          bankCode?: string;
           accountNumber: string;
         };
         const data = await paymentsApi.verifyAccount(body, controller.signal);
