@@ -247,8 +247,16 @@ export function MyDetails({
     (key) => draft[key] !== baseline[key],
   );
 
-  /** Fields with something already waiting — shown on the field, not just above. */
-  const waiting = new Set(pending.changes.map((change) => change.field));
+  /**
+   * Fields with something already waiting, by field — not just which fields.
+   * The masked before/after summary lives here too, so it can render *at* the
+   * field itself, not only in the Callout above the groups. That Callout
+   * stays (Rule 5: a closed group must not hide something outstanding), but
+   * it sits above every group and scrolls out of view the moment you open one
+   * and start reading a specific field — which is exactly the state somebody
+   * is in when they need to know what they already proposed for *this* one.
+   */
+  const waiting = new Map(pending.changes.map((change) => [change.field, change]));
 
   async function submit() {
     if (changed.length === 0) return;
@@ -414,7 +422,13 @@ export function MyDetails({
                           label={LABEL[key]}
                           {...(waiting.has(key)
                             ? {
-                                help: "A change to this is already with payroll. Saving again replaces it.",
+                                /* The API's own masked summary — "••••4471 →
+                                   ••••5566" — not a generic sentence. Reading
+                                   the value here is the point: it is what the
+                                   Callout above already says, repeated where
+                                   somebody is actually looking when a group is
+                                   open and the page has scrolled past it. */
+                                help: `Already with payroll: ${waiting.get(key)?.summary}. Saving again replaces it.`,
                               }
                             : {})}
                         >
