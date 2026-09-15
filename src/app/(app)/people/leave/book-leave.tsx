@@ -13,7 +13,7 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { daysLabel, type LeaveRow } from "@/lib/api/leave";
-import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useEmployee, useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
   useLeaveBalancesFor,
   useLeaveMutations,
@@ -130,6 +130,24 @@ export function BookLeaveDialog({
   const mayEditRecords = useCan("EDIT_RECORDS");
   const canBookForOthers = mayApproveAnyLeave || mayEditRecords;
 
+  /**
+   * The caller's own record, and the only permission-safe source for who their
+   * manager is.
+   *
+   * The directory list is **not** that source. `GET /employees` answers for
+   * everybody, but it withholds `managerId` from a reader without
+   * `VIEW_SALARIES` — the field is absent from the row, not null. Reading that
+   * absence as "they have no manager" raised every self-booked request
+   * **unrouted**: `PENDING` for ever, in nobody's queue, while the employee's
+   * own screen said "Waiting". `leave/service.ts` names no approver of its own
+   * and says so — "a request with no approver named has nowhere to go".
+   *
+   * `GET /employees/:id` is `requirePermissionOrSelf`, so your own record always
+   * answers and carries `managerId`. Absent is not the same claim as none; this
+   * is the one read that can tell them apart.
+   */
+  const mine = useEmployee(session.employeeId ?? "");
+
   /* Their own record, for the prefilled case. */
   const me = session.employeeId ?? "";
 
@@ -159,9 +177,13 @@ export function BookLeaveDialog({
     if (!session.employeeId) return {};
     if (subjectId !== session.employeeId)
       return { approverId: session.employeeId };
-    const manager = employees.find(
-      (person) => person.id === subjectId,
-    )?.managerId;
+    /* Their own record first — see `mine` above for why the directory cannot
+       answer this for an ordinary employee. The directory stays as the fallback
+       for a reader who can see `managerId` on it, so nothing that worked before
+       depends on the extra read landing. */
+    const manager =
+      mine.employee?.managerId ??
+      employees.find((person) => person.id === subjectId)?.managerId;
     return manager ? { approverId: manager } : {};
   };
 
