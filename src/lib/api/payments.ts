@@ -934,13 +934,20 @@ export const paymentsApi = {
   /**
    * Confirms the name behind an account before it is saved.
    *
-   * `bankName`, never a code — every picker in this product already collects
-   * one, and the API resolves it to whatever a provider needs
-   * (`banks.ts#bankByName` on that side). This never throws for "could not
-   * check"; see `ApiAccountVerification` for how to read a 200.
+   * The name and, where this app knows it, the code beside it.
+   *
+   * It used to send the name alone, on the reasoning that the API could
+   * resolve it. The API's directory holds 55 banks and this app's picker holds
+   * 254, of which 37 resolved — so most real banks answered "could not be
+   * matched to a bank we know", and five resolved to a code the picker
+   * disagreed with. The code is sent because this app already has the right
+   * one; `bankCode` is optional and the API still matches by name without it.
+   *
+   * This never throws for "could not check"; see `ApiAccountVerification` for
+   * how to read a 200.
    */
   verifyAccount: (
-    body: { bankName: string; accountNumber: string },
+    body: { bankName: string; bankCode?: string; accountNumber: string },
     signal?: AbortSignal,
   ) =>
     request<ApiAccountVerification>("/payments/account-verification", {
