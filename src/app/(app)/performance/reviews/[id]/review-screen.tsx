@@ -536,33 +536,32 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
         </div>
       </PageBody>
 
-      {answering && (
-        <ReviewFormModal
-          reviewId={review.id}
-          onClose={() => setAnswering(false)}
-          onDone={reload}
-        />
-      )}
+      <ReviewFormModal
+        reviewId={review.id}
+        open={answering}
+        onClose={() => setAnswering(false)}
+        onDone={reload}
+      />
 
-      {signingOff && (
-        <SignOffDialog
-          act={signingOff}
-          review={review}
-          onClose={() => setSigningOff(null)}
-          onConfirm={async (comment) => {
-            const ok = await run(
-              () =>
-                signingOff === "acknowledge"
-                  ? signOff.acknowledge(review, comment)
-                  : signOff.dispute(review, comment ?? ""),
+      <SignOffDialog
+        act={signingOff}
+        review={review}
+        open={signingOff !== null}
+        onClose={() => setSigningOff(null)}
+        onConfirm={async (comment) => {
+          if (!signingOff) return;
+          const ok = await run(
+            () =>
               signingOff === "acknowledge"
-                ? "Acknowledgement recorded"
-                : "Dispute recorded. The rating stands beside it",
-            );
-            if (ok) setSigningOff(null);
-          }}
-        />
-      )}
+                ? signOff.acknowledge(review, comment)
+                : signOff.dispute(review, comment ?? ""),
+            signingOff === "acknowledge"
+              ? "Acknowledgement recorded"
+              : "Dispute recorded. The rating stands beside it",
+          );
+          if (ok) setSigningOff(null);
+        }}
+      />
 
       <FinaliseDialog
         open={finalising}

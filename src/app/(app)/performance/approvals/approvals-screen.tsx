@@ -262,26 +262,26 @@ export function ApprovalsScreen() {
         }}
       />
 
-      {reasonFor && (
-        <ApprovalReasonDialog
-          act={reasonFor.act}
-          goalTitle={reasonFor.goal.title}
-          onClose={() => setReasonFor(null)}
-          onConfirm={async (reason) => {
-            const { goal, act } = reasonFor;
-            const ok = await run(
-              () =>
-                act === "send_back"
-                  ? objectives.sendBack(goal.id, reason)
-                  : objectives.reject(goal.id, reason),
+      <ApprovalReasonDialog
+        act={reasonFor?.act ?? null}
+        goalTitle={reasonFor?.goal.title ?? null}
+        open={reasonFor !== null}
+        onClose={() => setReasonFor(null)}
+        onConfirm={async (reason) => {
+          if (!reasonFor) return;
+          const { goal, act } = reasonFor;
+          const ok = await run(
+            () =>
               act === "send_back"
-                ? `"${goal.title}" sent back`
-                : `"${goal.title}" refused`,
-            );
-            if (ok) setReasonFor(null);
-          }}
-        />
-      )}
+                ? objectives.sendBack(goal.id, reason)
+                : objectives.reject(goal.id, reason),
+            act === "send_back"
+              ? `"${goal.title}" sent back`
+              : `"${goal.title}" refused`,
+          );
+          if (ok) setReasonFor(null);
+        }}
+      />
     </>
   );
 }

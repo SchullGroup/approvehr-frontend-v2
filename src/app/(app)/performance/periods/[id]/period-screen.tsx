@@ -708,8 +708,14 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         </div>
       </PageBody>
 
-      {questionsOpen && period && (
+      {/* `period` is unrelated data, not the open/closed signal — kept as the
+          mount guard since the dialog cannot render without it. `open` is the
+          real signal, threaded through so `QuestionsDialog`'s `Modal` can see
+          it go false and play its exit animation instead of the whole dialog
+          vanishing with `questionsOpen` itself. */}
+      {period && (
         <QuestionsDialog
+          open={questionsOpen}
           cycleId={cycleId}
           periodName={period.name}
           onClose={() => {
@@ -2013,95 +2019,96 @@ function CalibrateButton({
         {existing ? "Change it" : "Move the mark"}
       </Button>
 
-      {open && (
-        <Modal
-          open
-          onClose={() => setOpen(false)}
-          title={`Move ${row.employeeName}'s mark`}
-          description={`The answers produced ${scoreLabel(row.computedBp ?? row.scoreBp ?? 0)}.`}
-          size="sm"
-          footer={
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {/* Only offered where there is something to undo, and away from
-                  the save button — it is the destructive half. */}
-              {existing ? (
-                <Button
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={() => void clear()}
-                >
-                  Put it back
-                </Button>
-              ) : (
-                <span />
-              )}
-              <div className="flex gap-2">
-                <Button disabled={busy} onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="accent"
-                  loading={busy}
-                  onClick={() => void save()}
-                >
-                  Save the change
-                </Button>
-              </div>
-            </div>
-          }
-        >
-          <div className="flex flex-col gap-4">
-            {existing && (
-              <Callout tone="neutral" title="It has already been moved">
-                Now {scoreLabel(existing.calibratedBp)}, from{" "}
-                {scoreLabel(existing.originalBp)}
-                {existing.calibratedByName
-                  ? `, by ${existing.calibratedByName}`
-                  : ""}
-                . The reason given was &ldquo;{existing.reason}&rdquo;.
-              </Callout>
-            )}
-
-            <Field
-              label="Mark it as"
-              required
-              {...(failed ? { error: failed } : {})}
-            >
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  inputMode="numeric"
-                  className="w-28"
-                  value={percent}
-                  disabled={busy}
-                  onChange={(event) => setPercent(event.target.value)}
-                />
-                <span className="text-body-sm text-muted">%</span>
-              </div>
-            </Field>
-
-            <Field
-              label="Why"
-              required
-              help="This is kept with the mark and is what explains it if anybody asks later."
-            >
-              <Textarea
-                rows={3}
-                value={reason}
+      {/* No open-gating here: `Modal` decides whether to render from its own
+          `useDismiss` state, so this has to stay mounted and keep passing the
+          real `open` through for its exit animation to have a chance to play. */}
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`Move ${row.employeeName}'s mark`}
+        description={`The answers produced ${scoreLabel(row.computedBp ?? row.scoreBp ?? 0)}.`}
+        size="sm"
+        footer={
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* Only offered where there is something to undo, and away from
+                the save button — it is the destructive half. */}
+            {existing ? (
+              <Button
+                variant="ghost"
                 disabled={busy}
-                placeholder="Moderated at the calibration meeting: the team's targets were set higher than the rest of the department."
-                onChange={(event) => setReason(event.target.value)}
-              />
-            </Field>
-
-            <p className="text-meta text-muted">
-              What the answers produced is kept beside this, not replaced.
-            </p>
+                onClick={() => void clear()}
+              >
+                Put it back
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <Button disabled={busy} onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="accent"
+                loading={busy}
+                onClick={() => void save()}
+              >
+                Save the change
+              </Button>
+            </div>
           </div>
-        </Modal>
-      )}
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {existing && (
+            <Callout tone="neutral" title="It has already been moved">
+              Now {scoreLabel(existing.calibratedBp)}, from{" "}
+              {scoreLabel(existing.originalBp)}
+              {existing.calibratedByName
+                ? `, by ${existing.calibratedByName}`
+                : ""}
+              . The reason given was &ldquo;{existing.reason}&rdquo;.
+            </Callout>
+          )}
+
+          <Field
+            label="Mark it as"
+            required
+            {...(failed ? { error: failed } : {})}
+          >
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                inputMode="numeric"
+                className="w-28"
+                value={percent}
+                disabled={busy}
+                onChange={(event) => setPercent(event.target.value)}
+              />
+              <span className="text-body-sm text-muted">%</span>
+            </div>
+          </Field>
+
+          <Field
+            label="Why"
+            required
+            help="This is kept with the mark and is what explains it if anybody asks later."
+          >
+            <Textarea
+              rows={3}
+              value={reason}
+              disabled={busy}
+              placeholder="Moderated at the calibration meeting: the team's targets were set higher than the rest of the department."
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </Field>
+
+          <p className="text-meta text-muted">
+            What the answers produced is kept beside this, not replaced.
+          </p>
+        </div>
+      </Modal>
     </>
   );
 }
@@ -2210,59 +2217,56 @@ function RevisionButton({
         Send back
       </Button>
 
-      {open && (
-        <Modal
-          open
-          onClose={() => setOpen(false)}
-          title={`Send ${row.employeeName}'s review back`}
-          description="Reopens that one review so they can redo it. Nobody else's review moves."
-          size="sm"
-          footer={
-            <div className="flex justify-end gap-2">
-              <Button disabled={busy} onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="accent"
-                loading={busy}
-                onClick={() => void save()}
-              >
-                Send it back
-              </Button>
-            </div>
-          }
-        >
-          <div className="flex flex-col gap-4">
-            <Field label="Which review" required>
-              <Select
-                value={targetStage}
-                disabled={busy}
-                onChange={(event) =>
-                  setTargetStage(event.target.value as "SELF" | "MANAGER")
-                }
-              >
-                <option value="MANAGER">Manager review</option>
-                <option value="SELF">Self-appraisal</option>
-              </Select>
-            </Field>
-
-            <Field
-              label="Why"
-              required
-              {...(failed ? { error: failed } : {})}
-              help="This is kept with the request and is what they see for it."
-            >
-              <Textarea
-                rows={3}
-                value={reason}
-                disabled={busy}
-                placeholder="The objectives section is missing answers for two of the agreed goals. Please complete before resubmitting."
-                onChange={(event) => setReason(event.target.value)}
-              />
-            </Field>
+      {/* No open-gating here, matching `CalibrateButton` above: `Modal` reads
+          its own `useDismiss` state, so it has to stay mounted with the real
+          `open` passed through rather than being unmounted by this wrapper. */}
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`Send ${row.employeeName}'s review back`}
+        description="Reopens that one review so they can redo it. Nobody else's review moves."
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button disabled={busy} onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="accent" loading={busy} onClick={() => void save()}>
+              Send it back
+            </Button>
           </div>
-        </Modal>
-      )}
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Field label="Which review" required>
+            <Select
+              value={targetStage}
+              disabled={busy}
+              onChange={(event) =>
+                setTargetStage(event.target.value as "SELF" | "MANAGER")
+              }
+            >
+              <option value="MANAGER">Manager review</option>
+              <option value="SELF">Self-appraisal</option>
+            </Select>
+          </Field>
+
+          <Field
+            label="Why"
+            required
+            {...(failed ? { error: failed } : {})}
+            help="This is kept with the request and is what they see for it."
+          >
+            <Textarea
+              rows={3}
+              value={reason}
+              disabled={busy}
+              placeholder="The objectives section is missing answers for two of the agreed goals. Please complete before resubmitting."
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </Field>
+        </div>
+      </Modal>
     </>
   );
 }
