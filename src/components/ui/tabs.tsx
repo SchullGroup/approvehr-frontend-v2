@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { Badge } from "./badge";
 
 /*
  * Tabs follow the ARIA authoring practice: roving tabindex, arrow key
@@ -86,16 +87,13 @@ export function Tabs({
               )}
               {item.label}
               {item.count !== undefined && (
-                <span
-                  className={cn(
-                    "tabular rounded-full px-1.5 py-0.5 text-meta font-semibold",
-                    selected
-                      ? "bg-accent-soft text-accent-text"
-                      : "bg-sunken text-muted",
-                  )}
+                <Badge
+                  tone={selected ? "accent" : "neutral"}
+                  size="sm"
+                  className="tabular font-semibold"
                 >
                   {item.count}
-                </span>
+                </Badge>
               )}
             </button>
           );
@@ -148,16 +146,13 @@ export function LinkTabs({
           >
             {item.label}
             {item.count !== undefined && (
-              <span
-                className={cn(
-                  "tabular rounded-full px-1.5 py-0.5 text-meta font-semibold",
-                  active
-                    ? "bg-accent-soft text-accent-text"
-                    : "bg-sunken text-muted",
-                )}
+              <Badge
+                tone={active ? "accent" : "neutral"}
+                size="sm"
+                className="tabular font-semibold"
               >
                 {item.count}
-              </span>
+              </Badge>
             )}
           </Link>
         );
