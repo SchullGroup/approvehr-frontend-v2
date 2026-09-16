@@ -1031,8 +1031,9 @@ export function PayrollRunWizard() {
 
               Fourth instance of the class this codebase keeps recording: the
               capability was built, correct, and where nobody was looking. */}
-          {run && sheetOpen && (
+          {run && (
             <SheetPanel
+              open={sheetOpen}
               runId={run.id}
               period={run.period.slice(0, 7)}
               sources={
@@ -2060,6 +2061,12 @@ function PayslipTable({
     name: string;
     kind: "bonus" | "deduction";
   } | null>(null);
+  /* Remembers the last real target: `linesOpen` goes null the instant this
+     closes, but `LinesDialog` has to stay mounted with real props so its own
+     `Modal` can see `open` go false and animate its own close, rather than
+     this whole thing vanishing out from under it. */
+  const [frozenLines, setFrozenLines] = useState(linesOpen);
+  if (linesOpen && linesOpen !== frozenLines) setFrozenLines(linesOpen);
 
   const [editingDeduction, setEditingDeduction] = useState<{
     slipId: string;
@@ -2670,12 +2677,13 @@ function PayslipTable({
           silently reparent, which moves it out of the row it was written in
           and takes its React portal boundary with it. Rendered here it is a
           sibling of the table and its position is the one written down. */}
-      {linesOpen && (
+      {frozenLines && (
         <LinesDialog
+          open={linesOpen !== null}
           runId={runId}
-          employeeId={linesOpen.employeeId}
-          name={linesOpen.name}
-          kind={linesOpen.kind}
+          employeeId={frozenLines.employeeId}
+          name={frozenLines.name}
+          kind={frozenLines.kind}
           onClose={() => {
             setLinesOpen(null);
           }}

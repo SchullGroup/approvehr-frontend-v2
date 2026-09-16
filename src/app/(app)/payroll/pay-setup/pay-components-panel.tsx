@@ -347,39 +347,37 @@ export function PayComponentsPanel({
         )}
       </CardBody>
 
-      {adding && (
-        <AddLineDialog
-          employeeId={employeeId}
-          onClose={() => setAdding(false)}
-          onSave={async (body) => {
-            try {
-              await lines.assign(body);
-              toast.push({ title: "Added to their pay", tone: "success" });
-              baseline.reload();
-              setAdding(false);
-            } catch (error) {
-              report(error);
-            }
-          }}
-        />
-      )}
+      <AddLineDialog
+        open={adding}
+        employeeId={employeeId}
+        onClose={() => setAdding(false)}
+        onSave={async (body) => {
+          try {
+            await lines.assign(body);
+            toast.push({ title: "Added to their pay", tone: "success" });
+            baseline.reload();
+            setAdding(false);
+          } catch (error) {
+            report(error);
+          }
+        }}
+      />
 
-      {removing && (
-        <RemoveLineDialog
-          employeeId={employeeId}
-          assignment={removing}
-          onClose={() => setRemoving(null)}
-          onConfirm={async () => {
-            try {
-              const result = await lines.remove(removing.id);
-              toast.push({ title: result.note, tone: "success" });
-              setRemoving(null);
-            } catch (error) {
-              report(error);
-            }
-          }}
-        />
-      )}
+      <RemoveLineDialog
+        employeeId={employeeId}
+        assignment={removing}
+        onClose={() => setRemoving(null)}
+        onConfirm={async () => {
+          if (!removing) return;
+          try {
+            const result = await lines.remove(removing.id);
+            toast.push({ title: result.note, tone: "success" });
+            setRemoving(null);
+          } catch (error) {
+            report(error);
+          }
+        }}
+      />
     </Card>
   );
 }
@@ -518,10 +516,12 @@ const EMPTY_DRAFT: AddDraft = {
  * would be a worse answer than not asking.
  */
 function AddLineDialog({
+  open,
   employeeId,
   onClose,
   onSave,
 }: {
+  open: boolean;
   employeeId: string;
   onClose: () => void;
   onSave: (body: AssignBody) => Promise<void>;
@@ -612,7 +612,7 @@ function AddLineDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="lg"
       title="Add to this person's pay"
@@ -836,21 +836,24 @@ function RemoveLineDialog({
   onConfirm,
 }: {
   employeeId: string;
-  assignment: ApiResolvedAssignment;
+  /* Nullable: `PayComponentsPanel` renders this unconditionally now and
+     passes whichever assignment is being stopped, or `null` when none is. */
+  assignment: ApiResolvedAssignment | null;
   onClose: () => void;
   onConfirm: () => Promise<void>;
 }) {
-  const preview = usePayPreview(employeeId, {
-    dropAssignmentId: assignment.id,
-  });
+  const preview = usePayPreview(
+    employeeId,
+    assignment ? { dropAssignmentId: assignment.id } : {},
+  );
   const [saving, setSaving] = useState(false);
 
   return (
     <Modal
-      open
+      open={assignment !== null}
       onClose={onClose}
       size="md"
-      title={`Stop ${assignment.name}?`}
+      title={assignment ? `Stop ${assignment.name}?` : "Stop this line?"}
       description="It ends at the end of last month, so the next run does not include it. Payslips that already show it are unchanged."
       footer={
         <>
@@ -860,6 +863,7 @@ function RemoveLineDialog({
           <Button
             variant="danger"
             loading={saving}
+            disabled={!assignment}
             onClick={() => {
               setSaving(true);
               void onConfirm().finally(() => setSaving(false));
@@ -871,19 +875,20 @@ function RemoveLineDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        {preview.available ? (
-          <ChangeEffect
-            change={preview.data?.change ?? null}
-            loading={preview.loading}
-          />
-        ) : (
-          <OfflineEffect
-            component={assignment}
-            amountKobo={
-              assignment.resolvedKobo === 0 ? null : -assignment.resolvedKobo
-            }
-          />
-        )}
+        {assignment &&
+          (preview.available ? (
+            <ChangeEffect
+              change={preview.data?.change ?? null}
+              loading={preview.loading}
+            />
+          ) : (
+            <OfflineEffect
+              component={assignment}
+              amountKobo={
+                assignment.resolvedKobo === 0 ? null : -assignment.resolvedKobo
+              }
+            />
+          ))}
 
         <LoadFailure
           subject="the effect on their pay"

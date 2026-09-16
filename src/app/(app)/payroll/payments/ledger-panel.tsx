@@ -199,15 +199,14 @@ export function LedgerPanel({
         )}
       </Card>
 
-      {recording && (
-        <RecordFundingModal
-          onClose={() => setRecording(false)}
-          onDone={() => {
-            setRecording(false);
-            ledger.reload();
-          }}
-        />
-      )}
+      <RecordFundingModal
+        open={recording}
+        onClose={() => setRecording(false)}
+        onDone={() => {
+          setRecording(false);
+          ledger.reload();
+        }}
+      />
     </>
   );
 }
@@ -222,9 +221,11 @@ export function LedgerPanel({
  * something this form can work out.
  */
 function RecordFundingModal({
+  open,
   onClose,
   onDone,
 }: {
+  open: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -277,7 +278,7 @@ function RecordFundingModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Record money in"
       description="A transfer into the account salaries come from, as it appears on your statement."
