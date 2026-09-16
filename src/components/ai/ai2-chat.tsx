@@ -12,6 +12,7 @@ import {
 } from "@/components/ui";
 import { AssistantOrb } from "@/components/portal/assistant-orb";
 import { LiveTurn, Steps } from "@/components/ai/turn-progress";
+import { UsageGauge } from "@/components/ai/usage-gauge";
 import {
   useAi2Available,
   useAi2Chat,
@@ -71,6 +72,8 @@ export function Ai2Chat() {
       />
 
       <CardBody className="flex flex-col gap-4">
+        <UsageGauge compact />
+
         {chat.turns.length === 0 && !chat.sending ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-start gap-3">

@@ -33,11 +33,27 @@ export type Ai2Event =
   | { type: "lookup"; round: number; index: number; entity?: string }
   | { type: "lookup_done"; round: number; index: number; refused: boolean }
   | { type: "answer"; text: string }
-  | { type: "usage"; promptTokens: number; outputTokens: number; thinkingTokens: number }
+  | {
+      type: "usage";
+      promptTokens: number;
+      outputTokens: number;
+      thinkingTokens: number;
+    }
   | { type: "unavailable"; reason: string };
 
 export const ai2Status = (): Promise<Ai2Status> =>
   request<Ai2Status>("/ai2/status");
+
+/** This organisation's token spend so far this month, against its budget. */
+export type Ai2Usage = {
+  usedTokens: number;
+  limitTokens: number;
+  /** ISO instant the current month ends. */
+  periodEnd: string;
+};
+
+export const ai2Usage = (signal?: AbortSignal): Promise<Ai2Usage> =>
+  request<Ai2Usage>("/ai2/usage", { ...(signal ? { signal } : {}) });
 
 /**
  * Ask, and watch the turn happen. Resolves when the stream ends; everything is

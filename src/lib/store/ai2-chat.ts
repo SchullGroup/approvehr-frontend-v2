@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { ai2Status, type Ai2Message, type Ai2Status } from "@/lib/api/ai2";
 import { EMPTY_LIVE, runAi2Turn, type Live, type Step } from "./ai2-turn";
+import { refreshAi2Usage } from "./ai2-usage";
 import { useSession } from "./session";
 
 export type { Live, Step } from "./ai2-turn";
@@ -116,6 +117,7 @@ export function useAi2Chat(): Ai2ChatState & Ai2ChatActions {
         controller.signal,
       );
       if (sequence.current !== mine) return false;
+      if (result.usage) refreshAi2Usage();
 
       if (result.text !== null) {
         setTurns([

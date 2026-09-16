@@ -19,6 +19,7 @@ import {
   Spinner,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { UsageGauge } from "@/components/ai/usage-gauge";
 import { useCan } from "@/lib/permissions";
 import { useAssistantAvailable } from "@/lib/store/ai";
 
@@ -110,6 +111,7 @@ export function AiScreen() {
                     Answering: <span className="text-ink">{assistant}</span>
                   </p>
                 )}
+                <UsageGauge className="mt-2" />
               </>
             ) : (
               <>
