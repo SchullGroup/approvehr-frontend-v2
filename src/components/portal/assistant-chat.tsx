@@ -21,66 +21,16 @@ import {
 } from "@/components/ui";
 import { MAX_CHAT_MESSAGE_CHARS } from "@/lib/api/ai";
 import { useAssistantAvailable } from "@/lib/store/ai";
-import { useAssistantChat, type ChatTurn } from "@/lib/store/ai-chat";
+import {
+  useAssistantChat,
+  type ChatTurn,
+  type Usage,
+} from "@/lib/store/ai-chat";
 import { LiveTurn, Steps } from "@/components/ai/turn-progress";
 import { AssistantOrb } from "./assistant-orb";
 
 /**
- * A conversation with the assistant, and the one place it can propose a change.
- *
- * ## Why this is not `ask-panel.tsx` with more in it
- *
- * `AskPanel` is a one-shot lookup box on both dashboards, and its own header
- * argues — correctly, for the endpoint it calls — that a transcript there would
- * *"imply a memory that does not exist"*. `/ai/ask` takes one question and holds
- * nothing between them, so each answer replacing the last is the honest shape.
- *
- * `/ai/chat` is a different endpoint with a different contract. The whole
- * conversation is sent every turn, so a transcript on screen is not a claim
- * about a memory — it is literally the request body. And this one can propose a
- * **write**, which is a control that has no business appearing on a dashboard
- * beside the weather. Two surfaces, because they are two surfaces: a question
- * you ask in passing, and a conversation you sit down to have.
- *
- * `AskPanel` is unchanged apart from a link up here, which is the other half of
- * the same argument — a chat findable only by knowing the URL is the
- * discoverability defect this module has recorded four times.
- *
- * ## Absent, not disabled
- *
- * Renders nothing at all when no assistant is wired, the rule every other
- * suggestion surface follows. `/settings/ai` is where somebody learns the
- * capability exists and how to switch it on; the nav item for this page is
- * hidden by the same status, so nobody is shown a door with nothing behind it.
- *
- * ## The confirm step is the feature
- *
- * `/ai/chat` cannot write. It can come back describing a change, and the
- * description — the summary, the details, the irreversible warning — is read out
- * of the database by the API and rendered here **verbatim**. Nothing in this
- * file paraphrases it, summarises it, or writes a button label that describes
- * the act. That is the entire point: the words beside the button come from the
- * company's own records rather than from a model, so what somebody agrees to is
- * a fact rather than a sentence that was generated.
- *
- * The button therefore says "Confirm", which names the *decision* and not the
- * act. If you ever find yourself writing "Approve Grace's leave" on it, the
- * proposal above it has stopped being the thing being agreed to.
- */
-
-/** Three openers, so an empty box is not a blank page. */
-/**
- * The questions offered as buttons.
- *
- * In the standalone sales build these **must** be questions
- * `mock/sales-script-qa.ts` has answers for — a button that lands on the
- * "not one of the prepared questions" fallback is worse than no button, since
- * a prospect clicking through unattended would read it as the assistant
- * failing rather than as an honest edge. There are five prepared; these are
- * the four worth opening with.
- *
- * Elsewhere they are only suggestions, and a real assistant answers whatever
- * is typed, so the third is a question about itself rather than about data.
+ * Interactive chat interface for the assistant.
  */
 const OPENERS = SALES_SCRIPT_ENABLED
   ? [
@@ -101,8 +51,6 @@ export function AssistantChat() {
   const [draft, setDraft] = useState("");
   const composer = useRef<HTMLDivElement>(null);
 
-  /* Bring the composer back into view when a turn lands. Not an inner scroll
-     container: the page scrolls, so a long answer can simply be read down. */
   const landed = chat.turns.length;
   useEffect(() => {
     if (landed === 0) return;
@@ -137,9 +85,6 @@ export function AssistantChat() {
         {chat.turns.length === 0 && !chat.sending ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-start gap-3">
-              {/* `resting` — a still mark, no animation. An empty state that
-                  pulsed would be claiming something is happening before
-                  anybody has asked anything. */}
               <AssistantOrb size={36} className="mt-0.5 shrink-0" />
               <p className="text-body-sm text-muted">
                 Ask about your people, your leave, your payroll runs, or what
@@ -172,10 +117,6 @@ export function AssistantChat() {
                 />
               </li>
             ))}
-            {/* The turn in flight, in the transcript's own shape so nothing
-                jumps when it lands. It is deliberately NOT a `ChatTurn`: it has
-                no id, it is not in `turns`, and it is never sent back — see the
-                store's `live`. */}
             {chat.live && (
               <li>
                 <LiveTurn live={chat.live} />
@@ -186,9 +127,6 @@ export function AssistantChat() {
 
         {chat.error && (
           <Callout tone="danger" title="That turn did not go through">
-            {/* The API's own sentence wherever it wrote one — it knows whether
-                this was a rate limit, a refusal or a transcript it would not
-                take, and nothing here does. */}
             <p>{chat.error}</p>
             {!chat.sending && (
               <Button
@@ -212,9 +150,6 @@ export function AssistantChat() {
             placeholder="Ask a question, or ask it to do something"
             disabled={chat.full}
             onChange={(event) => setDraft(event.target.value)}
-            /* Enter sends, Shift+Enter is a new line. The usual arrangement for
-               a chat composer, and the placeholder is a question rather than a
-               paragraph — somebody typing several lines here is the exception. */
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
@@ -224,9 +159,6 @@ export function AssistantChat() {
           />
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-meta text-muted">
-              {/* Said once, quietly, because it is true and it is unusual: the
-                  API keeps no transcript on purpose, so nothing here is written
-                  down anywhere. */}
               Nothing here is saved. Closing this page ends the conversation.
             </p>
             <div className="flex items-center gap-3">
@@ -242,8 +174,6 @@ export function AssistantChat() {
                   {MAX_CHAT_MESSAGE_CHARS.toLocaleString()}
                 </span>
               )}
-              {/* Stop rather than a disabled Send: there is something running
-                  to stop, which is only true because this streams. */}
               {chat.sending ? (
                 <Button variant="secondary" size="sm" onClick={chat.stop}>
                   <Square aria-hidden="true" className="size-3.5" />
@@ -286,7 +216,6 @@ function Turn({
 }: {
   turn: ChatTurn;
   confirming: boolean;
-  /** Another proposal on this page is being performed. One write at a time. */
   busy: boolean;
   onConfirm: () => void;
   onDiscard: () => void;
@@ -301,8 +230,6 @@ function Turn({
     );
   }
 
-  /* A receipt is not an answer, and rendering it as one would make the API's
-     sentence about what happened look like something the model said. */
   if (turn.receipt) {
     return (
       <p className="flex items-start gap-2 rounded-lg border border-success-line bg-success-soft px-3 py-2 text-body-sm text-ink">
@@ -315,18 +242,6 @@ function Turn({
     );
   }
 
-  /*
-   * A proposing turn carries the proposal's own summary as its content — the
-   * store needs a non-empty message for the wire, and the API omits `text`
-   * whenever it proposes. Rendering both put the same sentence on screen twice,
-   * once as prose and once inside the card, which read as the assistant saying
-   * the same thing to itself. Found by looking at it; no type could.
-   *
-   * Compared rather than gated on `proposed`, so that prose which is genuinely
-   * different from the summary still renders. The API says it sends one or the
-   * other today; a screen that silently dropped the other if that ever changed
-   * would be hiding something a person was told.
-   */
   const echoesProposal = turn.content === turn.proposed?.proposal.summary;
 
   return (
@@ -337,13 +252,6 @@ function Turn({
         </p>
       )}
 
-      {/* The working, shown rather than logged. An answer whose reads cannot be
-          checked is an oracle, and this product is sold against one.
-
-          A streamed turn keeps the steps it was narrated with — which say more
-          than a list of names, because a lookup that was **refused** is the one
-          case where the answer alone does not tell the whole story. `used` is
-          the scripted build's version, which has no stream. */}
       {(turn.steps?.length ?? 0) > 0 && <Steps steps={turn.steps ?? []} />}
 
       {(turn.steps?.length ?? 0) === 0 && (turn.used?.length ?? 0) > 0 && (
@@ -351,6 +259,8 @@ function Turn({
           <span>Read from: {turn.used?.join(", ").replace(/_/g, " ")}</span>
         </div>
       )}
+
+      {turn.usage && <UsageLine usage={turn.usage} />}
 
       {turn.proposed && (
         <Proposal
@@ -367,14 +277,31 @@ function Turn({
 
 /* -------------------------------------------------------------------------- */
 
-/**
- * The change being offered, in the API's own words.
- *
- * Every string in here that describes the act comes off the wire. The only
- * sentences this file writes are about the *state* of the decision — waiting,
- * set aside, done — which are facts about somebody's own click rather than
- * claims about a record.
- */
+/** What the turn cost, in the model's own counting. */
+function UsageLine({ usage }: { usage: Usage }) {
+  const total = usage.promptTokens + usage.outputTokens + usage.thinkingTokens;
+  if (total === 0) return null;
+
+  const parts = [
+    `${usage.promptTokens.toLocaleString()} in`,
+    `${usage.outputTokens.toLocaleString()} out`,
+    ...(usage.thinkingTokens > 0
+      ? [`${usage.thinkingTokens.toLocaleString()} thinking`]
+      : []),
+  ];
+
+  return (
+    <p
+      className="text-meta text-faint"
+      title={`${total.toLocaleString()} tokens in total`}
+    >
+      {total.toLocaleString()} tokens ({parts.join(" · ")})
+    </p>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
 function Proposal({
   turn,
   confirming,
@@ -392,9 +319,6 @@ function Proposal({
   if (!proposed) return null;
 
   const done = turn.done;
-  /* Once it is done, the sentence to show is the API's re-read at the moment of
-     the write, not the one from the proposal. A record can move between an offer
-     and a press, and `confirmed` is the description that is true now. */
   const detail = done ? done.confirmed : proposed.proposal;
   const settled = done !== undefined || turn.discarded === true;
 
@@ -426,7 +350,6 @@ function Proposal({
         )}
       </header>
 
-      {/* Verbatim. One sentence, read out of the database by the API. */}
       <p
         className={[
           "mt-2 text-body-sm text-ink",
@@ -443,16 +366,12 @@ function Proposal({
               <span aria-hidden="true" className="text-faint">
                 ·
               </span>
-              {/* Verbatim, and each one is a specific somebody checks. */}
               <span>{line}</span>
             </li>
           ))}
         </ul>
       )}
 
-      {/* Present only when the act cannot be undone, so its presence is the
-          signal. Loud on purpose — it is the one thing on this card that a
-          person cannot fix afterwards. */}
       {detail.irreversible && !turn.discarded && (
         <Callout
           tone={done ? "neutral" : "warning"}
@@ -465,35 +384,20 @@ function Proposal({
 
       {turn.actionError && (
         <Callout tone="danger" title="It was not done" className="mt-3">
-          {/* The API's own sentence. It names the permission, the conflict or
-              the argument it would not take; nothing on this side knows any of
-              that, so nothing on this side rewords it. */}
           {turn.actionError}
         </Callout>
       )}
 
       {!settled && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {/* No Confirm button after a refusal the API will make again. It said
-              no because of a permission, a conflict or an argument it will not
-              take, and none of those change while somebody presses a button —
-              offering the press anyway is the dead control this codebase keeps
-              finding. A transient failure keeps it, reading "Try again",
-              because there the request was sound and the moment was wrong.
-              Discard is always the way out. */}
           {!turn.actionRefused && (
             <Button
               variant="accent"
               size="sm"
               loading={confirming}
-              /* Disabled while another proposal on the page is being performed:
-                 two writes in flight is two records moving with one person's
-                 attention on neither. */
               disabled={busy && !confirming}
               onClick={onConfirm}
             >
-              {/* Names the decision, never the act — the act is the sentence
-                  above, which came from the database. */}
               {turn.actionError ? "Try again" : "Confirm"}
             </Button>
           )}
