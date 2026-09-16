@@ -160,9 +160,9 @@ export function PipelineBoard({
                 <h3 className="text-body-sm font-semibold text-ink">
                   {col.label}
                 </h3>
-                <span className="tabular ml-auto rounded-full bg-sunken px-1.5 py-0.5 text-meta font-semibold text-muted">
+                <Badge tone="neutral" size="sm" className="tabular ml-auto">
                   {items.length}
-                </span>
+                </Badge>
               </header>
 
               <p className="border-b border-line px-3 py-2 text-meta leading-snug text-muted">
@@ -299,25 +299,21 @@ function CandidateCard({
         </div>
 
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-          <span
-            className={cn(
-              "tabular inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-meta",
-              stale
-                ? "bg-warning-soft text-warning-text"
-                : "bg-sunken text-muted",
-            )}
+          <Badge
+            tone={stale ? "warning" : "neutral"}
+            size="sm"
+            icon={<Clock />}
+            className="tabular"
             title={`${days} days in ${card.stage}`}
           >
-            <Clock aria-hidden="true" className="size-3" />
             {days}d
-          </span>
+          </Badge>
 
           {pendingScorecards > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-danger-soft px-1.5 py-0.5 text-meta text-danger-text">
-              <MessageSquare aria-hidden="true" className="size-3" />
+            <Badge tone="danger" size="sm" icon={<MessageSquare />}>
               {pendingScorecards} scorecard{pendingScorecards > 1 ? "s" : ""}{" "}
               due
-            </span>
+            </Badge>
           )}
 
           {card.offer && (

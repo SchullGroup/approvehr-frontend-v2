@@ -95,11 +95,18 @@ function messageOf(error: unknown): string {
 export function AskForDocumentModal({
   people,
   initial,
+  open,
   onClose,
   onAsk,
 }: {
   people: { id: string; name: string }[];
-  initial?: { employeeId?: string; name?: string; category?: DocumentCategory };
+  /** Only ever read once, to seed the form — `null` while closed. */
+  initial?: {
+    employeeId?: string;
+    name?: string;
+    category?: DocumentCategory;
+  } | null;
+  open: boolean;
   onClose: () => void;
   onAsk: (body: CreateRequestBody) => Promise<void>;
 }) {
@@ -117,7 +124,7 @@ export function AskForDocumentModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Ask for a document"
       description="They get it in their ApproveHR inbox with a link to attach it."
@@ -234,19 +241,28 @@ export function AskForDocumentModal({
  * is not drawn.
  */
 export function AttachDocumentModal({
-  request,
+  request: requestProp,
   onFile,
+  open,
   onClose,
   onAttach,
   /** "You" on your own screen, the person's first name on HR's. */
   subject,
 }: {
-  request: ApiDocumentRequest;
+  /** `null` while closed — see the freeze below for why. */
+  request: ApiDocumentRequest | null;
   onFile: ApiDocument[];
+  open: boolean;
   onClose: () => void;
   onAttach: (body: FulfilBody) => Promise<void>;
   subject: "self" | "other";
 }) {
+  /* Remembers the last real request: the parent clears its prop to null the
+     instant it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`. */
+  const [request, setRequest] = useState(requestProp);
+  if (requestProp && requestProp !== request) setRequest(requestProp);
+
   const candidates = onFile.filter(
     (d) => !d.archived && d.fulfilsRequestId === null,
   );
@@ -255,10 +271,12 @@ export function AttachDocumentModal({
   );
   const [documentId, setDocumentId] = useState(candidates[0]?.id ?? "");
   const [file, setFile] = useState<InlineFile | null>(null);
-  const [name, setName] = useState(request.name);
+  const [name, setName] = useState(request?.name ?? "");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  if (!request) return null;
 
   /* The file is set only once it has been read, and `uploading` keeps the
      button shut while it is being read. So a press can never send a record
@@ -271,7 +289,7 @@ export function AttachDocumentModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Attach ${who} ${request.name.toLowerCase()}`}
       footer={
@@ -368,7 +386,8 @@ export function AttachDocumentModal({
 
 /** A document nobody asked for: a contract, an ID, whatever arrives. */
 export function AddDocumentModal({
-  whose,
+  whose: whoseProp,
+  open,
   onClose,
   onAdd,
 }: {
@@ -377,6 +396,7 @@ export function AddDocumentModal({
   /* No `employeeId`. It existed only to scope the presigned upload, and the
      file now goes up with the record — whose file it is, is decided by the
      caller's own save, which was always the gate that mattered. */
+  open: boolean;
   onClose: () => void;
   onAdd: (body: {
     name: string;
@@ -385,6 +405,13 @@ export function AddDocumentModal({
     mimeType: string;
   }) => Promise<void>;
 }) {
+  /* Some callers derive `whose` from data that is only loaded while their own
+     drawer is open (an employee's name); freezing it keeps the title reading
+     right while this animates closed, instead of falling back to a
+     placeholder the instant the caller's own data disappears. */
+  const [whose, setWhose] = useState(whoseProp);
+  if (whoseProp && whoseProp !== whose) setWhose(whoseProp);
+
   const [name, setName] = useState("");
   const [category, setCategory] = useState<DocumentCategory>("OTHER");
   const [file, setFile] = useState<InlineFile | null>(null);
@@ -399,7 +426,7 @@ export function AddDocumentModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Add a document to ${whose} file`}
       footer={
@@ -483,7 +510,8 @@ export function AddDocumentModal({
  * would misdescribe the other 90% of reminders, which now genuinely send.
  */
 export function RemindModal({
-  request,
+  request: requestProp,
+  open,
   onClose,
   onRemind,
 }: {
@@ -492,19 +520,31 @@ export function RemindModal({
      `id` is nullable for the same reason — a future `kind: "DOCUMENT"` row
      (a renewal date close on a document already on file) has no request
      behind it to remind on, and never will; the copy-paste text is what that
-     case has always used and keeps using. */
+     case has always used and keeps using. `null` at the top level (as against
+     `id: null` inside it) means this whole dialog is closed — see the freeze
+     below for why that is a separate thing from a row with no request id. */
   request: {
     id: string | null;
     employeeName: string;
     name: string;
     dueOn: string | null;
     daysLeft: number | null;
-  };
+  } | null;
+  open: boolean;
   onClose: () => void;
   onRemind: (id: string) => Promise<{ notifiedEmployee: boolean }>;
 }) {
+  /* Remembers the last real request: the parent clears its prop to null the
+     instant it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`. */
+  const [request, setRequest] = useState(requestProp);
+  if (requestProp && requestProp !== request) setRequest(requestProp);
+
   const toast = useToast();
-  const message = useMemo(() => chaseMessage(request), [request]);
+  const message = useMemo(
+    () => (request ? chaseMessage(request) : ""),
+    [request],
+  );
   /* No "idle" phase: a request with an id always has a reminder in flight by
      the time anything paints, so there is nothing for an idle state to
      describe. */
@@ -513,9 +553,8 @@ export function RemindModal({
     | { phase: "sent" }
     | { phase: "no-account" }
     | { phase: "failed"; message: string }
-  >({ phase: request.id === null ? "no-account" : "sending" });
+  >({ phase: request?.id == null ? "no-account" : "sending" });
 
-  const firstName = firstNameOf(request.employeeName);
   /* Bumped by "Try again" to run the effect below a second time against the
      same request id, which does not otherwise change. */
   const [attempt, setAttempt] = useState(0);
@@ -527,7 +566,7 @@ export function RemindModal({
      effect running and the state being set — which an inlined async body
      gives it. Every `setState` below is already past that `await`. */
   useEffect(() => {
-    if (request.id === null) return;
+    if (!request || request.id === null) return;
     const id = request.id;
     let cancelled = false;
     void (async () => {
@@ -545,13 +584,16 @@ export function RemindModal({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [request.id, attempt]);
+  }, [request?.id, attempt]);
 
+  if (!request) return null;
+
+  const firstName = firstNameOf(request.employeeName);
   const showMessage = state.phase === "no-account" || state.phase === "failed";
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Remind ${firstName}`}
       description={
@@ -618,21 +660,32 @@ export function RemindModal({
 
 /** Dropping a requirement. The reason is stored, so it is asked for properly. */
 export function WaiveModal({
-  request,
+  request: requestProp,
+  open,
   onClose,
   onWaive,
 }: {
-  request: ApiDocumentRequest;
+  /** `null` while closed — see the freeze below for why. */
+  request: ApiDocumentRequest | null;
+  open: boolean;
   onClose: () => void;
   onWaive: (reason: string) => Promise<void>;
 }) {
+  /* Remembers the last real request: the parent clears its prop to null the
+     instant it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`. */
+  const [request, setRequest] = useState(requestProp);
+  if (requestProp && requestProp !== request) setRequest(requestProp);
+
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  if (!request) return null;
+
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Stop asking for ${request.name.toLowerCase()}?`}
       description={`${firstNameOf(request.employeeName)} is told to stop looking for it.`}

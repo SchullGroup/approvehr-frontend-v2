@@ -19,12 +19,15 @@ import { cn } from "@/lib/cn";
  *   dark     near-black fill, white label — 17.9:1. Secondary, and the default
  *            inside light washed cards where green would fight the tint.
  *   quiet    hairline outline on sand. Tertiary.
+ *   ghost    hairline outline on white, for a dark ground — quiet's
+ *            counterpart where sand's own border would vanish. 17.7:1 on
+ *            `bg-night`.
  *   text     inline link with a travelling arrow. Used inside cards.
  *
- * All four share the same lift on hover so the site has one motion signature.
+ * All five share the same lift on hover so the site has one motion signature.
  */
 
-type Variant = "solid" | "dark" | "quiet" | "text";
+type Variant = "solid" | "dark" | "quiet" | "ghost" | "text";
 type Size = "md" | "lg";
 
 const VARIANTS: Record<Variant, string> = {
@@ -33,6 +36,8 @@ const VARIANTS: Record<Variant, string> = {
   dark: "bg-slate text-white hover:bg-slate-soft shadow-[0_1px_2px_rgb(20_18_15/0.14)]",
   quiet:
     "border border-sand-line bg-transparent text-slate hover:border-slate hover:bg-white",
+  ghost:
+    "border border-white/20 bg-transparent text-white hover:border-white/40 hover:bg-white/8",
   text: "text-slate hover:text-slate-muted p-0",
 };
 

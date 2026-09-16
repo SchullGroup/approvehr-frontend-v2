@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { Badge, TONES } from "./badge";
 import { Button } from "./button";
 import { Input } from "./input";
 
@@ -115,9 +116,9 @@ export function FilterBar({
             <SlidersHorizontal aria-hidden="true" className="size-4" />
             Filters
             {applied.length > 0 && (
-              <span className="rounded-full bg-accent-soft px-1.5 text-meta font-semibold text-accent-text">
+              <Badge tone="accent" size="sm" className="font-semibold">
                 {applied.length}
-              </span>
+              </Badge>
             )}
           </Button>
         )}
@@ -149,7 +150,15 @@ export function FilterBar({
               key={`${filter.label}:${filter.value}`}
               type="button"
               onClick={filter.onClear}
-              className="inline-flex items-center gap-1.5 rounded-full border border-accent-line bg-accent-soft px-2.5 py-1 text-meta text-accent-text transition-colors hover:bg-accent/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+              /* Can't be a `Badge` — that renders a `<span>`, and this needs
+                 real button semantics for keyboard use — so it borrows
+                 Badge's accent tone classes directly instead of
+                 re-deriving them. */
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-meta transition-colors",
+                "hover:bg-accent/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
+                TONES.accent,
+              )}
             >
               <span className="text-muted">{filter.label}:</span>
               <span className="font-medium">{filter.value}</span>

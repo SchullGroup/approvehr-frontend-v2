@@ -60,15 +60,18 @@ import { useWorkLocations } from "@/lib/store/work-locations";
  * on the item panel, where each one says what it does.
  */
 export function ItemForm({
-  item,
+  item: itemProp,
+  open,
   kinds,
   onCreateKind,
   onClose,
   onCreate,
   onSave,
 }: {
-  /** Absent means "add". Present means "edit this one". */
-  item?: EquipmentItem;
+  /** Absent or null means "add". Present means "edit this one" — `null`
+   *  while the edit call site is closed, see the freeze below for why. */
+  item?: EquipmentItem | null;
+  open: boolean;
   kinds: EquipmentKind[];
   /**
    * Opens the add-a-kind dialog over this form.
@@ -84,7 +87,15 @@ export function ItemForm({
   ) => Promise<void>;
   onSave?: (patch: ItemPatch) => Promise<void>;
 }) {
-  const editing = item !== undefined;
+  /* Remembers the last real item: the edit call site clears its prop to null
+     the instant it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`.
+     The add call site never passes a truthy item at all, so this never
+     fires for that instance and `item` stays undefined throughout. */
+  const [item, setItem] = useState(itemProp);
+  if (itemProp && itemProp !== item) setItem(itemProp);
+
+  const editing = item != null;
   const timeZone = useOrgTimezone();
 
   const departments = useDepartments();
@@ -192,10 +203,10 @@ export function ItemForm({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="lg"
-      title={editing ? `Edit ${item.name}` : "Add equipment"}
+      title={item ? `Edit ${item.name}` : "Add equipment"}
       description={
         editing
           ? undefined

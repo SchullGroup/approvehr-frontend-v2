@@ -55,17 +55,29 @@ import {
  * input is text, it is trimmed, and nothing else happens to it.
  */
 export function EnrolmentsDrawer({
-  device,
+  device: deviceProp,
   canManage,
+  open,
   onClose,
   onChanged,
 }: {
-  device: ApiAttendanceDevice;
+  /** Absent while closed — the parent clears it in the same tick `open` goes
+   *  false. See the freeze below for why that cannot early-return this away. */
+  device: ApiAttendanceDevice | null;
   canManage: boolean;
+  open: boolean;
   onClose: () => void;
   /** So the list behind the drawer can re-read its enrolment count. */
   onChanged: () => void;
 }) {
+  /* The parent's `device` goes null the instant it closes this, but the
+     drawer has to stay mounted and keep `Drawer` below wired to the real
+     `open` so it can see that transition and animate. So this remembers the
+     last real device rather than rendering off a value that has already
+     gone away — everything below reads `device`, never `deviceProp`. */
+  const [device, setDevice] = useState(deviceProp);
+  if (deviceProp && deviceProp !== device) setDevice(deviceProp);
+
   const toast = useToast();
   const mutations = useDeviceMutations();
   const { employees, loading: loadingPeople } = useEmployeeDirectory({
@@ -88,7 +100,7 @@ export function EnrolmentsDrawer({
     [employees],
   );
 
-  const list = useDeviceEnrolments(device.id, nameOf);
+  const list = useDeviceEnrolments(device ? device.id : null, nameOf);
 
   const [deviceUserId, setDeviceUserId] = useState("");
   const [employeeId, setEmployeeId] = useState("");
@@ -98,6 +110,11 @@ export function EnrolmentsDrawer({
     () => new Set(list.enrolments.map((row) => row.employeeId)),
     [list.enrolments],
   );
+
+  /* Never true once a real device has ever arrived — see the freeze above.
+     Only guards the render, not `open`: it stops before `Drawer` decides
+     anything, so it never interferes with the exit animation on a real close. */
+  if (!device) return null;
 
   const canAdd = deviceUserId.trim() !== "" && employeeId !== "" && !busy;
 
@@ -136,6 +153,7 @@ export function EnrolmentsDrawer({
    * the build can see that; only pressing it can.
    */
   async function add() {
+    if (!device) return;
     const person = employees.find((row) => row.id === employeeId);
     setBusy(true);
     try {
@@ -167,7 +185,7 @@ export function EnrolmentsDrawer({
 
   return (
     <Drawer
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title={`Who ${device.label} knows`}

@@ -67,25 +67,26 @@ export function ManagerQuestionButton({
         Add your own question
       </Button>
 
-      {open && (
-        <ManagerQuestionDialog
-          cycleId={cycleId}
-          onClose={() => setOpen(false)}
-          onAdded={() => {
-            setOpen(false);
-            onAdded();
-          }}
-        />
-      )}
+      <ManagerQuestionDialog
+        open={open}
+        cycleId={cycleId}
+        onClose={() => setOpen(false)}
+        onAdded={() => {
+          setOpen(false);
+          onAdded();
+        }}
+      />
     </>
   );
 }
 
 function ManagerQuestionDialog({
+  open,
   cycleId,
   onClose,
   onAdded,
 }: {
+  open: boolean;
   cycleId: string;
   onClose: () => void;
   onAdded: () => void;
@@ -130,7 +131,7 @@ function ManagerQuestionDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Add your own question"
       description="On top of the standard questions, and asked only of your own team."

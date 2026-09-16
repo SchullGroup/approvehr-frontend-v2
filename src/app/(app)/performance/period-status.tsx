@@ -201,17 +201,72 @@ function exceptionLines(
   }));
 }
 
-export function PeriodStatus({
+/**
+ * "N people have no appraiser yet", "N objectives have not been sent" — split
+ * out of `PeriodStatus` so `now.tsx` can put it beside the "This period"
+ * heading instead of inside the card's body. `PeriodStatus` renders this
+ * itself unless the caller says it is placing it elsewhere
+ * (`showExceptions={false}`), so it is never shown twice.
+ *
+ * Above the figures wherever it lands, never below them. A blocker in row
+ * forty is a blocker nobody read — the payroll run's own discipline.
+ *
+ * A line each, not a panel. This was a tinted box with an icon, the heading
+ * "Worth sorting before the period closes", the count and a Review-and-fix
+ * button — five lines and a colour block for one fact and one link, above the
+ * figures somebody opened the screen to read. See `NoticeLine`, including why
+ * a blocker here is painted `accent` rather than `danger`: nobody did
+ * anything wrong, there is just an assignment to make.
+ */
+export function PeriodExceptionNotice({
   cycle,
   canSeeCompany,
 }: {
   cycle: ApiCycle;
   canSeeCompany: boolean;
 }) {
-  const { report, loading } = useCycleReport(cycle.id, canSeeCompany);
   const appraisers = useAppraiserMap(canSeeCompany ? cycle.id : null, {
     exceptionsOnly: true,
   });
+  const lines = exceptionLines(appraisers.map?.rows ?? []);
+
+  if (lines.length === 0) return null;
+
+  return (
+    <>
+      {lines.map((line) => (
+        <NoticeLine
+          key={line.code}
+          tone={line.severity === "BLOCKER" ? "accent" : "warning"}
+        >
+          <span>{line.text}</span>
+          <Link
+            href={`/performance/periods/${cycle.id}`}
+            className={NOTICE_LINK}
+          >
+            Fix it
+          </Link>
+        </NoticeLine>
+      ))}
+    </>
+  );
+}
+
+export function PeriodStatus({
+  cycle,
+  canSeeCompany,
+  showExceptions = true,
+}: {
+  cycle: ApiCycle;
+  canSeeCompany: boolean;
+  /**
+   * False when the caller renders `PeriodExceptionNotice` itself somewhere
+   * else on the same screen — beside a card heading, say — so this does not
+   * render it a second time.
+   */
+  showExceptions?: boolean;
+}) {
+  const { report, loading } = useCycleReport(cycle.id, canSeeCompany);
 
   /* Only the figures wait on the request. The rail itself is drawn from the
      cycle the caller already has, so it does not flash for anybody. */
@@ -228,33 +283,13 @@ export function PeriodStatus({
      still renders — it just carries stages rather than figures. */
   const showFigures = canSeeCompany && report !== null;
 
-  const lines = exceptionLines(appraisers.map?.rows ?? []);
   const segments = segmentsFrom(report);
 
   return (
     <div className="flex flex-col gap-3 border-t border-line px-5 py-4">
-      {/* Above the figures, never below them. A blocker in row forty is a
-          blocker nobody read — the payroll run's own discipline.
-
-          A line each, not a panel. This was a tinted box with an icon, the
-          heading "Worth sorting before the period closes", the count and a
-          Review-and-fix button — five lines and a colour block for one fact
-          and one link, above the figures somebody opened the screen to read.
-          See `NoticeLine`. */}
-      {lines.map((line) => (
-        <NoticeLine
-          key={line.code}
-          tone={line.severity === "BLOCKER" ? "danger" : "warning"}
-        >
-          <span>{line.text}</span>
-          <Link
-            href={`/performance/periods/${cycle.id}`}
-            className={NOTICE_LINK}
-          >
-            Fix it
-          </Link>
-        </NoticeLine>
-      ))}
+      {showExceptions && (
+        <PeriodExceptionNotice cycle={cycle} canSeeCompany={canSeeCompany} />
+      )}
 
       <div className="flex flex-wrap overflow-hidden rounded-md border border-line">
         {segments.map((segment) => (

@@ -166,31 +166,30 @@ export function MyDocuments({
         </CardBody>
       </Card>
 
-      {attaching && (
-        <AttachDocumentModal
-          request={attaching}
-          onFile={mine.documents}
-          subject="self"
-          onClose={() => setAttaching(null)}
-          onAttach={async (body) => {
-            await mine.attach(attaching.id, body);
-            setAttaching(null);
-            toast.push({ title: "Sent", tone: "success" });
-          }}
-        />
-      )}
+      <AttachDocumentModal
+        open={attaching !== null}
+        request={attaching}
+        onFile={mine.documents}
+        subject="self"
+        onClose={() => setAttaching(null)}
+        onAttach={async (body) => {
+          if (!attaching) return;
+          await mine.attach(attaching.id, body);
+          setAttaching(null);
+          toast.push({ title: "Sent", tone: "success" });
+        }}
+      />
 
-      {adding && (
-        <AddDocumentModal
-          whose="your"
-          onClose={() => setAdding(false)}
-          onAdd={async (body) => {
-            await mine.add(body);
-            setAdding(false);
-            toast.push({ title: "Added to your file", tone: "success" });
-          }}
-        />
-      )}
+      <AddDocumentModal
+        open={adding}
+        whose="your"
+        onClose={() => setAdding(false)}
+        onAdd={async (body) => {
+          await mine.add(body);
+          setAdding(false);
+          toast.push({ title: "Added to your file", tone: "success" });
+        }}
+      />
     </>
   );
 }

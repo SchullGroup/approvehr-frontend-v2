@@ -566,7 +566,27 @@ function TodayView({
                   </TD>
                   <TD className="tabular">{row.clockIn ?? "—"}</TD>
                   <TD className="tabular text-muted">
-                    {row.clockOut ?? (row.clockIn ? "still in" : "—")}
+                    {row.clockOut ? (
+                      row.clockOut
+                    ) : row.clockIn ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        {/* A fact about this row — clocked in, nothing clocked
+                            out against it yet — not a page-refresh countdown
+                            this screen does not run. True whether or not
+                            anybody reloads. Ping ring matches `ThinkingState`;
+                            the solid dot matches `Badge`'s own status dot. */}
+                        <span
+                          aria-hidden="true"
+                          className="relative flex size-3 shrink-0 items-center justify-center"
+                        >
+                          <span className="absolute inline-flex size-3 rounded-full bg-success/40 motion-safe:animate-ping" />
+                          <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+                        </span>
+                        still in
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                   </TD>
                   <TD align="right">
                     <RowActions
