@@ -230,6 +230,10 @@ export function SignaturesScreen() {
       </PageBody>
       {signing && (
         <SignDialog
+          /* Keyed so signing a different document remounts with fresh
+             state — without it, a typed name could carry over and be
+             submitted as the signature on the wrong document. */
+          key={signing.id}
           record={signing}
           onClose={() => setSigning(null)}
           onDone={() => {

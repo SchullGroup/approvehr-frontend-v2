@@ -308,6 +308,11 @@ export function TeamsPanel({
 
       {editing && (
         <TeamDialog
+          /* Keyed so editing a different team remounts with fresh state,
+             rather than deriving state from props during render — `create`
+             mode needs no key since `creating` is a plain boolean with only
+             one team in flight at a time. */
+          key={editing.id}
           mode="edit"
           team={editing}
           departments={departments}
@@ -654,6 +659,10 @@ function TeamDrawer({
 
       {adding && team && (
         <AssignPeopleDialog
+          /* Keyed so adding to a different team remounts with fresh state,
+             rather than deriving state from props during render — without
+             it, the ticked selection could carry over onto the next team. */
+          key={team.id}
           title={`Add people to ${team.name}`}
           description="Everybody on a team at once, rather than one at a time."
           effect={membershipEffect(team)}
