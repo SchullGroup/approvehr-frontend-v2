@@ -22,10 +22,12 @@ import {
   CardHeader,
   ConfirmDialog,
   EmptyState,
+  Modal,
   Select,
   Stat,
   useToast,
 } from "@/components/ui";
+import { InviteLinkButton } from "@/components/portal/invite-link";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
@@ -33,7 +35,11 @@ import { invitesApi, type PendingInvite } from "@/lib/api/invites";
 import { sourceNote } from "@/lib/demo";
 import type { Catalogue } from "@/lib/api/permissions";
 import { usePermissions } from "@/lib/permissions";
-import { useInvites, type InvitesState } from "@/lib/store/invites";
+import {
+  useInviteDelivery,
+  useInvites,
+  type InvitesState,
+} from "@/lib/store/invites";
 import {
   useRolePreview,
   useRoles,
@@ -101,6 +107,11 @@ export function RolesScreen({
   const [inviting, setInviting] = useState(false);
   const [revoking, setRevoking] = useState<PendingInvite | null>(null);
   const [revokingBusy, setRevokingBusy] = useState(false);
+  /* The invitation somebody is taking a link for. A modal rather than an inline
+     expansion: `InviteLinkButton` opens into a callout with a URL field and two
+     buttons, which is several times the height of the row it would push apart. */
+  const [linking, setLinking] = useState<PendingInvite | null>(null);
+  const delivery = useInviteDelivery();
 
   const canManage = access.can("MANAGE_ROLES");
   /* Its own permission, split from `MANAGE_ROLES` — see the header of
@@ -309,6 +320,7 @@ export function RolesScreen({
             void run(() => invites.resend(userId), "Invitation sent again")
           }
           onRevoke={(invite) => setRevoking(invite)}
+          onLink={(invite) => setLinking(invite)}
         />
 
         <UnlinkedAccountsPanel canManage={canManage} />
@@ -451,6 +463,35 @@ export function RolesScreen({
             .finally(() => setRevokingBusy(false));
         }}
       />
+
+      {/*
+        Taking a link, from the list of exactly the people who have not accepted.
+
+        Keyed on the invitation so the component remounts per person: without
+        it, a link taken for one invitee would still be on screen when somebody
+        opened the modal for the next, which is the worst possible thing for a
+        control whose whole output is a credential.
+      */}
+      {linking && (
+        <Modal
+          open
+          onClose={() => setLinking(null)}
+          title={`A link for ${linking.name}`}
+          footer={
+            <Button variant="secondary" onClick={() => setLinking(null)}>
+              Done
+            </Button>
+          }
+        >
+          <InviteLinkButton
+            key={linking.userId}
+            userId={linking.userId}
+            name={linking.name}
+            replacesEmail={delivery?.email === true}
+            hint={`Their invitation went to ${linking.email}. If it never arrived, send them this instead.`}
+          />
+        </Modal>
+      )}
     </>
   );
 }
@@ -569,18 +610,20 @@ function RoleRow({
  * connected renders the same honest "needs a live API" message
  * `profile-screen.tsx`'s Security card already uses for the same reason.
  */
-function InvitationsCard({
+export function InvitationsCard({
   invites,
   canInvite,
   onInvite,
   onResend,
   onRevoke,
+  onLink,
 }: {
   invites: InvitesState;
   canInvite: boolean;
   onInvite: () => void;
   onResend: (userId: string) => void;
   onRevoke: (invite: PendingInvite) => void;
+  onLink: (invite: PendingInvite) => void;
 }) {
   if (!invites.connected) {
     return (
@@ -677,6 +720,16 @@ function InvitationsCard({
                     onClick={() => onResend(invite.userId)}
                   >
                     Resend
+                  </Button>
+                  {/* The action for the report this panel could not answer:
+                      "they say it never arrived". Resend sends the same mail to
+                      the same address that already swallowed one. */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onLink(invite)}
+                  >
+                    Copy link
                   </Button>
                   <Button
                     variant="ghost"
