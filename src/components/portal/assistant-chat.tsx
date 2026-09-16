@@ -27,6 +27,7 @@ import {
   type Usage,
 } from "@/lib/store/ai-chat";
 import { LiveTurn, Steps } from "@/components/ai/turn-progress";
+import { UsageGauge } from "@/components/ai/usage-gauge";
 import { AssistantOrb } from "./assistant-orb";
 
 const OPENERS = SALES_SCRIPT_ENABLED
@@ -79,6 +80,8 @@ export function AssistantChat() {
       />
 
       <CardBody className="flex flex-col gap-4">
+        <UsageGauge compact />
+
         {chat.turns.length === 0 && !chat.sending ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-start gap-3">

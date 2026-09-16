@@ -20,6 +20,7 @@ import {
   type Step,
   type Usage,
 } from "./ai2-turn";
+import { refreshAi2Usage } from "./ai2-usage";
 import { useSession } from "./session";
 
 export type { Live, Step, Usage } from "./ai2-turn";
@@ -191,6 +192,7 @@ export function useAssistantChat(): ChatState & ChatActions {
         controller.signal,
       );
       if (sequence.current !== mine) return false;
+      if (result.usage) refreshAi2Usage();
 
       if (result.text === null) {
         setError(
