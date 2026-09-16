@@ -29,9 +29,6 @@ import {
 import { LiveTurn, Steps } from "@/components/ai/turn-progress";
 import { AssistantOrb } from "./assistant-orb";
 
-/**
- * Interactive chat interface for the assistant.
- */
 const OPENERS = SALES_SCRIPT_ENABLED
   ? [
       "How many people have no bank account?",

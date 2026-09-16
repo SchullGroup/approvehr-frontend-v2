@@ -20,33 +20,12 @@ import {
 } from "@/lib/store/ai2-chat";
 
 /**
- * A conversation with the `/ai2` assistant, watched as it happens.
- *
- * ## What streaming is actually for here
- *
- * Not the typewriter. A turn on this endpoint can spend most of its wall clock
- * running up to three rounds of lookups against the database, and the buffered
- * version says nothing for the whole of it — which is indistinguishable, from a
- * chair, from the product having hung. So the lookups are named as they run.
- * That is the part worth having; the prose arriving a word at a time is a
- * side effect of the same connection.
- *
- * ## The provisional answer is rendered differently, because it is different
- *
- * Text that is still streaming has not been confirmed as an answer — the model
- * may yet decide it needs to look something up, at which point what is on
- * screen was a preamble to work it had not done. The store drops it when the
- * server says so. Until a turn lands it is the live block below and it is not in
- * the transcript; nothing provisional is ever sent back to the API.
- *
- * ## Absent, not disabled
- *
- * Renders nothing at all when no assistant is wired — the rule every other
- * assistant surface in this codebase follows. A composer above a sentence
- * explaining that nothing will happen is worse than no composer.
+ * A conversation with the `/ai2` assistant, watched as it happens. Streaming
+ * narrates lookups that can take several seconds each, not a typewriter
+ * effect. Renders nothing when no assistant is wired.
  */
 
-/** Openers, so an empty box is not a blank page. Questions this endpoint reads. */
+/** Openers, so an empty box is not a blank page. */
 const OPENERS = [
   "How many people are on the payroll?",
   "Whose leave requests are still waiting?",
@@ -59,10 +38,8 @@ export function Ai2Chat() {
   const [draft, setDraft] = useState("");
   const composer = useRef<HTMLDivElement>(null);
 
-  /* Bring the composer back into view when a turn lands. Not an inner scroll
-     container: the page scrolls, so a long answer can simply be read down.
-     Keyed on landed turns rather than on streaming text — scrolling on every
-     delta would fight somebody reading back up mid-answer. */
+  // Keyed on landed turns, not streaming text, so scrolling doesn't fight
+  // somebody reading back up mid-answer.
   const landed = chat.turns.length;
   useEffect(() => {
     if (landed === 0) return;
@@ -97,8 +74,6 @@ export function Ai2Chat() {
         {chat.turns.length === 0 && !chat.sending ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-start gap-3">
-              {/* `resting` — a still mark. An empty state that pulsed would
-                  claim something is happening before anybody has asked. */}
               <AssistantOrb size={36} className="mt-0.5 shrink-0" />
               <p className="text-body-sm text-muted">
                 Ask about your people, your leave, your payroll runs, or what
@@ -135,9 +110,6 @@ export function Ai2Chat() {
 
         {chat.error && (
           <Callout tone="danger" title="No answer">
-            {/* The server's own sentence wherever it wrote one — it knows
-                whether this was a spent budget, a missing permission or a
-                transcript it would not take, and nothing here does. */}
             <p>{chat.error}</p>
             {!chat.sending && (
               <Button
@@ -161,8 +133,6 @@ export function Ai2Chat() {
             placeholder="Ask a question about your records"
             disabled={chat.full}
             onChange={(event) => setDraft(event.target.value)}
-            /* Enter sends, Shift+Enter is a new line. The usual arrangement,
-               and the placeholder is a question rather than a paragraph. */
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
@@ -187,8 +157,6 @@ export function Ai2Chat() {
                   {MAX_AI2_MESSAGE_CHARS.toLocaleString()}
                 </span>
               )}
-              {/* Stop rather than a disabled Send: there is something running
-                  to stop, which is only true because this streams. */}
               {chat.sending ? (
                 <Button variant="secondary" size="sm" onClick={chat.stop}>
                   <Square aria-hidden="true" className="size-3.5" />
@@ -235,9 +203,6 @@ function Turn({ turn }: { turn: Ai2Turn }) {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Kept beside the answer rather than cleared when the turn lands: a
-          refused lookup is the one case where the answer alone does not tell
-          the whole story, and it is worth being able to see afterwards. */}
       {turn.steps && turn.steps.length > 0 && <Steps steps={turn.steps} />}
       <p className="max-w-[44rem] rounded-lg border border-line bg-canvas px-3 py-2 text-body-sm leading-relaxed whitespace-pre-wrap text-ink">
         {turn.content}
