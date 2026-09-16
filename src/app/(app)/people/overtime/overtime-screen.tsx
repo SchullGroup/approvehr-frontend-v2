@@ -140,6 +140,15 @@ function AllOvertime() {
   const [working, setWorking] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [declining, setDeclining] = useState<OvertimeRow | null>(null);
+  /* Frozen separately from `declining` itself: this is the dialog's `key`, so
+     closing (declining -> null) must not change it — only a genuinely
+     different row should remount the dialog and start it on an empty box. */
+  const [decliningKey, setDecliningKey] = useState<string | undefined>(
+    undefined,
+  );
+  if (declining && declining.id !== decliningKey) {
+    setDecliningKey(declining.id);
+  }
 
   const overtime = useOvertime({ period, status });
   const { policy, awaitingApproval, shown } = overtime;
@@ -439,23 +448,23 @@ function AllOvertime() {
         </Card>
       </PageBody>
 
-      {declining && (
-        <DeclineOvertimeModal
-          key={declining.id}
-          row={declining}
-          onClose={() => setDeclining(null)}
-          onDecline={async (reason) => {
-            const target = declining;
-            setBusy(target.id);
-            const ok = await run(
-              () => overtime.decline(target.id, reason),
-              "Turned down. They can see why.",
-            );
-            setBusy(null);
-            if (ok) setDeclining(null);
-          }}
-        />
-      )}
+      <DeclineOvertimeModal
+        key={decliningKey}
+        open={declining !== null}
+        row={declining}
+        onClose={() => setDeclining(null)}
+        onDecline={async (reason) => {
+          if (!declining) return;
+          const target = declining;
+          setBusy(target.id);
+          const ok = await run(
+            () => overtime.decline(target.id, reason),
+            "Turned down. They can see why.",
+          );
+          setBusy(null);
+          if (ok) setDeclining(null);
+        }}
+      />
     </>
   );
 }

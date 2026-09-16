@@ -245,15 +245,14 @@ export function OffboardingScreen() {
         )}
       </PageBody>
 
-      {starting && (
-        <StartExitDialog
-          onClose={() => setStarting(false)}
-          onStarted={() => {
-            setStarting(false);
-            exits.reload();
-          }}
-        />
-      )}
+      <StartExitDialog
+        open={starting}
+        onClose={() => setStarting(false)}
+        onStarted={() => {
+          setStarting(false);
+          exits.reload();
+        }}
+      />
     </>
   );
 }

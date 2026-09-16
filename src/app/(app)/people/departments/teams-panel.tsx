@@ -259,29 +259,28 @@ export function TeamsPanel({
         </Card>
       )}
 
-      {opened && (
-        <TeamDrawer
-          teamId={opened}
-          canEditRecords={canEditRecords}
-          employees={employees}
-          onClose={() => setOpened(null)}
-          onAdd={(id, employeeIds) =>
-            run(
-              () => mutations.addMembers(id, employeeIds),
-              employeeIds.length === 1
-                ? "Added to the team"
-                : "Added to the team",
-              (result) => result.moved,
-            )
-          }
-          onRemove={(id, employeeId, name) =>
-            run(
-              () => mutations.removeMembers(id, [employeeId]),
-              `${name} taken off the team`,
-            )
-          }
-        />
-      )}
+      <TeamDrawer
+        open={opened !== null}
+        teamId={opened}
+        canEditRecords={canEditRecords}
+        employees={employees}
+        onClose={() => setOpened(null)}
+        onAdd={(id, employeeIds) =>
+          run(
+            () => mutations.addMembers(id, employeeIds),
+            employeeIds.length === 1
+              ? "Added to the team"
+              : "Added to the team",
+            (result) => result.moved,
+          )
+        }
+        onRemove={(id, employeeId, name) =>
+          run(
+            () => mutations.removeMembers(id, [employeeId]),
+            `${name} taken off the team`,
+          )
+        }
+      />
 
       {creating && (
         <TeamDialog
@@ -463,6 +462,7 @@ function TeamRow({
  * Silently re-aligning it would be moving a cost centre without being asked.
  */
 function TeamDrawer({
+  open,
   teamId,
   canEditRecords,
   employees,
@@ -470,7 +470,12 @@ function TeamDrawer({
   onAdd,
   onRemove,
 }: {
-  teamId: string;
+  /* Controlled by `TeamsPanel`. Stays mounted at all times (even while no
+     team is open) so its own exit animation can run when `open` goes false.
+     `useTeam` below already has an `id: string | null` / enabled-style gate
+     built in, so `teamId` being null while closed costs nothing. */
+  open: boolean;
+  teamId: string | null;
   canEditRecords: boolean;
   employees: {
     id: string;
@@ -500,7 +505,7 @@ function TeamDrawer({
   return (
     <>
       <Drawer
-        open
+        open={open}
         onClose={onClose}
         title={team?.name ?? "Team"}
         {...(team

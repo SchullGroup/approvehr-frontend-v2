@@ -26,10 +26,15 @@ import { invitesApi, type UnlinkedUser } from "@/lib/api/invites";
  * directory like anyone else's, with this dialog reachable from it.
  */
 function LinkExistingAccount({
+  open,
   employeeId,
   employeeName,
   onClose,
 }: {
+  /* Controlled by `LinkExistingAccountButton`. Stays mounted at all times so
+     its own exit animation can run when `open` goes false, instead of the
+     button unmounting the whole subtree the instant it does. */
+  open: boolean;
   employeeId: string;
   employeeName: string;
   onClose: () => void;
@@ -41,6 +46,10 @@ function LinkExistingAccount({
   const [failed, setFailed] = useState<string | null>(null);
 
   useEffect(() => {
+    /* Stays mounted now (see `open` above), so the read has to wait for
+       somebody to actually open this rather than firing on every record page
+       load. */
+    if (!open) return;
     const controller = new AbortController();
     void invitesApi
       .unlinked(controller.signal)
@@ -52,7 +61,7 @@ function LinkExistingAccount({
         if (!controller.signal.aborted) setCandidates([]);
       });
     return () => controller.abort();
-  }, []);
+  }, [open]);
 
   async function link() {
     setBusy(true);
@@ -77,7 +86,7 @@ function LinkExistingAccount({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Link a sign-in to ${employeeName}`}
       footer={
@@ -146,13 +155,12 @@ export function LinkExistingAccountButton({
         <Link2 aria-hidden="true" className="size-3.5" />
         Link an existing sign-in
       </Button>
-      {open && (
-        <LinkExistingAccount
-          employeeId={employeeId}
-          employeeName={employeeName}
-          onClose={() => setOpen(false)}
-        />
-      )}
+      <LinkExistingAccount
+        open={open}
+        employeeId={employeeId}
+        employeeName={employeeName}
+        onClose={() => setOpen(false)}
+      />
     </>
   );
 }
