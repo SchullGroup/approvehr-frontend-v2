@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { BookOpen, Eye, Pencil, Plus, SearchX, ThumbsDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -21,6 +20,7 @@ import {
   TBody,
   TD,
   TDPrimary,
+  TextLink,
   TH,
   THead,
   TR,
@@ -322,12 +322,12 @@ export function KnowledgeScreen() {
                   key={row.id}
                   className="flex flex-wrap items-center gap-3 rounded-md border border-line p-3"
                 >
-                  <Link
+                  <TextLink
                     href={`/help/kb/${row.slug}`}
-                    className="min-w-0 flex-1 text-body-sm font-medium text-ink underline-offset-4 hover:text-accent-text hover:underline"
+                    className="min-w-0 flex-1 text-body-sm"
                   >
                     {row.title}
-                  </Link>
+                  </TextLink>
                   <span className="tabular shrink-0 text-body-sm text-muted">
                     {row.notHelpful} said no · {row.helpful} said yes
                   </span>
@@ -449,12 +449,9 @@ export function KnowledgeScreen() {
                       <TDPrimary
                         title={
                           article.status === "published" ? (
-                            <Link
-                              href={`/help/kb/${article.slug}`}
-                              className="underline-offset-4 hover:text-accent-text hover:underline"
-                            >
+                            <TextLink href={`/help/kb/${article.slug}`}>
                               {article.title}
-                            </Link>
+                            </TextLink>
                           ) : (
                             article.title
                           )
