@@ -9,37 +9,17 @@ import { useSession } from "./session";
 export type { Live, Step } from "./ai2-turn";
 
 /**
- * A conversation with the `/ai2` assistant, streamed.
+ * A conversation with the `/ai2` assistant, streamed. No persistence — same
+ * reasoning as `ai-chat.ts`: the API stores no transcript.
  *
- * ## Nothing is persisted, and that is a decision rather than an omission
+ * What is on screen during a turn is not yet a turn: a streamed answer is
+ * shown before anyone knows it is one, so it lives in `live`, separate from
+ * `turns`, and only joins the transcript once the server sends finished
+ * text. The wire transcript is built from `turns` alone.
  *
- * The same rule `ai-chat.ts` records at length, and for the same reason: the
- * API deliberately stores no transcript — the whole conversation is sent again
- * on every turn precisely so that nothing about who asked what is kept. Writing
- * it to `localStorage` would quietly undo that on a shared machine. There is no
- * `createPersistedState` here and there must not be one.
- *
- * ## What is on screen during a turn is not yet a turn
- *
- * This is the whole difference from `ai-chat.ts`. A streamed answer is visible
- * before it is finished and before anyone knows it *is* an answer — the model
- * may write a sentence and then go and look something up, which makes that
- * sentence a preamble to work not yet done. So the live turn is held in `live`,
- * separately from `turns`, and only ever joins the transcript once the server
- * has sent the finished text.
- *
- * Nothing provisional is ever sent back to the API. The transcript on the wire
- * is built from `turns` alone, so a discarded preamble cannot become something
- * the assistant is told it said.
- *
- * ## Two failures, kept apart
- *
- * `error` is the turn not going through — no answer, and the user message stays
- * so `retry` can send it again. An `unavailable` event is the server declining
- * to answer *this* question and saying why; it is shown the same way, because
- * from a reader's side both mean "no answer, here is the sentence", and neither
- * belongs in the transcript: appending a refusal would send it back next turn
- * as though the assistant had said it.
+ * `error` covers both a failed turn and an `unavailable` event — a refusal is
+ * never appended to the transcript, or the next turn would see it as
+ * something the assistant said.
  */
 
 /* -------------------------------------------------------------------- shape */
@@ -52,34 +32,25 @@ export type Ai2Turn = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  /**
-   * What the assistant did to answer, kept beside the answer it produced.
-   *
-   * Retained after the turn lands rather than cleared, so a reader can still
-   * see that a figure came from a lookup that was refused — which is the one
-   * case where the answer alone does not tell the whole story.
-   */
+  /** Kept after the turn lands, so a reader can see a refused lookup behind a figure. */
   steps?: Step[];
 };
 
 export type Ai2ChatState = {
   turns: Ai2Turn[];
-  /** The turn in flight, or null. */
   live: Live | null;
   sending: boolean;
-  /** The turn did not go through, or the server declined. Its own sentence. */
   error: string | null;
   full: boolean;
 };
 
 export type Ai2ChatActions = {
-  /** Send what somebody typed. False when nothing was sent, so a composer keeps it. */
+  /** False when nothing was sent, so a composer keeps the draft. */
   send: (text: string) => Promise<boolean>;
   /** Send the transcript again, unchanged. Only meaningful after a failure. */
   retry: () => Promise<boolean>;
-  /** Stop the turn in flight. What was streamed is dropped, not kept. */
+  /** Stop the turn in flight. What was streamed is dropped. */
   stop: () => void;
-  /** Throw the conversation away. There is nowhere else it exists. */
   reset: () => void;
 };
 
@@ -91,17 +62,10 @@ const nextId = (): string => {
   return `a2-${Date.now().toString(36)}-${counter}`;
 };
 
-/** Exactly what the API takes: two fields, nothing else. */
 const toWire = (turns: readonly Ai2Turn[]): Ai2Message[] =>
   turns.map((turn) => ({ role: turn.role, content: turn.content }));
 
-/**
- * Why a message will not be sent, or null.
- *
- * The API refuses all of these and its refusal is the authority; these exist so
- * somebody is told before they press send rather than after. If the two ever
- * disagree the server wins, because its sentence is shown verbatim.
- */
+/** Local refusal, shown before a press. The server's own refusal wins if they differ. */
 function localRefusal(text: string, turns: readonly Ai2Turn[]): string | null {
   if (text.length === 0) return null;
   if (text.length > MAX_AI2_MESSAGE_CHARS) {
@@ -126,18 +90,10 @@ export function useAi2Chat(): Ai2ChatState & Ai2ChatActions {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * The staleness guard, same shape as `ai-chat.ts`.
-   *
-   * Somebody presses Start again, or Stop, while a turn is streaming. Without
-   * this its events would keep landing in a conversation they are no longer an
-   * answer in — and a stream delivers many of them, so the window is the whole
-   * turn rather than the moment it ends.
-   */
+  /** Staleness guard against events from a stopped or superseded turn. */
   const sequence = useRef(0);
   const abort = useRef<AbortController | null>(null);
 
-  /* A stream left open outlives the screen otherwise. */
   useEffect(() => () => abort.current?.abort(), []);
 
   const exchange = useCallback(async (next: Ai2Turn[]): Promise<boolean> => {
@@ -154,8 +110,6 @@ export function useAi2Chat(): Ai2ChatState & Ai2ChatActions {
     try {
       const result = await runAi2Turn(
         toWire(next),
-        /* Provisional, and guarded: a superseded turn's events must not land
-           in a conversation they are no longer an answer in. */
         (live) => {
           if (sequence.current === mine) setLive(live);
         },
@@ -176,16 +130,12 @@ export function useAi2Chat(): Ai2ChatState & Ai2ChatActions {
         return true;
       }
 
-      /* No answer. The server's own sentence where it gave one — it knows
-         whether this was a missing key, a permission or a budget spent, and
-         nothing here does. Not appended to the transcript: see the header. */
       setError(
         result.declined ??
           "The assistant did not answer. Ask again, or try a narrower question.",
       );
       return true;
     } catch (caught) {
-      /* A stop, or the screen going away. Neither is a failure to report. */
       if (caught instanceof DOMException && caught.name === "AbortError")
         return false;
       if (sequence.current !== mine) return false;
@@ -199,8 +149,6 @@ export function useAi2Chat(): Ai2ChatState & Ai2ChatActions {
     } finally {
       if (sequence.current === mine) {
         setSending(false);
-        /* Whatever was streaming is either in the transcript now or was never
-           an answer. Either way it does not stay on screen twice. */
         setLive(null);
       }
     }
@@ -238,13 +186,6 @@ export function useAi2Chat(): Ai2ChatState & Ai2ChatActions {
     return exchange(turns);
   }, [turns, sending, exchange]);
 
-  /**
-   * Stop, and keep nothing.
-   *
-   * A half-written answer is not a short answer — it is a sentence that stops,
-   * and keeping it in the transcript would send it back next turn as something
-   * the assistant said. The question stays, so it can be asked again.
-   */
   const stop = useCallback(() => {
     sequence.current += 1;
     abort.current?.abort();
@@ -283,7 +224,6 @@ export type Ai2Availability = {
   loading: boolean;
   /** The model's name. For a settings screen; never shown beside an answer. */
   model: string | null;
-  /** Why not, when not. The API's own sentence. */
   reason: string | null;
 };
 
@@ -302,14 +242,7 @@ const LOADING: Ai2Availability = {
   reason: null,
 };
 
-/**
- * Whether there is an assistant to talk to.
- *
- * Asked rather than assumed: `/ai2/status` answers 200 either way, because a
- * missing credential is a feature the company has not switched on rather than
- * an error. A screen that rendered a composer regardless would be a door with
- * nothing behind it.
- */
+/** Whether there is an assistant to talk to. `/ai2/status` answers 200 either way. */
 export function useAi2Available(): Ai2Availability {
   const { isConnected, isLoading } = useSession();
   const [fetched, setFetched] = useState<Ai2Availability | null>(null);
@@ -329,8 +262,6 @@ export function useAi2Available(): Ai2Availability {
           });
         }
       } catch {
-        /* Unreachable rather than switched off, and the difference matters:
-           this is a server that did not answer, not a company without a key. */
         if (!cancelled) {
           setFetched({
             available: false,
@@ -346,9 +277,6 @@ export function useAi2Available(): Ai2Availability {
     };
   }, [isConnected, isLoading]);
 
-  /* Derived during render rather than written into state by the effect — a
-     synchronous `setState` in an effect is a cascading render, and the answer
-     offline never depended on a request. Same rule as `store/ai.ts`. */
   if (isLoading) return LOADING;
   if (!isConnected) return OFFLINE;
   return fetched ?? LOADING;

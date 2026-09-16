@@ -19,21 +19,9 @@ import { useAssistantActions } from "@/lib/store/ai-chat";
 import { useSession } from "@/lib/store/session";
 
 /**
- * The assistant's own page.
- *
- * ## Why a route and not a panel on the dashboard
- *
- * A chat reachable only by scrolling somebody else's screen is the defect this
- * file's neighbours have recorded four separate times — the company logo, the
- * suggestion buttons, the manual PAYE override — a thing that is built, correct,
- * and findable by nobody. So it has an address, a nav item, and a link from the
- * one-shot Ask box on the dashboard.
- *
- * The nav item is hidden when no assistant is wired, which is why this page has
- * to answer for itself as well: somebody arriving on a bookmark, or on a link a
- * colleague sent before the key was removed, gets a sentence rather than an
- * empty page. That is the same split `nav.tsx` already documents — a nav item is
- * a visibility hint, and the page enforces the real rule.
+ * The assistant's own page. Has its own address and nav item so it is not
+ * only reachable by scrolling another screen. Answers for itself when no
+ * assistant is wired, since the nav item is a visibility hint, not the rule.
  */
 export function AssistantScreen() {
   const { available, loading, assistant, reason } = useAssistantAvailable();
@@ -64,8 +52,6 @@ export function AssistantScreen() {
           <NotWired connected={isConnected} reason={reason} />
         )}
 
-        {/* Renders nothing on its own when no assistant is wired — the check
-            above is what puts a sentence in its place, not what makes it safe. */}
         <AssistantChat />
 
         {available && !loading && (
@@ -85,14 +71,7 @@ export function AssistantScreen() {
 
 /* -------------------------------------------------------------------------- */
 
-/**
- * No assistant, and why.
- *
- * Two different facts, kept apart. Connected, the API wrote a sentence about its
- * own configuration and it is shown verbatim. Not connected, there is no server
- * to have a configuration — nothing here is switched off, and saying so would
- * send somebody looking for a setting that is not the problem.
- */
+/** No assistant, and why. Connected: the API's own sentence. Not connected: no server to ask. */
 function NotWired({
   connected,
   reason,
@@ -114,9 +93,6 @@ function NotWired({
       <CardBody className="flex flex-col items-start gap-3">
         {connected ? (
           <p className="text-body-sm text-body">
-            {/* The API's own sentence. It knows whether this is a missing
-                credential or a provider that would not answer; nothing here
-                does, so nothing here rewords it. */}
             {reason ?? "No assistant is connected."}
           </p>
         ) : (
@@ -142,19 +118,7 @@ function NotWired({
 
 /* -------------------------------------------------------------------------- */
 
-/**
- * What it may propose, from `GET /ai/actions`.
- *
- * Closed by default: somebody arriving to ask a question does not need the
- * catalogue first. It is here because "what can I ask it to do" otherwise has no
- * answer at all — a chat box with an invisible set of capabilities is a box
- * people try twice and stop opening.
- *
- * The gate on each row is the API's own. A permission this account does not hold
- * and a capability nobody has wired on the server are different problems with
- * different fixes, and flattening them into "unavailable" would send the wrong
- * person looking.
- */
+/** What it may propose, from `GET /ai/actions`. Closed by default. */
 function WhatItCanDo() {
   const { actions, loading, error } = useAssistantActions();
 
