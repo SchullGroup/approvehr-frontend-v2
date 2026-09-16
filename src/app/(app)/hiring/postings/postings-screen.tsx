@@ -410,21 +410,20 @@ function Adverts() {
         />
       </PageBody>
 
-      {(creating || editing) && (
-        <PostingEditor
-          {...(editing ? { posting: editing } : {})}
-          onClose={() => {
-            setCreating(false);
-            setEditing(null);
-          }}
-          onCreate={(body: CreatePostingBody) =>
-            run(() => postings.create(body), "Draft saved")
-          }
-          onUpdate={(id: string, body: UpdatePostingBody) =>
-            run(() => postings.update(id, body), "Advert saved")
-          }
-        />
-      )}
+      <PostingEditor
+        open={creating || editing !== null}
+        posting={editing ?? undefined}
+        onClose={() => {
+          setCreating(false);
+          setEditing(null);
+        }}
+        onCreate={(body: CreatePostingBody) =>
+          run(() => postings.create(body), "Draft saved")
+        }
+        onUpdate={(id: string, body: UpdatePostingBody) =>
+          run(() => postings.update(id, body), "Advert saved")
+        }
+      />
 
       <ConfirmDialog
         open={closing !== null}
