@@ -537,7 +537,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               directly. Scrolling to the card that can is the honest
               affordance rather than a control that guesses. */}
           {noAppraiser && (
-            <NoticeLine tone="danger">
+            <NoticeLine tone="accent">
               <span>
                 {noAppraiser.length === 1
                   ? `${noAppraiser[0]} has no appraiser`
