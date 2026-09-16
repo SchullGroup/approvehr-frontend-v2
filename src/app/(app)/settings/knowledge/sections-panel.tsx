@@ -161,45 +161,45 @@ export function SectionsPanel({
         )}
       </Card>
 
-      {adding && (
-        <SectionDialog
-          title="Add a section"
-          options={sections.flat}
-          onClose={() => setAdding(false)}
-          onSubmit={async (name, parentId) => {
-            const ok = await run(
-              () =>
-                sections.create({
-                  name,
-                  ...(parentId ? { parentId } : {}),
-                }),
-              `${name} added`,
-            );
-            if (ok) setAdding(false);
-          }}
-        />
-      )}
+      <SectionDialog
+        open={adding}
+        title="Add a section"
+        options={sections.flat}
+        onClose={() => setAdding(false)}
+        onSubmit={async (name, parentId) => {
+          const ok = await run(
+            () =>
+              sections.create({
+                name,
+                ...(parentId ? { parentId } : {}),
+              }),
+            `${name} added`,
+          );
+          if (ok) setAdding(false);
+        }}
+      />
 
-      {renaming && (
-        <SectionDialog
-          title={`Rename ${renaming.name}`}
-          initialName={renaming.name}
-          initialParentId={renaming.parentId ?? ""}
-          options={sections.flat.filter((option) => option.id !== renaming.id)}
-          onClose={() => setRenaming(null)}
-          onSubmit={async (name, parentId) => {
-            const ok = await run(
-              () =>
-                sections.update(renaming.id, {
-                  name,
-                  parentId: parentId === "" ? null : parentId,
-                }),
-              "Saved",
-            );
-            if (ok) setRenaming(null);
-          }}
-        />
-      )}
+      <SectionDialog
+        open={renaming !== null}
+        title={`Rename ${renaming?.name ?? ""}`}
+        initialName={renaming?.name ?? ""}
+        initialParentId={renaming?.parentId ?? ""}
+        options={sections.flat.filter((option) => option.id !== renaming?.id)}
+        onClose={() => setRenaming(null)}
+        onSubmit={async (name, parentId) => {
+          const target = renaming;
+          if (!target) return;
+          const ok = await run(
+            () =>
+              sections.update(target.id, {
+                name,
+                parentId: parentId === "" ? null : parentId,
+              }),
+            "Saved",
+          );
+          if (ok) setRenaming(null);
+        }}
+      />
 
       <ConfirmDialog
         open={deleting !== null}
@@ -242,6 +242,7 @@ function SectionDialog({
   initialName = "",
   initialParentId = "",
   options,
+  open,
   onClose,
   onSubmit,
 }: {
@@ -249,6 +250,7 @@ function SectionDialog({
   initialName?: string;
   initialParentId?: string;
   options: ApiKbCategoryFlat[];
+  open: boolean;
   onClose: () => void;
   onSubmit: (name: string, parentId: string) => Promise<void>;
 }) {
@@ -258,7 +260,7 @@ function SectionDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="sm"
       title={title}

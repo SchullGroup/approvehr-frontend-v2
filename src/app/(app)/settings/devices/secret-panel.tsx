@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { KeyRound, TriangleAlert } from "lucide-react";
 import { Button, Callout, Modal } from "@/components/ui";
 import { CodeInline, CopyButton } from "@/app/(app)/settings/webhooks";
@@ -33,20 +34,31 @@ import {
  * agent — where it would sign deliveries nothing on earth would accept.
  */
 export function SecretPanel({
-  result,
+  result: resultProp,
   rotated,
+  open,
   onClose,
 }: {
-  result: ApiDeviceSecret;
+  /** Absent while closed — see the freeze below for why. */
+  result: ApiDeviceSecret | null;
   /** Whether this replaced a working secret, which changes what has to be said. */
   rotated: boolean;
+  open: boolean;
   onClose: () => void;
 }) {
+  /* The parent clears `result` to null the instant it closes this, but the
+     panel has to stay mounted with real content for `Modal` below to animate
+     its own close instead of being torn out. So this remembers the last
+     result rather than rendering off a value that has already gone away. */
+  const [result, setResult] = useState(resultProp);
+  if (resultProp && resultProp !== result) setResult(resultProp);
+  if (!result) return null;
+
   const issued = result.secret !== "";
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title={

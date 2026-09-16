@@ -430,52 +430,50 @@ export function AnnouncementsScreen() {
         </Card>
       </PageBody>
 
-      {writing && (
-        <AnnouncementForm
-          departments={pickable}
-          onClose={() => setWriting(false)}
-          onSave={async (draft, publish) => {
-            const ok = await run(
-              () => mutations.create(bodyFrom(draft, publish)),
-              publish ? `${draft.title} is on the board` : "Saved as a draft",
-              publish ? undefined : DRAFT_EFFECT,
-            );
-            if (ok) setWriting(false);
-          }}
-        />
-      )}
+      <AnnouncementForm
+        open={writing}
+        departments={pickable}
+        onClose={() => setWriting(false)}
+        onSave={async (draft, publish) => {
+          const ok = await run(
+            () => mutations.create(bodyFrom(draft, publish)),
+            publish ? `${draft.title} is on the board` : "Saved as a draft",
+            publish ? undefined : DRAFT_EFFECT,
+          );
+          if (ok) setWriting(false);
+        }}
+      />
 
-      {editing && (
-        <AnnouncementForm
-          key={editing.id}
-          notice={editing}
-          departments={pickable}
-          onClose={() => setEditing(null)}
-          onSave={async (draft, publish) => {
-            const target = editing;
-            const ok = await run(
-              async () => {
-                await mutations.update(target.id, {
-                  title: draft.title,
-                  body: draft.body,
-                  audience: draft.audience,
-                  departmentIds: draft.departmentIds,
-                  pinned: draft.pinned,
-                  /* An empty date clears it. `null` and absent mean different
-                   things to the API, and this is the one that means "clear". */
-                  expiresOn: draft.expiresOn === "" ? null : draft.expiresOn,
-                });
-                /* Two calls, because they are two acts: the edit stands whether or
-                 not the publish is asked for, and publishing has its own
-                 refusals (an archived department, a date already past). */
-                if (publish) await mutations.publish(target.id);
-              },
-              publish ? `${draft.title} is on the board` : "Saved",
-            );
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
+      <AnnouncementForm
+        open={editing !== null}
+        notice={editing ?? undefined}
+        departments={pickable}
+        onClose={() => setEditing(null)}
+        onSave={async (draft, publish) => {
+          const target = editing;
+          if (!target) return;
+          const ok = await run(
+            async () => {
+              await mutations.update(target.id, {
+                title: draft.title,
+                body: draft.body,
+                audience: draft.audience,
+                departmentIds: draft.departmentIds,
+                pinned: draft.pinned,
+                /* An empty date clears it. `null` and absent mean different
+                 things to the API, and this is the one that means "clear". */
+                expiresOn: draft.expiresOn === "" ? null : draft.expiresOn,
+              });
+              /* Two calls, because they are two acts: the edit stands whether or
+               not the publish is asked for, and publishing has its own
+               refusals (an archived department, a date already past). */
+              if (publish) await mutations.publish(target.id);
+            },
+            publish ? `${draft.title} is on the board` : "Saved",
+          );
+          if (ok) setEditing(null);
+        }}
+      />
 
       {/* Reversible, and the dialog says so — but it changes what every member
           of staff sees, so it is asked first. */}
