@@ -39,14 +39,23 @@ export type Step =
   /** Prose written alongside the lookups. The model's own words, not a label. */
   | { kind: "note"; key: string; text: string };
 
+/** Tokens a turn spent, as the server counted them. */
+export type Usage = {
+  promptTokens: number;
+  outputTokens: number;
+  thinkingTokens: number;
+};
+
 /** What is on screen mid-turn, and is not yet a turn. */
 export type Live = {
   /** The answer so far. Provisional — see the header. */
   text: string;
   steps: Step[];
+  /** Spent so far this turn, or null before the first model call reports. */
+  usage: Usage | null;
 };
 
-export const EMPTY_LIVE: Live = { text: "", steps: [] };
+export const EMPTY_LIVE: Live = { text: "", steps: [], usage: null };
 
 /** How a turn ended. Exactly one of `text` and `declined` is set. */
 export type TurnResult = {
@@ -56,6 +65,8 @@ export type TurnResult = {
   declined: string | null;
   /** What it did, in order. Kept beside the answer it produced. */
   steps: Step[];
+  /** What the turn cost, or null if the server counted nothing. */
+  usage: Usage | null;
 };
 
 let noteCounter = 0;
@@ -84,8 +95,9 @@ export async function runAi2Turn(
   let steps: Step[] = [];
   let answered: string | null = null;
   let declined: string | null = null;
+  let usage: Usage | null = null;
 
-  const publish = () => onLive({ text, steps });
+  const publish = () => onLive({ text, steps, usage });
 
   const onEvent = (event: Ai2Event) => {
     switch (event.type) {
@@ -144,6 +156,15 @@ export async function runAi2Turn(
         publish();
         return;
 
+      case "usage":
+        usage = {
+          promptTokens: event.promptTokens,
+          outputTokens: event.outputTokens,
+          thinkingTokens: event.thinkingTokens,
+        };
+        publish();
+        return;
+
       case "unavailable":
         declined = event.reason;
         return;
@@ -156,5 +177,6 @@ export async function runAi2Turn(
     text: answered !== null && answered !== "" ? answered : null,
     declined,
     steps,
+    usage,
   };
 }

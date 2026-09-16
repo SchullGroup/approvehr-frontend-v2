@@ -48,6 +48,7 @@ export type Ai2Event =
   | { type: "lookup"; round: number; index: number; entity?: string }
   | { type: "lookup_done"; round: number; index: number; refused: boolean }
   | { type: "answer"; text: string }
+  | { type: "usage"; promptTokens: number; outputTokens: number; thinkingTokens: number }
   | { type: "unavailable"; reason: string };
 
 export const ai2Status = (): Promise<Ai2Status> =>

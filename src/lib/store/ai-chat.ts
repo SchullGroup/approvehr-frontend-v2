@@ -13,10 +13,16 @@ import {
   type ApiChatReply,
   type ApiProposedAction,
 } from "@/lib/api/ai";
-import { EMPTY_LIVE, runAi2Turn, type Live, type Step } from "./ai2-turn";
+import {
+  EMPTY_LIVE,
+  runAi2Turn,
+  type Live,
+  type Step,
+  type Usage,
+} from "./ai2-turn";
 import { useSession } from "./session";
 
-export type { Live, Step } from "./ai2-turn";
+export type { Live, Step, Usage } from "./ai2-turn";
 import { findScriptedAnswer } from "@/lib/mock/sales-script-qa";
 import { scriptedFallback } from "@/lib/sales-script";
 
@@ -87,6 +93,8 @@ export type ChatTurn =
        * cannot say. `used` stays for the scripted build, which has no stream.
        */
       steps?: Step[];
+      /** Tokens this turn spent, as the server counted them. */
+      usage?: Usage;
       /** Present when this turn proposed a change. Never edited. */
       proposed?: ApiProposedAction;
       /** Set once `confirm` succeeded. The API's re-read of what it did. */
@@ -323,6 +331,7 @@ export function useAssistantChat(): ChatState & ChatActions {
           content: result.text,
           used: [],
           steps: result.steps,
+          ...(result.usage ? { usage: result.usage } : {}),
         },
       ]);
       return true;
