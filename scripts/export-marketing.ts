@@ -132,6 +132,22 @@ const COPY: string[] = [
   "src/components/marketing",
   "src/components/brand",
   "src/lib/cn.ts",
+  /*
+   * The PAYE calculator's two reaches outside `lib/marketing`.
+   *
+   * `use-debounced.ts` is a generic hook with no imports but React, on the same
+   * footing as `cn.ts` beside it.
+   *
+   * `reference/lists.ts` is here rather than copied into `lib/marketing`
+   * because its own header is an account of what a second copy costs: the tax
+   * states were declared inline in two screens, drifted to five states against
+   * thirty-seven, and disagreed about whether the capital is `Abuja` or `FCT`.
+   * The calculator asks the visitor for the same state the app files them
+   * under, so it has to be the same list. The file imports nothing, so this
+   * pulls no further app code into the closure.
+   */
+  "src/lib/use-debounced.ts",
+  "src/lib/reference/lists.ts",
   "src/lib/marketing",
   "public/brand",
   "public/clients",
