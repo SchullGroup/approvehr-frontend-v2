@@ -21,12 +21,8 @@ import {
 } from "@/components/ui";
 import { MAX_CHAT_MESSAGE_CHARS } from "@/lib/api/ai";
 import { useAssistantAvailable } from "@/lib/store/ai";
-import {
-  useAssistantChat,
-  type ChatTurn,
-  type Usage,
-} from "@/lib/store/ai-chat";
-import { LiveTurn, Steps } from "@/components/ai/turn-progress";
+import { useAssistantChat, type ChatTurn } from "@/lib/store/ai-chat";
+import { LiveTurn } from "@/components/ai/turn-progress";
 import { UsageGauge } from "@/components/ai/usage-gauge";
 import { AssistantOrb } from "./assistant-orb";
 
@@ -252,15 +248,10 @@ function Turn({
         </p>
       )}
 
-      {(turn.steps?.length ?? 0) > 0 && <Steps steps={turn.steps ?? []} />}
-
-      {(turn.steps?.length ?? 0) === 0 && (turn.used?.length ?? 0) > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 text-meta text-muted">
-          <span>Read from: {turn.used?.join(", ").replace(/_/g, " ")}</span>
-        </div>
-      )}
-
-      {turn.usage && <UsageLine usage={turn.usage} />}
+      {/* What it read is narrated while it reads, beside the orb, and what the
+          turn cost is the gauge's job — neither belongs under a finished
+          answer, where they push the answer up the card and say nothing
+          anybody acts on. */}
 
       {turn.proposed && (
         <Proposal
@@ -272,31 +263,6 @@ function Turn({
         />
       )}
     </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/** What the turn cost, in the model's own counting. */
-function UsageLine({ usage }: { usage: Usage }) {
-  const total = usage.promptTokens + usage.outputTokens + usage.thinkingTokens;
-  if (total === 0) return null;
-
-  const parts = [
-    `${usage.promptTokens.toLocaleString()} in`,
-    `${usage.outputTokens.toLocaleString()} out`,
-    ...(usage.thinkingTokens > 0
-      ? [`${usage.thinkingTokens.toLocaleString()} thinking`]
-      : []),
-  ];
-
-  return (
-    <p
-      className="text-meta text-faint"
-      title={`${total.toLocaleString()} tokens in total`}
-    >
-      {total.toLocaleString()} tokens ({parts.join(" · ")})
-    </p>
   );
 }
 

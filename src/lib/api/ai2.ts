@@ -44,12 +44,20 @@ export type Ai2Event =
 export const ai2Status = (): Promise<Ai2Status> =>
   request<Ai2Status>("/ai2/status");
 
-/** This organisation's token spend so far this month, against its budget. */
-export type Ai2Usage = {
+/** One window's token spend against its budget. */
+export type Ai2UsageWindow = {
   usedTokens: number;
   limitTokens: number;
-  /** ISO instant the current month ends. */
+  /** 0–100, rounded and clamped by the server, so both ends show one number. */
+  usedPercent: number;
+  /** ISO instant this window ends and the count starts again. */
   periodEnd: string;
+};
+
+/** This organisation's token spend today and this month, against its budgets. */
+export type Ai2Usage = {
+  day: Ai2UsageWindow;
+  month: Ai2UsageWindow;
 };
 
 export const ai2Usage = (signal?: AbortSignal): Promise<Ai2Usage> =>
