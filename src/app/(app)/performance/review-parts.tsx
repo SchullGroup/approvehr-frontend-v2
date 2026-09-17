@@ -7,6 +7,7 @@ import {
   Button,
   Field,
   FileField,
+  RadioCard,
   Select,
   Textarea,
   useToast,
@@ -381,19 +382,46 @@ export function AnswerField({
 
   if (question.kind === "RATING") {
     return (
-      <Field label={question.prompt} required={question.required}>
-        <Select
-          value={held.rating ?? ""}
-          placeholder="Pick a mark"
-          onChange={(event) => onChange({ rating: event.target.value })}
-        >
+      /* A `fieldset` and a `legend`, not a `Field`: a `Field` wires one
+         `<label for>` at one control and a scale has five. Same shape as the
+         conduct dialog's severity picker, which is the established one here.
+
+         Cards rather than the `<Select>` this was, because `meaning` had
+         nowhere to go inside an `<option>`. `ratingOptionsFrom` has always
+         returned it and every caller dropped it — so the sentence
+         `RatingScaleLevel.meaning` exists to carry ("What it means, so the word
+         is not left to interpretation") reached nobody at the one moment it is
+         load-bearing, which is while somebody is choosing a level. A scale
+         everybody reads differently is not a scale. */
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 text-body-sm font-medium text-ink">
+          {question.prompt}
+          {question.required && (
+            <span className="ml-0.5 text-danger-text" aria-hidden="true">
+              *
+            </span>
+          )}
+          {question.required && (
+            <span className="sr-only-focusable"> required</span>
+          )}
+        </legend>
+        <div className="grid gap-2">
           {ratingOptionsFrom(scale).map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
+            <RadioCard
+              key={option.value}
+              name={`rating-${question.id}`}
+              value={option.value}
+              label={option.label}
+              /* A company may leave a level's meaning blank — the column
+                 defaults to empty. An empty description renders an empty line,
+                 so it is absent rather than blank. */
+              {...(option.meaning ? { description: option.meaning } : {})}
+              checked={held.rating === option.value}
+              onChange={() => onChange({ rating: option.value })}
+            />
           ))}
-        </Select>
-      </Field>
+        </div>
+      </fieldset>
     );
   }
 

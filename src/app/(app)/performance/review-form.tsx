@@ -40,6 +40,7 @@ import {
   ratingOptionsFrom,
   type Draft,
 } from "./review-parts";
+import { SelfEvidence } from "./self-evidence";
 
 /**
  * One review, opened.
@@ -88,10 +89,13 @@ import {
 
 export function ReviewFormModal({
   reviewId,
+  open,
   onClose,
   onDone,
 }: {
-  reviewId: string;
+  /** `null` while closed. `useReview` already tolerates that. */
+  reviewId: string | null;
+  open: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -130,7 +134,7 @@ export function ReviewFormModal({
 
   if (loading) {
     return (
-      <Modal open onClose={onClose} title="Review" size="md">
+      <Modal open={open} onClose={onClose} title="Review" size="md">
         <span className="flex items-center gap-2 text-body-sm text-muted">
           <Spinner size="sm" />
           Loading the form
@@ -141,7 +145,7 @@ export function ReviewFormModal({
 
   if (!review) {
     return (
-      <Modal open onClose={onClose} title="Review" size="md">
+      <Modal open={open} onClose={onClose} title="Review" size="md">
         <p className="text-body-sm text-body">
           {error?.message ?? "That review is not available to you."}
         </p>
@@ -261,7 +265,7 @@ export function ReviewFormModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`${review.kindLabel} · ${review.cycleName}`}
       description={
@@ -369,6 +373,21 @@ export function ReviewFormModal({
         {/* Presence, not a value. Absent is a form the mapping never covered. */}
         {review.appraiser && (
           <AppraiserStrip appraiser={review.appraiser} mine={review.mine} />
+        )}
+
+        {/* What they actually did, above the questions about it.
+
+            Self-reviews only, and only while it is still a form. `SelfEvidence`
+            reads the **signed-in person's** objectives and tasks, so it has no
+            business on a review about somebody else — that would put the
+            manager's own numbers under the subject's name. And after sending,
+            these figures go on moving: shown beside a submitted review they
+            would read as what was reported, which they are not. */}
+        {editable && review.kind === "SELF" && (
+          <SelfEvidence
+            periodStart={review.periodStart}
+            periodEnd={review.periodEnd}
+          />
         )}
 
         {failed && (

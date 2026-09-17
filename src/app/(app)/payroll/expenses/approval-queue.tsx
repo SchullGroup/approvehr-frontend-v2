@@ -213,16 +213,15 @@ export function ApprovalQueue({
         )}
       </Card>
 
-      {declining && (
-        <DeclineDialog
-          claim={declining}
-          onClose={() => setDeclining(null)}
-          onDecline={async (reason) => {
-            await onDecline(declining, reason);
-            setDeclining(null);
-          }}
-        />
-      )}
+      <DeclineDialog
+        claim={declining}
+        onClose={() => setDeclining(null)}
+        onDecline={async (reason) => {
+          if (!declining) return;
+          await onDecline(declining, reason);
+          setDeclining(null);
+        }}
+      />
     </>
   );
 }
@@ -278,7 +277,9 @@ function DeclineDialog({
   onClose,
   onDecline,
 }: {
-  claim: Claim;
+  /* Nullable: `ApprovalQueue` renders this unconditionally now and passes
+     whichever claim is being declined, or `null` when none is. */
+  claim: Claim | null;
   onClose: () => void;
   onDecline: (reason: string) => Promise<void>;
 }) {
@@ -287,11 +288,15 @@ function DeclineDialog({
 
   return (
     <Modal
-      open
+      open={claim !== null}
       onClose={onClose}
       size="sm"
-      title={`Decline ${claim.employeeName}'s claim?`}
-      description={`${claim.description}. They will read your reason.`}
+      title={
+        claim ? `Decline ${claim.employeeName}'s claim?` : "Decline claim?"
+      }
+      description={
+        claim ? `${claim.description}. They will read your reason.` : undefined
+      }
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose} disabled={busy}>
@@ -300,7 +305,7 @@ function DeclineDialog({
           <Button
             variant="danger"
             loading={busy}
-            disabled={busy || reason.trim() === ""}
+            disabled={busy || reason.trim() === "" || !claim}
             onClick={() => {
               setBusy(true);
               void onDecline(reason.trim()).finally(() => setBusy(false));

@@ -46,14 +46,23 @@ import { useOrgTimezone } from "@/lib/store/session";
  * where the action was taken rather than as a toast that scrolls away.
  */
 export function HandOverDialog({
-  item,
+  item: itemProp,
+  open,
   onClose,
   onHandOver,
 }: {
-  item: EquipmentItem;
+  /** `null` while closed — see the freeze below for why. */
+  item: EquipmentItem | null;
+  open: boolean;
   onClose: () => void;
   onHandOver: (input: HandOverInput) => Promise<void>;
 }) {
+  /* Remembers the last real item: the parent clears its prop to null the
+     instant it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`. */
+  const [item, setItem] = useState(itemProp);
+  if (itemProp && itemProp !== item) setItem(itemProp);
+
   const { employees, loading: peopleLoading } = useEmployeeDirectory({
     pageSize: 200,
   });
@@ -61,7 +70,9 @@ export function HandOverDialog({
 
   const [employeeId, setEmployeeId] = useState("");
   const [assignedOn, setAssignedOn] = useState(today(timeZone));
-  const [condition, setCondition] = useState<AssetCondition>(item.condition);
+  const [condition, setCondition] = useState<AssetCondition>(
+    item?.condition ?? "GOOD",
+  );
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -77,6 +88,8 @@ export function HandOverDialog({
         .sort((a, b) => a.name.localeCompare(b.name)),
     [employees],
   );
+
+  if (!item) return null;
 
   async function submit() {
     setBusy(true);
@@ -102,7 +115,7 @@ export function HandOverDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Hand over ${item.name}`}
       description={`Tag ${item.tag}${item.kind ? ` · ${item.kind}` : ""}`}

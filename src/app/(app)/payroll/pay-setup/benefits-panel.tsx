@@ -203,28 +203,25 @@ export function BenefitsPanel() {
           </div>
         )}
       </div>
-      {creating && (
-        <PlanDialog
-          preTaxNotice={notices.data?.preTax ?? null}
-          onClose={() => setCreating(false)}
-          onDone={() => {
-            setCreating(false);
-            plans.reload();
-          }}
-        />
-      )}
-      {enrolTo && (
-        <EnrolDialog
-          plan={enrolTo}
-          wholeMonthNotice={notices.data?.wholeMonth ?? null}
-          onClose={() => setEnrolTo(null)}
-          onDone={() => {
-            setEnrolTo(null);
-            plans.reload();
-            enrolments.reload();
-          }}
-        />
-      )}
+      <PlanDialog
+        open={creating}
+        preTaxNotice={notices.data?.preTax ?? null}
+        onClose={() => setCreating(false)}
+        onDone={() => {
+          setCreating(false);
+          plans.reload();
+        }}
+      />
+      <EnrolDialog
+        plan={enrolTo}
+        wholeMonthNotice={notices.data?.wholeMonth ?? null}
+        onClose={() => setEnrolTo(null)}
+        onDone={() => {
+          setEnrolTo(null);
+          plans.reload();
+          enrolments.reload();
+        }}
+      />
     </>
   );
 }
@@ -493,10 +490,12 @@ const koboFrom = (value: string): number =>
   Math.round((Number(value.replace(/,/g, "")) || 0) * 100);
 
 function PlanDialog({
+  open,
   preTaxNotice,
   onClose,
   onDone,
 }: {
+  open: boolean;
   preTaxNotice: string | null;
   onClose: () => void;
   onDone: () => void;
@@ -515,7 +514,7 @@ function PlanDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Add a benefit"
       description="What it costs the company, and what comes off the employee's pay."
@@ -653,7 +652,9 @@ function EnrolDialog({
   onClose,
   onDone,
 }: {
-  plan: ApiBenefitPlan;
+  /* Nullable: `BenefitsPanel` renders this unconditionally now and passes
+     whichever plan is being enrolled into, or `null` when none is. */
+  plan: ApiBenefitPlan | null;
   wholeMonthNotice: string | null;
   onClose: () => void;
   onDone: () => void;
@@ -683,16 +684,17 @@ function EnrolDialog({
 
   return (
     <Modal
-      open
+      open={plan !== null}
       onClose={onClose}
-      title={`Put somebody on ${plan.name}`}
+      title={plan ? `Put somebody on ${plan.name}` : "Put somebody on a plan"}
       footer={
         <div className="flex items-center gap-2">
           <Button
             variant="accent"
             loading={busy}
-            disabled={employeeId === "" || effectiveStartedOn === ""}
+            disabled={!plan || employeeId === "" || effectiveStartedOn === ""}
             onClick={() => {
+              if (!plan) return;
               void (async () => {
                 setBusy(true);
                 setFailure(null);
@@ -769,13 +771,15 @@ function EnrolDialog({
             checked={priceThem}
             onChange={(event) => setPriceThem(event.target.checked)}
           />
-          <p className="text-meta text-faint">
-            Leave it off and the plan&rsquo;s own price applies:{" "}
-            <Money amount={plan.employerMonthlyKobo / 100} decimals /> from the
-            company and{" "}
-            <Money amount={plan.employeeMonthlyKobo / 100} decimals /> from
-            them.
-          </p>
+          {plan && (
+            <p className="text-meta text-faint">
+              Leave it off and the plan&rsquo;s own price applies:{" "}
+              <Money amount={plan.employerMonthlyKobo / 100} decimals /> from
+              the company and{" "}
+              <Money amount={plan.employeeMonthlyKobo / 100} decimals /> from
+              them.
+            </p>
+          )}
           {priceThem && (
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Company pays a month">

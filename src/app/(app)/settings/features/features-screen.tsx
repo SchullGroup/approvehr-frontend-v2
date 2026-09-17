@@ -15,6 +15,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -226,17 +227,16 @@ export function FeaturesScreen() {
         )}
 
         {features.setupRequired && features.editable && (
-          /* Five questions set all of this at once, so the way out of here is a
-             link to them rather than a sentence about them. */
-          <Callout tone="accent" title="Setup is not finished">
-            <Link
-              href="/setup"
-              className="font-medium underline decoration-accent-line underline-offset-4 hover:decoration-accent"
-            >
+          /* Five questions set all of this at once, so the way out of here is
+             a link to them rather than a sentence about them. See
+             `NoticeLine`. */
+          <NoticeLine tone="accent">
+            <span>Setup is not finished.</span>
+            <Link href="/setup" className={NOTICE_LINK}>
               Answer the five setup questions
-            </Link>{" "}
-            and these get set for you.
-          </Callout>
+            </Link>
+            <span>and these get set for you.</span>
+          </NoticeLine>
         )}
 
         <Card>

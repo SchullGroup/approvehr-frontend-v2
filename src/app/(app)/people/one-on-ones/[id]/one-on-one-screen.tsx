@@ -120,16 +120,18 @@ export function OneOnOneScreen({ seriesId }: { seriesId: string }) {
           </div>
         )}
       </PageBody>
-      {scheduling && (
-        <ScheduleDialog
-          seriesId={seriesId}
-          onClose={() => setScheduling(false)}
-          onDone={() => {
-            setScheduling(false);
-            read.reload();
-          }}
-        />
-      )}
+      {/* No `{scheduling && (...)}` gate — `Modal` inside decides visibility
+          from its own `open` prop, so this stays mounted. `seriesId` is the
+          route's own id, always available regardless of `scheduling`. */}
+      <ScheduleDialog
+        open={scheduling}
+        seriesId={seriesId}
+        onClose={() => setScheduling(false)}
+        onDone={() => {
+          setScheduling(false);
+          read.reload();
+        }}
+      />
     </>
   );
 }
@@ -300,16 +302,17 @@ function Meeting({
           </Callout>
         )}
       </CardBody>
-      {adding && (
-        <AddItemDialog
-          meetingId={meeting.id}
-          onClose={() => setAdding(false)}
-          onDone={() => {
-            setAdding(false);
-            onChanged();
-          }}
-        />
-      )}
+      {/* No `{adding && (...)}` gate, for the same reason as `ScheduleDialog`
+          above — `meeting.id` is always available regardless of `adding`. */}
+      <AddItemDialog
+        open={adding}
+        meetingId={meeting.id}
+        onClose={() => setAdding(false)}
+        onDone={() => {
+          setAdding(false);
+          onChanged();
+        }}
+      />
     </Card>
   );
 }
@@ -366,10 +369,12 @@ function Item({
 }
 
 function ScheduleDialog({
+  open,
   seriesId,
   onClose,
   onDone,
 }: {
+  open: boolean;
   seriesId: string;
   onClose: () => void;
   onDone: () => void;
@@ -382,7 +387,7 @@ function ScheduleDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Put one in the diary"
       footer={
@@ -449,10 +454,12 @@ function ScheduleDialog({
  * its options, is a refusal.
  */
 function AddItemDialog({
+  open,
   meetingId,
   onClose,
   onDone,
 }: {
+  open: boolean;
   meetingId: string;
   onClose: () => void;
   onDone: () => void;
@@ -467,7 +474,7 @@ function AddItemDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Add to this one-to-one"
       footer={

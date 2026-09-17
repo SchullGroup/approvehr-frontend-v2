@@ -334,32 +334,32 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
         )}
       </Card>
 
-      {adding && (
-        <HolidayForm
-          onClose={() => setAdding(false)}
-          onSave={async (body) => {
-            const ok = await run(
-              () => mutations.create(body),
-              `${body.name} added to ${body.date.slice(0, 4)}`,
-            );
-            if (ok) setAdding(false);
-          }}
-        />
-      )}
+      <HolidayForm
+        open={adding}
+        onClose={() => setAdding(false)}
+        onSave={async (body) => {
+          const ok = await run(
+            () => mutations.create(body),
+            `${body.name} added to ${body.date.slice(0, 4)}`,
+          );
+          if (ok) setAdding(false);
+        }}
+      />
 
-      {editing && (
-        <HolidayForm
-          holiday={editing}
-          onClose={() => setEditing(null)}
-          onSave={async (body) => {
-            const ok = await run(
-              () => mutations.update(editing.id, body),
-              "Saved",
-            );
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
+      <HolidayForm
+        open={editing !== null}
+        holiday={editing ?? undefined}
+        onClose={() => setEditing(null)}
+        onSave={async (body) => {
+          const target = editing;
+          if (!target) return;
+          const ok = await run(
+            () => mutations.update(target.id, body),
+            "Saved",
+          );
+          if (ok) setEditing(null);
+        }}
+      />
 
       <ConfirmDialog
         open={deleting !== null}
