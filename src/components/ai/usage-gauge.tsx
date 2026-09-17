@@ -1,57 +1,94 @@
 "use client";
 
 import { ProgressMeter } from "@/components/ui";
+import type { Ai2UsageWindow } from "@/lib/api/ai2";
 import { useAi2Usage } from "@/lib/store/ai2-usage";
 
 /**
- * How much of this month's token budget the assistant has spent. Reads
- * `useAi2Usage`, which is shared across every mount — asking here costs no
- * extra request. Renders nothing while offline, loading, or unreadable: an
- * absent gauge is honest, a `0` one is a claim about spend nobody measured.
+ * How much of the assistant's budget this organisation has spent — today and
+ * this month. Reads `useAi2Usage`, which is shared across every mount, so
+ * asking here costs no extra request. Renders nothing while offline, loading,
+ * or unreadable: an absent gauge is honest, a `0` one is a claim about spend
+ * nobody measured.
+ *
+ * The reading is a **percentage**, never a token count. A token is not a unit
+ * anybody running a company has an opinion about — "1.2M of 2M" says nothing
+ * the bar has not already said — while "61%" is the whole of what the figure
+ * is for. The server rounds it, so both ends show one number.
+ *
+ * Two windows rather than one, because a month's budget says nothing about an
+ * afternoon that spends a third of it, and the day is the window that moves
+ * fast enough to notice.
  */
-function formatTokenCount(value: number): string {
-  if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
-  }
-  if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
-  }
-  return value.toLocaleString();
+
+function toneFor(percent: number): "accent" | "warning" | "danger" {
+  return percent >= 95 ? "danger" : percent >= 80 ? "warning" : "accent";
+}
+
+/* `spent` rather than `window`, which would shadow the global inside this
+   component and read as the DOM one to anybody skimming. */
+function Meter({
+  label,
+  spent,
+  size,
+}: {
+  label: string;
+  spent: Ai2UsageWindow;
+  size: "sm" | "md";
+}) {
+  return (
+    <ProgressMeter
+      label={label}
+      value={spent.usedPercent}
+      max={100}
+      size={size}
+      tone={toneFor(spent.usedPercent)}
+    />
+  );
 }
 
 export function UsageGauge({
   compact = false,
   className,
 }: {
-  /** Drops the reset date, for a tight space like the chat card header. */
+  /** One meter and no reset date, for a tight space like the chat card header. */
   compact?: boolean;
   className?: string;
 }) {
   const usage = useAi2Usage();
   if (!usage) return null;
 
-  const pct = usage.limitTokens > 0 ? usage.usedTokens / usage.limitTokens : 0;
-  const tone = pct >= 0.95 ? "danger" : pct >= 0.8 ? "warning" : "accent";
-  const resets = new Date(usage.periodEnd).toLocaleDateString("en-GB", {
+  const { day, month } = usage;
+
+  /* Compact has room for one bar, so it shows whichever window is closer to
+     being spent — that is the one about to stop somebody mid-question. */
+  if (compact) {
+    const tighter = day.usedPercent >= month.usedPercent ? day : month;
+    return (
+      <div className={className}>
+        <Meter
+          label={tighter === day ? "Used today" : "Used this month"}
+          spent={tighter}
+          size="sm"
+        />
+      </div>
+    );
+  }
+
+  const resets = new Date(month.periodEnd).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",
   });
 
   return (
     <div className={className}>
-      <ProgressMeter
-        value={usage.usedTokens}
-        max={usage.limitTokens}
-        size={compact ? "sm" : "md"}
-        tone={tone}
-        showValue={false}
-      />
-      <p className="mt-1 flex items-baseline justify-between gap-2 text-meta text-muted">
-        <span>
-          {formatTokenCount(usage.usedTokens)} /{" "}
-          {formatTokenCount(usage.limitTokens)} tokens this month
-        </span>
-        {!compact && <span>Resets {resets}</span>}
+      <div className="flex flex-col gap-3">
+        <Meter label="Used today" spent={day} size="md" />
+        <Meter label="Used this month" spent={month} size="md" />
+      </div>
+      <p className="mt-2 text-meta text-muted">
+        Today&rsquo;s share starts again at midnight UTC. The month&rsquo;s
+        resets on {resets}.
       </p>
     </div>
   );

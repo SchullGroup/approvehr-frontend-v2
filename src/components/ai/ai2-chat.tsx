@@ -11,7 +11,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { AssistantOrb } from "@/components/portal/assistant-orb";
-import { LiveTurn, Steps } from "@/components/ai/turn-progress";
+import { LiveTurn } from "@/components/ai/turn-progress";
 import { UsageGauge } from "@/components/ai/usage-gauge";
 import {
   useAi2Available,
@@ -204,12 +204,11 @@ function Turn({ turn }: { turn: Ai2Turn }) {
     );
   }
 
+  /* No step list here: what it read is narrated while it reads, beside the
+     orb, and a landed turn is just the answer. */
   return (
-    <div className="flex flex-col gap-2">
-      {turn.steps && turn.steps.length > 0 && <Steps steps={turn.steps} />}
-      <p className="max-w-[44rem] rounded-lg border border-line bg-canvas px-3 py-2 text-body-sm leading-relaxed whitespace-pre-wrap text-ink">
-        {turn.content}
-      </p>
-    </div>
+    <p className="max-w-[44rem] rounded-lg border border-line bg-canvas px-3 py-2 text-body-sm leading-relaxed whitespace-pre-wrap text-ink">
+      {turn.content}
+    </p>
   );
 }
