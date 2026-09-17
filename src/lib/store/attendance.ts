@@ -108,6 +108,73 @@ export function nowTime(timeZone: string): string {
 const entryId = (employeeId: string, date: string) =>
   `att-${employeeId}-${date}`;
 
+/* ==========================================================================
+ * A clock event invalidates every attendance read on screen
+ * ======================================================================== */
+
+/**
+ * Clocking in or out changes what four separate reads would answer, and until
+ * this existed each **call site** was expected to know which ones.
+ *
+ * It did not work, because there are two places to clock from and they had
+ * different lists. `ClockMenu` lives in the top bar on every screen and
+ * reloaded the shell's roster and nothing else. `MyClockCard` reloaded its own
+ * roster and called `onRecorded`, which on `/people/attendance` reloaded the
+ * roster and the 15-day timesheet — but not "Your day-by-day record" or the
+ * corrections beside it, because that panel takes no props and fetches for
+ * itself. So clocking in left your own record showing yesterday until you
+ * reloaded the page, and clocking in from the navbar left the whole screen
+ * stale.
+ *
+ * The fix is not a longer list at each call site — that is the thing that was
+ * already wrong, and the next panel added to this screen would be stale again.
+ * The mutation announces, and every attendance read listens. A call site cannot
+ * forget a panel it has never heard of.
+ *
+ * Shaped on `lib/revalidate.ts`, deliberately, and deliberately **not** that
+ * module: a window regaining focus is a guess that something somewhere may have
+ * changed, and is rate-limited for it. This is a write this browser just made
+ * and had confirmed, so it is neither a guess nor frequent — twice a day per
+ * person — and it re-asks only the four reads that a clock can actually move,
+ * rather than every store in the app.
+ */
+let clockGeneration = 0;
+const clockListeners = new Set<() => void>();
+
+/** Called after a clock, an undo or a correction the server accepted. */
+function announceClock(): void {
+  clockGeneration += 1;
+  for (const listener of clockListeners) listener();
+}
+
+function subscribeClock(listener: () => void): () => void {
+  clockListeners.add(listener);
+  return () => {
+    clockListeners.delete(listener);
+  };
+}
+
+const clockSnapshot = () => clockGeneration;
+/* The server has no clock events, and starting both sides at the same number
+   is what keeps this out of hydration. */
+const clockServerSnapshot = () => 0;
+
+/**
+ * The number that goes up on every clock event.
+ *
+ * Put it in a fetch effect's dependency list, never in the key a hook compares
+ * during render to decide `loading` — same rule as `useRevalidation`. The
+ * effect refires, the answer replaces the old one when it lands, and the panel
+ * never flashes a skeleton over a row it is already showing.
+ */
+function useClockGeneration(): number {
+  return useSyncExternalStore(
+    subscribeClock,
+    clockSnapshot,
+    clockServerSnapshot,
+  );
+}
+
 export function useAttendanceStore() {
   const state = useSyncExternalStore(
     store.subscribe,
@@ -385,6 +452,7 @@ export function useAttendanceRoster(
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
+  const clocked = useClockGeneration();
   useEffect(() => {
     if (!isConnected || !enabled) return;
     const ticket = latest.current + 1;
@@ -431,7 +499,7 @@ export function useAttendanceRoster(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, enabled, date, key, revalidation]);
+  }, [isConnected, enabled, date, key, revalidation, clocked]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -573,6 +641,7 @@ export function useAttendanceHistory(params: HistoryParams = {}): HistoryState {
   const latest = useRef(0);
 
   const revalidation = useRevalidation();
+  const clocked = useClockGeneration();
   useEffect(() => {
     if (!isConnected) return;
     const ticket = latest.current + 1;
@@ -605,7 +674,7 @@ export function useAttendanceHistory(params: HistoryParams = {}): HistoryState {
       controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `params` is a fresh object every render; `key` already carries every primitive field it contributes.
-  }, [isConnected, key, revalidation]);
+  }, [isConnected, key, revalidation, clocked]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   const matched = fetched !== null && fetched.key === key;
@@ -710,6 +779,7 @@ export function useMyCorrections(): CorrectionsState {
   } | null>(null);
 
   const revalidation = useRevalidation();
+  const clocked = useClockGeneration();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -734,7 +804,7 @@ export function useMyCorrections(): CorrectionsState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, tick, revalidation]);
+  }, [isConnected, tick, revalidation, clocked]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   const matched = fetched !== null && fetched.key === tick;
@@ -975,6 +1045,7 @@ export function useAttendanceTimesheet(
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
+  const clocked = useClockGeneration();
   useEffect(() => {
     if (!isConnected || !enabled) return;
     const ticket = latest.current + 1;
@@ -1010,7 +1081,7 @@ export function useAttendanceTimesheet(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, enabled, days, key, revalidation]);
+  }, [isConnected, enabled, days, key, revalidation, clocked]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   const matched = fetched !== null && fetched.key === key;
@@ -1186,16 +1257,22 @@ export function useAttendanceMutations() {
            for a permission this mode cannot act on would be worse than the gap.
            `workLocation` is absent rather than null: the demo genuinely does not
            resolve a name here, and absent is not the same claim as "none". */
+        announceClock();
         return { employeeId: actingId, date: TODAY, time: at };
       }
 
       /* On the click, not on page load, and only where the answer matters. */
       const position = location?.geofenceEnforced ? await readPosition() : null;
 
-      return attendanceApi.clockIn({
+      const recorded = await attendanceApi.clockIn({
         ...(location ? { workLocationId: location.id } : {}),
         ...(position ? { position } : {}),
       });
+      /* After the server confirmed it, never beside the attempt — a refetch
+         triggered by a clock that was refused would re-render the same rows
+         and read as the refusal having worked. */
+      announceClock();
+      return recorded;
     },
     [isConnected, actingId, local, timeZone],
   );
@@ -1219,9 +1296,12 @@ export function useAttendanceMutations() {
       }
       const at = nowTime(timeZone);
       local.clockOut(actingId, at);
+      announceClock();
       return { employeeId: actingId, date: TODAY, time: at };
     }
-    return attendanceApi.clockOut();
+    const recorded = await attendanceApi.clockOut();
+    announceClock();
+    return recorded;
   }, [isConnected, actingId, local, timeZone]);
 
   /**
@@ -1249,9 +1329,12 @@ export function useAttendanceMutations() {
         { clockOut: undefined },
         "Clock-out reversed",
       );
+      announceClock();
       return { employeeId: actingId, date: TODAY, clockIn: entry.clockIn };
     }
-    return attendanceApi.undoClockOut();
+    const reversed = await attendanceApi.undoClockOut();
+    announceClock();
+    return reversed;
   }, [isConnected, actingId, local]);
 
   /**
@@ -1293,6 +1376,7 @@ export function useAttendanceMutations() {
           },
           reason,
         );
+        announceClock();
         return;
       }
       await attendanceApi.correct(employeeId, date, {
@@ -1303,6 +1387,7 @@ export function useAttendanceMutations() {
           : { workLocationId: patch.locationId }),
         note: reason,
       });
+      announceClock();
     },
     [isConnected, local],
   );
