@@ -63,19 +63,34 @@ const ACTS: Record<
 };
 
 export function ApprovalReasonDialog({
-  act,
-  goalTitle,
+  act: actProp,
+  goalTitle: goalTitleProp,
+  open,
   onClose,
   onConfirm,
 }: {
-  act: ApprovalAct;
-  goalTitle: string;
+  /** `null` while closed — see the freeze below for why. */
+  act: ApprovalAct | null;
+  /** `null` while closed — see the freeze below for why. */
+  goalTitle: string | null;
+  open: boolean;
   onClose: () => void;
   onConfirm: (reason: string) => Promise<void>;
 }) {
+  /* Remembers the last real act and title: the caller clears its props to
+     null the instant it closes this, but the modal has to stay mounted with
+     real content so `Modal` below can animate its own close off the real
+     `open`. */
+  const [act, setAct] = useState(actProp);
+  if (actProp && actProp !== act) setAct(actProp);
+  const [goalTitle, setGoalTitle] = useState(goalTitleProp);
+  if (goalTitleProp && goalTitleProp !== goalTitle) setGoalTitle(goalTitleProp);
+
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+
+  if (!act || goalTitle === null) return null;
 
   const spec = ACTS[act];
   const ready = reason.trim().length >= MIN_REASON;
@@ -99,7 +114,7 @@ export function ApprovalReasonDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={spec.title(goalTitle)}
       size="sm"

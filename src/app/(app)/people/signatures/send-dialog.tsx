@@ -62,9 +62,11 @@ import { fullName } from "@/lib/types";
  * hundred people does not.
  */
 export function SendDialog({
+  open,
   onClose,
   onSent,
 }: {
+  open: boolean;
   onClose: () => void;
   onSent: () => void;
 }) {
@@ -141,7 +143,7 @@ export function SendDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Send a document for signature"
       description="They are asked to read it and adopt it as their signature. Nobody else can sign it for them."

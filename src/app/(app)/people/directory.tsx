@@ -780,19 +780,17 @@ export function Directory({
             </TBody>
           </TableWrap>
 
-          {filling && (
-            <MissingDetailsDialog
-              employee={rows.find((e) => e.id === filling)!}
-              gaps={payrollGapsFor(
-                payrollFieldsForDisplay(rows.find((e) => e.id === filling)!),
-              )}
-              onClose={() => setFilling(null)}
-              onSaved={() => {
-                setFilling(null);
-                reload();
-              }}
-            />
-          )}
+          <MissingDetailsDialog
+            open={filling !== null}
+            employee={
+              filling ? (rows.find((e) => e.id === filling) ?? null) : null
+            }
+            onClose={() => setFilling(null)}
+            onSaved={() => {
+              setFilling(null);
+              reload();
+            }}
+          />
 
           <Pagination
             page={list.page}

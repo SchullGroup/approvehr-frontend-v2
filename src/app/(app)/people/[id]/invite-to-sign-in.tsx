@@ -60,11 +60,16 @@ import type { PendingInvite, SentInvite } from "@/lib/api/invites";
  * screen is never briefly wrong about what pressing the button will do.
  */
 export function InviteToSignIn({
+  open,
   employeeId,
   name,
   email,
   onClose,
 }: {
+  /* Controlled by `InviteToSignInButton`. This dialog stays mounted at all
+     times so its own exit animation can run when `open` goes false, rather
+     than the button unmounting the whole subtree the instant it does. */
+  open: boolean;
   employeeId: string;
   name: string;
   /** From the record. Null sends them to the editor rather than a text box. */
@@ -105,6 +110,10 @@ export function InviteToSignIn({
   const noEmail = delivery?.email === false;
 
   useEffect(() => {
+    /* This component now stays mounted (see `open` above) so its exit
+       animation can run, so the fetch has to be told to wait for somebody to
+       actually open it rather than firing the moment the record page loads. */
+    if (!open) return;
     const controller = new AbortController();
     void (async () => {
       /* Both reads together — the dialog cannot render until it knows the roles
@@ -146,7 +155,7 @@ export function InviteToSignIn({
       );
     })();
     return () => controller.abort();
-  }, [employeeId]);
+  }, [open, employeeId]);
 
   const send = async () => {
     setBusy(true);
@@ -214,7 +223,7 @@ export function InviteToSignIn({
   if (sent) {
     return (
       <Modal
-        open
+        open={open}
         onClose={onClose}
         title="Invitation sent"
         footer={<Button onClick={onClose}>Done</Button>}
@@ -252,7 +261,7 @@ export function InviteToSignIn({
   if (!email) {
     return (
       <Modal
-        open
+        open={open}
         onClose={onClose}
         title="They have no work email"
         footer={<Button onClick={onClose}>Close</Button>}
@@ -268,7 +277,7 @@ export function InviteToSignIn({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={pending ? `${name} has been invited` : `Invite ${name} to sign in`}
       footer={
@@ -440,14 +449,13 @@ export function InviteToSignInButton({
         <KeyRound aria-hidden="true" className="size-3.5" />
         Invite them to sign in
       </Button>
-      {open && (
-        <InviteToSignIn
-          employeeId={employeeId}
-          name={name}
-          email={email}
-          onClose={() => setOpen(false)}
-        />
-      )}
+      <InviteToSignIn
+        open={open}
+        employeeId={employeeId}
+        name={name}
+        email={email}
+        onClose={() => setOpen(false)}
+      />
     </>
   );
 }

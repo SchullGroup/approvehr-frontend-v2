@@ -232,6 +232,9 @@ export function MyAttendanceHistoryPanel() {
 
       {correcting && (
         <RequestCorrectionDialog
+          /* Keyed so opening a different day remounts with fresh state,
+             rather than deriving state from props during render. */
+          key={correcting.date}
           row={correcting}
           onClose={() => setCorrecting(null)}
           onSent={() => {

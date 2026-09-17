@@ -2,8 +2,17 @@
 
 import { useState } from "react";
 import { Check, X } from "lucide-react";
-import { Input, Spinner } from "@/components/ui";
+import { IconButton, Input, Spinner } from "@/components/ui";
 import { formatKobo } from "@/lib/api/payroll";
+
+/* Both `Save` controls below are `IconButton` with an override: the shared
+   `ghost` look fills at rest (`bg-sunken`), which reads as too heavy sitting
+   directly against an open input in a table cell — this pair is meant to be
+   quiet until pressed, so rest stays borderless and transparent. */
+const SAVE_ICON_BUTTON =
+  "rounded-md border border-line bg-transparent text-accent-text hover:bg-canvas hover:text-accent-text active:bg-canvas disabled:bg-transparent disabled:text-faint";
+const CANCEL_ICON_BUTTON =
+  "rounded-md border border-line bg-transparent text-muted hover:bg-canvas hover:text-muted active:bg-canvas";
 
 /**
  * One field, in the cell, on the row.
@@ -89,28 +98,28 @@ export function InlineMoney({
             if (event.key === "Escape") onCancel();
           }}
         />
-        <button
-          type="button"
-          aria-label="Save"
+        <IconButton
+          label="Save"
+          size="sm"
           disabled={!valid || saving}
           onClick={() => onSave(Math.round(parsed * 100))}
-          className="flex size-8 items-center justify-center rounded-md border border-line text-accent-text hover:bg-canvas disabled:text-faint"
+          className={SAVE_ICON_BUTTON}
         >
           {saving ? (
             <Spinner size="sm" />
           ) : (
             <Check aria-hidden="true" className="size-4" />
           )}
-        </button>
-        <button
-          type="button"
-          aria-label="Cancel"
+        </IconButton>
+        <IconButton
+          label="Cancel"
+          size="sm"
           disabled={saving}
           onClick={onCancel}
-          className="flex size-8 items-center justify-center rounded-md border border-line text-muted hover:bg-canvas"
+          className={CANCEL_ICON_BUTTON}
         >
           <X aria-hidden="true" className="size-4" />
-        </button>
+        </IconButton>
       </span>
       {hint && (
         <span className="text-meta leading-tight text-muted">{hint}</span>
@@ -166,28 +175,28 @@ export function InlineHours({
             if (event.key === "Escape") onCancel();
           }}
         />
-        <button
-          type="button"
-          aria-label="Save"
+        <IconButton
+          label="Save"
+          size="sm"
           disabled={!valid || saving}
           onClick={() => onSave(parsed)}
-          className="flex size-8 items-center justify-center rounded-md border border-line text-accent-text hover:bg-canvas disabled:text-faint"
+          className={SAVE_ICON_BUTTON}
         >
           {saving ? (
             <Spinner size="sm" />
           ) : (
             <Check aria-hidden="true" className="size-4" />
           )}
-        </button>
-        <button
-          type="button"
-          aria-label="Cancel"
+        </IconButton>
+        <IconButton
+          label="Cancel"
+          size="sm"
           disabled={saving}
           onClick={onCancel}
-          className="flex size-8 items-center justify-center rounded-md border border-line text-muted hover:bg-canvas"
+          className={CANCEL_ICON_BUTTON}
         >
           <X aria-hidden="true" className="size-4" />
-        </button>
+        </IconButton>
       </span>
       <span className="text-meta leading-tight text-muted">
         {amount === null

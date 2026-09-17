@@ -37,14 +37,23 @@ import { useOrgTimezone } from "@/lib/store/session";
  * nobody is holding it.
  */
 export function RepairDialog({
-  item,
+  item: itemProp,
+  open,
   onClose,
   onLog,
 }: {
-  item: EquipmentItem;
+  /** `null` while closed — see the freeze below for why. */
+  item: EquipmentItem | null;
+  open: boolean;
   onClose: () => void;
   onLog: (input: RepairInput) => Promise<void>;
 }) {
+  /* Remembers the last real item: the parent clears its prop to null the
+     instant it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`. */
+  const [item, setItem] = useState(itemProp);
+  if (itemProp && itemProp !== item) setItem(itemProp);
+
   const timeZone = useOrgTimezone();
   const [description, setDescription] = useState("");
   const [startedOn, setStartedOn] = useState(today(timeZone));
@@ -53,6 +62,8 @@ export function RepairDialog({
   const [vendor, setVendor] = useState("");
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
+
+  if (!item) return null;
 
   const costNumber = cost.trim() === "" ? null : Number(cost);
   const costInvalid =
@@ -86,7 +97,7 @@ export function RepairDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Repair ${item.name}`}
       description={`Tag ${item.tag}`}

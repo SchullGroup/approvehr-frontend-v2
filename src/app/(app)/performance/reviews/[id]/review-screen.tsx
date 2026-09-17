@@ -532,13 +532,17 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
         </div>
       </PageBody>
 
-      {answering && (
-        <ReviewFormModal
-          reviewId={review.id}
-          onClose={() => setAnswering(false)}
-          onDone={reload}
-        />
-      )}
+      {/* Mounted whichever way `answering` is going, so `Modal` can animate
+          its own close off a real `open` — origin/staging's change, kept.
+          `useReview` tolerates a null id, and this screen always has a
+          review, so the id is passed unconditionally exactly as staging
+          passed it. */}
+      <ReviewFormModal
+        reviewId={review.id}
+        open={answering}
+        onClose={() => setAnswering(false)}
+        onDone={reload}
+      />
 
       {signingOff && (
         <SignOffDialog

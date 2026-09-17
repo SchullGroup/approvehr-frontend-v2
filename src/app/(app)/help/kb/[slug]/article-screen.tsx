@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { BookOpen, Check, Eye, ThumbsDown, ThumbsUp } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -12,6 +11,7 @@ import {
   CardFooter,
   EmptyState,
   SkeletonText,
+  TextLink,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { Can } from "@/lib/permissions";
@@ -180,12 +180,9 @@ export function ArticleScreen({ slug }: { slug: string }) {
                 </>
               )}
             </span>
-            <Link
-              href="/help/kb"
-              className="text-body-sm text-muted underline-offset-4 hover:text-ink hover:underline"
-            >
+            <TextLink href="/help/kb" className="text-body-sm">
               All help articles
-            </Link>
+            </TextLink>
           </CardFooter>
         </Card>
 

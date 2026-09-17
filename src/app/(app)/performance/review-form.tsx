@@ -89,10 +89,13 @@ import { SelfEvidence } from "./self-evidence";
 
 export function ReviewFormModal({
   reviewId,
+  open,
   onClose,
   onDone,
 }: {
-  reviewId: string;
+  /** `null` while closed. `useReview` already tolerates that. */
+  reviewId: string | null;
+  open: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -131,7 +134,7 @@ export function ReviewFormModal({
 
   if (loading) {
     return (
-      <Modal open onClose={onClose} title="Review" size="md">
+      <Modal open={open} onClose={onClose} title="Review" size="md">
         <span className="flex items-center gap-2 text-body-sm text-muted">
           <Spinner size="sm" />
           Loading the form
@@ -142,7 +145,7 @@ export function ReviewFormModal({
 
   if (!review) {
     return (
-      <Modal open onClose={onClose} title="Review" size="md">
+      <Modal open={open} onClose={onClose} title="Review" size="md">
         <p className="text-body-sm text-body">
           {error?.message ?? "That review is not available to you."}
         </p>
@@ -262,7 +265,7 @@ export function ReviewFormModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`${review.kindLabel} · ${review.cycleName}`}
       description={

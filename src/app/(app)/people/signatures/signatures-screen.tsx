@@ -231,6 +231,10 @@ export function SignaturesScreen() {
       </PageBody>
       {signing && (
         <SignDialog
+          /* Keyed so signing a different document remounts with fresh
+             state — without it, a typed name could carry over and be
+             submitted as the signature on the wrong document. */
+          key={signing.id}
           record={signing}
           onClose={() => setSigning(null)}
           onDone={() => {
@@ -240,20 +244,21 @@ export function SignaturesScreen() {
           }}
         />
       )}
-      {sending && (
-        <SendDialog
-          onClose={() => setSending(false)}
-          onSent={() => {
-            setSending(false);
-            /* Both, and then the tab moves. What was just sent is not waiting
-               on the sender, so leaving them on "Waiting on me" would answer a
-               successful send with an empty screen. */
-            mine.reload();
-            all.reload();
-            setTab("all");
-          }}
-        />
-      )}
+      {/* No `{sending && (...)}` gate — `Modal` inside `SendDialog` decides
+          visibility from its own `open` prop, so it stays mounted. */}
+      <SendDialog
+        open={sending}
+        onClose={() => setSending(false)}
+        onSent={() => {
+          setSending(false);
+          /* Both, and then the tab moves. What was just sent is not waiting
+             on the sender, so leaving them on "Waiting on me" would answer a
+             successful send with an empty screen. */
+          mine.reload();
+          all.reload();
+          setTab("all");
+        }}
+      />
     </>
   );
 }
@@ -433,70 +438,73 @@ function DeclineButton({
       <Button variant="secondary" onClick={() => setOpen(true)}>
         Decline
       </Button>
-      {open && (
-        <Modal
-          open
-          onClose={() => setOpen(false)}
-          title="Decline to sign"
-          description="Whoever sent it sees your reason."
-          footer={
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                loading={busy}
-                disabled={reason.trim() === ""}
-                onClick={() => {
-                  void (async () => {
-                    setBusy(true);
-                    setFailure(null);
-                    try {
-                      await mutations.decline(record.id, reason);
-                      toast.push({ tone: "success", title: "Declined" });
-                      setOpen(false);
-                      onChanged();
-                    } catch (error) {
-                      setFailure(
-                        error instanceof ApiError
-                          ? error.message
-                          : "Something went wrong. Try again.",
-                      );
-                    } finally {
-                      setBusy(false);
-                    }
-                  })();
-                }}
-              >
-                Decline it
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setOpen(false)}
-                disabled={busy}
-              >
-                Cancel
-              </Button>
-            </div>
-          }
-        >
-          <div className="flex flex-col gap-4">
-            <Field
-              label="Why"
-              help="Required — it is the only thing the sender gets."
+      {/* No `{open && (...)}` wrapper around the `Modal` itself: that wrapping
+          — right here, in the same component — is what unmounts the whole
+          subtree the instant `open` goes false, before `Modal` can see the
+          change and play its own exit animation. `Modal` decides whether to
+          render from the real `open` prop below. */}
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Decline to sign"
+        description="Whoever sent it sees your reason."
+        footer={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              loading={busy}
+              disabled={reason.trim() === ""}
+              onClick={() => {
+                void (async () => {
+                  setBusy(true);
+                  setFailure(null);
+                  try {
+                    await mutations.decline(record.id, reason);
+                    toast.push({ tone: "success", title: "Declined" });
+                    setOpen(false);
+                    onChanged();
+                  } catch (error) {
+                    setFailure(
+                      error instanceof ApiError
+                        ? error.message
+                        : "Something went wrong. Try again.",
+                    );
+                  } finally {
+                    setBusy(false);
+                  }
+                })();
+              }}
             >
-              <Textarea
-                rows={3}
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-              />
-            </Field>
-            {failure && (
-              <Callout tone="danger" title="That was refused">
-                {failure}
-              </Callout>
-            )}
+              Decline it
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setOpen(false)}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
           </div>
-        </Modal>
-      )}
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Field
+            label="Why"
+            help="Required — it is the only thing the sender gets."
+          >
+            <Textarea
+              rows={3}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </Field>
+          {failure && (
+            <Callout tone="danger" title="That was refused">
+              {failure}
+            </Callout>
+          )}
+        </div>
+      </Modal>
     </>
   );
 }
