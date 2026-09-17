@@ -1,9 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
 import { Button } from "@/components/ui";
 import { useDismiss } from "@/hooks/use-dismiss";
-import { useCan } from "@/lib/permissions";
+import type { FeatureKey } from "@/lib/api/setup";
+import {
+  hasAnyPermission,
+  hasPermission,
+  useIsManager,
+  usePermissions,
+  type PermissionKey,
+  type PermissionSet,
+} from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSession } from "@/lib/store/session";
 import { Spotlight, findTarget } from "./spotlight";
@@ -26,13 +35,17 @@ import { Spotlight, findTarget } from "./spotlight";
  * button that means two different things — for the sake of telling you what
  * the nav labels already say.
  *
- * ## It only ever points at something this company has
+ * ## It only ever points at something this company has, and this reader can use
  *
- * The steps are filtered by the same two questions the sidebar is filtered by:
- * a permission the person holds, and a feature the company turned on. Pointing
- * at "Monthly payroll" for somebody who cannot open it, or at a Loans item a
- * company switched off in setup, would be the tour contradicting the product's
- * own progressive disclosure — which is the argument the product is sold on.
+ * `Step` carries the same `permission` / `anyPermission` / `feature` /
+ * `always` vocabulary as `NavItem` in `nav.tsx`, filtered by `visibleSteps`
+ * below in the same order `visibleNav` filters the sidebar. Pointing at
+ * "Monthly payroll" for somebody who cannot open it, or at a Loans item a
+ * company switched off in setup, would be the tour contradicting the
+ * product's own progressive disclosure — which is the argument the product
+ * is sold on. That includes the *sentence*, not only the target: a step can
+ * be worth showing to everyone while still needing two different endings,
+ * which is what a function `body` is for.
  *
  * A step whose target is not rendered at all — the sidebar on a phone — is not
  * dropped. `Spotlight` centres the card instead, and the copy is written so it
@@ -44,7 +57,13 @@ import { Spotlight, findTarget } from "./spotlight";
  * `tourDismissedAt === null` on the signed-in account, which the API answers on
  * every door that hands one back. Finishing and skipping both write it, because
  * both mean shown — and it can be reopened for good from the account menu, so
- * dismissing is never a decision somebody is stuck with.
+ * dismissing is never a decision somebody is stuck with. That reopen path is
+ * also the answer to a promotion: somebody who dismissed the tour as a plain
+ * employee and later gains `MANAGE_SETTINGS` does not see the extra step
+ * appear on its own — `tourDismissedAt` is one flag for the whole account, not
+ * one per combination of steps a permission set could produce, and "take the
+ * tour" again is the deliberately simple way back rather than a second field
+ * to keep in step with a catalogue that can grow.
  *
  * It does not open itself in demo mode: there is no account there to have
  * dismissed anything, and a tour that reappeared on every demo load would be
@@ -59,58 +78,132 @@ export function openTour(): void {
   window.dispatchEvent(new CustomEvent(TOUR_OPEN));
 }
 
+type StepBodyCtx = { total: number; canSettings: boolean; canApprove: boolean };
+
 type Step = {
   id: string;
   title: string;
   /**
-   * A function where the sentence has to know how many steps there are.
+   * A function where the sentence has to know more than its own words.
    *
-   * Two of the five steps are dropped for somebody who approves nothing or
-   * manages no settings, so the total is 3, 4 or 5 depending on the role —
-   * and the welcome step used to say "Four things" directly under a counter
-   * reading "1 of 3". One screen, two counts, neither role ever seeing both
-   * agree.
+   * `total` is for the welcome step: everybody without `MANAGE_SETTINGS` gets
+   * five steps and a settings-manager gets six, so the count moves — and the
+   * welcome step used to say "Four things" directly under a counter reading
+   * "1 of 3" — one screen, two counts, neither role ever seeing both agree.
+   *
+   * `canSettings` is for the nav step: the step itself is worth showing to
+   * everyone — knowing the menu reflects the company's own setup is not a
+   * settings-manager-only fact — but its Loans example must not tell every
+   * reader they personally can turn one on, which is exactly the ability the
+   * settings step further down is already withheld from them for.
+   *
+   * `canApprove` is for the approvals step, for the same reason in reverse: a
+   * non-approver still has real business on that screen — tracking what they
+   * themselves sent in — so the step stays for everyone, and only the
+   * sentence changes to match what they can actually do there.
    */
-  body: string | ((total: number) => string);
+  body: string | ((ctx: StepBodyCtx) => string);
   /** Tried in order — the first rendered and visible one is pointed at. */
   target: readonly string[];
-  /** Left out entirely when false. Absent means always. */
-  when?: (ctx: { canApprove: boolean; canSettings: boolean }) => boolean;
+  /** Same vocabulary as `NavItem` (`nav.tsx`) — hidden unless held. */
+  permission?: PermissionKey;
+  /** Hidden unless at least one of these is held. */
+  anyPermission?: PermissionKey[];
+  /** Hidden unless the company has this feature switched on. */
+  feature?: FeatureKey;
+  /**
+   * Self-documenting, mirroring `NavItem.always` — a step that carries no
+   * `permission`/`anyPermission` is shown to everyone regardless, but writing
+   * this makes that a sentence somebody chose rather than a gate somebody
+   * forgot.
+   */
+  always?: boolean;
 };
 
+/**
+ * Mirrors `visibleNav`'s own filter order in `nav.tsx`: a feature switched
+ * off vetoes the step outright, `always` then bypasses the permission
+ * question (never the feature one), and `anyPermission` takes priority over
+ * a single `permission` the same way `NavItem`'s does.
+ */
+function visibleSteps(
+  steps: readonly Step[],
+  permissions: PermissionSet,
+  features: Partial<Record<FeatureKey, boolean>>,
+): readonly Step[] {
+  return steps.filter((step) => {
+    if (step.feature !== undefined && features[step.feature] === false) {
+      return false;
+    }
+    if (step.always) return true;
+    if (step.anyPermission) {
+      return hasAnyPermission(permissions, step.anyPermission);
+    }
+    if (step.permission === undefined) return true;
+    return hasPermission(permissions, step.permission);
+  });
+}
+
 /* Spelled out, because the sentence reads as prose rather than as a count.
-   Only 3, 4 and 5 are reachable — the two conditional steps are the only
-   thing that varies — and the numeral is there so a sixth step cannot make
-   this render "undefined things". */
-const WORD: Record<number, string> = { 3: "Three", 4: "Four", 5: "Five" };
+   Only 5 and 6 are reachable — `MANAGE_SETTINGS` is the one thing left that
+   changes the length — and the numeral is there so a seventh step cannot
+   make this render "undefined things". */
+const WORD: Record<number, string> = { 5: "Five", 6: "Six" };
 
 const STEPS: readonly Step[] = [
   {
     id: "welcome",
     title: "A quick look round",
-    body: (total) =>
-      `${WORD[total] ?? total} things, about half a minute. You can leave at ` +
+    body: ({ total }) =>
+      `${WORD[total] ?? total} things, about a minute. You can leave at ` +
       "any point and pick it up again from your account menu.",
     target: [],
+    always: true,
   },
   {
     id: "nav",
     title: "Only what you actually use",
-    body:
-      "The menu is built from the answers you gave during setup. A company " +
-      "that does not lend to staff has no Loans; turn one on in Settings and " +
-      "it appears here.",
+    body: ({ canSettings }) =>
+      canSettings
+        ? "The menu is built from the answers you gave during setup. A " +
+          "company that does not lend to staff has no Loans; turn one on " +
+          "in Settings and it appears here."
+        : "The menu only shows what your company has actually turned on " +
+          "— a company that does not lend to staff has no Loans, for " +
+          "instance. Whoever manages your company's settings controls " +
+          "what's here.",
     target: ['[data-tour="nav"]', '[data-tour="nav-toggle"]'],
+    always: true,
+  },
+  {
+    id: "yours",
+    title: "Your day, and your time off",
+    body:
+      "Attendance shows where your day stands — clock yourself in if your " +
+      "company has you do that, or see today's record if HR does it for " +
+      "you. Leave shows your own balance and lets you ask for time off; " +
+      "pending days are already held back from what's left.",
+    target: [
+      '[data-tour="nav-item:/people/attendance"]',
+      '[data-tour="nav-item:/people/leave"]',
+      '[data-tour="nav"]',
+    ],
+    always: true,
   },
   {
     id: "approvals",
-    title: "Anything waiting on you",
-    body:
-      "Leave, expenses, staff loans and payroll all put what needs a decision " +
-      "in this one queue, oldest deadline first, so there is no module to " +
-      "remember to check.",
+    title: "Waiting on you, and sent by you",
+    body: ({ canApprove }) =>
+      canApprove
+        ? "Leave, expenses, staff loans and payroll all put what needs a " +
+          "decision in this one queue, oldest deadline first, so there is " +
+          "no module to remember to check."
+        : "Approving isn't part of your role, and this screen says so if " +
+          "you ever wonder. Switch to Sent by you to see where a leave " +
+          "request — or anything else you've sent off — currently stands, " +
+          "without having to ask.",
     target: ['[data-tour="nav-item:/approvals"]', '[data-tour="nav"]'],
-    when: ({ canApprove }) => canApprove,
+    always: true,
   },
   {
     id: "search",
@@ -122,6 +215,7 @@ const STEPS: readonly Step[] = [
       "The search at the top of a wide screen finds a person by name or job " +
       "title, and a role by what it is called. On a keyboard, / opens it.",
     target: ['[data-tour="search"]'],
+    always: true,
   },
   {
     id: "settings",
@@ -131,7 +225,7 @@ const STEPS: readonly Step[] = [
       "work locations, leave, pay, who can approve, and marks off what you " +
       "have already done.",
     target: ['[data-tour="nav-item:/settings"]', '[data-tour="nav"]'],
-    when: ({ canSettings }) => canSettings,
+    permission: "MANAGE_SETTINGS",
   },
 ];
 
@@ -144,12 +238,18 @@ const EXIT_MS = 160;
 export function GuidedTour() {
   const { tourSeen, dismissTour, isConnected } = useSession();
   const features = useFeatures();
-  /* Both called unconditionally and combined after — `||` between two hook
-     calls short-circuits the second one, which changes the hook order. */
-  const approvesLeave = useCan("APPROVE_LEAVE");
-  const approvesPayroll = useCan("APPROVE_PAYROLL");
-  const canApprove = approvesLeave || approvesPayroll;
-  const canSettings = useCan("MANAGE_SETTINGS");
+  const { permissions } = usePermissions();
+  const isManager = useIsManager();
+  /* The app's own definition of "can approve", not a second one — see
+     `approvals/inbox.tsx#APPROVE_PERMISSIONS`, already imported for the
+     identical reason in `shell.tsx`. A hand-rolled pair of `useCan()` calls
+     here once missed `isManager`, `APPROVE_LEAVE_ALL`, `APPROVE_LOANS` and
+     `APPROVE_EXPENSES` — a manager who approves only by virtue of being
+     someone's manager, or somebody holding only `APPROVE_LOANS`, has real
+     work in that queue and would never have been told about it. */
+  const canApprove =
+    isManager || hasAnyPermission(permissions, APPROVE_PERMISSIONS);
+  const canSettings = hasPermission(permissions, "MANAGE_SETTINGS");
 
   /**
    * `null` is "decide from the account". Opening it by hand sets `true`, and
@@ -157,7 +257,18 @@ export function GuidedTour() {
    * write to the server has not landed — or cannot, in demo mode.
    */
   const [asked, setAsked] = useState<boolean | null>(null);
-  const [index, setIndex] = useState(0);
+  /**
+   * Tracked by id, never by index. `steps` below is recomputed whenever the
+   * signed-in person's permissions or features change — on first load,
+   * `usePermissions()` resolves in two phases (the token's own claims, then
+   * the authoritative read) that can disagree — and a plain numeric position
+   * would then point at whatever happens to occupy that slot in the new
+   * array, silently swapping the card's content mid-read with the "X of N"
+   * counter now wrong too. Deriving `index` by finding this id in `steps`
+   * means a reader's position survives a recompute as long as their step
+   * still exists at all.
+   */
+  const [stepId, setStepId] = useState<string>(STEPS[0]!.id);
 
   /**
    * Reopening from the account menu.
@@ -173,7 +284,7 @@ export function GuidedTour() {
    */
   useEffect(() => {
     const onOpen = () => {
-      setIndex(0);
+      setStepId(STEPS[0]!.id);
       setAsked(true);
     };
     window.addEventListener(TOUR_OPEN, onOpen);
@@ -181,30 +292,34 @@ export function GuidedTour() {
   }, []);
 
   const steps = useMemo(
-    () =>
-      STEPS.filter((step) => step.when?.({ canApprove, canSettings }) ?? true),
-    [canApprove, canSettings],
+    () => visibleSteps(STEPS, permissions, features),
+    [permissions, features],
   );
 
   /* Auto-opens only for a real account that has not seen it. `features` is
      read so the sidebar has settled before anything points at it — a tour that
      opens mid-load points at a nav that is about to change size. */
   const unseen = isConnected && !tourSeen && !features.loading;
-  /* `steps.length === 0` can't happen today — welcome, nav and search carry
-     no `when` guard — but folding it into `useDismiss`'s input rather than a
-     second early return keeps the "should this be open" question in one
-     place. */
+  /* `steps.length === 0` can't happen today — welcome, nav, yours, approvals
+     and search all carry `always: true` — but folding it into `useDismiss`'s
+     input rather than a second early return keeps the "should this be open"
+     question in one place. */
   const wantOpen = (asked ?? unseen) && steps.length > 0;
   const { mounted, closing } = useDismiss(wantOpen, EXIT_MS);
 
   if (!mounted) return null;
 
-  const step = steps[Math.min(index, steps.length - 1)]!;
+  /* Only reached if the current step genuinely vanished mid-tour (a
+     permission or feature narrowed under the reader) — falls back to the
+     first step rather than crashing on an undefined index. */
+  const position = steps.findIndex((s) => s.id === stepId);
+  const index = position === -1 ? 0 : position;
+  const step = steps[index]!;
   const last = index >= steps.length - 1;
 
   const close = () => {
     setAsked(false);
-    /* `index` is deliberately left alone here: the card stays mounted for
+    /* `stepId` is deliberately left alone here: the card stays mounted for
        `EXIT_MS` to play its exit animation, and resetting the step now would
        flip the visible content to "1 of N" for that last frame instead of
        fading out the step actually being read. `onOpen` above resets it for
@@ -220,7 +335,9 @@ export function GuidedTour() {
       </p>
       <h2 className="mt-1.5 text-body font-semibold text-ink">{step.title}</h2>
       <p className="mt-1.5 text-body-sm leading-relaxed text-body">
-        {typeof step.body === "function" ? step.body(steps.length) : step.body}
+        {typeof step.body === "function"
+          ? step.body({ total: steps.length, canSettings, canApprove })
+          : step.body}
       </p>
 
       <div className="mt-4 flex items-center justify-between gap-3">
@@ -232,7 +349,7 @@ export function GuidedTour() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => setIndex((at) => at - 1)}
+              onClick={() => setStepId(steps[index - 1]!.id)}
             >
               Back
             </Button>
@@ -240,7 +357,7 @@ export function GuidedTour() {
           <Button
             variant="accent"
             size="sm"
-            onClick={() => (last ? close() : setIndex((at) => at + 1))}
+            onClick={() => (last ? close() : setStepId(steps[index + 1]!.id))}
           >
             {last ? "Finish" : "Next"}
           </Button>

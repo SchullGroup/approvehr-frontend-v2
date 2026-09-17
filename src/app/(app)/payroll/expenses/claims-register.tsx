@@ -261,11 +261,16 @@ export function ClaimsRegister({
         )}
       </Card>
 
-      {settling && onMarkPaid && (
+      {/* `onMarkPaid` is unrelated to open/closed — it is absent for callers
+          that never offer settling at all (see `canSettle`) — so it stays as
+          a mounting guard. `settling` is the real open signal and is now
+          threaded through as `claim` instead. */}
+      {onMarkPaid && (
         <MarkPaidDialog
           claim={settling}
           onClose={() => setSettling(null)}
           onConfirm={async (paidOn) => {
+            if (!settling) return;
             const ok = await onMarkPaid(settling, paidOn);
             if (ok) setSettling(null);
           }}
@@ -289,7 +294,9 @@ function MarkPaidDialog({
   onClose,
   onConfirm,
 }: {
-  claim: Claim;
+  /* Nullable: `ClaimsRegister` renders this unconditionally now and passes
+     whichever claim is being settled, or `null` when none is. */
+  claim: Claim | null;
   onClose: () => void;
   onConfirm: (paidOn: string) => Promise<void>;
 }) {
@@ -299,7 +306,7 @@ function MarkPaidDialog({
 
   return (
     <Modal
-      open
+      open={claim !== null}
       onClose={onClose}
       size="sm"
       title="Mark this as paid"
@@ -311,7 +318,7 @@ function MarkPaidDialog({
           <Button
             variant="accent"
             loading={busy}
-            disabled={busy || paidOn > today(timeZone)}
+            disabled={busy || paidOn > today(timeZone) || !claim}
             onClick={() => {
               setBusy(true);
               void onConfirm(paidOn).finally(() => setBusy(false));
@@ -323,12 +330,14 @@ function MarkPaidDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="text-body-sm text-body">
-          <span className="tabular font-medium text-ink">
-            <Money amount={claim.amount} decimals />
-          </span>{" "}
-          to {claim.employeeName}, for {claim.description.toLowerCase()}.
-        </p>
+        {claim && (
+          <p className="text-body-sm text-body">
+            <span className="tabular font-medium text-ink">
+              <Money amount={claim.amount} decimals />
+            </span>{" "}
+            to {claim.employeeName}, for {claim.description.toLowerCase()}.
+          </p>
+        )}
         <Field
           label="Paid on"
           help="The day the transfer left, so it matches your bank statement."

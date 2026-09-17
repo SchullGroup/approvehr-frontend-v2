@@ -2,14 +2,7 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  AlertTriangle,
-  Inbox,
-  LifeBuoy,
-  Search,
-  Send,
-  UserPlus,
-} from "lucide-react";
+import { Inbox, LifeBuoy, Search, Send, UserPlus } from "lucide-react";
 import {
   Avatar,
   Badge,
@@ -39,6 +32,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -230,25 +224,25 @@ function QueueView() {
         )}
 
         {/*
-          A count and a button, not a paragraph. The number is the whole point
-          and pressing it filters the queue down to exactly those tickets.
+          A line, not a panel. A broken reply-time promise is a real failure —
+          `danger` still means that — but it is a count sitting in the queue
+          below, not a decision to make right here. See `NoticeLine`.
         */}
         {pulse.overdue > 0 && (
-          <Callout
-            tone="danger"
-            title={`${pulse.overdue} ${
-              pulse.overdue === 1 ? "person has" : "people have"
-            } had no reply in the time you promised`}
-            icon={<AlertTriangle aria-hidden="true" />}
-          >
-            <Button
-              variant="secondary"
-              size="sm"
+          <NoticeLine tone="danger">
+            <span>
+              {pulse.overdue === 1
+                ? "1 person has had no reply in the time you promised"
+                : `${pulse.overdue} people have had no reply in the time you promised`}
+            </span>
+            <button
+              type="button"
+              className={NOTICE_LINK}
               onClick={() => setChoice("queue:overdue")}
             >
               Show me those
-            </Button>
-          </Callout>
+            </button>
+          </NoticeLine>
         )}
 
         <Card>
@@ -343,21 +337,24 @@ function QueueView() {
         )}
       </PageBody>
 
-      {openId !== null && (
-        <TicketThread
-          id={openId}
-          onClose={() => setOpenId(null)}
-          onChanged={refresh}
-          minutesPerDay={workingDay.minutesPerDay}
-        />
-      )}
+      {/* Always mounted: `TicketThread`'s own `Drawer` decides whether to
+          render, from the `open` prop passed here. Unmounting this whenever
+          `openId` goes back to null would remove the Drawer before it could
+          play its close animation — the same reasoning applies to
+          `RaiseRequestModal` below. */}
+      <TicketThread
+        open={openId !== null}
+        id={openId}
+        onClose={() => setOpenId(null)}
+        onChanged={refresh}
+        minutesPerDay={workingDay.minutesPerDay}
+      />
 
-      {raising && (
-        <RaiseRequestModal
-          onClose={() => setRaising(false)}
-          onRaised={refresh}
-        />
-      )}
+      <RaiseRequestModal
+        open={raising}
+        onClose={() => setRaising(false)}
+        onRaised={refresh}
+      />
     </>
   );
 }
@@ -458,21 +455,19 @@ function MyRequestsView() {
         </Card>
       </PageBody>
 
-      {openId !== null && (
-        <TicketThread
-          id={openId}
-          onClose={() => setOpenId(null)}
-          onChanged={() => setBump((n) => n + 1)}
-          minutesPerDay={workingDay.minutesPerDay}
-        />
-      )}
+      <TicketThread
+        open={openId !== null}
+        id={openId}
+        onClose={() => setOpenId(null)}
+        onChanged={() => setBump((n) => n + 1)}
+        minutesPerDay={workingDay.minutesPerDay}
+      />
 
-      {raising && (
-        <RaiseRequestModal
-          onClose={() => setRaising(false)}
-          onRaised={() => setBump((n) => n + 1)}
-        />
-      )}
+      <RaiseRequestModal
+        open={raising}
+        onClose={() => setRaising(false)}
+        onRaised={() => setBump((n) => n + 1)}
+      />
     </>
   );
 }
@@ -685,9 +680,11 @@ function Pager({
  * is not late by Monday.
  */
 function RaiseRequestModal({
+  open,
   onClose,
   onRaised,
 }: {
+  open: boolean;
   onClose: () => void;
   onRaised: () => void;
 }) {
@@ -763,7 +760,7 @@ function RaiseRequestModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Get help"
       description="Three things and it is on somebody's desk."

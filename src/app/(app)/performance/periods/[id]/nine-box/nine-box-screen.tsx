@@ -127,6 +127,9 @@ export function NineBoxScreen({ cycleId }: { cycleId: string }) {
       </PageBody>
       {placing && (
         <PlaceDialog
+          /* Keyed so placing a different person remounts with fresh state,
+             rather than deriving state from props during render. */
+          key={placing.employeeId}
           cycleId={cycleId}
           person={placing}
           onClose={() => setPlacing(null)}

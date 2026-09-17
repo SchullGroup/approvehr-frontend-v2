@@ -325,76 +325,78 @@ export function RolesScreen({
         </div>
       </PageBody>
 
-      {open && (
-        <RoleEditor
-          key={open.id}
-          role={open}
-          catalogue={roles.catalogue}
-          held={access.permissions}
-          canManage={canManage}
-          roleIds={roleIds}
-          onClose={() => setOpenId(null)}
-          onSave={(patch) =>
-            run(async () => {
-              if (Object.keys(patch).length > 0) {
-                await roles.update(open.id, patch);
-              }
-            }, "Saved")
-          }
-          onDuplicate={() => {
-            setOpenId(null);
-            setCreating({ from: open });
-          }}
-          onAddPeople={(userIds) =>
-            run(async () => {
-              const result = await roles.addMembers(open.id, userIds);
-              if (result.added === 0) {
+      <RoleEditor
+        open={open !== null}
+        role={open}
+        catalogue={roles.catalogue}
+        held={access.permissions}
+        canManage={canManage}
+        roleIds={roleIds}
+        onClose={() => setOpenId(null)}
+        onSave={(patch) =>
+          run(async () => {
+            if (!open) return;
+            if (Object.keys(patch).length > 0) {
+              await roles.update(open.id, patch);
+            }
+          }, "Saved")
+        }
+        onDuplicate={() => {
+          if (!open) return;
+          setOpenId(null);
+          setCreating({ from: open });
+        }}
+        onAddPeople={(userIds) =>
+          run(async () => {
+            if (!open) return;
+            const result = await roles.addMembers(open.id, userIds);
+            if (result.added === 0) {
+              throw new ApiError(
+                409,
+                "already_in",
+                "They are already in this role.",
+              );
+            }
+          }, "Added")
+        }
+        onRemovePerson={(userId, name) =>
+          open
+            ? run(() => roles.removeMember(open.id, userId), `${name} removed`)
+            : Promise.resolve(false)
+        }
+      />
+
+      <CreateRoleDialog
+        open={creating !== null}
+        roles={roles.roles}
+        held={access.permissions}
+        from={creating?.from ?? null}
+        onClose={() => setCreating(null)}
+        onCreate={async (body, people) => {
+          const ok = await run(async () => {
+            const made = await roles.create(body);
+            /* Two requests, and the order matters: the role is the one that
+               cannot be retried cleanly (a second attempt collides on the
+               name), so it goes first and a refused address leaves it
+               standing. Every refusal comes back named. */
+            if (people.length > 0) {
+              const result = await invitesApi.sendByEmail(people, [made.id]);
+              if (result.failed.length > 0) {
                 throw new ApiError(
                   409,
-                  "already_in",
-                  "They are already in this role.",
+                  "some_not_invited",
+                  `${body.name} was created. ${result.failed
+                    .map((one) => `${one.name}: ${one.message}`)
+                    .join(" ")}`,
                 );
               }
-            }, "Added")
-          }
-          onRemovePerson={(userId, name) =>
-            run(() => roles.removeMember(open.id, userId), `${name} removed`)
-          }
-        />
-      )}
-
-      {creating && (
-        <CreateRoleDialog
-          roles={roles.roles}
-          held={access.permissions}
-          from={creating.from}
-          onClose={() => setCreating(null)}
-          onCreate={async (body, people) => {
-            const ok = await run(async () => {
-              const made = await roles.create(body);
-              /* Two requests, and the order matters: the role is the one that
-                 cannot be retried cleanly (a second attempt collides on the
-                 name), so it goes first and a refused address leaves it
-                 standing. Every refusal comes back named. */
-              if (people.length > 0) {
-                const result = await invitesApi.sendByEmail(people, [made.id]);
-                if (result.failed.length > 0) {
-                  throw new ApiError(
-                    409,
-                    "some_not_invited",
-                    `${body.name} was created. ${result.failed
-                      .map((one) => `${one.name}: ${one.message}`)
-                      .join(" ")}`,
-                  );
-                }
-              }
-              setOpenId(made.id);
-            }, `${body.name} created`);
-            if (ok) setCreating(null);
-            return ok;
-          }}
-        />
-      )}
+            }
+            setOpenId(made.id);
+          }, `${body.name} created`);
+          if (ok) setCreating(null);
+          return ok;
+        }}
+      />
 
       <ConfirmDialog
         open={deleting !== null}
@@ -419,16 +421,15 @@ export function RolesScreen({
         }}
       />
 
-      {inviting && (
-        <SendInviteDialog
-          roles={roles.roles}
-          pending={invites.invites}
-          onClose={() => setInviting(false)}
-          onSend={(employeeId, roleIds) =>
-            run(() => invites.send(employeeId, roleIds), "Invitation sent")
-          }
-        />
-      )}
+      <SendInviteDialog
+        open={inviting}
+        roles={roles.roles}
+        pending={invites.invites}
+        onClose={() => setInviting(false)}
+        onSend={(employeeId, roleIds) =>
+          run(() => invites.send(employeeId, roleIds), "Invitation sent")
+        }
+      />
 
       <ConfirmDialog
         open={revoking !== null}

@@ -66,24 +66,27 @@ import { AddPeopleDialog } from "./add-people";
  * departing payroll officer without being able to approve payroll themselves.
  */
 export function RoleEditor({
-  role,
+  role: roleProp,
   catalogue,
   held,
   canManage,
   roleIds,
+  open,
   onClose,
   onSave,
   onDuplicate,
   onAddPeople,
   onRemovePerson,
 }: {
-  role: RoleView;
+  /** `null` while closed — the parent clears it the instant it closes this. */
+  role: RoleView | null;
   catalogue: Catalogue;
   /** What the person editing holds. Drives the escalation guard. */
   held: PermissionSet;
   canManage: boolean;
   /** Every role's id, for the add-people picker. See its header. */
   roleIds: string[];
+  open: boolean;
   onClose: () => void;
   onSave: (patch: {
     name?: string;
@@ -94,11 +97,20 @@ export function RoleEditor({
   onAddPeople: (userIds: string[]) => Promise<boolean>;
   onRemovePerson: (userId: string, name: string) => Promise<boolean>;
 }) {
+  /* Remembers the last real role: the parent clears its prop to null the
+     instant it closes this, but the drawer has to stay mounted — with real
+     content — so `Drawer` below can see `open` go false and animate its own
+     close, rather than this whole thing (and everything it renders below,
+     down to `AddPeopleDialog`) being torn out from under it. Everything past
+     the guard reads `role`, never `roleProp`. */
+  const [role, setRole] = useState(roleProp);
+  if (roleProp && roleProp !== role) setRole(roleProp);
+
   const [tab, setTab] = useState<"permissions" | "people">("permissions");
 
-  const [name, setName] = useState(role.name);
-  const [description, setDescription] = useState(role.description ?? "");
-  const [draft, setDraft] = useState<PermissionKey[]>(role.permissions);
+  const [name, setName] = useState(role?.name ?? "");
+  const [description, setDescription] = useState(role?.description ?? "");
+  const [draft, setDraft] = useState<PermissionKey[]>(role?.permissions ?? []);
   const [saving, setSaving] = useState(false);
 
   /* Two locks, not one. See the header: the name is identity, the permission
@@ -107,13 +119,19 @@ export function RoleEditor({
      on the name the seed writes; if a tenant has no role by that name then
      nothing here is locked, and the server's own last-holder guard is what
      stops a lockout. */
-  const nameLocked = role.isSystem;
-  const grantsLocked = role.isSystem && role.name === "Owner";
-  const readOnly = !canManage;
+  const nameLocked = role?.isSystem ?? false;
+  const grantsLocked = (role?.isSystem ?? false) && role?.name === "Owner";
 
   /* What changed, so the save button can say so and stay off when nothing did. */
   const changes = useMemo(() => {
     const list: string[] = [];
+    if (!role) {
+      return {
+        list,
+        added: [] as PermissionKey[],
+        removed: [] as PermissionKey[],
+      };
+    }
     if (!nameLocked && name.trim() !== role.name) list.push("name");
     if (description.trim() !== (role.description ?? ""))
       list.push("description");
@@ -124,6 +142,9 @@ export function RoleEditor({
     return { list, added, removed };
   }, [name, description, draft, role, nameLocked]);
 
+  if (!role) return null;
+
+  const readOnly = !canManage;
   const dirty = changes.list.length > 0;
 
   const save = async () => {
@@ -150,7 +171,7 @@ export function RoleEditor({
 
   return (
     <Drawer
-      open
+      open={open}
       onClose={onClose}
       title={role.name}
       size="xl"
@@ -529,18 +550,17 @@ function PeopleTab({
         </p>
       )}
 
-      {adding && (
-        <AddPeopleDialog
-          role={role}
-          roleIds={roleIds}
-          onClose={() => setAdding(false)}
-          onAdd={async (userIds) => {
-            const ok = await onAddPeople(userIds);
-            if (ok) setAdding(false);
-            return ok;
-          }}
-        />
-      )}
+      <AddPeopleDialog
+        open={adding}
+        role={role}
+        roleIds={roleIds}
+        onClose={() => setAdding(false)}
+        onAdd={async (userIds) => {
+          const ok = await onAddPeople(userIds);
+          if (ok) setAdding(false);
+          return ok;
+        }}
+      />
     </div>
   );
 }

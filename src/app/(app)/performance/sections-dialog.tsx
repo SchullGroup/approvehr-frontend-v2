@@ -77,7 +77,15 @@ import { NoticeLine } from "@/components/portal/notice-line";
  *   survive, unfiled — because `Competency.sectionId` is `onDelete: SetNull`
  *   and the alternative reading is that they go with it.
  */
-export function SectionsDialog({ onClose }: { onClose: () => void }) {
+export function SectionsDialog({
+  open,
+  onClose,
+}: {
+  /* The open/closed signal, rather than a mount guard, so `Modal` can see it
+     go false and play its exit animation. Same contract as `QuestionsDialog`. */
+  open: boolean;
+  onClose: () => void;
+}) {
   const canManage = useCan("MANAGE_SETTINGS");
   const actions = useFrameworkActions();
   const {
@@ -137,7 +145,9 @@ export function SectionsDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const open = (section: ApiSection) => {
+  /* `expand`, not `open`: `open` is the dialog's own prop now, and a section
+     row expanding is a different thing from the dialog being on screen. */
+  const expand = (section: ApiSection) => {
     setOpenId(section.id);
     setNameDraft(section.name);
     setAddingSubTo(null);
@@ -147,7 +157,7 @@ export function SectionsDialog({ onClose }: { onClose: () => void }) {
 
   const toggle = (section: ApiSection) => {
     if (openId === section.id) setOpenId(null);
-    else open(section);
+    else expand(section);
   };
 
   const subsectionsOf = (sectionId: string | null) =>
@@ -286,7 +296,7 @@ export function SectionsDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Sections and subsections"
       description="What an appraisal is made of"

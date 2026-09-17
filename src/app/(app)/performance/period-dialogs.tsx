@@ -143,6 +143,7 @@ function evidenceAudienceRefusal(
  * a starting point to edit or ignore, never a requirement.
  */
 export function QuestionsDialog({
+  open,
   cycleId,
   periodName,
   onClose,
@@ -153,6 +154,7 @@ export function QuestionsDialog({
   onCopyFrom,
   onAddStandard,
 }: {
+  open: boolean;
   cycleId: string;
   periodName: string;
   onClose: () => void;
@@ -420,7 +422,7 @@ export function QuestionsDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Questions"
       description={periodName}

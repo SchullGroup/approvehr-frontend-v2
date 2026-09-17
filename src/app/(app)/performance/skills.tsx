@@ -12,6 +12,7 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  Tag,
   TBody,
   TD,
   TDPrimary,
@@ -288,36 +289,35 @@ export function SkillsTab({
         </Card>
       )}
 
-      {recording && (
-        <RecordLevelDialog
-          onClose={() => setRecording(false)}
-          onSave={async (competencyId, body) => {
-            try {
-              await rating.rate(competencyId, body);
-              toast.push({ title: "Level recorded", tone: "success" });
-              /* All three reads, not one. `mine` is the signed-in person's own
-                 skills and `rateCompetency` refuses a self-rating, so it is the
-                 one panel on this screen a save here can never change — while
-                 the gap table and the heatmap are exactly what a new level
-                 moves. Reloading only `mine` left both of those showing the
-                 figures from before the save until somebody refreshed. */
-              mine.reload();
-              gaps.reload();
-              grid.reload();
-              setRecording(false);
-            } catch (error) {
-              toast.push({
-                title: "That did not work",
-                tone: "danger",
-                detail:
-                  error instanceof ApiError
-                    ? error.message
-                    : "Something went wrong. Try again.",
-              });
-            }
-          }}
-        />
-      )}
+      <RecordLevelDialog
+        open={recording}
+        onClose={() => setRecording(false)}
+        onSave={async (competencyId, body) => {
+          try {
+            await rating.rate(competencyId, body);
+            toast.push({ title: "Level recorded", tone: "success" });
+            /* All three reads, not one. `mine` is the signed-in person's own
+               skills and `rateCompetency` refuses a self-rating, so it is the
+               one panel on this screen a save here can never change — while
+               the gap table and the heatmap are exactly what a new level
+               moves. Reloading only `mine` left both of those showing the
+               figures from before the save until somebody refreshed. */
+            mine.reload();
+            gaps.reload();
+            grid.reload();
+            setRecording(false);
+          } catch (error) {
+            toast.push({
+              title: "That did not work",
+              tone: "danger",
+              detail:
+                error instanceof ApiError
+                  ? error.message
+                  : "Something went wrong. Try again.",
+            });
+          }
+        }}
+      />
     </div>
   );
 }
@@ -450,14 +450,8 @@ function Legend() {
   return (
     <ul className="flex flex-wrap items-center gap-2">
       {bands.map((band) => (
-        <li
-          key={band.label}
-          className={cn(
-            "rounded-sm border border-line px-2 py-0.5 text-meta font-medium",
-            band.className,
-          )}
-        >
-          {band.label}
+        <li key={band.label}>
+          <Tag className={band.className}>{band.label}</Tag>
         </li>
       ))}
     </ul>

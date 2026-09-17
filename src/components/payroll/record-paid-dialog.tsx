@@ -34,6 +34,7 @@ import { usePaymentActions } from "@/lib/store/payments";
  * one who does not should not be blocked.
  */
 export function RecordPaidDialog({
+  open = true,
   batchId,
   reference,
   amountKobo,
@@ -41,6 +42,13 @@ export function RecordPaidDialog({
   onClose,
   onRecorded,
 }: {
+  /**
+   * Defaults to `true` for the one caller (`runs/new/pay-panel.tsx`) that
+   * still mounts this conditionally and does not pass `open` — this keeps
+   * that caller working exactly as it does today until it is updated the
+   * same way `release-panel.tsx` was.
+   */
+  open?: boolean;
   batchId: string;
   reference: string;
   amountKobo: number;
@@ -77,7 +85,7 @@ export function RecordPaidDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Record that your bank paid this"
       description={`${formatKobo(amountKobo)} to ${people}, on ${reference}.`}

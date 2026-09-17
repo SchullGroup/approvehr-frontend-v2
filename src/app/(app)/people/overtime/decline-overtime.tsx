@@ -12,26 +12,41 @@ import type { OvertimeRow } from "@/lib/store/overtime";
  * it down." — and because the person it belongs to reads it. A decline with no
  * reason is a wage argument next month.
  *
- * Mount it with `key={row.id}` so each decline starts on an empty box rather
- * than the last one's words.
+ * Mount it with `key={row.id}` (frozen at the call site to the last real row,
+ * so closing does not itself change the key) so a genuinely different row
+ * still starts on an empty box rather than the last one's words.
  */
 export function DeclineOvertimeModal({
-  row,
+  row: rowProp,
+  open,
   onClose,
   onDecline,
 }: {
-  row: OvertimeRow;
+  /** `null` while closed — see the freeze below for why. */
+  row: OvertimeRow | null;
+  open: boolean;
   onClose: () => void;
   onDecline: (reason: string) => Promise<void>;
 }) {
+  /* Remembers the last real row: the parent clears its prop to null the
+     instant it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`.
+     The call site's frozen `key` is what still gives a genuinely different
+     row its own empty box — this freeze only covers the current row's own
+     fade-out. */
+  const [row, setRow] = useState(rowProp);
+  if (rowProp && rowProp !== row) setRow(rowProp);
+
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+
+  if (!row) return null;
 
   const ready = reason.trim().length > 0;
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="sm"
       title={`Turn down ${row.name}'s overtime?`}

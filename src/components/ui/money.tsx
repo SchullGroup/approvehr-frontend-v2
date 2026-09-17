@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/cn";
 import { useMoneyHidden } from "@/lib/store/money-privacy";
+import { Tag } from "./badge";
 import { formatMoney, SYMBOLS, type Currency } from "./money-format";
 
 export { formatMoney, SYMBOLS };
@@ -123,11 +124,8 @@ export function Money({
 /** Masked figure, shown where a viewer's role should not see the number. */
 export function MoneyHidden({ reason }: { reason?: string }) {
   return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-sm border border-line bg-sunken px-2 py-1 text-meta font-medium text-muted"
-      title={reason}
-    >
+    <Tag className="bg-sunken text-muted" title={reason}>
       Hidden
-    </span>
+    </Tag>
   );
 }

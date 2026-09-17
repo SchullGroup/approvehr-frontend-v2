@@ -42,12 +42,14 @@ import type {
 export function AccountForm({
   account,
   hasPrimary,
+  open,
   onClose,
   onSave,
 }: {
   /** Absent when adding. */
   account?: ApiBankAccount;
   hasPrimary: boolean;
+  open: boolean;
   onClose: () => void;
   onSave: (body: CreateAccountBody & UpdateAccountBody) => Promise<void>;
 }) {
@@ -102,7 +104,7 @@ export function AccountForm({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={editing ? `Edit ${account.bankName}` : "Add a bank account"}
       description={
