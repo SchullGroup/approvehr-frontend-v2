@@ -554,77 +554,75 @@ export function DevicesScreen() {
         </Card>
       </PageBody>
 
-      {adding && (
-        <DeviceForm
-          locations={locations.locations}
-          onClose={() => setAdding(false)}
-          onSave={async (draft: DeviceDraft) => {
-            setBusy(true);
-            try {
-              const result = await mutations.register({
-                serialNumber: draft.serialNumber,
+      <DeviceForm
+        open={adding}
+        locations={locations.locations}
+        onClose={() => setAdding(false)}
+        onSave={async (draft: DeviceDraft) => {
+          setBusy(true);
+          try {
+            const result = await mutations.register({
+              serialNumber: draft.serialNumber,
+              label: draft.label,
+              ...(draft.workLocationId === null
+                ? {}
+                : { workLocationId: draft.workLocationId }),
+            });
+            list.reload();
+            setAdding(false);
+            /* Straight into the secret panel rather than a toast: this is the
+               only time the plaintext exists anywhere a person can read it. */
+            setSecret({ result, rotated: false });
+          } catch (error) {
+            toast.push({
+              title: "That did not work",
+              tone: "danger",
+              detail:
+                error instanceof ApiError
+                  ? error.message
+                  : "Something went wrong. Try again.",
+            });
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+
+      <DeviceForm
+        open={editing !== null}
+        device={editing ?? undefined}
+        locations={locations.locations}
+        onClose={() => setEditing(null)}
+        onSave={async (draft: DeviceDraft) => {
+          const target = editing;
+          if (!target) return;
+          const ok = await run(
+            () =>
+              mutations.update(target.id, {
                 label: draft.label,
-                ...(draft.workLocationId === null
-                  ? {}
-                  : { workLocationId: draft.workLocationId }),
-              });
-              list.reload();
-              setAdding(false);
-              /* Straight into the secret panel rather than a toast: this is the
-                 only time the plaintext exists anywhere a person can read it. */
-              setSecret({ result, rotated: false });
-            } catch (error) {
-              toast.push({
-                title: "That did not work",
-                tone: "danger",
-                detail:
-                  error instanceof ApiError
-                    ? error.message
-                    : "Something went wrong. Try again.",
-              });
-            } finally {
-              setBusy(false);
-            }
-          }}
-        />
-      )}
+                workLocationId: draft.workLocationId,
+                active: draft.active,
+              }),
+            `${draft.label} saved`,
+          );
+          if (ok) setEditing(null);
+        }}
+      />
 
-      {editing && (
-        <DeviceForm
-          device={editing}
-          locations={locations.locations}
-          onClose={() => setEditing(null)}
-          onSave={async (draft: DeviceDraft) => {
-            const ok = await run(
-              () =>
-                mutations.update(editing.id, {
-                  label: draft.label,
-                  workLocationId: draft.workLocationId,
-                  active: draft.active,
-                }),
-              `${draft.label} saved`,
-            );
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
+      <EnrolmentsDrawer
+        open={enrolling !== null}
+        device={enrolling}
+        canManage={canManage}
+        onClose={() => setEnrolling(null)}
+        onChanged={list.reload}
+      />
 
-      {enrolling && (
-        <EnrolmentsDrawer
-          device={enrolling}
-          canManage={canManage}
-          onClose={() => setEnrolling(null)}
-          onChanged={list.reload}
-        />
-      )}
-
-      {secret && (
-        <SecretPanel
-          result={secret.result}
-          rotated={secret.rotated}
-          onClose={() => setSecret(null)}
-        />
-      )}
+      <SecretPanel
+        open={secret !== null}
+        result={secret?.result ?? null}
+        rotated={secret?.rotated ?? false}
+        onClose={() => setSecret(null)}
+      />
 
       <ConfirmDialog
         open={rotating !== null}

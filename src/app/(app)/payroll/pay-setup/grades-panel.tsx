@@ -301,51 +301,43 @@ export function GradesPanel() {
         </CardBody>
       </Card>
 
-      {creating && (
-        <GradeDialog
-          mode="create"
-          nextLevel={nextLevel}
-          onClose={() => setCreating(false)}
-          onSubmit={async (body) => {
-            const ok = await run(
-              () => grades.create(body),
-              `${body.code} ${body.name} added`,
-            );
-            if (ok) setCreating(false);
-          }}
-        />
-      )}
+      <GradeDialog
+        open={creating}
+        mode="create"
+        nextLevel={nextLevel}
+        onClose={() => setCreating(false)}
+        onSubmit={async (body) => {
+          const ok = await run(
+            () => grades.create(body),
+            `${body.code} ${body.name} added`,
+          );
+          if (ok) setCreating(false);
+        }}
+      />
 
-      {editing && (
-        <GradeDialog
-          mode="edit"
-          grade={editing}
-          nextLevel={editing.level}
-          onClose={() => setEditing(null)}
-          onSubmit={async (body) => {
-            const ok = await run(
-              () => grades.update(editing.id, body),
-              "Saved",
-            );
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
+      <GradeDialog
+        open={editing !== null}
+        mode="edit"
+        grade={editing ?? undefined}
+        nextLevel={editing?.level ?? nextLevel}
+        onClose={() => setEditing(null)}
+        onSubmit={async (body) => {
+          if (!editing) return;
+          const ok = await run(() => grades.update(editing.id, body), "Saved");
+          if (ok) setEditing(null);
+        }}
+      />
 
-      {raising && (
-        <RaiseDialog
-          grade={raising}
-          onClose={() => setRaising(null)}
-          onApplied={() => {
-            setRaising(null);
-            void grades.reload();
-          }}
-        />
-      )}
+      <RaiseDialog
+        grade={raising}
+        onClose={() => setRaising(null)}
+        onApplied={() => {
+          setRaising(null);
+          void grades.reload();
+        }}
+      />
 
-      {viewing && (
-        <PeopleDrawer grade={viewing} onClose={() => setViewing(null)} />
-      )}
+      <PeopleDrawer grade={viewing} onClose={() => setViewing(null)} />
 
       <ConfirmDialog
         open={archiving !== null}
@@ -517,12 +509,14 @@ type GradeBody = {
  * moment it does.
  */
 function GradeDialog({
+  open,
   mode,
   grade,
   nextLevel,
   onClose,
   onSubmit,
 }: {
+  open: boolean;
   mode: "create" | "edit";
   grade?: ApiGrade;
   nextLevel: number;
@@ -598,7 +592,7 @@ function GradeDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={mode === "create" ? "Add a grade" : `Edit ${grade?.code ?? ""}`}
       description={
@@ -762,7 +756,9 @@ function RaiseDialog({
   onClose,
   onApplied,
 }: {
-  grade: ApiGrade;
+  /* Nullable: `GradesPanel` renders this unconditionally now and passes
+     whichever grade is being raised, or `null` when none is. */
+  grade: ApiGrade | null;
   onClose: () => void;
   onApplied: () => void;
 }) {
@@ -795,6 +791,7 @@ function RaiseDialog({
   };
 
   const showPreview = () => {
+    if (!grade) return;
     setFailure(null);
     void increase
       .preview(grade, current)
@@ -809,6 +806,7 @@ function RaiseDialog({
   };
 
   const apply = () => {
+    if (!grade) return;
     setFailure(null);
     void increase
       .apply(grade, current)
@@ -831,14 +829,18 @@ function RaiseDialog({
       );
   };
 
-  const people = grade.employees;
+  const people = grade?.employees ?? 0;
 
   return (
     <Modal
-      open
+      open={grade !== null}
       onClose={onClose}
       size="lg"
-      title={`Give everyone on ${grade.code} ${grade.name} a rise`}
+      title={
+        grade
+          ? `Give everyone on ${grade.code} ${grade.name} a rise`
+          : "Give a rise"
+      }
       description={
         preview
           ? undefined
@@ -886,7 +888,7 @@ function RaiseDialog({
         </Callout>
       )}
 
-      {preview ? (
+      {preview && grade ? (
         <PreviewBody
           preview={preview}
           grade={grade}
@@ -1084,24 +1086,32 @@ function PeopleDrawer({
   grade,
   onClose,
 }: {
-  grade: ApiGrade;
+  /* Nullable: `GradesPanel` renders this unconditionally now and passes
+     whichever grade is being viewed, or `null` when none is. */
+  grade: ApiGrade | null;
   onClose: () => void;
 }) {
-  const band = {
-    minGrossKobo: grade.minGrossKobo,
-    midGrossKobo: grade.midGrossKobo,
-    maxGrossKobo: grade.maxGrossKobo,
-  };
-  const { rows, loading, error } = useGradeEmployees(grade.id, band);
+  const band = grade
+    ? {
+        minGrossKobo: grade.minGrossKobo,
+        midGrossKobo: grade.midGrossKobo,
+        maxGrossKobo: grade.maxGrossKobo,
+      }
+    : null;
+  const { rows, loading, error } = useGradeEmployees(grade?.id ?? null, band);
 
   return (
     <Drawer
-      open
+      open={grade !== null}
       onClose={onClose}
-      title={`${grade.code} ${grade.name}`}
-      description={`Level ${grade.level} · ${formatPlain(
-        naira(grade.minGrossKobo),
-      )} to ${formatPlain(naira(grade.maxGrossKobo))} a month`}
+      title={grade ? `${grade.code} ${grade.name}` : ""}
+      description={
+        grade
+          ? `Level ${grade.level} · ${formatPlain(
+              naira(grade.minGrossKobo),
+            )} to ${formatPlain(naira(grade.maxGrossKobo))} a month`
+          : undefined
+      }
     >
       <div className="flex flex-col gap-5">
         {error && <LoadFailure subject="the list" error={error} />}
@@ -1129,13 +1139,15 @@ function PeopleDrawer({
             <p className="text-body-sm text-muted">
               {person.jobTitle} · {person.employeeNo}
             </p>
-            <BandMeter
-              className="mt-3"
-              band={band}
-              grossKobo={person.grossMonthlyKobo}
-              placement={person.position}
-              size="sm"
-            />
+            {band && (
+              <BandMeter
+                className="mt-3"
+                band={band}
+                grossKobo={person.grossMonthlyKobo}
+                placement={person.position}
+                size="sm"
+              />
+            )}
           </div>
         ))}
       </div>

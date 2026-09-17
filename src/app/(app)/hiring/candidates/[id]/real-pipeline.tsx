@@ -337,61 +337,61 @@ export function RealPipeline({
         </CardBody>
       </Card>
 
-      {scheduling && (
-        <ScheduleInterviewDialog
-          onClose={() => setScheduling(false)}
-          onConfirm={async (body) => {
-            try {
-              await interviews.schedule(application.id, body);
-              setScheduling(false);
-              onChanged();
-            } catch (error) {
-              fail(error);
-            }
-          }}
-        />
-      )}
+      {/* Each dialog below stays mounted regardless of its gating state —
+          `Modal` decides whether to render from the real `open` prop, so it
+          can see that value go false and play its own exit animation. */}
+      <ScheduleInterviewDialog
+        open={scheduling}
+        onClose={() => setScheduling(false)}
+        onConfirm={async (body) => {
+          try {
+            await interviews.schedule(application.id, body);
+            setScheduling(false);
+            onChanged();
+          } catch (error) {
+            fail(error);
+          }
+        }}
+      />
 
-      {scoring && (
-        <ScorecardDialog
-          onClose={() => setScoring(null)}
-          onConfirm={async (body) => {
-            try {
-              await interviews.submitScorecard(scoring, body);
-              setScoring(null);
-              onChanged();
-            } catch (error) {
-              fail(error);
-            }
-          }}
-        />
-      )}
+      <ScorecardDialog
+        open={scoring !== null}
+        onClose={() => setScoring(null)}
+        onConfirm={async (body) => {
+          if (!scoring) return;
+          try {
+            await interviews.submitScorecard(scoring, body);
+            setScoring(null);
+            onChanged();
+          } catch (error) {
+            fail(error);
+          }
+        }}
+      />
 
-      {offering && (
-        <OfferDialog
-          onClose={() => setOffering(false)}
-          onConfirm={async (amountNaira, startDate) => {
-            try {
-              await offers.create(application.id, {
-                grossMonthlyKobo: kobo(amountNaira),
-                startDate,
-              });
-              setOffering(false);
-              onChanged();
-            } catch (error) {
-              fail(error);
-            }
-          }}
-        />
-      )}
+      <OfferDialog
+        open={offering}
+        onClose={() => setOffering(false)}
+        onConfirm={async (amountNaira, startDate) => {
+          try {
+            await offers.create(application.id, {
+              grossMonthlyKobo: kobo(amountNaira),
+              startDate,
+            });
+            setOffering(false);
+            onChanged();
+          } catch (error) {
+            fail(error);
+          }
+        }}
+      />
 
-      {rejecting && (
-        <RejectDialog
-          busy={busy}
-          onClose={() => setRejecting(false)}
-          onConfirm={reject}
-        />
-      )}
+      <RejectDialog
+        open={rejecting}
+        busy={busy}
+        onClose={() => setRejecting(false)}
+        onConfirm={reject}
+      />
     </>
   );
 }
@@ -548,9 +548,11 @@ function OfferCard({
 /* ------------------------------------------------------------------ dialogs */
 
 function ScheduleInterviewDialog({
+  open,
   onClose,
   onConfirm,
 }: {
+  open: boolean;
   onClose: () => void;
   onConfirm: (body: {
     kind: InterviewKind;
@@ -567,7 +569,7 @@ function ScheduleInterviewDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title="Schedule an interview"
@@ -643,9 +645,11 @@ const COMPETENCIES = [
 ];
 
 function ScorecardDialog({
+  open,
   onClose,
   onConfirm,
 }: {
+  open: boolean;
   onClose: () => void;
   onConfirm: (body: {
     recommendation?: ScorecardRecommendation | null;
@@ -662,7 +666,7 @@ function ScorecardDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title="Submit a scorecard"
@@ -742,9 +746,11 @@ function ScorecardDialog({
 }
 
 function OfferDialog({
+  open,
   onClose,
   onConfirm,
 }: {
+  open: boolean;
   onClose: () => void;
   onConfirm: (amountNaira: number, startDate: string) => Promise<void>;
 }) {
@@ -755,7 +761,7 @@ function OfferDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title="Make an offer"
@@ -803,10 +809,12 @@ function OfferDialog({
 }
 
 function RejectDialog({
+  open,
   busy,
   onClose,
   onConfirm,
 }: {
+  open: boolean;
   busy: boolean;
   onClose: () => void;
   onConfirm: (reason: string) => void;
@@ -814,7 +822,7 @@ function RejectDialog({
   const [reason, setReason] = useState("");
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title="Reject this candidate?"
@@ -1006,16 +1014,19 @@ export function RealScreening({
         <CvLine storageKey={candidate.cvStorageKey} source={candidate.source} />
       </CardBody>
 
-      {editing && (
-        <ScreeningDialog
-          candidate={candidate}
-          onClose={() => setEditing(false)}
-          onSaved={() => {
-            setEditing(false);
-            onChanged();
-          }}
-        />
-      )}
+      {/* `candidate` is always available here (it comes straight from the
+          `application` prop, not from `editing`), so the only thing this
+          state gates is `open` — `Modal` stays mounted and decides for
+          itself whether to render. */}
+      <ScreeningDialog
+        open={editing}
+        candidate={candidate}
+        onClose={() => setEditing(false)}
+        onSaved={() => {
+          setEditing(false);
+          onChanged();
+        }}
+      />
     </Card>
   );
 }
@@ -1067,10 +1078,12 @@ function CvLine({
  * that only ever added would make a mistyped salary permanent.
  */
 function ScreeningDialog({
+  open,
   candidate,
   onClose,
   onSaved,
 }: {
+  open: boolean;
   candidate: ApiApplicationDetail["candidate"];
   onClose: () => void;
   onSaved: () => void;
@@ -1132,7 +1145,7 @@ function ScreeningDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="What the screener asked"
       description="Leave anything blank that was never asked. Clearing a box removes what was recorded."

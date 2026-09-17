@@ -21,19 +21,22 @@ export function PolicyDrawer({
   title,
   subtitle,
   footer,
+  open,
   onClose,
 }: {
-  policyId: string;
+  /** `null` while closed — `usePolicyText` already tolerates that. */
+  policyId: string | null;
   title: string;
   subtitle?: string;
   footer?: React.ReactNode;
+  open: boolean;
   onClose: () => void;
 }) {
   const detail = usePolicyText(policyId);
 
   return (
     <Drawer
-      open
+      open={open}
       onClose={onClose}
       title={title}
       size="xl"

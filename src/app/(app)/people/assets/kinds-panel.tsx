@@ -187,9 +187,11 @@ export function KindsPanel({
         )}
       </Card>
 
-      {adding && (
-        <AddKindDialog onClose={() => setAdding(false)} onAdd={onAdd} />
-      )}
+      <AddKindDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        onAdd={onAdd}
+      />
     </>
   );
 }
@@ -203,9 +205,11 @@ export function KindsPanel({
  * selectable the moment it saves.
  */
 export function AddKindDialog({
+  open,
   onClose,
   onAdd,
 }: {
+  open: boolean;
   onClose: () => void;
   onAdd: (input: KindInput) => Promise<boolean>;
 }) {
@@ -234,7 +238,7 @@ export function AddKindDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="sm"
       title="Add a kind of equipment"

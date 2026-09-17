@@ -302,33 +302,31 @@ export function ReleasePanel({
         }
       />
 
-      {stopping && (
-        <StopDialog
-          reference={batch.reference}
-          busy={busy}
-          onClose={() => setStopping(false)}
-          onStop={async (reason) => {
-            await onCancel(reason);
-            setStopping(false);
-          }}
-        />
-      )}
+      <StopDialog
+        open={stopping}
+        reference={batch.reference}
+        busy={busy}
+        onClose={() => setStopping(false)}
+        onStop={async (reason) => {
+          await onCancel(reason);
+          setStopping(false);
+        }}
+      />
 
-      {recording && (
-        <RecordPaidDialog
-          batchId={batch.id}
-          reference={batch.reference}
-          amountKobo={batch.computedTotalKobo}
-          people={headcount}
-          onClose={() => setRecording(false)}
-          onRecorded={() => {
-            /* Nothing to refetch by hand: `markPaid` bumps the store's
-               revision, so the batch this screen is rendering re-reads itself
-               and comes back COMPLETED. */
-            setRecording(false);
-          }}
-        />
-      )}
+      <RecordPaidDialog
+        open={recording}
+        batchId={batch.id}
+        reference={batch.reference}
+        amountKobo={batch.computedTotalKobo}
+        people={headcount}
+        onClose={() => setRecording(false)}
+        onRecorded={() => {
+          /* Nothing to refetch by hand: `markPaid` bumps the store's
+             revision, so the batch this screen is rendering re-reads itself
+             and comes back COMPLETED. */
+          setRecording(false);
+        }}
+      />
     </>
   );
 }
@@ -341,11 +339,13 @@ export function ReleasePanel({
  * against it is a support call.
  */
 function StopDialog({
+  open,
   reference,
   busy,
   onClose,
   onStop,
 }: {
+  open: boolean;
   reference: string;
   busy: boolean;
   onClose: () => void;
@@ -355,7 +355,7 @@ function StopDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Stop ${reference}?`}
       description="Nothing goes out. Build a new batch when the records are fixed."

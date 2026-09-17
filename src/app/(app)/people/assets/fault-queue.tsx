@@ -163,6 +163,10 @@ export function FaultQueuePanel() {
 
       {moving && (
         <MoveDialog
+          /* Keyed so switching request or target status remounts with fresh
+             state — without it, a typed note could carry over onto the
+             wrong request or the wrong transition. */
+          key={`${moving.request.id}-${moving.to}`}
           request={moving.request}
           to={moving.to}
           onClose={() => setMoving(null)}

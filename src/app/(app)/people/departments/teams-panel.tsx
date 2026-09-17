@@ -259,29 +259,28 @@ export function TeamsPanel({
         </Card>
       )}
 
-      {opened && (
-        <TeamDrawer
-          teamId={opened}
-          canEditRecords={canEditRecords}
-          employees={employees}
-          onClose={() => setOpened(null)}
-          onAdd={(id, employeeIds) =>
-            run(
-              () => mutations.addMembers(id, employeeIds),
-              employeeIds.length === 1
-                ? "Added to the team"
-                : "Added to the team",
-              (result) => result.moved,
-            )
-          }
-          onRemove={(id, employeeId, name) =>
-            run(
-              () => mutations.removeMembers(id, [employeeId]),
-              `${name} taken off the team`,
-            )
-          }
-        />
-      )}
+      <TeamDrawer
+        open={opened !== null}
+        teamId={opened}
+        canEditRecords={canEditRecords}
+        employees={employees}
+        onClose={() => setOpened(null)}
+        onAdd={(id, employeeIds) =>
+          run(
+            () => mutations.addMembers(id, employeeIds),
+            employeeIds.length === 1
+              ? "Added to the team"
+              : "Added to the team",
+            (result) => result.moved,
+          )
+        }
+        onRemove={(id, employeeId, name) =>
+          run(
+            () => mutations.removeMembers(id, [employeeId]),
+            `${name} taken off the team`,
+          )
+        }
+      />
 
       {creating && (
         <TeamDialog
@@ -309,6 +308,11 @@ export function TeamsPanel({
 
       {editing && (
         <TeamDialog
+          /* Keyed so editing a different team remounts with fresh state,
+             rather than deriving state from props during render — `create`
+             mode needs no key since `creating` is a plain boolean with only
+             one team in flight at a time. */
+          key={editing.id}
           mode="edit"
           team={editing}
           departments={departments}
@@ -463,6 +467,7 @@ function TeamRow({
  * Silently re-aligning it would be moving a cost centre without being asked.
  */
 function TeamDrawer({
+  open,
   teamId,
   canEditRecords,
   employees,
@@ -470,7 +475,12 @@ function TeamDrawer({
   onAdd,
   onRemove,
 }: {
-  teamId: string;
+  /* Controlled by `TeamsPanel`. Stays mounted at all times (even while no
+     team is open) so its own exit animation can run when `open` goes false.
+     `useTeam` below already has an `id: string | null` / enabled-style gate
+     built in, so `teamId` being null while closed costs nothing. */
+  open: boolean;
+  teamId: string | null;
   canEditRecords: boolean;
   employees: {
     id: string;
@@ -500,7 +510,7 @@ function TeamDrawer({
   return (
     <>
       <Drawer
-        open
+        open={open}
         onClose={onClose}
         title={team?.name ?? "Team"}
         {...(team
@@ -649,6 +659,10 @@ function TeamDrawer({
 
       {adding && team && (
         <AssignPeopleDialog
+          /* Keyed so adding to a different team remounts with fresh state,
+             rather than deriving state from props during render — without
+             it, the ticked selection could carry over onto the next team. */
+          key={team.id}
           title={`Add people to ${team.name}`}
           description="Everybody on a team at once, rather than one at a time."
           effect={membershipEffect(team)}

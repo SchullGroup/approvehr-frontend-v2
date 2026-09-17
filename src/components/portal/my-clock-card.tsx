@@ -202,7 +202,7 @@ export function MyClockCard({ onRecorded }: { onRecorded?: () => void } = {}) {
               about which one is real. Absent, not a guessed 08:00–17:00,
               when the policy has not loaded yet. */}
           {!myRow?.clockIn && !nothingToClock && policy && (
-            <p className="mt-1 flex items-center gap-1.5 text-body font-semibold text-ink">
+            <p className="mt-1 flex items-center gap-1.5 font-semibold text-ink">
               <Clock aria-hidden="true" className="size-4 text-accent-text" />
               Expected {policy.shiftStart}–{policy.shiftEnd}
               {policy.graceMinutes > 0 && (
