@@ -354,19 +354,14 @@ export function ConfirmDialog({
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <button
+          <Button
             type="button"
+            variant={tone === "danger" ? "danger" : "primary"}
+            loading={loading}
             onClick={onConfirm}
-            disabled={loading}
-            className={cn(
-              "h-10 rounded-md px-4 text-body-sm font-medium text-white disabled:opacity-50",
-              tone === "danger"
-                ? "bg-danger-fill hover:brightness-110"
-                : "bg-fill-strong hover:bg-fill-strong-hover",
-            )}
           >
             {confirmLabel}
-          </button>
+          </Button>
         </>
       }
     >

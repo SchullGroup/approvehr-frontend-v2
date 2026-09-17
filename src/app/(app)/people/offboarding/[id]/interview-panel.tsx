@@ -119,17 +119,19 @@ export function InterviewPanel({
         </CardBody>
       </Card>
 
-      {editing && (
-        <InterviewDialog
-          interview={interview}
-          employeeFirstName={employeeFirstName}
-          onClose={() => setEditing(false)}
-          onSave={async (body) => {
-            await onSave(body);
-            setEditing(false);
-          }}
-        />
-      )}
+      {/* No `{editing && (...)}` gate: `Modal` below owns its own open state,
+          so this has to stay mounted and keep passing the real boolean
+          through. `interview` is already nullable and handled throughout. */}
+      <InterviewDialog
+        open={editing}
+        interview={interview}
+        employeeFirstName={employeeFirstName}
+        onClose={() => setEditing(false)}
+        onSave={async (body) => {
+          await onSave(body);
+          setEditing(false);
+        }}
+      />
     </>
   );
 }
@@ -137,11 +139,13 @@ export function InterviewPanel({
 /* -------------------------------------------------------------------------- */
 
 function InterviewDialog({
+  open,
   interview,
   employeeFirstName,
   onClose,
   onSave,
 }: {
+  open: boolean;
   interview: ApiExitInterview | null;
   employeeFirstName: string;
   onClose: () => void;
@@ -216,7 +220,7 @@ function InterviewDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Exit interview"
       size="lg"

@@ -209,32 +209,31 @@ export function ConductPanel({
         </CardBody>
       </Card>
 
-      {recording && (
-        <RecordWarningModal
-          employeeId={employeeId}
-          employeeName={conduct.record.employee.name || "this person"}
-          onClose={() => setRecording(false)}
-          onSave={async (body) => {
-            let told: boolean | null = null;
-            const ok = await run(async () => {
-              const created = await conduct.recordAction(body);
-              told = created.employeeNotified;
-            }, "Recorded");
-            if (!ok) return;
-            setRecording(false);
-            /* Honest rather than assumed: `employeeNotified: false` means the
-               product reached nobody, so somebody has to hand over the letter.
-               There is no mail transport behind any of this either. */
-            if (told === false) {
-              toast.push({
-                title: "Nobody was told",
-                tone: "warning",
-                detail: `${conduct.record.employee.name || "This person"} has no sign-in, so give them the letter yourself.`,
-              });
-            }
-          }}
-        />
-      )}
+      <RecordWarningModal
+        open={recording}
+        employeeId={employeeId}
+        employeeName={conduct.record.employee.name || "this person"}
+        onClose={() => setRecording(false)}
+        onSave={async (body) => {
+          let told: boolean | null = null;
+          const ok = await run(async () => {
+            const created = await conduct.recordAction(body);
+            told = created.employeeNotified;
+          }, "Recorded");
+          if (!ok) return;
+          setRecording(false);
+          /* Honest rather than assumed: `employeeNotified: false` means the
+             product reached nobody, so somebody has to hand over the letter.
+             There is no mail transport behind any of this either. */
+          if (told === false) {
+            toast.push({
+              title: "Nobody was told",
+              tone: "warning",
+              detail: `${conduct.record.employee.name || "This person"} has no sign-in, so give them the letter yourself.`,
+            });
+          }
+        }}
+      />
 
       {confirming && (
         <ConfirmToldModal
@@ -390,11 +389,16 @@ const MIN_SUMMARY = 5;
  * not a paragraph about data protection.
  */
 function RecordWarningModal({
+  open,
   employeeId,
   employeeName,
   onClose,
   onSave,
 }: {
+  /* Controlled by `ConductPanel`, which owns the "Record a warning" button.
+     This modal now stays mounted at all times so its own exit animation can
+     run when `open` goes false — see `setup-guide.tsx` for the pattern. */
+  open: boolean;
   employeeId: string;
   employeeName: string;
   onClose: () => void;
@@ -439,7 +443,7 @@ function RecordWarningModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Record a warning for ${employeeName}`}
       size="lg"

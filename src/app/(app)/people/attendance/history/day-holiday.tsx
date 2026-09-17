@@ -188,17 +188,16 @@ export function DayHoliday({
         </span>
       )}
 
-      {adding && (
-        <AddHolidayDialog
-          date={date}
-          onClose={() => setAdding(false)}
-          onAdded={(name) => {
-            setAdding(false);
-            toast.push({ title: `${name} added`, tone: "success" });
-            onChanged();
-          }}
-        />
-      )}
+      <AddHolidayDialog
+        open={adding}
+        date={date}
+        onClose={() => setAdding(false)}
+        onAdded={(name) => {
+          setAdding(false);
+          toast.push({ title: `${name} added`, tone: "success" });
+          onChanged();
+        }}
+      />
 
       {removing && row && (
         <ConfirmDialog
@@ -223,10 +222,14 @@ export function DayHoliday({
 }
 
 function AddHolidayDialog({
+  open,
   date,
   onClose,
   onAdded,
 }: {
+  /* Controlled by `DayHoliday`. Stays mounted at all times so its own exit
+     animation can run when `open` goes false. */
+  open: boolean;
   date: string;
   onClose: () => void;
   onAdded: (name: string) => void;
@@ -275,7 +278,7 @@ function AddHolidayDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Add a public holiday"
       description={readable}

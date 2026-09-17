@@ -54,6 +54,19 @@ import { cn } from "@/lib/cn";
  * `tone` is a text colour, never a background. Every value clears 4.5:1 on all
  * eight app backgrounds — see `scripts/verify-contrast.ts`, which checks the
  * whole matrix rather than a hand-written list.
+ *
+ * ## `accent` exists for a blocker that is a task, not a failure
+ *
+ * `danger` still means what it always meant — a refusal, a figure that cannot
+ * reconcile, a thing that actually went wrong. A missing appraiser is not
+ * that: nobody did anything wrong, there is just an assignment to make, and
+ * red on a screen somebody opens every day reads as an accusation repeated
+ * daily. `accent` is the brand colour already carrying "this is live and
+ * wants your attention" everywhere else in the product (the running rail
+ * segment in `period-status.tsx`, for one) — reusing it here says "act on
+ * this" without saying "something broke." Severity — whether the period ends
+ * with a gap if nobody does anything — is still `exceptionLines`' to decide;
+ * this only changes what the worst case is painted.
  */
 export function NoticeLine({
   tone = "warning",
@@ -61,11 +74,12 @@ export function NoticeLine({
   children,
 }: {
   /**
-   * `danger` where somebody ends the period with nothing; `warning` where it is
-   * merely worth doing; `muted` for a plain statement of fact that happens to
-   * carry a link.
+   * `danger` where something has actually gone wrong; `accent` where somebody
+   * ends the period with nothing unless they act, but nothing is broken —
+   * only a task away; `warning` where it is merely worth doing; `muted` for a
+   * plain statement of fact that happens to carry a link.
    */
-  tone?: "muted" | "warning" | "danger";
+  tone?: "muted" | "warning" | "danger" | "accent";
   className?: string;
   /** The sentence. Put the `Link` or the `button` inside it. */
   children: React.ReactNode;
@@ -76,9 +90,11 @@ export function NoticeLine({
         "flex flex-wrap items-baseline gap-x-2 gap-y-1 text-body-sm",
         tone === "danger"
           ? "text-danger-text"
-          : tone === "warning"
-            ? "text-warning-text"
-            : "text-muted",
+          : tone === "accent"
+            ? "text-accent-text"
+            : tone === "warning"
+              ? "text-warning-text"
+              : "text-muted",
         className,
       )}
     >

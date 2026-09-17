@@ -358,9 +358,11 @@ export function SecurityScreen() {
         )}
       </PageBody>
 
-      {codes && (
-        <RecoveryCodesDialog codes={codes} onDone={() => setCodes(null)} />
-      )}
+      <RecoveryCodesDialog
+        open={codes !== null}
+        codes={codes}
+        onDone={() => setCodes(null)}
+      />
 
       {disabling && (
         <ConfirmDialog
@@ -388,14 +390,25 @@ export function SecurityScreen() {
  * is that every other dialog can be reopened.
  */
 function RecoveryCodesDialog({
-  codes,
+  codes: codesProp,
+  open,
   onDone,
 }: {
-  codes: string[];
+  /** `null` while closed — see the freeze below for why. */
+  codes: string[] | null;
+  open: boolean;
   onDone: () => void;
 }) {
+  /* Remembers the last real codes: the parent clears its prop to null the
+     instant `onDone` fires, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`. */
+  const [codes, setCodes] = useState(codesProp);
+  if (codesProp && codesProp !== codes) setCodes(codesProp);
+
   const toast = useToast();
   const [saved, setSaved] = useState(false);
+
+  if (!codes) return null;
 
   const copy = async () => {
     try {
@@ -412,7 +425,7 @@ function RecoveryCodesDialog({
 
   return (
     <Modal
-      open
+      open={open}
       /* Deliberately a no-op. See the header — dismissing this by reflex is the
          failure the whole dialog exists to prevent. */
       onClose={() => undefined}

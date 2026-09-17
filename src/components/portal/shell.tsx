@@ -508,6 +508,14 @@ function SidebarNav({
                         Coming soon
                       </span>
                     )}
+                    {/* Deliberately hand-rolled, not `Badge`: the active state
+                        is a solid accent fill with no matching tone today, and
+                        every existing tone is a soft/tinted fill by design (see
+                        `button.tsx`'s note on keeping solid colour rare). Adding
+                        a one-off "solid accent" tone for this single nav pill
+                        would be a wider API change for a bespoke bit of chrome
+                        that belongs to the sidebar's own active/inactive
+                        language, not to Badge's status vocabulary. */}
                     {count !== undefined && count > 0 && !item.soon && (
                       <span
                         className={cn(
