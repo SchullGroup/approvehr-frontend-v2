@@ -315,7 +315,7 @@ function Row({
       <div className="min-w-0 flex-1">
         <p
           className={cn(
-            "flex flex-wrap items-center gap-2 text-body text-ink",
+            "flex flex-wrap items-center gap-2 text-ink",
             item.read ? "font-normal" : "font-semibold",
           )}
         >
