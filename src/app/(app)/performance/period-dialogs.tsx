@@ -241,6 +241,21 @@ export function QuestionsDialog({
   const [audiences, setAudiences] = useState<ReviewAudience[]>([]);
   const [required, setRequired] = useState(true);
   const [competencyId, setCompetencyId] = useState("");
+  /**
+   * The section the subsection sits in.
+   *
+   * Held rather than derived from `competencyId`, because the two selects have
+   * to survive the state in between: a section chosen with no subsection
+   * picked yet. Deriving it would snap the section back to blank the instant
+   * somebody chose one, which is the control undoing the click that set it.
+   *
+   * It is **not** saved. `CreateQuestionBody` carries `competencyId` and
+   * nothing else — a question is filed under a subsection, and its section
+   * follows from that. So a section with no subsection files the question
+   * under nothing, and `FiledUnderPicker` says so at the moment it happens
+   * rather than leaving somebody to find out from a mark.
+   */
+  const [sectionId, setSectionId] = useState("");
   const [options, setOptions] = useState<string[]>(["", ""]);
   const [allowCustom, setAllowCustom] = useState(false);
   /**
@@ -275,6 +290,11 @@ export function QuestionsDialog({
     setAudiences(inAudienceOrder(question.askedOf));
     setRequired(question.required);
     setCompetencyId(question.competencyId ?? "");
+    setSectionId(
+      framework.competencies.find(
+        (competency) => competency.id === question.competencyId,
+      )?.sectionId ?? "",
+    );
     setOptions(question.options.length > 0 ? question.options : ["", ""]);
     setAllowCustom(question.allowCustom);
     clearErrors();
@@ -288,6 +308,7 @@ export function QuestionsDialog({
     setAudiences([]);
     setRequired(true);
     setCompetencyId("");
+    setSectionId("");
     setOptions(["", ""]);
     setAllowCustom(false);
     clearErrors();
@@ -516,6 +537,23 @@ export function QuestionsDialog({
             </Callout>
           )}
 
+          {/* Where it goes, before what it says.
+
+              This used to sit below the question, the answer kind and the
+              audience, which put the one choice that decides whether an answer
+              counts towards anything last — after the decision it qualifies.
+              Leading with it also makes the section an explicit choice rather
+              than something implied by which group an option happened to sit
+              in. */}
+          <FiledUnderPicker
+            sectionId={sectionId}
+            competencyId={competencyId}
+            onChange={(next) => {
+              setSectionId(next.sectionId);
+              setCompetencyId(next.competencyId);
+            }}
+          />
+
           <Field
             label={editing ? "Edit the question" : "Add a question"}
             required
@@ -576,8 +614,6 @@ export function QuestionsDialog({
             </NoticeLine>
           )}
 
-          <SubsectionPicker value={competencyId} onChange={setCompetencyId} />
-
           {kind === "CHOICE" && (
             <>
               <ChoiceEditor
@@ -622,32 +658,98 @@ export function QuestionsDialog({
 }
 
 /**
- * Which subsection this question is filed under, plus creating one on the
- * spot.
+ * Where a question is filed: its section, then its subsection.
  *
- * A subsection is a `Competency` and a section is what it's filed under —
- * both framework-level, shared across every cycle. Quick-creating one here
- * rather than sending HR to a separate screen is deliberate: the moment a
- * question needs a subsection that doesn't exist yet is the moment to make
- * it, not three clicks later.
+ * ## Two controls, and only one of them is saved
+ *
+ * `CreateQuestionBody` carries `competencyId` and nothing else. A question is
+ * filed under a **subsection**, and its section is whatever that subsection
+ * sits in — so the control above is a narrowing of the list below it, not a
+ * second field that gets written.
+ *
+ * Which means a section chosen with no subsection picked files the question
+ * under **nothing**. That is a real intermediate state while somebody is
+ * choosing, and it is also a saveable mistake, so it is named on screen the
+ * moment it exists rather than left to be discovered when a mark comes out
+ * lower than anybody expected.
+ *
+ * This was one control: a single select with the sections as its optgroup
+ * headings. That made the section something you inherited from whichever
+ * option you happened to land on rather than something you chose, and it put
+ * the whole framework in one list on a company with four sections and thirty
+ * subsections under them.
+ *
+ * ## The options come from the framework, not only from the sections list
+ *
+ * `useSections` answers from the API and returns nothing at all offline, while
+ * `useFramework` has a demo framework. Reading the section list from
+ * `framework.groups` when the API has not answered is what keeps this usable
+ * in both modes; `useSections` is still preferred when it has rows, because it
+ * carries the company's own order and what each section is worth.
+ *
+ * ## Quick-create stays
+ *
+ * The moment a question needs a subsection that does not exist yet is the
+ * moment to make it. There is a whole sections panel now — that one is for
+ * reading and correcting the framework, not for interrupting somebody
+ * part-way through writing a question.
  */
-function SubsectionPicker({
-  value,
+function FiledUnderPicker({
+  sectionId,
+  competencyId,
   onChange,
 }: {
-  value: string;
-  onChange: (id: string) => void;
+  /** `""` is "not filed under a section". */
+  sectionId: string;
+  /** `""` is "no subsection", which is what actually gets saved as unfiled. */
+  competencyId: string;
+  onChange: (next: { sectionId: string; competencyId: string }) => void;
 }) {
   const framework = useFramework();
   const { sections } = useSections();
   const actions = useFrameworkActions();
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newSectionId, setNewSectionId] = useState("");
-  const [newSectionName, setNewSectionName] = useState("");
-  const [creatingSection, setCreatingSection] = useState(false);
   const [busy, setBusy] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+
+  /* The API's own list when it has answered — it carries the order the company
+     chose and what each section is worth. The framework's groups otherwise, so
+     this still works with no API. A group with no section id is the unfiled
+     bucket, which is the empty option below rather than a section. */
+  const options: {
+    id: string;
+    name: string;
+    weightBp: number | null | undefined;
+  }[] =
+    sections.length > 0
+      ? sections.map((section) => ({
+          id: section.id,
+          name: section.name,
+          weightBp: section.weightBp,
+        }))
+      : framework.groups
+          .filter((group) => group.sectionId)
+          .map((group) => ({
+            id: group.sectionId ?? "",
+            name: group.sectionName,
+            weightBp: undefined,
+          }));
+
+  const chosen = options.find((option) => option.id === sectionId);
+  const inSection = framework.competencies.filter(
+    (competency) => (competency.sectionId ?? "") === sectionId,
+  );
+
+  const label = (option: (typeof options)[number]) => {
+    if (option.weightBp === undefined) return option.name;
+    /* Null is "not weighted", never 0%. A section outside `ScoreComponent` has
+       its ratings recorded and excluded, and 0% would read as a weight
+       somebody chose. */
+    return option.weightBp === null
+      ? `${option.name} — not weighted`
+      : `${option.name} — ${weightLabel(option.weightBp)} of the mark`;
+  };
 
   const addSubsection = async () => {
     if (newName.trim().length < 2) {
@@ -657,29 +759,14 @@ function SubsectionPicker({
     setAddError(null);
     setBusy(true);
     try {
-      let sectionId = newSectionId;
-      if (creatingSection) {
-        if (newSectionName.trim().length < 2) {
-          setAddError("Give the section a name too.");
-          setBusy(false);
-          return;
-        }
-        const section = await actions.createSection({
-          name: newSectionName.trim(),
-        });
-        sectionId = section.id;
-      }
       const competency = await actions.createCompetency({
         name: newName.trim(),
         scaleMax: 5,
         ...(sectionId ? { sectionId } : {}),
       });
-      onChange(competency.id);
+      onChange({ sectionId, competencyId: competency.id });
       setAdding(false);
       setNewName("");
-      setNewSectionId("");
-      setNewSectionName("");
-      setCreatingSection(false);
     } catch (caught) {
       setAddError(
         caught instanceof ApiError ? caught.message : "Could not add that.",
@@ -703,6 +790,13 @@ function SubsectionPicker({
         <Field
           label="Subsection name"
           {...(addError ? { error: addError } : {})}
+          help={
+            /* Says where it will land, using the section already chosen above
+               rather than asking for it a second time. */
+            chosen
+              ? `It will be filed under ${chosen.name}.`
+              : "It will not be filed under a section, so answers to it count towards no part of the mark."
+          }
         >
           <Input
             value={newName}
@@ -710,39 +804,6 @@ function SubsectionPicker({
             placeholder="Communication"
           />
         </Field>
-        {creatingSection ? (
-          <Field label="New section name">
-            <Input
-              value={newSectionName}
-              onChange={(event) => setNewSectionName(event.target.value)}
-              placeholder="Behavioural competency"
-            />
-          </Field>
-        ) : (
-          <Field label="Section it belongs to">
-            <Select
-              value={newSectionId}
-              onChange={(event) => {
-                if (event.target.value === "__new__") {
-                  setCreatingSection(true);
-                  setNewSectionId("");
-                } else {
-                  setNewSectionId(event.target.value);
-                }
-              }}
-            >
-              <option value="">No section (unfiled)</option>
-              {framework.groups
-                .filter((g) => g.sectionId)
-                .map((g) => (
-                  <option key={g.sectionId} value={g.sectionId ?? ""}>
-                    {g.sectionName}
-                  </option>
-                ))}
-              <option value="__new__">+ New section&hellip;</option>
-            </Select>
-          </Field>
-        )}
         <Button
           variant="secondary"
           size="sm"
@@ -755,72 +816,82 @@ function SubsectionPicker({
     );
   }
 
-  /* What each section is worth, so the filing decision is made with the one
-     fact that gives it meaning. The feedback's complaint is that the sections
-     configured in Settings do not reach appraisal creation: they do reach it,
-     as these headings, and they used to reach it stripped of their weight. */
-  const weightOf = new Map(
-    sections.map((section) => [section.name, section.weightBp]),
-  );
-  const sectionLabel = (name: string) => {
-    const bp = weightOf.get(name);
-    if (bp === undefined) return name;
-    /* Null is "not weighted", never 0%. A section outside `ScoreComponent` has
-       its ratings recorded and excluded, and saying 0% would read as a weight
-       somebody chose. */
-    return bp === null
-      ? `${name} — not weighted`
-      : `${name} — ${weightLabel(bp)} of the mark`;
-  };
-
-  const chosen = framework.competencies.find(
-    (competency) => competency.id === value,
-  );
-  const chosenSection = chosen?.sectionName ?? null;
-  const chosenWeight = chosenSection ? weightOf.get(chosenSection) : undefined;
-
   return (
-    <Field
-      label="Filed under"
-      help={
-        /* Says what the choice does to the score, at the moment it is made.
-           An unfiled question is answerable and unscored, which is a real
-           thing to want for a free-text prompt and a surprise for a rating. */
-        value === ""
-          ? "Unfiled questions are asked and answered, and count towards no part of the mark."
-          : chosenWeight === null
-            ? `That section is not weighted, so answers to this count towards no part of the mark.`
-            : chosenWeight !== undefined
-              ? `Answers to this count towards ${chosenSection}, which is ${weightLabel(chosenWeight)} of the mark.`
-              : undefined
-      }
-    >
-      <div className="flex gap-2">
-        <Select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="flex-1"
-        >
-          <option value="">Not filed under a subsection</option>
-          {framework.groups.map((group) => (
-            <optgroup
-              key={group.sectionName}
-              label={sectionLabel(group.sectionName)}
+    <div className="flex flex-col gap-2">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Section">
+          <Select
+            value={sectionId}
+            onChange={(event) =>
+              /* The subsection goes with it. Keeping it would leave a question
+                 filed under something the select above no longer lists, which
+                 is a claim the screen cannot show. */
+              onChange({ sectionId: event.target.value, competencyId: "" })
+            }
+          >
+            <option value="">Not filed under a section</option>
+            {options.map((option) => (
+              <option key={option.id} value={option.id}>
+                {label(option)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label="Subsection">
+          <div className="flex gap-2">
+            <Select
+              value={competencyId}
+              className="flex-1"
+              onChange={(event) =>
+                onChange({ sectionId, competencyId: event.target.value })
+              }
             >
-              {group.competencies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
+              <option value="">None</option>
+              {inSection.map((competency) => (
+                <option key={competency.id} value={competency.id}>
+                  {competency.name}
                 </option>
               ))}
-            </optgroup>
-          ))}
-        </Select>
-        <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
-          <Plus aria-hidden="true" className="size-3.5" />
-          New
-        </Button>
+            </Select>
+            <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
+              <Plus aria-hidden="true" className="size-3.5" />
+              New
+            </Button>
+          </div>
+        </Field>
       </div>
-    </Field>
+
+      {/* One sentence under both controls, because it is one fact about the
+          pair of them. Four states, and the middle one is the whole reason
+          this is two selects rather than one. */}
+      <NoticeLine
+        tone={competencyId === "" && sectionId !== "" ? "warning" : "muted"}
+      >
+        <span>
+          {competencyId !== ""
+            ? chosen === undefined
+              ? "This is not filed under a section, so answers to it count towards no part of the mark."
+              : chosen.weightBp === null
+                ? `${chosen.name} is not weighted, so answers to this count towards no part of the mark.`
+                : chosen.weightBp === undefined
+                  ? `Answers to this count towards ${chosen.name}.`
+                  : `Answers to this count towards ${chosen.name}, which is ${weightLabel(chosen.weightBp)} of the mark.`
+            : sectionId !== ""
+              ? "Nothing is filed under a section on its own. Pick a subsection, or this question is asked, answered, and counts towards no part of the mark."
+              : "Unfiled questions are asked and answered, and count towards no part of the mark."}
+        </span>
+      </NoticeLine>
+
+      {sectionId !== "" && inSection.length === 0 && (
+        <NoticeLine tone="muted">
+          <span>
+            Nothing is filed under {chosen?.name ?? "that section"} yet. Add a
+            subsection to score answers against it.
+          </span>
+        </NoticeLine>
+      )}
+    </div>
   );
 }
 
