@@ -74,7 +74,7 @@ export function Ai2Chat() {
       <CardBody className="flex flex-col gap-4">
         <UsageGauge compact />
 
-        {chat.turns.length === 0 && !chat.sending ? (
+        {chat.turns.length === 0 && !chat.sending && !chat.capped ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-start gap-3">
               <AssistantOrb size={36} className="mt-0.5 shrink-0" />
@@ -133,8 +133,12 @@ export function Ai2Chat() {
             rows={2}
             value={draft}
             aria-label="Your question"
-            placeholder="Ask a question about your records"
-            disabled={chat.full}
+            placeholder={
+              chat.capped
+                ? "The assistant has no tokens left for now"
+                : "Ask a question about your records"
+            }
+            disabled={chat.full || chat.capped}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
@@ -169,7 +173,9 @@ export function Ai2Chat() {
                 <Button
                   variant="accent"
                   size="sm"
-                  disabled={draft.trim().length === 0 || chat.full}
+                  disabled={
+                    draft.trim().length === 0 || chat.full || chat.capped
+                  }
                   onClick={() => void send()}
                 >
                   <Send aria-hidden="true" className="size-3.5" />
@@ -179,11 +185,15 @@ export function Ai2Chat() {
             </div>
           </div>
 
-          {chat.full && (
-            <p className="text-body-sm text-muted">
-              This conversation has reached its length limit. Start again to
-              carry on: nothing here was saved either way.
-            </p>
+          {chat.capped ? (
+            <p className="text-body-sm text-muted">{chat.capReason}</p>
+          ) : (
+            chat.full && (
+              <p className="text-body-sm text-muted">
+                This conversation has reached its length limit. Start again to
+                carry on: nothing here was saved either way.
+              </p>
+            )
           )}
         </div>
       </CardBody>
