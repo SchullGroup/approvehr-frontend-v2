@@ -338,7 +338,7 @@ export function ImportOutcome({
                 className="size-6 text-success-text"
               />
             </span>
-            <p className="text-body text-ink">
+            <p className="text-ink">
               {count(result.created)} added and {count(result.updated)} updated
               from {filename}.
             </p>

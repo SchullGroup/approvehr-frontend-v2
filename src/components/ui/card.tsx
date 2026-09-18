@@ -125,7 +125,7 @@ export function LinkCard({
           {icon}
         </span>
       )}
-      <span className="flex items-center gap-1.5 text-body font-semibold text-ink">
+      <span className="flex items-center gap-1.5 font-semibold text-ink">
         {title}
         <ArrowRight
           aria-hidden="true"

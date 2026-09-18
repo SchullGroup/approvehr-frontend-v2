@@ -847,7 +847,7 @@ function PublishModal({
           </Field>
         )
       ) : (
-        <p className="text-body leading-relaxed text-body">
+        <p className="text-body leading-relaxed">
           It becomes version {policy.version} of your handbook.
         </p>
       )}

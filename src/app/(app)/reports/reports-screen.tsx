@@ -190,7 +190,7 @@ function Reports() {
         <PageBody>
           <Card>
             <CardBody className="flex flex-col items-start gap-3">
-              <p className="text-body text-ink">
+              <p className="text-ink">
                 {error ?? "The reports did not load. Try again in a moment."}
               </p>
               <button
@@ -238,7 +238,7 @@ function Reports() {
         <PageBody>
           <Card>
             <CardBody className="flex flex-col items-start gap-3">
-              <p className="text-body text-ink">
+              <p className="text-ink">
                 This report came back without all of its figures, so it is not
                 shown rather than shown with gaps in it. Nothing is wrong with
                 your data.
@@ -514,7 +514,7 @@ function Reports() {
                   }))}
                 />
               ) : (
-                <p className="text-body text-muted">
+                <p className="text-muted">
                   Nobody is assigned to a department yet.
                 </p>
               )}
@@ -570,7 +570,7 @@ function Reports() {
                   }))}
                 />
               ) : (
-                <p className="text-body text-muted">
+                <p className="text-muted">
                   Nobody has an employment type recorded yet.
                 </p>
               )}
@@ -594,7 +594,7 @@ function Reports() {
 function NoRunYet() {
   return (
     <div className="flex flex-col items-start gap-3 py-2">
-      <p className="text-body text-body">
+      <p className="text-body">
         No payroll has been run for this period, so there are no costs to
         report.
       </p>

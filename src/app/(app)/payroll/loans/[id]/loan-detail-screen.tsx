@@ -422,9 +422,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
 
         {loan.schedule.length > 0 ? (
           <div className="flex flex-col gap-3">
-            <h2 className="text-body font-semibold text-ink">
-              The repayment schedule
-            </h2>
+            <h2 className="font-semibold text-ink">The repayment schedule</h2>
             <TableWrap caption="Every instalment, what was taken and what is still owed">
               <THead>
                 <TH>Instalment</TH>
@@ -547,7 +545,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
           </div>
         ) : proposed ? (
           <div className="flex flex-col gap-3">
-            <h2 className="text-body font-semibold text-ink">
+            <h2 className="font-semibold text-ink">
               What the schedule would be
             </h2>
             <p className="text-body-sm leading-relaxed text-body">

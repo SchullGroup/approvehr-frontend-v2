@@ -301,7 +301,7 @@ function Catalogue() {
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <p className="text-body font-semibold text-ink">
+                          <p className="font-semibold text-ink">
                             {integration.name}
                           </p>
                           <p className="mt-1 text-body-sm leading-relaxed text-body">
