@@ -77,6 +77,12 @@ const wrap = (ui: React.ReactNode) =>
 const openFor = (employeeId: string) =>
   wrap(
     <InviteToSignIn
+      /* The dialog is controlled and stays mounted, so its exit animation can
+         run — `InviteToSignInButton` owns that state in the product. These
+         tests render the dialog directly rather than through the button, so
+         they own it here instead, and every one of them is about a dialog that
+         is open. */
+      open
       employeeId={employeeId}
       name="Grace Okafor"
       email="grace@example.com"
