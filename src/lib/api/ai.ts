@@ -3,40 +3,21 @@
 import { request } from "@/lib/api/client";
 
 /**
- * Suggestions — `/api/v1/ai`.
+ * Suggestions — `/api/v1/ai`. Typed wrappers only, no React, no state.
  *
- * Typed wrappers only, in the same style as `performance.ts` beside it. No
- * React, no state.
+ * A suggestion is never saved by these calls — every function is a read that
+ * fills a form field somebody then edits and submits normally. There is no
+ * `acceptSuggestion`, and no screen may auto-apply a suggestion.
  *
- * ## The one thing to understand before using any of this
- *
- * **A suggestion is never saved by these calls.** Every function here is a
- * read: it returns text that lands in a form field a person then edits and
- * submits through the ordinary endpoint. There is no `acceptSuggestion` and
- * there must not be one — a suggestion somebody kept and a sentence somebody
- * typed are the same row, and the difference is only who did the typing.
- *
- * The API enforces this (see `modules/ai/service.ts` — it reads and never
- * writes), and the frontend has to hold the same line: **nothing in a screen
- * may auto-apply a suggestion.** A suggestion that fills a field on arrival is
- * a generated sentence submitted under somebody's name by default, and the
- * first time anybody notices is at an appraisal.
- *
- * ## Absent is a refusal with a reason, never an empty list
- *
- * `SuggestOutcome` is a discriminated union and that is load-bearing. With no
- * assistant wired the API answers **200** with `available: false` and a
- * sentence — not a 500, and not `suggestions: []`. An empty array would read as
- * "it thought about your goal and had no ideas", which is a claim about a
- * request nobody made. Screens branch on `available` and render the reason.
- *
- * The `groundedIn` block comes back on **both** arms, so a screen can say what
- * the suggestion would have been based on even when it cannot make one.
+ * With no assistant wired the API answers 200 with `available: false` and a
+ * reason, never `suggestions: []` — an empty array would claim it had no
+ * ideas rather than that it was never asked. `groundedIn` comes back on both
+ * arms of `ApiSuggestOutcome`.
  */
 
-/** What the assistant was given. Rendered to the reader, so never paraphrased. */
+/** What the assistant was given. Rendered to the reader, never paraphrased. */
 export type ApiGrounding = {
-  /** "the company goal \"Grow recurring revenue\"". Reads after "Suggested from". */
+  /** e.g. "the company goal \"Grow recurring revenue\"". Reads after "Suggested from". */
   summary: string;
   /** The exact facts handed over. Behind a reveal; shown verbatim. */
   facts: string[];
@@ -45,11 +26,7 @@ export type ApiGrounding = {
 export type ApiSuggestion = {
   title: string;
   detail: string;
-  /**
-   * Extras for the kind that asked for them — an objective's measures arrive as
-   * `{ measures: [{ label, unit }] }`. Deliberately loose on the wire; the one
-   * caller that reads it narrows it there rather than typing every kind here.
-   */
+  /** Extras for the kind that asked for them, e.g. an objective's measures. */
   fields?: Record<string, unknown> | undefined;
 };
 
@@ -59,20 +36,11 @@ export type ApiSuggestOutcome =
 
 export type ApiAssistantStatus = {
   available: boolean;
-  /** "Anthropic claude-sonnet-5", or null. For a settings screen, not a form. */
   assistant: string | null;
-  /** Present only when unavailable. */
   reason?: string;
 };
 
-/**
- * Whether suggestions can be made at all.
- *
- * Asked once by the shell rather than per form, so a screen can decide whether
- * to render its Suggest button — **absent, not disabled**, the same rule the nav
- * and the dashboard tiles follow. A button that is present and always refuses
- * teaches people the product is broken.
- */
+/** Whether suggestions can be made at all — asked once, so a screen can hide its Suggest button. */
 export const assistantStatus = (): Promise<ApiAssistantStatus> =>
   request<ApiAssistantStatus>("/ai/status");
 
@@ -86,13 +54,7 @@ export const suggestObjectives = (body: {
     body,
   });
 
-/**
- * A progress note, expanded from the headline somebody typed.
- *
- * `headline` is the person's own words and the API refuses fewer than ten
- * characters — three words is a blank page, and a note generated from "did
- * work" would be entirely invention.
- */
+/** A progress note, expanded from a typed headline. Refused under ten characters. */
 export const suggestTaskSummary = (body: {
   goalId: string;
   headline: string;
@@ -103,16 +65,9 @@ export const suggestTaskSummary = (body: {
   });
 
 /**
- * Development areas behind a low competency score.
- *
- * Built only from competencies scored **below their target** — never from the
- * composite mark, never from written comments. Somebody meeting every target is
- * refused rather than handed a weakness invented to fill the panel, and that
- * refusal arrives as a 422 the screen shows as an ordinary message.
- *
- * This is a note for whoever is writing the appraisal. The employee never
- * receives it, and nothing is recorded unless the appraiser puts it in the form
- * themselves.
+ * Development areas behind a low competency score. Built only from
+ * competencies scored below target, never the composite mark or written
+ * comments. For the appraiser only — the employee never receives it.
  */
 export const suggestDevelopment = (body: {
   employeeId: string;
@@ -124,27 +79,10 @@ export const suggestDevelopment = (body: {
   });
 
 /**
- * A whole appraisal period, drafted from a paragraph.
- *
- * Two calls rather than one, matching the API. The wizard keeps whichever half
- * arrives: a period with drafted goals and hand-written questions is a period,
- * while a single request that refuses because its second half timed out puts
- * somebody back at a blank page.
- *
- * `text` is the person's own description and travels to the model as a **fact**,
- * never as the instruction — the instruction is assembled server-side, which is
- * what keeps the guardrails enforceable. See `modules/ai/schemas.ts`.
- *
- * Both need `MANAGE_SETTINGS`, because both exist to end in
- * `POST /performance/cycles`, which needs it. The other three suggestion
- * endpoints are gated by what they read; these two read nothing narrowed by the
- * caller, so there is nothing for a read-gate to check.
- *
- * **Neither writes anything.** The wizard's last screen calls the ordinary
- * create endpoints with whatever the person edited, and a measure cannot even
- * be created without a target — `CreateKeyResultBody.targetValue` is required,
- * which is the API refusing at the type level the one thing the model must
- * never fill in.
+ * A whole appraisal period, drafted from a paragraph. Two calls, matching the
+ * API, so the wizard can keep whichever half arrives. `text` travels as a
+ * fact, never an instruction. Both need `MANAGE_SETTINGS`, since both end in
+ * `POST /performance/cycles`. Neither writes anything.
  */
 export const draftPeriodGoals = (body: {
   text: string;
@@ -165,14 +103,7 @@ export const draftPeriodQuestions = (body: {
     body,
   });
 
-/**
- * An answer to a question about the company's own records.
- *
- * `used` is the reads that ran, by name, and it is shown rather than logged —
- * an answer a person cannot check the working of is an oracle, and this
- * product does not ship those. `available: false` carries a `reason` and never
- * a `text`, so a refusal cannot be rendered as an answer.
- */
+/** `used` is the reads that ran, shown rather than logged. A refusal never carries `text`. */
 export type ApiAnswer = {
   available: boolean;
   text?: string;
@@ -186,61 +117,33 @@ export const ask = (question: string): Promise<ApiAnswer> =>
 /* ------------------------------------------------------------------ the chat */
 
 /**
- * A conversation, and the one thing in this module that can lead to a write.
+ * `/ai/chat` proposes. `/ai/actions/:name` performs. Never the same press.
  *
- * ## `/ai/chat` proposes. `/ai/actions/:name` performs. Never the same press.
+ * `chat()` can only ever come back with a `proposed` block: a description of
+ * a change plus the arguments that would make it. Nothing is written until a
+ * click calls `runAssistantAction` with `proposed.args` posted back verbatim.
  *
- * This is the whole safety model and it is not a convention — it is two
- * endpoints. `chat()` can only ever come back with a `proposed` block, which is
- * a description of a change and the arguments that would make it. Nothing is
- * written until somebody presses a button, and that button calls
- * `runAssistantAction` with `proposed.args` **posted back verbatim**.
+ * - Never call `runAssistantAction` except from an explicit click.
+ * - Never edit `args` — they are the server's own resolved ids.
+ * - Render `proposal.summary`/`details`/`irreversible` verbatim; never write
+ *   a button label that describes the act.
  *
- * Three rules follow, and undoing any one of them undoes the model:
- *
- * 1. **Never call `runAssistantAction` except from an explicit click.** Not from
- *    an effect, not on arrival, not because the proposal looked safe.
- * 2. **Never edit `args`.** They are the server's own resolved ids. Rewriting
- *    them here would mean the thing confirmed is not the thing described.
- * 3. **Render `proposal.summary`, `proposal.details` and `proposal.irreversible`
- *    verbatim, and never write a button label that describes the act.** Those
- *    sentences were read out of the database by the API; a paraphrase is a
- *    sentence the model wrote about a record nobody checked. The point of the
- *    confirm step is that its words come from the data rather than from the
- *    assistant.
- *
- * ## Nothing is stored, on either side
- *
- * The API keeps no transcript, deliberately — the whole conversation is sent
- * again every turn. So the frontend must not keep one either: mirroring it into
- * `localStorage` would quietly undo a privacy decision somebody made on purpose.
- * See `lib/store/ai-chat.ts`, which holds the conversation in component state
- * and says the same thing.
+ * Nothing is stored on either side. The API keeps no transcript, so
+ * `lib/store/ai-chat.ts` holds the conversation in component state only.
  */
 
 export type ApiChatRole = "user" | "assistant";
 
-/** Exactly what goes on the wire. No ids, no timestamps — the API takes neither. */
+/** Exactly what goes on the wire. No ids, no timestamps. */
 export type ApiChatMessage = { role: ApiChatRole; content: string };
 
-/**
- * The API's limits, named here because the composer and the store both enforce
- * them and neither should carry its own copy of a number the server owns.
- *
- * Enforced locally so somebody typing a long paragraph is told before they press
- * send rather than by a 400 afterwards — the server still refuses, and that
- * refusal is what is shown if these two ever drift.
- */
+/** The API's limits, enforced locally so a refusal is shown before a press. */
 export const MAX_CHAT_MESSAGES = 40;
 export const MAX_CHAT_MESSAGE_CHARS = 4000;
 
 /**
- * What a change would be, in the API's own words.
- *
- * `summary` is one sentence read from the database. `details` are the specifics
- * somebody checks before agreeing. `irreversible` is present **only** when the
- * act cannot be undone, so its presence is the signal and a screen should make
- * it prominent rather than treating it as one more line.
+ * `summary` is one sentence read from the database. `irreversible` is present
+ * only when the act cannot be undone, so its presence is the signal.
  */
 export type ApiProposalDetail = {
   summary: string;
@@ -249,55 +152,30 @@ export type ApiProposalDetail = {
 };
 
 export type ApiProposedAction = {
-  /** `"decide_leave_request"`. Matches a name from `assistantActions()`. */
+  /** Matches a name from `assistantActions()`. */
   action: string;
-  /** Opaque. Posted back exactly as received — never built, edited or filtered. */
+  /** Opaque. Posted back exactly as received. */
   args: Record<string, unknown>;
   proposal: ApiProposalDetail;
 };
 
-/**
- * One turn's answer.
- *
- * `text` is absent when a change is proposed, which is deliberate on the API's
- * side: prose beside a proposal would be the assistant describing its own
- * suggestion, and then two sentences on screen would compete to say what the
- * button does. Read `proposed.proposal` in that case.
- */
+/** `text` is absent when a change is proposed — read `proposed.proposal` instead. */
 export type ApiChatReply = {
   available: boolean;
-  /** Prose. Absent when `proposed` is present. */
   text?: string;
-  /** The lookups that ran this turn, by name — `["leave_requests"]`. */
+  /** The lookups that ran this turn, by name. */
   used: string[];
   proposed?: ApiProposedAction;
-  /** Why, when `available` is false. Never rendered as an answer. */
   reason?: string;
 };
 
 /**
- * Send the whole conversation and get the next turn.
- *
- * The last message must be `role: "user"` or the API answers 400. Every turn
- * carries the transcript because the server holds none of it.
+ * Sending a turn lives in `api/ai2.ts` and streams. `ApiChatMessage` and
+ * `ApiChatReply` stay: `ApiChatReply` is also what the scripted sales build
+ * answers in, which has no stream.
  */
-export const chat = (
-  messages: ApiChatMessage[],
-  signal?: AbortSignal,
-): Promise<ApiChatReply> =>
-  request<ApiChatReply>("/ai/chat", {
-    method: "POST",
-    body: { messages },
-    ...(signal ? { signal } : {}),
-  });
 
-/**
- * How an action is gated.
- *
- * `permission` is one this account either holds or does not. `service` means the
- * capability itself is not wired on the server — a provider nobody has
- * credentialed — which is a different fact and reads differently to a person.
- */
+/** `permission`: one this account may not hold. `service`: nothing is wired to perform it. */
 export type ApiActionGate =
   { kind: "permission"; permission: string } | { kind: "service" };
 
@@ -307,13 +185,7 @@ export type ApiAssistantAction = {
   gate: ApiActionGate;
 };
 
-/**
- * Everything the assistant can propose.
- *
- * Read-only, and worth rendering somewhere: "what can I ask it to do" has no
- * other answer, and a chat box with an invisible set of capabilities is the
- * findable-by-nobody defect this file's neighbours keep recording.
- */
+/** Everything the assistant can propose. Read-only. */
 export const assistantActions = (
   signal?: AbortSignal,
 ): Promise<{ actions: ApiAssistantAction[] }> =>
@@ -321,30 +193,18 @@ export const assistantActions = (
     ...(signal ? { signal } : {}),
   });
 
-/**
- * What was actually done.
- *
- * `confirmed` is the proposal as the API re-read it at the moment of the write,
- * not a copy of what was shown — so a record that moved between the proposal and
- * the press is described by the sentence that is true now.
- */
+/** `confirmed` is the proposal re-read at the moment of the write, not a copy of what was shown. */
 export type ApiActionResult = {
   action: string;
   confirmed: ApiProposalDetail;
-  /** One sentence naming what happened. Shown verbatim; never paraphrased. */
   outcome: string;
   subjectId: string;
 };
 
 /**
- * Perform a proposed action. **Only ever from an explicit press.**
- *
- * `args` is `proposed.args`, unchanged. This is the only function in the
- * frontend that writes through the assistant, and everything the API can refuse
- * — 401, 403 for a permission, 404 for a record that is not this company's, 409
- * for something already decided, 422 for arguments it will not take — arrives as
- * an `ApiError` carrying the API's own sentence. Show that sentence; it names
- * the permission or the conflict, and nothing here can.
+ * Perform a proposed action. Only ever from an explicit press. `args` is
+ * `proposed.args`, unchanged. Every refusal (401/403/404/409/422) arrives as
+ * an `ApiError` carrying the API's own sentence — show that, not a guess.
  */
 export const runAssistantAction = (
   name: string,

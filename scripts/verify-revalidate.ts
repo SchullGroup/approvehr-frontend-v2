@@ -173,6 +173,13 @@ const EXEMPT: Record<string, string> = {
     "question nobody re-asked, charged for, under somebody who had merely " +
     "tabbed away. What it can propose is the same class as ai.ts above: it " +
     "changes when the server is redeployed, not while a page is open",
+  "ai2-chat.ts":
+    "the same two things `ai-chat.ts` above is exempt for, on the streaming " +
+    "endpoint: a conversation, and the capability check beside it. Re-asking " +
+    "on focus would re-send the whole transcript — a second answer to a " +
+    "question nobody re-asked, charged for, under somebody who had merely " +
+    "tabbed away. Worse here than there, because the turn is watched: a " +
+    "stream would start writing into a screen the reader had walked away from",
   "payslip-quote.ts": "a computation over what the reader is typing",
   "account-verification.ts":
     "a computation over what the reader is typing — BE-10's bank name and account number, same class as the payslip quote above",
