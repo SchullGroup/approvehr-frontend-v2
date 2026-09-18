@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AssistantOrb } from "@/components/portal/assistant-orb";
 import type { Live, Step } from "@/lib/store/ai2-turn";
 
@@ -41,29 +42,69 @@ const recordName = (entity: string | undefined): string =>
     : (RECORD_NAMES[entity] ?? entity.replace(/_/g, " "));
 
 /**
- * What it is doing right now, in as many words. A lookup in flight wins over
- * a note, because a note is something it said on the way past and a lookup is
- * the thing taking the seconds.
+ * Everything worth saying about this turn, newest last. A lookup is kept in
+ * the list after it finishes: the model then spends seconds composing, and
+ * naming what it read fills that time with something true. A note only speaks
+ * for itself while nothing has been read yet.
  */
-function nowDoing(steps: Step[]): string {
-  const running = steps.findLast(
-    (step) => step.kind === "lookup" && step.running,
-  );
-  if (running?.kind === "lookup")
-    return `Reading ${recordName(running.entity)}`;
+function narration(steps: Step[]): string[] {
+  const names = [
+    ...new Set(
+      steps.flatMap((step) =>
+        step.kind === "lookup" ? [recordName(step.entity)] : [],
+      ),
+    ),
+  ];
+  if (names.length > 0) return names.map((name) => `Reading ${name}`);
 
   const note = steps.findLast((step) => step.kind === "note");
-  if (note?.kind === "note") return note.text;
+  if (note?.kind === "note") return [note.text];
 
-  return "Thinking";
+  return ["Thinking"];
+}
+
+/**
+ * A lookup can finish in under a tenth of a second, far quicker than a line
+ * can be read, so naming only the one in flight showed nothing at all. These
+ * rotate through the model's own latency instead — the seconds it spends
+ * composing are spent saying what it read.
+ *
+ * Nothing here holds the answer back. The moment prose arrives this whole
+ * line is unmounted, mid-rotation, by `LiveTurn`.
+ */
+const ROTATE_MS = 1300;
+
+function useRotating(items: string[]): string {
+  const key = items.join("\n");
+  const [index, setIndex] = useState(0);
+
+  /* Keyed on the list, so a lookup appearing restarts the clock rather than
+     cutting the line already on screen short — two lookups fired together
+     arrive milliseconds apart, and jumping to the newer one is what made the
+     first invisible. Rotation reaches it either way. */
+  useEffect(() => {
+    if (items.length < 2) return undefined;
+    const id = setInterval(
+      () => setIndex((current) => (current + 1) % items.length),
+      ROTATE_MS,
+    );
+    return () => clearInterval(id);
+  }, [key, items.length]);
+
+  return items.length === 0 ? "" : (items[index % items.length] ?? "");
 }
 
 /** The orb, and one line saying what is happening. */
 export function Working({ steps }: { steps: Step[] }) {
+  const label = useRotating(narration(steps));
+
   return (
-    <p className="flex items-center gap-2 text-body-sm text-muted">
+    <p
+      aria-live="polite"
+      className="flex items-center gap-2 text-body-sm text-muted"
+    >
       <AssistantOrb size={18} phase="thinking" />
-      {nowDoing(steps)}
+      {label}
     </p>
   );
 }
