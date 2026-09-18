@@ -110,7 +110,7 @@ export function MyExpenses({ className }: { className?: string }) {
                   className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-2.5 first:pt-0 last:pb-0"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-body text-ink">
+                    <span className="block truncate text-ink">
                       {claim.description}
                     </span>
                     <span className="block text-meta text-muted">

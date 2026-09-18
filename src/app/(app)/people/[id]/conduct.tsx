@@ -316,9 +316,7 @@ export function ActionRow({
             </Badge>
           </p>
 
-          <p className="mt-1 text-body leading-relaxed text-ink">
-            {action.summary}
-          </p>
+          <p className="mt-1 leading-relaxed text-ink">{action.summary}</p>
 
           {action.detail && (
             <p className="mt-1 text-body-sm leading-relaxed text-body">
@@ -645,12 +643,10 @@ function ConfirmToldModal({
               {LEVEL_LABEL[action.level]}
             </Badge>
           </p>
-          <p className="mt-1 text-body leading-relaxed text-ink">
-            {action.summary}
-          </p>
+          <p className="mt-1 leading-relaxed text-ink">{action.summary}</p>
         </div>
 
-        <p className="text-body text-body">
+        <p className="text-body">
           Confirming means you were told. It does not mean you agree.
         </p>
 
@@ -837,9 +833,7 @@ function EditActionModal({
                 Confirmed {formatDateShort(action.acknowledgedAt, timeZone)}
               </Badge>
             </p>
-            <p className="mt-1 text-body leading-relaxed text-ink">
-              {action.summary}
-            </p>
+            <p className="mt-1 leading-relaxed text-ink">{action.summary}</p>
           </div>
         )}
 

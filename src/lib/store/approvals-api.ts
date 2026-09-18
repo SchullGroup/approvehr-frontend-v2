@@ -19,6 +19,7 @@ import { useApprovalStore } from "./approvals";
 import { useLeaveStore } from "./leave";
 import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
+import { announceApprovalChange, useApprovalGeneration } from "./approval-bus";
 
 /**
  * The approval inbox, from whichever source is available.
@@ -194,9 +195,14 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
+  /* And when anything in this browser decides, reopens or withdraws — including
+     a leave decision taken on `/people/leave`, which the API mirrors onto its
+     approval row. Every instance of this hook listens, which is what stops the
+     sidebar badge disagreeing with the inbox beside it. */
+  const decided = useApprovalGeneration();
   useEffect(() => {
     void load();
-  }, [load, revalidation]);
+  }, [load, revalidation, decided]);
 
   /* ------------------------------------------------------------- demo mode */
 
@@ -243,7 +249,11 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
           { item, decision },
           ...rows.filter((row) => row.item.id !== item.id),
         ]);
-        await load();
+        /* Not `load()`. This instance reloads through the announcement like
+           every other one, so the screen that decided and the badge that counts
+           are refreshed by the same event rather than by two call sites that
+           have to remember each other. */
+        announceApprovalChange();
         return {
           subjectMoved: result.subjectMoved,
           ...(result.note ? { note: result.note } : {}),
@@ -263,7 +273,7 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
         note: "Recorded against the approval only. That module has no store behind it yet, so nothing else changed.",
       };
     },
-    [approvals, leave, load],
+    [approvals, leave],
   );
 
   const reopen = useCallback(
@@ -271,7 +281,7 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
       if (item.ref?.store === "approval") {
         await approvalsApi.reopen(item.ref.id);
         setJustDecided((rows) => rows.filter((row) => row.item.id !== item.id));
-        await load();
+        announceApprovalChange();
         return;
       }
       if (item.ref?.store === "leave") {
@@ -280,7 +290,7 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
       }
       approvals.reopen(item.id);
     },
-    [approvals, leave, load],
+    [approvals, leave],
   );
 
   const items = isConnected ? state.items : demoItems;
@@ -308,7 +318,7 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
   const approveRoutine = useCallback(async () => {
     if (isConnected) {
       const result = await approvalsApi.approveRoutine();
-      await load();
+      announceApprovalChange();
       /* The array, not its length. The API says why each row was left —
          "you raised this one yourself", "it needs somebody who can approve
          payroll" — and a bare count made the screen invent a reason instead. */
@@ -324,7 +334,7 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
       "approved",
     );
     return { decided: routine.length, skipped: [] };
-  }, [isConnected, load, routine, leave, approvals]);
+  }, [isConnected, routine, leave, approvals]);
 
   const demoCounts = useMemo<QueueCounts>(
     () => ({

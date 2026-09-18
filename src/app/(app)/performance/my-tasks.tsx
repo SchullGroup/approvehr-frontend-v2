@@ -9,6 +9,7 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
+  LinkedText,
   Select,
   Spinner,
   Textarea,
@@ -246,7 +247,7 @@ export function MyTasksPanel() {
                     >
                       <div className="flex min-w-0 flex-col gap-0.5">
                         <span className="text-body-sm text-body">
-                          {task.description}
+                          <LinkedText>{task.description}</LinkedText>
                         </span>
                         <span className="text-meta text-muted">
                           {task.goalTitle}

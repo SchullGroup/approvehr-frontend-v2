@@ -46,9 +46,7 @@ export function RecruitmentComingSoon() {
             Coming soon
           </Badge>
           <h2 className="max-w-lg text-h2 text-ink">{HIRING.headline}</h2>
-          <p className="max-w-md text-body leading-relaxed text-body">
-            {HIRING.blurb}
-          </p>
+          <p className="max-w-md text-body leading-relaxed">{HIRING.blurb}</p>
         </div>
 
         {/* The four capability cards stood here and are gone at the product

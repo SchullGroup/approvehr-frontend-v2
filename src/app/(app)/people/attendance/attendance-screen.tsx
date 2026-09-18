@@ -319,7 +319,7 @@ function NoRecordHere({ canAddPeople }: { canAddPeople: boolean }) {
   return (
     <Card>
       <CardBody className="flex flex-col items-start gap-3">
-        <p className="text-body font-semibold text-ink">
+        <p className="font-semibold text-ink">
           There is no attendance to show you
         </p>
         <p className="max-w-prose text-body-sm leading-relaxed text-body">
