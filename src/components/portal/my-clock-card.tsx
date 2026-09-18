@@ -17,9 +17,11 @@ import { ApiError } from "@/lib/api/client";
 import { geofenceRefusal, type ApiClockResult } from "@/lib/api/attendance";
 import { PositionError } from "@/lib/geolocation";
 import {
+  defaultClockLocationId,
   STATUS_LABEL,
   useAttendanceMutations,
   useAttendanceRoster,
+  useLastClockLocation,
   useWorkLocations,
 } from "@/lib/store/attendance";
 import { useCan } from "@/lib/permissions";
@@ -58,11 +60,19 @@ export function MyClockCard({ onRecorded }: { onRecorded?: () => void } = {}) {
     (row) => row.employeeId === session.employeeId,
   );
 
-  /* Derived rather than stored, so the first location to arrive becomes the
+  /* Still derived rather than stored, so a location arriving late becomes the
      default without a setState in an effect. The ids differ between the two
      modes — uuids from the API, `loc-hq` from the seed — so nothing may
-     hardcode one. */
-  const locationId = picked ?? locations.locations[0]?.id ?? "";
+     hardcode one, and the remembered id is checked against the live list
+     rather than trusted. `defaultClockLocationId` is shared with `ClockMenu`:
+     two copies of "which one is preselected" is how the navbar and this card
+     come to disagree about where somebody is about to clock in. */
+  const remembered = useLastClockLocation();
+  const locationId = defaultClockLocationId(
+    locations.locations,
+    remembered,
+    picked,
+  );
   /* The row, not the id: `clockIn` needs to know whether this location's fence
      is enforced before it decides to ask the browser where the device is. */
   const selected = locations.locations.find((l) => l.id === locationId) ?? null;
