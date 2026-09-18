@@ -36,7 +36,6 @@ export type ApiSuggestOutcome =
 
 export type ApiAssistantStatus = {
   available: boolean;
-  /** "Anthropic claude-sonnet-5", or null. For a settings screen, not a form. */
   assistant: string | null;
   reason?: string;
 };
