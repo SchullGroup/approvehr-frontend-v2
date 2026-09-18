@@ -20,7 +20,7 @@ import {
   type Step,
   type Usage,
 } from "./ai2-turn";
-import { refreshAi2Usage } from "./ai2-usage";
+import { capRefusal, refreshAi2Usage, useAi2Cap } from "./ai2-usage";
 import { useSession } from "./session";
 
 export type { Live, Step, Usage } from "./ai2-turn";
@@ -76,6 +76,10 @@ export type ChatState = {
   error: string | null;
   /** True once the transcript has reached the API's own ceiling. */
   full: boolean;
+  /** The organisation has spent a token budget, so no turn may be asked for. */
+  capped: boolean;
+  /** Why, when `capped`. The API's own windows, worded once in `ai2-usage`. */
+  capReason: string | null;
 };
 
 export type ChatActions = {
@@ -107,8 +111,13 @@ const toWire = (turns: readonly ChatTurn[]): ApiChatMessage[] =>
   turns.map((turn) => ({ role: turn.role, content: turn.content }));
 
 /** Local refusal, shown before a press. The server's own refusal wins if they differ. */
-function localRefusal(text: string, turns: readonly ChatTurn[]): string | null {
+function localRefusal(
+  text: string,
+  turns: readonly ChatTurn[],
+  cap: "day" | "month" | null,
+): string | null {
   if (text.length === 0) return null;
+  if (cap) return capRefusal(cap);
   if (text.length > MAX_CHAT_MESSAGE_CHARS) {
     return (
       `That message is ${text.length.toLocaleString()} characters. The limit is ` +
@@ -126,6 +135,7 @@ function localRefusal(text: string, turns: readonly ChatTurn[]): string | null {
 
 export function useAssistantChat(): ChatState & ChatActions {
   const { isConnected } = useSession();
+  const cap = useAi2Cap();
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [live, setLive] = useState<Live | null>(null);
   const [sending, setSending] = useState(false);
@@ -243,7 +253,7 @@ export function useAssistantChat(): ChatState & ChatActions {
         return false;
       }
 
-      const refusal = localRefusal(trimmed, turns);
+      const refusal = localRefusal(trimmed, turns, cap);
       if (refusal) {
         setError(refusal);
         return false;
@@ -254,14 +264,20 @@ export function useAssistantChat(): ChatState & ChatActions {
         { id: nextId(), role: "user", content: trimmed },
       ]);
     },
-    [turns, sending, isConnected, exchange],
+    [turns, sending, isConnected, cap, exchange],
   );
 
   const retry = useCallback(async (): Promise<boolean> => {
     const last = turns[turns.length - 1];
     if (sending || !last || last.role !== "user") return false;
+    /* A budget can run out on the very turn that failed, so asking again is
+       refused here as well as in `send`. */
+    if (cap) {
+      setError(capRefusal(cap));
+      return false;
+    }
     return exchange(turns);
-  }, [turns, sending, exchange]);
+  }, [turns, sending, cap, exchange]);
 
   const stop = useCallback(() => {
     sequence.current += 1;
@@ -351,6 +367,8 @@ export function useAssistantChat(): ChatState & ChatActions {
     confirming,
     error,
     full: turns.length >= MAX_CHAT_MESSAGES,
+    capped: cap !== null,
+    capReason: cap ? capRefusal(cap) : null,
     send,
     retry,
     stop,
