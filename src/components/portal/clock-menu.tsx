@@ -14,8 +14,10 @@ import { ApiError } from "@/lib/api/client";
 import { geofenceRefusal, type ApiClockResult } from "@/lib/api/attendance";
 import { PositionError } from "@/lib/geolocation";
 import {
+  defaultClockLocationId,
   STATUS_LABEL,
   useAttendanceMutations,
+  useLastClockLocation,
   useWorkLocations,
   type RosterState,
 } from "@/lib/store/attendance";
@@ -156,7 +158,12 @@ function ClockPanel({
     (row) => row.employeeId === session.employeeId,
   );
 
-  const locationId = picked ?? locations.locations[0]?.id ?? "";
+  const remembered = useLastClockLocation();
+  const locationId = defaultClockLocationId(
+    locations.locations,
+    remembered,
+    picked,
+  );
   const selected = locations.locations.find((l) => l.id === locationId) ?? null;
 
   const nothingToClock =

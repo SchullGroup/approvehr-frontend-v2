@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
+  Ban,
   CalendarDays,
   Check,
   ChevronRight,
@@ -22,6 +23,7 @@ import {
   CardBody,
   CardFooter,
   CardHeader,
+  ConfirmDialog,
   DescriptionList,
   Drawer,
   DrawerSection,
@@ -203,6 +205,7 @@ export function LeaveScreen() {
   );
   const [booking, setBooking] = useState(false);
   const [declining, setDeclining] = useState<LeaveRow | null>(null);
+  const [withdrawing, setWithdrawing] = useState<LeaveRow | null>(null);
 
   const detail = useLeaveRequestDetail(openId);
 
@@ -310,6 +313,38 @@ export function LeaveScreen() {
       () => mutations.reopen(request.id),
       `${request.employeeName}'s request is waiting again`,
     );
+
+  const withdraw = (request: LeaveRow) =>
+    run(
+      () => mutations.cancel(request.id),
+      `Your ${request.leaveType.toLowerCase()} leave was withdrawn`,
+    );
+
+  /**
+   * Whether the person reading this can take their own request back.
+   *
+   * `POST /leave/requests/:id/cancel`, `leaveApi.cancel` and
+   * `useLeaveMutations().cancel` have all existed for a while and **nothing
+   * called any of them** — so a request filed by mistake, or for dates that
+   * moved, could be raised and never taken back. The drawer's only control on
+   * somebody's own waiting request was "Close panel".
+   *
+   * Their own only, although the API also lets `APPROVE_LEAVE_ALL` and
+   * `EDIT_RECORDS` cancel on somebody's behalf. Withdrawing and sending back
+   * are two different acts with two different records — cancelled is "they
+   * changed their mind", declined is "it was refused" — and offering an
+   * approver both buttons on one request is how the two come to mean the same
+   * thing. An approver has Send back, which is the door for them.
+   *
+   * Declined and cancelled rows are left out. The API accepts a cancel on a
+   * declined request and it would change nothing anybody can act on: the leave
+   * is already not happening, so the button would only rewrite a label.
+   */
+  const canWithdraw = (request: LeaveRow) =>
+    request.employeeId === employeeId &&
+    (request.status === "pending" ||
+      request.status === "awaitingHr" ||
+      request.status === "approved");
 
   return (
     <>
@@ -684,9 +719,11 @@ export function LeaveScreen() {
         loading={detail.loading}
         detail={detail.detail}
         canDecide={canDecide}
+        canWithdraw={canWithdraw}
         onApprove={approve}
         onSendBack={setDeclining}
         onUndo={undo}
+        onWithdraw={setWithdrawing}
       />
 
       <DeclineDialog
@@ -700,6 +737,42 @@ export function LeaveScreen() {
         onConfirm={async (note) => {
           if (declining) await sendBack(declining, note);
         }}
+      />
+
+      <ConfirmDialog
+        open={withdrawing !== null}
+        onClose={() => setWithdrawing(null)}
+        onConfirm={() => {
+          if (withdrawing) void withdraw(withdrawing);
+          setWithdrawing(null);
+          setOpenId(null);
+        }}
+        title="Withdraw this request?"
+        confirmLabel="Withdraw it"
+        body={
+          <div className="flex flex-col gap-2 text-body-sm text-body">
+            <p>
+              {withdrawing
+                ? `${withdrawing.leaveType} leave, ${withdrawing.from} to ${withdrawing.to} · ${daysLabel(withdrawing.days)}.`
+                : ""}
+            </p>
+            <p>
+              {/* Two different consequences, and the approved one is the reason
+                  this asks at all: those days are already off the balance and
+                  already on the roster, so taking them back moves both. */}
+              {withdrawing?.status === "approved"
+                ? "The leave is already approved, so the days go back on your balance and come off the roster."
+                : "It comes out of your approver's inbox, so nobody will decide it."}
+            </p>
+            <p className="text-muted">
+              {/* `reopen` needs APPROVE_LEAVE_ALL, so the filer genuinely cannot
+                  put it back themselves. Saying so is the whole value of the
+                  step — without it this reads as a control you can try. */}
+              You cannot undo this yourself. Book the leave again if you change
+              your mind.
+            </p>
+          </div>
+        }
       />
 
       <BookLeaveDialog
@@ -727,20 +800,31 @@ function RequestPanel({
   loading,
   detail,
   canDecide,
+  canWithdraw,
   onApprove,
   onSendBack,
   onUndo,
+  onWithdraw,
 }: {
   open: boolean;
   onClose: () => void;
   loading: boolean;
   detail: ReturnType<typeof useLeaveRequestDetail>["detail"];
   canDecide: boolean;
+  canWithdraw: (request: LeaveRow) => boolean;
   onApprove: (request: LeaveRow) => void;
   onSendBack: (request: LeaveRow) => void;
   onUndo: (request: LeaveRow) => void;
+  onWithdraw: (request: LeaveRow) => void;
 }) {
   const request = detail?.request;
+
+  /* Both can be true at once, and that is not a conflict: an approver looking
+     at their own waiting request may approve it or take it back, and those are
+     different acts with different records. The footer renders whichever apply
+     and is absent when neither does, rather than rendering an empty bar. */
+  const decidable = request !== undefined && canDecide;
+  const withdrawable = request !== undefined && canWithdraw(request);
 
   return (
     <Drawer
@@ -764,49 +848,62 @@ function RequestPanel({
          `flex flex-wrap justify-end gap-2` div restated all three and quietly
          overrode the gap. */
       footer={
-        request && canDecide ? (
-          request.status === "pending" ? (
-            <>
-              {/*
-               * `ghost`, not `secondary`.
-               *
-               * Measured on this panel: "Send back" as `secondary` is ink at
-               * 17.1:1 inside a 4.3:1 border, while "Approve" as `approve` is
-               * success-text at 5.4:1 on a soft tint. The rejecting option was
-               * more prominent than the approving one, and the two read as equal
-               * weight — on a decision with no confirmation step behind it.
-               *
-               * Green stays on Approve, which is the product owner's decision.
-               * This demotes the partner instead, which restores the hierarchy
-               * without touching the palette or the contrast budget.
-               */}
-              <Button variant="ghost" onClick={() => onSendBack(request)}>
-                <X aria-hidden="true" className="size-3.5" />
-                Send back
+        request && (decidable || withdrawable) ? (
+          <>
+            {/* The requester's own door, first in the source and so first in
+                the wrapping row — it is the only control on this panel for the
+                person who filed the leave, and on their own screen it should
+                not sit behind two they cannot use. */}
+            {withdrawable && (
+              <Button variant="ghost" onClick={() => onWithdraw(request)}>
+                <Ban aria-hidden="true" className="size-3.5" />
+                Withdraw request
               </Button>
-              <Button
-                variant="approve"
-                onClick={() => {
-                  onApprove(request);
-                  onClose();
-                }}
-              >
-                <Check aria-hidden="true" className="size-3.5" />
-                Approve
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                onUndo(request);
-                onClose();
-              }}
-            >
-              <Undo2 aria-hidden="true" className="size-3.5" />
-              Undo the decision
-            </Button>
-          )
+            )}
+            {decidable &&
+              (request.status === "pending" ? (
+                <>
+                  {/*
+                   * `ghost`, not `secondary`.
+                   *
+                   * Measured on this panel: "Send back" as `secondary` is ink at
+                   * 17.1:1 inside a 4.3:1 border, while "Approve" as `approve` is
+                   * success-text at 5.4:1 on a soft tint. The rejecting option was
+                   * more prominent than the approving one, and the two read as equal
+                   * weight — on a decision with no confirmation step behind it.
+                   *
+                   * Green stays on Approve, which is the product owner's decision.
+                   * This demotes the partner instead, which restores the hierarchy
+                   * without touching the palette or the contrast budget.
+                   */}
+                  <Button variant="ghost" onClick={() => onSendBack(request)}>
+                    <X aria-hidden="true" className="size-3.5" />
+                    Send back
+                  </Button>
+                  <Button
+                    variant="approve"
+                    onClick={() => {
+                      onApprove(request);
+                      onClose();
+                    }}
+                  >
+                    <Check aria-hidden="true" className="size-3.5" />
+                    Approve
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    onUndo(request);
+                    onClose();
+                  }}
+                >
+                  <Undo2 aria-hidden="true" className="size-3.5" />
+                  Undo the decision
+                </Button>
+              ))}
+          </>
         ) : undefined
       }
     >
