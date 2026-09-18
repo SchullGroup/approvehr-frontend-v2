@@ -12,7 +12,13 @@ import { askAi2Stream, type Ai2Event, type Ai2Message } from "@/lib/api/ai2";
 
 /** One thing the assistant did, or is doing, during a turn. */
 export type Step =
-  | { kind: "lookup"; key: string; entity?: string; running: boolean; refused: boolean }
+  | {
+      kind: "lookup";
+      key: string;
+      entity?: string;
+      running: boolean;
+      refused: boolean;
+    }
   | { kind: "note"; key: string; text: string };
 
 export type Usage = { promptTokens: number; outputTokens: number; thinkingTokens: number };
