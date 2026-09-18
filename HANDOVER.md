@@ -7239,3 +7239,215 @@ change about fixing thirteen things. Worth doing; worth doing on its own.
   the first field, so a 500 from `POST /cycles` sent somebody off to retype a name
   that was never the problem. Field errors on their field; everything else above
   the form.
+
+---
+
+# A badge that could not hear a decision, a door nobody had built, and a link nobody could click
+
+Four things found by walking the leave module click by click, plus one the
+product owner reported from the performance module. Three of the five are the
+same defect wearing different clothes: a fact was already in hand and the screen
+did not use it.
+
+## The approvals badge stayed at 3 while the inbox showed 2
+
+`useApprovalQueue` holds its own `useState`, so **every call site is a separate
+copy of the queue**. `/approvals` mounts one; `portal/shell.tsx` mounts another
+for the sidebar badge. `decide` ended with `await load()`, which refreshed the
+instance it was called from and no other — so approving from the inbox removed
+the row, fired the toast, and left the badge reading 3 against a queue of 2
+until somebody reloaded the page.
+
+A number on permanent display, contradicting the screen next to it. Reproduced
+before the fix and after it, on a real API — see the verification below.
+
+**The fix is a bus, not a longer list of reloads at the call site.** The longer
+list is what was already wrong: the badge is mounted by the shell and the inbox
+has never heard of it, so the next panel added to either screen would be stale
+again for the same reason. `lib/store/approval-bus.ts` is the same shape
+`store/attendance.ts` settled on for the identical bug one module along — a
+mutation announces, and every reader listens.
+
+Three things worth not undoing:
+
+- **It is its own module.** Two stores publish to it: `approvals-api.ts` when a
+  queue item is decided or reopened, and `leave-api.ts` when a leave request is
+  raised, decided, reopened or withdrawn — because the API mirrors a leave write
+  onto its `ApprovalRequest` row **in the same transaction**, so a leave
+  decision moves the approvals count without going near the queue. A bus living
+  inside either store would make the other import it for one function.
+- **`decide` no longer calls `load()` at all.** It announces, and reloads
+  through its own listener like every other instance. Two paths to one refresh
+  is how they come to disagree about when it happens.
+- **It is deliberately not `lib/revalidate.ts`.** That bus fires on window
+  focus — a guess that something somewhere may have changed, rate-limited
+  because it is a guess. This is a write this browser just made and had
+  confirmed: neither a guess nor frequent, and it re-asks only the reads a
+  decision can actually move.
+
+`useLeaveRequests` listens too, for the sidebar's *other* badge: "pending leave"
+is one of these lists, mounted by the shell, and withdrawing your own request
+would otherwise leave it counting a request that no longer exists.
+
+## Nobody could take their own leave request back
+
+`POST /leave/requests/:id/cancel`, `leaveApi.cancel` and
+`useLeaveMutations().cancel` had all existed for a while and **nothing called
+any of them.** A request filed by mistake, or for dates that moved, could be
+raised and never withdrawn. The drawer's footer was
+`request && canDecide ? … : undefined`, so a plain employee looking at their own
+waiting request got **no footer at all** — the only control was "Close panel".
+
+Fourth instance in this file of a capability present, correct, and findable by
+nobody. The pattern is worth naming again: **a route with no caller looks like a
+working feature, so nobody reports it.**
+
+Four decisions in the control:
+
+- **Their own request only**, although the API also lets `APPROVE_LEAVE_ALL` and
+  `EDIT_RECORDS` cancel on somebody's behalf. Withdrawing and sending back are
+  two different acts with two different records — cancelled is "they changed
+  their mind", declined is "it was refused" — and offering an approver both
+  buttons on one request is how the two come to mean the same thing. An approver
+  has Send back, which is the door for them.
+- **Pending, awaiting HR and approved.** Declined and cancelled rows are left
+  out. The API accepts a cancel on a declined request and it would change
+  nothing anybody can act on — the leave is already not happening, so the button
+  would only rewrite a label. That is a judgement about what the control is
+  *for*, not this screen refusing what the server allows.
+- **It confirms, and the confirmation says the thing that is actually true**:
+  `reopen` needs `APPROVE_LEAVE_ALL`, so the filer genuinely cannot put it back
+  themselves. Without that sentence the step reads as a control you can try.
+  Approved leave gets a different consequence line from waiting leave, because
+  the days are already off the balance and already on the roster.
+- **Both footers can render at once** and that is not a conflict: an approver
+  looking at their own waiting request may approve it or take it back.
+
+## The booking toast named an inbox the reader cannot open
+
+*"It is waiting in your approvals inbox."* — unconditional, for every request,
+whoever raised it and wherever it was routed. An employee filing their own leave
+was told it was sitting in an inbox they have no access to, on a screen with no
+inbox on it. The one thing they wanted to know — **who has it** — was already on
+the response and thrown away.
+
+It reads the row the server sent back: the approver's name when it is somebody
+else, "your approvals inbox" when the filer really is the approver, and
+"Nobody is routed to decide it yet" when `approverFor` resolved nobody. The
+comparison is on `approverId` and never on the name, because a name can be blank
+on a row that is routed perfectly well, and two people can share one.
+
+## A link in the middle of a task was not a link
+
+The product owner's words: *"in performance module, I should be able to click
+the link in task submission, even if the link is in the middle of text."*
+
+An objective task is one line of what you did this week, and what people write is
+*"shipped the retry, PR at https://github.com/…/412, notes in the doc"*. All
+three surfaces rendered `{task.description}` as plain text, so the manager
+grading it had to select a URL out of a sentence and paste it into a bar. **A
+link in the middle of a sentence is the ordinary case, not the edge one** — the
+only time the old rendering was usable was when the whole field was a URL and
+nothing else.
+
+`lib/linked-text.ts` decides where a link starts and stops;
+`components/ui/linked-text.tsx` renders it. Split for the reason
+`lib/performance/review-language.ts` is split from its screens: everything in
+the first file is a decision about a string, and keeping it free of React and of
+the `@/` alias is what lets `scripts/verify-linked-text.ts` drive it rather than
+assert against a copy of it.
+
+Four rules in it:
+
+- **`http://`, `https://` and a bare `www.` host. Nothing else.** That is a
+  safety decision rather than a scope one: this renders text a colleague typed
+  into a free-text box, and autolinking whatever looks like a scheme is how
+  `javascript:` ends up behind something that reads as a URL. The scheme is
+  checked twice — once by the pattern and once by `URL` on the way to the
+  `href` — because the second check is the one that still holds the day somebody
+  widens the first. Tamper-tested by widening the pattern *and* removing the
+  guard together; either alone still refuses.
+- **Trailing punctuation belongs to the sentence.** `see …/report.` links
+  `…/report`, `(…/a)` does not swallow the bracket, and
+  `…/Nigeria_(country)` keeps its own because the bracket was opened inside the
+  link. Getting this wrong produces a 404 for a reason invisible in the text
+  being read.
+- **The pieces concatenate back to the input, exactly**, asserted on every case
+  the gate uses. A splitter that can drop a character is a renderer showing
+  something other than what somebody wrote, which is worse than a missed link.
+- **Not Markdown.** Nothing interprets `*`, `#` or `[]()`. The API stores what
+  was typed and a renderer that quietly ate an asterisk would be showing
+  something other than the record.
+
+`rel="noreferrer noopener"`: the new tab must not reach back through
+`window.opener`, and where somebody works is not this product's to hand to a
+third party.
+
+## Verified
+
+`npm run check` exit 0 — with `verify-linked-text` (57 assertions) added to the
+chain. The 10 lint **warnings** are unused imports in `customize-drawer.tsx`,
+`payments-screen.tsx`, `payslips/[id]/view.tsx`, `runs/new/wizard.tsx`,
+`settings/company/form.tsx` and `store/features.ts`, none of them from here.
+`npm run build` exit 0, 107 prerendered pages, no route added or removed.
+
+**Against the live API on port 8000**, in a browser, as the real seeded people:
+
+- **The toast**: Emeka books his own leave and is told
+  *"2 days for Emeka Anyanwu. It is waiting with Adaeze Okonkwo."* — his actual
+  manager, resolved by the server, where it used to name his own inbox.
+- **Withdraw**: the drawer on Emeka's own request, whose buttons were
+  `["", ""]`, now carries **Withdraw request**; the confirm dialog renders all
+  three sentences; the write lands as `CANCELLED` with the mirrored
+  `ApprovalRequest` moved to `WITHDRAWN`.
+- **The badge**: `My approvals 3` → `My approvals 2` on an approve from the
+  inbox, **with no reload**, read off the nav link itself rather than out of a
+  store.
+- **And the defect reproduced**, which is the half that proves the mechanism:
+  with the bus disconnected from the effect and `await load()` put back, the row
+  goes and the badge stays at **3** — exactly what was reported.
+- **Links**: two tasks logged with a URL mid-sentence render as anchors on
+  `my-tasks.tsx` and `review-tasks.tsx`, with the right `href`, `target="_blank"`
+  and `rel`, and with the trailing comma and full stop left in the sentence.
+
+**Not exercised in a browser: `task-log.tsx`.** It is the same one-token
+substitution inside the same `<span>`, rendering the same `ApiTask.description`,
+and it is covered by the typecheck and by the gate on the splitting logic — but
+the panel lives on an *agreed* objective's card on `/performance/kpis`, which
+shows a manager their reports' objectives and not their own, and the API
+correctly refuses `submitTask` against somebody else's objective
+(*"You can only log tasks against your own objectives."*). Somebody logging a
+task with a link against their own agreed objective should look at it once.
+
+**Demo mode was not exercised**, because the API was up and `useApiReachable`
+correctly reported connected. Nothing here changes the demo path: every
+announcement sits after an `if (!isConnected)` early return, and the demo queue
+already derives live from the persisted leave store.
+
+Every row this session created was removed afterwards — five leave requests,
+their five mirrored approvals, ten notifications, two objective tasks, the task
+submission period they opened and fourteen audit events — and the database was
+diffed back to the ids it started with. One seeded request was approved by
+mistake while targeting a card, and was put back through the product's own
+`reopen` rather than by hand: `PENDING`, with `decidedAt`, `decidedById`,
+`decisionNote` and `firstApprovedAt` all null again, and the notification that
+had told Chidi his leave was approved deleted with it.
+
+## Deliberately not done
+
+- **Adopting the bus in the other stores that a decision moves.** `useLeaveRequestDetail`
+  and the dashboard's own counts are the obvious next two. Each is a judgement
+  about which writes should move which read, not a find-and-replace, and doing
+  them inside a change about four reported defects would widen it.
+- **Collapsing the shell's `useApprovalQueue()` and the inbox's onto one
+  request.** They still fetch separately — two `list` calls and two `summary`
+  calls per decision now. `lib/shared-resource.ts` is the tool and the header of
+  `store/payroll-settings.ts` is the worked example; it is a performance change
+  rather than a correctness one and belongs on its own.
+- **`LinkedText` anywhere else.** A leave reason, a decision note, a helpdesk
+  ticket and an announcement are all free text somebody types a link into. Each
+  is a decision about that surface's layout — `break-all` inside a 340px drawer
+  is not obviously right — and the component is exported and ready.
+- **Offering withdraw to HR on somebody else's behalf.** The API supports it.
+  Reasoned about above: it would blur cancelled and declined, and nobody asked
+  for it.
