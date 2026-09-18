@@ -6,6 +6,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  LinkedText,
   Spinner,
   TBody,
   TD,
@@ -187,7 +188,9 @@ export function ReviewTasksTab() {
                     <TR key={task.id}>
                       <TDPrimary title={task.employeeName} />
                       <TD>{task.goalTitle}</TD>
-                      <TD className="max-w-xs">{task.description}</TD>
+                      <TD className="max-w-xs">
+                        <LinkedText>{task.description}</LinkedText>
+                      </TD>
                       <TD align="right">
                         <div className="flex justify-end gap-1.5">
                           <Button
