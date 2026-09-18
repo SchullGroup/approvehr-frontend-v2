@@ -361,7 +361,7 @@ function MissingDetails({
         {/* Same basis, and it matters more here: this row now carries a
             button as well as the meter, and both refuse to shrink. */}
         <div className="min-w-0 flex-1 basis-48">
-          <p className="text-body font-semibold text-ink">
+          <p className="font-semibold text-ink">
             {gaps.length} {gaps.length === 1 ? "detail" : "details"} missing
           </p>
           <p className="mt-1 text-body-sm text-body">{gapSentence}</p>

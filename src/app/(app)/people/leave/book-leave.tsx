@@ -187,6 +187,34 @@ export function BookLeaveDialog({
     return manager ? { approverId: manager } : {};
   };
 
+  /**
+   * Where the request actually went, from the row the server sent back.
+   *
+   * This used to read "It is waiting in your approvals inbox." for every
+   * request, whoever raised it and wherever it was routed. An employee filing
+   * their own leave was told it was sitting in an inbox they cannot open, on a
+   * screen with no inbox on it — and the one thing they wanted to know, who has
+   * it, was already on the response and thrown away.
+   *
+   * `approverId` rather than `approverName`, because the comparison is with an
+   * id: a name can be blank on a row that is routed perfectly well, and two
+   * people can share one. The name is only for the sentence.
+   */
+  const waitingWith = (request: LeaveRow): string => {
+    if (!request.approverId) {
+      /* `approverFor` returns no approver when nobody could be resolved — see
+         its own comment. Saying so is better than naming an inbox at random:
+         somebody has to route it, and they cannot if they think it is done. */
+      return "Nobody is routed to decide it yet.";
+    }
+    if (request.approverId === session.employeeId) {
+      return "It is waiting in your approvals inbox.";
+    }
+    return request.approverName
+      ? `It is waiting with ${request.approverName}.`
+      : "It is waiting with their approver.";
+  };
+
   const days =
     draft.from && draft.to
       ? workingDaysBetween(
@@ -270,7 +298,7 @@ export function BookLeaveDialog({
         detail:
           result.warnings.length > 0
             ? result.warnings.join(" ")
-            : `${daysLabel(result.request.days)} for ${result.request.employeeName}. It is waiting in your approvals inbox.`,
+            : `${daysLabel(result.request.days)} for ${result.request.employeeName}. ${waitingWith(result.request)}`,
       });
       onCreated();
       close();

@@ -175,6 +175,102 @@ function useClockGeneration(): number {
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* Where you clocked in last                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The location a clock-in defaults to: the one this person used last.
+ *
+ * Both widgets defaulted to `locations[0]` — whatever the API happened to list
+ * first, which is a fact about the company's location table and never about the
+ * person clocking. In a five-branch company everybody but the staff of one
+ * branch re-picked theirs twice a day, and forgetting is not merely a mispress:
+ * `clockIn` judges the geofence of the location it is handed, so the wrong one
+ * is either a refusal at the door or a day recorded against a site they were
+ * never at.
+ *
+ * ## Why this is captured rather than read back
+ *
+ * There is nowhere to read it from. `ApiRosterRow.workLocation` and
+ * `ApiHistoryRow.workLocation` are both the already-resolved **name** — the
+ * roster row says "There is no id on this row" in as many words — and a name
+ * cannot be handed to `clockIn`. The id exists in exactly one place,
+ * `ApiClockResult.workLocation.id`, which is the server's own resolution of
+ * what it actually recorded rather than what the widget asked for. So it is
+ * taken there, at the one choke point both widgets already go through.
+ *
+ * Per browser, which is the honest limit and the right trade. This is a
+ * preselected dropdown, not a claim about anybody's data: getting it wrong
+ * costs one click, and the alternative is a column, a migration and a write on
+ * every clock-in to save that click. If it ever should follow somebody between
+ * devices, the fix is a field on the employee, not a bigger cache here.
+ *
+ * Keyed by employee. A demo browser switches personas, and a shared terminal in
+ * a factory office is exactly where two people clock from one machine.
+ */
+type LastLocationState = { byEmployee: Record<string, string> };
+
+const lastLocationStore = createPersistedState<LastLocationState>({
+  key: "approvehr.attendance.last-location.store",
+  empty: { byEmployee: {} },
+});
+
+/**
+ * Record where a clock-in was accepted. Called after the server confirms.
+ *
+ * A null location is not recorded, and must not be: null means the company
+ * runs no locations, or this person has none assigned, and writing it would
+ * turn "no opinion" into a remembered choice of nothing.
+ */
+function rememberClockLocation(
+  employeeId: string,
+  locationId: string | null | undefined,
+): void {
+  if (!employeeId || !locationId) return;
+  /* `current()`, never `read()`. Nothing on the screens that write this
+     subscribes to the store, so `read()` would compute the write from the seed
+     and drop what this browser already had — the defect `store/persisted.ts`
+     documents at length. */
+  const state = lastLocationStore.current();
+  if (state.byEmployee[employeeId] === locationId) return;
+  lastLocationStore.commit({
+    byEmployee: { ...state.byEmployee, [employeeId]: locationId },
+  });
+}
+
+/** Where this person clocked in last, or null if they never have here. */
+export function useLastClockLocation(): string | null {
+  const { actingId } = useSession();
+  const state = useSyncExternalStore(
+    lastLocationStore.subscribe,
+    lastLocationStore.read,
+    lastLocationStore.getServerSnapshot,
+  );
+  return state.byEmployee[actingId] ?? null;
+}
+
+/**
+ * Which location a clock widget shows, written once rather than in both.
+ *
+ * `picked` wins: it is this visit's explicit choice and nothing should move
+ * under somebody who has just chosen. Then the remembered one — but only while
+ * it is still on the list. A location can be archived or switched off, and
+ * preselecting an id the dropdown no longer offers renders a `<select>` with
+ * nothing showing, which reads as the widget being broken rather than as the
+ * branch being closed. Then the first, which is where both widgets began.
+ */
+export function defaultClockLocationId(
+  locations: readonly { id: string }[],
+  remembered: string | null,
+  picked: string | null,
+): string {
+  if (picked) return picked;
+  if (remembered && locations.some((one) => one.id === remembered))
+    return remembered;
+  return locations[0]?.id ?? "";
+}
+
 export function useAttendanceStore() {
   const state = useSyncExternalStore(
     store.subscribe,
@@ -1262,6 +1358,7 @@ export function useAttendanceMutations() {
         }
         const at = nowTime(timeZone);
         local.clockIn(actingId, location?.id ?? "", at);
+        rememberClockLocation(actingId, location?.id);
         /* No position asked for, and none used. A demo fence is drawn and not
            enforced — there is no server here to judge it — and `store/
            work-locations.ts` says so on the settings screen rather than letting
@@ -1284,6 +1381,10 @@ export function useAttendanceMutations() {
          triggered by a clock that was refused would re-render the same rows
          and read as the refusal having worked. */
       announceClock();
+      /* The server's resolution, not the widget's request. `clockIn` falls back
+         to the employee's own record when no location is sent, so `recorded` is
+         the only account of where this clock-in actually landed. */
+      rememberClockLocation(actingId, recorded.workLocation?.id);
       return recorded;
     },
     [isConnected, actingId, local, timeZone],

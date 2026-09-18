@@ -190,7 +190,7 @@ export function MyRota({ className }: { className?: string }) {
                         <p className="text-meta font-semibold text-muted">
                           Next
                         </p>
-                        <p className="text-body font-semibold text-ink">
+                        <p className="font-semibold text-ink">
                           {next.shiftName} · {spokenDay(next.date)}
                         </p>
                         <p className="tabular text-body-sm text-body">

@@ -389,7 +389,7 @@ export function DocumentsScreen() {
                     key={person.id}
                     className="flex items-center justify-between gap-3 rounded-md border border-line p-3"
                   >
-                    <span className="min-w-0 truncate text-body text-ink">
+                    <span className="min-w-0 truncate text-ink">
                       {person.name}
                     </span>
                     <Button

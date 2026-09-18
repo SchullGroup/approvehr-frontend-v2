@@ -333,7 +333,7 @@ export function GuidedTour() {
       <p className="text-meta font-medium text-faint">
         {index + 1} of {steps.length}
       </p>
-      <h2 className="mt-1.5 text-body font-semibold text-ink">{step.title}</h2>
+      <h2 className="mt-1.5 font-semibold text-ink">{step.title}</h2>
       <p className="mt-1.5 text-body-sm leading-relaxed text-body">
         {typeof step.body === "function"
           ? step.body({ total: steps.length, canSettings, canApprove })
