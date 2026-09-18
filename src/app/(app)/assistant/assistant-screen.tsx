@@ -14,6 +14,7 @@ import {
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { AssistantChat } from "@/components/portal/assistant-chat";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { salesScriptAssistantName } from "@/lib/sales-script";
 import { useAssistantAvailable } from "@/lib/store/ai";
 import { useAssistantActions } from "@/lib/store/ai-chat";
 import { useSession } from "@/lib/store/session";
@@ -24,7 +25,8 @@ import { useSession } from "@/lib/store/session";
  * assistant is wired, since the nav item is a visibility hint, not the rule.
  */
 export function AssistantScreen() {
-  const { available, loading, assistant, reason } = useAssistantAvailable();
+  const { available, loading, reason } = useAssistantAvailable();
+  const scriptName = salesScriptAssistantName();
   const { isConnected } = useSession();
 
   return (
@@ -57,9 +59,9 @@ export function AssistantScreen() {
         {available && !loading && (
           <>
             <WhatItCanDo />
-            {assistant && (
+            {scriptName && (
               <p className="text-meta text-muted">
-                Answering: <span className="text-ink">{assistant}</span>
+                Answering: <span className="text-ink">{scriptName}</span>
               </p>
             )}
           </>
