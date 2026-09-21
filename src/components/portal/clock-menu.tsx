@@ -184,7 +184,9 @@ function ClockPanel({
         tone: "success",
         detail: detail(result),
       });
-      roster.reload();
+      /* No reload — see the note in `my-clock-card.tsx`. The mutation has
+         already announced, and a `reload()` here aborts the fetch that
+         announcement started. */
       onDone();
     } catch (error) {
       const position = error instanceof PositionError ? error : null;
