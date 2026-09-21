@@ -152,10 +152,19 @@ export function AttendanceScreen() {
   const [view, setView] = useState<View>("today");
   const [correcting, setCorrecting] = useState<ApiRosterRow | null>(null);
 
-  const refresh = () => {
-    roster.reload();
-    sheet.reload();
-  };
+  /* Nothing on this screen refreshes itself after a clock or a correction.
+
+     Every mutation that can move these panels calls `announceClock()`, and
+     both reads here subscribe to it — so the screen is already covered, and
+     the explicit reloads that used to sit here were doing harm rather than
+     nothing: they changed each hook's cache key, which aborted the in-flight
+     request the announcement had just started and marked the rows on screen
+     as stale until a second round trip came back. See the note in
+     `my-clock-card.tsx` for the measurement.
+
+     The rule the bus states, and the one those calls broke: the generation
+     belongs in a fetch effect's dependency list, never in the key a hook
+     compares during render to decide whether it is showing current data. */
 
   return (
     <>
@@ -217,7 +226,7 @@ export function AttendanceScreen() {
                 control. Shared with `/dashboard` — see
                 `components/portal/my-clock-card.tsx` for why this used to be
                 inline here and no longer is. */}
-            <MyClockCard onRecorded={refresh} />
+            <MyClockCard />
 
             {/* Everybody clocks in above. Everybody else's day is a different
             question, and only a manager or `EDIT_RECORDS` gets to ask it —
@@ -263,7 +272,6 @@ export function AttendanceScreen() {
           date={roster.date}
           locations={locations.locations}
           onClose={() => setCorrecting(null)}
-          onSaved={refresh}
         />
       )}
     </>
@@ -897,13 +905,11 @@ function CorrectionDialog({
   date,
   locations,
   onClose,
-  onSaved,
 }: {
   row: ApiRosterRow;
   date: string;
   locations: ApiWorkLocation[];
   onClose: () => void;
-  onSaved: () => void;
 }) {
   const { correct } = useAttendanceMutations();
   const toast = useToast();
@@ -935,7 +941,8 @@ function CorrectionDialog({
         tone: "success",
         detail: "The change and your reason are both on the record.",
       });
-      onSaved();
+      /* `correct` announces, so every attendance read on this screen refetches
+         itself. All this has left to do is shut the dialog. */
       onClose();
     } catch (error) {
       toast.push({
