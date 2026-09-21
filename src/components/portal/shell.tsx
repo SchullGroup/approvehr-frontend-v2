@@ -210,8 +210,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             aria-label="ApproveHR home"
             className="shrink-0 text-ink hover:opacity-80"
           >
-            <Logo size={24} className="hidden sm:block" />
-            <Logo size={24} showWordmark={false} className="sm:hidden" />
+            {/* The wordmark waits for `lg`.
+                ------------------------------
+                It is 149px against the mark's 28, and at 768 it and the
+                search field arrive at the same breakpoint — together they put
+                the row 28px past the viewport and clipped the control on the
+                end. One of the two had to move, and between a logotype and
+                the control people use to find a colleague, the logotype is
+                the one that can wait: the mark is still there, still links
+                home, and the company name sits next to it in the switcher. */}
+            <Logo size={24} className="hidden lg:block" />
+            <Logo size={24} showWordmark={false} className="lg:hidden" />
           </Link>
 
           <CompanySwitcher />
@@ -223,11 +232,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className={cn(
               "ml-auto hidden items-center gap-2 rounded-md border border-line bg-canvas",
               "px-3 py-1.5 text-body-sm text-muted transition-colors",
-              "hover:border-control-line hover:text-body md:flex md:w-64",
+              /* Three widths rather than one fixed 16rem, and no shrinking.
+                 ----------------------------------------------------------
+                 It was `md:w-64` and could not give way, so at 768 — the
+                 width it first appears at — the row ran 21px past the
+                 viewport and the user control on the end was clipped.
+                 Letting it *shrink* fixed the overflow and produced something
+                 worse: at 768 the field compressed until its label read "S",
+                 which is a search box that looks broken rather than one that
+                 is narrow. A control that cannot show what it is should get
+                 smaller in steps somebody chose, and never below its own
+                 name. */
+              "hover:border-control-line hover:text-body md:flex",
+              "md:w-40 lg:w-64",
             )}
           >
             <Search aria-hidden="true" className="size-3.5 shrink-0" />
-            <span className="flex-1 text-left">Search people, roles…</span>
+            {/* Short at `md`, where the field is 10rem and the full sentence
+                would be clipped mid-word. */}
+            <span className="flex-1 truncate text-left lg:hidden">Search…</span>
+            <span className="hidden flex-1 truncate text-left lg:block">
+              Search people, roles…
+            </span>
             <kbd className="rounded-xs border border-line bg-surface px-1.5 py-0.5 text-meta text-faint">
               /
             </kbd>
@@ -590,7 +616,24 @@ function UserMenu() {
         className="flex items-center gap-2.5 rounded-md border border-line px-2 py-1.5 text-left hover:bg-canvas"
       >
         <Avatar name={name} size="xs" tone="accent" />
-        <span className="hidden min-w-0 sm:block">
+        {/* Name, subtitle and role badge from `lg`, not `sm`.
+            ----------------------------------------------------
+            The note further up this file records the same class of bug being
+            fixed for the phone by dropping the wordmark below `sm`. It came
+            back in the middle of the range, where nothing had been measured:
+            between 640 and 1023 this button renders the wordmark's return,
+            the company switcher, the full identity block *and* the role
+            badge, and from 768 the 256px search field joins them. Measured at
+            640 on a dashboard, the button's own right edge was 884 against a
+            640 viewport — the name and the badge were simply cut off, on
+            every screen in the product, because they sit in the shell.
+
+            `xl`, not `lg`: at 1024 this block and the search field together
+            still left nothing to spare, and the search is the one people
+            reach for. Below it the control is the avatar and the chevron,
+            which is the same thing the phone has always shown, and the name
+            is the first line of the menu it opens. */}
+        <span className="hidden min-w-0 xl:block">
           <span className="block truncate text-body-sm font-medium leading-tight text-ink">
             {name}
           </span>
@@ -598,7 +641,7 @@ function UserMenu() {
             {subtitle}
           </span>
         </span>
-        <SessionRoleBadge className="hidden shrink-0 sm:inline-flex" />
+        <SessionRoleBadge className="hidden shrink-0 xl:inline-flex" />
         <ChevronDown
           aria-hidden="true"
           className="size-3.5 shrink-0 text-faint"

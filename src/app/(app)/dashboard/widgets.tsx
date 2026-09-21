@@ -8,6 +8,8 @@ import {
   CalendarClock,
   CalendarDays,
   Inbox,
+  Hourglass,
+  TrendingDown,
   Users,
   Wallet,
 } from "lucide-react";
@@ -22,9 +24,9 @@ import {
   ColumnChart,
   DonutChart,
   Money,
+  ProgressMeter,
   Spinner,
   StackedBar,
-  Stat,
 } from "@/components/ui";
 import { AskPanel } from "@/components/portal/ask-panel";
 import { MyClockCard } from "@/components/portal/my-clock-card";
@@ -39,6 +41,7 @@ import {
   type DashboardData,
   type ReportsData,
 } from "@/lib/api/insights";
+import { cn } from "@/lib/cn";
 import { useCan } from "@/lib/permissions";
 import { formatDate } from "@/lib/time";
 
@@ -210,11 +213,15 @@ const MyQueue: WidgetComponent = ({ dashboard }) => {
   const me = dashboard.me;
   if (!me) return null;
   return (
-    <TileLink
+    <Tile
       href="/approvals"
       icon={<Inbox aria-hidden="true" className="size-3.5" />}
       label="Waiting on you"
       value={String(me.waitingOnMe)}
+      /* Colour only when there is something to act on, and never colour alone
+         — the hint beside it says the same thing in words. A tinted chip on a
+         permanent zero would teach people to stop reading the tint. */
+      tone={me.waitingOnMe > 0 ? "accent" : "neutral"}
       /* Drawn as zero deliberately: "nothing needs you" is a useful answer and
          a true one, unlike a zero standing in for an absence. */
       hint={
@@ -232,23 +239,26 @@ const MyQueue: WidgetComponent = ({ dashboard }) => {
 
 const StatHeadcount: WidgetComponent = ({ dashboard }) =>
   dashboard.headcount ? (
-    <Stat
+    <Tile
+      href="/people"
       label="On the payroll"
       value={dashboard.headcount.active.toLocaleString()}
-      hint={
-        dashboard.headcount.startingThisMonth > 0
-          ? `${String(dashboard.headcount.startingThisMonth)} started this month`
-          : undefined
-      }
-      icon={<Users aria-hidden="true" />}
+      {...(dashboard.headcount.startingThisMonth > 0
+        ? {
+            hint: `${String(dashboard.headcount.startingThisMonth)} started this month`,
+          }
+        : {})}
+      icon={<Users aria-hidden="true" className="size-3.5" />}
     />
   ) : null;
 
 const StatApprovals: WidgetComponent = ({ dashboard }) =>
   dashboard.approvals ? (
-    <Stat
+    <Tile
+      href="/approvals"
       label="Waiting for a decision"
       value={dashboard.approvals.waiting.toLocaleString()}
+      tone={dashboard.approvals.overdue > 0 ? "warning" : "neutral"}
       hint={
         dashboard.approvals.overdue > 0
           ? `${String(dashboard.approvals.overdue)} past their deadline`
@@ -256,7 +266,7 @@ const StatApprovals: WidgetComponent = ({ dashboard }) =>
             ? `Oldest has waited ${String(dashboard.approvals.oldestWaitingDays)} days`
             : "Nothing waiting"
       }
-      icon={<BadgeCheck aria-hidden="true" />}
+      icon={<BadgeCheck aria-hidden="true" className="size-3.5" />}
     />
   ) : null;
 
@@ -264,9 +274,11 @@ const StatRecords: WidgetComponent = ({ dashboard }) => {
   const { headcount } = dashboard;
   if (!headcount) return null;
   return (
-    <Stat
+    <Tile
+      href="/people"
       label="Records to finish"
       value={headcount.incomplete.toLocaleString()}
+      tone={headcount.incomplete > 0 ? "warning" : "neutral"}
       hint={
         headcount.incomplete > 0
           ? "Missing a bank account or pension PIN"
@@ -275,18 +287,19 @@ const StatRecords: WidgetComponent = ({ dashboard }) => {
             ? "Nobody added yet"
             : "Everyone can be paid"
       }
-      icon={<AlertTriangle aria-hidden="true" />}
+      icon={<AlertTriangle aria-hidden="true" className="size-3.5" />}
     />
   );
 };
 
 const StatAttendance: WidgetComponent = ({ dashboard }) =>
   dashboard.today ? (
-    <Stat
+    <Tile
+      href="/people/attendance"
       label="Not accounted for today"
       value={dashboard.today.unaccountedFor.toLocaleString()}
       hint={`${String(dashboard.today.clockedIn)} clocked in · ${String(dashboard.today.onLeave)} on leave`}
-      icon={<CalendarClock aria-hidden="true" />}
+      icon={<CalendarClock aria-hidden="true" className="size-3.5" />}
     />
   ) : null;
 
@@ -544,10 +557,11 @@ const StatTurnover: WidgetComponent = ({ reports, reportsLoading }) => {
      statement about a workforce that does not exist. */
   if (!workforce || workforce.turnoverBp === null) return null;
   return (
-    <Stat
+    <Tile
       label="Turnover"
       value={`${(workforce.turnoverBp / 100).toFixed(1)}%`}
       hint={`Leavers against average headcount, last ${String(workforce.turnoverWindowMonths)} months`}
+      icon={<TrendingDown aria-hidden="true" className="size-3.5" />}
     />
   );
 };
@@ -557,7 +571,7 @@ const StatTenure: WidgetComponent = ({ reports, reportsLoading }) => {
   const months = reports?.workforce?.averageTenureMonths;
   if (months === null || months === undefined) return null;
   return (
-    <Stat
+    <Tile
       label="Average tenure"
       value={
         months >= 24
@@ -565,6 +579,7 @@ const StatTenure: WidgetComponent = ({ reports, reportsLoading }) => {
           : `${String(Math.round(months))} mths`
       }
       hint="Over the people here now, not leavers"
+      icon={<Hourglass aria-hidden="true" className="size-3.5" />}
     />
   );
 };
@@ -684,7 +699,7 @@ const MyPay: WidgetComponent = ({ dashboard }) => {
      which would say the company paid them nothing. */
   if (!pay) return null;
   return (
-    <TileLink
+    <Tile
       href="/payroll/payslips"
       icon={<Wallet aria-hidden="true" className="size-3.5" />}
       label="Last payslip"
@@ -702,25 +717,61 @@ const MyLeave: WidgetComponent = ({ dashboard }) => {
   return (
     <Link
       href="/people/leave"
-      className="flex h-full min-w-0 flex-col gap-1 rounded-lg border border-line bg-surface p-4 hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+      className="group flex min-w-0 flex-col gap-3 self-start rounded-xl border border-line bg-surface p-4 transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text sm:p-5"
     >
-      <span className="flex items-center gap-2 text-meta text-muted">
-        <CalendarDays aria-hidden="true" className="size-3.5" />
-        Leave left
+      <span className="flex items-center gap-2.5">
+        <span
+          aria-hidden="true"
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-sunken text-muted"
+        >
+          <CalendarDays className="size-3.5" />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-meta text-muted">
+          Leave left
+        </span>
+        <ArrowRight
+          aria-hidden="true"
+          className="size-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5"
+        />
       </span>
-      {/* Every type, named. Picking one would be a guess about which is
-          "your leave". */}
-      <ul className="flex flex-col gap-0.5">
+
+      {/* Every type, named, in the order the API sent them. Picking one would
+          be a guess about which is "your leave", and re-sorting by what has
+          been used would move the rows under somebody between two visits.
+
+          ## Why these are meters now
+
+          Six rows reading "84 of 84", "10 of 20", "5 of 5" are six pieces of
+          arithmetic the reader has to do before the one that has moved stands
+          out. The bar does it for them: the single half-empty track is
+          findable at a glance in a way a right-aligned pair of numbers is not.
+          The figures stay — the bar is the second encoding, not a replacement
+          — and they stay `tabular` because this is a column of numbers that
+          lines up vertically, which is the one place tabular figures belong.
+
+          One hue for every type, and deliberately not severity. A meter's fill
+          usually carries how bad something is; leave is not a fault meter.
+          Somebody who has taken their annual leave has used a thing they are
+          owed, and reddening the bar for it would be the product
+          editorialising about time off. */}
+      <ul className="flex flex-col gap-2.5">
         {leave.map((row) => (
-          <li
-            key={row.leaveType}
-            className="flex items-baseline justify-between gap-3 text-body-sm"
-          >
-            <span className="min-w-0 truncate text-body">{row.leaveType}</span>
-            <span className="shrink-0 text-ink tabular">
-              {row.remaining}
-              <span className="text-faint"> of {row.entitled}</span>
-            </span>
+          <li key={row.leaveType}>
+            <ProgressMeter
+              label={row.leaveType}
+              value={row.remaining}
+              /* `entitled` can be 0 for a type somebody is enrolled in with no
+                 allocation. `max={0}` would divide by zero, so the track is
+                 drawn empty and the figures still say what is true. */
+              max={row.entitled > 0 ? row.entitled : 1}
+              valueLabel={
+                <>
+                  {row.remaining}
+                  <span className="text-faint"> of {row.entitled}</span>
+                </>
+              }
+              size="sm"
+            />
           </li>
         ))}
       </ul>
@@ -814,31 +865,130 @@ function Row({
   );
 }
 
-function TileLink({
+/**
+ * A single figure, as a link to the screen it came from.
+ *
+ * ## Three things about the shape, each of which was wrong before
+ *
+ * **The figure and its caption are centred in whatever height the row settles
+ * on.** Grid items stretch to the tallest in their row, so a tile holding one
+ * number beside a six-row leave card is handed about 340px whether it wants
+ * them or not. Laid out from the top that is a label, a figure, and then two
+ * inches of nothing, which reads as a card that failed to finish loading;
+ * pushed to the two ends it is a figure and a caption with a hole between
+ * them, which reads as a layout bug. Centred as one block under a header that
+ * stays put, it reads as a big-number card: the proportion is deliberate at
+ * any height, and the row still shares a baseline along the top where the
+ * labels are.
+ *
+ * **The figure is proportional, not tabular.** `tabular-nums` gives every digit
+ * the width of a zero, which is exactly right in a column of figures that must
+ * line up vertically and wrong for a standalone display number — at 34px it
+ * puts visible gaps inside `121`. The leave list below keeps `tabular` for the
+ * opposite reason: it *is* a column.
+ *
+ * **It says it is a link.** It has always been one, and nothing on it said so
+ * but the cursor. The arrow is the affordance, and it moves on hover rather
+ * than appearing, so nothing shifts under the pointer.
+ *
+ * `tone` is for a tile with something outstanding on it. It tints the icon
+ * chip and the hint — never the figure, which stays ink at every state, and
+ * never colour alone: the hint beside it always names the thing in words.
+ *
+ * ## Why the dashboard has its own tile rather than using `Stat`
+ *
+ * Because half of this row was `Stat` and half was this, and they are two
+ * visual languages: `Stat` puts its icon top-right with no chip and no arrow,
+ * this puts a tinted chip on the left and an arrow on the right. Side by side
+ * in one row they read as two products. `Stat` is in 49 files across payroll,
+ * reports, settings and the people screens, so bringing *it* to this shape is
+ * a change to most of the app and a contrast and type-scale re-verification of
+ * all of it — far past redesigning one screen. Bringing the dashboard's own
+ * six tiles to one shape is the same fix at a hundredth of the blast radius,
+ * and `Stat` is untouched everywhere else.
+ *
+ * `href` is optional for exactly that reason: some of what it absorbed are
+ * figures with an obvious screen behind them and some are not. With one it is
+ * a link and says so with the arrow; without one it is a plain card and grows
+ * no affordance it cannot honour.
+ */
+function Tile({
   href,
   icon,
   label,
   value,
   hint,
+  tone = "neutral",
 }: {
-  href: string;
+  href?: string;
   icon: React.ReactNode;
   label: string;
   value: string;
-  hint: string;
+  hint?: string;
+  tone?: "neutral" | "accent" | "warning";
 }) {
-  return (
-    <Link
-      href={href}
-      className="flex h-full min-w-0 flex-col gap-1 rounded-lg border border-line bg-surface p-4 hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-    >
-      <span className="flex items-center gap-2 text-meta text-muted">
-        {icon}
-        {label}
+  const chip = {
+    neutral: "bg-sunken text-muted",
+    accent: "bg-accent-soft text-accent-text",
+    warning: "bg-warning-soft text-warning-text",
+  }[tone];
+  const hintTone = {
+    neutral: "text-faint",
+    accent: "text-accent-text",
+    warning: "text-warning-text",
+  }[tone];
+
+  /* Two returns rather than one polymorphic element: `Link` requires `href`,
+     so a shared component variable widens it to `string | undefined` and does
+     not typecheck. The body is shared; only the shell differs. */
+  const shell = cn(
+    "group flex min-w-0 flex-col gap-3 self-start rounded-xl border border-line bg-surface p-4 sm:p-5",
+    href &&
+      "transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
+  );
+  const body = (
+    <>
+      <span className="flex items-center gap-2.5">
+        <span
+          aria-hidden="true"
+          className={cn(
+            "flex size-7 shrink-0 items-center justify-center rounded-lg",
+            chip,
+          )}
+        >
+          {icon}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-meta text-muted">
+          {label}
+        </span>
+        {href && (
+          <ArrowRight
+            aria-hidden="true"
+            className="size-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5"
+          />
+        )}
       </span>
-      <span className="text-h4 text-ink tabular">{value}</span>
-      <span className="text-meta text-faint">{hint}</span>
+      <span className="flex flex-col gap-1.5">
+        {/* `break-words` rather than `truncate`: a long money figure is the
+            whole point of the tile, so it wraps rather than losing its tail. */}
+        <span className="text-h2 leading-none font-semibold break-words text-ink">
+          {value}
+        </span>
+        {/* Absent, not an empty line: a figure that needs no caption should
+            not reserve the space for one and leave the row ragged. */}
+        {hint !== undefined && (
+          <span className={cn("text-meta", hintTone)}>{hint}</span>
+        )}
+      </span>
+    </>
+  );
+
+  return href ? (
+    <Link href={href} className={shell}>
+      {body}
     </Link>
+  ) : (
+    <div className={shell}>{body}</div>
   );
 }
 
