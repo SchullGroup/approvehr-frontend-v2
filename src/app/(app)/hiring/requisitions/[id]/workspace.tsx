@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Columns3, Filter, Table2, UserRoundPlus } from "lucide-react";
+import { cn } from "@/lib/cn";
 import {
   Badge,
   Button,
@@ -171,54 +172,116 @@ export function RequisitionWorkspace({
           onMove={move}
         />
       ) : (
-        <TableWrap caption="Candidates with stage, rating, salary expectation and time in stage">
-          <THead>
-            <TH>Candidate</TH>
-            <TH>Stage</TH>
-            <TH align="right">Rating</TH>
-            <TH align="right">Expected</TH>
-            <TH align="right">Days in stage</TH>
-            <TH>Source</TH>
-          </THead>
-          <TBody>
+        <>
+          <div className="hidden sm:block">
+            <TableWrap caption="Candidates with stage, rating, salary expectation and time in stage">
+              <THead>
+                <TH>Candidate</TH>
+                <TH>Stage</TH>
+                <TH align="right">Rating</TH>
+                <TH align="right">Expected</TH>
+                <TH align="right">Days in stage</TH>
+                <TH>Source</TH>
+              </THead>
+              <TBody>
+                {active.map((c) => {
+                  const days = daysInStage(c);
+                  return (
+                    <TR key={c.id} interactive onClick={() => setOpenId(c.id)}>
+                      <TDPrimary
+                        title={fullName(c.candidate)}
+                        subtitle={`${c.candidate.currentTitle} · ${c.candidate.currentCompany}`}
+                      />
+                      <TD>
+                        <StagePill stage={c.stage} outcome={c.outcome} />
+                      </TD>
+                      <TD
+                        align="right"
+                        className="tabular font-medium text-ink"
+                      >
+                        {c.rating !== null ? `${c.rating}.0` : "—"}
+                      </TD>
+                      <TD align="right" className="tabular">
+                        {c.candidate.expectedSalary ? (
+                          <Money amount={c.candidate.expectedSalary} compact />
+                        ) : (
+                          "—"
+                        )}
+                      </TD>
+                      <TD align="right" className="tabular">
+                        <span
+                          className={
+                            days >= 7 ? "text-warning-text" : undefined
+                          }
+                        >
+                          {days}
+                        </span>
+                      </TD>
+                      <TD>
+                        <Badge tone="neutral" size="sm">
+                          {c.candidate.source.replace("_", " ")}
+                        </Badge>
+                      </TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </TableWrap>
+          </div>
+
+          <ul className="divide-y divide-line sm:hidden">
             {active.map((c) => {
               const days = daysInStage(c);
               return (
-                <TR key={c.id} interactive onClick={() => setOpenId(c.id)}>
-                  <TDPrimary
-                    title={fullName(c.candidate)}
-                    subtitle={`${c.candidate.currentTitle} · ${c.candidate.currentCompany}`}
-                  />
-                  <TD>
+                <li
+                  key={c.id}
+                  onClick={() => setOpenId(c.id)}
+                  className="flex flex-col gap-2 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-ink">
+                        {fullName(c.candidate)}
+                      </p>
+                      <p className="text-body-sm text-muted">
+                        {c.candidate.currentTitle} ·{" "}
+                        {c.candidate.currentCompany}
+                      </p>
+                    </div>
                     <StagePill stage={c.stage} outcome={c.outcome} />
-                  </TD>
-                  <TD align="right" className="tabular font-medium text-ink">
-                    {c.rating !== null ? `${c.rating}.0` : "—"}
-                  </TD>
-                  <TD align="right" className="tabular">
-                    {c.candidate.expectedSalary ? (
-                      <Money amount={c.candidate.expectedSalary} compact />
-                    ) : (
-                      "—"
-                    )}
-                  </TD>
-                  <TD align="right" className="tabular">
-                    <span
-                      className={days >= 7 ? "text-warning-text" : undefined}
-                    >
-                      {days}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                    <span className="tabular">
+                      {c.rating !== null ? `${c.rating}.0 rating` : "No rating"}
                     </span>
-                  </TD>
-                  <TD>
+                    <span className="tabular">
+                      {c.candidate.expectedSalary ? (
+                        <Money amount={c.candidate.expectedSalary} compact />
+                      ) : (
+                        "No expectation given"
+                      )}
+                    </span>
+                    <span
+                      className={cn(
+                        "tabular",
+                        days >= 7 && "text-warning-text",
+                      )}
+                    >
+                      {days} {days === 1 ? "day" : "days"} in stage
+                    </span>
+                  </div>
+
+                  <div>
                     <Badge tone="neutral" size="sm">
                       {c.candidate.source.replace("_", " ")}
                     </Badge>
-                  </TD>
-                </TR>
+                  </div>
+                </li>
               );
             })}
-          </TBody>
-        </TableWrap>
+          </ul>
+        </>
       )}
 
       <CandidatePanel

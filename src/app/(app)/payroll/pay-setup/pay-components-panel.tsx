@@ -267,56 +267,104 @@ export function PayComponentsPanel({
             }
           />
         ) : (
-          <TableWrap caption="Allowances and deductions on this person's pay">
-            <THead>
-              <TH>Line</TH>
-              <TH>How it is worked out</TH>
-              <TH>What it does</TH>
-              <TH align="right">This month</TH>
-              <TH>
-                <span className="sr-only-focusable">Actions</span>
-              </TH>
-            </THead>
-            <TBody>
+          <>
+            <div className="hidden sm:block">
+              <TableWrap caption="Allowances and deductions on this person's pay">
+                <THead>
+                  <TH>Line</TH>
+                  <TH>How it is worked out</TH>
+                  <TH>What it does</TH>
+                  <TH align="right">This month</TH>
+                  <TH>
+                    <span className="sr-only-focusable">Actions</span>
+                  </TH>
+                </THead>
+                <TBody>
+                  {assignments.map((row) => {
+                    const chips = flagChips(row, settings.pension);
+                    const allowance = row.kind === "ALLOWANCE";
+                    return (
+                      <TR key={row.id}>
+                        <TDPrimary
+                          title={row.name}
+                          subtitle={
+                            row.effectiveTo
+                              ? `${shortDate(row.effectiveFrom)} to ${shortDate(row.effectiveTo)}`
+                              : `From ${shortDate(row.effectiveFrom)}, every month`
+                          }
+                        />
+                        <TD>
+                          <span className="text-body-sm text-body">
+                            {assignmentLine(row)}
+                          </span>
+                          {row.note && (
+                            <span className="mt-0.5 block text-meta text-muted">
+                              {row.note}
+                            </span>
+                          )}
+                        </TD>
+                        <TD>
+                          <span className="flex flex-wrap gap-1.5">
+                            {chips.map((chip) => (
+                              <span key={chip.label} title={chip.why}>
+                                <Badge
+                                  size="sm"
+                                  tone={chip.tone}
+                                  className="cursor-help"
+                                >
+                                  {chip.label}
+                                </Badge>
+                              </span>
+                            ))}
+                          </span>
+                        </TD>
+                        <TD align="right">
+                          <span
+                            className={cn(
+                              "tabular text-body-sm font-medium",
+                              allowance ? "text-ink" : "text-body",
+                            )}
+                          >
+                            {allowance
+                              ? signedMoney(row.resolvedKobo)
+                              : signedMoney(-row.resolvedKobo)}
+                          </span>
+                        </TD>
+                        <TD align="right">
+                          {lines.editable && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setRemoving(row)}
+                            >
+                              Stop it
+                            </Button>
+                          )}
+                        </TD>
+                      </TR>
+                    );
+                  })}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
               {assignments.map((row) => {
                 const chips = flagChips(row, settings.pension);
                 const allowance = row.kind === "ALLOWANCE";
                 return (
-                  <TR key={row.id}>
-                    <TDPrimary
-                      title={row.name}
-                      subtitle={
-                        row.effectiveTo
-                          ? `${shortDate(row.effectiveFrom)} to ${shortDate(row.effectiveTo)}`
-                          : `From ${shortDate(row.effectiveFrom)}, every month`
-                      }
-                    />
-                    <TD>
-                      <span className="text-body-sm text-body">
-                        {assignmentLine(row)}
-                      </span>
-                      {row.note && (
-                        <span className="mt-0.5 block text-meta text-muted">
-                          {row.note}
-                        </span>
-                      )}
-                    </TD>
-                    <TD>
-                      <span className="flex flex-wrap gap-1.5">
-                        {chips.map((chip) => (
-                          <span key={chip.label} title={chip.why}>
-                            <Badge
-                              size="sm"
-                              tone={chip.tone}
-                              className="cursor-help"
-                            >
-                              {chip.label}
-                            </Badge>
-                          </span>
-                        ))}
-                      </span>
-                    </TD>
-                    <TD align="right">
+                  <li key={row.id} className="flex flex-col gap-2 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-body-sm font-medium text-ink">
+                          {row.name}
+                        </p>
+                        <p className="mt-0.5 text-meta text-muted">
+                          {row.effectiveTo
+                            ? `${shortDate(row.effectiveFrom)} to ${shortDate(row.effectiveTo)}`
+                            : `From ${shortDate(row.effectiveFrom)}, every month`}
+                        </p>
+                      </div>
                       <span
                         className={cn(
                           "tabular text-body-sm font-medium",
@@ -327,23 +375,44 @@ export function PayComponentsPanel({
                           ? signedMoney(row.resolvedKobo)
                           : signedMoney(-row.resolvedKobo)}
                       </span>
-                    </TD>
-                    <TD align="right">
-                      {lines.editable && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setRemoving(row)}
-                        >
-                          Stop it
-                        </Button>
-                      )}
-                    </TD>
-                  </TR>
+                    </div>
+
+                    <p className="text-body-sm text-body">
+                      {assignmentLine(row)}
+                    </p>
+                    {row.note && (
+                      <p className="text-meta text-muted">{row.note}</p>
+                    )}
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {chips.map((chip) => (
+                        <span key={chip.label} title={chip.why}>
+                          <Badge
+                            size="sm"
+                            tone={chip.tone}
+                            className="cursor-help"
+                          >
+                            {chip.label}
+                          </Badge>
+                        </span>
+                      ))}
+                    </div>
+
+                    {lines.editable && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="self-start"
+                        onClick={() => setRemoving(row)}
+                      >
+                        Stop it
+                      </Button>
+                    )}
+                  </li>
                 );
               })}
-            </TBody>
-          </TableWrap>
+            </ul>
+          </>
         )}
       </CardBody>
 

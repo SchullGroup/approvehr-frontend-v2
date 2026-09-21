@@ -20,7 +20,9 @@ import {
   ReviewMockup,
 } from "@/components/marketing/mockups";
 import { CAPABILITY_MOCKUPS } from "@/components/marketing/module-mockups";
+import { JsonLd } from "@/components/marketing/json-ld";
 import { liveProductCta } from "@/lib/marketing/links";
+import { SITE_URL } from "@/lib/marketing/site";
 
 /* A module page has already shown the walkthrough, so the honest fallback when
    there's no live app to enter is the price, not another tour. */
@@ -53,7 +55,11 @@ export async function generateMetadata({
   const { module: id } = await params;
   const mod = MODULES.find((m) => m.id === id);
   if (!mod) return { title: "Product" };
-  return { title: mod.label, description: mod.blurb };
+  return {
+    title: mod.label,
+    description: mod.blurb,
+    alternates: { canonical: `${SITE_URL}/product/${mod.id}` },
+  };
 }
 
 export default async function ModulePage({
@@ -70,6 +76,27 @@ export default async function ModulePage({
 
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Product",
+              item: SITE_URL,
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: mod.label,
+              item: `${SITE_URL}/product/${mod.id}`,
+            },
+          ],
+        }}
+      />
+
       {/* Hero */}
       {/*
        * The wash runs up behind the floating nav.

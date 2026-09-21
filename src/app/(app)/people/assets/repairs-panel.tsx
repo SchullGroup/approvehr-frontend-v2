@@ -84,75 +84,146 @@ export function RepairsPanel({
           }
         />
       ) : (
-        <TableWrap className="rounded-none border-0" caption="Repairs">
-          <THead>
-            <TH>What is being fixed</TH>
-            <TH>Which one</TH>
-            <TH>Went in</TH>
-            <TH>Who is fixing it</TH>
-            <TH align="right">Cost</TH>
-            <TH align="right">
-              <span className="sr-only">Actions</span>
-            </TH>
-          </THead>
-          <TBody>
-            {repairs.map((repair) => (
-              <TR key={repair.id}>
-                <TDPrimary
-                  title={
-                    <span className="flex flex-wrap items-center gap-2">
-                      {repair.description}
-                      {repair.open && (
-                        <Badge tone="info" size="sm" dot>
-                          Still in
-                        </Badge>
+        <>
+          <div className="hidden sm:block">
+            <TableWrap className="rounded-none border-0" caption="Repairs">
+              <THead>
+                <TH>What is being fixed</TH>
+                <TH>Which one</TH>
+                <TH>Went in</TH>
+                <TH>Who is fixing it</TH>
+                <TH align="right">Cost</TH>
+                <TH align="right">
+                  <span className="sr-only">Actions</span>
+                </TH>
+              </THead>
+              <TBody>
+                {repairs.map((repair) => (
+                  <TR key={repair.id}>
+                    <TDPrimary
+                      title={
+                        <span className="flex flex-wrap items-center gap-2">
+                          {repair.description}
+                          {repair.open && (
+                            <Badge tone="info" size="sm" dot>
+                              Still in
+                            </Badge>
+                          )}
+                        </span>
+                      }
+                    />
+                    <TD className="text-body-sm">
+                      <span className="block text-ink">
+                        {repair.itemName ?? "—"}
+                      </span>
+                      <span className="tabular block text-meta text-muted">
+                        {repair.tag ?? ""}
+                      </span>
+                    </TD>
+                    <TD className="whitespace-nowrap text-body-sm">
+                      <span className="block text-body">
+                        {dayLabel(repair.startedOn)}
+                      </span>
+                      <span className="block text-meta text-muted">
+                        {repair.completedOn
+                          ? `out ${dayLabel(repair.completedOn)}`
+                          : `${daysSince(repair.startedOn)} days`}
+                      </span>
+                    </TD>
+                    <TD className="text-body-sm text-body">
+                      {repair.vendor ?? "—"}
+                    </TD>
+                    <TD align="right">
+                      {repair.cost === null ? (
+                        <span className="text-body-sm text-faint">—</span>
+                      ) : (
+                        <Money amount={repair.cost} size="sm" />
                       )}
-                    </span>
-                  }
-                />
-                <TD className="text-body-sm">
-                  <span className="block text-ink">
+                    </TD>
+                    <TD align="right">
+                      {repair.open && canEdit && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => onFinish(repair)}
+                        >
+                          It is fixed
+                        </Button>
+                      )}
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </TableWrap>
+          </div>
+
+          <ul className="divide-y divide-line sm:hidden">
+            {repairs.map((repair) => (
+              <li key={repair.id} className="flex flex-col gap-2 p-4">
+                <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                  {repair.description}
+                  {repair.open && (
+                    <Badge tone="info" size="sm" dot>
+                      Still in
+                    </Badge>
+                  )}
+                </p>
+
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-body-sm text-muted">Which one</span>
+                  <span className="text-right text-body-sm text-ink">
                     {repair.itemName ?? "—"}
+                    {repair.tag && (
+                      <span className="tabular block text-meta text-muted">
+                        {repair.tag}
+                      </span>
+                    )}
                   </span>
-                  <span className="tabular block text-meta text-muted">
-                    {repair.tag ?? ""}
-                  </span>
-                </TD>
-                <TD className="whitespace-nowrap text-body-sm">
-                  <span className="block text-body">
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-body-sm text-muted">Went in</span>
+                  <span className="text-right text-body-sm text-body">
                     {dayLabel(repair.startedOn)}
+                    <span className="block text-meta text-muted">
+                      {repair.completedOn
+                        ? `out ${dayLabel(repair.completedOn)}`
+                        : `${daysSince(repair.startedOn)} days`}
+                    </span>
                   </span>
-                  <span className="block text-meta text-muted">
-                    {repair.completedOn
-                      ? `out ${dayLabel(repair.completedOn)}`
-                      : `${daysSince(repair.startedOn)} days`}
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-body-sm text-muted">
+                    Who is fixing it
                   </span>
-                </TD>
-                <TD className="text-body-sm text-body">
-                  {repair.vendor ?? "—"}
-                </TD>
-                <TD align="right">
-                  {repair.cost === null ? (
-                    <span className="text-body-sm text-faint">—</span>
-                  ) : (
-                    <Money amount={repair.cost} size="sm" />
-                  )}
-                </TD>
-                <TD align="right">
-                  {repair.open && canEdit && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => onFinish(repair)}
-                    >
-                      It is fixed
-                    </Button>
-                  )}
-                </TD>
-              </TR>
+                  <span className="text-body-sm text-body">
+                    {repair.vendor ?? "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-body-sm text-muted">Cost</span>
+                  <span className="tabular text-body-sm text-ink">
+                    {repair.cost === null ? (
+                      <span className="text-faint">—</span>
+                    ) : (
+                      <Money amount={repair.cost} size="sm" />
+                    )}
+                  </span>
+                </div>
+
+                {repair.open && canEdit && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="self-start"
+                    onClick={() => onFinish(repair)}
+                  >
+                    It is fixed
+                  </Button>
+                )}
+              </li>
             ))}
-          </TBody>
-        </TableWrap>
+          </ul>
+        </>
       )}
     </Card>
   );

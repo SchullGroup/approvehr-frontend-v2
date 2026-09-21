@@ -42,6 +42,68 @@ import { CheckReport } from "./check-report";
 import { ImportOutcome } from "./import-result";
 import { MatchColumns } from "./match-columns";
 
+/** A past batch's row-by-row report — one copy shared by the desktop table's
+    colSpan row and the mobile card's expanded panel. */
+function BatchDetail({
+  loading,
+  detail,
+  onChooseFile,
+}: {
+  loading: boolean;
+  detail: ApiImportBatchDetail | undefined;
+  onChooseFile: () => void;
+}) {
+  if (loading) {
+    return (
+      <span className="flex items-center gap-2 text-meta text-muted">
+        <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
+        Loading what went wrong…
+      </span>
+    );
+  }
+  if (!detail) {
+    return (
+      <span className="text-meta text-danger-text">
+        Could not load this report. Try again.
+      </span>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-2">
+        {detail.rows.map((row) => (
+          <li key={row.row} className="text-meta text-body">
+            <span className="tabular font-medium text-ink">Row {row.row}</span>{" "}
+            <span className="text-muted">
+              {row.name ?? row.employeeNo ?? "No name in this row"}
+            </span>
+            <ul className="ml-4 mt-1 flex flex-col gap-0.5">
+              {[...row.errors, ...row.warnings].map((issue, i) => (
+                <li key={i} className="text-muted">
+                  <code className="rounded bg-sunken px-1 py-0.5 text-meta">
+                    {issue.column}
+                  </code>{" "}
+                  {issue.problem}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
+        <p className="flex-1 text-meta text-muted">
+          This one did not keep its rows: it ran before we started keeping them,
+          or everything in it imported. Upload the file again to carry on.
+        </p>
+        <Button variant="secondary" size="sm" onClick={onChooseFile}>
+          <UploadCloud aria-hidden="true" className="size-3.5" />
+          Choose a file
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Bring a spreadsheet in. Any spreadsheet, of anything.
  *
@@ -518,169 +580,212 @@ function ChooseFile({
             title="Imports before this one"
             description="What each file did, and who ran it."
           />
-          <TableWrap
-            className="rounded-none border-0 border-t border-line"
-            caption="Past imports: click a resumable one to carry on, or one with rows skipped to see what went wrong"
-          >
-            <THead>
-              <TH>File</TH>
-              <TH>What it did</TH>
-              <TH>Ran by</TH>
-              <TH>When</TH>
-            </THead>
-            <TBody>
-              {history.rows.map((batch) => {
-                const hasReport = batch.failed > 0;
-                const open = openBatch === batch.id;
-                const detail = details[batch.id];
-                const isResuming = resuming === batch.id;
-                /* Resumable rows act immediately — the long row-by-row report
-                   is what the product owner's own words called out: nobody
-                   wants to read why 30 rows failed on the way to fixing it,
-                   they want the wizard. Everything else still expands, because
-                   there is nothing to jump into and reading why is the only
-                   thing left to offer. */
-                const rowClick = batch.resumable
-                  ? () => {
-                      setResuming(batch.id);
-                      void onResume(batch.id).finally(() => setResuming(null));
-                    }
-                  : hasReport
-                    ? () => toggleBatch(batch.id)
-                    : undefined;
-                return (
-                  <Fragment key={batch.id}>
-                    <TR
-                      interactive={Boolean(rowClick)}
-                      onClick={isResuming ? undefined : rowClick}
-                      aria-expanded={
-                        !batch.resumable && hasReport ? open : undefined
+          <div className="hidden sm:block">
+            <TableWrap
+              className="rounded-none border-0 border-t border-line"
+              caption="Past imports: click a resumable one to carry on, or one with rows skipped to see what went wrong"
+            >
+              <THead>
+                <TH>File</TH>
+                <TH>What it did</TH>
+                <TH>Ran by</TH>
+                <TH>When</TH>
+              </THead>
+              <TBody>
+                {history.rows.map((batch) => {
+                  const hasReport = batch.failed > 0;
+                  const open = openBatch === batch.id;
+                  const detail = details[batch.id];
+                  const isResuming = resuming === batch.id;
+                  /* Resumable rows act immediately — the long row-by-row report
+                     is what the product owner's own words called out: nobody
+                     wants to read why 30 rows failed on the way to fixing it,
+                     they want the wizard. Everything else still expands, because
+                     there is nothing to jump into and reading why is the only
+                     thing left to offer. */
+                  const rowClick = batch.resumable
+                    ? () => {
+                        setResuming(batch.id);
+                        void onResume(batch.id).finally(() =>
+                          setResuming(null),
+                        );
                       }
-                    >
-                      <TDPrimary
-                        title={batch.filename}
-                        subtitle={`${batch.totalRows.toLocaleString("en-NG")} rows`}
-                      />
-                      <TD>
-                        <span className="flex items-center gap-1.5 text-meta text-body">
-                          {isResuming
-                            ? "Picking up where it stopped…"
-                            : batch.summary}
-                          {isResuming ? (
-                            <Loader2
-                              aria-hidden="true"
-                              className="size-3.5 animate-spin text-muted"
-                            />
-                          ) : batch.resumable ? (
-                            <ArrowRight
-                              aria-hidden="true"
-                              className="size-3.5 text-accent-text"
-                            />
-                          ) : (
-                            hasReport && (
-                              <ChevronDown
-                                aria-hidden="true"
-                                className={cn(
-                                  "size-3.5 text-muted transition-transform",
-                                  open && "rotate-180",
-                                )}
-                              />
-                            )
-                          )}
-                        </span>
-                      </TD>
-                      <TD>
-                        <span className="text-meta text-body">{batch.by}</span>
-                      </TD>
-                      <TD>
-                        <span className="flex items-center gap-1.5 text-meta text-muted">
-                          <Clock aria-hidden="true" className="size-3.5" />
-                          {new Date(batch.createdAt).toLocaleDateString(
-                            "en-NG",
-                            {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            },
-                          )}
-                        </span>
-                      </TD>
-                    </TR>
-                    {/* Never reached for a resumable batch — see `rowClick`. */}
-                    {open && !batch.resumable && (
-                      <TR className="bg-sunken/60">
-                        <TD colSpan={4} className="py-4">
-                          {loadingBatch === batch.id && !detail ? (
-                            <span className="flex items-center gap-2 text-meta text-muted">
+                    : hasReport
+                      ? () => toggleBatch(batch.id)
+                      : undefined;
+                  return (
+                    <Fragment key={batch.id}>
+                      <TR
+                        interactive={Boolean(rowClick)}
+                        onClick={isResuming ? undefined : rowClick}
+                        aria-expanded={
+                          !batch.resumable && hasReport ? open : undefined
+                        }
+                      >
+                        <TDPrimary
+                          title={batch.filename}
+                          subtitle={`${batch.totalRows.toLocaleString("en-NG")} rows`}
+                        />
+                        <TD>
+                          <span className="flex items-center gap-1.5 text-meta text-body">
+                            {isResuming
+                              ? "Picking up where it stopped…"
+                              : batch.summary}
+                            {isResuming ? (
                               <Loader2
                                 aria-hidden="true"
-                                className="size-3.5 animate-spin"
+                                className="size-3.5 animate-spin text-muted"
                               />
-                              Loading what went wrong…
-                            </span>
-                          ) : detail ? (
-                            <div className="flex flex-col gap-3">
-                              <ul className="flex flex-col gap-2">
-                                {detail.rows.map((row) => (
-                                  <li
-                                    key={row.row}
-                                    className="text-meta text-body"
-                                  >
-                                    <span className="tabular font-medium text-ink">
-                                      Row {row.row}
-                                    </span>{" "}
-                                    <span className="text-muted">
-                                      {row.name ??
-                                        row.employeeNo ??
-                                        "No name in this row"}
-                                    </span>
-                                    <ul className="ml-4 mt-1 flex flex-col gap-0.5">
-                                      {[...row.errors, ...row.warnings].map(
-                                        (issue, i) => (
-                                          <li key={i} className="text-muted">
-                                            <code className="rounded bg-sunken px-1 py-0.5 text-meta">
-                                              {issue.column}
-                                            </code>{" "}
-                                            {issue.problem}
-                                          </li>
-                                        ),
-                                      )}
-                                    </ul>
-                                  </li>
-                                ))}
-                              </ul>
-                              <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
-                                <p className="flex-1 text-meta text-muted">
-                                  This one did not keep its rows: it ran before
-                                  we started keeping them, or everything in it
-                                  imported. Upload the file again to carry on.
-                                </p>
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  onClick={() => input.current?.click()}
-                                >
-                                  <UploadCloud
-                                    aria-hidden="true"
-                                    className="size-3.5"
-                                  />
-                                  Choose a file
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-meta text-danger-text">
-                              Could not load this report. Try again.
-                            </span>
-                          )}
+                            ) : batch.resumable ? (
+                              <ArrowRight
+                                aria-hidden="true"
+                                className="size-3.5 text-accent-text"
+                              />
+                            ) : (
+                              hasReport && (
+                                <ChevronDown
+                                  aria-hidden="true"
+                                  className={cn(
+                                    "size-3.5 text-muted transition-transform",
+                                    open && "rotate-180",
+                                  )}
+                                />
+                              )
+                            )}
+                          </span>
+                        </TD>
+                        <TD>
+                          <span className="text-meta text-body">
+                            {batch.by}
+                          </span>
+                        </TD>
+                        <TD>
+                          <span className="flex items-center gap-1.5 text-meta text-muted">
+                            <Clock aria-hidden="true" className="size-3.5" />
+                            {new Date(batch.createdAt).toLocaleDateString(
+                              "en-NG",
+                              {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              },
+                            )}
+                          </span>
                         </TD>
                       </TR>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </TBody>
-          </TableWrap>
+                      {/* Never reached for a resumable batch — see `rowClick`. */}
+                      {open && !batch.resumable && (
+                        <TR className="bg-sunken/60">
+                          <TD colSpan={4} className="py-4">
+                            <BatchDetail
+                              loading={loadingBatch === batch.id && !detail}
+                              detail={detail}
+                              onChooseFile={() => input.current?.click()}
+                            />
+                          </TD>
+                        </TR>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </TBody>
+            </TableWrap>
+          </div>
+
+          <ul className="divide-y divide-line border-t border-line sm:hidden">
+            {history.rows.map((batch) => {
+              const hasReport = batch.failed > 0;
+              const open = openBatch === batch.id;
+              const detail = details[batch.id];
+              const isResuming = resuming === batch.id;
+              const rowClick = batch.resumable
+                ? () => {
+                    setResuming(batch.id);
+                    void onResume(batch.id).finally(() => setResuming(null));
+                  }
+                : hasReport
+                  ? () => toggleBatch(batch.id)
+                  : undefined;
+              return (
+                <li key={batch.id} className="flex flex-col">
+                  <button
+                    type="button"
+                    disabled={!rowClick || isResuming}
+                    aria-expanded={
+                      !batch.resumable && hasReport ? open : undefined
+                    }
+                    onClick={isResuming ? undefined : rowClick}
+                    className="flex w-full flex-col gap-2 p-4 text-left disabled:cursor-default"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-body-sm font-medium text-ink">
+                        {batch.filename}
+                      </p>
+                      <p className="mt-0.5 text-meta text-muted">
+                        {batch.totalRows.toLocaleString("en-NG")} rows
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-1.5 text-meta text-body">
+                        {isResuming
+                          ? "Picking up where it stopped…"
+                          : batch.summary}
+                        {isResuming ? (
+                          <Loader2
+                            aria-hidden="true"
+                            className="size-3.5 animate-spin text-muted"
+                          />
+                        ) : batch.resumable ? (
+                          <ArrowRight
+                            aria-hidden="true"
+                            className="size-3.5 text-accent-text"
+                          />
+                        ) : (
+                          hasReport && (
+                            <ChevronDown
+                              aria-hidden="true"
+                              className={cn(
+                                "size-3.5 text-muted transition-transform",
+                                open && "rotate-180",
+                              )}
+                            />
+                          )
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-meta text-muted">Ran by</span>
+                      <span className="text-meta text-body">{batch.by}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-meta text-muted">When</span>
+                      <span className="flex items-center gap-1.5 text-meta text-muted">
+                        <Clock aria-hidden="true" className="size-3.5" />
+                        {new Date(batch.createdAt).toLocaleDateString("en-NG", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+                  </button>
+
+                  {open && !batch.resumable && (
+                    <div className="border-t border-line bg-sunken/60 p-4">
+                      <BatchDetail
+                        loading={loadingBatch === batch.id && !detail}
+                        detail={detail}
+                        onChooseFile={() => input.current?.click()}
+                      />
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         </Card>
       )}
     </div>
