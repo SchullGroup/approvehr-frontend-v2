@@ -198,6 +198,8 @@ const HREF: Record<ApprovalKind, string> = {
   requisition: "/hiring",
   expense: "/payroll/expenses",
   record_change: "/people",
+  confirmation: "/people/probation",
+  employment_change: "/people/changes",
   loan: "/payroll/loans",
 };
 

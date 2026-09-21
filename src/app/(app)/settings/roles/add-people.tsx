@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import {
   Button,
   Callout,
@@ -166,6 +167,7 @@ export function AddPeopleDialog({
         {candidates.length === 0 ? (
           <EmptyState
             compact
+            icon={<Search aria-hidden="true" />}
             title={
               loading
                 ? "Loading…"

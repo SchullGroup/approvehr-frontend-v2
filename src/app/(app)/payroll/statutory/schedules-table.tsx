@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Landmark } from "lucide-react";
 import {
   Badge,
   Button,
@@ -86,10 +87,11 @@ export function SchedulesTable() {
         <CardHeader title="Remittance schedules" />
         <CardBody>
           <EmptyState
+            icon={<Landmark aria-hidden="true" />}
             title="Nothing to file yet"
             description={
               state.runId
-                ? "The last approved payroll produced no schedules — this company deducts nothing statutory and has no employer contribution to make."
+                ? "The last approved payroll produced no schedules: this company deducts nothing statutory and has no employer contribution to make."
                 : "Schedules are written when a payroll is approved. None has been yet."
             }
           />

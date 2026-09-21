@@ -367,6 +367,7 @@ function History({ read }: { read: ReturnType<typeof useAdvances> }) {
   if (read.data.length === 0) {
     return (
       <EmptyState
+        icon={<Banknote aria-hidden="true" />}
         title="Nothing drawn yet"
         description="An advance taken here appears with what is still to come off a payslip."
       />
