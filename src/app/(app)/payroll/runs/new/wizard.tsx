@@ -85,6 +85,7 @@ import { useCan } from "@/lib/permissions";
 import { useOvertimePolicy } from "@/lib/store/overtime";
 import { SheetPanel } from "./sheet-panel";
 import { PayPanel, WalletStrip } from "./pay-panel";
+import { BankRegisterCard } from "./bank-register-card";
 import { LinesDialog } from "./lines-dialog";
 import type { SheetRowSource } from "@/lib/payroll/adjustment-sheet";
 import type { Employee } from "@/lib/types";
@@ -1160,6 +1161,7 @@ export function PayrollRunWizard() {
                 {...(canPrepare && !settled ? { onPutBack: putBack } : {})}
                 busyFor={puttingBack}
               />
+              <BankRegisterCard run={run} />
             </>
           ) : (
             <EmptyState
@@ -1199,6 +1201,8 @@ export function PayrollRunWizard() {
                 makes sure nobody meets the number for the first time on the
                 far side of a one-way door. */}
             {!settled && <WalletStrip run={run} />}
+
+            <BankRegisterCard run={run} />
 
             <TotalsPanel run={run} />
 
