@@ -740,6 +740,8 @@ const demoCycles: ApiCycle[] = [
     departmentIds: [],
     remindDaysBefore: null,
     managersCanAddQuestions: false,
+    appraiseOwner: false,
+    appraiseHrManager: false,
     createdAt: "2026-07-01T09:00:00.000Z",
   },
   {
@@ -762,6 +764,8 @@ const demoCycles: ApiCycle[] = [
     departmentIds: [],
     remindDaysBefore: null,
     managersCanAddQuestions: false,
+    appraiseOwner: false,
+    appraiseHrManager: false,
     createdAt: "2026-01-08T09:00:00.000Z",
   },
 ];
@@ -2852,6 +2856,8 @@ export function useCycleMutations() {
           departmentIds?: string[];
           remindDaysBefore?: number;
           managersCanAddQuestions?: boolean;
+          appraiseOwner?: boolean;
+          appraiseHrManager?: boolean;
           periodStart?: string;
           periodEnd?: string;
           instructions?: string;
@@ -2871,6 +2877,8 @@ export function useCycleMutations() {
           ...(options?.managersCanAddQuestions
             ? { managersCanAddQuestions: true }
             : {}),
+          ...(options?.appraiseOwner ? { appraiseOwner: true } : {}),
+          ...(options?.appraiseHrManager ? { appraiseHrManager: true } : {}),
           /* Both or neither, decided here rather than sent half-formed for the
              API to refuse. A dialog that lets somebody fill in one date and
              then reports a server error has asked a question it could have

@@ -425,6 +425,15 @@ export type ApiCycle = {
   remindDaysBefore: number | null;
   /** Off by default. Lets a manager add their own questions, scoped to their team. */
   managersCanAddQuestions: boolean;
+  /**
+   * Whether the Owner is appraised in this period.
+   *
+   * Off by default. Left off they get no form and appear in none of the
+   * period's reads — and they still appraise everybody who reports to them.
+   */
+  appraiseOwner: boolean;
+  /** The same, decided separately, for the HR manager. */
+  appraiseHrManager: boolean;
   createdAt: string;
 };
 
@@ -1859,6 +1868,10 @@ export const performanceApi = {
     remindDaysBefore?: number;
     /** Off by default. Lets a manager add their own questions, scoped to their team. */
     managersCanAddQuestions?: boolean;
+    /** Off by default. See `ApiCycle.appraiseOwner`. */
+    appraiseOwner?: boolean;
+    /** Off by default, and independent of `appraiseOwner`. */
+    appraiseHrManager?: boolean;
   }) => request<ApiCycle>("/performance/cycles", { method: "POST", body }),
 
   /**
@@ -1876,6 +1889,9 @@ export const performanceApi = {
       departmentIds?: string[];
       remindDaysBefore?: number | null;
       managersCanAddQuestions?: boolean;
+      /** Only meaningful before the forms exist. See `ApiCycle`. */
+      appraiseOwner?: boolean;
+      appraiseHrManager?: boolean;
       /**
        * Nullable, unlike on create: clearing a period is a real edit, and
        * `null` is how it is said. Both together or neither — the API checks the

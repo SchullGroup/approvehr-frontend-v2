@@ -105,6 +105,19 @@ export function StartPeriodDialog({
   /** Off by default. Lets a manager add their own questions, scoped to their team. */
   const [managersCanAddQuestions, setManagersCanAddQuestions] = useState(false);
   /**
+   * Off by default, and that default is the feature.
+   *
+   * The Owner reports to nobody and the HR manager usually wrote the form, so
+   * both used to sit in every period as people with no mark and no way out
+   * short of archiving them. A company that does appraise them turns them on.
+   *
+   * Two pieces of state rather than one, because the decisions are unrelated: a
+   * company can appraise its HR manager — an employee with a manager like
+   * anybody else — without appraising the person who owns it.
+   */
+  const [appraiseOwner, setAppraiseOwner] = useState(false);
+  const [appraiseHrManager, setAppraiseHrManager] = useState(false);
+  /**
    * Field errors and form errors, kept apart.
    *
    * One `error` string used to carry both and it was rendered on **What to
@@ -159,6 +172,8 @@ export function StartPeriodDialog({
           ...(scope.length > 0 ? { departmentIds: scope } : {}),
           ...(remind ? { remindDaysBefore: Number(remind) } : {}),
           ...(managersCanAddQuestions ? { managersCanAddQuestions: true } : {}),
+          ...(appraiseOwner ? { appraiseOwner: true } : {}),
+          ...(appraiseHrManager ? { appraiseHrManager: true } : {}),
           ...(periodStart && periodEnd ? { periodStart, periodEnd } : {}),
           ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
           ...(guideUrl.trim() ? { guideUrl: guideUrl.trim() } : {}),
@@ -389,6 +404,45 @@ export function StartPeriodDialog({
                 : "Set a due date above first: there is nothing to count back from."}
             </p>
           </div>
+        </Disclosure>
+
+        <Disclosure
+          title="Appraise the Owner and HR too"
+          meta={
+            appraiseOwner && appraiseHrManager
+              ? "Both"
+              : appraiseOwner
+                ? "Owner only"
+                : appraiseHrManager
+                  ? "HR manager only"
+                  : "Neither"
+          }
+          hint="Off by default. Either one still appraises everybody else."
+        >
+          <Checkbox
+            label="Appraise the Owner in this period"
+            checked={appraiseOwner}
+            onChange={(event) => setAppraiseOwner(event.target.checked)}
+          />
+          <div className="mt-2">
+            <Checkbox
+              label="Appraise the HR manager in this period"
+              checked={appraiseHrManager}
+              onChange={(event) => setAppraiseHrManager(event.target.checked)}
+            />
+          </div>
+          <p className="mt-2 text-meta text-muted">
+            Asked separately, because they are different questions: an HR
+            manager is an employee with a manager like anybody else, and a
+            company can appraise them without appraising the person who owns it.
+          </p>
+          <p className="mt-2 text-meta text-muted">
+            Left off, that person gets no form and does not appear in this
+            period&rsquo;s report, register or nine-box. They still write the
+            reviews of the people who report to them, so nobody loses an
+            appraiser. This can be changed later, while the period is still a
+            draft.
+          </p>
         </Disclosure>
 
         <Disclosure
