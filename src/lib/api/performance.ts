@@ -425,6 +425,27 @@ export type ApiCycle = {
   remindDaysBefore: number | null;
   /** Off by default. Lets a manager add their own questions, scoped to their team. */
   managersCanAddQuestions: boolean;
+  /**
+   * Whether the Owner is themselves appraised in this period.
+   *
+   * Off by default. The Owner reports to nobody, so the reporting line has no
+   * author to supply for their form, and before this they appeared in every
+   * period as somebody with no mark and no way out short of archiving them.
+   *
+   * **Excluded as a subject, never as an appraiser.** Whoever is left out still
+   * reviews the people who report to them — this is a decision about whose
+   * performance is being judged, not about who does the judging.
+   */
+  appraiseOwner: boolean;
+  /**
+   * Whether the HR manager is themselves appraised in this period.
+   *
+   * Its own field rather than half of one shared with `appraiseOwner`, because
+   * the two decisions are unrelated: an HR manager is an employee with a
+   * manager like anybody else, so a company that does not appraise the person
+   * who owns it may still want its HR manager appraised.
+   */
+  appraiseHrManager: boolean;
   createdAt: string;
 };
 
@@ -1861,6 +1882,15 @@ export const performanceApi = {
     remindDaysBefore?: number;
     /** Off by default. Lets a manager add their own questions, scoped to their team. */
     managersCanAddQuestions?: boolean;
+    /**
+     * Whether the Owner and the HR manager are themselves appraised.
+     *
+     * Both off by default, and sent separately because they are separate
+     * decisions. Each excludes that person as a **subject** only; they go on
+     * appraising their own reports either way.
+     */
+    appraiseOwner?: boolean;
+    appraiseHrManager?: boolean;
   }) => request<ApiCycle>("/performance/cycles", { method: "POST", body }),
 
   /**
@@ -1888,6 +1918,20 @@ export const performanceApi = {
       periodEnd?: string | null;
       instructions?: string | null;
       guideUrl?: string | null;
+      /**
+       * Meaningful on a draft, and near enough inert afterwards — which is why
+       * the API does not guard either to `DRAFT`.
+       *
+       * The exclusion only ever applies to somebody with **no form in this
+       * period**, so switching one off after the forms are written leaves
+       * everybody who already has one exactly where they are. Switching one on
+       * late widens the register to a person the period never asked, who then
+       * reads as unscored — the same thing widening `departmentIds` late does.
+       *
+       * Sent independently, so one can change without restating the other.
+       */
+      appraiseOwner?: boolean;
+      appraiseHrManager?: boolean;
     },
   ) =>
     request<ApiCycle>(`/performance/cycles/${id}`, { method: "PATCH", body }),
