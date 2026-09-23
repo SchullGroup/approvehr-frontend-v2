@@ -20,7 +20,7 @@ there are too many to be useful as a list, and they are always in the file named
 | [Screens — `/dashboard`](#screens-dashboard) | 10 | 9 | 0 | 4 |
 | [Screens — `/people`](#screens-people) | 104 | 105 | 0 | 15 |
 | [Screens — `/payroll`](#screens-payroll) | 55 | 61 | 0 | 7 |
-| [Screens — `/performance`](#screens-performance) | 49 | 59 | 0 | 4 |
+| [Screens — `/performance`](#screens-performance) | 50 | 62 | 0 | 5 |
 | [Screens — `/hiring`](#screens-hiring) | 25 | 27 | 0 | 5 |
 | [Screens — `/help`](#screens-help) | 9 | 10 | 0 | 0 |
 | [Screens — `/reports`](#screens-reports) | 4 | 4 | 0 | 0 |
@@ -30,7 +30,7 @@ there are too many to be useful as a list, and they are always in the file named
 | [Screens — the rest of the signed-in app](#screens-the-rest-of-the-signed-in-app) | 11 | 10 | 0 | 1 |
 | [Screens — public site, auth and setup](#screens-public-site-auth-and-setup) | 41 | 46 | 0 | 6 |
 | [Everything else](#everything-else) | 1 | 0 | 0 | 1 |
-| **Total** | **659** | **577** | **276** | **478** |
+| **Total** | **660** | **580** | **276** | **479** |
 
 ---
 
@@ -587,14 +587,16 @@ Screen components for the performance module, including its dialogs and panels.
 | `src/app/(app)/performance/page.tsx` | `PerformancePage` | — | — | 1 const |
 | `src/app/(app)/performance/performance-screen.tsx` | `PerformanceScreen` | — | — | — |
 | `src/app/(app)/performance/period-dialogs.tsx` | `QuestionsDialog` | — | — | — |
-| `src/app/(app)/performance/period-status.tsx` | `PeriodStatus` | — | — | — |
+| `src/app/(app)/performance/period-status.tsx` | `PeriodExceptionNotice`, `PeriodStatus` | — | — | — |
 | `src/app/(app)/performance/periods.tsx` | `PeriodsTab` | — | — | — |
 | `src/app/(app)/performance/rating-dialog.tsx` | `RecordLevelDialog` | — | — | — |
 | `src/app/(app)/performance/review-form.tsx` | `ReviewFormModal` | — | — | — |
 | `src/app/(app)/performance/review-parts.tsx` | `AttachedEvidence`, `PeriodFraming`, `AppraiserStrip`, `AnswerField`, `ReadAnswer` | — | `ratingOptionsFrom`, `draftFrom`, `filled`, `periodWords` | 1 type |
 | `src/app/(app)/performance/review-tasks.tsx` | `ReviewTasksTab` | — | — | — |
+| `src/app/(app)/performance/sections-dialog.tsx` | `SectionsDialog` | — | — | — |
+| `src/app/(app)/performance/self-evidence.tsx` | `SelfEvidence` | — | — | — |
 | `src/app/(app)/performance/skills.tsx` | `SkillsTab` | — | — | — |
-| `src/app/(app)/performance/start-period.tsx` | `StartPeriodDialog`, `StartPeriodButton` | — | — | — |
+| `src/app/(app)/performance/start-period.tsx` | `StartPeriodDialog`, `StartPeriodButton` | — | `appraiserSummary` | — |
 | `src/app/(app)/performance/task-log.tsx` | `TaskLogPanel` | — | — | — |
 | `src/app/(app)/performance/history/[employeeId]/history-screen.tsx` | `ScoreHistoryScreen` | — | — | — |
 | `src/app/(app)/performance/history/[employeeId]/page.tsx` | `ScoreHistoryPage` | — | — | 1 const |

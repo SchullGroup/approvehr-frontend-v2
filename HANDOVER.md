@@ -7451,3 +7451,122 @@ had told Chidi his leave was approved deleted with it.
 - **Offering withdraw to HR on somebody else's behalf.** The API supports it.
   Reasoned about above: it would blur cancelled and declined, and nobody asked
   for it.
+
+---
+
+# A period decides separately whether it appraises the Owner and the HR manager
+
+The backend half arrived on `staging` as
+`20260922090000_appraise_owner_and_hr_separately` — two booleans on
+`ReviewCycle`, read by one predicate, `periodSubjectsWhere`, which is what all
+three places that decide who is in a period already share. The API worked and
+**nothing in the product could set either field**, which is the fourth instance
+of the class this file keeps recording: a capability present, correct, and
+reachable by nobody.
+
+## Why the Owner needed excluding at all
+
+`activateCycle` hands a form to everybody the period covers and
+`autoAssignFromReportingLine` puts their line manager on it. The Owner reports
+to nobody, so there is no author to put on theirs — they turned up in every
+period as somebody with no mark and no appraiser, on the exception list the
+cycle screen renders as a blocker, with no way out short of archiving them.
+
+The HR manager is a different problem with the same shape: they write the
+questions, so marking themselves against them is the conflict that "nobody
+agrees their own objective" avoids everywhere else in this module.
+
+## Two columns, not one shared flag
+
+An HR manager is an employee with a manager like anybody else. A company that
+does not appraise the person who owns it may perfectly well want its HR manager
+appraised, and one flag would force those two answers to agree — a question
+nobody asked. So two columns, two checkboxes, and **two independent PATCHes**:
+the draft's card sends `{ [field]: checked }` and never both, because sending
+the other one every time would record an edit nobody made.
+
+## `appraiseOwner` is omitted on create, never sent as `false`
+
+The create dialog spreads each field in only when it is ticked. Sending
+`false` explicitly would work identically today and would be the wrong habit:
+the API owns the default, the migration sets it, and a body that states every
+default is a body that silently overrides one the day the default changes. Same
+reasoning as `compact()` on the API side.
+
+## It is on the draft's settings card, and is not refused afterwards
+
+The API does not guard either field to `DRAFT`. That is deliberate and was
+mirrored rather than tightened: the exclusion only ever applies to somebody with
+**no form in the period**, so switching one off after the forms are written
+leaves everybody who already has one exactly where they are. It is rendered
+beside the draft's other settings because that is where it changes anything —
+not because the API would refuse it later. Refusing it locally would be the
+screen inventing a rule the server does not have, which this file argues against
+in a dozen places.
+
+## The summary says who is left out, not which way a switch points
+
+`appraiserSummary(owner, hr)` returns **Nobody / Owner only / HR manager only /
+Both**, and it is the closed disclosure's `meta`. On/Off would be the obvious
+choice and would be answering a different question: the setting is about people,
+so a closed section should name them. It is exported and read by both surfaces —
+the create dialog and the draft card — so the summary and the controls under it
+cannot come to describe different states.
+
+## The copy carries the thing that is easy to invert
+
+**This decides whose performance is judged, not who does the judging.** Somebody
+left out still writes their own team's reviews and still signs them off; all
+they lose is a form about themselves, which is also what stops them finishing
+the period counted as unscored. That sentence is on both surfaces, because
+reading the setting the other way round is the single most likely mistake it
+invites.
+
+## The demo fixtures are seeded `true`, deliberately
+
+Both existing periods in `lib/store/performance.ts` are pre-existing periods
+nobody was excluded from, so seeding them `false` would retroactively change
+what the demo says about them. New periods created in the demo follow the API's
+default like everywhere else.
+
+## Verified against a live API, which is the half that mattered
+
+The migration was applied locally and both servers brought up, because whether
+it saves was never the interesting question.
+
+- Create sent exactly `{"name":…,"appraiseHrManager":true}` — `appraiseOwner`
+  absent from the body, not `false`.
+- The draft card sent `{"appraiseOwner":false}` and `{"appraiseHrManager":false}`
+  as two separate `PATCH 200`s, each carrying only its own field.
+- **The filter filters.** `schull` has Fatima Bello as HR manager. Toggling that
+  one flag moved the score register from **9 people without her to 10 with her**.
+
+**Not exercised:** the Owner half end to end. Nobody in the demo company holds
+the Owner system role, so there is no row to exclude — same predicate, same
+shape, and the API's own test file covers both. Somebody with an Owner on the
+roster should watch the register move once.
+
+Test periods were deleted and `review_cycles` left at its one seeded row.
+
+## The documentation was a separate commit, and should not have been
+
+This change shipped through `dev`, `test` and `preprod` with no documentation at
+all, and writing it afterwards turned up drift that had nothing to do with it:
+
+- `docs/walkthroughs/performance.md` said the Start dialog had **three**
+  collapsed sections. It had four before this change and has five now — *Let
+  managers add their own questions* had been undocumented for some time.
+- `docs/components/frontend-v2.md` was missing `sections-dialog.tsx`,
+  `self-evidence.tsx` and `PeriodExceptionNotice` as well as `appraiserSummary`,
+  and its `/performance` group header claimed 49 files where its own rows listed
+  48.
+
+Both are fixed, and the `/performance` section was re-derived and diffed row by
+row against source rather than patched at the one row this change touched — 50
+rows, 50 files, 62 components, 5 functions, checked. **The other groups in that
+file were not re-derived**, so the same drift may well be sitting in them.
+
+The lesson is the cheap one: the inventories are generated by an agent walking
+`src` and there is **no committed generator**, so nothing fails when they go
+stale. Whoever adds an export is the only thing standing between those files and
+fiction.
