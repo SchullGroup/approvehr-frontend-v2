@@ -186,9 +186,11 @@ function RealOfferCard({
             <Button
               variant="accent"
               loading={busy}
-              onClick={() => void run(() => mutations.send(offer.id), "Sent")}
+              onClick={() =>
+                void run(() => mutations.send(offer.id), "Marked as sent")
+              }
             >
-              Send offer
+              Mark as sent
             </Button>
           )}
           {/* Only once approved, which is the API's own gate — see
@@ -229,6 +231,17 @@ function RealOfferCard({
             Read the full record
           </TextLink>
         </div>
+        {/* `sendOffer` only flips the offer's status and stamps `sentAt` — it
+            sends no email and contacts the candidate in no way. "Mark as
+            sent" says that in the button; this says it again in a full
+            sentence, next to the one control on this card that actually
+            produces something to send. */}
+        {offer.approvedAt && canManage && (
+          <p className="text-body-sm text-muted">
+            Nothing is emailed. Download the offer letter and send it yourself —
+            this only marks the offer as sent in our records.
+          </p>
+        )}
       </CardBody>
     </Card>
   );

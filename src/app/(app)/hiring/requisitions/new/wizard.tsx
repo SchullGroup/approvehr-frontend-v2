@@ -17,6 +17,7 @@ import {
   IconButton,
   Input,
   Money,
+  Picker,
   RadioCard,
   Select,
   Skeleton,
@@ -36,6 +37,7 @@ import {
   useStageMutations,
 } from "@/lib/store/recruitment";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useDepartments } from "@/lib/store/departments";
 import { useSession } from "@/lib/store/session";
 import { STAGES, fullName, type StageId } from "@/lib/types";
 
@@ -56,6 +58,10 @@ const BREADCRUMB = [
 
 type Draft = {
   title: string;
+  departmentId: string;
+  /** The department's name, kept in sync with `departmentId` — see `setDepartment`
+   *  below. This is what the advert copy sentences actually read, since they are
+   *  words for a candidate rather than a foreign key. */
   department: string;
   location: string;
   employmentType: "full_time" | "contract" | "internship";
@@ -75,6 +81,7 @@ type Draft = {
 
 const EMPTY: Draft = {
   title: "",
+  departmentId: "",
   department: "",
   location: "",
   employmentType: "full_time",
@@ -219,18 +226,28 @@ function Wizard() {
   const requisitions = useRequisitionMutations();
   const stages = useStageMutations();
   const directory = useEmployeeDirectory({ pageSize: 200 });
+  const departments = useDepartments();
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [busy, setBusy] = useState(false);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
+  /* `departmentId` is what gets sent to the API; `department` is the name the
+     advert copy sentences read. Kept in sync here rather than re-derived at
+     every call site, so the four places that already thread `department`
+     through as a plain string need no change. */
+  const setDepartment = (id: string) => {
+    const name = departments.flat.find((d) => d.id === id)?.name ?? "";
+    setDraft((d) => ({ ...d, departmentId: id, department: name }));
+  };
+
   const min = Number(draft.salaryMin.replace(/\D/g, "")) || 0;
   const max = Number(draft.salaryMax.replace(/\D/g, "")) || 0;
   const bandInvalid = min > 0 && max > 0 && min > max;
 
   const complete = {
-    role: Boolean(draft.title && draft.department && draft.location),
+    role: Boolean(draft.title && draft.departmentId && draft.location),
     pay: min > 0 && max > 0 && !bandInvalid,
     process: draft.activeStages.length >= 2,
     team: Boolean(draft.hiringManagerId && draft.recruiterId),
@@ -293,6 +310,7 @@ function Wizard() {
           ...(min > 0 ? { bandMinKobo: kobo(min) } : {}),
           ...(max > 0 ? { bandMaxKobo: kobo(max) } : {}),
           description,
+          ...(draft.departmentId ? { departmentId: draft.departmentId } : {}),
           ...(draft.hiringManagerId
             ? { hiringManagerId: draft.hiringManagerId }
             : {}),
@@ -379,25 +397,25 @@ function Wizard() {
                 </Field>
 
                 <div className="grid gap-5 sm:grid-cols-2">
-                  <Field label="Department" required>
-                    <Select
-                      value={draft.department}
-                      onChange={(e) => set("department", e.currentTarget.value)}
+                  <Field
+                    label="Department"
+                    required
+                    {...(departments.error
+                      ? {
+                          help: `${departments.error.message} Departments are unavailable.`,
+                        }
+                      : {})}
+                  >
+                    <Picker
+                      value={draft.departmentId}
+                      onChange={setDepartment}
                       placeholder="Select a department"
-                    >
-                      {[
-                        "Engineering",
-                        "Finance",
-                        "Product",
-                        "Operations",
-                        "People",
-                        "Sales",
-                      ].map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </Select>
+                      loading={departments.loading}
+                      options={departments.flat.map((d) => ({
+                        value: d.id,
+                        label: d.name,
+                      }))}
+                    />
                   </Field>
 
                   <Field label="Location" required>
