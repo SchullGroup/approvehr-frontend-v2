@@ -1,19 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, MapPin, Megaphone, Plus, Users } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Lock,
+  MapPin,
+  Megaphone,
+  Pencil,
+  Plus,
+  Trash2,
+  Users,
+} from "lucide-react";
 import {
   Badge,
   Button,
   ButtonLink,
+  Callout,
   Card,
   CardBody,
   CardHeader,
   Checkbox,
   EmptyState,
   Field,
+  IconButton,
   Input,
+  Modal,
+  Picker,
+  Select,
   Skeleton,
+  Textarea,
   useToast,
   formatMoney,
 } from "@/components/ui";
@@ -21,14 +37,20 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { ApiError } from "@/lib/api/client";
 import {
+  kobo,
   naira,
   type ApiRequisitionDetail,
+  type ApiStage,
+  type EmploymentType,
   type RequisitionStatus as RealStatus,
+  type UpdateRequisitionBody,
 } from "@/lib/api/recruitment";
 import { usePermissions, useCan } from "@/lib/permissions";
 import { pipelineCards, requisitionById } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
 import { fullName } from "@/lib/types";
+import { useDepartments } from "@/lib/store/departments";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
   useRequisitionDetail,
   useRequisitionMutations,
@@ -188,10 +210,14 @@ function RealRequisitionDetail({ id }: { id: string }) {
   const mutations = useRequisitionMutations();
   const stageMutations = useStageMutations();
   const canApprove = useCan("APPROVE_HIRING");
+  const canManage = useCan("MANAGE_HIRING");
   const toast = useToast();
   const [addingStage, setAddingStage] = useState(false);
   const [stageName, setStageName] = useState("");
   const [stageScored, setStageScored] = useState(false);
+  const [renamingStageId, setRenamingStageId] = useState<string | null>(null);
+  const [stageRenameDraft, setStageRenameDraft] = useState("");
+  const [editingRole, setEditingRole] = useState(false);
   const [busy, setBusy] = useState(false);
 
   if (loading) {
@@ -234,13 +260,24 @@ function RealRequisitionDetail({ id }: { id: string }) {
           : "Something went wrong. Try again.",
     });
 
-  async function run(action: () => Promise<ApiRequisitionDetail>) {
+  /**
+   * Runs a write against this requisition, reloads on success, reports the
+   * server's own refusal on failure. Generic rather than tied to
+   * `ApiRequisitionDetail`'s shape, because a stage write answers with an
+   * `ApiStage`, an `ApiStage[]` or a bare delete receipt — this is the one
+   * wrapper every mutation on this screen goes through. Returns whether it
+   * went through, so a caller that also owns some local form state (closing
+   * a dialog, clearing a draft) knows whether that is safe to do.
+   */
+  async function run<T>(action: () => Promise<T>): Promise<boolean> {
     setBusy(true);
     try {
       await action();
       reload();
+      return true;
     } catch (err) {
       fail(err);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -248,22 +285,68 @@ function RealRequisitionDetail({ id }: { id: string }) {
 
   async function addStage() {
     if (!stageName.trim() || !requisition) return;
-    setBusy(true);
-    try {
-      await stageMutations.create(id, {
+    const ok = await run(() =>
+      stageMutations.create(id, {
         name: stageName.trim(),
         requiresScorecards: stageScored,
         order: requisition.stages.length,
-      });
+      }),
+    );
+    if (ok) {
       setStageName("");
       setStageScored(false);
       setAddingStage(false);
-      reload();
-    } catch (err) {
-      fail(err);
-    } finally {
-      setBusy(false);
     }
+  }
+
+  /**
+   * Move one stage a place up or down, then send the whole reordered id
+   * list. `reorderStages` on the API takes the full sequence rather than a
+   * swap — there is no partial reorder to ask for — so this always builds
+   * every id, sorted, with the one row moved.
+   */
+  async function moveStage(stageId: string, delta: -1 | 1) {
+    if (!requisition) return;
+    const sorted = [...requisition.stages].sort((a, b) => a.order - b.order);
+    const from = sorted.findIndex((s) => s.id === stageId);
+    const to = from + delta;
+    if (from === -1 || to < 0 || to >= sorted.length) return;
+    const reordered = [...sorted];
+    const [row] = reordered.splice(from, 1);
+    if (!row) return;
+    reordered.splice(to, 0, row);
+    await run(() =>
+      stageMutations.reorder(
+        id,
+        reordered.map((s) => s.id),
+      ),
+    );
+  }
+
+  function startRenamingStage(stage: ApiStage) {
+    setRenamingStageId(stage.id);
+    setStageRenameDraft(stage.name);
+  }
+
+  async function saveStageRename(stage: ApiStage) {
+    const name = stageRenameDraft.trim();
+    if (name.length === 0 || name === stage.name) {
+      setRenamingStageId(null);
+      return;
+    }
+    const ok = await run(() => stageMutations.update(id, stage.id, { name }));
+    if (ok) setRenamingStageId(null);
+  }
+
+  /**
+   * The API refuses to remove a stage with applications currently sitting in
+   * it — an "occupied stage" — and this does not pre-guess that. `run`
+   * surfaces the server's own refusal sentence exactly as every other write
+   * on this screen does, rather than a client-side guard reasoning about
+   * `currentCount` on its own.
+   */
+  async function removeStage(stage: ApiStage) {
+    await run(() => stageMutations.remove(id, stage.id));
   }
 
   return (
@@ -292,6 +375,34 @@ function RealRequisitionDetail({ id }: { id: string }) {
       <PageBody className="flex flex-col gap-6">
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <Card>
+            {/* Offered only to whoever can manage hiring, and not at all once
+                the role is filled or cancelled — the API refuses every field
+                at that point, so there is nothing an edit control here could
+                honestly do. See `updateRequisition`'s own refusal, which this
+                note echoes rather than paraphrases differently. */}
+            {canManage && (
+              <CardHeader
+                title="Role details"
+                action={
+                  requisition.status === "FILLED" ||
+                  requisition.status === "CANCELLED" ? (
+                    <span className="text-meta text-muted">
+                      {requisition.status === "FILLED" ? "Filled" : "Cancelled"}{" "}
+                      — part of the record now.
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setEditingRole(true)}
+                    >
+                      <Pencil aria-hidden="true" className="size-3.5" />
+                      Edit
+                    </Button>
+                  )
+                }
+              />
+            )}
             <CardBody className="flex flex-col gap-4">
               <div className="flex flex-wrap gap-x-6 gap-y-3 text-body-sm">
                 <Fact label="Salary band">
@@ -432,17 +543,19 @@ function RealRequisitionDetail({ id }: { id: string }) {
           <CardHeader
             title="Pipeline stages"
             action={
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setAddingStage((v) => !v)}
-              >
-                <Plus aria-hidden="true" className="size-3.5" />
-                Add stage
-              </Button>
+              canManage ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setAddingStage((v) => !v)}
+                >
+                  <Plus aria-hidden="true" className="size-3.5" />
+                  Add stage
+                </Button>
+              ) : undefined
             }
           />
-          {addingStage && (
+          {addingStage && canManage && (
             <CardBody className="flex flex-wrap items-end gap-3 border-b border-line">
               <Field label="Stage name" className="flex-1">
                 <Input
@@ -467,15 +580,106 @@ function RealRequisitionDetail({ id }: { id: string }) {
               </Button>
             </CardBody>
           )}
-          <CardBody className="flex flex-wrap gap-2">
-            {[...requisition.stages]
-              .sort((a, b) => a.order - b.order)
-              .map((s) => (
-                <Badge key={s.id} tone="neutral">
-                  {s.name}
-                  {s.requiresScorecards && " · scored"}
-                </Badge>
-              ))}
+          <CardBody>
+            <ul className="flex flex-col gap-2">
+              {[...requisition.stages]
+                .sort((a, b) => a.order - b.order)
+                .map((s, index, sorted) => (
+                  <li
+                    key={s.id}
+                    className="flex flex-wrap items-center gap-2 rounded-md border border-line p-2.5"
+                  >
+                    {renamingStageId === s.id ? (
+                      <>
+                        <Input
+                          value={stageRenameDraft}
+                          onChange={(e) =>
+                            setStageRenameDraft(e.currentTarget.value)
+                          }
+                          className="flex-1"
+                          aria-label={`Rename ${s.name}`}
+                        />
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          loading={busy}
+                          disabled={stageRenameDraft.trim().length === 0}
+                          onClick={() => void saveStageRename(s)}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => setRenamingStageId(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                          <span className="text-body-sm font-medium text-ink">
+                            {s.name}
+                          </span>
+                          {s.requiresScorecards && (
+                            <Badge tone="neutral" size="sm">
+                              Needs scorecards to leave
+                            </Badge>
+                          )}
+                          {/* Informational only — the count an "occupied
+                              stage" refusal would name. Never used to disable
+                              Remove here; the server decides that. */}
+                          {s.currentCount > 0 && (
+                            <Badge tone="neutral" size="sm">
+                              {s.currentCount === 1
+                                ? "1 person here"
+                                : `${String(s.currentCount)} people here`}
+                            </Badge>
+                          )}
+                        </span>
+                        {canManage && (
+                          <span className="flex items-center gap-1">
+                            <IconButton
+                              label={`Move ${s.name} up`}
+                              size="sm"
+                              disabled={busy || index === 0}
+                              onClick={() => void moveStage(s.id, -1)}
+                            >
+                              <ArrowUp aria-hidden="true" />
+                            </IconButton>
+                            <IconButton
+                              label={`Move ${s.name} down`}
+                              size="sm"
+                              disabled={busy || index === sorted.length - 1}
+                              onClick={() => void moveStage(s.id, 1)}
+                            >
+                              <ArrowDown aria-hidden="true" />
+                            </IconButton>
+                            <IconButton
+                              label={`Rename ${s.name}`}
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => startRenamingStage(s)}
+                            >
+                              <Pencil aria-hidden="true" />
+                            </IconButton>
+                            <IconButton
+                              label={`Remove ${s.name}`}
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => void removeStage(s)}
+                            >
+                              <Trash2 aria-hidden="true" />
+                            </IconButton>
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </li>
+                ))}
+            </ul>
           </CardBody>
         </Card>
 
@@ -486,6 +690,17 @@ function RealRequisitionDetail({ id }: { id: string }) {
           />
         </div>
       </PageBody>
+
+      {editingRole && (
+        <EditRequisitionDialog
+          requisition={requisition}
+          onClose={() => setEditingRole(false)}
+          onSave={async (body) => {
+            const ok = await run(() => mutations.update(id, body));
+            if (ok) setEditingRole(false);
+          }}
+        />
+      )}
     </>
   );
 }
@@ -497,6 +712,240 @@ const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
   INTERN: "Intern",
   NYSC: "NYSC",
 };
+
+/**
+ * Editing a role already on file.
+ *
+ * `requisition` is never null here — the parent only mounts this dialog
+ * while a real one is open (see `{editingRole && <EditRequisitionDialog …>}`
+ * above), so there is no freeze-the-last-prop dance to do for a subject that
+ * might vanish mid-animation, unlike `NewKpiDialog`'s siblings.
+ *
+ * The freeze mirrors `updateRequisition` on the API exactly: once a role is
+ * `OPEN` or `ON_HOLD`, its title, employment type and salary band are
+ * frozen — a candidate may already have been screened and offered against
+ * those terms — while headcount, department, location, description and the
+ * hiring manager stay editable throughout. The four frozen fields are left
+ * **out of the body entirely** rather than sent unchanged: the API refuses
+ * on a field's presence in the patch, not on whether its value actually
+ * moved, so sending the old value back would be refused exactly as loudly as
+ * sending a new one.
+ */
+function EditRequisitionDialog({
+  requisition,
+  onClose,
+  onSave,
+}: {
+  requisition: ApiRequisitionDetail;
+  onClose: () => void;
+  onSave: (body: UpdateRequisitionBody) => Promise<void>;
+}) {
+  const frozen =
+    requisition.status === "OPEN" || requisition.status === "ON_HOLD";
+
+  const departments = useDepartments();
+  const directory = useEmployeeDirectory({ pageSize: 200 });
+
+  const [jobTitle, setJobTitle] = useState(requisition.jobTitle);
+  const [departmentId, setDepartmentId] = useState(
+    requisition.departmentId ?? "",
+  );
+  const [headcount, setHeadcount] = useState(String(requisition.headcount));
+  const [employmentType, setEmploymentType] = useState<EmploymentType>(
+    requisition.employmentType,
+  );
+  const [location, setLocation] = useState(requisition.location ?? "");
+  const [bandMin, setBandMin] = useState(
+    requisition.bandMinKobo != null
+      ? String(naira(requisition.bandMinKobo))
+      : "",
+  );
+  const [bandMax, setBandMax] = useState(
+    requisition.bandMaxKobo != null
+      ? String(naira(requisition.bandMaxKobo))
+      : "",
+  );
+  const [description, setDescription] = useState(requisition.description ?? "");
+  const [hiringManagerId, setHiringManagerId] = useState(
+    requisition.hiringManagerId ?? "",
+  );
+  const [saving, setSaving] = useState(false);
+
+  const min = Number(bandMin.replace(/\D/g, "")) || 0;
+  const max = Number(bandMax.replace(/\D/g, "")) || 0;
+  const bandInvalid = !frozen && min > 0 && max > 0 && min > max;
+  const titleMissing = !frozen && jobTitle.trim().length === 0;
+
+  const submit = async () => {
+    if (titleMissing || bandInvalid) return;
+    setSaving(true);
+    try {
+      /* Always editable, whatever the status, so these are always sent —
+         sending them unchanged costs nothing, since only the four frozen
+         fields are refused on presence rather than on a real change. */
+      const body: UpdateRequisitionBody = {
+        departmentId: departmentId || null,
+        headcount: Math.max(1, Number(headcount) || 1),
+        location: location.trim() || null,
+        description: description.trim() || null,
+        hiringManagerId: hiringManagerId || null,
+      };
+      if (!frozen) {
+        body.jobTitle = jobTitle.trim();
+        body.employmentType = employmentType;
+        body.bandMinKobo = min > 0 ? kobo(min) : null;
+        body.bandMaxKobo = max > 0 ? kobo(max) : null;
+      }
+      await onSave(body);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Edit ${requisition.jobTitle}`}
+      description={requisition.reference}
+      size="lg"
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            variant="accent"
+            loading={saving}
+            disabled={saving || titleMissing || bandInvalid}
+            onClick={() => void submit()}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {frozen && (
+          <Callout tone="info" title="Title, type and band are frozen">
+            {requisition.reference} is already open, so these cannot change here
+            — candidates have already been screened and offered against these
+            terms. Cancel this requisition and open a new one if the role has
+            genuinely changed.
+          </Callout>
+        )}
+
+        <Field label="Job title" required={!frozen}>
+          <Input
+            value={jobTitle}
+            onChange={(e) => setJobTitle(e.currentTarget.value)}
+            disabled={frozen}
+          />
+        </Field>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Department"
+            {...(departments.error
+              ? {
+                  help: `${departments.error.message} Departments are unavailable.`,
+                }
+              : {})}
+          >
+            <Picker
+              value={departmentId}
+              onChange={setDepartmentId}
+              placeholder="Not assigned"
+              loading={departments.loading}
+              options={departments.flat.map((d) => ({
+                value: d.id,
+                label: d.name,
+              }))}
+            />
+          </Field>
+          <Field label="Headcount" required>
+            <Input
+              type="number"
+              min={1}
+              value={headcount}
+              onChange={(e) => setHeadcount(e.currentTarget.value)}
+            />
+          </Field>
+        </div>
+
+        <Field label="Employment type" required={!frozen}>
+          <Select
+            value={employmentType}
+            disabled={frozen}
+            onChange={(e) =>
+              setEmploymentType(e.currentTarget.value as EmploymentType)
+            }
+          >
+            {Object.entries(EMPLOYMENT_TYPE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Band minimum"
+            help={frozen ? undefined : "Gross monthly, in naira."}
+          >
+            <Input
+              inputMode="numeric"
+              value={bandMin}
+              onChange={(e) => setBandMin(e.currentTarget.value)}
+              disabled={frozen}
+              placeholder="Not set"
+            />
+          </Field>
+          <Field
+            label="Band maximum"
+            error={bandInvalid ? "Must be at least the minimum." : undefined}
+          >
+            <Input
+              inputMode="numeric"
+              value={bandMax}
+              onChange={(e) => setBandMax(e.currentTarget.value)}
+              disabled={frozen}
+              placeholder="Not set"
+            />
+          </Field>
+        </div>
+
+        <Field label="Location">
+          <Input
+            value={location}
+            onChange={(e) => setLocation(e.currentTarget.value)}
+          />
+        </Field>
+
+        <Field label="Hiring manager">
+          <Select
+            value={hiringManagerId}
+            onChange={(e) => setHiringManagerId(e.currentTarget.value)}
+          >
+            <option value="">Not set</option>
+            {directory.employees.map((employee) => (
+              <option key={employee.id} value={employee.id}>
+                {fullName(employee)} — {employee.jobTitle}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field optional label="Description">
+          <Textarea
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.currentTarget.value)}
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
 
 /** The seeded requisition, exactly as before this cutover. */
 function SeededRequisitionDetail({ id }: { id: string }) {
