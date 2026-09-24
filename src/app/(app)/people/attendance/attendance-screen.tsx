@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Clock, MoreHorizontal, Timer, TriangleAlert } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { Clock, MoreHorizontal, Timer } from "lucide-react";
 import {
   Badge,
   Button,
@@ -11,12 +10,10 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   Field,
   Input,
   Modal,
   Select,
-  SegmentedControl,
   Skeleton,
   Stat,
   TBody,
@@ -26,7 +23,6 @@ import {
   THead,
   TR,
   TableWrap,
-  formatMoney,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -34,11 +30,7 @@ import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
-import {
-  type ApiRosterRow,
-  type ApiTimesheetRow,
-  type ApiWorkLocation,
-} from "@/lib/api/attendance";
+import { type ApiRosterRow, type ApiWorkLocation } from "@/lib/api/attendance";
 import {
   addDays,
   hoursLabel,
@@ -46,8 +38,6 @@ import {
   type ApiRotaCell,
 } from "@/lib/api/shifts";
 import { useCan, useIsManager } from "@/lib/permissions";
-import { attendanceCsv } from "@/lib/api/exports";
-import { ExportButton } from "@/components/portal/export-button";
 import {
   STATUS_LABEL,
   STATUS_TONE,
@@ -61,18 +51,18 @@ import {
 } from "@/lib/store/attendance";
 import { useSession } from "@/lib/store/session";
 import { shortDate } from "@/lib/today";
-import { AttendanceCapabilityBar } from "./capability-bar";
+import { AttendanceSettingsButton } from "./capability-bar";
 import { MyAttendanceHistoryPanel } from "./my-attendance-history";
 
 /**
- * The window both the table and its export ask for.
+ * The window a plain employee's own summary reads.
  *
- * Named because they are two requests and a file covering a different fortnight
- * than the table above it is the export version of a stale figure.
+ * The manager-facing table this used to also size — and its export — moved to
+ * `/people/attendance/history`, which keeps its own copy of the same number
+ * rather than importing this one: two screens agreeing on 15 by convention is
+ * fine, two screens sharing one file's constant across a route boundary is not.
  */
 const TIMESHEET_DAYS = 15;
-
-type View = "today" | "timesheet";
 
 /**
  * Attendance.
@@ -139,7 +129,6 @@ export function AttendanceScreen() {
   const canImport = useCan("IMPORT_DATA");
   const canSeeRoster = isManager || canEditRecords;
 
-  const [view, setView] = useState<View>("today");
   const [correcting, setCorrecting] = useState<ApiRosterRow | null>(null);
 
   const refresh = () => {
@@ -159,6 +148,7 @@ export function AttendanceScreen() {
                   two copies drift until one stops defaulting to the right role
                   or stops filtering out people who already have an account. */}
               <BulkInviteButton />
+              <AttendanceSettingsButton />
               {canImport && (
                 <ButtonLink
                   href="/people/attendance/import"
@@ -167,20 +157,6 @@ export function AttendanceScreen() {
                 >
                   Import attendance
                 </ButtonLink>
-              )}
-              {/* The view toggle chooses between two company-wide reads, so
-                  it has no reason to exist for somebody who cannot see
-                  either of them. */}
-              {canSeeRoster && (
-                <SegmentedControl
-                  label="View"
-                  value={view}
-                  onChange={setView}
-                  options={[
-                    { value: "today", label: "Today" },
-                    { value: "timesheet", label: "Timesheet" },
-                  ]}
-                />
               )}
             </div>
           ) : undefined
@@ -191,12 +167,6 @@ export function AttendanceScreen() {
         {roster.error && (
           <LoadFailure subject="today's roster" error={roster.error} />
         )}
-
-        {/* Closed by default and cheap to skip past — the module's settings,
-            reachable without a trip to `/settings/*`. See `capability-bar.tsx`
-            for why it sits here rather than being repeated on every screen
-            that shares one of its switches. */}
-        <AttendanceCapabilityBar />
 
         {/* Own clock-in. Deliberately the first *open* thing on the page: the
             person looking at this screen most often is looking for this
@@ -210,22 +180,14 @@ export function AttendanceScreen() {
             see "Who sees the roster" on this component. A plain employee
             gets their own recent attendance instead of the company's. */}
         {canSeeRoster ? (
-          view === "today" ? (
-            roster.date ? (
-              <TodayView
-                roster={roster}
-                onCorrect={setCorrecting}
-                canCorrect={canEditRecords}
-              />
-            ) : (
-              <LoadingPanel label="Loading today's roster" />
-            )
-          ) : sheet.error ? (
-            <LoadFailure subject="the timesheet" error={sheet.error} />
-          ) : sheet.from ? (
-            <TimesheetView sheet={sheet} />
+          roster.date ? (
+            <TodayView
+              roster={roster}
+              onCorrect={setCorrecting}
+              canCorrect={canEditRecords}
+            />
           ) : (
-            <LoadingPanel label="Loading the timesheet" />
+            <LoadingPanel label="Loading today's roster" />
           )
         ) : (
           <>
@@ -702,305 +664,6 @@ function RowActions({
       )}
     </div>
   );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/**
- * The timesheet.
- *
- * Two things here are somebody else's to compute and this view links to them
- * rather than reproducing them: **overtime**, which `/people/overtime` derives
- * from clock-outs, and **a shift worker's unpaid days**, which payroll counts
- * against their rota. For anyone on a rota the office-week figures are not the
- * ones a run would use, so the cell says where the real answer lives instead of
- * printing a naira amount nobody can reconcile.
- */
-function TimesheetView({ sheet }: { sheet: TimesheetState }) {
-  const rota = useRotaContext(sheet.from, sheet.to);
-  const mayExport = useCan("EXPORT_DATA");
-  /* Download-only: the on-screen table stays the full roster, since the
-     "Needs looking at" column already reads as "nothing to look at" on a
-     clean row. The file is the artefact somebody actually filters, files
-     or hands to auditing — the feedback's own words. */
-  const [exceptionsOnly, setExceptionsOnly] = useState(false);
-
-  return (
-    <Card>
-      <CardHeader
-        title={`Timesheet · ${shortDate(sheet.from)} to ${shortDate(sheet.to)}`}
-        description={`${sheet.workingDays} working days, public holidays excluded. Hours are clocked time; anyone on a rota is measured against their rota.`}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            {/* `EXPORT_DATA`, and only connected: the honest offline file would
-                be the fifteen rows already on screen, and unlike the directory
-                nobody is asking for that. No `VIEW_SALARIES` branch either —
-                this file carries days, not money. The timesheet read computes a
-                proration *amount* as well and it is deliberately not a column:
-                that is a salary figure wearing an attendance label, on the one
-                export that does not need the pay permission. */}
-            {sheet.source === "api" && mayExport && (
-              <>
-                <Checkbox
-                  label="Exceptions only"
-                  checked={exceptionsOnly}
-                  onChange={(e) => setExceptionsOnly(e.target.checked)}
-                />
-                <ExportButton
-                  label="Download"
-                  download={() =>
-                    attendanceCsv({
-                      days: TIMESHEET_DAYS,
-                      to: sheet.to,
-                      ...(exceptionsOnly ? { exceptionsOnly: true } : {}),
-                    })
-                  }
-                />
-              </>
-            )}
-            <ButtonLink href="/people/overtime" variant="secondary" size="sm">
-              <Timer aria-hidden="true" className="size-4" />
-              Overtime
-            </ButtonLink>
-          </div>
-        }
-      />
-      {/* Eight columns — five figures, exceptions, and a payroll effect that
-          can itself carry two lines — is the densest table in the product.
-          Below `sm` it becomes a card per person: the five figures as a
-          label/value grid, everything else stacked underneath. Both
-          `TimesheetExceptions` and `TimesheetPayrollEffect` are one copy read
-          by the table cell and the card, so a label changed here cannot drift
-          between the two. */}
-      <div className="hidden sm:block">
-        <TableWrap className="rounded-none border-0">
-          <THead>
-            <TH>Employee</TH>
-            <TH align="right">Present</TH>
-            <TH align="right">Late</TH>
-            <TH align="right">On leave</TH>
-            <TH align="right">Unexplained</TH>
-            <TH align="right">Hours</TH>
-            {/* What actually needs looking at. The columns to the left are
-                figures a reader has to interpret; this is the product saying
-                which of them is a problem — the feedback's "automatically pick
-                up attendance exceptions". */}
-            <TH>Needs looking at</TH>
-            <TH align="right">Payroll effect</TH>
-          </THead>
-          <TBody>
-            {[...sheet.rows]
-              .sort((a, b) => b.daysUnexplained - a.daysUnexplained)
-              .map((row) => {
-                const onRota = rota.onRota.has(row.employeeId);
-                const rostered = rota.rosteredDays.get(row.employeeId) ?? 0;
-                return (
-                  <TR key={row.employeeId} interactive>
-                    <TDPrimary
-                      title={
-                        <Link
-                          href={`/people/${row.employeeId}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
-                          {row.employeeName}
-                        </Link>
-                      }
-                      subtitle={
-                        onRota
-                          ? `${rostered} rostered days in this window`
-                          : `${row.daysPresent} of ${row.workingDays} working days`
-                      }
-                    />
-                    <TD align="right" className="tabular font-medium text-ink">
-                      {row.daysPresent}
-                    </TD>
-                    <TD
-                      align="right"
-                      className={cn(
-                        "tabular",
-                        row.daysLate > 2 ? "text-warning-text" : "text-muted",
-                      )}
-                    >
-                      {row.daysLate || "—"}
-                    </TD>
-                    <TD align="right" className="tabular text-muted">
-                      {row.daysOnLeave || "—"}
-                    </TD>
-                    <TD
-                      align="right"
-                      className={cn(
-                        "tabular",
-                        onRota
-                          ? "text-muted"
-                          : row.daysUnexplained > 0
-                            ? "font-medium text-danger-text"
-                            : "text-muted",
-                      )}
-                    >
-                      {/* An office-week count means nothing for somebody on a
-                          rota, so it is not shown as though it did. */}
-                      {onRota ? "—" : row.daysUnexplained || "—"}
-                    </TD>
-                    <TD align="right" className="tabular text-muted">
-                      {row.hours || "—"}
-                    </TD>
-                    {/* The API's own labels, and its own counts. A second copy
-                        of these four names here is how the screen and the
-                        downloaded report come to describe the same day
-                        differently. Empty reads as "nothing to look at", which
-                        is exactly right — a word like "none" is one more thing
-                        to scan past on a clean month. */}
-                    <TD>
-                      <TimesheetExceptions row={row} />
-                    </TD>
-                    <TD align="right" className="tabular">
-                      <TimesheetPayrollEffect
-                        row={row}
-                        onRota={onRota}
-                        loading={rota.loading}
-                      />
-                    </TD>
-                  </TR>
-                );
-              })}
-          </TBody>
-        </TableWrap>
-      </div>
-
-      <ul className="divide-y divide-line sm:hidden">
-        {[...sheet.rows]
-          .sort((a, b) => b.daysUnexplained - a.daysUnexplained)
-          .map((row) => {
-            const onRota = rota.onRota.has(row.employeeId);
-            const rostered = rota.rosteredDays.get(row.employeeId) ?? 0;
-            return (
-              <li key={row.employeeId} className="flex flex-col gap-3 p-4">
-                <div>
-                  <Link
-                    href={`/people/${row.employeeId}`}
-                    className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                  >
-                    {row.employeeName}
-                  </Link>
-                  <p className="mt-0.5 text-body-sm text-muted">
-                    {onRota
-                      ? `${rostered} rostered days in this window`
-                      : `${row.daysPresent} of ${row.workingDays} working days`}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-body-sm">
-                  <span className="text-muted">Present</span>
-                  <span className="text-right tabular font-medium text-ink">
-                    {row.daysPresent}
-                  </span>
-                  <span className="text-muted">Late</span>
-                  <span
-                    className={cn(
-                      "text-right tabular",
-                      row.daysLate > 2 ? "text-warning-text" : "text-muted",
-                    )}
-                  >
-                    {row.daysLate || "—"}
-                  </span>
-                  <span className="text-muted">On leave</span>
-                  <span className="text-right tabular text-muted">
-                    {row.daysOnLeave || "—"}
-                  </span>
-                  <span className="text-muted">Unexplained</span>
-                  <span
-                    className={cn(
-                      "text-right tabular",
-                      onRota
-                        ? "text-muted"
-                        : row.daysUnexplained > 0
-                          ? "font-medium text-danger-text"
-                          : "text-muted",
-                    )}
-                  >
-                    {onRota ? "—" : row.daysUnexplained || "—"}
-                  </span>
-                  <span className="text-muted">Hours</span>
-                  <span className="text-right tabular text-muted">
-                    {row.hours || "—"}
-                  </span>
-                </div>
-
-                <div>
-                  <p className="mb-1 text-meta text-faint">Needs looking at</p>
-                  <TimesheetExceptions row={row} />
-                </div>
-
-                <div className="flex items-center justify-between gap-2 text-body-sm">
-                  <span className="text-muted">Payroll effect</span>
-                  <TimesheetPayrollEffect
-                    row={row}
-                    onRota={onRota}
-                    loading={rota.loading}
-                  />
-                </div>
-              </li>
-            );
-          })}
-      </ul>
-    </Card>
-  );
-}
-
-/** The exception badges for one timesheet row, or an em dash for none. */
-function TimesheetExceptions({ row }: { row: ApiTimesheetRow }) {
-  if (row.exceptions.length === 0) return <span className="text-faint">—</span>;
-  return (
-    <span className="flex flex-wrap gap-1">
-      {row.exceptions.map((issue) => (
-        <Badge key={issue.code} tone="warning" size="sm">
-          {issue.label}
-          {issue.days > 1 ? ` ×${issue.days}` : ""}
-        </Badge>
-      ))}
-    </span>
-  );
-}
-
-/**
- * What a timesheet row costs — on their rota, unpaid days proration, or full
- * pay. One copy so the table cell and the mobile card cannot describe a
- * person's pay differently.
- */
-function TimesheetPayrollEffect({
-  row,
-  onRota,
-  loading,
-}: {
-  row: ApiTimesheetRow;
-  onRota: boolean;
-  loading: boolean;
-}) {
-  if (loading) return <Skeleton className="ml-auto h-4 w-20" />;
-  if (onRota) {
-    return (
-      <Link
-        href="/people/shifts"
-        className="text-body-sm font-medium text-accent-text underline underline-offset-4"
-      >
-        From their rota
-      </Link>
-    );
-  }
-  if ((row.proration.amount ?? 0) > 0) {
-    return (
-      <span className="inline-flex flex-col items-end">
-        <span className="inline-flex items-center gap-1.5 font-medium text-danger-text">
-          <TriangleAlert aria-hidden="true" className="size-3.5" />
-          {`−${formatMoney(row.proration.amount ?? 0, "NGN", { decimals: true })}`}
-        </span>
-        <span className="text-meta text-muted">
-          {row.proration.unpaidDays} of {row.proration.workingDaysPerMonth} days
-        </span>
-      </span>
-    );
-  }
-  return <span className="text-faint">Full pay</span>;
 }
 
 /* -------------------------------------------------------------------------- */

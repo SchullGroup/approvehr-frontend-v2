@@ -150,12 +150,6 @@ export function SignaturesScreen() {
             ? "Send a document to a member of staff and record that they adopted it — a contract, an offer letter, a policy. Only the person it was sent to can sign it: not their manager, and not you."
             : "Documents somebody has asked you to read and adopt as signed. Only you can sign the ones addressed to you, and what you sign is kept exactly as you saw it."
         }
-        meta={
-          <span className="inline-flex items-center gap-1 text-meta text-faint">
-            <ShieldCheck aria-hidden="true" className="size-3.5" />
-            Each one names the exact document by its fingerprint
-          </span>
-        }
         action={
           /* Absent without the permission rather than present and refusing —
              the API answers a send from anybody else with a 422 naming

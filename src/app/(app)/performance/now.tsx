@@ -466,28 +466,28 @@ export function WhatNeedsYouTab({
        * two tiles. The period moved to the rail below, which says what stage it
        * is at rather than only naming it.
        */}
-      <Card>
-        <CardBody className="flex flex-col gap-1">
-          {waitingOnMe > 0 ? (
-            <>
-              <p className="flex flex-wrap items-baseline gap-2">
-                <span className="tabular text-h2 font-semibold text-ink">
-                  {waitingOnMe}
-                </span>
-                <span className="font-semibold text-ink">
-                  {waitingOnMe === 1 ? "thing needs you" : "things need you"}
-                </span>
-              </p>
-              <p className="text-body-sm text-muted">{needsYouLine}</p>
-            </>
-          ) : (
-            <>
-              <p className="font-semibold text-ink">Nothing needs you here</p>
-              <p className="text-body-sm text-muted">{needsYouLine}</p>
-            </>
-          )}
-        </CardBody>
-      </Card>
+      {/* Omitted rather than shown empty — Kene: "remove this from here, it is
+          taking too much space." When there is nothing to act on, this card
+          said so above tabs that say the identical thing a second time
+          ("Waiting on you", its own "nothing waiting" state) and, usually, a
+          third ("No appraisal period is running" on "This period"). A real
+          count is worth a card; a card whose only content is the absence of
+          one is furniture. */}
+      {waitingOnMe > 0 && (
+        <Card>
+          <CardBody className="flex flex-col gap-1">
+            <p className="flex flex-wrap items-baseline gap-2">
+              <span className="tabular text-h2 font-semibold text-ink">
+                {waitingOnMe}
+              </span>
+              <span className="font-semibold text-ink">
+                {waitingOnMe === 1 ? "thing needs you" : "things need you"}
+              </span>
+            </p>
+            <p className="text-body-sm text-muted">{needsYouLine}</p>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Switched off, and the way to switch it on. The one appraisal thing a
           company that said "no formal appraisals" is shown, because the answer
