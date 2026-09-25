@@ -6,31 +6,31 @@ Every exported symbol, grouped by what it is for. **Components** render; **hooks
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
 there are too many to be useful as a list, and they are always in the file named beside the count.
 
-| Group                                                                                               |   Files | Components |   Hooks | Functions |
-| --------------------------------------------------------------------------------------------------- | ------: | ---------: | ------: | --------: |
-| [Design system — `src/components/ui`](#design-system-src-components-ui)                             |      26 |         66 |       5 |         4 |
-| [App chrome — `src/components/portal`](#app-chrome-src-components-portal)                           |      30 |         32 |       1 |         4 |
-| [Marketing components — `src/components/marketing`](#marketing-components-src-components-marketing) |      11 |         30 |       0 |         0 |
-| [Module components — `src/components/*`](#module-components-src-components)                         |      22 |         33 |       0 |         7 |
-| [API wrappers — `src/lib/api`](#api-wrappers-src-lib-api)                                           |      48 |          0 |       0 |       161 |
-| [Data hooks — `src/lib/store`](#data-hooks-src-lib-store)                                           |      66 |          0 |     257 |        64 |
-| [Seed data — `src/lib/mock`](#seed-data-src-lib-mock)                                               |       9 |          0 |       0 |        19 |
-| [Domain helpers — `src/lib/*`](#domain-helpers-src-lib)                                             |      53 |          0 |      11 |       172 |
-| [Standalone hooks — `src/hooks`](#standalone-hooks-src-hooks)                                       |       2 |          0 |       2 |         1 |
-| [Screens — `/dashboard`](#screens-dashboard)                                                        |      10 |          9 |       0 |         4 |
-| [Screens — `/people`](#screens-people)                                                              |     104 |        105 |       0 |        15 |
-| [Screens — `/payroll`](#screens-payroll)                                                            |      55 |         61 |       0 |         7 |
-| [Screens — `/performance`](#screens-performance)                                                    |      49 |         59 |       0 |         4 |
-| [Screens — `/hiring`](#screens-hiring)                                                              |      25 |         27 |       0 |         5 |
-| [Screens — `/help`](#screens-help)                                                                  |       9 |         10 |       0 |         0 |
-| [Screens — `/reports`](#screens-reports)                                                            |       4 |          4 |       0 |         0 |
-| [Screens — `/settings`](#screens-settings)                                                          |      79 |         81 |       0 |         3 |
-| [Screens — `/approvals`](#screens-approvals)                                                        |       2 |          2 |       0 |         0 |
-| [Screens — `/assistant`](#screens-assistant)                                                        |       2 |          2 |       0 |         0 |
-| [Screens — the rest of the signed-in app](#screens-the-rest-of-the-signed-in-app)                   |      11 |         10 |       0 |         1 |
-| [Screens — public site, auth and setup](#screens-public-site-auth-and-setup)                        |      41 |         46 |       0 |         6 |
-| [Everything else](#everything-else)                                                                 |       1 |          0 |       0 |         1 |
-| **Total**                                                                                           | **659** |    **577** | **276** |   **478** |
+| Group | Files | Components | Hooks | Functions |
+|---|---:|---:|---:|---:|
+| [Design system — `src/components/ui`](#design-system-src-components-ui) | 26 | 66 | 5 | 4 |
+| [App chrome — `src/components/portal`](#app-chrome-src-components-portal) | 30 | 32 | 1 | 4 |
+| [Marketing components — `src/components/marketing`](#marketing-components-src-components-marketing) | 11 | 30 | 0 | 0 |
+| [Module components — `src/components/*`](#module-components-src-components) | 22 | 33 | 0 | 7 |
+| [API wrappers — `src/lib/api`](#api-wrappers-src-lib-api) | 48 | 0 | 0 | 161 |
+| [Data hooks — `src/lib/store`](#data-hooks-src-lib-store) | 66 | 0 | 257 | 64 |
+| [Seed data — `src/lib/mock`](#seed-data-src-lib-mock) | 9 | 0 | 0 | 19 |
+| [Domain helpers — `src/lib/*`](#domain-helpers-src-lib) | 53 | 0 | 11 | 172 |
+| [Standalone hooks — `src/hooks`](#standalone-hooks-src-hooks) | 2 | 0 | 2 | 1 |
+| [Screens — `/dashboard`](#screens-dashboard) | 10 | 9 | 0 | 4 |
+| [Screens — `/people`](#screens-people) | 104 | 105 | 0 | 15 |
+| [Screens — `/payroll`](#screens-payroll) | 55 | 61 | 0 | 7 |
+| [Screens — `/performance`](#screens-performance) | 49 | 59 | 0 | 4 |
+| [Screens — `/hiring`](#screens-hiring) | 25 | 27 | 0 | 5 |
+| [Screens — `/help`](#screens-help) | 9 | 10 | 0 | 0 |
+| [Screens — `/reports`](#screens-reports) | 4 | 4 | 0 | 0 |
+| [Screens — `/settings`](#screens-settings) | 79 | 81 | 0 | 3 |
+| [Screens — `/approvals`](#screens-approvals) | 2 | 2 | 0 | 0 |
+| [Screens — `/assistant`](#screens-assistant) | 2 | 2 | 0 | 0 |
+| [Screens — the rest of the signed-in app](#screens-the-rest-of-the-signed-in-app) | 11 | 10 | 0 | 1 |
+| [Screens — public site, auth and setup](#screens-public-site-auth-and-setup) | 41 | 46 | 0 | 6 |
+| [Everything else](#everything-else) | 1 | 0 | 0 | 1 |
+| **Total** | **659** | **577** | **276** | **478** |
 
 ---
 
@@ -574,56 +574,56 @@ Screen components for the payroll module, including its dialogs and panels.
 
 Screen components for the performance module, including its dialogs and panels.
 
-| File                                                                  | Components                                                                         | Hooks | Functions                                                 | Also    |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----- | --------------------------------------------------------- | ------- |
-| `src/app/(app)/performance/appraiser-map.tsx`                         | `AppraiserMapTab`, `AppraisersDialog`                                              | —     | —                                                         | —       |
-| `src/app/(app)/performance/approval-dialogs.tsx`                      | `ApprovalReasonDialog`                                                             | —     | —                                                         | 1 type  |
-| `src/app/(app)/performance/goal-dialogs.tsx`                          | `NewKpiDialog`, `AssignKpiDialog`, `AddMeasureDialog`, `StopKpiDialog`             | —     | —                                                         | —       |
-| `src/app/(app)/performance/how-it-works.tsx`                          | `HowItWorksBody`, `FrameworkDisclosure`                                            | —     | —                                                         | —       |
-| `src/app/(app)/performance/kpis.tsx`                                  | `KpisTab`                                                                          | —     | —                                                         | —       |
-| `src/app/(app)/performance/manager-question.tsx`                      | `ManagerQuestionButton`                                                            | —     | —                                                         | —       |
-| `src/app/(app)/performance/my-tasks.tsx`                              | `MyTasksPanel`                                                                     | —     | —                                                         | —       |
-| `src/app/(app)/performance/now.tsx`                                   | `WhatNeedsYouTab`                                                                  | —     | —                                                         | —       |
-| `src/app/(app)/performance/page.tsx`                                  | `PerformancePage`                                                                  | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/performance-screen.tsx`                    | `PerformanceScreen`                                                                | —     | —                                                         | —       |
-| `src/app/(app)/performance/period-dialogs.tsx`                        | `QuestionsDialog`                                                                  | —     | —                                                         | —       |
-| `src/app/(app)/performance/period-status.tsx`                         | `PeriodStatus`                                                                     | —     | —                                                         | —       |
-| `src/app/(app)/performance/periods.tsx`                               | `PeriodsTab`                                                                       | —     | —                                                         | —       |
-| `src/app/(app)/performance/rating-dialog.tsx`                         | `RecordLevelDialog`                                                                | —     | —                                                         | —       |
-| `src/app/(app)/performance/review-form.tsx`                           | `ReviewFormModal`                                                                  | —     | —                                                         | —       |
-| `src/app/(app)/performance/review-parts.tsx`                          | `AttachedEvidence`, `PeriodFraming`, `AppraiserStrip`, `AnswerField`, `ReadAnswer` | —     | `ratingOptionsFrom`, `draftFrom`, `filled`, `periodWords` | 1 type  |
-| `src/app/(app)/performance/review-tasks.tsx`                          | `ReviewTasksTab`                                                                   | —     | —                                                         | —       |
-| `src/app/(app)/performance/skills.tsx`                                | `SkillsTab`                                                                        | —     | —                                                         | —       |
-| `src/app/(app)/performance/start-period.tsx`                          | `StartPeriodDialog`, `StartPeriodButton`                                           | —     | —                                                         | —       |
-| `src/app/(app)/performance/task-log.tsx`                              | `TaskLogPanel`                                                                     | —     | —                                                         | —       |
-| `src/app/(app)/performance/history/[employeeId]/history-screen.tsx`   | `ScoreHistoryScreen`                                                               | —     | —                                                         | —       |
-| `src/app/(app)/performance/history/[employeeId]/page.tsx`             | `ScoreHistoryPage`                                                                 | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/kpis/kpis-screen.tsx`                      | `KpisScreen`                                                                       | —     | —                                                         | —       |
-| `src/app/(app)/performance/kpis/page.tsx`                             | `PerformanceKpisPage`                                                              | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/reviews/[id]/page.tsx`                     | `ReviewPage`                                                                       | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/reviews/[id]/review-screen.tsx`            | `ReviewScreen`                                                                     | —     | —                                                         | —       |
-| `src/app/(app)/performance/reviews/[id]/sign-off-dialog.tsx`          | `SignOffDialog`                                                                    | —     | —                                                         | 1 type  |
-| `src/app/(app)/performance/approvals/approvals-screen.tsx`            | `ApprovalsScreen`                                                                  | —     | —                                                         | —       |
-| `src/app/(app)/performance/approvals/page.tsx`                        | `PerformanceApprovalsPage`                                                         | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/review-tasks/page.tsx`                     | `PerformanceReviewTasksPage`                                                       | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/review-tasks/review-tasks-screen.tsx`      | `ReviewTasksScreen`                                                                | —     | —                                                         | —       |
-| `src/app/(app)/performance/periods/page.tsx`                          | `PerformancePeriodsPage`                                                           | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/periods/periods-list-screen.tsx`           | `PeriodsListScreen`                                                                | —     | —                                                         | —       |
-| `src/app/(app)/performance/periods/[id]/ask-peers.tsx`                | `AskPeersDialog`, `AskPeersButton`                                                 | —     | —                                                         | —       |
-| `src/app/(app)/performance/periods/[id]/page.tsx`                     | `PeriodPage`                                                                       | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/periods/[id]/period-screen.tsx`            | `PeriodScreen`                                                                     | —     | —                                                         | —       |
-| `src/app/(app)/performance/periods/[id]/nine-box/nine-box-screen.tsx` | `NineBoxScreen`                                                                    | —     | —                                                         | —       |
-| `src/app/(app)/performance/periods/[id]/nine-box/page.tsx`            | `NineBoxPage`                                                                      | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/periods/[id]/report/page.tsx`              | `PeriodReportPage`                                                                 | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/periods/[id]/report/report-screen.tsx`     | `PeriodReportScreen`                                                               | —     | —                                                         | —       |
-| `src/app/(app)/performance/periods/new/draft-wizard.tsx`              | `DraftPeriodWizard`                                                                | —     | —                                                         | —       |
-| `src/app/(app)/performance/periods/new/page.tsx`                      | `DraftPeriodPage`                                                                  | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/how-it-works/page.tsx`                     | `HowAppraisalsWorkPage`                                                            | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/how-it-works/screen.tsx`                   | `HowAppraisalsWorkScreen`                                                          | —     | —                                                         | —       |
-| `src/app/(app)/performance/appraisers/appraisers-screen.tsx`          | `AppraisersScreen`                                                                 | —     | —                                                         | —       |
-| `src/app/(app)/performance/appraisers/page.tsx`                       | `PerformanceAppraisersPage`                                                        | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/skills/page.tsx`                           | `PerformanceSkillsPage`                                                            | —     | —                                                         | 1 const |
-| `src/app/(app)/performance/skills/skills-screen.tsx`                  | `SkillsScreen`                                                                     | —     | —                                                         | —       |
+| File | Components | Hooks | Functions | Also |
+|---|---|---|---|---|
+| `src/app/(app)/performance/appraiser-map.tsx` | `AppraiserMapTab`, `AppraisersDialog` | — | — | — |
+| `src/app/(app)/performance/approval-dialogs.tsx` | `ApprovalReasonDialog` | — | — | 1 type |
+| `src/app/(app)/performance/goal-dialogs.tsx` | `NewKpiDialog`, `AssignKpiDialog`, `AddMeasureDialog`, `StopKpiDialog` | — | — | — |
+| `src/app/(app)/performance/how-it-works.tsx` | `HowItWorksBody`, `FrameworkDisclosure` | — | — | — |
+| `src/app/(app)/performance/kpis.tsx` | `KpisTab` | — | — | — |
+| `src/app/(app)/performance/manager-question.tsx` | `ManagerQuestionButton` | — | — | — |
+| `src/app/(app)/performance/my-tasks.tsx` | `MyTasksPanel` | — | — | — |
+| `src/app/(app)/performance/now.tsx` | `WhatNeedsYouTab` | — | — | — |
+| `src/app/(app)/performance/page.tsx` | `PerformancePage` | — | — | 1 const |
+| `src/app/(app)/performance/performance-screen.tsx` | `PerformanceScreen` | — | — | — |
+| `src/app/(app)/performance/period-dialogs.tsx` | `QuestionsDialog` | — | — | — |
+| `src/app/(app)/performance/period-status.tsx` | `PeriodStatus` | — | — | — |
+| `src/app/(app)/performance/periods.tsx` | `PeriodsTab` | — | — | — |
+| `src/app/(app)/performance/rating-dialog.tsx` | `RecordLevelDialog` | — | — | — |
+| `src/app/(app)/performance/review-form.tsx` | `ReviewFormModal` | — | — | — |
+| `src/app/(app)/performance/review-parts.tsx` | `AttachedEvidence`, `PeriodFraming`, `AppraiserStrip`, `AnswerField`, `ReadAnswer` | — | `ratingOptionsFrom`, `draftFrom`, `filled`, `periodWords` | 1 type |
+| `src/app/(app)/performance/review-tasks.tsx` | `ReviewTasksTab` | — | — | — |
+| `src/app/(app)/performance/skills.tsx` | `SkillsTab` | — | — | — |
+| `src/app/(app)/performance/start-period.tsx` | `StartPeriodDialog`, `StartPeriodButton` | — | — | — |
+| `src/app/(app)/performance/task-log.tsx` | `TaskLogPanel` | — | — | — |
+| `src/app/(app)/performance/history/[employeeId]/history-screen.tsx` | `ScoreHistoryScreen` | — | — | — |
+| `src/app/(app)/performance/history/[employeeId]/page.tsx` | `ScoreHistoryPage` | — | — | 1 const |
+| `src/app/(app)/performance/kpis/kpis-screen.tsx` | `KpisScreen` | — | — | — |
+| `src/app/(app)/performance/kpis/page.tsx` | `PerformanceKpisPage` | — | — | 1 const |
+| `src/app/(app)/performance/reviews/[id]/page.tsx` | `ReviewPage` | — | — | 1 const |
+| `src/app/(app)/performance/reviews/[id]/review-screen.tsx` | `ReviewScreen` | — | — | — |
+| `src/app/(app)/performance/reviews/[id]/sign-off-dialog.tsx` | `SignOffDialog` | — | — | 1 type |
+| `src/app/(app)/performance/approvals/approvals-screen.tsx` | `ApprovalsScreen` | — | — | — |
+| `src/app/(app)/performance/approvals/page.tsx` | `PerformanceApprovalsPage` | — | — | 1 const |
+| `src/app/(app)/performance/review-tasks/page.tsx` | `PerformanceReviewTasksPage` | — | — | 1 const |
+| `src/app/(app)/performance/review-tasks/review-tasks-screen.tsx` | `ReviewTasksScreen` | — | — | — |
+| `src/app/(app)/performance/periods/page.tsx` | `PerformancePeriodsPage` | — | — | 1 const |
+| `src/app/(app)/performance/periods/periods-list-screen.tsx` | `PeriodsListScreen` | — | — | — |
+| `src/app/(app)/performance/periods/[id]/ask-peers.tsx` | `AskPeersDialog`, `AskPeersButton` | — | — | — |
+| `src/app/(app)/performance/periods/[id]/page.tsx` | `PeriodPage` | — | — | 1 const |
+| `src/app/(app)/performance/periods/[id]/period-screen.tsx` | `PeriodScreen` | — | — | — |
+| `src/app/(app)/performance/periods/[id]/nine-box/nine-box-screen.tsx` | `NineBoxScreen` | — | — | — |
+| `src/app/(app)/performance/periods/[id]/nine-box/page.tsx` | `NineBoxPage` | — | — | 1 const |
+| `src/app/(app)/performance/periods/[id]/report/page.tsx` | `PeriodReportPage` | — | — | 1 const |
+| `src/app/(app)/performance/periods/[id]/report/report-screen.tsx` | `PeriodReportScreen` | — | — | — |
+| `src/app/(app)/performance/periods/new/draft-wizard.tsx` | `DraftPeriodWizard` | — | — | — |
+| `src/app/(app)/performance/periods/new/page.tsx` | `DraftPeriodPage` | — | — | 1 const |
+| `src/app/(app)/performance/how-it-works/page.tsx` | `HowAppraisalsWorkPage` | — | — | 1 const |
+| `src/app/(app)/performance/how-it-works/screen.tsx` | `HowAppraisalsWorkScreen` | — | — | — |
+| `src/app/(app)/performance/appraisers/appraisers-screen.tsx` | `AppraisersScreen` | — | — | — |
+| `src/app/(app)/performance/appraisers/page.tsx` | `PerformanceAppraisersPage` | — | — | 1 const |
+| `src/app/(app)/performance/skills/page.tsx` | `PerformanceSkillsPage` | — | — | 1 const |
+| `src/app/(app)/performance/skills/skills-screen.tsx` | `SkillsScreen` | — | — | — |
 
 ---
 

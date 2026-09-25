@@ -237,98 +237,91 @@ export function PoliciesScreen() {
         )}
       </PageBody>
 
-      {writing && (
-        <WriteSectionModal
-          onClose={() => setWriting(false)}
-          onSave={async (body) => {
-            const ok = await run(
-              () => policies.create(body),
-              body.publish ? "Published" : "Saved as a draft",
+      <WriteSectionModal
+        open={writing}
+        onClose={() => setWriting(false)}
+        onSave={async (body) => {
+          const ok = await run(
+            () => policies.create(body),
+            body.publish ? "Published" : "Saved as a draft",
+          );
+          if (ok) setWriting(false);
+        }}
+      />
+
+      <EditSectionModal
+        open={editing !== null}
+        policy={editing}
+        onClose={() => setEditing(null)}
+        onPublishInstead={() => {
+          const target = editing;
+          setEditing(null);
+          setPublishing(target);
+        }}
+        onWithdraw={() => {
+          const target = editing;
+          setEditing(null);
+          setWithdrawing(target);
+        }}
+        onSave={async (body) => {
+          const target = editing;
+          if (!target) return;
+          const ok = await run(() => policies.update(target.id, body), "Saved");
+          if (ok) setEditing(null);
+        }}
+      />
+
+      <PublishModal
+        open={publishing !== null}
+        policy={publishing}
+        onClose={() => setPublishing(null)}
+        onPublish={async (wording) => {
+          const target = publishing;
+          if (!target) return;
+          let outcome: string | null = null;
+          const ok = await run(async () => {
+            const result = await policies.publish(
+              target.id,
+              wording === undefined ? {} : { body: wording },
             );
-            if (ok) setWriting(false);
-          }}
-        />
-      )}
-
-      {editing && (
-        <EditSectionModal
-          key={editing.id}
-          policy={editing}
-          onClose={() => setEditing(null)}
-          onPublishInstead={() => {
-            const target = editing;
-            setEditing(null);
-            setPublishing(target);
-          }}
-          onWithdraw={() => {
-            const target = editing;
-            setEditing(null);
-            setWithdrawing(target);
-          }}
-          onSave={async (body) => {
-            const ok = await run(
-              () => policies.update(editing.id, body),
-              "Saved",
-            );
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
-
-      {publishing && (
-        <PublishModal
-          key={publishing.id}
-          policy={publishing}
-          onClose={() => setPublishing(null)}
-          onPublish={async (wording) => {
-            const target = publishing;
-            let outcome: string | null = null;
-            const ok = await run(async () => {
-              const result = await policies.publish(
-                target.id,
-                wording === undefined ? {} : { body: wording },
-              );
-              outcome = result.republished
-                ? `Version ${result.version} is live. ${result.acceptancesInvalidated} ${
-                    result.acceptancesInvalidated === 1 ? "person" : "people"
-                  } will be asked again.`
-                : `Version ${result.version} is live. ${result.notified} ${
-                    result.notified === 1 ? "person" : "people"
-                  } told.`;
-            }, "Published");
-            if (ok) {
-              setPublishing(null);
-              if (outcome) toast.push({ title: outcome, tone: "info" });
-            }
-          }}
-        />
-      )}
-
-      {reading && (
-        <PolicyDrawer
-          key={reading.id}
-          policyId={reading.id}
-          title={reading.title}
-          subtitle={
-            reading.published
-              ? `Version ${reading.version}${
-                  reading.publishedAt
-                    ? `, published ${dayLabel(reading.publishedAt.slice(0, 10))}`
-                    : ""
-                }`
-              : "Draft (not published)"
+            outcome = result.republished
+              ? `Version ${result.version} is live. ${result.acceptancesInvalidated} ${
+                  result.acceptancesInvalidated === 1 ? "person" : "people"
+                } will be asked again.`
+              : `Version ${result.version} is live. ${result.notified} ${
+                  result.notified === 1 ? "person" : "people"
+                } told.`;
+          }, "Published");
+          if (ok) {
+            setPublishing(null);
+            if (outcome) toast.push({ title: outcome, tone: "info" });
           }
-          onClose={() => setReading(null)}
-        />
-      )}
+        }}
+      />
 
-      {chasing && (
-        <ChaseDrawer
-          key={chasing.id}
-          policy={chasing}
-          onClose={() => setChasing(null)}
-        />
-      )}
+      <PolicyDrawer
+        open={reading !== null}
+        policyId={reading?.id ?? null}
+        title={reading?.title ?? ""}
+        subtitle={
+          reading?.published
+            ? `Version ${reading.version}${
+                reading.publishedAt
+                  ? `, published ${dayLabel(reading.publishedAt.slice(0, 10))}`
+                  : ""
+              }`
+            : reading
+              ? "Draft (not published)"
+              : undefined
+        }
+        onClose={() => setReading(null)}
+      />
+
+      <ChaseDrawer
+        open={chasing !== null}
+        policy={chasing}
+        onClose={() => setChasing(null)}
+      />
 
       <ConfirmDialog
         open={withdrawing !== null}
@@ -472,9 +465,11 @@ const MIN_BODY = 20;
 const MIN_TITLE = 3;
 
 function WriteSectionModal({
+  open,
   onClose,
   onSave,
 }: {
+  open: boolean;
   onClose: () => void;
   onSave: (body: {
     title: string;
@@ -506,7 +501,7 @@ function WriteSectionModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Write a section"
       size="lg"
@@ -596,13 +591,16 @@ function WriteSectionModal({
  * text, and it is the way that asks everybody again.
  */
 function EditSectionModal({
-  policy,
+  policy: policyProp,
+  open,
   onClose,
   onSave,
   onPublishInstead,
   onWithdraw,
 }: {
-  policy: ApiPolicy;
+  /** `null` while closed — the parent clears it the instant it closes this. */
+  policy: ApiPolicy | null;
+  open: boolean;
   onClose: () => void;
   onSave: (body: {
     title?: string;
@@ -613,12 +611,24 @@ function EditSectionModal({
   onPublishInstead: () => void;
   onWithdraw: () => void;
 }) {
-  const draft = usePolicyText(policy.published ? null : policy.id);
-  const [title, setTitle] = useState(policy.title);
-  const [category, setCategory] = useState(policy.category ?? "");
-  const [mustAccept, setMustAccept] = useState(policy.requiresAcknowledgement);
+  /* Remembers the last real policy: the parent clears its prop to null the
+     moment it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can see `open` go false and animate its own
+     close, instead of the whole thing being unmounted out from under it.
+     Everything past the guard below reads `policy`, never `policyProp`. */
+  const [policy, setPolicy] = useState(policyProp);
+  if (policyProp && policyProp !== policy) setPolicy(policyProp);
+
+  const draft = usePolicyText(policy && !policy.published ? policy.id : null);
+  const [title, setTitle] = useState(policy?.title ?? "");
+  const [category, setCategory] = useState(policy?.category ?? "");
+  const [mustAccept, setMustAccept] = useState(
+    policy?.requiresAcknowledgement ?? false,
+  );
   const [wording, setWording] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  if (!policy) return null;
 
   /* The stored wording arrives after the modal opens, so the textarea shows it
      until somebody types — at which point the typed value takes over. No
@@ -628,7 +638,7 @@ function EditSectionModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Edit ${policy.title}`}
       size={policy.published ? "md" : "lg"}
@@ -746,18 +756,29 @@ function publishLine(policy: ApiPolicy): string {
 }
 
 function PublishModal({
-  policy,
+  policy: policyProp,
+  open,
   onClose,
   onPublish,
 }: {
-  policy: ApiPolicy;
+  /** `null` while closed — see the freeze below for why. */
+  policy: ApiPolicy | null;
+  open: boolean;
   onClose: () => void;
   /** `undefined` publishes the stored wording unchanged. */
   onPublish: (wording?: string) => Promise<void>;
 }) {
-  const current = usePolicyText(policy.published ? policy.id : null);
+  /* Remembers the last real policy so this can stay mounted — with real
+     content — while `Modal` below plays its own close animation off the
+     real `open`. See the identical note on `EditSectionModal`. */
+  const [policy, setPolicy] = useState(policyProp);
+  if (policyProp && policyProp !== policy) setPolicy(policyProp);
+
+  const current = usePolicyText(policy?.published ? policy.id : null);
   const [wording, setWording] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  if (!policy) return null;
 
   const shown = wording ?? current.policy?.body ?? "";
   const changed =
@@ -768,7 +789,7 @@ function PublishModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={
         policy.published
@@ -826,7 +847,7 @@ function PublishModal({
           </Field>
         )
       ) : (
-        <p className="text-body leading-relaxed text-body">
+        <p className="text-body leading-relaxed">
           It becomes version {policy.version} of your handbook.
         </p>
       )}
@@ -851,15 +872,26 @@ function PublishModal({
  * on this screen changes.
  */
 function ChaseDrawer({
-  policy,
+  policy: policyProp,
+  open,
   onClose,
 }: {
-  policy: ApiPolicy;
+  /** `null` while closed — see the freeze below for why. */
+  policy: ApiPolicy | null;
+  open: boolean;
   onClose: () => void;
 }) {
+  /* Same freeze as `EditSectionModal`/`PublishModal` above: stays mounted with
+     real content so `Drawer` below can animate its own close off the real
+     `open`, rather than this whole thing vanishing the instant `policy` does. */
+  const [policy, setPolicy] = useState(policyProp);
+  if (policyProp && policyProp !== policy) setPolicy(policyProp);
+
   const [state, setState] = useState<"outstanding" | "accepted">("outstanding");
-  const list = useAcknowledgements(policy.id, state);
+  const list = useAcknowledgements(policy?.id ?? null, state);
   const toast = useToast();
+
+  if (!policy) return null;
 
   const copy = async () => {
     const names = list.rows.map((row) => row.name).join(", ");
@@ -880,7 +912,7 @@ function ChaseDrawer({
 
   return (
     <Drawer
-      open
+      open={open}
       onClose={onClose}
       title={policy.title}
       description={`Version ${policy.version} · ${acceptanceLabel(policy)}`}

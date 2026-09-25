@@ -1,4 +1,4 @@
-export { Button, ButtonLink, IconButton } from "./button";
+export { Button, ButtonLink, IconButton, TextLink } from "./button";
 export type { ButtonProps, ButtonVariant, ButtonSize } from "./button";
 
 export { Field, FieldSet, useFieldControl } from "./field";
@@ -65,6 +65,7 @@ export { Tabs, LinkTabs, SegmentedControl, Accordion } from "./tabs";
 export type { TabItem } from "./tabs";
 
 export { Disclosure } from "./disclosure";
+export { LinkedText } from "./linked-text";
 
 export { Avatar, Timeline, FileDrop, DescriptionList, CheckList } from "./misc";
 export type { TimelineEntry, DroppedFile } from "./misc";

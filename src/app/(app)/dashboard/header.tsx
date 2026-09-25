@@ -1,7 +1,7 @@
 "use client";
 
 import { PageHeader } from "@/components/portal/shell";
-import { hourIn } from "@/lib/time";
+import { formatDate, hourIn, weekdayIn } from "@/lib/time";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 
 /**
@@ -35,11 +35,31 @@ export function DashboardHeader({ action }: { action?: React.ReactNode }) {
   const { displayName } = useSession();
   const timeZone = useOrgTimezone();
   const firstName = displayName?.split(" ")[0];
-  const hello = greeting(hourIn(new Date(), timeZone)); // reads-the-clock: straight into the zone-aware hourIn with timeZone
+  const now = new Date(); // reads-the-clock: both readings below take the org zone
+  const hello = greeting(hourIn(now, timeZone));
+
+  /**
+   * The date, under the greeting.
+   *
+   * `PageHeader`'s own note says to use `description` sparingly, for a screen
+   * whose name does not explain it — and a greeting is the extreme case of
+   * that: "Good morning, Emeka" is the only page title in this product that
+   * names nothing at all. It was the largest text on the screen and the least
+   * informative thing on it.
+   *
+   * The date earns the line because of what is under it. The card below says
+   * you are expected at 08:00 and offers to clock you in; which day that is
+   * about is a fact the screen was asking people to supply themselves. Same
+   * zone as the greeting, for the same reason — the company's day, not the
+   * reader's, so somebody dialling in from another timezone is told the date
+   * their attendance will be recorded against.
+   */
+  const today = `${weekdayIn(now, timeZone)}, ${formatDate(now, timeZone)}`;
 
   return (
     <PageHeader
       title={firstName ? `${hello}, ${firstName}` : hello}
+      description={today}
       action={action}
     />
   );

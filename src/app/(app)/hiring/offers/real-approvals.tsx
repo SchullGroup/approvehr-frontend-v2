@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Check, ThumbsDown } from "lucide-react";
 import {
   Badge,
@@ -13,6 +12,7 @@ import {
   EmptyState,
   Money,
   Skeleton,
+  TextLink,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { offerLetter } from "@/lib/api/exports";
@@ -135,12 +135,9 @@ function RealOfferCard({
     <Card>
       <CardHeader
         title={
-          <Link
-            href={`/hiring/candidates/${application.id}`}
-            className="hover:text-accent-text hover:underline underline-offset-4"
-          >
+          <TextLink href={`/hiring/candidates/${application.id}`}>
             {application.candidateName}
-          </Link>
+          </TextLink>
         }
         description={`${application.requisitionJobTitle} · ${application.requisitionReference}`}
         action={
@@ -189,9 +186,11 @@ function RealOfferCard({
             <Button
               variant="accent"
               loading={busy}
-              onClick={() => void run(() => mutations.send(offer.id), "Sent")}
+              onClick={() =>
+                void run(() => mutations.send(offer.id), "Marked as sent")
+              }
             >
-              Send offer
+              Mark as sent
             </Button>
           )}
           {/* Only once approved, which is the API's own gate — see
@@ -225,13 +224,24 @@ function RealOfferCard({
               Decline
             </Button>
           )}
-          <Link
+          <TextLink
             href={`/hiring/candidates/${application.id}`}
-            className="ml-auto text-body-sm text-accent-text hover:underline underline-offset-4"
+            className="ml-auto text-body-sm"
           >
             Read the full record
-          </Link>
+          </TextLink>
         </div>
+        {/* `sendOffer` only flips the offer's status and stamps `sentAt` — it
+            sends no email and contacts the candidate in no way. "Mark as
+            sent" says that in the button; this says it again in a full
+            sentence, next to the one control on this card that actually
+            produces something to send. */}
+        {offer.approvedAt && canManage && (
+          <p className="text-body-sm text-muted">
+            Nothing is emailed. Download the offer letter and send it yourself —
+            this only marks the offer as sent in our records.
+          </p>
+        )}
       </CardBody>
     </Card>
   );

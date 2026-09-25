@@ -370,7 +370,13 @@ export function PayPanel({
             {excludedNote(run) && (
               <p className="text-meta text-muted">{excludedNote(run)}</p>
             )}
-            <p className="text-meta text-muted">{WALLET_PAYOUT_STATE}</p>
+            {/* Shown unless the API says a payout could actually run. Absent
+                and false are treated the same on purpose: an older API does not
+                send the field, and in that case the bank file is still the path
+                that is certain to work, so saying so is never wrong. */}
+            {run.payoutAvailable !== true && (
+              <p className="text-meta text-muted">{WALLET_PAYOUT_STATE}</p>
+            )}
 
             {/* The other half of the bank-file path, and the reason the wallet
                 can ever come down.
@@ -407,21 +413,20 @@ export function PayPanel({
         )}
       </CardBody>
 
-      {recording && (
-        <RecordPaidDialog
-          batchId={batch.id}
-          reference={batch.reference}
-          amountKobo={run.netKobo}
-          people={paidPeopleLabel(run)}
-          onClose={() => {
-            setRecording(false);
-          }}
-          onRecorded={() => {
-            setRecording(false);
-            onChanged();
-          }}
-        />
-      )}
+      <RecordPaidDialog
+        open={recording}
+        batchId={batch.id}
+        reference={batch.reference}
+        amountKobo={run.netKobo}
+        people={paidPeopleLabel(run)}
+        onClose={() => {
+          setRecording(false);
+        }}
+        onRecorded={() => {
+          setRecording(false);
+          onChanged();
+        }}
+      />
     </Card>
   );
 }

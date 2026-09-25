@@ -22,10 +22,12 @@ import {
   CardHeader,
   ConfirmDialog,
   EmptyState,
+  Modal,
   Select,
   Stat,
   useToast,
 } from "@/components/ui";
+import { InviteLinkButton } from "@/components/portal/invite-link";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
@@ -33,7 +35,11 @@ import { invitesApi, type PendingInvite } from "@/lib/api/invites";
 import { sourceNote } from "@/lib/demo";
 import type { Catalogue } from "@/lib/api/permissions";
 import { usePermissions } from "@/lib/permissions";
-import { useInvites, type InvitesState } from "@/lib/store/invites";
+import {
+  useInviteDelivery,
+  useInvites,
+  type InvitesState,
+} from "@/lib/store/invites";
 import {
   useRolePreview,
   useRoles,
@@ -101,6 +107,11 @@ export function RolesScreen({
   const [inviting, setInviting] = useState(false);
   const [revoking, setRevoking] = useState<PendingInvite | null>(null);
   const [revokingBusy, setRevokingBusy] = useState(false);
+  /* The invitation somebody is taking a link for. A modal rather than an inline
+     expansion: `InviteLinkButton` opens into a callout with a URL field and two
+     buttons, which is several times the height of the row it would push apart. */
+  const [linking, setLinking] = useState<PendingInvite | null>(null);
+  const delivery = useInviteDelivery();
 
   const canManage = access.can("MANAGE_ROLES");
   /* Its own permission, split from `MANAGE_ROLES` — see the header of
@@ -309,6 +320,7 @@ export function RolesScreen({
             void run(() => invites.resend(userId), "Invitation sent again")
           }
           onRevoke={(invite) => setRevoking(invite)}
+          onLink={(invite) => setLinking(invite)}
         />
 
         <UnlinkedAccountsPanel canManage={canManage} />
@@ -325,76 +337,78 @@ export function RolesScreen({
         </div>
       </PageBody>
 
-      {open && (
-        <RoleEditor
-          key={open.id}
-          role={open}
-          catalogue={roles.catalogue}
-          held={access.permissions}
-          canManage={canManage}
-          roleIds={roleIds}
-          onClose={() => setOpenId(null)}
-          onSave={(patch) =>
-            run(async () => {
-              if (Object.keys(patch).length > 0) {
-                await roles.update(open.id, patch);
-              }
-            }, "Saved")
-          }
-          onDuplicate={() => {
-            setOpenId(null);
-            setCreating({ from: open });
-          }}
-          onAddPeople={(userIds) =>
-            run(async () => {
-              const result = await roles.addMembers(open.id, userIds);
-              if (result.added === 0) {
+      <RoleEditor
+        open={open !== null}
+        role={open}
+        catalogue={roles.catalogue}
+        held={access.permissions}
+        canManage={canManage}
+        roleIds={roleIds}
+        onClose={() => setOpenId(null)}
+        onSave={(patch) =>
+          run(async () => {
+            if (!open) return;
+            if (Object.keys(patch).length > 0) {
+              await roles.update(open.id, patch);
+            }
+          }, "Saved")
+        }
+        onDuplicate={() => {
+          if (!open) return;
+          setOpenId(null);
+          setCreating({ from: open });
+        }}
+        onAddPeople={(userIds) =>
+          run(async () => {
+            if (!open) return;
+            const result = await roles.addMembers(open.id, userIds);
+            if (result.added === 0) {
+              throw new ApiError(
+                409,
+                "already_in",
+                "They are already in this role.",
+              );
+            }
+          }, "Added")
+        }
+        onRemovePerson={(userId, name) =>
+          open
+            ? run(() => roles.removeMember(open.id, userId), `${name} removed`)
+            : Promise.resolve(false)
+        }
+      />
+
+      <CreateRoleDialog
+        open={creating !== null}
+        roles={roles.roles}
+        held={access.permissions}
+        from={creating?.from ?? null}
+        onClose={() => setCreating(null)}
+        onCreate={async (body, people) => {
+          const ok = await run(async () => {
+            const made = await roles.create(body);
+            /* Two requests, and the order matters: the role is the one that
+               cannot be retried cleanly (a second attempt collides on the
+               name), so it goes first and a refused address leaves it
+               standing. Every refusal comes back named. */
+            if (people.length > 0) {
+              const result = await invitesApi.sendByEmail(people, [made.id]);
+              if (result.failed.length > 0) {
                 throw new ApiError(
                   409,
-                  "already_in",
-                  "They are already in this role.",
+                  "some_not_invited",
+                  `${body.name} was created. ${result.failed
+                    .map((one) => `${one.name}: ${one.message}`)
+                    .join(" ")}`,
                 );
               }
-            }, "Added")
-          }
-          onRemovePerson={(userId, name) =>
-            run(() => roles.removeMember(open.id, userId), `${name} removed`)
-          }
-        />
-      )}
-
-      {creating && (
-        <CreateRoleDialog
-          roles={roles.roles}
-          held={access.permissions}
-          from={creating.from}
-          onClose={() => setCreating(null)}
-          onCreate={async (body, people) => {
-            const ok = await run(async () => {
-              const made = await roles.create(body);
-              /* Two requests, and the order matters: the role is the one that
-                 cannot be retried cleanly (a second attempt collides on the
-                 name), so it goes first and a refused address leaves it
-                 standing. Every refusal comes back named. */
-              if (people.length > 0) {
-                const result = await invitesApi.sendByEmail(people, [made.id]);
-                if (result.failed.length > 0) {
-                  throw new ApiError(
-                    409,
-                    "some_not_invited",
-                    `${body.name} was created. ${result.failed
-                      .map((one) => `${one.name}: ${one.message}`)
-                      .join(" ")}`,
-                  );
-                }
-              }
-              setOpenId(made.id);
-            }, `${body.name} created`);
-            if (ok) setCreating(null);
-            return ok;
-          }}
-        />
-      )}
+            }
+            setOpenId(made.id);
+          }, `${body.name} created`);
+          if (ok) setCreating(null);
+          return ok;
+        }}
+      />
 
       <ConfirmDialog
         open={deleting !== null}
@@ -419,16 +433,15 @@ export function RolesScreen({
         }}
       />
 
-      {inviting && (
-        <SendInviteDialog
-          roles={roles.roles}
-          pending={invites.invites}
-          onClose={() => setInviting(false)}
-          onSend={(employeeId, roleIds) =>
-            run(() => invites.send(employeeId, roleIds), "Invitation sent")
-          }
-        />
-      )}
+      <SendInviteDialog
+        open={inviting}
+        roles={roles.roles}
+        pending={invites.invites}
+        onClose={() => setInviting(false)}
+        onSend={(employeeId, roleIds) =>
+          run(() => invites.send(employeeId, roleIds), "Invitation sent")
+        }
+      />
 
       <ConfirmDialog
         open={revoking !== null}
@@ -451,6 +464,35 @@ export function RolesScreen({
             .finally(() => setRevokingBusy(false));
         }}
       />
+
+      {/*
+        Taking a link, from the list of exactly the people who have not accepted.
+
+        Keyed on the invitation so the component remounts per person: without
+        it, a link taken for one invitee would still be on screen when somebody
+        opened the modal for the next, which is the worst possible thing for a
+        control whose whole output is a credential.
+      */}
+      {linking && (
+        <Modal
+          open
+          onClose={() => setLinking(null)}
+          title={`A link for ${linking.name}`}
+          footer={
+            <Button variant="secondary" onClick={() => setLinking(null)}>
+              Done
+            </Button>
+          }
+        >
+          <InviteLinkButton
+            key={linking.userId}
+            userId={linking.userId}
+            name={linking.name}
+            replacesEmail={delivery?.email === true}
+            hint={`Their invitation went to ${linking.email}. If it never arrived, send them this instead.`}
+          />
+        </Modal>
+      )}
     </>
   );
 }
@@ -569,18 +611,20 @@ function RoleRow({
  * connected renders the same honest "needs a live API" message
  * `profile-screen.tsx`'s Security card already uses for the same reason.
  */
-function InvitationsCard({
+export function InvitationsCard({
   invites,
   canInvite,
   onInvite,
   onResend,
   onRevoke,
+  onLink,
 }: {
   invites: InvitesState;
   canInvite: boolean;
   onInvite: () => void;
   onResend: (userId: string) => void;
   onRevoke: (invite: PendingInvite) => void;
+  onLink: (invite: PendingInvite) => void;
 }) {
   if (!invites.connected) {
     return (
@@ -677,6 +721,16 @@ function InvitationsCard({
                     onClick={() => onResend(invite.userId)}
                   >
                     Resend
+                  </Button>
+                  {/* The action for the report this panel could not answer:
+                      "they say it never arrived". Resend sends the same mail to
+                      the same address that already swallowed one. */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onLink(invite)}
+                  >
+                    Copy link
                   </Button>
                   <Button
                     variant="ghost"

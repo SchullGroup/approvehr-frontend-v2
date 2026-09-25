@@ -62,6 +62,7 @@ const mount = (
   const onUpdate = vi.fn().mockResolvedValue(undefined);
   render(
     <QuestionsDialog
+      open
       cycleId="c-1"
       periodName="H2 2026 Appraisal"
       onClose={vi.fn()}

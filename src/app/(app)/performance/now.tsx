@@ -48,7 +48,7 @@ import {
 } from "@/lib/store/performance";
 import { AppraisersDialog } from "./appraiser-map";
 import { ManagerQuestionButton } from "./manager-question";
-import { PeriodStatus } from "./period-status";
+import { PeriodExceptionNotice, PeriodStatus } from "./period-status";
 import { ReviewFormModal } from "./review-form";
 import { StartPeriodButton } from "./start-period";
 
@@ -582,7 +582,12 @@ export function WhatNeedsYouTab({
             <CardHeader
               title="This period"
               action={
-                openPeriod ? undefined : (
+                openPeriod ? (
+                  <PeriodExceptionNotice
+                    cycle={openPeriod}
+                    canSeeCompany={canSeeCompany}
+                  />
+                ) : (
                   <StartPeriodButton variant="accent" withIcon />
                 )
               }
@@ -676,10 +681,13 @@ export function WhatNeedsYouTab({
                     everybody else rather than zeroed — see `period-status.tsx`.
                     This card said which period was open and nothing about its
                     state, so "where is this up to" was two clicks from the screen
-                    that asked it. */}
+                    that asked it. The no-appraiser notice itself now sits in the
+                    card heading, beside "This period" — `showExceptions` stops
+                    it rendering a second time here. */}
                 <PeriodStatus
                   cycle={openPeriod}
                   canSeeCompany={canSeeCompany}
+                  showExceptions={false}
                 />
               </>
             )}
@@ -1062,13 +1070,12 @@ export function WhatNeedsYouTab({
           task. `/performance/skills` shows them their own actual levels, which
           is the version of that question with an answer in it. */}
 
-      {opened && (
-        <ReviewFormModal
-          reviewId={opened}
-          onClose={() => setOpened(null)}
-          onDone={appraisals.reload}
-        />
-      )}
+      <ReviewFormModal
+        reviewId={opened}
+        open={opened !== null}
+        onClose={() => setOpened(null)}
+        onDone={appraisals.reload}
+      />
 
       {/* The same dialog the period screen uses, on the screen where the
           problem was noticed. One implementation of "who appraises this

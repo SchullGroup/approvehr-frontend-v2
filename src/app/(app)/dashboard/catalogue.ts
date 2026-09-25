@@ -112,6 +112,25 @@ export type WidgetSpec = {
   feature?: FeatureKey;
   /** Tiers that get it without opening the drawer. */
   defaultFor: readonly RoleTier[];
+  /**
+   * Tiers this leads the arrangement for, ahead of catalogue order.
+   *
+   * The sequence below — what needs a decision, then the company, then the
+   * money, then the trends, then you, then the furniture — is an argument, and
+   * it is an argument written from an owner's chair. It does not survive
+   * contact with a member of staff: "what needs a decision" is a permanent
+   * zero for most of them, so their screen opened on an empty inbox and put
+   * the one thing they came to do — clock in, the only control on their
+   * dashboard that writes anything — fourth, under two figures that do not
+   * change from one day to the next.
+   *
+   * A tier is a guess at what somebody wants first, and this is the same guess
+   * one notch finer: not only *which* widgets, but which one they landed on
+   * the page to use. Deliberately narrow — it reorders the default and nothing
+   * else, so a stored arrangement is untouched and the drawer still lists
+   * everything in catalogue order.
+   */
+  leadFor?: readonly RoleTier[];
 };
 
 /* The two company-wide gates, spelled once. `/insights/dashboard` sends
@@ -364,13 +383,28 @@ export const WIDGETS: readonly WidgetSpec[] = [
   },
   {
     id: "my-clock",
+    /* Full width, and it is the one span in this file chosen for the *card*
+       rather than for the figure it carries.
+
+       At `half` it was both cramped and wasteful at once: three zones — who
+       you are, what time you are expected, and the location picker beside the
+       button — competing for six columns, so "Expected 08:00–17:00 · 15 min
+       grace" wrapped onto three lines inside a 200px column, while six columns
+       sat empty to its right because nothing in the staff arrangement is a
+       half. Widening it fixes the wrap and closes the hole in the same move.
+
+       It is also the thing an employee opens this screen to do, every working
+       day, and the only widget here that writes anything. A daily action at
+       the same visual weight as a static balance is a hierarchy that says
+       neither matters. */
     title: "Clock in and out",
     blurb: "Your own attendance for today, with the button that records it.",
     group: "you",
-    span: "half",
+    span: "full",
     source: "local",
     feature: "attendance",
     defaultFor: ["staff"],
+    leadFor: ["staff"],
   },
 
   /* ----------------------------------------------------------------- tools */
@@ -475,9 +509,16 @@ export function defaultLayout(
   tier: RoleTier,
   context: WidgetContext,
 ): string[] {
-  return availableWidgets(context)
-    .filter((widget) => widget.defaultFor.includes(tier))
-    .map((widget) => widget.id);
+  const mine = availableWidgets(context).filter((widget) =>
+    widget.defaultFor.includes(tier),
+  );
+  /* Stable: the leaders keep catalogue order among themselves, and so does
+     everything behind them. `sort` is stable in every engine this runs on, so
+     a boolean key is all this needs — and it stays a pure reordering, which is
+     what lets `resolveLayout` go on treating the result as catalogue output. */
+  const leads = (widget: WidgetSpec) =>
+    widget.leadFor?.includes(tier) === true ? 0 : 1;
+  return [...mine].sort((a, b) => leads(a) - leads(b)).map((w) => w.id);
 }
 
 /**

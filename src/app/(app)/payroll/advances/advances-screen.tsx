@@ -125,11 +125,18 @@ export function AdvancesScreen() {
           </div>
         )}
       </PageBody>
-      {asking && mine.data && (
+      {/* `mine.data` is a data-readiness guard, not an open/close one: the
+          button that sets `asking` only ever renders once `mine.data` exists.
+          `open` is the real, independent open/close signal, so `AskDialog`
+          stays mounted (able to play its own exit animation) across an
+          open/close cycle instead of being torn down with the rest of the
+          subtree the instant `asking` goes false. */}
+      {mine.data && (
         <AskDialog
           availableKobo={mine.data.eligibility.availableKobo ?? 0}
           minKobo={mine.data.eligibility.minAmountKobo}
           feeKobo={mine.data.eligibility.feeKobo}
+          open={asking}
           onClose={() => setAsking(false)}
           onDone={() => {
             setAsking(false);
@@ -137,16 +144,15 @@ export function AdvancesScreen() {
           }}
         />
       )}
-      {policyOpen && (
-        <PolicyDialog
-          onClose={() => setPolicyOpen(false)}
-          onDone={() => {
-            setPolicyOpen(false);
-            policy.reload();
-            reloadAll();
-          }}
-        />
-      )}
+      <PolicyDialog
+        open={policyOpen}
+        onClose={() => setPolicyOpen(false)}
+        onDone={() => {
+          setPolicyOpen(false);
+          policy.reload();
+          reloadAll();
+        }}
+      />
     </>
   );
 }
@@ -339,16 +345,14 @@ function Waiting({
           </div>
         ))}
       </CardBody>
-      {declining && (
-        <DeclineDialog
-          advance={declining}
-          onClose={() => setDeclining(null)}
-          onDone={() => {
-            setDeclining(null);
-            onChanged();
-          }}
-        />
-      )}
+      <DeclineDialog
+        advance={declining}
+        onClose={() => setDeclining(null)}
+        onDone={() => {
+          setDeclining(null);
+          onChanged();
+        }}
+      />
     </Card>
   );
 }
@@ -447,12 +451,14 @@ function AskDialog({
   availableKobo,
   minKobo,
   feeKobo,
+  open,
   onClose,
   onDone,
 }: {
   availableKobo: number;
   minKobo: number;
   feeKobo: number;
+  open: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -466,7 +472,7 @@ function AskDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Draw pay early"
       description="It comes off your next payslip."
@@ -552,7 +558,10 @@ function DeclineDialog({
   onClose,
   onDone,
 }: {
-  advance: ApiAdvance;
+  /* Nullable: the caller renders this unconditionally now (see
+     `AdvancesScreen`) and passes whichever advance is being declined, or
+     `null` when none is. */
+  advance: ApiAdvance | null;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -564,17 +573,18 @@ function DeclineDialog({
 
   return (
     <Modal
-      open
+      open={advance !== null}
       onClose={onClose}
-      title={`Decline — ${advance.employeeName}`}
+      title={advance ? `Decline — ${advance.employeeName}` : "Decline"}
       description="They see your reason."
       footer={
         <div className="flex items-center gap-2">
           <Button
             variant="secondary"
             loading={busy}
-            disabled={reason.trim() === ""}
+            disabled={reason.trim() === "" || !advance}
             onClick={() => {
+              if (!advance) return;
               void (async () => {
                 setBusy(true);
                 setFailure(null);
@@ -628,9 +638,11 @@ function DeclineDialog({
  * capital commitment and the other may change what licence the company needs.
  */
 function PolicyDialog({
+  open,
   onClose,
   onDone,
 }: {
+  open: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -660,7 +672,7 @@ function PolicyDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="How drawing early works here"
       footer={

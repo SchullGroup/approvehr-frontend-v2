@@ -738,6 +738,13 @@ const demoCycles: ApiCycle[] = [
     departmentIds: [],
     remindDaysBefore: null,
     managersCanAddQuestions: false,
+    /* Both demo periods appraise everybody, which is what a period written
+       before these settings existed did: the columns defaulted off, and every
+       row already in the table was one nobody had been excluded from. Seeding
+       them false would quietly drop the seeded Owner out of the demo's own
+       register. */
+    appraiseOwner: true,
+    appraiseHrManager: true,
     createdAt: "2026-07-01T09:00:00.000Z",
   },
   {
@@ -760,6 +767,8 @@ const demoCycles: ApiCycle[] = [
     departmentIds: [],
     remindDaysBefore: null,
     managersCanAddQuestions: false,
+    appraiseOwner: true,
+    appraiseHrManager: true,
     createdAt: "2026-01-08T09:00:00.000Z",
   },
 ];
@@ -2526,6 +2535,7 @@ export type FrameworkGroup = {
 export function useSections(): {
   sections: ApiSection[];
   loading: boolean;
+  reload: () => void;
 } {
   const { isConnected } = useSession();
   const load = useCallback(
@@ -2536,6 +2546,7 @@ export function useSections(): {
   return {
     sections: isConnected ? (fetched.data ?? []) : [],
     loading: isConnected ? fetched.loading : false,
+    reload: fetched.reload,
   };
 }
 
@@ -2546,6 +2557,7 @@ export function useFramework(): {
   loading: boolean;
   error: ApiError | null;
   source: Source;
+  reload: () => void;
 } {
   const { isConnected } = useSession();
 
@@ -2587,6 +2599,7 @@ export function useFramework(): {
     loading: fetched.loading,
     error: fetched.error,
     source: isConnected ? "api" : "demo",
+    reload: fetched.reload,
   };
 }
 
@@ -2636,6 +2649,95 @@ export function useFrameworkActions() {
             "but you can still rate anybody against it.",
         );
         return performanceApi.createCompetency(body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Rename or reorder a section — including one of the four seeded ones.
+     *
+     * There is no such thing as a section this refuses. The API never had a
+     * "default" it protected, and `modules/performance/framework.ts` says so
+     * in as many words: the four it seeds are "a starting point, not a
+     * model". A rename is safe because the engine stopped resolving a section
+     * by its name — `AppraisalSection.component` names the scored component
+     * instead, precisely so renaming "Leadership" could not silently stop
+     * every rating under it counting.
+     */
+    updateSection: useCallback(
+      async (id: string, body: { name?: string; order?: number }) => {
+        guard(
+          "Renaming a section needs the API: sections are shared across every " +
+            "appraisal period, and a name kept in this browser would not " +
+            "reach any of them.",
+        );
+        return performanceApi.updateSection(id, body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Remove the heading. The subsections under it stay, unfiled.
+     *
+     * `Competency.sectionId` is `onDelete: SetNull`, so nothing filed under a
+     * deleted section is lost — it lands back in the unfiled list waiting to
+     * be re-filed, and its ratings are untouched. The dialog says this before
+     * it happens rather than after.
+     */
+    deleteSection: useCallback(
+      async (id: string) => {
+        guard(
+          "Removing a section needs the API: it is shared across every " +
+            "appraisal period.",
+        );
+        return performanceApi.deleteSection(id);
+      },
+      [guard],
+    ),
+
+    /**
+     * Rename a subsection, or move it to a different section.
+     *
+     * A move re-files every rating recorded against it into a different part
+     * of the mark, which is a real consequence rather than a tidy-up — the
+     * panel states it at the moment the move is made.
+     *
+     * `sectionId: null` is "unfiled", and is deliberately different from
+     * absent: absent leaves the filing alone, null takes it out of its
+     * section.
+     */
+    updateCompetency: useCallback(
+      async (
+        id: string,
+        body: {
+          name?: string;
+          sectionId?: string | null;
+          description?: string | null;
+          isCore?: boolean;
+          scaleMax?: number;
+          active?: boolean;
+        },
+      ) => {
+        guard(
+          "Editing a subsection needs the API: the demo framework is fixed, " +
+            "but you can still rate anybody against it.",
+        );
+        return performanceApi.updateCompetency(id, body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Archive a subsection. Never a delete, and the API's own answer says how
+     * many ratings it kept — a past rating is the evidence somebody improved,
+     * so the row stops being offered and stops being nothing.
+     */
+    archiveCompetency: useCallback(
+      async (id: string) => {
+        guard(
+          "Archiving a subsection needs the API: the demo framework is fixed.",
+        );
+        return performanceApi.archiveCompetency(id);
       },
       [guard],
     ),
@@ -2815,6 +2917,15 @@ export function useCycleMutations() {
           departmentIds?: string[];
           remindDaysBefore?: number;
           managersCanAddQuestions?: boolean;
+          /**
+           * Whether the Owner and the HR manager are appraised in this period.
+           *
+           * Both off at the API unless sent, and sent only when true — a
+           * period that says nothing gets the API's own default rather than
+           * this screen restating it.
+           */
+          appraiseOwner?: boolean;
+          appraiseHrManager?: boolean;
           periodStart?: string;
           periodEnd?: string;
           instructions?: string;
@@ -2834,6 +2945,8 @@ export function useCycleMutations() {
           ...(options?.managersCanAddQuestions
             ? { managersCanAddQuestions: true }
             : {}),
+          ...(options?.appraiseOwner ? { appraiseOwner: true } : {}),
+          ...(options?.appraiseHrManager ? { appraiseHrManager: true } : {}),
           /* Both or neither, decided here rather than sent half-formed for the
              API to refuse. A dialog that lets somebody fill in one date and
              then reports a server error has asked a question it could have
@@ -2995,6 +3108,9 @@ export function useCycleMutations() {
           departmentIds?: string[];
           remindDaysBefore?: number | null;
           managersCanAddQuestions?: boolean;
+          /** Sent independently: one can change without restating the other. */
+          appraiseOwner?: boolean;
+          appraiseHrManager?: boolean;
           /** Nullable, unlike on create: clearing a period is a real edit. */
           periodStart?: string | null;
           periodEnd?: string | null;

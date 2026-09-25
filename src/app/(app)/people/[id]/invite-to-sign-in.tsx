@@ -60,11 +60,16 @@ import type { PendingInvite, SentInvite } from "@/lib/api/invites";
  * screen is never briefly wrong about what pressing the button will do.
  */
 export function InviteToSignIn({
+  open,
   employeeId,
   name,
   email,
   onClose,
 }: {
+  /* Controlled by `InviteToSignInButton`. This dialog stays mounted at all
+     times so its own exit animation can run when `open` goes false, rather
+     than the button unmounting the whole subtree the instant it does. */
+  open: boolean;
   employeeId: string;
   name: string;
   /** From the record. Null sends them to the editor rather than a text box. */
@@ -105,6 +110,10 @@ export function InviteToSignIn({
   const noEmail = delivery?.email === false;
 
   useEffect(() => {
+    /* This component now stays mounted (see `open` above) so its exit
+       animation can run, so the fetch has to be told to wait for somebody to
+       actually open it rather than firing the moment the record page loads. */
+    if (!open) return;
     const controller = new AbortController();
     void (async () => {
       /* Both reads together — the dialog cannot render until it knows the roles
@@ -146,7 +155,7 @@ export function InviteToSignIn({
       );
     })();
     return () => controller.abort();
-  }, [employeeId]);
+  }, [open, employeeId]);
 
   const send = async () => {
     setBusy(true);
@@ -209,12 +218,12 @@ export function InviteToSignIn({
   };
 
   /* Once it has gone, the dialog stops being a form and becomes a receipt —
-     the same shape the bulk invite uses, and the only place the link appears
-     when no mail transport is wired. */
+     the same shape the bulk invite uses, and where the link is offered whether
+     or not a mail transport carried it. */
   if (sent) {
     return (
       <Modal
-        open
+        open={open}
         onClose={onClose}
         title="Invitation sent"
         footer={<Button onClick={onClose}>Done</Button>}
@@ -235,7 +244,20 @@ export function InviteToSignIn({
             </Callout>
           )}
 
-          {noEmail && <InviteLinkButton userId={sent.userId} name={name} />}
+          {/* Offered on both branches. Where no transport is wired this is the
+              only way in; where one is, it is the way in when the email does
+              not arrive — and "the server sent it" is not the same fact as
+              "they received it". */}
+          <InviteLinkButton
+            userId={sent.userId}
+            name={name}
+            replacesEmail={!noEmail}
+            {...(noEmail
+              ? {}
+              : {
+                  hint: "If it does not reach them, take a link and send it yourself.",
+                })}
+          />
 
           <DeliveryNote
             hint={sent.delivery}
@@ -252,7 +274,7 @@ export function InviteToSignIn({
   if (!email) {
     return (
       <Modal
-        open
+        open={open}
         onClose={onClose}
         title="They have no work email"
         footer={<Button onClick={onClose}>Close</Button>}
@@ -268,7 +290,7 @@ export function InviteToSignIn({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={pending ? `${name} has been invited` : `Invite ${name} to sign in`}
       footer={
@@ -362,18 +384,24 @@ export function InviteToSignIn({
               <Callout tone="warning" title="That link has expired">
                 {noEmail
                   ? "Take a new link below."
-                  : "Sending it again issues a fresh one."}
+                  : "Sending it again issues a fresh one, or take a link below."}
               </Callout>
             )}
-            {/* The way through when nothing can be emailed: the invitation
-                exists and, without this, nobody could ever act on it. */}
-            {noEmail && (
-              <InviteLinkButton
-                userId={pending.userId}
-                name={name}
-                hint="They have an account waiting. This is the link that lets them set a password."
-              />
-            )}
+            {/* This is the state somebody is looking at when they have been
+                told the email never arrived: the account exists, the person
+                cannot get in, and until this came out from behind `noEmail`
+                the only offer on screen was to send the same email again to
+                the same address that already swallowed one. */}
+            <InviteLinkButton
+              userId={pending.userId}
+              name={name}
+              replacesEmail={!noEmail}
+              hint={
+                noEmail
+                  ? "They have an account waiting. This is the link that lets them set a password."
+                  : "If the email never reached them, this is the way in."
+              }
+            />
             {pending.email !== email && email && (
               /* The record has moved on since the invitation went out. This is
                  exactly the case somebody hits when they came here to correct
@@ -440,14 +468,13 @@ export function InviteToSignInButton({
         <KeyRound aria-hidden="true" className="size-3.5" />
         Invite them to sign in
       </Button>
-      {open && (
-        <InviteToSignIn
-          employeeId={employeeId}
-          name={name}
-          email={email}
-          onClose={() => setOpen(false)}
-        />
-      )}
+      <InviteToSignIn
+        open={open}
+        employeeId={employeeId}
+        name={name}
+        email={email}
+        onClose={() => setOpen(false)}
+      />
     </>
   );
 }

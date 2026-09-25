@@ -139,6 +139,17 @@ const NO_DEVICES: ApiAttendanceDevice[] = [];
  */
 export function useAttendanceDevices(
   includeArchived: boolean,
+  /**
+   * Whether to ask at all.
+   *
+   * `GET /attendance/devices` needs `MANAGE_SETTINGS` — the same permission
+   * registering one needs, so there is no reader who may see the list and not
+   * change it. Asking without it is a guaranteed 403, and the refusal then has
+   * to be rendered as something, which is how the screen came to claim there
+   * were no terminals to somebody who had just been refused the list. Decide
+   * once, do not ask, and say so once. Same shape as `useAttendanceRoster`.
+   */
+  enabled = true,
 ): DeviceListState {
   const { isConnected } = useSession();
   const demo = useSyncExternalStore(
@@ -158,7 +169,7 @@ export function useAttendanceDevices(
   const revalidation = useRevalidation();
 
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !enabled) return;
     let cancelled = false;
     const controller = new AbortController();
     void (async () => {
@@ -184,7 +195,7 @@ export function useAttendanceDevices(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, includeArchived, key, revalidation]);
+  }, [isConnected, enabled, includeArchived, key, revalidation]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 

@@ -17,9 +17,11 @@ import { ApiError } from "@/lib/api/client";
 import { geofenceRefusal, type ApiClockResult } from "@/lib/api/attendance";
 import { PositionError } from "@/lib/geolocation";
 import {
+  defaultClockLocationId,
   STATUS_LABEL,
   useAttendanceMutations,
   useAttendanceRoster,
+  useLastClockLocation,
   useWorkLocations,
 } from "@/lib/store/attendance";
 import { useCan } from "@/lib/permissions";
@@ -31,12 +33,15 @@ import { DayTimer } from "@/app/(app)/people/attendance/day-timer";
  * share one implementation rather than two that can disagree about what
  * "clocked in" means.
  *
- * `onRecorded` is for a page that also holds its own copy of related data —
- * `/people/attendance` reloads its 15-day timesheet on top of this card's own
- * roster reload, because a clock event this card causes should be reflected
- * there too. The dashboard has nothing else to refresh, so it passes nothing.
+ * It takes no "and now refresh that too" callback, and deliberately does not
+ * refresh anything itself. It used to do both: an `onRecorded` prop that
+ * `/people/attendance` used to reload its timesheet, on top of this card
+ * reloading its own roster. `announceClock()` inside the mutation replaced all
+ * of it — a call site cannot forget a panel it has never heard of — and the
+ * leftovers were not merely redundant, they were aborting the request the
+ * announcement had started. See the note in `run` below.
  */
-export function MyClockCard({ onRecorded }: { onRecorded?: () => void } = {}) {
+export function MyClockCard() {
   const roster = useAttendanceRoster();
   const locations = useWorkLocations();
   const { clockIn, clockOut, undoClockOut } = useAttendanceMutations();
@@ -58,11 +63,19 @@ export function MyClockCard({ onRecorded }: { onRecorded?: () => void } = {}) {
     (row) => row.employeeId === session.employeeId,
   );
 
-  /* Derived rather than stored, so the first location to arrive becomes the
+  /* Still derived rather than stored, so a location arriving late becomes the
      default without a setState in an effect. The ids differ between the two
      modes — uuids from the API, `loc-hq` from the seed — so nothing may
-     hardcode one. */
-  const locationId = picked ?? locations.locations[0]?.id ?? "";
+     hardcode one, and the remembered id is checked against the live list
+     rather than trusted. `defaultClockLocationId` is shared with `ClockMenu`:
+     two copies of "which one is preselected" is how the navbar and this card
+     come to disagree about where somebody is about to clock in. */
+  const remembered = useLastClockLocation();
+  const locationId = defaultClockLocationId(
+    locations.locations,
+    remembered,
+    picked,
+  );
   /* The row, not the id: `clockIn` needs to know whether this location's fence
      is enforced before it decides to ask the browser where the device is. */
   const selected = locations.locations.find((l) => l.id === locationId) ?? null;
@@ -105,8 +118,25 @@ export function MyClockCard({ onRecorded }: { onRecorded?: () => void } = {}) {
         tone: "success",
         detail: detail(result),
       });
-      roster.reload();
-      onRecorded?.();
+      /* Nothing is reloaded here on purpose.
+         -----------------------------------
+         `announceClock()` inside the mutation has already invalidated every
+         attendance read in the app, and it does it the way the bus documents:
+         by bumping a generation that sits in each fetch effect's *dependency
+         list* and not in the key those hooks compare during render.
+
+         A `reload()` here bumps the key instead, and that is actively worse
+         than doing nothing. It re-runs the effect, whose cleanup **aborts the
+         request the announcement just started**; and because the displayed
+         data no longer matches the new key, the panel treats what is on screen
+         as stale. So the answer that was already in flight got thrown away and
+         the table sat on the old row until a second round trip finished.
+
+         Measured on this screen before the calls came out: the clock-out POST
+         answered at 101ms, six reads fired at ~400ms, all six landed by 650ms
+         — and the table did not change until **937ms**, because it was waiting
+         on a second burst the reload had forced. Five roster GETs went out for
+         one clock-out. */
     } catch (error) {
       const position = error instanceof PositionError ? error : null;
       const fence = geofenceRefusal(error);
@@ -175,45 +205,78 @@ export function MyClockCard({ onRecorded }: { onRecorded?: () => void } = {}) {
 
   return (
     <Card>
-      <CardBody className="flex flex-wrap items-center gap-4">
-        <Avatar
-          name={session.displayName ?? myRow?.employeeName ?? "You"}
-          size="md"
-        />
-        <div className="min-w-0 flex-1">
-          <p className="text-body font-semibold">
-            {session.displayName ?? myRow?.employeeName ?? "Your day"}
-          </p>
-          <p className="mt-0.5 text-body-sm text-muted">
-            {myRow?.clockIn
-              ? myRow.clockOut
-                ? `In at ${myRow.clockIn}, out at ${myRow.clockOut}.`
-                : `In at ${myRow.clockIn}.`
-              : nothingToClock && myRow
-                ? `${STATUS_LABEL[myRow.status]} today: nothing to clock.`
-                : "You have not clocked in today."}
-          </p>
+      {/* Three zones — who you are, when you are expected, what you press —
+          laid out as a column that becomes a row at `lg`.
 
-          {/* Bold and ahead of the click, not a caption after it: the
+          It was a single `flex-wrap` row at every width, which is what made
+          this card the worst-looking thing on the dashboard. Wrapping decides
+          the break points by arithmetic on content widths, so the three zones
+          broke in whatever order they happened to overflow in: at the half
+          width the widget used to have, the name column was squeezed to about
+          200px and "Expected 08:00–17:00 · 15 min grace" came apart across
+          three lines while the location picker sat beside it. A column that
+          becomes a row breaks where somebody decided it should.
+
+          `items-start` rather than `items-center` in the stacked direction:
+          centring a two-line status against a one-line action puts the button
+          halfway up the card. */}
+      <CardBody className="flex flex-col items-start gap-5 lg:flex-row lg:items-center lg:gap-6">
+        <div className="flex min-w-0 w-full items-start gap-4 lg:w-auto lg:flex-1">
+          <Avatar
+            name={session.displayName ?? myRow?.employeeName ?? "You"}
+            size="lg"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-body-lg font-semibold text-ink">
+              {session.displayName ?? myRow?.employeeName ?? "Your day"}
+            </p>
+            <p className="mt-0.5 text-body-sm text-muted">
+              {myRow?.clockIn
+                ? myRow.clockOut
+                  ? `In at ${myRow.clockIn}, out at ${myRow.clockOut}.`
+                  : `In at ${myRow.clockIn}.`
+                : nothingToClock && myRow
+                  ? `${STATUS_LABEL[myRow.status]} today: nothing to clock.`
+                  : "You have not clocked in today."}
+            </p>
+
+            {/* Bold and ahead of the click, not a caption after it: the
               question this answers is "what time do I need to be here",
               and that only matters before somebody has clocked in. Once
               `myRow.clockIn` exists the actual time already answers it, and
               showing both would leave two clocks on the card disagreeing
               about which one is real. Absent, not a guessed 08:00–17:00,
               when the policy has not loaded yet. */}
-          {!myRow?.clockIn && !nothingToClock && policy && (
-            <p className="mt-1 flex items-center gap-1.5 text-body font-semibold text-ink">
-              <Clock aria-hidden="true" className="size-4 text-accent-text" />
-              Expected {policy.shiftStart}–{policy.shiftEnd}
-              {policy.graceMinutes > 0 && (
-                <span className="text-body-sm font-normal text-muted">
-                  · {policy.graceMinutes} min grace
-                </span>
-              )}
-            </p>
-          )}
+            {!myRow?.clockIn && !nothingToClock && policy && (
+              /* A chip, and every part of it `whitespace-nowrap`.
+               ----------------------------------------------------
+               The old markup was a flex row whose *text node* was one flex
+               item and whose grace note was another, so a narrow column broke
+               it between "Expected" and the hours and then orphaned "· 15 min
+               grace" in a column of its own. Two nowrap spans wrap as whole
+               phrases or not at all, and the times can no longer be split from
+               the word that says what they are.
 
-          {/* Only while the clock is running.
+               The separator went with it: a leading "·" at the start of a
+               wrapped line is punctuation pointing at nothing, and the chip
+               already groups the two. */
+              <p className="mt-2 inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg bg-sunken px-2.5 py-1.5">
+                <Clock
+                  aria-hidden="true"
+                  className="size-4 shrink-0 text-accent-text"
+                />
+                <span className="font-semibold whitespace-nowrap text-ink">
+                  Expected {policy.shiftStart}–{policy.shiftEnd}
+                </span>
+                {policy.graceMinutes > 0 && (
+                  <span className="text-body-sm whitespace-nowrap text-muted">
+                    {policy.graceMinutes} min grace
+                  </span>
+                )}
+              </p>
+            )}
+
+            {/* Only while the clock is running.
               ----------------------------------
               The reported problem was that clocking in "looked like nothing
               happened" — a static "Still clocked in" is a state, and a
@@ -223,14 +286,15 @@ export function MyClockCard({ onRecorded }: { onRecorded?: () => void } = {}) {
               Absent once clocked out, because a finished day is a stored
               fact and a ticking readout of it would imply otherwise. The
               totals below are the record. */}
-          {myRow?.clockIn && !myRow.clockOut && (
-            <DayTimer
-              clockIn={myRow.clockIn}
-              serverTime={roster.time}
-              policy={policy}
-              className="mt-1.5"
-            />
-          )}
+            {myRow?.clockIn && !myRow.clockOut && (
+              <DayTimer
+                clockIn={myRow.clockIn}
+                serverTime={roster.time}
+                policy={policy}
+                className="mt-1.5"
+              />
+            )}
+          </div>
         </div>
 
         {policy && !policy.selfServiceClockIn ? (
@@ -239,7 +303,10 @@ export function MyClockCard({ onRecorded }: { onRecorded?: () => void } = {}) {
           </p>
         ) : (
           !nothingToClock && (
-            <div className="flex flex-wrap items-end gap-2">
+            /* Full width while stacked so the control and the button are not
+               a lonely pair under a wide card, and its natural width once it
+               sits beside the identity zone. */
+            <div className="flex w-full flex-wrap items-end gap-3 lg:w-auto lg:shrink-0 lg:justify-end">
               {!myRow?.clockIn && locations.locations.length > 0 && (
                 <Field
                   label="Where"

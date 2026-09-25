@@ -32,12 +32,14 @@ import {
 export function AddPeopleDialog({
   role,
   roleIds,
+  open,
   onClose,
   onAdd,
 }: {
   role: RoleView;
   /** Every role's id. The union of their members is the account list. */
   roleIds: string[];
+  open: boolean;
   onClose: () => void;
   onAdd: (userIds: string[]) => Promise<boolean>;
 }) {
@@ -74,7 +76,7 @@ export function AddPeopleDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Add people to ${role.name}`}
       description={`They get everything this role can do${

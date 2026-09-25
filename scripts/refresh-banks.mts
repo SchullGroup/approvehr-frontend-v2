@@ -64,6 +64,11 @@ if (all.length === 0) {
 
 const kept = all
   .filter(payable)
+  /* Trimmed at the source. Paystack ship at least one name with a trailing
+     space ("Alert MFB "), and a label carrying invisible whitespace is a row
+     that displays correctly and resolves to nothing — `bankCodeFor` compares
+     against it, and one space means an ordinary bank cannot be verified. */
+  .map((bank) => ({ ...bank, name: bank.name.trim() }))
   .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
 const before = await existing();

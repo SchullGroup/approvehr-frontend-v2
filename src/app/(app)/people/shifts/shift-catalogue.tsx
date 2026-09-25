@@ -289,22 +289,23 @@ export function ShiftCatalogue({
         </Card>
       </div>
 
-      {shiftForm && (
-        <ShiftForm
-          state={shiftForm}
-          onClose={() => setShiftForm(null)}
-          onDone={onChanged}
-        />
-      )}
+      {/* Neither form early-returns on its own state any more — `Modal`
+          inside each decides visibility from its own `open` prop, so both
+          stay mounted and keep receiving the real boolean. */}
+      <ShiftForm
+        open={shiftForm !== null}
+        state={shiftForm}
+        onClose={() => setShiftForm(null)}
+        onDone={onChanged}
+      />
 
-      {patternForm && (
-        <PatternForm
-          state={patternForm}
-          shifts={shifts.filter((row) => !row.archived)}
-          onClose={() => setPatternForm(null)}
-          onDone={onChanged}
-        />
-      )}
+      <PatternForm
+        open={patternForm !== null}
+        state={patternForm}
+        shifts={shifts.filter((row) => !row.archived)}
+        onClose={() => setPatternForm(null)}
+        onDone={onChanged}
+      />
 
       <ConfirmDialog
         open={archiving !== null}
@@ -334,17 +335,19 @@ export function ShiftCatalogue({
 /* ---------------------------------------------------------------- shift form */
 
 function ShiftForm({
+  open,
   state,
   onClose,
   onDone,
 }: {
-  state: { mode: "new" } | { mode: "edit"; shift: ApiShift };
+  open: boolean;
+  state: { mode: "new" } | { mode: "edit"; shift: ApiShift } | null;
   onClose: () => void;
   onDone: () => void;
 }) {
   const toast = useToast();
   const { createShift, updateShift } = useShiftMutations();
-  const existing = state.mode === "edit" ? state.shift : null;
+  const existing = state?.mode === "edit" ? state.shift : null;
 
   const [name, setName] = useState(existing?.name ?? "");
   const [shortName, setShortName] = useState(existing?.shortName ?? "");
@@ -391,7 +394,7 @@ function ShiftForm({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={existing ? `Edit ${existing.name}` : "Add a shift"}
       size="md"
@@ -486,19 +489,21 @@ const REST = "";
  * nothing can disagree about how long the cycle runs.
  */
 function PatternForm({
+  open,
   state,
   shifts,
   onClose,
   onDone,
 }: {
-  state: { mode: "new" } | { mode: "edit"; pattern: ApiPattern };
+  open: boolean;
+  state: { mode: "new" } | { mode: "edit"; pattern: ApiPattern } | null;
   shifts: ApiShift[];
   onClose: () => void;
   onDone: () => void;
 }) {
   const toast = useToast();
   const { createPattern, updatePattern } = useShiftMutations();
-  const existing = state.mode === "edit" ? state.pattern : null;
+  const existing = state?.mode === "edit" ? state.pattern : null;
 
   const [name, setName] = useState(existing?.name ?? "");
   const [days, setDays] = useState<string[]>(
@@ -553,7 +558,7 @@ function PatternForm({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={existing ? `Edit ${existing.name}` : "Add a cycle"}
       size="lg"

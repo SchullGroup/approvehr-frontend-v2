@@ -389,7 +389,7 @@ export function DocumentsScreen() {
                     key={person.id}
                     className="flex items-center justify-between gap-3 rounded-md border border-line p-3"
                   >
-                    <span className="min-w-0 truncate text-body text-ink">
+                    <span className="min-w-0 truncate text-ink">
                       {person.name}
                     </span>
                     <Button
@@ -407,55 +407,53 @@ export function DocumentsScreen() {
         </Card>
       </PageBody>
 
-      {asking && (
-        <AskForDocumentModal
-          people={people}
-          initial={asking}
-          onClose={() => setAsking(null)}
-          onAsk={async (body) => {
-            const created = await register.ask(body);
-            setAsking(null);
-            void expiring.reload();
-            if (created.notifiedEmployee) {
-              toast.push({
-                title: `Asked ${firstNameOf(created.employeeName)}`,
-                tone: "success",
-                detail: "It is in their ApproveHR inbox.",
-              });
-            } else {
-              /* Honest, and actionable: HR would otherwise wait on somebody who
-                 was never told. */
-              toast.push({
-                title: `${firstNameOf(created.employeeName)} has no login yet`,
-                tone: "warning",
-                detail:
-                  "Nothing was sent. Use Remind to get the message to them.",
-              });
-            }
-          }}
-        />
-      )}
+      <AskForDocumentModal
+        open={asking !== null}
+        people={people}
+        initial={asking}
+        onClose={() => setAsking(null)}
+        onAsk={async (body) => {
+          const created = await register.ask(body);
+          setAsking(null);
+          void expiring.reload();
+          if (created.notifiedEmployee) {
+            toast.push({
+              title: `Asked ${firstNameOf(created.employeeName)}`,
+              tone: "success",
+              detail: "It is in their ApproveHR inbox.",
+            });
+          } else {
+            /* Honest, and actionable: HR would otherwise wait on somebody who
+               was never told. */
+            toast.push({
+              title: `${firstNameOf(created.employeeName)} has no login yet`,
+              tone: "warning",
+              detail:
+                "Nothing was sent. Use Remind to get the message to them.",
+            });
+          }
+        }}
+      />
 
-      {reminding && (
-        <RemindModal
-          request={reminding}
-          onClose={() => setReminding(null)}
-          onRemind={register.remind}
-        />
-      )}
+      <RemindModal
+        open={reminding !== null}
+        request={reminding}
+        onClose={() => setReminding(null)}
+        onRemind={register.remind}
+      />
 
-      {waiving && (
-        <WaiveModal
-          request={waiving}
-          onClose={() => setWaiving(null)}
-          onWaive={async (reason) => {
-            await register.waive(waiving.id, reason);
-            setWaiving(null);
-            void expiring.reload();
-            toast.push({ title: "Dropped", tone: "success" });
-          }}
-        />
-      )}
+      <WaiveModal
+        open={waiving !== null}
+        request={waiving}
+        onClose={() => setWaiving(null)}
+        onWaive={async (reason) => {
+          if (!waiving) return;
+          await register.waive(waiving.id, reason);
+          setWaiving(null);
+          void expiring.reload();
+          toast.push({ title: "Dropped", tone: "success" });
+        }}
+      />
 
       <EmployeeFileDrawer
         employeeId={openFile}

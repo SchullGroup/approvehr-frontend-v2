@@ -14,8 +14,10 @@ import { ApiError } from "@/lib/api/client";
 import { geofenceRefusal, type ApiClockResult } from "@/lib/api/attendance";
 import { PositionError } from "@/lib/geolocation";
 import {
+  defaultClockLocationId,
   STATUS_LABEL,
   useAttendanceMutations,
+  useLastClockLocation,
   useWorkLocations,
   type RosterState,
 } from "@/lib/store/attendance";
@@ -156,7 +158,12 @@ function ClockPanel({
     (row) => row.employeeId === session.employeeId,
   );
 
-  const locationId = picked ?? locations.locations[0]?.id ?? "";
+  const remembered = useLastClockLocation();
+  const locationId = defaultClockLocationId(
+    locations.locations,
+    remembered,
+    picked,
+  );
   const selected = locations.locations.find((l) => l.id === locationId) ?? null;
 
   const nothingToClock =
@@ -177,7 +184,9 @@ function ClockPanel({
         tone: "success",
         detail: detail(result),
       });
-      roster.reload();
+      /* No reload — see the note in `my-clock-card.tsx`. The mutation has
+         already announced, and a `reload()` here aborts the fetch that
+         announcement started. */
       onDone();
     } catch (error) {
       const position = error instanceof PositionError ? error : null;

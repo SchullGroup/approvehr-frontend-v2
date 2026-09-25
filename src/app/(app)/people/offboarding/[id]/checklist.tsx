@@ -139,6 +139,10 @@ export function Checklist({
 
       {recording && (
         <OutcomeDialog
+          /* Keyed so recording an outcome for a different task remounts with
+             fresh state, rather than deriving state from props during
+             render. */
+          key={recording.id}
           task={recording}
           onClose={() => setRecording(null)}
           onSave={async (body) => {
@@ -152,6 +156,9 @@ export function Checklist({
 
       {handing && (
         <HandOverDialog
+          /* Keyed so handing over a different task remounts with fresh
+             state, rather than deriving state from props during render. */
+          key={handing.id}
           task={handing}
           onClose={() => setHanding(null)}
           onSave={async (assigneeId) => {

@@ -254,16 +254,20 @@ export function ReportBuilderScreen() {
           </div>
         )}
       </PageBody>
-      {saving && definition && (
-        <SaveDialog
-          definition={definition}
-          onClose={() => setSaving(false)}
-          onDone={() => {
-            setSaving(false);
-            saved.reload();
-          }}
-        />
-      )}
+      {/* Always mounted: `Modal` decides from `open` whether to render.
+          `definition` folds in — its check here is unrelated to `open`: it
+          can go null after a run if the reader changes dataset/columns
+          without re-running, which `SaveDialog` cannot act on regardless of
+          whether the dialog is showing. */}
+      <SaveDialog
+        open={saving && definition !== null}
+        definition={definition}
+        onClose={() => setSaving(false)}
+        onDone={() => {
+          setSaving(false);
+          saved.reload();
+        }}
+      />
     </>
   );
 }
@@ -614,11 +618,14 @@ function SavedRow({
 }
 
 function SaveDialog({
+  open,
   definition,
   onClose,
   onDone,
 }: {
-  definition: ApiReportDefinition;
+  open: boolean;
+  /** Null while closed, or if the reader has since invalidated the run. */
+  definition: ApiReportDefinition | null;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -632,7 +639,7 @@ function SaveDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Save this report"
       description="The question, not the answer. Running it later reads again."
@@ -644,6 +651,7 @@ function SaveDialog({
             disabled={name.trim() === ""}
             onClick={() => {
               void (async () => {
+                if (!definition) return;
                 setBusy(true);
                 setFailure(null);
                 try {

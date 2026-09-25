@@ -16,7 +16,7 @@ it appears.
 [The whole thing on one line](#3-the-whole-thing-on-one-line) ·
 [The walkthrough](#4-the-walkthrough) ·
 [Four seats](#5-the-same-period-from-four-seats) ·
-[Eight surprises](#6-eight-things-that-will-surprise-you) ·
+[Nine surprises](#6-nine-things-that-will-surprise-you) ·
 [What the badges mean](#7-what-the-badges-in-this-document-actually-mean) ·
 [A twenty-minute demo](#8-a-twenty-minute-demo-in-order)
 
@@ -248,14 +248,14 @@ never can.
 Name it something people will recognise in their inbox — they see this and nothing else. Everything
 except the name is optional and can be filled in later.
 
-|                |                                                                                                |
-| -------------- | ---------------------------------------------------------------------------------------------- |
-| **Where**      | `/performance` or `/performance/periods`                                                       |
-| **Who**        | HR / Owner                                                                                     |
-| **Click**      | **Start an appraisal period** — top right of either screen                                     |
+| | |
+|---|---|
+| **Where** | `/performance` or `/performance/periods` |
+| **Who** | HR / Owner |
+| **Click** | **Start an appraisal period** — top right of either screen |
 | **You'll see** | A dialog with **What to call it**, the dates, **Answers due by**, and three collapsed sections |
 
-The three collapsed sections, in the order you meet them:
+The five collapsed sections, in the order you meet them:
 
 - **What to tell people** — instructions shown above the first question on everybody's form, plus a
   link to your own guide if you have one. This is your only chance to frame the exercise, and most
@@ -263,6 +263,11 @@ The three collapsed sections, in the order you meet them:
 - **Who it covers** — everybody, unless you tick specific departments.
 - **Chase people automatically** — one reminder, some number of days before the deadline. It needs a
   due date above to count back from.
+- **Let managers add their own questions** — a line manager may add one of their own on top of the
+  standard set, asked only of their own department and never the whole company. The same switch sits
+  on the period itself; step 7.
+- **Appraise the Owner and the HR manager** — two boxes, **both off**, and the closed section reads
+  *Nobody* until you tick one. Step 8 is what leaving them off actually does.
 
 > ⚠️ **Careful.** The button reads "Start an appraisal period" but it only _creates_ one. Nothing is
 > sent and nobody is told. Starting it is a separate press, three steps from here.
@@ -315,12 +320,12 @@ The three settings on a question:
 A switch on the period. With it on, a line manager can add a question of their own on top of the
 standard set, scoped to their own team only.
 
-|                |                                                                                   |
-| -------------- | --------------------------------------------------------------------------------- |
-| **Where**      | `/performance/periods/{id}`                                                       |
-| **Who**        | HR / Owner                                                                        |
-| **Click**      | The toggle reading **Let managers add their own questions, scoped to their team** |
-| **You'll see** | Nothing changes on this screen. It changes what a manager is offered on theirs    |
+| | |
+|---|---|
+| **Where** | `/performance/periods/{id}` |
+| **Who** | HR / Owner |
+| **Click** | The toggle reading **Let managers add their own questions, scoped to their team** |
+| **You'll see** | Nothing changes on this screen. It changes what a manager is offered on theirs |
 
 ### Phase C — before you start it: set the targets, and get them agreed
 
@@ -328,7 +333,7 @@ This is the half of the module people skip, and skipping it is what produces an 
 defend. An objective that was never agreed is never scored — it will simply be absent from the mark,
 silently.
 
-#### 8. Create an objective
+#### 9. Create an objective
 
 Objectives sit in a tree. A company objective at the top, department objectives under it, one
 person's objectives under those. You can start anywhere.
@@ -348,7 +353,7 @@ person's objectives under those. You can start anywhere.
 > department you head. Not the whole company — unless you hold the records permission, in which case
 > it is everybody. If somebody you expect is missing from the list, that is why.
 
-#### 9. Put a number on it
+#### 10. Put a number on it
 
 A measure is what makes progress track itself. Without one, somebody has to state a figure by hand
 at the end.
@@ -364,7 +369,7 @@ at the end.
 > go down** and progress becomes how far it has fallen. Without the tick, a target below the start is
 > refused with an explanation rather than silently scored backwards.
 
-#### 10. _Optional_ — give the same objective to several people at once
+#### 10. *Optional* — give the same objective to several people at once
 
 Word it once; each person gets their own copy to track separately.
 
@@ -375,7 +380,7 @@ Word it once; each person gets their own copy to track separately.
 | **Click**      | **Give a KPI to people**, tick the names, confirm        |
 | **You'll see** | The button counts what it will do — _Assign to 4 people_ |
 
-#### 11. Send it to be agreed
+#### 12. Send it to be agreed
 
 Until this is pressed the objective is a private draft. It is not in anybody's queue and it cannot
 be scored.
@@ -391,7 +396,7 @@ be scored.
 > and it appears in your manager's **Waiting on you** at the same moment. Showing both sides of that
 > is the single most convincing thing in a demo.
 
-#### 12. Agree it — as the other person
+#### 13. Agree it — as the other person
 
 Sign in as the manager. This is the queue screen, and it has one job.
 
@@ -427,7 +432,7 @@ flowchart TD
 Starting is the point of no return. It writes a form for every employee who is not archived or
 exited, tells them in the app, and the period can never be deleted again.
 
-#### 13. Start the period
+#### 14. Start the period
 
 |                |                                                                                      |
 | -------------- | ------------------------------------------------------------------------------------ |
@@ -448,7 +453,7 @@ exited, tells them in the app, and the period can never be deleted again.
 > ⚠️ **Nothing here sends email.** People are told inside the app only. If your walkthrough audience
 > expects an email to arrive, say so before you press it.
 
-#### 14. Fill in a self-review — as an ordinary employee
+#### 15. Fill in a self-review — as an ordinary employee
 
 Sign in as somebody with no special permissions. This is what 90% of the company will ever see of
 the module, so it is worth walking properly.
@@ -467,7 +472,7 @@ the module, so it is worth walking properly.
 - Questions marked as required must be answered before Send will work. The screen counts what is
   still missing.
 
-#### 15. _Optional_ — log what you did each week
+#### 15. *Optional* — log what you did each week
 
 A separate, ongoing loop that runs all year rather than at appraisal time. Staff log a line of what
 they did against an objective; their manager grades it. It is the evidence behind a delivery score.
@@ -479,7 +484,7 @@ they did against an objective; their manager grades it. It is the evidence behin
 | **Click**      | Pick an objective, write what you did, log it. The manager sees it under _Waiting on a grade_ |
 | **You'll see** | Rows grouped by the day each task was _logged_ — not the week it covers                       |
 
-#### 16. Chase the people who have not sent theirs
+#### 17. Chase the people who have not sent theirs
 
 |                |                                                                                                         |
 | -------------- | ------------------------------------------------------------------------------------------------------- |
@@ -492,7 +497,7 @@ they did against an objective; their manager grades it. It is the evidence behin
 > so as its own line rather than quietly counting them as reached. It is a small thing that a careful
 > PM will notice and like.
 
-#### 17. Move it to manager review
+#### 18. Move it to manager review
 
 |                |                                                                         |
 | -------------- | ----------------------------------------------------------------------- |
@@ -503,7 +508,7 @@ they did against an objective; their manager grades it. It is the evidence behin
 
 > 🛑 **One-way.** There is no button that moves a stage backwards, in this screen or anywhere else.
 
-#### 18. Write a review of somebody — as their manager
+#### 19. Write a review of somebody — as their manager
 
 |                |                                                                                                   |
 | -------------- | ------------------------------------------------------------------------------------------------- |
@@ -521,7 +526,7 @@ they did against an objective; their manager grades it. It is the evidence behin
 > Lagos migration was difficult"_ and watch it correctly say nothing. This runs entirely inside the
 > product — no written appraisal comment is sent anywhere.
 
-#### 19. Record competency levels
+#### 20. Record competency levels
 
 Separate from the review form, and easy to forget. A person with no competency ratings gets a mark
 built from their objectives alone.
@@ -533,10 +538,10 @@ built from their objectives alone.
 | **Click**      | **Record a level** → who, which skill, where they are now, where they should be |
 | **You'll see** | The _Below target_ count and the department heatmap both move as you record     |
 
-> 🛑 **The same trap as step 8.** **Scored in** is on this dialog too. Leave it blank and the level is
+> 🛑 **The same trap as step 9.** **Scored in** is on this dialog too. Leave it blank and the level is
 > recorded but counts towards no period's mark.
 
-#### 20. _Optional_ — ask colleagues for feedback
+#### 20. *Optional* — ask colleagues for feedback
 
 |                |                                                                                          |
 | -------------- | ---------------------------------------------------------------------------------------- |
@@ -551,7 +556,7 @@ Calibration is the stage where a company looks at every mark side by side and as
 managers have been using the same scale. It is also where a rating stops being a draft and becomes
 the thing a person is told.
 
-#### 21. Move it to calibration
+#### 22. Move it to calibration
 
 |                |                                                                                                               |
 | -------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -564,7 +569,7 @@ the thing a person is told.
 > **Waiting on you** once the period is at calibration. If a manager tells you they cannot see
 > anything to finalise, this is almost always the reason.
 
-#### 22. Move a mark that is out of line
+#### 23. Move a mark that is out of line
 
 One manager marks generously and another marks hard. Calibration is where that is corrected, on the
 record rather than in a corridor.
@@ -580,7 +585,7 @@ record rather than in a corridor.
 > explains the change if anybody asks years later. A few words is refused; the product asks for a
 > sentence.
 
-#### 23. _Optional_ — place people on the nine-box
+#### 23. *Optional* — place people on the nine-box
 
 Performance against potential, on a three-by-three grid. Performance comes from the period; potential
 is a judgement somebody records here.
@@ -596,7 +601,7 @@ is a judgement somebody records here.
 > grid** with which half is missing, rather than being dropped into the bottom-left box. As the screen
 > puts it: an absence is not the bottom of a scale. Most nine-box tools get this wrong.
 
-#### 24. Make a rating final
+#### 25. Make a rating final
 
 The most consequential button in the module. It turns a written review into the rating of record and
 tells the person.
@@ -610,14 +615,14 @@ tells the person.
 
 > 🛑 **It cannot be re-marked afterwards.** The confirmation says so. Once final, the mark cannot be
 > changed, and the person has been told. If a review genuinely needs redoing after this, the only
-> route is step 26.
+> route is step 27.
 
 ### Phase F — the person answers: sign-off, and the two ways it can go
 
 A final rating is not finished until the person it is about has answered it. Leaving it unanswered is
 deliberately not one of the options.
 
-#### 25. Acknowledge, or formally dispute
+#### 26. Acknowledge, or formally dispute
 
 |                |                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------- |
@@ -637,7 +642,7 @@ flowchart TD
 > swapped for the other afterwards. Three separate states exist and the product never confuses them —
 > acknowledged, disputed, and _nobody has asked them yet_, which is the common one.
 
-#### 26. _Optional_ — send one review back to be redone
+#### 26. *Optional* — send one review back to be redone
 
 The escape hatch. It reopens exactly one review so one person can have another pass at it. Nobody
 else's review moves.
@@ -655,7 +660,7 @@ else's review moves.
 
 ### Phase G — close it out: publish, then read what the period actually said
 
-#### 27. Publish the results
+#### 28. Publish the results
 
 |                |                                                                                                                                              |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -668,7 +673,7 @@ else's review moves.
 > anybody is told. Those people go through a whole appraisal period and come out the other side with
 > nothing.
 
-#### 28. Read the period report
+#### 29. Read the period report
 
 |                |                                                                                                                 |
 | -------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -686,7 +691,7 @@ else's review moves.
 > finalised_, and _told, and no answer yet_. Those are the three things that stop a period from being
 > finished.
 
-#### 29. Read one person across every period
+#### 30. Read one person across every period
 
 |                |                                                                                            |
 | -------------- | ------------------------------------------------------------------------------------------ |
@@ -703,7 +708,7 @@ else's review moves.
 > The person themselves sees only finalised marks, and is told how many are withheld. A working
 > figure moves every time somebody records a rating, so they see it when it is final and not before.
 
-#### 30. Start the next one
+#### 31. Start the next one
 
 Back to step 4. On a second period, step 6 collapses to one press of **Copy from**, and phases A and
 B are already done.
@@ -776,21 +781,21 @@ Not a role at all — anybody can be asked, once, about one person.
 
 ---
 
-## 6. Eight things that will surprise you
+## 6. Nine things that will surprise you
 
 Every one of these is deliberate. If you are demonstrating the product, several are worth pointing at
 on purpose — they are the arguments the module is built on.
 
-| What you will notice                                     | Why it is like that                                                                                                                                                                                                |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Nothing sends email.**                                 | People are told inside the app only — starting a period, being nudged, being told a rating is final. Every message that mentions it says so rather than leaving you to find out.                                   |
-| **An empty figure is blank, never 0%.**                  | Nobody scored yet reads _No mark_. A competency nobody rated reads _Nothing recorded_. A zero would be a claim that somebody performed at nothing, which is a completely different fact from nobody having looked. |
-| **Leadership is missing for most people.**               | It is only rated for people who actually manage somebody. For everybody else it is left out of the mark and the rest is reweighted, rather than being scored low.                                                  |
-| **You cannot agree your own objective.**                 | Whatever permissions you hold, your own never appears in your own queue. Same rule as payroll: the person who proposes something is not the person who signs it off.                                               |
-| **An agreed objective cannot be edited.**                | Not the title, not the period, not any target, and no new measure — because adding one changes what delivering it means. **Reopen the target** is the only way through and it records who, when and why.           |
-| **A refusal is final.**                                  | A refused objective cannot be resubmitted. The answer to a refused objective is a _different_ objective, so the refusal stays on the record instead of being written over.                                         |
-| **Changing the weights does not move a running period.** | A period keeps the weights and the scale words it started with. Otherwise a mark somebody was told in March would quietly become a different mark in June.                                                         |
-| **"Finalise" only appears at calibration.**              | A manager at the manager-review stage has nothing to finalise and correctly sees no such button. Move the period to calibration and the rows appear.                                                               |
+| What you will notice | Why it is like that |
+|---|---|
+| **Nothing sends email.** | People are told inside the app only — starting a period, being nudged, being told a rating is final. Every message that mentions it says so rather than leaving you to find out. |
+| **An empty figure is blank, never 0%.** | Nobody scored yet reads *No mark*. A competency nobody rated reads *Nothing recorded*. A zero would be a claim that somebody performed at nothing, which is a completely different fact from nobody having looked. |
+| **Leadership is missing for most people.** | It is only rated for people who actually manage somebody. For everybody else it is left out of the mark and the rest is reweighted, rather than being scored low. |
+| **You cannot agree your own objective.** | Whatever permissions you hold, your own never appears in your own queue. Same rule as payroll: the person who proposes something is not the person who signs it off. |
+| **An agreed objective cannot be edited.** | Not the title, not the period, not any target, and no new measure — because adding one changes what delivering it means. **Reopen the target** is the only way through and it records who, when and why. |
+| **A refusal is final.** | A refused objective cannot be resubmitted. The answer to a refused objective is a *different* objective, so the refusal stays on the record instead of being written over. |
+| **Changing the weights does not move a running period.** | A period keeps the weights and the scale words it started with. Otherwise a mark somebody was told in March would quietly become a different mark in June. |
+| **"Finalise" only appears at calibration.** | A manager at the manager-review stage has nothing to finalise and correctly sees no such button. Move the period to calibration and the rows appear. |
 
 ---
 
@@ -840,7 +845,7 @@ seeded accounts to use.
 
 ---
 
-_Written against the product as it stands on 11 September 2026. Every button label, field name and
+*Written against the product as it stands on 11 September 2026. Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._

@@ -152,10 +152,19 @@ export function AttendanceScreen() {
   const [view, setView] = useState<View>("today");
   const [correcting, setCorrecting] = useState<ApiRosterRow | null>(null);
 
-  const refresh = () => {
-    roster.reload();
-    sheet.reload();
-  };
+  /* Nothing on this screen refreshes itself after a clock or a correction.
+
+     Every mutation that can move these panels calls `announceClock()`, and
+     both reads here subscribe to it — so the screen is already covered, and
+     the explicit reloads that used to sit here were doing harm rather than
+     nothing: they changed each hook's cache key, which aborted the in-flight
+     request the announcement had just started and marked the rows on screen
+     as stale until a second round trip came back. See the note in
+     `my-clock-card.tsx` for the measurement.
+
+     The rule the bus states, and the one those calls broke: the generation
+     belongs in a fetch effect's dependency list, never in the key a hook
+     compares during render to decide whether it is showing current data. */
 
   return (
     <>
@@ -217,7 +226,7 @@ export function AttendanceScreen() {
                 control. Shared with `/dashboard` — see
                 `components/portal/my-clock-card.tsx` for why this used to be
                 inline here and no longer is. */}
-            <MyClockCard onRecorded={refresh} />
+            <MyClockCard />
 
             {/* Everybody clocks in above. Everybody else's day is a different
             question, and only a manager or `EDIT_RECORDS` gets to ask it —
@@ -263,7 +272,6 @@ export function AttendanceScreen() {
           date={roster.date}
           locations={locations.locations}
           onClose={() => setCorrecting(null)}
-          onSaved={refresh}
         />
       )}
     </>
@@ -319,7 +327,7 @@ function NoRecordHere({ canAddPeople }: { canAddPeople: boolean }) {
   return (
     <Card>
       <CardBody className="flex flex-col items-start gap-3">
-        <p className="text-body font-semibold text-ink">
+        <p className="font-semibold text-ink">
           There is no attendance to show you
         </p>
         <p className="max-w-prose text-body-sm leading-relaxed text-body">
@@ -566,7 +574,27 @@ function TodayView({
                   </TD>
                   <TD className="tabular">{row.clockIn ?? "—"}</TD>
                   <TD className="tabular text-muted">
-                    {row.clockOut ?? (row.clockIn ? "still in" : "—")}
+                    {row.clockOut ? (
+                      row.clockOut
+                    ) : row.clockIn ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        {/* A fact about this row — clocked in, nothing clocked
+                            out against it yet — not a page-refresh countdown
+                            this screen does not run. True whether or not
+                            anybody reloads. Ping ring matches `ThinkingState`;
+                            the solid dot matches `Badge`'s own status dot. */}
+                        <span
+                          aria-hidden="true"
+                          className="relative flex size-3 shrink-0 items-center justify-center"
+                        >
+                          <span className="absolute inline-flex size-3 rounded-full bg-success/40 motion-safe:animate-ping" />
+                          <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+                        </span>
+                        still in
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                   </TD>
                   <TD align="right">
                     <RowActions
@@ -877,13 +905,11 @@ function CorrectionDialog({
   date,
   locations,
   onClose,
-  onSaved,
 }: {
   row: ApiRosterRow;
   date: string;
   locations: ApiWorkLocation[];
   onClose: () => void;
-  onSaved: () => void;
 }) {
   const { correct } = useAttendanceMutations();
   const toast = useToast();
@@ -915,7 +941,8 @@ function CorrectionDialog({
         tone: "success",
         detail: "The change and your reason are both on the record.",
       });
-      onSaved();
+      /* `correct` announces, so every attendance read on this screen refetches
+         itself. All this has left to do is shut the dialog. */
       onClose();
     } catch (error) {
       toast.push({

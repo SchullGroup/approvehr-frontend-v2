@@ -34,7 +34,7 @@ export function EmptyState({
           {icon}
         </span>
       )}
-      <h3 className="text-body font-semibold text-ink">{title}</h3>
+      <h3 className="font-semibold text-ink">{title}</h3>
       {description && (
         <p className="mt-1.5 max-w-sm text-body-sm leading-relaxed text-muted">
           {description}

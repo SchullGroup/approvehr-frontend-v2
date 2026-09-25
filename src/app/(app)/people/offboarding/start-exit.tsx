@@ -64,11 +64,13 @@ type Subject =
  * words, so the refusal is shown rather than guessed at.
  */
 export function StartExitDialog({
+  open,
   onClose,
   onStarted,
   employeeId: fixedId,
   employeeName: fixedName,
 }: {
+  open: boolean;
   onClose: () => void;
   onStarted: (exitId: string) => void;
 } & Subject) {
@@ -116,7 +118,7 @@ export function StartExitDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Start an exit"
       description="This builds their leaving checklist straight away."
@@ -151,7 +153,7 @@ export function StartExitDialog({
              There is nothing to fill in here, so there is nothing to label. */
           <div className="flex flex-col gap-1.5">
             <p className="text-body-sm font-medium text-ink">Who is leaving</p>
-            <p className="rounded-md border border-line bg-canvas px-3 py-2 text-body text-ink">
+            <p className="rounded-md border border-line bg-canvas px-3 py-2 text-ink">
               {fixedName}
             </p>
           </div>

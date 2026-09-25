@@ -22,6 +22,7 @@ import { useLeaveStore } from "./leave";
 import { useLeaveBalances } from "./leave-balances";
 import { useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
+import { announceApprovalChange, useApprovalGeneration } from "./approval-bus";
 
 /**
  * Leave, from whichever source is available.
@@ -215,9 +216,14 @@ export function useLeaveRequests(params: LeaveListParams = {}): LeaveListState {
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
+  /* And when a request is raised, decided or withdrawn anywhere in this
+     browser. The sidebar's "pending leave" badge is one of these lists and is
+     mounted by the shell, so the screen that wrote has never heard of it — the
+     same reason the approvals count is on this bus. */
+  const decided = useApprovalGeneration();
   useEffect(() => {
     void load();
-  }, [load, revalidation]);
+  }, [load, revalidation, decided]);
 
   if (!isConnected) {
     /* Demo mode: the same filters, applied in memory. */
@@ -585,7 +591,7 @@ export function useLeaveMutations(): LeaveMutations {
       if (!input.leaveTypeId) {
         throw new ApiError(0, "no_leave_type", "Choose a leave type first.");
       }
-      return leaveApi.create({
+      const created = await leaveApi.create({
         employeeId: input.employeeId,
         leaveTypeId: input.leaveTypeId,
         from: input.from,
@@ -593,6 +599,12 @@ export function useLeaveMutations(): LeaveMutations {
         ...(input.reason ? { reason: input.reason } : {}),
         ...(input.approverId ? { approverId: input.approverId } : {}),
       });
+      /* The API raises the matching `ApprovalRequest` in the same transaction,
+         so this moves an inbox somewhere — usually somebody else's, and on the
+         filer's own screen when they route it to themselves. Announced after
+         the server confirmed it, never beside the attempt. */
+      announceApprovalChange();
+      return created;
     },
     [isConnected, local],
   );
@@ -608,6 +620,7 @@ export function useLeaveMutations(): LeaveMutations {
         decision === "approved" ? "approve" : "decline",
         note,
       );
+      announceApprovalChange();
     },
     [isConnected, local],
   );
@@ -619,6 +632,7 @@ export function useLeaveMutations(): LeaveMutations {
         return;
       }
       await leaveApi.reopen(id);
+      announceApprovalChange();
     },
     [isConnected, local],
   );
@@ -629,7 +643,10 @@ export function useLeaveMutations(): LeaveMutations {
         local.cancel(id);
         return;
       }
+      /* `cancel` sets the mirrored approval row to WITHDRAWN, so this takes
+         the request out of an approver's queue as well as off this screen. */
       await leaveApi.cancel(id);
+      announceApprovalChange();
     },
     [isConnected, local],
   );

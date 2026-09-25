@@ -25,9 +25,12 @@ import {
   kobo,
   naira,
   type ApiApplicationDetail,
+  type ApiInterviewSummary,
   type ApiStage,
   type InterviewKind,
+  type RescheduleInterviewBody,
   type ScorecardRecommendation,
+  type UpdateOfferBody,
 } from "@/lib/api/recruitment";
 import { useCan } from "@/lib/permissions";
 import {
@@ -142,9 +145,13 @@ export function RealPipeline({
   const timeZone = useOrgTimezone();
 
   const [scheduling, setScheduling] = useState(false);
+  const [rescheduling, setRescheduling] = useState<ApiInterviewSummary | null>(
+    null,
+  );
   const [scoring, setScoring] = useState<string | null>(null);
   const [offering, setOffering] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [withdrawingApplication, setWithdrawingApplication] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{
     tone: "success" | "danger";
@@ -188,6 +195,23 @@ export function RealPipeline({
     }
   }
 
+  /* A different fact from `reject`: `ApplicationOutcome` has both `REJECTED`
+     and `WITHDRAWN`, and the two controls must not read as one act wearing
+     two labels — see `WithdrawApplicationDialog` for the wording rule. */
+  async function withdrawApplication(reason: string) {
+    setBusy(true);
+    try {
+      await applications.withdraw(application.id, reason.trim() || undefined);
+      say("success", "Recorded as withdrawn.");
+      setWithdrawingApplication(false);
+      onChanged();
+    } catch (error) {
+      fail(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       {notice && (
@@ -223,6 +247,18 @@ export function RealPipeline({
             >
               Reject
             </Button>
+            {/* `POST /applications/:id/withdraw` is gated on `MANAGE_HIRING`
+                server-side — see `OfferCard`'s comment on the same gate for
+                why this is offered rather than left to 403 on the press. */}
+            {canManage && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setWithdrawingApplication(true)}
+              >
+                Candidate withdrew
+              </Button>
+            )}
           </CardBody>
         </Card>
       )}
@@ -329,6 +365,19 @@ export function RealPipeline({
                     >
                       No-show
                     </Button>
+                    {/* `PATCH /interviews/:id` is gated on `MANAGE_HIRING`
+                        server-side, same as `.complete`/`.noShow` above —
+                        this one is offered on that permission rather than
+                        left to refuse on the press. */}
+                    {canManage && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRescheduling(iv)}
+                      >
+                        Reschedule
+                      </Button>
+                    )}
                   </>
                 )}
               </div>
@@ -337,61 +386,84 @@ export function RealPipeline({
         </CardBody>
       </Card>
 
-      {scheduling && (
-        <ScheduleInterviewDialog
-          onClose={() => setScheduling(false)}
-          onConfirm={async (body) => {
-            try {
-              await interviews.schedule(application.id, body);
-              setScheduling(false);
-              onChanged();
-            } catch (error) {
-              fail(error);
-            }
-          }}
-        />
-      )}
+      {/* Each dialog below stays mounted regardless of its gating state —
+          `Modal` decides whether to render from the real `open` prop, so it
+          can see that value go false and play its own exit animation. */}
+      <ScheduleInterviewDialog
+        open={scheduling}
+        onClose={() => setScheduling(false)}
+        onConfirm={async (body) => {
+          try {
+            await interviews.schedule(application.id, body);
+            setScheduling(false);
+            onChanged();
+          } catch (error) {
+            fail(error);
+          }
+        }}
+      />
 
-      {scoring && (
-        <ScorecardDialog
-          onClose={() => setScoring(null)}
-          onConfirm={async (body) => {
-            try {
-              await interviews.submitScorecard(scoring, body);
-              setScoring(null);
-              onChanged();
-            } catch (error) {
-              fail(error);
-            }
-          }}
-        />
-      )}
+      <RescheduleInterviewDialog
+        open={rescheduling !== null}
+        interview={rescheduling}
+        onClose={() => setRescheduling(null)}
+        onConfirm={async (body) => {
+          if (!rescheduling) return;
+          try {
+            await interviews.reschedule(rescheduling.id, body);
+            setRescheduling(null);
+            onChanged();
+          } catch (error) {
+            fail(error);
+          }
+        }}
+      />
 
-      {offering && (
-        <OfferDialog
-          onClose={() => setOffering(false)}
-          onConfirm={async (amountNaira, startDate) => {
-            try {
-              await offers.create(application.id, {
-                grossMonthlyKobo: kobo(amountNaira),
-                startDate,
-              });
-              setOffering(false);
-              onChanged();
-            } catch (error) {
-              fail(error);
-            }
-          }}
-        />
-      )}
+      <ScorecardDialog
+        open={scoring !== null}
+        onClose={() => setScoring(null)}
+        onConfirm={async (body) => {
+          if (!scoring) return;
+          try {
+            await interviews.submitScorecard(scoring, body);
+            setScoring(null);
+            onChanged();
+          } catch (error) {
+            fail(error);
+          }
+        }}
+      />
 
-      {rejecting && (
-        <RejectDialog
-          busy={busy}
-          onClose={() => setRejecting(false)}
-          onConfirm={reject}
-        />
-      )}
+      <OfferDialog
+        open={offering}
+        onClose={() => setOffering(false)}
+        onConfirm={async (amountNaira, startDate) => {
+          try {
+            await offers.create(application.id, {
+              grossMonthlyKobo: kobo(amountNaira),
+              startDate,
+            });
+            setOffering(false);
+            onChanged();
+          } catch (error) {
+            fail(error);
+          }
+        }}
+      />
+
+      <RejectDialog
+        open={rejecting}
+        busy={busy}
+        onClose={() => setRejecting(false)}
+        onConfirm={reject}
+      />
+
+      <WithdrawApplicationDialog
+        open={withdrawingApplication}
+        busy={busy}
+        onClose={() => setWithdrawingApplication(false)}
+        onConfirm={withdrawApplication}
+      />
     </>
   );
 }
@@ -412,6 +484,8 @@ function OfferCard({
   const offers = useOfferMutations();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [redoing, setRedoing] = useState(false);
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
@@ -425,6 +499,9 @@ function OfferCard({
       setBusy(false);
     }
   }
+
+  const fail = (err: unknown) =>
+    setError(err instanceof ApiError ? err.message : "Something went wrong.");
 
   return (
     <Card>
@@ -466,6 +543,28 @@ function OfferCard({
               Submit for approval
             </Button>
           )}
+          {/* `PATCH /offers/:id` is `MANAGE_HIRING`-gated, same as every
+              other offer write on this card — offered on that permission
+              rather than left to refuse on the press. */}
+          {offer.status === "DRAFT" && canManage && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setEditing(true)}
+            >
+              Edit
+            </Button>
+          )}
+          {(offer.status === "DECLINED" || offer.status === "WITHDRAWN") &&
+            canManage && (
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => setRedoing(true)}
+              >
+                Make a new offer
+              </Button>
+            )}
           {offer.status === "PENDING_APPROVAL" &&
             !offer.approvedAt &&
             canApprove && (
@@ -541,6 +640,46 @@ function OfferCard({
           )}
         </div>
       </CardBody>
+
+      {/* Mounted regardless of `editing`/`redoing` — see the note above
+          `ScheduleInterviewDialog` on why these dialogs stay mounted rather
+          than being conditionally rendered. */}
+      <EditOfferDialog
+        open={editing}
+        offer={offer}
+        onClose={() => setEditing(false)}
+        onConfirm={async (body) => {
+          try {
+            setError(null);
+            await offers.update(offer.id, body);
+            setEditing(false);
+            onChanged();
+          } catch (err) {
+            fail(err);
+          }
+        }}
+      />
+
+      <OfferDialog
+        open={redoing}
+        onClose={() => setRedoing(false)}
+        title="Make a new offer"
+        confirmLabel="Save as draft"
+        help="This starts a fresh draft on the same application — the offer that was declined or withdrawn is replaced, not duplicated. Submit it for approval once you are ready."
+        onConfirm={async (amountNaira, startDate) => {
+          try {
+            setError(null);
+            await offers.redo(offer.id, {
+              grossMonthlyKobo: kobo(amountNaira),
+              startDate,
+            });
+            setRedoing(false);
+            onChanged();
+          } catch (err) {
+            fail(err);
+          }
+        }}
+      />
     </Card>
   );
 }
@@ -548,9 +687,11 @@ function OfferCard({
 /* ------------------------------------------------------------------ dialogs */
 
 function ScheduleInterviewDialog({
+  open,
   onClose,
   onConfirm,
 }: {
+  open: boolean;
   onClose: () => void;
   onConfirm: (body: {
     kind: InterviewKind;
@@ -567,7 +708,7 @@ function ScheduleInterviewDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title="Schedule an interview"
@@ -635,6 +776,188 @@ function ScheduleInterviewDialog({
   );
 }
 
+/**
+ * `2026-09-25T14:00` from an ISO instant — the shape `<input
+ * type="datetime-local">` expects, read through the browser's own local
+ * time. `ScheduleInterviewDialog` makes the identical simplification on the
+ * way back out (`new Date(when).toISOString()`, no org time zone involved),
+ * so this keeps a reschedule consistent with a fresh booking rather than
+ * inventing a second rule.
+ */
+function toDatetimeLocalValue(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
+}
+
+/**
+ * Only the fields that actually changed. `RescheduleInterviewBody` is a
+ * patch, and sending every field back on every save regardless of whether it
+ * moved is the thing this codebase's PATCH endpoints are written not to
+ * expect — see `null` clears / absent leaves alone elsewhere in this app's
+ * PATCH bodies. `location` is the one field that can be *cleared*: an empty
+ * box means "no longer applies," sent as `null`, not left out.
+ */
+function rescheduleDiff(
+  interview: ApiInterviewSummary,
+  kind: InterviewKind,
+  when: string,
+  duration: string,
+  location: string,
+): RescheduleInterviewBody {
+  const body: RescheduleInterviewBody = {};
+
+  if (kind !== interview.kind) body.kind = kind;
+
+  const isoWhen = when ? new Date(when).toISOString() : null;
+  if (isoWhen && isoWhen !== interview.scheduledFor) {
+    body.scheduledFor = isoWhen;
+  }
+
+  const durationNum = Number(duration);
+  if (
+    Number.isFinite(durationNum) &&
+    durationNum > 0 &&
+    durationNum !== interview.durationMins
+  ) {
+    body.durationMins = durationNum;
+  }
+
+  const trimmedLocation = location.trim();
+  const originalLocation = interview.location ?? "";
+  if (trimmedLocation !== originalLocation) {
+    body.location = trimmedLocation === "" ? null : trimmedLocation;
+  }
+
+  return body;
+}
+
+function RescheduleInterviewDialog({
+  open,
+  interview,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  /**
+   * `null` before anything has been picked. The dialog stays mounted either
+   * way — see the note above `ScheduleInterviewDialog`'s call site on why —
+   * so there is nothing to prefill from until a specific interview is
+   * targeted.
+   */
+  interview: ApiInterviewSummary | null;
+  onClose: () => void;
+  onConfirm: (body: RescheduleInterviewBody) => Promise<void>;
+}) {
+  const [kind, setKind] = useState<InterviewKind>("SCREEN");
+  const [when, setWhen] = useState("");
+  const [duration, setDuration] = useState("60");
+  const [location, setLocation] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  /*
+   * One dialog instance is shared across every interview on this record, so
+   * a lazily-initialised `useState` (the pattern `ScreeningDialog` uses,
+   * which only ever has one candidate to describe) would keep showing
+   * whichever interview was rescheduled first. This re-syncs the form
+   * during render whenever a *different* interview is targeted — React's
+   * own documented way to adjust state from a prop without an effect's
+   * extra render — keyed on the id rather than the object, because
+   * `application.interviews` is a fresh array on every reload and would
+   * otherwise overwrite a draft mid-edit.
+   */
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  if (interview && interview.id !== loadedFor) {
+    setLoadedFor(interview.id);
+    setKind(interview.kind);
+    setWhen(toDatetimeLocalValue(interview.scheduledFor));
+    setDuration(String(interview.durationMins));
+    setLocation(interview.location ?? "");
+  }
+
+  const body = interview
+    ? rescheduleDiff(interview, kind, when, duration, location)
+    : {};
+  const hasChanges = Object.keys(body).length > 0;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="md"
+      title="Reschedule this interview"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="accent"
+            loading={busy}
+            disabled={!interview || !when || !hasChanges}
+            onClick={() => {
+              setBusy(true);
+              void onConfirm(body).finally(() => setBusy(false));
+            }}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Field label="Kind">
+          <Select
+            value={kind}
+            onChange={(e) => setKind(e.currentTarget.value as InterviewKind)}
+          >
+            {(Object.keys(INTERVIEW_KIND_LABEL) as InterviewKind[]).map((k) => (
+              <option key={k} value={k}>
+                {INTERVIEW_KIND_LABEL[k]}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="When" required>
+            <Input
+              type="datetime-local"
+              value={when}
+              onChange={(e) => setWhen(e.currentTarget.value)}
+            />
+          </Field>
+          <Field label="Duration (minutes)">
+            <Input
+              inputMode="numeric"
+              value={duration}
+              onChange={(e) => setDuration(e.currentTarget.value)}
+            />
+          </Field>
+        </div>
+        <Field
+          label="Location"
+          optional
+          help="A room, or a call link. Clear it if it no longer applies."
+        >
+          <Input
+            value={location}
+            onChange={(e) => setLocation(e.currentTarget.value)}
+          />
+        </Field>
+        {interview && !hasChanges && (
+          <p className="text-meta text-muted">
+            Nothing here differs from what is already booked.
+          </p>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 const COMPETENCIES = [
   "Technical depth",
   "Communication",
@@ -643,9 +966,11 @@ const COMPETENCIES = [
 ];
 
 function ScorecardDialog({
+  open,
   onClose,
   onConfirm,
 }: {
+  open: boolean;
   onClose: () => void;
   onConfirm: (body: {
     recommendation?: ScorecardRecommendation | null;
@@ -662,7 +987,7 @@ function ScorecardDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title="Submit a scorecard"
@@ -741,12 +1066,26 @@ function ScorecardDialog({
   );
 }
 
+/**
+ * Also does duty for "make a new offer" on a declined or withdrawn offer
+ * (`offers.redo`) — same two fields, same money conversion, a fresh start
+ * rather than a correction. `title`/`confirmLabel`/`help` let that call site
+ * say so without a second copy of the amount-to-kobo logic below.
+ */
 function OfferDialog({
+  open,
   onClose,
   onConfirm,
+  title = "Make an offer",
+  confirmLabel = "Save as draft",
+  help = "Saved as a draft. Submit it for approval once you are ready.",
 }: {
+  open: boolean;
   onClose: () => void;
   onConfirm: (amountNaira: number, startDate: string) => Promise<void>;
+  title?: string;
+  confirmLabel?: string;
+  help?: string;
 }) {
   const [amount, setAmount] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -755,10 +1094,10 @@ function OfferDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
-      title="Make an offer"
+      title={title}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -773,7 +1112,7 @@ function OfferDialog({
               void onConfirm(parsed, startDate).finally(() => setBusy(false));
             }}
           >
-            Save as draft
+            {confirmLabel}
           </Button>
         </>
       }
@@ -794,19 +1133,104 @@ function OfferDialog({
             onChange={(e) => setStartDate(e.currentTarget.value)}
           />
         </Field>
-        <p className="text-meta text-muted">
-          Saved as a draft. Submit it for approval once you are ready.
-        </p>
+        <p className="text-meta text-muted">{help}</p>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Correcting a draft offer's figure before it is submitted — `grossMonthlyKobo`
+ * and/or `startDate`, only the one(s) that changed. Unlike `OfferDialog`
+ * above (blank fields, a fresh start), this is prefilled from the offer on
+ * screen: it is a correction, not a new proposal, so there is something to
+ * show and nothing to retype that did not change.
+ */
+function EditOfferDialog({
+  open,
+  offer,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  offer: NonNullable<ApiApplicationDetail["offer"]>;
+  onClose: () => void;
+  onConfirm: (body: UpdateOfferBody) => Promise<void>;
+}) {
+  const [amount, setAmount] = useState(() =>
+    String(naira(offer.grossMonthlyKobo)),
+  );
+  const [startDate, setStartDate] = useState(offer.startDate);
+  const [busy, setBusy] = useState(false);
+  const parsed = Number(amount.replace(/\D/g, "")) || 0;
+
+  const body: UpdateOfferBody = {};
+  if (parsed > 0 && kobo(parsed) !== offer.grossMonthlyKobo) {
+    body.grossMonthlyKobo = kobo(parsed);
+  }
+  if (startDate && startDate !== offer.startDate) {
+    body.startDate = startDate;
+  }
+  const hasChanges = Object.keys(body).length > 0;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="md"
+      title="Edit this offer"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="accent"
+            loading={busy}
+            disabled={parsed <= 0 || !startDate || !hasChanges}
+            onClick={() => {
+              setBusy(true);
+              void onConfirm(body).finally(() => setBusy(false));
+            }}
+          >
+            Save changes
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Field label="Gross monthly (₦)" required>
+          <Input
+            inputMode="numeric"
+            value={amount}
+            onChange={(e) => setAmount(e.currentTarget.value)}
+            placeholder="1,500,000"
+          />
+        </Field>
+        <Field label="Start date" required>
+          <Input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.currentTarget.value)}
+          />
+        </Field>
+        {!hasChanges && (
+          <p className="text-meta text-muted">
+            Nothing here differs from the offer as it stands.
+          </p>
+        )}
       </div>
     </Modal>
   );
 }
 
 function RejectDialog({
+  open,
   busy,
   onClose,
   onConfirm,
 }: {
+  open: boolean;
   busy: boolean;
   onClose: () => void;
   onConfirm: (reason: string) => void;
@@ -814,7 +1238,7 @@ function RejectDialog({
   const [reason, setReason] = useState("");
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title="Reject this candidate?"
@@ -829,6 +1253,58 @@ function RejectDialog({
             onClick={() => onConfirm(reason)}
           >
             Reject
+          </Button>
+        </>
+      }
+    >
+      <Field label="Reason" optional help="Kept internal.">
+        <Textarea
+          rows={3}
+          value={reason}
+          onChange={(e) => setReason(e.currentTarget.value)}
+        />
+      </Field>
+    </Modal>
+  );
+}
+
+/**
+ * A distinct fact from `RejectDialog` — `ApplicationOutcome` has both
+ * `REJECTED` and `WITHDRAWN` as separate values, and the two controls must
+ * not read as one act wearing two labels. The candidate pulling out on
+ * their own is not the company turning them down, so neither this title nor
+ * its confirm button ever says "declined" or "rejected".
+ */
+function WithdrawApplicationDialog({
+  open,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="md"
+      title="The candidate pulled out?"
+      description="Records that they withdrew on their own, not that the company turned them down. It reads differently everywhere this application appears."
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            loading={busy}
+            onClick={() => onConfirm(reason)}
+          >
+            Record as withdrawn
           </Button>
         </>
       }
@@ -1006,16 +1482,19 @@ export function RealScreening({
         <CvLine storageKey={candidate.cvStorageKey} source={candidate.source} />
       </CardBody>
 
-      {editing && (
-        <ScreeningDialog
-          candidate={candidate}
-          onClose={() => setEditing(false)}
-          onSaved={() => {
-            setEditing(false);
-            onChanged();
-          }}
-        />
-      )}
+      {/* `candidate` is always available here (it comes straight from the
+          `application` prop, not from `editing`), so the only thing this
+          state gates is `open` — `Modal` stays mounted and decides for
+          itself whether to render. */}
+      <ScreeningDialog
+        open={editing}
+        candidate={candidate}
+        onClose={() => setEditing(false)}
+        onSaved={() => {
+          setEditing(false);
+          onChanged();
+        }}
+      />
     </Card>
   );
 }
@@ -1067,10 +1546,12 @@ function CvLine({
  * that only ever added would make a mistyped salary permanent.
  */
 function ScreeningDialog({
+  open,
   candidate,
   onClose,
   onSaved,
 }: {
+  open: boolean;
   candidate: ApiApplicationDetail["candidate"];
   onClose: () => void;
   onSaved: () => void;
@@ -1132,7 +1613,7 @@ function ScreeningDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="What the screener asked"
       description="Leave anything blank that was never asked. Clearing a box removes what was recorded."

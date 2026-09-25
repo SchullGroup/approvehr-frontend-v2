@@ -7237,3 +7237,412 @@ change about fixing thirteen things. Worth doing; worth doing on its own.
   the first field, so a 500 from `POST /cycles` sent somebody off to retype a name
   that was never the problem. Field errors on their field; everything else above
   the form.
+
+---
+
+# A badge that could not hear a decision, a door nobody had built, and a link nobody could click
+
+Four things found by walking the leave module click by click, plus one the
+product owner reported from the performance module. Three of the five are the
+same defect wearing different clothes: a fact was already in hand and the screen
+did not use it.
+
+## The approvals badge stayed at 3 while the inbox showed 2
+
+`useApprovalQueue` holds its own `useState`, so **every call site is a separate
+copy of the queue**. `/approvals` mounts one; `portal/shell.tsx` mounts another
+for the sidebar badge. `decide` ended with `await load()`, which refreshed the
+instance it was called from and no other — so approving from the inbox removed
+the row, fired the toast, and left the badge reading 3 against a queue of 2
+until somebody reloaded the page.
+
+A number on permanent display, contradicting the screen next to it. Reproduced
+before the fix and after it, on a real API — see the verification below.
+
+**The fix is a bus, not a longer list of reloads at the call site.** The longer
+list is what was already wrong: the badge is mounted by the shell and the inbox
+has never heard of it, so the next panel added to either screen would be stale
+again for the same reason. `lib/store/approval-bus.ts` is the same shape
+`store/attendance.ts` settled on for the identical bug one module along — a
+mutation announces, and every reader listens.
+
+Three things worth not undoing:
+
+- **It is its own module.** Two stores publish to it: `approvals-api.ts` when a
+  queue item is decided or reopened, and `leave-api.ts` when a leave request is
+  raised, decided, reopened or withdrawn — because the API mirrors a leave write
+  onto its `ApprovalRequest` row **in the same transaction**, so a leave
+  decision moves the approvals count without going near the queue. A bus living
+  inside either store would make the other import it for one function.
+- **`decide` no longer calls `load()` at all.** It announces, and reloads
+  through its own listener like every other instance. Two paths to one refresh
+  is how they come to disagree about when it happens.
+- **It is deliberately not `lib/revalidate.ts`.** That bus fires on window
+  focus — a guess that something somewhere may have changed, rate-limited
+  because it is a guess. This is a write this browser just made and had
+  confirmed: neither a guess nor frequent, and it re-asks only the reads a
+  decision can actually move.
+
+`useLeaveRequests` listens too, for the sidebar's *other* badge: "pending leave"
+is one of these lists, mounted by the shell, and withdrawing your own request
+would otherwise leave it counting a request that no longer exists.
+
+## Nobody could take their own leave request back
+
+`POST /leave/requests/:id/cancel`, `leaveApi.cancel` and
+`useLeaveMutations().cancel` had all existed for a while and **nothing called
+any of them.** A request filed by mistake, or for dates that moved, could be
+raised and never withdrawn. The drawer's footer was
+`request && canDecide ? … : undefined`, so a plain employee looking at their own
+waiting request got **no footer at all** — the only control was "Close panel".
+
+Fourth instance in this file of a capability present, correct, and findable by
+nobody. The pattern is worth naming again: **a route with no caller looks like a
+working feature, so nobody reports it.**
+
+Four decisions in the control:
+
+- **Their own request only**, although the API also lets `APPROVE_LEAVE_ALL` and
+  `EDIT_RECORDS` cancel on somebody's behalf. Withdrawing and sending back are
+  two different acts with two different records — cancelled is "they changed
+  their mind", declined is "it was refused" — and offering an approver both
+  buttons on one request is how the two come to mean the same thing. An approver
+  has Send back, which is the door for them.
+- **Pending, awaiting HR and approved.** Declined and cancelled rows are left
+  out. The API accepts a cancel on a declined request and it would change
+  nothing anybody can act on — the leave is already not happening, so the button
+  would only rewrite a label. That is a judgement about what the control is
+  *for*, not this screen refusing what the server allows.
+- **It confirms, and the confirmation says the thing that is actually true**:
+  `reopen` needs `APPROVE_LEAVE_ALL`, so the filer genuinely cannot put it back
+  themselves. Without that sentence the step reads as a control you can try.
+  Approved leave gets a different consequence line from waiting leave, because
+  the days are already off the balance and already on the roster.
+- **Both footers can render at once** and that is not a conflict: an approver
+  looking at their own waiting request may approve it or take it back.
+
+## The booking toast named an inbox the reader cannot open
+
+*"It is waiting in your approvals inbox."* — unconditional, for every request,
+whoever raised it and wherever it was routed. An employee filing their own leave
+was told it was sitting in an inbox they have no access to, on a screen with no
+inbox on it. The one thing they wanted to know — **who has it** — was already on
+the response and thrown away.
+
+It reads the row the server sent back: the approver's name when it is somebody
+else, "your approvals inbox" when the filer really is the approver, and
+"Nobody is routed to decide it yet" when `approverFor` resolved nobody. The
+comparison is on `approverId` and never on the name, because a name can be blank
+on a row that is routed perfectly well, and two people can share one.
+
+## A link in the middle of a task was not a link
+
+The product owner's words: *"in performance module, I should be able to click
+the link in task submission, even if the link is in the middle of text."*
+
+An objective task is one line of what you did this week, and what people write is
+*"shipped the retry, PR at https://github.com/…/412, notes in the doc"*. All
+three surfaces rendered `{task.description}` as plain text, so the manager
+grading it had to select a URL out of a sentence and paste it into a bar. **A
+link in the middle of a sentence is the ordinary case, not the edge one** — the
+only time the old rendering was usable was when the whole field was a URL and
+nothing else.
+
+`lib/linked-text.ts` decides where a link starts and stops;
+`components/ui/linked-text.tsx` renders it. Split for the reason
+`lib/performance/review-language.ts` is split from its screens: everything in
+the first file is a decision about a string, and keeping it free of React and of
+the `@/` alias is what lets `scripts/verify-linked-text.ts` drive it rather than
+assert against a copy of it.
+
+Four rules in it:
+
+- **`http://`, `https://` and a bare `www.` host. Nothing else.** That is a
+  safety decision rather than a scope one: this renders text a colleague typed
+  into a free-text box, and autolinking whatever looks like a scheme is how
+  `javascript:` ends up behind something that reads as a URL. The scheme is
+  checked twice — once by the pattern and once by `URL` on the way to the
+  `href` — because the second check is the one that still holds the day somebody
+  widens the first. Tamper-tested by widening the pattern *and* removing the
+  guard together; either alone still refuses.
+- **Trailing punctuation belongs to the sentence.** `see …/report.` links
+  `…/report`, `(…/a)` does not swallow the bracket, and
+  `…/Nigeria_(country)` keeps its own because the bracket was opened inside the
+  link. Getting this wrong produces a 404 for a reason invisible in the text
+  being read.
+- **The pieces concatenate back to the input, exactly**, asserted on every case
+  the gate uses. A splitter that can drop a character is a renderer showing
+  something other than what somebody wrote, which is worse than a missed link.
+- **Not Markdown.** Nothing interprets `*`, `#` or `[]()`. The API stores what
+  was typed and a renderer that quietly ate an asterisk would be showing
+  something other than the record.
+
+`rel="noreferrer noopener"`: the new tab must not reach back through
+`window.opener`, and where somebody works is not this product's to hand to a
+third party.
+
+## Verified
+
+`npm run check` exit 0 — with `verify-linked-text` (57 assertions) added to the
+chain. The 10 lint **warnings** are unused imports in `customize-drawer.tsx`,
+`payments-screen.tsx`, `payslips/[id]/view.tsx`, `runs/new/wizard.tsx`,
+`settings/company/form.tsx` and `store/features.ts`, none of them from here.
+`npm run build` exit 0, 107 prerendered pages, no route added or removed.
+
+**Against the live API on port 8000**, in a browser, as the real seeded people:
+
+- **The toast**: Emeka books his own leave and is told
+  *"2 days for Emeka Anyanwu. It is waiting with Adaeze Okonkwo."* — his actual
+  manager, resolved by the server, where it used to name his own inbox.
+- **Withdraw**: the drawer on Emeka's own request, whose buttons were
+  `["", ""]`, now carries **Withdraw request**; the confirm dialog renders all
+  three sentences; the write lands as `CANCELLED` with the mirrored
+  `ApprovalRequest` moved to `WITHDRAWN`.
+- **The badge**: `My approvals 3` → `My approvals 2` on an approve from the
+  inbox, **with no reload**, read off the nav link itself rather than out of a
+  store.
+- **And the defect reproduced**, which is the half that proves the mechanism:
+  with the bus disconnected from the effect and `await load()` put back, the row
+  goes and the badge stays at **3** — exactly what was reported.
+- **Links**: two tasks logged with a URL mid-sentence render as anchors on
+  `my-tasks.tsx` and `review-tasks.tsx`, with the right `href`, `target="_blank"`
+  and `rel`, and with the trailing comma and full stop left in the sentence.
+
+**Not exercised in a browser: `task-log.tsx`.** It is the same one-token
+substitution inside the same `<span>`, rendering the same `ApiTask.description`,
+and it is covered by the typecheck and by the gate on the splitting logic — but
+the panel lives on an *agreed* objective's card on `/performance/kpis`, which
+shows a manager their reports' objectives and not their own, and the API
+correctly refuses `submitTask` against somebody else's objective
+(*"You can only log tasks against your own objectives."*). Somebody logging a
+task with a link against their own agreed objective should look at it once.
+
+**Demo mode was not exercised**, because the API was up and `useApiReachable`
+correctly reported connected. Nothing here changes the demo path: every
+announcement sits after an `if (!isConnected)` early return, and the demo queue
+already derives live from the persisted leave store.
+
+Every row this session created was removed afterwards — five leave requests,
+their five mirrored approvals, ten notifications, two objective tasks, the task
+submission period they opened and fourteen audit events — and the database was
+diffed back to the ids it started with. One seeded request was approved by
+mistake while targeting a card, and was put back through the product's own
+`reopen` rather than by hand: `PENDING`, with `decidedAt`, `decidedById`,
+`decisionNote` and `firstApprovedAt` all null again, and the notification that
+had told Chidi his leave was approved deleted with it.
+
+## Deliberately not done
+
+- **Adopting the bus in the other stores that a decision moves.** `useLeaveRequestDetail`
+  and the dashboard's own counts are the obvious next two. Each is a judgement
+  about which writes should move which read, not a find-and-replace, and doing
+  them inside a change about four reported defects would widen it.
+- **Collapsing the shell's `useApprovalQueue()` and the inbox's onto one
+  request.** They still fetch separately — two `list` calls and two `summary`
+  calls per decision now. `lib/shared-resource.ts` is the tool and the header of
+  `store/payroll-settings.ts` is the worked example; it is a performance change
+  rather than a correctness one and belongs on its own.
+- **`LinkedText` anywhere else.** A leave reason, a decision note, a helpdesk
+  ticket and an announcement are all free text somebody types a link into. Each
+  is a decision about that surface's layout — `break-all` inside a 340px drawer
+  is not obviously right — and the component is exported and ready.
+- **Offering withdraw to HR on somebody else's behalf.** The API supports it.
+  Reasoned about above: it would blur cancelled and declined, and nobody asked
+  for it.
+
+---
+
+# A period decides separately whether it appraises the Owner and the HR manager
+
+The backend half arrived on `staging` as
+`20260922090000_appraise_owner_and_hr_separately` — two booleans on
+`ReviewCycle`, read by one predicate, `periodSubjectsWhere`, which is what all
+three places that decide who is in a period already share. The API worked and
+**nothing in the product could set either field**, which is the fourth instance
+of the class this file keeps recording: a capability present, correct, and
+reachable by nobody.
+
+## Why the Owner needed excluding at all
+
+`activateCycle` hands a form to everybody the period covers and
+`autoAssignFromReportingLine` puts their line manager on it. The Owner reports
+to nobody, so there is no author to put on theirs — they turned up in every
+period as somebody with no mark and no appraiser, on the exception list the
+cycle screen renders as a blocker, with no way out short of archiving them.
+
+The HR manager is a different problem with the same shape: they write the
+questions, so marking themselves against them is the conflict that "nobody
+agrees their own objective" avoids everywhere else in this module.
+
+## Two columns, not one shared flag
+
+An HR manager is an employee with a manager like anybody else. A company that
+does not appraise the person who owns it may perfectly well want its HR manager
+appraised, and one flag would force those two answers to agree — a question
+nobody asked. So two columns, two checkboxes, and **two independent PATCHes**:
+the draft's card sends `{ [field]: checked }` and never both, because sending
+the other one every time would record an edit nobody made.
+
+## `appraiseOwner` is omitted on create, never sent as `false`
+
+The create dialog spreads each field in only when it is ticked. Sending
+`false` explicitly would work identically today and would be the wrong habit:
+the API owns the default, the migration sets it, and a body that states every
+default is a body that silently overrides one the day the default changes. Same
+reasoning as `compact()` on the API side.
+
+## It is on the draft's settings card, and is not refused afterwards
+
+The API does not guard either field to `DRAFT`. That is deliberate and was
+mirrored rather than tightened: the exclusion only ever applies to somebody with
+**no form in the period**, so switching one off after the forms are written
+leaves everybody who already has one exactly where they are. It is rendered
+beside the draft's other settings because that is where it changes anything —
+not because the API would refuse it later. Refusing it locally would be the
+screen inventing a rule the server does not have, which this file argues against
+in a dozen places.
+
+## The summary says who is left out, not which way a switch points
+
+`appraiserSummary(owner, hr)` returns **Nobody / Owner only / HR manager only /
+Both**, and it is the closed disclosure's `meta`. On/Off would be the obvious
+choice and would be answering a different question: the setting is about people,
+so a closed section should name them. It is exported and read by both surfaces —
+the create dialog and the draft card — so the summary and the controls under it
+cannot come to describe different states.
+
+## The copy carries the thing that is easy to invert
+
+**This decides whose performance is judged, not who does the judging.** Somebody
+left out still writes their own team's reviews and still signs them off; all
+they lose is a form about themselves, which is also what stops them finishing
+the period counted as unscored. That sentence is on both surfaces, because
+reading the setting the other way round is the single most likely mistake it
+invites.
+
+## The demo fixtures are seeded `true`, deliberately
+
+Both existing periods in `lib/store/performance.ts` are pre-existing periods
+nobody was excluded from, so seeding them `false` would retroactively change
+what the demo says about them. New periods created in the demo follow the API's
+default like everywhere else.
+
+## Verified against a live API, which is the half that mattered
+
+The migration was applied locally and both servers brought up, because whether
+it saves was never the interesting question.
+
+- Create sent exactly `{"name":…,"appraiseHrManager":true}` — `appraiseOwner`
+  absent from the body, not `false`.
+- The draft card sent `{"appraiseOwner":false}` and `{"appraiseHrManager":false}`
+  as two separate `PATCH 200`s, each carrying only its own field.
+- **The filter filters.** `schull` has Fatima Bello as HR manager. Toggling that
+  one flag moved the score register from **9 people without her to 10 with her**.
+
+**Not exercised:** the Owner half end to end. Nobody in the demo company holds
+the Owner system role, so there is no row to exclude — same predicate, same
+shape, and the API's own test file covers both. Somebody with an Owner on the
+roster should watch the register move once.
+
+Test periods were deleted and `review_cycles` left at its one seeded row.
+
+## The documentation was a separate commit, and should not have been
+
+This change shipped through `dev`, `test` and `preprod` with no documentation at
+all, and writing it afterwards turned up drift that had nothing to do with it:
+
+- `docs/walkthroughs/performance.md` said the Start dialog had **three**
+  collapsed sections. It had four before this change and has five now — *Let
+  managers add their own questions* had been undocumented for some time.
+- `docs/components/frontend-v2.md` was missing `sections-dialog.tsx`,
+  `self-evidence.tsx` and `PeriodExceptionNotice` as well as `appraiserSummary`,
+  and its `/performance` group header claimed 49 files where its own rows listed
+  48.
+
+Both are fixed, and the `/performance` section was re-derived and diffed row by
+row against source rather than patched at the one row this change touched — 50
+rows, 50 files, 62 components, 5 functions, checked. **The other groups in that
+file were not re-derived**, so the same drift may well be sitting in them.
+
+The lesson is the cheap one: the inventories are generated by an agent walking
+`src` and there is **no committed generator**, so nothing fails when they go
+stale. Whoever adds an export is the only thing standing between those files and
+fiction.
+
+---
+
+# There is a second Vercel deployment, and it is the one to test against
+
+Every PR gets a Vercel **git-branch preview** automatically, and those are
+behind **Vercel Deployment Protection** (an SSO gate) — a `curl` returns `302`
+to `vercel.com/sso-api`, and `vercel whoami`/`vercel teams ls` confirms this
+session's account is not a member of Schull Technologies' team on Vercel. There
+is no bypass available from here, and asking for one wastes the time it takes
+to find that out.
+
+**`https://approvehr-frontend-v2-three.vercel.app/`** is a separate, standing
+deployment with no such gate, wired to the real backend at `dev.approvehr.io`
+(confirmed via the page's own CSP `connect-src` header) rather than to
+localStorage. Use it whenever a change needs verifying against real data and a
+running database, rather than trying to reach a PR's own branch preview.
+
+Two things worth knowing before using it:
+
+- **It is a real, shared environment**, not a sandbox — whatever it creates
+  (a requisition, an employee, a payroll run) is real and visible to whoever
+  else has an account on the org it is signed into. Clean up test data
+  afterwards the way an earlier session did for the recruitment walkthrough
+  below, rather than leaving it lying around under an obviously-fake name.
+- **Real sign-in, real rate limits.** This is the "Connected" mode described
+  above under "The API connection", not demo mode — sign-in is by real email
+  and password and is rate-limited to 10 attempts per 15 minutes per account,
+  so a saved Playwright `storageState` (or a browser's own saved session) is
+  worth reusing rather than signing in fresh on every run. Refresh tokens
+  **rotate** — see `lib/api/client.ts`'s note on `refreshing` — so a script
+  driving this deployment across several separate runs must save the rotated
+  state back after each one, or the account gets signed out from under it.
+
+It was used this way to verify PR #344 (recruitment followups) end to end on
+staging — screening a public applicant, scheduling and rescheduling an
+interview, and the whole offer lifecycle (create, edit, submit for approval,
+withdraw, redo) — each confirmed against a real `2xx` response rather than
+against the screen alone. Test credentials for several roles exist for this
+deployment; ask in the team channel rather than expecting them here, since a
+checked-in file is the wrong place for a live password.
+
+## A mutation on the candidate page briefly un-rendered its own panels
+
+The one real finding from that staging walk. After an offer edit or an offer
+withdraw on `/hiring/candidates/[id]` — reached by a **candidate** id rather
+than an application id, which is how the screening queue and any hand-written
+link get there — `RealPipeline` and `RealScreening` would flash to "Nobody has
+screened this person into a role's pipeline yet" for the length of one round
+trip, then correct themselves once it returned. Confirmed three times, and
+confirmed each time via `GET`s straight to the API (`staging-verify-api.mjs`)
+that the underlying data was never actually wrong — this was a client-side
+rendering gap, not data loss, but it read exactly like one.
+
+**Cause**: `useRealPipelineApplication` (`src/lib/store/recruitment.ts`)
+cached its resolved application keyed on `id:candidateId:nonce`.
+`RealPipeline`/`RealScreening` call the hook's `reload()` after every
+mutation, which bumps `nonce` — so the key changed, `matched` went false, and
+`application` went back to `null` for the length of the refetch.
+`candidate-screen.tsx`'s loading guard only re-shows a skeleton while the
+careers-page `record` is *also* unresolved, which it is not for anybody who
+already applied through the careers page and was screened in — the ordinary
+case. So the guard never caught the gap, and the page fell through to
+`RealPipeline`'s own "nothing here yet" fallback for one round trip on every
+single mutation, on the one URL shape (candidate id, not application id) that
+a recruiter actually follows from the screening queue.
+
+**Fix**: keyed the cached state on identity alone (`id:candidateId`, no
+`nonce`), so a `reload()` against the same identity keeps the last-resolved
+application on screen while the fresh copy is in flight, rather than nulling
+it out mid-refetch. A genuine navigation to a different candidate still resets
+to a real loading state, because the identity itself changes then.
+
+**Verified**: `tests/real-pipeline-reload.test.tsx` reproduces the exact
+sequence — reload the same candidate id, hold the refetch open, assert the
+previous application is still there — and was confirmed to fail against the
+old, nonce-keyed code before the fix and pass after it. `npm run check` and
+the full `vitest run` (270 tests) are both green.

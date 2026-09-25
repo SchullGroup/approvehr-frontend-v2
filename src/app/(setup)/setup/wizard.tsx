@@ -723,7 +723,7 @@ export function SetupWizard() {
       {awaitingOffice && (
         <div className="mt-6 flex flex-col gap-4 rounded-lg border border-accent-line bg-accent-soft p-5">
           <div>
-            <p className="text-body font-semibold text-ink">
+            <p className="font-semibold text-ink">
               {editingLocationId
                 ? "Change where people clock in"
                 : "Where do people clock in?"}
@@ -842,7 +842,7 @@ export function SetupWizard() {
           return (
             <div className="mt-6 flex flex-col gap-4 rounded-lg border border-accent-line bg-accent-soft p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-body font-semibold text-ink">
+                <p className="font-semibold text-ink">
                   How does gross pay split up?
                 </p>
                 {complete && (
@@ -1157,53 +1157,51 @@ function RolesStep({
         </Button>
       </div>
 
-      {creating && (
-        <CreateRoleDialog
-          roles={roles.roles}
-          held={access.permissions}
-          from={null}
-          onClose={() => setCreating(false)}
-          onCreate={async (body, people) => {
-            try {
-              const made = await roles.create(body);
-              /* The role first, then the invitations — a refused address
+      <CreateRoleDialog
+        open={creating}
+        roles={roles.roles}
+        held={access.permissions}
+        from={null}
+        onClose={() => setCreating(false)}
+        onCreate={async (body, people) => {
+          try {
+            const made = await roles.create(body);
+            /* The role first, then the invitations — a refused address
                  leaves the role standing, which is the right way round: the
                  role cannot be retried without colliding on its own name. */
-              const result =
-                people.length > 0
-                  ? await invitesApi.sendByEmail(people, [made.id])
-                  : null;
-              toast.push({
-                title: `${body.name} created`,
-                tone:
-                  result && result.failed.length > 0 ? "warning" : "success",
-                ...(result
-                  ? {
-                      detail:
-                        result.failed.length > 0
-                          ? `${result.sent.length} invited. ${result.failed
-                              .map((one) => `${one.name}: ${one.message}`)
-                              .join(" ")}`
-                          : `${result.sent.length} invited.`,
-                    }
-                  : {}),
-              });
-              setCreating(false);
-              return true;
-            } catch (error) {
-              toast.push({
-                title: "That did not work",
-                tone: "danger",
-                detail:
-                  error instanceof ApiError
-                    ? error.message
-                    : "Something went wrong. Try again.",
-              });
-              return false;
-            }
-          }}
-        />
-      )}
+            const result =
+              people.length > 0
+                ? await invitesApi.sendByEmail(people, [made.id])
+                : null;
+            toast.push({
+              title: `${body.name} created`,
+              tone: result && result.failed.length > 0 ? "warning" : "success",
+              ...(result
+                ? {
+                    detail:
+                      result.failed.length > 0
+                        ? `${result.sent.length} invited. ${result.failed
+                            .map((one) => `${one.name}: ${one.message}`)
+                            .join(" ")}`
+                        : `${result.sent.length} invited.`,
+                  }
+                : {}),
+            });
+            setCreating(false);
+            return true;
+          } catch (error) {
+            toast.push({
+              title: "That did not work",
+              tone: "danger",
+              detail:
+                error instanceof ApiError
+                  ? error.message
+                  : "Something went wrong. Try again.",
+            });
+            return false;
+          }
+        }}
+      />
     </div>
   );
 }

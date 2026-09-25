@@ -1,15 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { LayoutGrid } from "lucide-react";
-import {
-  Button,
-  ButtonLink,
-  Callout,
-  Card,
-  CardBody,
-  Spinner,
-} from "@/components/ui";
+import { Button, Callout, Card, CardBody, Spinner } from "@/components/ui";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody } from "@/components/portal/shell";
 import { useCan, usePermissions } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
@@ -28,6 +23,7 @@ import {
   defaultLayout,
   resolveLayout,
   type WidgetContext,
+  type WidgetSpec,
 } from "./catalogue";
 
 /**
@@ -171,6 +167,9 @@ export function DashboardScreen() {
     reportsLoading: needsReports && reports.loading,
   };
 
+  /* Widened so a row of stat tiles actually fills its row. See `tileSpans`. */
+  const spans = tileSpans(chosen);
+
   return (
     <>
       <DashboardHeader
@@ -236,7 +235,7 @@ export function DashboardScreen() {
              which one item that cannot compress floors the whole track. See the
              responsive entry in HANDOVER. */
           <div className="grid grid-cols-12 gap-4">
-            {chosen.map((widget) => {
+            {chosen.map((widget, index) => {
               const Widget = WIDGET_COMPONENTS[widget.id];
               if (!Widget) return null;
               return (
@@ -262,7 +261,7 @@ export function DashboardScreen() {
                      Applied here rather than inside each widget so the rule
                      holds for all of them, including the next one somebody
                      adds. */
-                  className={cn(SPAN_CLASS[widget.span], "empty:hidden")}
+                  className={cn(spans[index], "empty:hidden")}
                 >
                   <Widget {...props} />
                 </div>
@@ -285,6 +284,95 @@ export function DashboardScreen() {
       />
     </>
   );
+}
+
+/**
+ * The column span each chosen widget gets, so a row of stat tiles fills its row.
+ *
+ * ## The gap this closes
+ *
+ * `SPAN_CLASS` gives a `quarter` widget three of twelve columns whatever else
+ * is on the screen, and nothing in the product emits quarters in multiples of
+ * four. An employee's standard arrangement is three of them — what is waiting
+ * on you, your last payslip, your leave — so the row came to nine columns and
+ * left a quarter of the screen blank beside it, every load, for every member
+ * of staff. It read as a widget that had failed to render rather than as a row
+ * that had finished.
+ *
+ * So a **run** of adjacent quarters divides its row: three become thirds, two
+ * become halves, four stay quarters.
+ *
+ * ## Each run size gets its own ladder, so none of them orphans a tile
+ *
+ * The count has to divide the row at *every* width, not only the widest. A run
+ * of three stepping 1 → 2 → 3 looks tidy at the ends and puts a lone tile
+ * beside half a row of nothing everywhere in between, which is the same hole
+ * this function exists to close, moved to the tablet. So a run of three never
+ * goes through a two-column stage at all: it holds one column until there is
+ * room for three. A run of four can pair, because four pairs evenly.
+ *
+ * | Run | phone | 640 | 768 | 1280 |
+ * |---|---|---|---|---|
+ * | 1 | full | full | full | quarter |
+ * | 2 | full | half | half | half |
+ * | 3 | full | full | third | third |
+ * | 4 | full | half | half | quarter |
+ *
+ * Five or more is the one case that can still orphan, and it is left to: past
+ * four tiles in a row the arrangement is the reader's own doing, and the
+ * alternative is a fifth tile stretched across half the screen.
+ *
+ * ## Why a run and not the whole list
+ *
+ * Because the arrangement is the reader's. Somebody who puts a chart between
+ * two stat tiles has separated them on purpose, and widening across the chart
+ * would silently re-join them. A run is the set of tiles that are actually
+ * going to share a row.
+ *
+ * ## What it deliberately does not try to do
+ *
+ * A widget with nothing to draw returns `null`, `empty:hidden` takes it out of
+ * the grid, and the row closes up short — three thirds where one is quiet
+ * leaves four columns over. Sizing for that is not possible here: whether a
+ * widget has anything to say is a question only the widget can answer, and it
+ * answers it during render. This sizes for what is *on* the dashboard, which
+ * is the case that was wrong on every load rather than occasionally.
+ *
+ * Static class strings, never interpolated: Tailwind reads the source as text
+ * and a computed `xl:col-span-${n}` compiles to no CSS at all.
+ */
+const QUARTER_RUN: Readonly<Record<number, string>> = {
+  1: "col-span-12 xl:col-span-3",
+  2: "col-span-12 sm:col-span-6",
+  3: "col-span-12 md:col-span-4",
+  4: "col-span-12 sm:col-span-6 xl:col-span-3",
+};
+const QUARTER_RUN_MANY = "col-span-12 sm:col-span-6 xl:col-span-3";
+
+export function tileSpans(chosen: readonly WidgetSpec[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < chosen.length; i += 1) {
+    const widget = chosen[i]!;
+    if (widget.span !== "quarter") {
+      out.push(SPAN_CLASS[widget.span]);
+      continue;
+    }
+    /* The whole run this tile belongs to, measured once at its start and
+       applied to every tile in it. */
+    let end = i;
+    while (end + 1 < chosen.length && chosen[end + 1]!.span === "quarter")
+      end += 1;
+    const run = end - i + 1;
+    const wide = QUARTER_RUN[run] ?? QUARTER_RUN_MANY;
+    /* `min-w-0` on every one of them, always: a grid item's automatic minimum
+       is its min-content width, so a single tile that cannot compress raises
+       the floor of the whole track and takes its siblings with it. That is the
+       documented cause of three of the overflows in HANDOVER's responsive
+       pass. */
+    for (let k = i; k <= end; k += 1) out.push(`min-w-0 ${wide}`);
+    i = end;
+  }
+  return out;
 }
 
 /**
@@ -334,32 +422,28 @@ function SetupPrompt() {
   const first = outstanding[0]!;
   return (
     <>
-      <Callout tone="info" className="mb-4">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <p className="text-body-sm">
-            <span className="font-medium">
-              {outstanding.length} of {rows.length} still to set up.
-            </span>{" "}
-            {/* Names the next one rather than only counting. A number alone is a
-                nag; a number and the next step is a thing somebody can finish. */}
-            <span className="text-muted">
-              Next: {first.title.toLowerCase()}.
-            </span>
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* The way back to the walk. The guide offers itself once per
-                browser; without this, somebody who dismissed it — or who
-                arrived after a colleague dismissed it on a shared machine —
-                has no way to ask for it again. */}
-            <Button size="sm" variant="ghost" onClick={() => setGuiding(true)}>
-              Walk me through it
-            </Button>
-            <ButtonLink size="sm" variant="secondary" href={first.href}>
-              {first.linkLabel}
-            </ButtonLink>
-          </div>
-        </div>
-      </Callout>
+      <NoticeLine tone="accent" className="mb-4">
+        {/* Names the next one rather than only counting. A number alone is a
+            nag; a number and the next step is a thing somebody can finish. */}
+        <span>
+          {outstanding.length} of {rows.length} still to set up. Next:{" "}
+          {first.title.toLowerCase()}.
+        </span>
+        <Link href={first.href} className={NOTICE_LINK}>
+          {first.linkLabel}
+        </Link>
+        {/* The way back to the walk. The guide offers itself once per browser;
+            without this, somebody who dismissed it — or who arrived after a
+            colleague dismissed it on a shared machine — has no way to ask for
+            it again. */}
+        <button
+          type="button"
+          className={NOTICE_LINK}
+          onClick={() => setGuiding(true)}
+        >
+          Walk me through it
+        </button>
+      </NoticeLine>
       {guide}
     </>
   );

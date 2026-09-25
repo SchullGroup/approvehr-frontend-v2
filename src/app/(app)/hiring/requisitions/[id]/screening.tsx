@@ -18,6 +18,7 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
+  LinkedText,
   Skeleton,
   useToast,
 } from "@/components/ui";
@@ -194,53 +195,53 @@ function ScreeningCard({
         )}
       </Card>
 
-      {screening && (
-        <ScreenInDialog
-          applicantName={screening.name}
-          appliedFor={screening.postingTitle}
-          roleName={roleName}
-          onClose={() => setScreening(null)}
-          onConfirm={async (input) => {
-            try {
-              const result = await queue.screenIn(screening.id, input);
-              /* The API writes this sentence and it names the stage they landed
-                 in. Showing it rather than composing one means the screen cannot
-                 disagree with what actually happened. */
-              toast.push({
-                title: `${screening.name} is in the pipeline`,
-                tone: "success",
-                detail: result.note,
-              });
-              setScreening(null);
-            } catch (error) {
-              fail(error);
-            }
-          }}
-        />
-      )}
+      <ScreenInDialog
+        open={screening !== null}
+        applicantName={screening?.name ?? ""}
+        appliedFor={screening?.postingTitle ?? ""}
+        roleName={roleName}
+        onClose={() => setScreening(null)}
+        onConfirm={async (input) => {
+          if (!screening) return;
+          try {
+            const result = await queue.screenIn(screening.id, input);
+            /* The API writes this sentence and it names the stage they landed
+               in. Showing it rather than composing one means the screen cannot
+               disagree with what actually happened. */
+            toast.push({
+              title: `${screening.name} is in the pipeline`,
+              tone: "success",
+              detail: result.note,
+            });
+            setScreening(null);
+          } catch (error) {
+            fail(error);
+          }
+        }}
+      />
 
-      {declining && (
-        <DeclineDialog
-          applicantName={declining.name}
-          onClose={() => setDeclining(null)}
-          onConfirm={async (reason) => {
-            try {
-              await queue.screenOut(
-                declining.id,
-                reason.trim() === "" ? undefined : reason.trim(),
-              );
-              toast.push({
-                title: `${declining.name} turned down`,
-                tone: "success",
-                detail: "Nothing was sent to them. Write to them yourself.",
-              });
-              setDeclining(null);
-            } catch (error) {
-              fail(error);
-            }
-          }}
-        />
-      )}
+      <DeclineDialog
+        open={declining !== null}
+        applicantName={declining?.name ?? ""}
+        onClose={() => setDeclining(null)}
+        onConfirm={async (reason) => {
+          if (!declining) return;
+          try {
+            await queue.screenOut(
+              declining.id,
+              reason.trim() === "" ? undefined : reason.trim(),
+            );
+            toast.push({
+              title: `${declining.name} turned down`,
+              tone: "success",
+              detail: "Nothing was sent to them. Write to them yourself.",
+            });
+            setDeclining(null);
+          } catch (error) {
+            fail(error);
+          }
+        }}
+      />
     </>
   );
 }
@@ -378,7 +379,7 @@ function ApplicantRow({
 
       {row.coverNote && (
         <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-body-sm leading-relaxed text-body">
-          {row.coverNote}
+          <LinkedText>{row.coverNote}</LinkedText>
         </p>
       )}
     </div>

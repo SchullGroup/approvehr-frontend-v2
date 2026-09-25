@@ -61,9 +61,11 @@ import { useCycleMutations } from "@/lib/store/performance";
  * API wrapper and the database still say cycle; nothing a user reads does.
  */
 export function StartPeriodDialog({
+  open,
   onClose,
   onCreated,
 }: {
+  open: boolean;
   onClose: () => void;
   /** The new period's id. The caller decides where to go with it. */
   onCreated: (period: { id: string; name: string }) => void;
@@ -102,6 +104,16 @@ export function StartPeriodDialog({
   const [remind, setRemind] = useState("");
   /** Off by default. Lets a manager add their own questions, scoped to their team. */
   const [managersCanAddQuestions, setManagersCanAddQuestions] = useState(false);
+  /**
+   * Whether the Owner and the HR manager are appraised in this period.
+   *
+   * Both start off, matching the API's own default rather than this dialog
+   * having an opinion — and two pieces of state rather than one, because the
+   * two are separate decisions. A company that does not appraise the person
+   * who owns it may still want its HR manager appraised.
+   */
+  const [appraiseOwner, setAppraiseOwner] = useState(false);
+  const [appraiseHrManager, setAppraiseHrManager] = useState(false);
   /**
    * Field errors and form errors, kept apart.
    *
@@ -157,6 +169,8 @@ export function StartPeriodDialog({
           ...(scope.length > 0 ? { departmentIds: scope } : {}),
           ...(remind ? { remindDaysBefore: Number(remind) } : {}),
           ...(managersCanAddQuestions ? { managersCanAddQuestions: true } : {}),
+          ...(appraiseOwner ? { appraiseOwner: true } : {}),
+          ...(appraiseHrManager ? { appraiseHrManager: true } : {}),
           ...(periodStart && periodEnd ? { periodStart, periodEnd } : {}),
           ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
           ...(guideUrl.trim() ? { guideUrl: guideUrl.trim() } : {}),
@@ -175,7 +189,7 @@ export function StartPeriodDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Start an appraisal period"
       size="sm"
@@ -407,9 +421,62 @@ export function StartPeriodDialog({
             while the period is still a draft.
           </p>
         </Disclosure>
+
+        {/* Off for both, which is the API's own default and the reason this
+            setting exists: the Owner reports to nobody, so the reporting line
+            has no author to put on their form, and they used to turn up in
+            every period as somebody with no mark and no way out short of
+            archiving them.
+
+            Two checkboxes rather than one, because the two are unrelated
+            decisions — an HR manager is an employee with a manager like
+            anybody else. One control would force the two answers to agree,
+            which is a question nobody asked. */}
+        <Disclosure
+          title="Appraise the Owner and the HR manager"
+          meta={appraiserSummary(appraiseOwner, appraiseHrManager)}
+          hint="Off for both by default. They still appraise their own team either way."
+        >
+          <div className="flex flex-col gap-2">
+            <Checkbox
+              label="Appraise the Owner in this period"
+              checked={appraiseOwner}
+              onChange={(event) => setAppraiseOwner(event.target.checked)}
+            />
+            <Checkbox
+              label="Appraise the HR manager in this period"
+              checked={appraiseHrManager}
+              onChange={(event) => setAppraiseHrManager(event.target.checked)}
+            />
+          </div>
+          <p className="mt-2 text-meta text-muted">
+            This decides whose performance is judged, not who does the judging.
+            Somebody left out here still writes their own team&rsquo;s reviews,
+            and still signs them off — they simply get no form of their own, so
+            they do not finish the period counted as unscored.
+          </p>
+        </Disclosure>
       </div>
     </Modal>
   );
+}
+
+/**
+ * What the two settings add up to, in the words the checkboxes use.
+ *
+ * Written once and read by both surfaces that show this — the dialog that
+ * creates a period and the card that edits a draft — so the summary and the
+ * controls under it cannot come to describe different states.
+ *
+ * "Nobody" rather than "Off": the setting is about people, and a reader
+ * scanning a closed disclosure needs to know who is left out, not which way a
+ * switch is pointing.
+ */
+export function appraiserSummary(owner: boolean, hr: boolean): string {
+  if (owner && hr) return "Both";
+  if (owner) return "Owner only";
+  if (hr) return "HR manager only";
+  return "Nobody";
 }
 
 /**
@@ -457,20 +524,19 @@ export function StartPeriodButton({
         {label}
       </Button>
 
-      {open && (
-        <StartPeriodDialog
-          onClose={() => setOpen(false)}
-          onCreated={(period) => {
-            setOpen(false);
-            toast.push({
-              title: `${period.name} created`,
-              tone: "success",
-              detail: "Add the questions, then start it.",
-            });
-            router.push(`/performance/periods/${period.id}`);
-          }}
-        />
-      )}
+      <StartPeriodDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        onCreated={(period) => {
+          setOpen(false);
+          toast.push({
+            title: `${period.name} created`,
+            tone: "success",
+            detail: "Add the questions, then start it.",
+          });
+          router.push(`/performance/periods/${period.id}`);
+        }}
+      />
     </>
   );
 }
