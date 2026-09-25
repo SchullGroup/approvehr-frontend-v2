@@ -3,8 +3,8 @@
 Documents for people who have to **use** ApproveHR rather than change it — a PM, a new joiner,
 somebody running a demo. No code, no database, no jargon left unexplained.
 
-| Walkthrough | Covers |
-|---|---|
+| Walkthrough                        | Covers                                                                                                                                                                                                                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`performance.md`](performance.md) | **Running an appraisal, screen by screen.** Thirty numbered steps from setting the scoring up to publishing the marks, a relay diagram of who hands what to whom, a card per role, eight deliberate surprises, and a twenty-minute demo script. |
 
 ## The rule these follow

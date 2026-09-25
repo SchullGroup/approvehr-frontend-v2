@@ -46,7 +46,7 @@ Three things are wrong with it as a design, independent of any bug:
    who delivered identically receive different scores according to how generously
    they rated themselves. "Why is my score lower than his?" — "because you were
    more modest about yourself" is not a defensible answer, and it is a standing
-   incentive to inflate. Self-assessment belongs in the *conversation*, as input,
+   incentive to inflate. Self-assessment belongs in the _conversation_, as input,
    not as a weighted term in the outcome.
 2. **There is no competency component at all.** Task completion, self, manager —
    that is the whole formula. Their appraisal collects competency and behavioural
@@ -62,7 +62,7 @@ computed.
 **A contradiction on the same screen.** It renders "Weights are properly
 configured — Total Weight: 100%" directly above "No Active Review Cycle — Create
 and activate a review cycle first before configuring weights", while leaving the
-weights editable and *Save Weights* enabled. Two mutually exclusive states, both
+weights editable and _Save Weights_ enabled. Two mutually exclusive states, both
 asserted, with a live write button.
 
 **A dashboard that does not reconcile.** `/performance` reports:
@@ -82,7 +82,7 @@ were arithmetically impossible.
 
 **An empty framework.** `/performance/competencies` says "No competencies found —
 Create your first competency to build your skills framework", and its category
-filter offers only *Core Competency*. This is the exact problem `framework.ts`
+filter offers only _Core Competency_. This is the exact problem `framework.ts`
 was written to solve, and its doc comment says so: "every new company faced an
 empty screen and had to invent a framework before it could review anybody." We
 seed **13 competencies across four categories** on day one. They ship a blank
@@ -126,7 +126,7 @@ Genuinely done, and good:
   name exists, so a company that renamed one keeps their name.
 - **Leadership is deliberately its own category** so that appraising a
   non-manager on it cannot produce a meaningless score somebody then averages.
-  The reasoning is already written down in `framework.ts`; it needs *enforcing*
+  The reasoning is already written down in `framework.ts`; it needs _enforcing_
   (see §4.6).
 - Competency CRUD, per-employee ratings, **`competencies/gaps` and
   `competencies/heatmap`** — we match their `competency_gaps` and
@@ -147,14 +147,14 @@ MANAGER · CALIBRATION · PUBLISHED). It has nothing to do with `ReviewKind` and
 nothing to do with `ReviewAudience`.
 
 The paragraph above was comparing a stage constant against the wrong enum, and it
-is worth recording *why* that was easy to do, because it will recur: **three**
+is worth recording _why_ that was easy to do, because it will recur: **three**
 enums in this module share member names.
 
-| Enum | Members | Means |
-|---|---|---|
+| Enum               | Members                                              | Means                            |
+| ------------------ | ---------------------------------------------------- | -------------------------------- |
 | `ReviewCycleStage` | DRAFT · SELF · MANAGER · **CALIBRATION** · PUBLISHED | where the whole cycle has got to |
-| `ReviewKind` | SELF · MANAGER · PEER | what one review *is* |
-| `ReviewAudience` | SELF · MANAGER · PEER · REPORT | who a question is asked of |
+| `ReviewKind`       | SELF · MANAGER · PEER                                | what one review _is_             |
+| `ReviewAudience`   | SELF · MANAGER · PEER · REPORT                       | who a question is asked of       |
 
 `SELF` and `MANAGER` therefore appear in all three and mean something different
 in each. The failure mode is somebody "resolving" the discrepancy by adding
@@ -171,12 +171,12 @@ Their 23 routes against ours. Ordered by what it costs us to lack it.
 
 ### 3.1 Blocking — the module is not defensible without these
 
-| Gap | Theirs | Ours |
-|---|---|---|
-| **Goals have no cycle link** | objectives belong to a review period | `Goal` has `dueQuarter String?` and **no `reviewCycleId`** |
-| **No objective approval workflow** | `submit-for-review`, `approve`, `reject`, `send-back`, `revert`, `approval-queue` | `publish`, `complete`, `cancel` only |
-| **No composite score** | Self-Appraisal Weight + Manager Appraisal Weight + Task Completion Weight, per cycle | nothing |
-| **No employee acknowledgement** | — (they lack it too) | `Review` has no `acknowledgedAt` / dispute path |
+| Gap                                | Theirs                                                                               | Ours                                                       |
+| ---------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| **Goals have no cycle link**       | objectives belong to a review period                                                 | `Goal` has `dueQuarter String?` and **no `reviewCycleId`** |
+| **No objective approval workflow** | `submit-for-review`, `approve`, `reject`, `send-back`, `revert`, `approval-queue`    | `publish`, `complete`, `cancel` only                       |
+| **No composite score**             | Self-Appraisal Weight + Manager Appraisal Weight + Task Completion Weight, per cycle | nothing                                                    |
+| **No employee acknowledgement**    | — (they lack it too)                                                                 | `Review` has no `acknowledgedAt` / dispute path            |
 
 `Goal.dueQuarter` being a free-text quarter rather than a relation is the root
 problem. It means "delivery against objectives" — one of our own four framework
@@ -194,7 +194,7 @@ evidence the employee was ever told their rating.
   often triggers a salary change and pension enrolment. We have no concept of
   it, and it should reach payroll and the employee record, not just performance.
 - **Distinct self / manager / HR projections** — `reviews/:id/self-appraisal`,
-  `manager-appraisal`, `manager-view`, `hr-view`. We have the *kinds* but one
+  `manager-appraisal`, `manager-view`, `hr-view`. We have the _kinds_ but one
   `respond` endpoint. HR legitimately sees what a manager must not (e.g. peer
   comments, other managers' scores before calibration).
 - **Per-department question sets** — `review-cycles/:id/questions/department/:id/`
@@ -234,7 +234,7 @@ judgement stays the manager's.
 
 Add `reviewCycleId String?` to `Goal`, indexed. Nullable, because a standing
 operational goal need not belong to a cycle — but a goal that is going to be
-*scored* must. Keep `dueQuarter` for now and backfill; drop it in a later
+_scored_ must. Keep `dueQuarter` for now and backfill; drop it in a later
 migration once nothing reads it.
 
 This single relation is what makes the `Key result area` category computable.
@@ -254,7 +254,7 @@ DRAFT ──submit──▶ AWAITING_APPROVAL ──approve──▶ AGREED ─�
 Four things this must get right, all of them places their flow leaks:
 
 - **`AGREED` is a one-way door for the target**, the way payroll `approve` is.
-  After agreement the *target* is frozen; progress still moves. Editing an agreed
+  After agreement the _target_ is frozen; progress still moves. Editing an agreed
   target requires an explicit revision that records who changed what and when,
   and returns it to `AWAITING_APPROVAL`. Silent post-hoc target edits are the
   single most common way an appraisal becomes indefensible.
@@ -299,15 +299,15 @@ Rules, all enforced server-side:
    is in kobo: a score assembled from floats does not reproduce, and a score
    that does not reproduce cannot be defended.
 3. **Snapshot the weights onto the cycle at activation** (`ReviewCycle
-   .scoringSnapshot Json`). Changing the company's default weights afterwards
+.scoringSnapshot Json`). Changing the company's default weights afterwards
    must not retroactively rewrite a closed cycle's scores. Directly the payroll
    settings-snapshot pattern.
 4. **A component with no data does not silently score zero.** It is excluded and
-   the remaining weights are renormalised, *and the score records that it was* —
+   the remaining weights are renormalised, _and the score records that it was_ —
    because "rated 0 on leadership" and "not a manager, not rated" are different
    claims. This is the same rule as the dashboard's absent-vs-zero blocks.
 5. **Multi-appraiser weights compose with these.** Where several managers appraise
-   one person (being built now), their weights resolve *within* the manager
+   one person (being built now), their weights resolve _within_ the manager
    component before it is weighted against the others.
 
 ### 4.4 Sign-off, and the record that the employee was told
@@ -361,16 +361,16 @@ peer/360 feedback, calibration, executive dashboard.
 
 New surfaces needed, mapped to routes:
 
-| Screen | Purpose |
-|---|---|
-| `/performance` | role-aware: my goals + my review, or my team's |
-| `/performance/goals` | tree view, cascade company → team → individual |
-| `/performance/approvals` | the objective approval queue (their `pending-objectives`) |
-| `/performance/cycles/[id]` | run a cycle: participants, questions, progress, who is outstanding |
-| `/performance/cycles/[id]/report` | cycle outcome, distribution, completion |
-| `/performance/reviews/[id]` | the appraisal itself, projected by viewer role |
-| `/performance/history/[employeeId]` | trend across cycles — the longitudinal gap |
-| `/settings/performance` | framework, weights, scales, toggles |
+| Screen                              | Purpose                                                            |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| `/performance`                      | role-aware: my goals + my review, or my team's                     |
+| `/performance/goals`                | tree view, cascade company → team → individual                     |
+| `/performance/approvals`            | the objective approval queue (their `pending-objectives`)          |
+| `/performance/cycles/[id]`          | run a cycle: participants, questions, progress, who is outstanding |
+| `/performance/cycles/[id]/report`   | cycle outcome, distribution, completion                            |
+| `/performance/reviews/[id]`         | the appraisal itself, projected by viewer role                     |
+| `/performance/history/[employeeId]` | trend across cycles — the longitudinal gap                         |
+| `/settings/performance`             | framework, weights, scales, toggles                                |
 
 ### 4.9 Two things neither product has
 
@@ -387,17 +387,17 @@ New surfaces needed, mapped to routes:
 
 Because each step is useless without the one above it:
 
-1. `Goal.reviewCycleId` + backfill. Nothing else can be computed first. *(§4.1)*
-2. Objective approval lifecycle, with `AGREED` as a one-way door. *(§4.2)*
+1. `Goal.reviewCycleId` + backfill. Nothing else can be computed first. _(§4.1)_
+2. Objective approval lifecycle, with `AGREED` as a one-way door. _(§4.2)_
 3. Composite scoring: weights validated to 100, integer, snapshotted at
-   activation, absent ≠ zero. *(§4.3)*
-4. Sign-off and acknowledgement. *(§4.4)*
-5. Question publish gate + department scoping. *(§4.7)*
-6. Longitudinal history and the cycle report. *(§3.2)*
-7. Confirmation reviews, wired to the employee record and payroll. *(§4.5)*
-8. Screens, simple path first, toggles after. *(§4.8)*
-9. Batch approve and reminder summaries — the at-scale affordances. *(§3.2)*
-10. PIP and evidence attachment. *(§4.9)*
+   activation, absent ≠ zero. _(§4.3)_
+4. Sign-off and acknowledgement. _(§4.4)_
+5. Question publish gate + department scoping. _(§4.7)_
+6. Longitudinal history and the cycle report. _(§3.2)_
+7. Confirmation reviews, wired to the employee record and payroll. _(§4.5)_
+8. Screens, simple path first, toggles after. _(§4.8)_
+9. Batch approve and reminder summaries — the at-scale affordances. _(§3.2)_
+10. PIP and evidence attachment. _(§4.9)_
 
 Steps 1–4 are the defensibility core. Nothing after step 4 matters if a rating
 cannot be explained.
@@ -422,7 +422,7 @@ detail; four things about it belong here because they change what §4.8 and §4.
 should be read to mean.
 
 - **The route list in §4.8 is right and the reason for it needed sharpening.**
-  Each of the three is a route rather than a tab because each is arrived *at*: a
+  Each of the three is a route rather than a tab because each is arrived _at_: a
   queue from a notification, one cycle by id, one appraisal by id. They are still
   one route per reader — `/performance/reviews/[id]` decides its projection from
   `review.mine`, the subject id and one permission, and says on screen which
@@ -446,7 +446,7 @@ should be read to mean.
 
 - **One backend defect surfaced while building the acknowledge step and is
   fixed.** `myReviews.aboutMe` filtered manager reviews to published cycles,
-  while `mayReadReview` had always opened a *finalised* one to its subject. So
+  while `mayReadReview` had always opened a _finalised_ one to its subject. So
   finalising told the employee their rating was final and the screen it pointed
   at listed nothing — the last step of the simple path was unreachable from the
   interface. The clause is finalised **or** published now, with assertions on both
@@ -458,7 +458,7 @@ should be read to mean.
 computed in the browser — `GET /cycles/:id/report` and
 `GET /employees/:id/score-history` — and the reason is the same reason the score
 lives in one file: a second implementation of a mark is how two screens end up
-disagreeing about the same person, and the trend screen exists *in order to* be
+disagreeing about the same person, and the trend screen exists _in order to_ be
 compared against the cycle screen. Every point on a trend is the same
 `scoreRegister` call that produced the mark on the cycle, against the weights
 that cycle was frozen with.
@@ -466,19 +466,19 @@ that cycle was frozen with.
 Four things about it that change what the sections above should be read to mean.
 
 - **§4.3's absent-is-not-zero rule needed a sixth statement of itself: a band.**
-  A distribution is the one thing a cycle report is *for*, and the moment two
+  A distribution is the one thing a cycle report is _for_, and the moment two
   screens each decide where "meets expectations" starts, the same person is in two
   bands. So `SCORE_BANDS` and `bandFor` are in `scoring.ts`, the band travels on
   the row, and **`bandFor` takes a `number` and never `null`** — the same
   signature discipline as `scoreLabel`, for the same reason. Putting an unscored
-  person in *Below expectations* is the distribution's version of paying somebody
+  person in _Below expectations_ is the distribution's version of paying somebody
   ₦0 because no attendance row exists. The report has five bands and a sixth row
   that is explicitly not a band.
 
   The boundaries are the midpoints of the 1–5 scale through `levelToBp`, not
   60/75/90. A straight "3 out of 5 on everything" is 5000 bp and has to read as
-  *meets expectations*; the thresholds most appraisal products ship would call it
-  *partially meets*, which is not what the manager who wrote three 3s said about
+  _meets expectations_; the thresholds most appraisal products ship would call it
+  _partially meets_, which is not what the manager who wrote three 3s said about
   anybody. A mark landing exactly on a midpoint goes in the **lower** band, at all
   four edges, because these bands decide confirmation, promotion and bonus and
   nobody should be moved up by a rounding.
@@ -496,8 +496,8 @@ Four things about it that change what the sections above should be read to mean.
 - **§4.3 rule 4 finally has a screen.** "A component with no data is excluded and
   the score records that it was" was true in the API and invisible everywhere. The
   report renders it per component with the register's own note and its own
-  headcount: *Leadership — counted for 2 of 12; 10 people manage nobody, so
-  leadership is not rated for them*. That sentence is true about a company.
+  headcount: _Leadership — counted for 2 of 12; 10 people manage nobody, so
+  leadership is not rated for them_. That sentence is true about a company.
   "Leadership: 0%" is not.
 
 - **A trend must never turn an absence into a fall and a recovery.** `changeBp`
@@ -529,7 +529,7 @@ not scored**, as `appraiserMark`, weighted across assigned appraisers by their
 `weightBp` over the weight that has actually come in:
 
 - Scoring it as a fifth component would count one judgement twice. The manager's
-  overall rating *is* their summary of the competencies they just rated, and
+  overall rating _is_ their summary of the competencies they just rated, and
   weighting the same fact twice is the specific defect §1.1 catalogues in the
   incumbent's formula, not a feature to copy.
 - Competency ratings cannot disagree between appraisers by construction: the
@@ -572,15 +572,15 @@ genuinely a cycle.
 ### 7.2 Four tabs were four nouns, and a person arrives with a verb
 
 §4.8's "Simple path" is right and the tabs did not implement it. They were
-*KPIs · Appraisals · Skills · Who appraises whom* — every one a noun, so somebody
+_KPIs · Appraisals · Skills · Who appraises whom_ — every one a noun, so somebody
 with a job to do had to know which noun it was filed under.
 
-| Tab | The question it answers |
-|---|---|
+| Tab                          | The question it answers                                                |
+| ---------------------------- | ---------------------------------------------------------------------- |
 | **What needs you** (default) | what is open, what is waiting on you, what is waiting on somebody else |
-| **KPIs** | what people are aiming at, and how far along |
-| **Appraisal periods** | which periods exist, and what each needs next |
-| *Who appraises whom* | only under `multiAppraiser`, as before |
+| **KPIs**                     | what people are aiming at, and how far along                           |
+| **Appraisal periods**        | which periods exist, and what each needs next                          |
+| _Who appraises whom_         | only under `multiAppraiser`, as before                                 |
 
 **Skills left the tab strip.** Levels against a target the company set are
 configuration-shaped and a five-person business should never meet them. There is
@@ -593,7 +593,7 @@ everything.
 
 **The periods list stopped being a control panel.** Writing the questions,
 starting it, chasing the late ones and publishing the results were six controls
-on a row inside a card at the bottom of a tab, while the screen *named* after the
+on a row inside a card at the bottom of a tab, while the screen _named_ after the
 period could only read it. They are on `/performance/periods/[id]` now, each
 appearing only in the state where it applies, and the list is a list. That also
 gives the draft state a home it never had: a period could be created and then
@@ -621,7 +621,7 @@ dialog had room for.
 ### 7.4 The product explains itself once, and reads its own figures
 
 "How an appraisal works here" is a closed disclosure on the landing. It is the
-exception Rule 4 implies rather than forbids: it explains what an appraisal *is*,
+exception Rule 4 implies rather than forbids: it explains what an appraisal _is_,
 not why the software is behaving oddly, and it is behind a click so nobody who
 already knows has to read it.
 

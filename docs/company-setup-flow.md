@@ -45,7 +45,7 @@ when **all** of:
 
 It's a `router.replace`, so Back doesn't loop you into it. This is a
 redirect rather than a banner on purpose: setup's value is being seen
-*before* you've formed a picture of how big the product is, and a banner on
+_before_ you've formed a picture of how big the product is, and a banner on
 a thirty-item sidebar has already lost that argument. In demo mode this
 fires too — once per browser, since `setupRequired` stays true until the
 wizard finishes there as well.
@@ -56,16 +56,16 @@ Served from `GET /setup/wizard` (wording/order/options come from the API,
 not hardcoded on the frontend, so copy can change without a release) and
 answered one at a time via `POST /setup/wizard/answer`.
 
-| # | Question | What it decides |
-|---|---|---|
-| 1 | How many people do you pay? | headcount band → turns departments/grades on or off |
-| 2 | Does anyone work shifts or nights? | shifts module |
-| 3 | Do you give staff loans or salary advances? | loans module |
-| 4 | Do staff claim money back from you? | reimbursements module |
-| 5 | Do you run formal appraisals? | performance module |
-| 6 | Do you deduct PAYE from staff pay? | **payroll engine** — `payeEnabled` |
-| 7 | Do you run a pension scheme? | **payroll engine** — `pensionEnabled` |
-| 8 | Check in/out on ApproveHR? | attendance module |
+| #   | Question                                    | What it decides                                     |
+| --- | ------------------------------------------- | --------------------------------------------------- |
+| 1   | How many people do you pay?                 | headcount band → turns departments/grades on or off |
+| 2   | Does anyone work shifts or nights?          | shifts module                                       |
+| 3   | Do you give staff loans or salary advances? | loans module                                        |
+| 4   | Do staff claim money back from you?         | reimbursements module                               |
+| 5   | Do you run formal appraisals?               | performance module                                  |
+| 6   | Do you deduct PAYE from staff pay?          | **payroll engine** — `payeEnabled`                  |
+| 7   | Do you run a pension scheme?                | **payroll engine** — `pensionEnabled`               |
+| 8   | Check in/out on ApproveHR?                  | attendance module                                   |
 
 Questions 1–5 and 8 decide which **modules** show up in the nav — cheap to
 get wrong, since `/settings/features` flips them back on any time.
@@ -135,7 +135,7 @@ What was added, frontend-only, no backend change:
   (e.g. an invited employee signing in for the first time).
 - It never blocks a question, "Skip setup", or reaching `/dashboard`.
 
-Known gap: there's no *persistent* signal anywhere in the frontend for "is
+Known gap: there's no _persistent_ signal anywhere in the frontend for "is
 this account's email still unverified" — `ApiUser` (`lib/api/endpoints.ts`)
 doesn't carry `emailVerifiedAt`, even though `/auth/me` already returns it
 in the wire payload. Exposing it there is a small backend-adjacent step
@@ -190,16 +190,16 @@ checklist would give the count a denominator that can never reach zero.
 Three places in the backend each answer "how many employees does this
 company have," and they don't agree:
 
-| Where | Query | 
-|---|---|
-| Dashboard (`insights/service.ts`, `headcount.active`) | `{ archivedAt: null, status: "ACTIVE" }` |
-| **The real payroll run** (`payroll/service.ts`, when preparing a period) | `{ archivedAt: null, status: "ACTIVE" }` **OR** `{ status: "EXITED", endDate: { gte: period } }` — deliberately, with a comment explaining a real incident: without the second clause, closing someone's exit mid-month silently dropped their final payslip from that period's run |
-| **This checklist** (`setup/checklist.ts`, `payrollChecks.employees`/`missingBankAccount`/`missingPensionPin`) | `{ archivedAt: null }` — no status filter at all |
+| Where                                                                                                         | Query                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard (`insights/service.ts`, `headcount.active`)                                                         | `{ archivedAt: null, status: "ACTIVE" }`                                                                                                                                                                                                                                            |
+| **The real payroll run** (`payroll/service.ts`, when preparing a period)                                      | `{ archivedAt: null, status: "ACTIVE" }` **OR** `{ status: "EXITED", endDate: { gte: period } }` — deliberately, with a comment explaining a real incident: without the second clause, closing someone's exit mid-month silently dropped their final payslip from that period's run |
+| **This checklist** (`setup/checklist.ts`, `payrollChecks.employees`/`missingBankAccount`/`missingPensionPin`) | `{ archivedAt: null }` — no status filter at all                                                                                                                                                                                                                                    |
 
 So the checklist's count is wrong in both directions relative to what a real
 run actually covers: it **includes** people still in `ONBOARDING` (not yet
 coverable by any run) and **excludes** people in their exit month who the
-run *does* still owe a payslip (their `archivedAt` is already set by the
+run _does_ still owe a payslip (their `archivedAt` is already set by the
 time the checklist reads it). A company with several people mid-onboarding
 would see the "Payroll checks" row warn about missing bank
 accounts/pension PINs for people who were never going to be on this
