@@ -23,6 +23,7 @@ import {
   EmptyState,
   Field,
   Input,
+  LinkedText,
   Modal,
   SegmentedControl,
   Select,
@@ -462,7 +463,7 @@ function ApplicationRow({
 
       {application.coverNote && (
         <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-body-sm leading-relaxed text-body">
-          {application.coverNote}
+          <LinkedText>{application.coverNote}</LinkedText>
         </p>
       )}
 
