@@ -21,7 +21,11 @@ export type Step =
     }
   | { kind: "note"; key: string; text: string };
 
-export type Usage = { promptTokens: number; outputTokens: number; thinkingTokens: number };
+export type Usage = {
+  promptTokens: number;
+  outputTokens: number;
+  thinkingTokens: number;
+};
 
 /** What is on screen mid-turn, and is not yet a turn. Provisional. */
 export type Live = {

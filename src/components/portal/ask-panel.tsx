@@ -89,7 +89,9 @@ export function AskPanel() {
 
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-line/50 pt-2 text-meta text-muted">
               {(answer.used?.length ?? 0) > 0 ? (
-                <span>Read from: {answer.used?.join(", ").replace(/_/g, " ")}</span>
+                <span>
+                  Read from: {answer.used?.join(", ").replace(/_/g, " ")}
+                </span>
               ) : (
                 <span className="italic">No records queried</span>
               )}
