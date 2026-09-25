@@ -26,6 +26,7 @@ import {
   DescriptionList,
   Disclosure,
   EmptyState,
+  LinkedText,
   Money,
   ProgressMeter,
   Skeleton,
@@ -685,7 +686,7 @@ function Application({
               What they wrote
             </h3>
             <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-body-sm leading-relaxed text-body">
-              {record.coverNote}
+              <LinkedText>{record.coverNote}</LinkedText>
             </p>
           </div>
         ) : (
