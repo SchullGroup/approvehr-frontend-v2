@@ -167,7 +167,7 @@ screens quoted ₦63,266.67 on ₦500,000 a month where the answer was ₦63,950
 
 ### The frontend engine, in detail — HISTORICAL
 
-Kept because the *reasoning* below is still binding on the backend engine and on
+Kept because the _reasoning_ below is still binding on the backend engine and on
 anybody reading a payslip: the order of operations, statutory rates being company
 settings rather than constants, bands being statute and therefore not a setting,
 and employer pension sitting on top of gross. Only the file it describes is gone.
@@ -185,9 +185,9 @@ whatever you changed.
 Things that are easy to get wrong here and were gotten wrong once already
 during this build:
 
-- **Order of operations**: pension and NHF are deducted *before*
+- **Order of operations**: pension and NHF are deducted _before_
   consolidated relief is applied. Consolidated relief is `max(₦200,000, 1%
-  of annual gross) + 20% of annual gross`. Get this order wrong and every
+of annual gross) + 20% of annual gross`. Get this order wrong and every
   number downstream is plausible-looking but incorrect.
 - **Nothing statutory is hardcoded as a constant** — it's all
   `PayrollSettings` (`lib/payroll/settings.ts`), read via
@@ -196,11 +196,11 @@ during this build:
   transport), pension rates, NHF rate/basis, and every exception threshold
   are company settings, not constants — a shift-based company has a
   different working month than an office, and this must stay adjustable.
-  `STATUTORY` in `settings.ts` defines the *floors* (8%/10% pension
+  `STATUTORY` in `settings.ts` defines the _floors_ (8%/10% pension
   minimums) that `validateSettings()` refuses to let a company undercut, but
   a company can pay above them.
 - **PAYE bands themselves** (`PAYE_BANDS` in `engine.ts`) are the one thing
-  that *is* a constant — they're statute, not company policy, and a company
+  that _is_ a constant — they're statute, not company policy, and a company
   cannot choose its own tax bands. Don't move these into settings.
 - Employer pension is **added on top of gross**, never subtracted from it.
   Every place that renders a payslip or a payroll total says this explicitly
@@ -229,8 +229,8 @@ Two different things, don't confuse them:
 ```ts
 type StoreState = {
   overrides: Record<string, Partial<Employee>>; // sparse patches on seed records
-  created: Employee[];                           // whole new records
-  archived: string[];                             // hidden, never deleted
+  created: Employee[]; // whole new records
+  archived: string[]; // hidden, never deleted
 };
 ```
 
@@ -280,7 +280,7 @@ storage directly in the hook body — but prefer the factory to copying.
 - **`e.currentTarget` inside a `setState` updater function is `null` by the
   time the updater runs** — React nulls it out once the synthetic event
   finishes dispatching, and a `setDraft((d) => ({...d, x: e.currentTarget.value}))`
-  pattern will crash. Read the value into a local const *before* the
+  pattern will crash. Read the value into a local const _before_ the
   updater, or use `e.target` (not pooled in React 17+) if you must reference
   it inside a callback. This crashed the payroll settings form once.
 - **Never nest an `<a>` inside another `<a>`.** A module card that was a
@@ -288,7 +288,7 @@ storage directly in the hook body — but prefer the factory to copying.
   and silently breaks hydration (renders a blank page, no console error
   pointing at the real cause). The fix pattern used throughout
   `components/marketing/sections.tsx`: make the outer wrapper a plain
-  `<article>`, and give the *inner* link `after:absolute after:inset-0` so
+  `<article>`, and give the _inner_ link `after:absolute after:inset-0` so
   it stretches to fill the card as the click target.
 - **`Button` has no `asChild` prop.** If you want button styling on a link,
   use `ButtonLink`, not `<Button asChild><Link>...</Link></Button>`.
@@ -308,7 +308,7 @@ storage directly in the hook body — but prefer the factory to copying.
 - **The old employee-store shape didn't have `created`/`archived`.** If you
   see a bug report about "my edit disappeared," the user's browser likely
   has a stale `localStorage['approvehr.employee.store']` payload from
-  before this key existed. `EMPTY` spread guards against missing *new*
+  before this key existed. `EMPTY` spread guards against missing _new_
   fields on old payloads, but a full shape change (like the overrides→store
   rename this session) orphans old data. Consider a version field in the
   persisted payload if you change the shape again.
@@ -317,33 +317,33 @@ storage directly in the hook body — but prefer the factory to copying.
 
 ### Marketing (`app/(marketing)/`) — public site, own chrome/nav/footer
 
-| Route | Purpose |
-|---|---|
-| `/` | Homepage — hero, "shapes of company" photo section, platform rail, module grid, Nigeria section, stats, pricing teaser, testimonials, CTA |
-| `/pricing` | Tiered pricing + live calculator (`app/(marketing)/pricing/calculator.tsx`) |
-| `/product/[module]` | One page per module (payroll, core-hr, hiring, time, performance, desk) — capability walkthrough with hand-drawn mockups |
-| `/demo` | Demo request form (not centered — intentionally paired with the form beside it) |
-| `/privacy`, `/terms`, `/security`, `/dpa` | Legal and trust documents. Content in `lib/marketing/legal.ts`; one renderer. These were 404ing from the footer before they existed. |
-| `/sitemap.xml`, `/robots.txt` | Generated from the same content modules the pages render from |
+| Route                                     | Purpose                                                                                                                                   |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                                       | Homepage — hero, "shapes of company" photo section, platform rail, module grid, Nigeria section, stats, pricing teaser, testimonials, CTA |
+| `/pricing`                                | Tiered pricing + live calculator (`app/(marketing)/pricing/calculator.tsx`)                                                               |
+| `/product/[module]`                       | One page per module (payroll, core-hr, hiring, time, performance, desk) — capability walkthrough with hand-drawn mockups                  |
+| `/demo`                                   | Demo request form (not centered — intentionally paired with the form beside it)                                                           |
+| `/privacy`, `/terms`, `/security`, `/dpa` | Legal and trust documents. Content in `lib/marketing/legal.ts`; one renderer. These were 404ing from the footer before they existed.      |
+| `/sitemap.xml`, `/robots.txt`             | Generated from the same content modules the pages render from                                                                             |
 
 ### App (`app/(app)/`) — signed-in product, shares `AppShell` + sidebar nav
 
-| Route | Purpose | Data source |
-|---|---|---|
-| `/dashboard` | Home/landing after sign-in | mixed |
-| `/approvals` | **Cross-module approval inbox** — ranks by deadline then age. Leave rows are derived, not authored | `lib/workflows/queue.ts` over the leave + approvals stores |
-| `/hiring`, `/hiring/requisitions/new`, `/hiring/requisitions/[id]`, `/hiring/candidates/[id]`, `/hiring/interviews`, `/hiring/offers` | Full ATS: pipeline board+table, 5-step requisition wizard, candidate record, offer approval with band-position indicator | static `lib/mock/hiring.ts` |
-| `/people`, `/people/[id]`, `/people/new` | **Editable** directory + record + creation | `lib/store/employees.ts` (live) |
-| `/people/leave` | Leave requests, balances, holidays, booking | `lib/store/leave.ts` (live, editable) |
-| `/people/attendance` | Clock in/out, roster, 15-day timesheet with payroll proration | `lib/store/attendance.ts` (live) |
-| `/people/onboarding` | Starter checklists | static `ONBOARDING` |
-| `/payroll`, `/payroll/runs/new`, `/payroll/payslips`, `/payroll/payslips/[id]`, `/payroll/statutory` | Payroll dashboard, 5-step run wizard with real exception detection, payslip index with delivery-status tracking, statutory filing schedules | `runPeopleFrom(store)` + `lib/payroll/engine.ts` |
-| `/performance` | Goals cascade + review cycle | static `GOALS`/`REVIEW_CYCLE` |
-| `/help` | Ticket queue + knowledge base | static `TICKETS`/`KB_ARTICLES` |
-| `/reports` | Cross-module charts, all computed live from the employee store (never a separate reporting dataset) | derived |
-| `/settings`, `/settings/payroll` | Settings hub — every card is now a real link — plus the payroll settings form with live payslip preview | `lib/payroll/use-settings.ts` (live) |
-| `/settings/company`, `/settings/leave`, `/settings/roles`, `/settings/notifications`, `/settings/integrations` | The five sections that used to be "Not built yet" cards | `lib/store/company.ts` (live) |
-| `/design-system` | Internal token/component showcase — not part of the product, keep it working as you add components |
+| Route                                                                                                                                 | Purpose                                                                                                                                     | Data source                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `/dashboard`                                                                                                                          | Home/landing after sign-in                                                                                                                  | mixed                                                      |
+| `/approvals`                                                                                                                          | **Cross-module approval inbox** — ranks by deadline then age. Leave rows are derived, not authored                                          | `lib/workflows/queue.ts` over the leave + approvals stores |
+| `/hiring`, `/hiring/requisitions/new`, `/hiring/requisitions/[id]`, `/hiring/candidates/[id]`, `/hiring/interviews`, `/hiring/offers` | Full ATS: pipeline board+table, 5-step requisition wizard, candidate record, offer approval with band-position indicator                    | static `lib/mock/hiring.ts`                                |
+| `/people`, `/people/[id]`, `/people/new`                                                                                              | **Editable** directory + record + creation                                                                                                  | `lib/store/employees.ts` (live)                            |
+| `/people/leave`                                                                                                                       | Leave requests, balances, holidays, booking                                                                                                 | `lib/store/leave.ts` (live, editable)                      |
+| `/people/attendance`                                                                                                                  | Clock in/out, roster, 15-day timesheet with payroll proration                                                                               | `lib/store/attendance.ts` (live)                           |
+| `/people/onboarding`                                                                                                                  | Starter checklists                                                                                                                          | static `ONBOARDING`                                        |
+| `/payroll`, `/payroll/runs/new`, `/payroll/payslips`, `/payroll/payslips/[id]`, `/payroll/statutory`                                  | Payroll dashboard, 5-step run wizard with real exception detection, payslip index with delivery-status tracking, statutory filing schedules | `runPeopleFrom(store)` + `lib/payroll/engine.ts`           |
+| `/performance`                                                                                                                        | Goals cascade + review cycle                                                                                                                | static `GOALS`/`REVIEW_CYCLE`                              |
+| `/help`                                                                                                                               | Ticket queue + knowledge base                                                                                                               | static `TICKETS`/`KB_ARTICLES`                             |
+| `/reports`                                                                                                                            | Cross-module charts, all computed live from the employee store (never a separate reporting dataset)                                         | derived                                                    |
+| `/settings`, `/settings/payroll`                                                                                                      | Settings hub — every card is now a real link — plus the payroll settings form with live payslip preview                                     | `lib/payroll/use-settings.ts` (live)                       |
+| `/settings/company`, `/settings/leave`, `/settings/roles`, `/settings/notifications`, `/settings/integrations`                        | The five sections that used to be "Not built yet" cards                                                                                     | `lib/store/company.ts` (live)                              |
+| `/design-system`                                                                                                                      | Internal token/component showcase — not part of the product, keep it working as you add components                                          |
 
 ## What's genuinely done vs. stubbed
 
@@ -387,14 +387,14 @@ the leave screen and moved the balance from "13 left · 5 pending" to "8 left".
 
 ### New pieces worth knowing about
 
-| File | What and why |
-|---|---|
-| `lib/store/persisted.ts` | The localStorage store pattern, extracted. **Use this for any new store** rather than copying `employees.ts` — it carries the hydration rule and adds a version field so a shape change drops stale payloads instead of stranding them. `employees.ts` predates it and still has its own copy; leaving it alone was deliberate. |
-| `lib/store/leave-balances.ts` | `useLeaveBalances()`. The **only** way a screen should ask for a balance. `leaveBalancesFor` takes the company policy as an optional third argument, and optional was the bug: the settings page passed it and every other screen forgot, so changing Annual leave from 20 to 26 days moved one preview and nothing else. |
-| `lib/today.ts` | `TODAY`. The demo's "now", previously a `"2026-08-19"` literal in five files. |
-| `lib/store/session.ts` | Who is signed in. Deliberately **not** built on `createPersistedState`: every other store treats "empty" and "not yet loaded" as the same thing, and here they are opposites — empty means signed out, which would flash the sign-in screen at a signed-in user on every load. |
-| `lib/marketing/links.ts` | Whether "Sign in" and "see it live" appear at all. Unset `NEXT_PUBLIC_APP_URL` and they are dropped rather than pointed at a 404 — which is what makes the standalone marketing repo possible. |
-| `scripts/export-marketing.ts` | Generates the public repo. The assertions at the end are the point: reach from marketing into `@/components/ui` or `@/lib/payroll` and the export fails rather than shipping a repo that cannot build. |
+| File                          | What and why                                                                                                                                                                                                                                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/store/persisted.ts`      | The localStorage store pattern, extracted. **Use this for any new store** rather than copying `employees.ts` — it carries the hydration rule and adds a version field so a shape change drops stale payloads instead of stranding them. `employees.ts` predates it and still has its own copy; leaving it alone was deliberate. |
+| `lib/store/leave-balances.ts` | `useLeaveBalances()`. The **only** way a screen should ask for a balance. `leaveBalancesFor` takes the company policy as an optional third argument, and optional was the bug: the settings page passed it and every other screen forgot, so changing Annual leave from 20 to 26 days moved one preview and nothing else.       |
+| `lib/today.ts`                | `TODAY`. The demo's "now", previously a `"2026-08-19"` literal in five files.                                                                                                                                                                                                                                                   |
+| `lib/store/session.ts`        | Who is signed in. Deliberately **not** built on `createPersistedState`: every other store treats "empty" and "not yet loaded" as the same thing, and here they are opposites — empty means signed out, which would flash the sign-in screen at a signed-in user on every load.                                                  |
+| `lib/marketing/links.ts`      | Whether "Sign in" and "see it live" appear at all. Unset `NEXT_PUBLIC_APP_URL` and they are dropped rather than pointed at a 404 — which is what makes the standalone marketing repo possible.                                                                                                                                  |
+| `scripts/export-marketing.ts` | Generates the public repo. The assertions at the end are the point: reach from marketing into `@/components/ui` or `@/lib/payroll` and the export fails rather than shipping a repo that cannot build.                                                                                                                          |
 
 ### New screens
 
@@ -420,7 +420,7 @@ Three related fixes, in order of how much they mattered:
 - **The ambient grid and the gradients are gone from the app surface.** They
   were a 32px indigo lattice behind every page header, a fall of colour down the
   sidebar, and a radial wash on empty states. At 4% opacity they were invisible
-  against a card and clearly visible *through* 11px text, which put a varying
+  against a card and clearly visible _through_ 11px text, which put a varying
   background luminance behind every glyph — unsteady to read, and it made the
   real contrast ratio of any text on them unknowable. Contrast you cannot
   measure is contrast you cannot promise. The utilities in `globals.css` are
@@ -472,26 +472,26 @@ its own.
 The frontend runs in **two modes**, detected rather than configured, and every
 screen says which one it is in.
 
-| | Connected | Demo |
-|---|---|---|
-| Trigger | `GET /health` answers | it does not |
-| Sign-in | real email + password, JWT session | pick a seeded employee, no password |
-| Data | Postgres, server-side search and paging | localStorage, filtered in memory |
-| Badge | "Live from the API" | "Demo data, this browser only" |
+|         | Connected                               | Demo                                |
+| ------- | --------------------------------------- | ----------------------------------- |
+| Trigger | `GET /health` answers                   | it does not                         |
+| Sign-in | real email + password, JWT session      | pick a seeded employee, no password |
+| Data    | Postgres, server-side search and paging | localStorage, filtered in memory    |
+| Badge   | "Live from the API"                     | "Demo data, this browser only"      |
 
 Demo mode is not a leftover. This prototype gets shown on laptops in rooms with
 no database, and a product that cannot be demonstrated without infrastructure
-does not get demonstrated. The rule is that it must never *look* connected when
+does not get demonstrated. The rule is that it must never _look_ connected when
 it is not — hence the badges, and hence `useApiReachable`.
 
 ### The files
 
-| File | Role |
-|---|---|
-| `lib/api/client.ts` | `fetch` wrapper. Read the note on `refreshing` before touching it: refresh tokens **rotate**, so two concurrent refreshes make the second present an already-rotated token, which the API correctly treats as theft and answers by revoking every session. One shared promise is what stops a multi-panel screen signing itself out on every token expiry. |
-| `lib/api/endpoints.ts` | One typed wrapper per endpoint, and the **kobo → naira** boundary. The API speaks integer kobo; `Employee` is still in naira. `toEmployee` is the seam, and it is meant to shrink to nothing once the frontend engine is deleted. |
-| `lib/store/session.ts` | Both sign-in paths. Note it does **not** use `createPersistedState` — every other store treats "empty" and "not loaded" as the same, and here they are opposites. |
-| `lib/store/employees-api.ts` | `useEmployeeDirectory` / `useEmployeeMutations`. Picks the source; screens do not care which. Copy this shape for the next store. |
+| File                         | Role                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/api/client.ts`          | `fetch` wrapper. Read the note on `refreshing` before touching it: refresh tokens **rotate**, so two concurrent refreshes make the second present an already-rotated token, which the API correctly treats as theft and answers by revoking every session. One shared promise is what stops a multi-panel screen signing itself out on every token expiry. |
+| `lib/api/endpoints.ts`       | One typed wrapper per endpoint, and the **kobo → naira** boundary. The API speaks integer kobo; `Employee` is still in naira. `toEmployee` is the seam, and it is meant to shrink to nothing once the frontend engine is deleted.                                                                                                                          |
+| `lib/store/session.ts`       | Both sign-in paths. Note it does **not** use `createPersistedState` — every other store treats "empty" and "not loaded" as the same, and here they are opposites.                                                                                                                                                                                          |
+| `lib/store/employees-api.ts` | `useEmployeeDirectory` / `useEmployeeMutations`. Picks the source; screens do not care which. Copy this shape for the next store.                                                                                                                                                                                                                          |
 
 ### Two gotchas found doing it
 
@@ -546,8 +546,8 @@ person after you will thank you for it.
 Everything below happened after the section above was written, and several
 entries contradict it. Where they conflict, this is the later word.
 
-Read `PARITY.md` first for *why* — it is the gap analysis against the incumbent
-and the phased plan. This section is the *what*.
+Read `PARITY.md` first for _why_ — it is the gap analysis against the incumbent
+and the phased plan. This section is the _what_.
 
 ## Both repos now exist, and the frontend is finally in version control
 
@@ -600,7 +600,7 @@ which **defaults to false because that is what the statute says**.
 
 `PAYE_BANDS` was a single hardcoded array, defended on the grounds that a
 company cannot choose its own tax brackets. Right, and incomplete: bands are
-*versioned*. `TAX_SCHEDULES` holds dated schedules with citations and
+_versioned_. `TAX_SCHEDULES` holds dated schedules with citations and
 `scheduleFor(schedules, date)` resolves one.
 
 **The Nigeria Tax Act 2025 bands are now entered** — this file used to say they
@@ -608,7 +608,7 @@ were deliberately absent, on the grounds that a guessed band is worse than a
 missing one. That reasoning still stands; the bands are in because three
 independent sources were checked and agree exactly:
 
-- PwC Worldwide Tax Summaries, which states them as band *widths*, the form this
+- PwC Worldwide Tax Summaries, which states them as band _widths_, the form this
   engine stores.
 - KPMG GMS Flash Alert 2025-168, which states them as cumulative thresholds. The
   two reconcile: 800,000 / +2,200,000 = 3,000,000 / +9,000,000 = 12,000,000 /
@@ -620,7 +620,7 @@ also replaces the old 1%-of-income minimum tax.
 
 ### The relief regime changed, not just the table
 
-**The Consolidated Relief Allowance is abolished**, replaced by relief on *rent*
+**The Consolidated Relief Allowance is abolished**, replaced by relief on _rent_
 — 20% of annual rent paid, capped at ₦500,000. That is a different **input**, not
 a different formula: the old relief was a function of income, the new one of
 something the employee has to declare and the old regime never asked for.
@@ -633,7 +633,7 @@ to remember. `Employee.annualRent` and `rentDeclaredAt` are new;
 **Null means undeclared, and undeclared means no relief.** That is the statute,
 not a defensive default, and it costs real money — on ₦500,000 a month, somebody
 who has not declared pays ₦63,950 against ₦63,266.67 under the old regime, so the
-reform makes them *worse off* until they declare. `ComputedPayslip.reliefUnclaimed`
+reform makes them _worse off_ until they declare. `ComputedPayslip.reliefUnclaimed`
 reports it per person and the run raises a WARNING naming the headcount, because
 the only way those people find out is if something tells them.
 
@@ -642,7 +642,7 @@ before.
 
 `confirmedThrough` on the 2026 schedule stops at the end of 2026. Push it forward
 when somebody checks again; do not remove it. A 2027 period comes back
-`stale: true` and still computes — my first draft *threw* on a stale schedule,
+`stale: true` and still computes — my first draft _threw_ on a stale schedule,
 and since today is 2026 that would have broken every run in the product. Refusing
 to pay anybody because a lookup table is stale is the worse failure.
 
@@ -651,12 +651,12 @@ to pay anybody because a lookup table is stale is the worse failure.
 `src/modules/payroll/reconcile.ts` exists because of what an audit of the live
 incumbent system found in its own data on 20 August 2026:
 
-| Their live figure | Why it is impossible |
-|---|---|
-| Net ₦3,218,741.96 against gross ₦1,833,500.33 | net exceeded gross by ₦1.47m |
-| Gross ₦833,500.33 − deductions ₦88,958.37 = net ₦700,211.96 | out by ₦44,330 |
-| PAYE ₦1.8m on ₦3.2m payroll | 56% effective; top *marginal* band is 24% |
-| Millions in gross, `0` employees | two separate runs |
+| Their live figure                                           | Why it is impossible                      |
+| ----------------------------------------------------------- | ----------------------------------------- |
+| Net ₦3,218,741.96 against gross ₦1,833,500.33               | net exceeded gross by ₦1.47m              |
+| Gross ₦833,500.33 − deductions ₦88,958.37 = net ₦700,211.96 | out by ₦44,330                            |
+| PAYE ₦1.8m on ₦3.2m payroll                                 | 56% effective; top _marginal_ band is 24% |
+| Millions in gross, `0` employees                            | two separate runs                         |
 
 All rendered on screen without complaint. **The failure was not the arithmetic
 — it was that nothing between the arithmetic and the screen ever asked whether
@@ -681,7 +681,7 @@ reset.
 
 - **Copy `src/modules/departments/`.** It is the reference shape:
   `router.ts` + `schemas.ts` + `service.ts`, and its service is the reference for
-  refusing an operation and *naming* the blockers rather than failing silently.
+  refusing an operation and _naming_ the blockers rather than failing silently.
 - **"Writes return ids, reads return shapes."** No `include` on a create or
   update — Prisma loads relations in parallel inside a transaction and it
   surfaces as a pg deprecation warning.
@@ -689,11 +689,11 @@ reset.
   a scoped client. Never thread an `organizationId` through a service signature,
   and never `findUnique` on a scoped model (the extension rewrites it to
   `findFirst`). New model with an `organizationId`? Add it to `SCOPED_MODELS` in
-  `src/db/tenant.ts`. Without one? Add it to the comment below that list *with
-  the reason* — `TaxBand` is there because statute belongs to no tenant.
+  `src/db/tenant.ts`. Without one? Add it to the comment below that list _with
+  the reason_ — `TaxBand` is there because statute belongs to no tenant.
 - **Money crosses the API as integer kobo.** Prisma returns `Decimal`; never
   `Number()` one into arithmetic. `toKobo(String(value))` is the seam.
-  `Number(Decimal)` is fine for a *rate* — five decimal places, far inside float
+  `Number(Decimal)` is fine for a _rate_ — five decimal places, far inside float
   precision — and that distinction is written where it is relied on.
 - `exactOptionalPropertyTypes` is on. Use `compact()` from `lib/http.ts` rather
   than relaxing the compiler.
@@ -712,7 +712,7 @@ maintains the address can also pay themselves. Same reasoning splits
 and blast radius is what a permission is for.
 
 The permissions module enforces two guards worth keeping: a caller cannot grant
-a permission they do not themselves hold (otherwise `MANAGE_ROLES` *is* every
+a permission they do not themselves hold (otherwise `MANAGE_ROLES` _is_ every
 permission), and a change that would leave nobody holding `MANAGE_ROLES` is
 refused, because locking everyone out is unrecoverable without database access.
 
@@ -737,7 +737,7 @@ Three rules that follow, all three in `PARITY.md` and all three load-bearing:
    settings sub-form; **open** for a blocker, an exception, an approval waiting
    on the reader. A reveal that hides something costing money is the failure
    mode, which is why the leave screen's ungazetted-holidays warning renders
-   *outside* the closed calendar. The primitive is `Disclosure` in
+   _outside_ the closed calendar. The primitive is `Disclosure` in
    `components/ui/disclosure.tsx` — there is exactly one, on purpose.
 
 `src/lib/permissions.ts` (`usePermissions` / `useCan` / `<Can>` /
@@ -751,11 +751,11 @@ may carry a `permission` and a `feature`.
 deliberately do not know about each other. Each exports one function returning
 specs in the engine's own shape:
 
-| Module | Seam |
-|---|---|
+| Module         | Seam                                           |
+| -------------- | ---------------------------------------------- |
 | pay-components | `resolveComponentsFor(db, employeeId, period)` |
-| loans | `dueRepaymentsFor(db, employeeId, period)` |
-| reimbursements | `payableClaimsFor(db, employeeId, period)` |
+| loans          | `dueRepaymentsFor(db, employeeId, period)`     |
+| reimbursements | `payableClaimsFor(db, employeeId, period)`     |
 
 Nothing in `assemble.ts` does arithmetic on money. That stays in the engine,
 which is what keeps its 89 assertions meaningful.
@@ -774,7 +774,7 @@ Two things there that will bite you:
   snapshot is frozen onto the run.
 
 `BLOCKER` versus `WARNING` on a `PayrollException` is whether the run would be
-*wrong* or merely *surprising*. A missing account number blocks; a stale tax
+_wrong_ or merely _surprising_. A missing account number blocks; a stale tax
 schedule warns.
 
 ## Capabilities we cannot perform: the seam pattern
@@ -792,7 +792,7 @@ the same shape, first established in `src/modules/auth/delivery.ts`:
   registered, `submit` refuses. It does not return a fake reference and it does
   not set the batch to COMPLETED. The bank upload file **does** work and is the
   real fallback.
-- **File upload** — receipts, CVs and documents accept an object-storage *key*.
+- **File upload** — receipts, CVs and documents accept an object-storage _key_.
   The schema never stores a file.
 
 Do not "finish" any of these with something that looks like success. A green
@@ -826,13 +826,13 @@ the module that needed them, and that is the right instinct. Keep it.
 1. **The screens are switched over.** Every one reads the API when one answers,
    with the local store as the demo fallback. That is not a leftover: the product
    gets shown on laptops with no database, and the rule is that it must never
-   *look* connected when it is not.
+   _look_ connected when it is not.
 2. **Done — `web/src/lib/payroll/engine.ts` is deleted.** See "The frontend
    engine is gone" at the end of this file for what replaced it, including the
    one backend endpoint that had to be added and what demo mode does now.
 3. **The ETL out of the Django database** exists at `scripts/etl/` — introspect,
    plan, fixture, migrate — and is tested against a synthetic legacy database.
-   What is *not* done is the mapping: every column name in `plan.ts` is still
+   What is _not_ done is the mapping: every column name in `plan.ts` is still
    `inferred`, and the fixture is built from the same guesses, so the tests prove
    the machinery and not the aim. `--apply` refuses to write until the tiers it
    touches are confirmed. Somebody with credentials runs `introspect.ts`,
@@ -865,13 +865,13 @@ differently and should not undo by accident.
 
 ## Who was using it, and what each one does now
 
-| Screen | Was | Is |
-|---|---|---|
-| `/settings/payroll` preview | `calculatePayslip` on ₦1,000,000 with the **draft** settings | `POST /payroll/quote` with the draft settings in the body |
-| `/people/new` first payslip | `calculatePayslip` on the salary being typed | `POST /payroll/quote`, settings omitted so the company's **saved** ones answer |
-| `/people/[id]` compensation | API when connected, engine offline | API when connected, fixed illustrative figures offline |
-| Loan application take-home | two `calculatePayslip` calls, before and after | one `GET /pay-components/preview/:id` for their real net, minus the instalment |
-| `lib/store/payroll.ts` demo run | `calculatePayslip` per person | fixed illustrative figures, or a refusal |
+| Screen                          | Was                                                          | Is                                                                             |
+| ------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `/settings/payroll` preview     | `calculatePayslip` on ₦1,000,000 with the **draft** settings | `POST /payroll/quote` with the draft settings in the body                      |
+| `/people/new` first payslip     | `calculatePayslip` on the salary being typed                 | `POST /payroll/quote`, settings omitted so the company's **saved** ones answer |
+| `/people/[id]` compensation     | API when connected, engine offline                           | API when connected, fixed illustrative figures offline                         |
+| Loan application take-home      | two `calculatePayslip` calls, before and after               | one `GET /pay-components/preview/:id` for their real net, minus the instalment |
+| `lib/store/payroll.ts` demo run | `calculatePayslip` per person                                | fixed illustrative figures, or a refusal                                       |
 
 `lib/store/payslip-quote.ts` is the hook. `lib/mock/payroll.ts` now owns the
 `PayrollEmployee` type, which used to live in the engine.
@@ -917,7 +917,7 @@ With no API there is no authoritative figure. The options were to omit payroll
 from demo mode, or to show fixed figures and label them. **Fixed figures won**,
 for one reason: this product is shown on laptops in rooms with no database, and a
 payroll product whose payroll module is empty in that room does not get bought.
-Omission is the right answer for a *preview* — a salary being typed is not a
+Omission is the right answer for a _preview_ — a salary being typed is not a
 figure anybody needs to see wrong — and it is the wrong answer for the module
 that carries the pitch.
 
@@ -978,13 +978,13 @@ string, and the `unavailable` state it hung off, are both gone.
 
 ## What was built
 
-| File | What |
-|---|---|
-| `lib/api/leave.ts` | `holidays()` reshaped to the real envelope (`{ holidays, awaitingProclamation }`), plus `createHoliday` / `updateHoliday` / `deleteHoliday`. `PublicHolidayRow` gained the `id` that edit and delete address. The old "no route yet, returns `null` on 404" branch is deleted. |
-| `lib/store/holidays.ts` | **New.** `usePublicHolidays(year)` and `useHolidayMutations()`, shaped on `lib/store/shifts.ts` — demo value in a `useMemo`, fetch in an async IIFE behind a `cancelled` guard, staleness by comparing a key during render. Split out of `leave-api.ts` because the calendar and two hundred leave requests should not share a refresh. |
-| `people/leave/holiday-calendar.tsx` | **New.** Twelve mini-months, full width, replacing the four-line list in the 340px rail. |
-| `settings/leave/holidays-panel.tsx`, `holiday-form.tsx` | **New.** List, add, edit, delete, mark confirmed. Gated on `MANAGE_SETTINGS`; read-only for anybody else, with a line saying why. |
-| `lib/mock/workflows.ts` | `PUBLIC_HOLIDAYS` grew from 4 dates to Nigeria's 2026 set, with ids and a header explaining which dates are statute and which are lunar estimates. |
+| File                                                    | What                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/api/leave.ts`                                      | `holidays()` reshaped to the real envelope (`{ holidays, awaitingProclamation }`), plus `createHoliday` / `updateHoliday` / `deleteHoliday`. `PublicHolidayRow` gained the `id` that edit and delete address. The old "no route yet, returns `null` on 404" branch is deleted.                                                          |
+| `lib/store/holidays.ts`                                 | **New.** `usePublicHolidays(year)` and `useHolidayMutations()`, shaped on `lib/store/shifts.ts` — demo value in a `useMemo`, fetch in an async IIFE behind a `cancelled` guard, staleness by comparing a key during render. Split out of `leave-api.ts` because the calendar and two hundred leave requests should not share a refresh. |
+| `people/leave/holiday-calendar.tsx`                     | **New.** Twelve mini-months, full width, replacing the four-line list in the 340px rail.                                                                                                                                                                                                                                                |
+| `settings/leave/holidays-panel.tsx`, `holiday-form.tsx` | **New.** List, add, edit, delete, mark confirmed. Gated on `MANAGE_SETTINGS`; read-only for anybody else, with a line saying why.                                                                                                                                                                                                       |
+| `lib/mock/workflows.ts`                                 | `PUBLIC_HOLIDAYS` grew from 4 dates to Nigeria's 2026 set, with ids and a header explaining which dates are statute and which are lunar estimates.                                                                                                                                                                                      |
 
 ## Three things worth not re-deciding
 
@@ -1182,7 +1182,7 @@ item is not being asked for.
 
 **Not exercised:** connected mode (no API was running on this machine — the wire
 shapes are checked by `tests/employees.test.ts` instead), and the rent field's
-*edit* interaction on `/people/[id]`, where the preview pane's scrolling gave up.
+_edit_ interaction on `/people/[id]`, where the preview pane's scrolling gave up.
 Its arithmetic is asserted separately: the kobo round-trip through
 `koboFromDecimal`/`naira` is exact for whole and fractional naira and for zero.
 
@@ -1198,7 +1198,7 @@ mapping** per cycle so a person can be marked by more than one manager.
 
 `/people/departments` used to label a nested department "Team", on the argument
 that "a team is a department with a parent". That argument is still right about
-*structure* — Division → Department → Sub-department is a shape a group company
+_structure_ — Division → Department → Sub-department is a shape a group company
 needs and it is still one table — and it was wrong about the word. A department
 is one column on the employee (`departmentId`), so a person is in exactly one
 node of it and every payroll report and every past payslip depends on that. What
@@ -1225,7 +1225,7 @@ who it moved. Refusing would make the ordinary act — "put Ada on Backend" — 
 with a lecture about cost centres. The move is never silent: every such write
 returns `moved` as a **list of names**, `lib/api/teams.ts` types it, and the
 screen renders the names in the toast. `membershipEffect` in that file is the
-sentence shown *before* the write, so the dialog and the toast cannot describe
+sentence shown _before_ the write, so the dialog and the toast cannot describe
 the same act differently.
 
 The inverse is deliberately **not** enforced: leaving a team does not leave a
@@ -1301,7 +1301,7 @@ answer instead of "the assignment if there is one, else `managerId`". Manager
 forms come from the mapping and never from `managerId` — reading both would let
 the two disagree about who owes a form.
 
-`multiAppraiser` on `OrgFeatures` gates the *interface*, not the data. Off — the
+`multiAppraiser` on `OrgFeatures` gates the _interface_, not the data. Off — the
 default, and the wizard never asks — a person has one manager who appraises them
 and the word "matrix" appears nowhere. The dependency is asymmetric and lives in
 `applyAppraisalDependency` in `modules/setup/service.ts`: turning it on while
@@ -1429,7 +1429,7 @@ process was started outside the session that found it.
 The bulk import had the hard half already: a column matcher that reads anybody's
 headings, a two-step validate/apply with a fingerprint, per-row errors, and a
 partial-success report that names its shortfall. What it did not have was a way
-to *finish* — every problem was reported and nothing could be resolved without
+to _finish_ — every problem was reported and nothing could be resolved without
 leaving the screen. This section is what closed that, and four of the decisions
 are ones a reasonable person would make differently, so they say why.
 
@@ -1458,14 +1458,14 @@ carries their email or their date of birth.
 
 This is the shape of the whole feature and it is worth not collapsing:
 
-| | What it is | What happens |
-|---|---|---|
-| **Problem** | a cell that cannot be read, or a required one that is empty | the row does not import; fixable in place |
-| **Duplicate** | this row looks like somebody already on file | the row waits for a human answer |
-| **Missing detail** | a recommended field nobody filled in | the row imports; the person is named on a list |
+|                    | What it is                                                  | What happens                                   |
+| ------------------ | ----------------------------------------------------------- | ---------------------------------------------- |
+| **Problem**        | a cell that cannot be read, or a required one that is empty | the row does not import; fixable in place      |
+| **Duplicate**      | this row looks like somebody already on file                | the row waits for a human answer               |
+| **Missing detail** | a recommended field nobody filled in                        | the row imports; the person is named on a list |
 
-The third one is the user's own words — *it shows under important that this
-user's detail is missing* — and the reason it does not block is that refusing the
+The third one is the user's own words — _it shows under important that this
+user's detail is missing_ — and the reason it does not block is that refusing the
 record does not produce the bank account. It is acknowledged with a real
 checkbox, and the acknowledgement **resets on every re-check**, because a new
 check produces a new list and a tick against the old one describes nothing on
@@ -1481,7 +1481,7 @@ the list is longer than the live one would be.
 
 By work email, and by name **plus** date of birth — both, because a name alone
 matches cousins and a date of birth alone matches strangers. A staff-number match
-is not one of these: that match *is* the update key and there is nothing to
+is not one of these: that match _is_ the update key and there is nothing to
 decide.
 
 The API refuses to choose. An undecided duplicate is an error on the row, so it
@@ -1572,7 +1572,7 @@ landing on the right sheet, a real date cell read as its date, 13 of 14 columns
 matched with `Religion` left out, five row problems each naming their own column
 (`Surname`, `Date of Employment`, `Email Address`, `Monthly Salary`, `State`),
 the in-file duplicate email caught on row 4 naming row 1, a row with no staff
-number *not* refused for it, the "Important: 2 people are missing a detail"
+number _not_ refused for it, the "Important: 2 people are missing a detail"
 list with its per-person reasons, the acknowledgement flipping the button from
 "Tick the box above to carry on" to "Continue", a correction typed in place
 flipping it to "Check the correction" and then clearing that row's error on the
@@ -1624,11 +1624,11 @@ sets it.
 Both behaviours are correct for their caller and neither is a default worth
 having globally:
 
-| | Spreadsheet upload | Legacy ETL |
-|---|---|---|
-| How often | once, by hand | repeatedly, by script |
-| No staff number | generate `AHR-0001`, say what it costs | **refuse the row**, name the column |
-| Why | refusing a shop owner whose file has no such column is the product disagreeing with itself | the number *is* the key; generating one breaks idempotency and strands history |
+|                 | Spreadsheet upload                                                                         | Legacy ETL                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| How often       | once, by hand                                                                              | repeatedly, by script                                                          |
+| No staff number | generate `AHR-0001`, say what it costs                                                     | **refuse the row**, name the column                                            |
+| Why             | refusing a shop owner whose file has no such column is the product disagreeing with itself | the number _is_ the key; generating one breaks idempotency and strands history |
 
 The refusal names the consequence rather than the rule, so somebody reads it and
 goes and puts a number in the legacy database.
@@ -1676,7 +1676,7 @@ combination reads like isolation and is not:
 
 - `fileParallelism: false` serialises test files **within one process**. That is
   the whole of what it does. Two concurrent `vitest run` invocations, a `tsx
-  watch src/server.ts`, Prisma Studio, or a seed all write to the same tables
+watch src/server.ts`, Prisma Studio, or a seed all write to the same tables
   with nothing between them.
 - The comment in `vitest.config.ts` said "Integration tests share one database,
   so they must not race each other", and the one in `tests/setup.ts` called the
@@ -1691,14 +1691,14 @@ re-run past.
 
 ## Two mechanisms, because neither closes both halves
 
-| | Closes | Cannot close |
-|---|---|---|
+|                                            | Closes                                                     | Cannot close                           |
+| ------------------------------------------ | ---------------------------------------------------------- | -------------------------------------- |
 | A dedicated database (`TEST_DATABASE_URL`) | everything that is not a test writing to the tests' tables | two test runs, which would both use it |
-| A Postgres session advisory lock | two test runs interleaving | a dev server, which does not take one |
+| A Postgres session advisory lock           | two test runs interleaving                                 | a dev server, which does not take one  |
 
 Both are in now.
 
-- **`approvehr-api/tests/setup.ts`** runs per *file*. It loads `.env` and copies
+- **`approvehr-api/tests/setup.ts`** runs per _file_. It loads `.env` and copies
   `TEST_DATABASE_URL` over `DATABASE_URL` at the process boundary. One
   assignment, so every reader agrees: `src/config/env.ts`, the `pg` pool built
   from it, and `tests/etl.test.ts`, which reads `process.env["DATABASE_URL"]`
@@ -1707,7 +1707,7 @@ Both are in now.
   quietly build fixtures in the development database while the rest of the suite
   ran elsewhere.
 - **`approvehr-api/tests/global-setup.ts`** is new and runs once per `vitest
-  run`, in vitest's own process. It takes `pg_try_advisory_lock(0x41485221, 1)`
+run`, in vitest's own process. It takes `pg_try_advisory_lock(0x41485221, 1)`
   on a dedicated `pg` session and holds it for the run. A second run **queues**,
   says on the console that it is queueing and how long it has waited, and gives
   up after ten minutes with the pid holding the lock.
@@ -1718,11 +1718,11 @@ Both are in now.
   refusal instead of a run writing to the wrong database while every message on
   screen says otherwise.
 - **`prisma.config.ts`** honours `PRISMA_DB=test`, which only `npm run
-  db:test:deploy` and `npm run db:test:reset` set, and **refuses** when
+db:test:deploy` and `npm run db:test:reset` set, and **refuses** when
   `TEST_DATABASE_URL` is unset instead of falling back. Without that refusal,
   `db:test:reset` on a machine that had not been set up would drop every table in
   the database somebody develops in.
-- **`.github/workflows/ci.yml`** creates `approvehr_ci_test` and migrates *that*,
+- **`.github/workflows/ci.yml`** creates `approvehr_ci_test` and migrates _that_,
   leaving `DATABASE_URL` unmigrated. So CI exercises the dedicated-database path
   on every run. If CI had left `TEST_DATABASE_URL` unset, the only path ever
   proved would be the fallback — the arrangement this whole entry is about.
@@ -1762,12 +1762,12 @@ already does.
 ### Three things found while verifying, so nobody spends the hour again
 
 - **A second `prisma dev` server does not start.** `npx prisma dev --name
-  approvehr-test --detach` writes a state file with `port`, `databasePort` and
+approvehr-test --detach` writes a state file with `port`, `databasePort` and
   `shadowDatabasePort` all 8000, binds 8000, and never publishes a database
   port. Tried twice, with and without explicit `--db-port`. It also quietly
   occupies port 8000, which is the API's. Use Docker; the recipe is in
   `.env.example`.
-- **A separate *schema* is not a substitute for a separate database.** With
+- **A separate _schema_ is not a substitute for a separate database.** With
   `TEST_DATABASE_URL=...?schema=approvehr_test`, `npm run db:test:deploy`
   applies every migration and 150 tests pass — and then four files fail with
   "The table `public.announcements` does not exist", because the generated
@@ -1896,7 +1896,7 @@ a 200-person run asks once rather than 200 times. `unpaidDaysFor` returns 0 when
 attendance is not in use, and works the answer out itself when the caller omits
 the flag.
 
-The narrow case the guard deliberately leaves alone: a company that *does* clock
+The narrow case the guard deliberately leaves alone: a company that _does_ clock
 in, where one person has nothing against their name. A director exempt from
 clocking and somebody who never came in are indistinguishable there, so `prepare`
 raises a WARNING (`no_attendance_all_period`) naming the person instead of
@@ -1960,8 +1960,8 @@ reaches a payroll run.
 **Other store headers cite `store/departments.ts` as the precedent for refusing a
 demo write** — `grades`, `assets`, `conduct`, `loans`, `reimbursements`,
 `careers`, `documents`, `helpdesk`, `knowledge`, `offboarding`, `performance`,
-`permissions`. Those citations are now stale in their *conclusion* and still
-sound in their *reasoning*: each is a separate judgement about whether local data
+`permissions`. Those citations are now stale in their _conclusion_ and still
+sound in their _reasoning_: each is a separate judgement about whether local data
 would contradict something else the demo shows. **None of them was revisited.**
 
 ## Membership is `Employee.department`, not a second table
@@ -1972,7 +1972,7 @@ Offline, `Employee` carries the department **name** and nothing else, and that
 name is what the directory, the record page, the payslip header and `/reports`
 all render.
 
-So `lib/store/demo-structure.ts` holds only the *structure* — nodes, nesting,
+So `lib/store/demo-structure.ts` holds only the _structure_ — nodes, nesting,
 heads, cost centres, teams, memberships — and **who is in a department is the
 name on the person**. Headcount and payroll are derived from the live employee
 store on every read, never stored. A second copy of "who is in Engineering" is a
@@ -2111,7 +2111,7 @@ keeping if you ever refactor `prepare`.
 ## Excluding rebuilds the period, and that is not laziness
 
 `POST /payroll/runs/:id/exclusions` writes the row and then calls `prepare`.
-A run is a function of the directory *and* this run's exclusions, so recording
+A run is a function of the directory _and_ this run's exclusions, so recording
 the exclusion and leaving the payslips alone would produce a screen showing a
 payslip for somebody the same screen says is not being paid. Rebuilding is free:
 preparing settles nothing, by design, and that is exactly what makes it safe to
@@ -2126,7 +2126,7 @@ assumed.
 ## Honest counts, in one helper instead of five sentences
 
 `employeeCount` is **payslips**. It is the right answer to "how many were paid"
-and a wrong claim under a label like *People*, and a bare 9 where ten people work
+and a wrong claim under a label like _People_, and a bare 9 where ten people work
 is the same class of statement as a zero standing in for an absent figure.
 
 `headcountLabel` / `payslipCountLabel` / `excludedNote` in `lib/api/payroll.ts`
@@ -2156,7 +2156,7 @@ buyer needs to watch happen. The persisted payload is at version 2.
   they never saw the transaction's writes and gained nothing from being in there.
   What they did do is hold an interactive transaction open across two more round
   trips against Prisma's **5 second** default, in a body that already writes two
-  rows per employee. It failed on a company of *three* on this machine, on the
+  rows per employee. It failed on a company of _three_ on this machine, on the
   last statement, after every payslip had been written and rolled back. Hoisted,
   and the transaction now carries an explicit `timeout`. Preparing a three-person
   payroll went from a timeout to 400ms.
@@ -2227,11 +2227,11 @@ one backend fix the interface could not be built honestly without.
 
 ## Three routes, and why each is a route rather than a tab
 
-| Route | Why not a tab |
-|---|---|
-| `/performance/approvals` | it is a **queue**: somebody arrives from a notification with one job and leaves. A tab puts it behind a screen about something else, and a notification link lands on KPIs |
-| `/performance/cycles/[id]` | one cycle at a time, and the id is the thing being looked at |
-| `/performance/reviews/[id]` | one appraisal, and the record has to be linkable — from a notification, from the cycle register, from a task list |
+| Route                       | Why not a tab                                                                                                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/performance/approvals`    | it is a **queue**: somebody arrives from a notification with one job and leaves. A tab puts it behind a screen about something else, and a notification link lands on KPIs |
+| `/performance/cycles/[id]`  | one cycle at a time, and the id is the thing being looked at                                                                                                               |
+| `/performance/reviews/[id]` | one appraisal, and the record has to be linkable — from a notification, from the cycle register, from a task list                                                          |
 
 All three are **one route per reader**, narrowed by the API rather than the URL.
 The incumbent ships `self-appraisal`, `manager-appraisal`, `manager-view` and
@@ -2243,7 +2243,7 @@ permission bug to hide — PARITY.md Rule 1, one level below a module.
 ## The backend bug the acknowledge step could not be built on
 
 `myReviews.aboutMe` filtered manager reviews to **published cycles only**.
-`mayReadReview` has always opened a *finalised* manager review to its subject
+`mayReadReview` has always opened a _finalised_ manager review to its subject
 whether or not the cycle is published, because asking somebody to acknowledge a
 rating they are not allowed to read would be absurd — and the list did not match
 the guard. So `finaliseReview` sent the employee a notification saying their
@@ -2285,7 +2285,7 @@ the ordinary mid-cycle state for almost everybody. Reading it as "nobody is
 appraising you" would be a wrong claim in the common case — the same class of
 error as reading "no attendance rows" as "nobody came in".
 
-The mapping *interface* stays behind `multiAppraiser`, off by default and never
+The mapping _interface_ stays behind `multiAppraiser`, off by default and never
 asked about by the wizard. **The exception is behind no flag**, and must not be:
 the company that never opens the mapping screen is exactly the company that will
 finish a period with somebody unmarked.
@@ -2296,8 +2296,8 @@ The rule costs nothing to state and everything to get wrong, so here is where it
 lands in this change:
 
 - A **component with no data** renders "Nothing recorded" and the API's own
-  reason, never 0%. `scoreLabel(bp: number)` takes a non-null number *in its
-  signature*, so the compiler asks every caller what it wants to say about an
+  reason, never 0%. `scoreLabel(bp: number)` takes a non-null number _in its
+  signature_, so the compiler asks every caller what it wants to say about an
   absence instead of letting one fall through as zero.
 - A **person with no mark** renders "No mark" in the register, never 0%.
 - **`rating: null`** renders "None given" — a form the author chose not to put a
@@ -2420,7 +2420,7 @@ that demo mode refuses outright, so it has never rendered against a real 200.
 
 - **`/performance/cycles/[id]/report` and `/performance/history/[employeeId]`.**
   §4.8 lists both; they are §5 steps 6 and 9, not step 8. The register on the
-  cycle screen is the read a cycle owner needs to *finish* a cycle; a distribution
+  cycle screen is the read a cycle owner needs to _finish_ a cycle; a distribution
   and a trend across cycles are a different question and a different screen, and
   building a thin version of each now would be two screens to replace.
 - **`/settings/performance`.** The weights endpoint is wrapped
@@ -2437,7 +2437,7 @@ that demo mode refuses outright, so it has never rendered against a real 200.
   either yet — `addQuestion` has no `departmentId` and `ReviewQuestion` has no
   `publishedAt`. Building the interface first would be a form that cannot save.
 - **Batch approve on the queue.** §3.2 wants it at 200 reviews and the endpoint
-  does not exist. Worth noting that a batch *agree* is in tension with the whole
+  does not exist. Worth noting that a batch _agree_ is in tension with the whole
   point of the queue: the guard on agreeing a target is reading the target, which
   is why the measures are on the card rather than behind it.
 - **Wording the no-appraiser message in the second person** on the employee's own
@@ -2468,12 +2468,12 @@ reading a class list recognises `0.8125rem` as a number.
 The importer is the wrong screen to lose this on. It is a dense table of things
 wrong with a spreadsheet, read by the owner-manager of a Nigerian SME doing their
 own payroll — a reader who is frequently over fifty, where presbyopia is
-near-universal. Small *and* consequential is the combination the scale exists to
+near-universal. Small _and_ consequential is the combination the scale exists to
 prevent.
 
 Fixed to the tokens, and **`npm run verify-typescale` now gates it**
 (`scripts/verify-typescale.ts`, wired into `npm run check`). It bans arbitrary
-font sizes below 14px in any unit, plus `text-xs`. Arbitrary sizes *above* the
+font sizes below 14px in any unit, plus `text-xs`. Arbitrary sizes _above_ the
 floor are left alone: the marketing site uses a few display sizes deliberately,
 and this check is about the floor rather than about tokenising the repo. Tamper-
 tested both ways — reintroducing `text-[0.75rem]` and `text-xs` each fail it, and
@@ -2528,9 +2528,9 @@ outside its sweep:
   wire; `payroll.list` returns whole rows) and the modal uses `headcountLabel` +
   `excludedNote`. Nothing about what gets paid changes — a batch cannot contain
   somebody with no payslip — only whether the sentence beside it is true.
-- **The run wizard's "already prepared" callout** read *"It has 9 of 10 payslips
-  — 1 excluded and is approved."* The em-dash clause captures the trailing verb,
-  so it parses as though the *exclusion* had been approved. Two sentences now.
+- **The run wizard's "already prepared" callout** read _"It has 9 of 10 payslips
+  — 1 excluded and is approved."_ The em-dash clause captures the trailing verb,
+  so it parses as though the _exclusion_ had been approved. Two sentences now.
 
 ## The backend gate was red on committed code
 
@@ -2571,7 +2571,7 @@ What actually answers it, and what was run:
    `public` — `DROP SCHEMA public` there succeeds and clears nothing, which is
    why the first three attempts kept hitting `type "Permission" already exists`.
 2. `DATABASE_URL=$SHADOW_DATABASE_URL SHADOW_DATABASE_URL= npx prisma migrate
-   deploy` — replays all 14 from empty. Exit 0.
+deploy` — replays all 14 from empty. Exit 0.
 3. Compare the two databases' **catalogs** directly (`information_schema.columns`,
    `pg_enum`, `pg_indexes`, `pg_constraint`), normalising the schema name out of
    `indexdef`. Result: **1116 columns, 58 enums, 270 indexes, 282 constraints,
@@ -2590,7 +2590,7 @@ to a file and read `$?` instead of piping to `tail`.
 - **Migrations do not collide.** Three new ones, distinct timestamps, disjoint
   tables.
 - **The wizard and the importer still agree**: `first_name, last_name, job_title,
-  start_date, gross_monthly` required in both, and in the API's zod schema.
+start_date, gross_monthly` required in both, and in the API's zod schema.
   `employee_no` optional in all three. Confirmed rendered in the browser.
 - **No hardcoded money, headcount or tax figures.** Every `₦` literal in the diff
   is a comment or the statutory ₦500,000 rent-relief cap, which traces to
@@ -2601,7 +2601,7 @@ to a file and read `$?` instead of piping to `tail`.
   solid-green button exists outside `button.tsx`.
 - **Payment history never claims "Paid" for money nobody moved.** `paymentOutcome`
   returns "Paid" only on `SETTLED`. Verified arithmetically in the browser: the
-  "Net paid" total of ₦8,277,067.11 is *exactly* the nine settled-elsewhere rows,
+  "Net paid" total of ₦8,277,067.11 is _exactly_ the nine settled-elsewhere rows,
   excluding ten unapproved and nine cancelled, with the hint naming the
   exclusion.
 
@@ -2609,7 +2609,7 @@ to a file and read `$?` instead of piping to `tail`.
 
 The vocabulary rule is "payroll" not "run", and ~30 user-facing strings say "the
 run" / "this run" / "Every run" — most of them predating this session, in
-`run-panels.tsx` and `payroll-screen.tsx`. They read as the *entity* ("This run
+`run-panels.tsx` and `payroll-screen.tsx`. They read as the _entity_ ("This run
 is approved"), which is defensible, and "payroll run" — the compound — is used
 correctly throughout.
 
@@ -2678,7 +2678,7 @@ for. It has always been written from screens that also read it.
 ## Two smaller things in the same change
 
 - **`StartExitDialog` takes an optional `employeeId` + `employeeName`.** When
-  they are supplied the person is *stated*, not offered in a picker, and
+  they are supplied the person is _stated_, not offered in a picker, and
   `<PersonPicker>` is a separate component so the directory fetch does not
   happen at all — a record page should not pull two hundred employees to record
   one exit, and a `<Select>` holding a preselected id whose option has not
@@ -2743,7 +2743,7 @@ have been built without touching the backend:
 
 A distribution is `bandFor` over marks. A trend is one register call per cycle.
 Both are cheap to write client-side and both would have drifted — and the trend
-screen exists *in order to* be compared against the cycle screen, so a
+screen exists _in order to_ be compared against the cycle screen, so a
 disagreement there is not a cosmetic bug, it is the product contradicting itself
 about somebody's rating. The history endpoint calls `scoreRegister` once per
 cycle, sequentially, which is slower than a hand-written aggregate across cycles
@@ -2762,14 +2762,13 @@ people, three cycles, every figure hand-worked in a comment beside it.
 - **`bandFor` takes a `number`, never `number | null`.** Same signature
   discipline as `scoreLabel`, and the reason is sharper here: a formatter that
   accepted null would have to pick a band for an absence, and the band it would
-  pick is *Below expectations*. That is the distribution's version of paying
+  pick is _Below expectations_. That is the distribution's version of paying
   somebody ₦0 because no attendance row exists. `band` is null on the row and the
   report has a sixth row, outside the five bands, that says so in words.
 
 - **The boundaries are the midpoints of the 1–5 scale**, computed from
-  `FULL_SCORE_BP` and `BAND_COUNT` rather than written down: 1250 / 3750 / 6250 /
-  8750. Not 60/75/90, which is the shape most appraisal products ship and which
-  puts a straight "3 out of 5 on everything" — 5000 bp — in *partially meets*.
+  `FULL_SCORE_BP` and `BAND_COUNT` rather than written down: 1250 / 3750 / 6250 / 8750. Not 60/75/90, which is the shape most appraisal products ship and which
+  puts a straight "3 out of 5 on everything" — 5000 bp — in _partially meets_.
   That is not what the manager who wrote three 3s said about anybody.
 
 - **A mark landing exactly on a midpoint goes in the lower band**, at all four
@@ -2787,8 +2786,8 @@ the words.
 ## The report returns two headcounts and the screen never divides them
 
 This is the §1.1 defect refused structurally rather than avoided by care. The
-audit of the incumbent found *"Completed Criteria 0 — out of 0 total criteria"*
-rendered directly above *"Performance Score 3.9 — Organization Avg"*. So:
+audit of the incumbent found _"Completed Criteria 0 — out of 0 total criteria"_
+rendered directly above _"Performance Score 3.9 — Organization Avg"_. So:
 
 - `forms.{people,selfIn,selfOutstanding,managerIn,managerOutstanding}` is over
   everybody who **has a form**.
@@ -2864,8 +2863,8 @@ fractional percentage through `Number()` and prints 33.30% as `33.3%` while the
 server keeps both decimals. Two copies exist because they are two different
 requirements: one is for a table cell, and this one's entire job is to be the
 sentence the server would have sent. Verified against the running API: both say
-*"Those weights add up to 90%. They have to make 100% exactly, so a score can be
-explained. Add 10%."*
+_"Those weights add up to 90%. They have to make 100% exactly, so a score can be
+explained. Add 10%."_
 
 Separate from `weightProblem`, which is the appraiser-weights version. Same
 arithmetic, different sentence, and showing one where the server sends the other is
@@ -2875,9 +2874,9 @@ how a screen starts lying about what the API said.
 
 `PERFORMANCE.md` §4.3 says the reasoning belongs on the settings screen, and it
 does: the API's `selfAssessmentNote`, plus what turning it on costs, plus one
-number that moves with the draft — *"At 20%, somebody who rates themselves 5 out
+number that moves with the draft — _"At 20%, somebody who rates themselves 5 out
 of 5 rather than 3 out of 5 moves their own final mark by 10% — more if any other
-part has nothing recorded against it."*
+part has nothing recorded against it."_
 
 That figure is half the component's weight, because 5-out-of-5 against
 3-out-of-5 is half the component's range (`levelToBp`). It is a multiplication
@@ -2886,14 +2885,14 @@ mark on this side is the thing the whole first section of this entry is about.
 
 ### One real defect, found in the browser and not by a type
 
-The badge read *"Counting for 20%"* directly above the API's sentence *"Self-
-assessment is weighted at 0% … it does not change the score."* Both correct — the
+The badge read _"Counting for 20%"_ directly above the API's sentence _"Self-
+assessment is weighted at 0% … it does not change the score."_ Both correct — the
 badge described the draft, the sentence described what was saved — and together
 they were two mutually exclusive claims on one screen. Which is, exactly, the
 defect §1.1 catalogues on the incumbent's own weights page.
 
-Fixed by labelling them apart: *"Would count for 20%"*, *"Saved now, not yet
-changed: …"*, *"If you save this: at 20%, …"*. `tsc` and lint could not see it;
+Fixed by labelling them apart: _"Would count for 20%"_, _"Saved now, not yet
+changed: …"_, _"If you save this: at 20%, …"_. `tsc` and lint could not see it;
 nothing but reading the rendered page could.
 
 ## Demo mode: the read works, the write refuses
@@ -2984,17 +2983,17 @@ question people arrive with is "what do I still need to set up". The seven thing
 that constitute setting a company up are now a checklist, each row carrying its
 own state, what it affects, and a link that goes somewhere real.
 
-| File | Role |
-|---|---|
-| `approvehr-api/src/modules/setup/checklist.ts` | `GET /setup/checklist`. Counts and booleans, **no prose** — the opposite choice from `GET /setup/wizard`, and the header says why. Fifteen reads, deliberately **sequential**: the same `P1017` that made `cycleReport` sequential. |
-| `web/src/lib/store/setup-checklist.ts` | One request connected; composed from six localStorage stores offline, which is the thing `store/insights.ts` warns against and is justified in the header — every demo read is synchronous, and a hub that cannot answer its own question on a laptop with no database is worse. |
-| `web/src/app/(app)/settings/checklist.ts` | The judgement: which facts add up to "done", and the sentence for each state. Apart from the JSX so a sentence is not written twice. |
-| `web/src/app/(app)/settings/settings-screen.tsx` | The rows, plus the ten ongoing surfaces as an index below them. |
+| File                                             | Role                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `approvehr-api/src/modules/setup/checklist.ts`   | `GET /setup/checklist`. Counts and booleans, **no prose** — the opposite choice from `GET /setup/wizard`, and the header says why. Fifteen reads, deliberately **sequential**: the same `P1017` that made `cycleReport` sequential.                                              |
+| `web/src/lib/store/setup-checklist.ts`           | One request connected; composed from six localStorage stores offline, which is the thing `store/insights.ts` warns against and is justified in the header — every demo read is synchronous, and a hub that cannot answer its own question on a laptop with no database is worse. |
+| `web/src/app/(app)/settings/checklist.ts`        | The judgement: which facts add up to "done", and the sentence for each state. Apart from the JSX so a sentence is not written twice.                                                                                                                                             |
+| `web/src/app/(app)/settings/settings-screen.tsx` | The rows, plus the ten ongoing surfaces as an index below them.                                                                                                                                                                                                                  |
 
 Three decisions in it worth not re-making:
 
 - **`optional` is what keeps the count honest.** "6 of 7" has to mean something,
-  so a row that *cannot* be incomplete is excluded from the denominator rather
+  so a row that _cannot_ be incomplete is excluded from the denominator rather
   than counted as done. Employee record fields are the only one: their columns
   default to on, so there is no state where a company has failed to choose.
 - **`attention` is not a softer `todo`.** It means something is set up and is
@@ -3013,7 +3012,7 @@ salary bands. All three are API-only surfaces and the screen says so.
 
 Add, edit, switch off, turn back on, with a geofence per office. No map: a tile
 provider is a credential nobody has wired, and the substitute that actually makes
-coordinates usable is a sentence saying what a radius *does* (`GEOFENCE_EXPLANATION`,
+coordinates usable is a sentence saying what a radius _does_ (`GEOFENCE_EXPLANATION`,
 written once in `lib/api/attendance.ts`). `remoteAllowed` is worded as **"Staff may
 clock in from anywhere"** on every surface.
 
@@ -3021,7 +3020,7 @@ Three states are kept apart, because conflating them is a wrong claim:
 
 1. **No fence** — nothing is checked. Renders "Not checked", never `0 m`.
 2. **A fence that is applied** — radius and coordinates, `geofenceEnforced: true`.
-3. **A fence that is not applied** — coordinates *and* `remoteAllowed`, so the
+3. **A fence that is not applied** — coordinates _and_ `remoteAllowed`, so the
    radius sits on the record doing nothing. A real arrangement, and the row says
    "Set, but not applied" rather than showing a radius that bites nothing.
    `geofenceEnforced` is computed **on the API** so the screen and `clockIn`
@@ -3040,7 +3039,7 @@ engine — the split is between drawing a fence and enforcing one.
 - **`restore` closes a sentence that named a route which did not exist.**
   `createLocation` refuses an archived name with "Turn it back on rather than
   making a second one" — and until now you could not.
-- **A PATCH validates the fence it would *end up with*.** Sending only
+- **A PATCH validates the fence it would _end up with_.** Sending only
   `latitude` slips past a schema-level check and leaves two thirds of a fence in
   the table, which decides nothing and refuses nothing. `GEOFENCE_ALL_OR_NOTHING`
   is one exported sentence so the create and the patch cannot drift, and the
@@ -3098,8 +3097,8 @@ and the propagation — adding a fifth office moved the hub's row from "4 office
 
 # Connected mode works now, and the errors were one environment problem
 
-The complaint was *"lets not have all these api error messages, I want this as
-close to the system we are launching"*. Almost none of those messages were bugs
+The complaint was _"lets not have all these api error messages, I want this as
+close to the system we are launching"_. Almost none of those messages were bugs
 in the product. This section is what they actually were, because the diagnosis
 is the useful part and every previous session recorded a symptom of it without
 finding the cause.
@@ -3111,12 +3110,12 @@ about `P1017 Server has closed the connection`. Two of them blame concurrency
 and one calls it "the class of flakiness this file already records". All three
 were right about the shape and none of them measured it. Measured:
 
-| Pool size against `prisma dev` | Result over 60 queries, 12 at a time |
-|---|---|
-| 1, 2, 4, 5 | 60 succeed |
-| 6 | 50 succeed, 10 `ECONNRESET` |
-| 8 | 43 succeed |
-| **10 — what `src/db/client.ts` actually uses** | **35 succeed, 25 dropped** |
+| Pool size against `prisma dev`                 | Result over 60 queries, 12 at a time |
+| ---------------------------------------------- | ------------------------------------ |
+| 1, 2, 4, 5                                     | 60 succeed                           |
+| 6                                              | 50 succeed, 10 `ECONNRESET`          |
+| 8                                              | 43 succeed                           |
+| **10 — what `src/db/client.ts` actually uses** | **35 succeed, 25 dropped**           |
 
 `prisma dev` is Postgres compiled to wasm behind a proxy; the same property that
 makes the test suite's advisory lock useless there (every connection gets the
@@ -3176,7 +3175,7 @@ nothing. `pkill -f "src/server.ts"` is the pattern that works, and
 `npm run demo` = `db:deploy` → `db:seed` → `demo:company` → `demo:performance`.
 Idempotent end to end; re-running changes nothing.
 
-### `prisma/seed.ts` grew the things a company *is*
+### `prisma/seed.ts` grew the things a company _is_
 
 The seed created ten people and five departments and nothing else, so two thirds
 of the product had no data at all and the empty states were being read as broken
@@ -3200,9 +3199,9 @@ Two of those are load-bearing rather than decorative:
   held `APPROVE_PAYROLL` alone, so the persona named "Finance approver" could not
   approve a staff loan — `/payroll/loans` offered a button the API refused. The
   three are the same act (releasing money) and belong together; what the role
-  must never hold is `RUN_PAYROLL`, which is the half that *prepares*.
+  must never hold is `RUN_PAYROLL`, which is the half that _prepares_.
 
-### `scripts/demo-company.ts` writes what the company has *done*
+### `scripts/demo-company.ts` writes what the company has _done_
 
 New, ~1,300 lines, shaped on `demo-performance-cycle.ts` and separate from the
 seed for one reason: reference data is fixed, an operating history is measured
@@ -3254,8 +3253,8 @@ Thirty-two screens each carried their own version of this:
 </Callout>
 ```
 
-Both halves were wrong in front of a real reader. *"Could not load the audit
-log"* is a **restatement of the blank space** — the reader can see nothing
+Both halves were wrong in front of a real reader. _"Could not load the audit
+log"_ is a **restatement of the blank space** — the reader can see nothing
 loaded; what they need is what to do. And `error.message` was whatever came
 back: `toApiError` in `lib/api/client.ts` defaulted to
 `` `Request failed with ${response.status}.` `` for any response that did not
@@ -3267,7 +3266,7 @@ error from a load balancer. **A status code, on screen, to a payroll clerk.**
   the **class** of failure, because that is the granularity at which the advice
   differs. `ApiError.status` still carries the number and it does not reach a
   screen.
-- Where the API wrote a sentence about *this* refusal — 400, 403, 409, 422 — it
+- Where the API wrote a sentence about _this_ refusal — 400, 403, 409, 422 — it
   is shown verbatim. It knows which permission is missing or which field is
   wrong; nothing on the client does. Paraphrasing a server message locally is how
   the two stop agreeing, which is the rule the performance screens already
@@ -3363,27 +3362,27 @@ employee importer does: **one machine, many column dictionaries.**
 
 On the API — `src/modules/imports/`:
 
-| File | What it holds |
-|---|---|
-| `columns.ts` | `ColumnSpec`, `Dictionary`, `buildDictionary`, the heading matcher, `parseDate`, `parseMoneyKobo`, `templateOf`. **No entity in it, and no column name in it.** |
-| `entity.ts` | The `ImportEntity` contract, the per-row report types, `CheckOptions`, `fingerprintOf`, `MAX_ROWS_PER_BATCH`. |
-| `service.ts` | The generic driver: `validate`, `apply`, `list`, `get`, the batch record, the fingerprint refusal, the count sentence, the registry. Employee-named wrappers at the bottom for the ETL and the tests. |
-| `router.ts` | **One route trio per registered entity**, mounted from `ENTITIES` in a loop. There is no employee-specific line in the file. |
-| `employees.ts` | The employee dictionary, `checkEmployees`, `writeEmployees`, and the `ImportEntity` that binds them. |
-| `schemas.ts` | The zod request shapes, which are the same for every entity, plus the re-exports the ETL imports by name. |
+| File           | What it holds                                                                                                                                                                                         |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `columns.ts`   | `ColumnSpec`, `Dictionary`, `buildDictionary`, the heading matcher, `parseDate`, `parseMoneyKobo`, `templateOf`. **No entity in it, and no column name in it.**                                       |
+| `entity.ts`    | The `ImportEntity` contract, the per-row report types, `CheckOptions`, `fingerprintOf`, `MAX_ROWS_PER_BATCH`.                                                                                         |
+| `service.ts`   | The generic driver: `validate`, `apply`, `list`, `get`, the batch record, the fingerprint refusal, the count sentence, the registry. Employee-named wrappers at the bottom for the ETL and the tests. |
+| `router.ts`    | **One route trio per registered entity**, mounted from `ENTITIES` in a loop. There is no employee-specific line in the file.                                                                          |
+| `employees.ts` | The employee dictionary, `checkEmployees`, `writeEmployees`, and the `ImportEntity` that binds them.                                                                                                  |
+| `schemas.ts`   | The zod request shapes, which are the same for every entity, plus the re-exports the ETL imports by name.                                                                                             |
 
 On the frontend:
 
-| File | What it holds |
-|---|---|
-| `lib/imports/spec.ts` | The same `ColumnSpec` / `Dictionary` / `buildDictionary`, the two parsers, `orderColumns`. |
-| `lib/imports/mapping.ts` | The matcher, every function taking a dictionary. |
-| `lib/imports/check.ts` | The browser check as a **generic engine**: required-presence, the declared date and money cells, then the entity's own `rowRules`. |
-| `lib/imports/template-file.ts` | The CSV and workbook writer. Already had no column names; now has no entity either. |
-| `lib/imports/surface.ts` | `ImportSurface` — the screen's description of an entity: title, breadcrumb, where the records live, where its prerequisites are created. |
-| `lib/imports/employees.ts` | The employee dictionary and its row rules. Replaces `lib/imports/template.ts`, **which is deleted**. |
-| `components/imports/*` | The four steps, moved out of the route and parameterised. `ImportFlow`, `MatchColumns`, `CheckReport`, `ImportResult`. |
-| `lib/store/imports.ts` | `useImport(dictionary)`. `useEmployeeImport()` is one line at the bottom. |
+| File                           | What it holds                                                                                                                            |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/imports/spec.ts`          | The same `ColumnSpec` / `Dictionary` / `buildDictionary`, the two parsers, `orderColumns`.                                               |
+| `lib/imports/mapping.ts`       | The matcher, every function taking a dictionary.                                                                                         |
+| `lib/imports/check.ts`         | The browser check as a **generic engine**: required-presence, the declared date and money cells, then the entity's own `rowRules`.       |
+| `lib/imports/template-file.ts` | The CSV and workbook writer. Already had no column names; now has no entity either.                                                      |
+| `lib/imports/surface.ts`       | `ImportSurface` — the screen's description of an entity: title, breadcrumb, where the records live, where its prerequisites are created. |
+| `lib/imports/employees.ts`     | The employee dictionary and its row rules. Replaces `lib/imports/template.ts`, **which is deleted**.                                     |
+| `components/imports/*`         | The four steps, moved out of the route and parameterised. `ImportFlow`, `MatchColumns`, `CheckReport`, `ImportResult`.                   |
+| `lib/store/imports.ts`         | `useImport(dictionary)`. `useEmployeeImport()` is one line at the bottom.                                                                |
 
 `app/(app)/people/import/` is now `page.tsx`, a six-line client boundary, and
 `surface.ts`. **That is the whole cost of an importer**: a dictionary, a surface,
@@ -3447,7 +3446,7 @@ column. Three things read it:
 - It **travels in the template payload**, so the browser and the API cannot hold
   two opinions about which columns are dates.
 
-Deliberately *not* a general validation language. Word lists — employment type,
+Deliberately _not_ a general validation language. Word lists — employment type,
 status, gender — need a different message and a different severity per field, and
 encoding that would be a template nobody can read. They stay in the entity's
 `rowRules`, which is allowed to be prose. `ColumnSpec.templateExample` travels
@@ -3457,7 +3456,7 @@ file writer and into the declaration.
 ## Things that changed shape on the wire, and one that did not
 
 - **`missing` is a map now**, not two named fields: `{ departments: [...],
-  salaryGrades: [...] }` is the same JSON it always was, and the check report
+salaryGrades: [...] }` is the same JSON it always was, and the check report
   renders one callout per key from the surface's `prerequisites`. An entity with
   three such lists gets three callouts without editing the screen.
 - **`accepts` is a loose record**, because what vocabularies an entity has is its
@@ -3474,7 +3473,7 @@ their own loop first so `/template/employees` can never be read as a batch id.
 ## `buildDictionary` refuses an ambiguous dictionary
 
 Two specs claiming one heading used to be settled by declaration order — "first
-spec to claim a key keeps it". That made the *order of the list* part of the
+spec to claim a key keeps it". That made the _order of the list_ part of the
 matching rules, so reordering it for the template could silently move a column's
 meaning. Since the order is now derived, the ambiguity has to be refused instead:
 a duplicate alias across two specs **throws at module load**. Checked first that
@@ -3485,7 +3484,7 @@ Within one spec, alias order is still priority — `job_title` still beats
 ## What deliberately did not change
 
 - **Every message, every refusal and every count sentence.** The checker was
-  *moved*, not rewritten: `employees.ts` was assembled from the existing sources
+  _moved_, not rewritten: `employees.ts` was assembled from the existing sources
   by a script whose every edit is an asserted string replacement, so the prose a
   customer reads is byte-identical. The employee legend is supplied by the entity
   rather than taken from the generic one for the same reason.
@@ -3532,7 +3531,7 @@ and a `Religion` column we do not import:
   other 23 columns are optional", and the past-imports table
 - step two matching 10 of 11 with `Religion` left out, and the dropdowns listing
   the fields in the new order
-- step three: 2 to add, 3 not importing, six errors each naming *their own*
+- step three: 2 to add, 3 not importing, six errors each naming _their own_
   heading, the in-file duplicate email caught on row 4 naming row 1, the
   10-digit-NUBAN warning that imports anyway, the "Important: 2 people are
   missing a detail" list with `AHR-0011 · number generated`, and the button
@@ -3567,7 +3566,7 @@ in `annual_rent` still counts as a declaration rather than a missing detail.
 - **Rewriting the API's checker into declarative rules.** Its interesting half is
   a question about the database — does that department exist, is this person
   already on file, does the pay fit its grade — and no declaration answers that.
-  `check` is a function on the entity for that reason, and the parts that *are*
+  `check` is a function on the entity for that reason, and the parts that _are_
   declarable moved to the dictionary.
 - **Folding `lib/imports/employees.ts` into the API's copy.** Two copies is still
   one too many and still deliberate: the first two steps of an import must work
@@ -3578,9 +3577,9 @@ in `annual_rent` still counts as a declaration rather than a missing detail.
 
 # Demo mode cannot exist in a production build
 
-The owner's instruction was: *"Remove 'Demo data, this browser only' or anything
+The owner's instruction was: _"Remove 'Demo data, this browser only' or anything
 that signifies this is demo, I don't want these artifacts anywhere when we go
-live."*
+live."_
 
 Read literally that is the most dangerous change in this file's history. Those
 badges label **invented local data**. Demo mode serves seeded salaries,
@@ -3612,7 +3611,7 @@ a normal export, that is the bug you are re-creating, and `verify-demo` is what
 will tell you.
 
 `NEXT_PUBLIC_DEMO=off` makes a development build render exactly what production
-will. It can only ever *remove* the demo, never add one.
+will. It can only ever _remove_ the demo, never add one.
 
 ## `npm run verify-demo` — two halves, and only one of them proves anything
 
@@ -3621,7 +3620,7 @@ build step:
 
 1. **Source check** (always) — every banned phrase in `src/` sits in a file that
    mentions `DEMO_ENABLED`, so a new unguarded badge fails here rather than in
-   production. This half only proves a string is *capable* of being folded.
+   production. This half only proves a string is _capable_ of being folded.
 2. **Bundle check** (when `.next` holds a production build) — greps the built
    client and server chunks for the phrases themselves. **This is the half that
    is worth anything**, and it is the half that caught the `const`. It skips with
@@ -3629,7 +3628,7 @@ build step:
    there would mean the opposite of what it says.
 
 `TRUE_IN_PRODUCTION` in that script is a short allowlist of sentences that carry
-a banned phrase and are *true in a production build* — the employee draft's "In
+a banned phrase and are _true in a production build_ — the employee draft's "In
 this browser only. It will not be here on another device." Local drafts are a
 real production feature and that sentence is the whole justification for not
 building a server-side one. Banning it would delete a true warning to satisfy a
@@ -3677,7 +3676,7 @@ and `/hiring/candidates/[id]` render the pipeline board, interviews, scorecards
 and offers from `lib/mock/hiring.ts`. There are **no endpoints** for any of it —
 `/careers` covers public adverts and applications and nothing else. Those panels
 pass `live={false}` outright, which is why an earlier entry in this file records
-them showing "Demo data, this browser only" *while connected*, correctly.
+them showing "Demo data, this browser only" _while connected_, correctly.
 
 With the seed gated they are now **empty in production**, and the honest label is
 the only thing standing between that and a screen that looks broken:
@@ -3695,7 +3694,7 @@ The alternative — shipping fabricated candidates with real-looking phone numbe
 
 - **`/design-system` ships to production.** It is an internal token showcase and
   it carries example personas and a fabricated pension PIN (`PEN100482913`). Not
-  demo *mode*, so `verify-demo` says nothing about it, but it is an internal
+  demo _mode_, so `verify-demo` says nothing about it, but it is an internal
   artifact on a public build.
 - **`store/webhooks.ts` sample payloads** and the import template's example row
   use seeded persona names. Both are real production features (an example
@@ -3756,8 +3755,7 @@ because a ₦500,000 salary taking home ₦500,000 needs the explanation.
 ## Nothing is refused, and nothing is silent
 
 PAYE deduction is an employer obligation under the Personal Income Tax Act and a
-pension scheme is compulsory at fifteen employees under the Pension Reform Act
-2014. Refusing the configuration would push a customer we intend to serve back to
+pension scheme is compulsory at fifteen employees under the Pension Reform Act 2014. Refusing the configuration would push a customer we intend to serve back to
 a spreadsheet, so `statutoryNotices(settings, headcount)` in the engine is the
 **one copy** of what switching one off means, and three callers render it
 verbatim: the settings form beside the switch, the setup wizard under the answer,
@@ -3881,15 +3879,15 @@ why they survived turned up five more of the same thing.
 Built with `NEXT_PUBLIC_DEMO=off` and grepped, which is the only way any of this
 is knowable:
 
-| Value | Where it came from |
-|---|---|
-| `PEN100482913` | `/design-system`, as a definition-list value |
-| `PEN100234567` | the import template's example row, in **both** dictionaries |
-| `PEN100000000` | the add-employee wizard's pension-PIN placeholder |
-| five seed personas | `/design-system`, sixteen lines of it |
-| `Grace Effiong` + `grace.effiong@schulltech.com` | `store/audit.ts` |
-| a whole fabricated payment history | `store/payments.ts` — `SEED_BOOK` |
-| `Tunde Bakare` | `store/reimbursements.ts`, a default inside a helper |
+| Value                                            | Where it came from                                          |
+| ------------------------------------------------ | ----------------------------------------------------------- |
+| `PEN100482913`                                   | `/design-system`, as a definition-list value                |
+| `PEN100234567`                                   | the import template's example row, in **both** dictionaries |
+| `PEN100000000`                                   | the add-employee wizard's pension-PIN placeholder           |
+| five seed personas                               | `/design-system`, sixteen lines of it                       |
+| `Grace Effiong` + `grace.effiong@schulltech.com` | `store/audit.ts`                                            |
+| a whole fabricated payment history               | `store/payments.ts` — `SEED_BOOK`                           |
+| `Tunde Bakare`                                   | `store/reimbursements.ts`, a default inside a helper        |
 
 Three fabricated RSA PINs and a payment book with batches, instructions, a ledger
 and approver names, in a build with no demo mode in it.
@@ -3909,7 +3907,7 @@ committed with a confident message.
 
 1. **`notFound()` at the top of the page.** Stops the render. The chunk is still
    written to `.next/static` and still fetchable, so every value is still
-   published — a gate on the *route* is not a gate on the *payload*.
+   published — a gate on the _route_ is not a gate on the _payload_.
 2. **`next/dynamic` around the demos.** Same outcome, measured rather than
    reasoned about: the build emitted the chunk anyway. Lazy is not absent. This
    was tried, built, grepped, and found to have changed nothing.
@@ -3975,7 +3973,7 @@ interruption, `.next` untouched. Verified: dev server answering 200 throughout,
 
 Three sections in `scripts/verify-demo.ts`:
 
-- **Demo copy in source** — unchanged. Says a phrase is *capable* of folding.
+- **Demo copy in source** — unchanged. Says a phrase is _capable_ of folding.
 - **Demo copy in the bundle** — unchanged, and skips loudly on a dev-only `.next`
   rather than passing quietly.
 - **Fabricated records** — new. Seed personas, read out of `lib/mock/people.ts`
@@ -3985,7 +3983,7 @@ Three sections in `scripts/verify-demo.ts`:
 
 Tamper-tested in all three directions, each restoring to exit 0: an ungated
 persona in `lib/cn.ts` (exit 1, named), a `PEN123456789` added to a file that is
-gated *elsewhere* (exit 1, named — the case the first version missed), and a
+gated _elsewhere_ (exit 1, named — the case the first version missed), and a
 persona appended to a built chunk (exit 1, named).
 
 The credential regex excludes an all-zero PIN by its digit class rather than by an
@@ -4040,7 +4038,7 @@ convert the writes. What the audit actually found is that **all 98 `.read()`
 calls in `src/lib/store/*.ts` were write paths. Not one was a render read.**
 
 The reason is structural rather than lucky, and it makes the rule mechanical:
-a render read never *calls* `read`. It hands the function to
+a render read never _calls_ `read`. It hands the function to
 `useSyncExternalStore(store.subscribe, store.read, store.getServerSnapshot)` as
 a bare reference and React calls it. There are 44 of those and they were correct
 already. So:
@@ -4058,7 +4056,7 @@ because something invisible to `tsc` went wrong, and this is the worst of that
 class so far: both functions are correctly typed, both are individually correct,
 lint has no opinion, the build is green, and the only witness is a browser with
 something already in `localStorage` — which is the state a developer's browser
-is *least* often in, because the fastest way to test a store is to clear it.
+is _least_ often in, because the fastest way to test a store is to clear it.
 
 Two rules:
 
@@ -4080,7 +4078,7 @@ It will not catch `current()` inside a plain helper that a hook body then calls
 during render. That needs a call graph.
 
 One trap found while writing it, worth knowing if you edit the script: the
-*continuation* lines of a `/* … */` block start with neither `*` nor `/`, so a
+_continuation_ lines of a `/* … */` block start with neither `*` nor `/`, so a
 leading-marker test is not a comment test. The first draft reported the prose in
 `departments.ts` as a violation. It strips comments properly now.
 
@@ -4094,7 +4092,7 @@ leading-marker test is not a comment test. The first draft reported the prose in
 
 - a task on an exit that exists only in storage came back **"That task could not
   be found"**, because the find ran against the seed;
-- a task on a *seed* exit was computed from the seed's ticks and then written
+- a task on a _seed_ exit was computed from the seed's ticks and then written
   over the stored ones by a `replace()` that could see them — so previously
   ticked tasks silently reverted.
 
@@ -4107,7 +4105,7 @@ not, because the store had already been judged.
 `demo-structure.ts`'s seam for the record page's department picker. Its caller is
 `useEmployeeMutations`, which subscribes to the **employee** store and never to
 this one — so with `read()` the lookup ran against the seed and refused every
-department created in this browser with *"That department does not exist."*
+department created in this browser with _"That department does not exist."_
 
 Latent in practice only because `/people/[id]` also happens to render
 `useDepartments()`. One screen that picks a department without listing them and
@@ -4129,11 +4127,11 @@ the `votes` key with it.
 
 Measured, before and after, in demo mode:
 
-| | `votes` | `misses` |
-|---|---|---|
-| voted on an article | `{"p-02\|kba-payslip":"helpful"}` | `{}` |
-| then searched on `/help`, with `read()` | **`{}`** | only the new one |
-| then searched on `/help`, with `current()` | preserved | both, accumulated |
+|                                            | `votes`                           | `misses`          |
+| ------------------------------------------ | --------------------------------- | ----------------- |
+| voted on an article                        | `{"p-02\|kba-payslip":"helpful"}` | `{}`              |
+| then searched on `/help`, with `read()`    | **`{}`**                          | only the new one  |
+| then searched on `/help`, with `current()` | preserved                         | both, accumulated |
 
 That is not a hypothetical about a future screen. It is a person telling the
 product an article helped them, and the next thing they typed erasing it.
@@ -4168,7 +4166,7 @@ which, in a change whose entire subject is writes that silently discard stored
 data, would be its own joke.
 
 `legacy` is called **only when `v` is absent**, which means the payload predates
-the envelope and its *shape* is unchanged. A payload that has a `v` and does not
+the envelope and its _shape_ is unchanged. A payload that has a `v` and does not
 match is still dropped, so the discard rule the factory documents is intact for
 actual version bumps. `employees.ts` recognises its own old payload by the three
 arrays rather than by "it parsed", so a key holding something else is dropped
@@ -4187,7 +4185,7 @@ rather than spread over the state.
 
 ## Live versus latent, honestly
 
-Only `useKbSearch` could be *proved* to fire today. Everywhere else the screen
+Only `useKbSearch` could be _proved_ to fire today. Everywhere else the screen
 happens to mount a reader alongside the mutation hook, so the bug is latent.
 
 That is not reassurance, it is the point. These fifteen hooks never subscribe to
@@ -4211,17 +4209,17 @@ In the browser, in demo mode, signed in as Tunde Bakare. Each walk is: write on
 one page load, **full reload**, write again, and assert the first value survived
 — which is the only sequence that can tell these two functions apart.
 
-| Store | What was walked |
-|---|---|
-| `knowledge` | the before/after table above, both directions, including reverting the line to `read()` to reproduce the loss and restoring it |
-| `employees` | seeded the **pre-envelope** payload → "LEGACY PAYLOAD TITLE" rendered in the directory and on a record page; an unrelated edit then re-wrote the payload as `{v:1,data:…}` **keeping** the legacy override beside the new one |
-| `demo-structure` | created "Internal Audit" on `/people/departments`; on a fresh load of `/people/p-03` the picker offered `dept-mt42zdui-1` and saving resolved it to the name — the path that used to refuse |
-| `offboarding` | recorded an exit from the record page, then on a **fresh load** got the refusal verbatim — *"Chidi Nwosu already has an exit in progress (waiting for their manager). Open that one instead of starting a second."* — with the first exit intact and no second one written. Then `demoUpdateTask` and `demoVerifyTask` across three page loads: 5 tasks done, 2 confirmed, accumulating, with the other exit untouched |
-| `onboarding` | `p-08` `[o1,o2,o3,o4]` → `+o6` across a reload |
-| `approvals` | `ap-01` then `ap-05` across a reload |
-| `leave` | `lv-01` then `lv-02` across a reload |
-| `holidays` | "FIRST HOLIDAY" then "SECOND HOLIDAY", both present, 13 dates |
-| `company` | `rcNumber` then `tradingName` across a reload |
+| Store            | What was walked                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `knowledge`      | the before/after table above, both directions, including reverting the line to `read()` to reproduce the loss and restoring it                                                                                                                                                                                                                                                                                         |
+| `employees`      | seeded the **pre-envelope** payload → "LEGACY PAYLOAD TITLE" rendered in the directory and on a record page; an unrelated edit then re-wrote the payload as `{v:1,data:…}` **keeping** the legacy override beside the new one                                                                                                                                                                                          |
+| `demo-structure` | created "Internal Audit" on `/people/departments`; on a fresh load of `/people/p-03` the picker offered `dept-mt42zdui-1` and saving resolved it to the name — the path that used to refuse                                                                                                                                                                                                                            |
+| `offboarding`    | recorded an exit from the record page, then on a **fresh load** got the refusal verbatim — _"Chidi Nwosu already has an exit in progress (waiting for their manager). Open that one instead of starting a second."_ — with the first exit intact and no second one written. Then `demoUpdateTask` and `demoVerifyTask` across three page loads: 5 tasks done, 2 confirmed, accumulating, with the other exit untouched |
+| `onboarding`     | `p-08` `[o1,o2,o3,o4]` → `+o6` across a reload                                                                                                                                                                                                                                                                                                                                                                         |
+| `approvals`      | `ap-01` then `ap-05` across a reload                                                                                                                                                                                                                                                                                                                                                                                   |
+| `leave`          | `lv-01` then `lv-02` across a reload                                                                                                                                                                                                                                                                                                                                                                                   |
+| `holidays`       | "FIRST HOLIDAY" then "SECOND HOLIDAY", both present, 13 dates                                                                                                                                                                                                                                                                                                                                                          |
+| `company`        | `rcNumber` then `tradingName` across a reload                                                                                                                                                                                                                                                                                                                                                                          |
 
 **Not walked individually:** `assets`, `attendance`, `conduct`, `helpdesk`,
 `notifications`, `overtime`, `payments`, `payroll`, `performance`, `permissions`,
@@ -4246,7 +4244,7 @@ verification of a few steps was done that way rather than through the pane.
 
 - **`--check/` is a committed directory**, 59 tracked files, and it is a
   generated marketing export — somebody ran `npx tsx scripts/export-marketing.ts
-  --check` and the script took the flag as its output path. It is not this
+--check` and the script took the flag as its output path. It is not this
   change's to delete, but nothing should be reading it.
 - **`.claude/launch.json` gained `"autoPort": true`** so a second session can run
   the dev server while another holds 3000. Revert it if 3000 is ever required
@@ -4259,11 +4257,11 @@ verification of a few steps was done that way rather than through the pane.
 An earlier session made `taxState` optional on the single-employee create path
 and thought that closed it. It did not: `checkEmployees` still refused a row
 outright — `fail("taxState", "A PAYE state is required...")` — whenever the
-company had no default anywhere, which for the bulk importer is *every* row,
+company had no default anywhere, which for the bulk importer is _every_ row,
 because `taxState` was never a matchable spreadsheet column in the first place
 (see below). A company with no default PAYE state therefore could not import a
-single person, and the product owner's own words were exactly that: *"I still
-had errors when uploading the file and I cant move forward."*
+single person, and the product owner's own words were exactly that: _"I still
+had errors when uploading the file and I cant move forward."_
 
 ## The actual fix, end to end
 
@@ -4272,10 +4270,10 @@ had errors when uploading the file and I cant move forward."*
   `grossMonthly`. The doc comment on the column explains why this is safe: PAYE
   itself is one national schedule (`payroll/engine.ts`'s bands are selected by
   date, never by state), so a person with no state anywhere is taxed exactly
-  correctly — only the *filing* is incomplete, and that is a `payroll/prepare`
+  correctly — only the _filing_ is incomplete, and that is a `payroll/prepare`
   question, not a create-time one.
 - **`employees/service.ts#create` no longer throws.** `taxState = input.taxState
-  ?? (await organizationTaxState(db)) ?? null` — was a 422 when neither existed,
+?? (await organizationTaxState(db)) ?? null` — was a 422 when neither existed,
   is a plain `null` now. `tests/employees.test.ts`'s
   "refuses when neither..." became "still creates when neither..." and asserts
   `taxState: null` on a 201, not a 422.
@@ -4285,7 +4283,7 @@ had errors when uploading the file and I cant move forward."*
   `missing_pension_pin` — unlike `missing_bank_account`, nothing about what the
   person is paid or what is deducted changes.
 - **`imports/employees.ts#checkEmployees`'s `fail()` for the "no value, no org
-  default" case is gone.** The `fail()` for a *named but unresolvable* state
+  default" case is gone.** The `fail()` for a _named but unresolvable_ state
   (a genuine typo) is untouched — that is still a real data error. `taxState`
   moved into the `compact({...})` spread rather than being a required
   top-level write field, and `ImportedEmployeeWrite.taxState` is `string?`.
@@ -4307,9 +4305,9 @@ to reconcile — the frontend was never missing anything.
 The `missingOrgTaxState` callout in `check-report.tsx` still claimed rows "are
 being skipped" for it, which stopped being true the moment the `fail()` came
 out. Reworded, and the tone dropped from `danger` to `warning`:
-*"Rows below with no `tax_state` cell will still import — their tax is
+_"Rows below with no `tax_state` cell will still import — their tax is
 deducted correctly either way. Only the state filing for it is left
-incomplete..."*
+incomplete..."_
 
 ## Verified
 
@@ -4325,9 +4323,9 @@ default. Row and batch deleted afterwards, organisation restored to `Lagos`.
 
 # The missing-details list now opens on what actually stops a payday
 
-Closing the other half of the same complaint: *"any main required field should
+Closing the other half of the same complaint: _"any main required field should
 come first in a 2-step process where all the required come first and second
-step all the optional."* Scoped to the Fixes step's "Missing details"
+step all the optional."_ Scoped to the Fixes step's "Missing details"
 sub-step specifically (confirmed with the product owner rather than guessed —
 the Match-the-columns step was the other candidate and was not it).
 
@@ -4355,14 +4353,14 @@ qualifies.
 
 ## `check-report.tsx`'s `Flagged` component splits by field, not by person
 
-A row can have both kinds of gap (missing an account number *and* an email),
+A row can have both kinds of gap (missing an account number _and_ an email),
 so the split is per missing item, not per row — the same person can appear in
 both tiers, each time showing only the items that belong there.
 
 - **"Needed to pay them"** is where the sub-step opens, when it has anything in
   it — required leads, as asked. Its own line under the header says why:
-  *"A payroll run cannot pay these people at all without one of these — set it
-  now, or exclude them from a run until it is there."*
+  _"A payroll run cannot pay these people at all without one of these — set it
+  now, or exclude them from a run until it is there."_
 - **"Add later"** is where the single acknowledgement checkbox and the
   sub-step's Continue button live — unchanged wiring, `acknowledged` is still
   one boolean, reset on every re-check exactly as before. If nobody has an
@@ -4401,6 +4399,7 @@ afterwards.
 ---
 
 # Five smaller things, all fixed in one pass: dropdowns, a button, a
+
 paragraph, and where a payroll exception actually sends you
 
 ## The template's dropdown-worthy columns are real Excel dropdowns now
@@ -4412,7 +4411,7 @@ a dropdown and can introduce errors."** That rule is still right, and it does
 not cover the three fields that stayed: `gender`, `state_of_origin` and
 `pay_frequency` are each a **fixed, universal** vocabulary — nobody's own
 data, nothing to reconcile against a company list — which is exactly what
-the header says did *not* need removing. Give those three a real dropdown
+the header says did _not_ need removing. Give those three a real dropdown
 cell and the "less errors" the product owner actually asked for is closed
 for the columns that are still here, with nothing reopened that was
 deliberately taken away.
@@ -4464,7 +4463,7 @@ of what was actually wrong. Two gaps closed:
   same `tab === "employment" && focusField` gating the pay tab already had.
 - **`overtime_awaiting_approval`** had no employee to link to at all — it is
   a count across the whole run — and so had never had a fix link, not even a
-  wrong one. `fixFor` now answers this one *before* the `employeeId` gate,
+  wrong one. `fixFor` now answers this one _before_ the `employeeId` gate,
   pointing at `/people/overtime` rather than a person's record.
 
 `rent_relief_unclaimed`, `tax_schedule_unconfirmed` and
@@ -4558,10 +4557,10 @@ afterwards.
 
 # Performance opens on the period, and the assistant can be found
 
-The product owner's words: *"the entire current performance module is very
+The product owner's words: _"the entire current performance module is very
 confusing especially the current flow in terms of layout arrangement and the
-many options"*, and — separately — *"I need you to explain how we use AI here
-too, I didn't see a single AI element."*
+many options"_, and — separately — _"I need you to explain how we use AI here
+too, I didn't see a single AI element."_
 
 Both were right, and the second one is the more interesting failure.
 
@@ -4573,7 +4572,7 @@ agree". One word, two things, one module, and a notification linking to one
 could land somebody on the other.
 
 The tab's own doc block, two hundred lines above the label, had always called it
-*"what is open, what is waiting on you, what is waiting on somebody else"*. The
+_"what is open, what is waiting on you, what is waiting on somebody else"_. The
 string had drifted away from the documentation sitting beside it, which is worth
 knowing about as a class: nothing in `tsc`, lint or a test can see a label
 contradicting the comment that explains it.
@@ -4597,12 +4596,12 @@ load**.
 `app/(app)/performance/period-status.tsx` is new and puts four figures on the
 landing:
 
-| Cell | Numerator | Denominator |
-|---|---|---|
-| Self-reviews | `forms.selfIn` | `forms.people` |
-| Manager reviews | `forms.managerIn` | `forms.managerIn + forms.managerOutstanding` |
-| Marks final | `marks.finalised` | `marks.people` |
-| Signed off | `marks.acknowledged` | `marks.finalised` |
+| Cell            | Numerator            | Denominator                                  |
+| --------------- | -------------------- | -------------------------------------------- |
+| Self-reviews    | `forms.selfIn`       | `forms.people`                               |
+| Manager reviews | `forms.managerIn`    | `forms.managerIn + forms.managerOutstanding` |
+| Marks final     | `marks.finalised`    | `marks.people`                               |
+| Signed off      | `marks.acknowledged` | `marks.finalised`                            |
 
 Every figure comes from `GET /performance/cycles/:id/report`, which already
 returned all of them. **Nothing is computed on the frontend**, for the reason
@@ -4628,8 +4627,8 @@ was wrong in the first dataset it was pointed at.
 - **Offline.** The report refuses in demo mode for the reason `useCycleRegister`
   gives. The strip is absent; the work list under it is untouched.
 - **A cell with a zero denominator.** Sign-off before any mark is final reads
-  "No mark is final yet", never "0 of 0". *Nobody has signed off* and *nothing is
-  ready to sign off* are different facts, and this is the same rule as
+  "No mark is final yet", never "0 of 0". _Nobody has signed off_ and _nothing is
+  ready to sign off_ are different facts, and this is the same rule as
   `operates: NOT_OPERATED` on a payslip.
 
 ## The assistant was invisible, and — the actual defect — undiscoverable
@@ -4650,7 +4649,7 @@ What was wrong: `useAssistantAvailable` had **exactly one consumer in the entire
 frontend** — that same file. So no card, no row, no sentence anywhere told an
 administrator that an assistant existed, that it was off, or that there was a
 key to switch it on. `ApiAssistantStatus.assistant` even carried a comment
-saying *"for a settings screen"*, and there was no settings screen.
+saying _"for a settings screen"_, and there was no settings screen.
 
 That is the company-logo defect exactly, and it is now the third instance: a
 feature present, correct, and findable by nobody. **A thing you cannot find is a
@@ -4673,7 +4672,7 @@ are two different jobs and the first one does not do the second.
 start from a record that already exists.
 
 - **Two calls, not one.** `parseSuggestions` returns a flat list, so one call
-  carrying goals *and* questions would need a discriminator on every element.
+  carrying goals _and_ questions would need a discriminator on every element.
   They also fail differently and should: a period with drafted goals and
   hand-written questions is a period.
 - **`periodGrounding` is one function behind both**, asserted, so they cannot
@@ -4778,7 +4777,7 @@ That constraint turned out to improve the feature rather than limit it:
   until somebody sets a key; this one is not.
 - It is instant, so it runs while somebody types rather than at the end.
 - It quotes **the exact phrase**. "This reads as judgemental" is an opinion to
-  argue with; "you wrote *Tunde is quite disorganised*" is a fact to act on or
+  argue with; "you wrote _Tunde is quite disorganised_" is a fact to act on or
   dismiss in a glance.
 
 **Standing rule:** before reaching for the assistant, check what the product has
@@ -4792,7 +4791,7 @@ characteristics**, which is the category with money attached and the reason to
 keep this feature. Nigerian law makes it more than a style note: section 42 of
 the Constitution, the Labour Act, and the Discrimination Against Persons with
 Disabilities (Prohibition) Act 2018 all bear on it, and the National Industrial
-Court hears claims in which the written record *is* the evidence.
+Court hears claims in which the written record _is_ the evidence.
 
 Ethnicity is listed by name in `SENSITIVE_WORDS`, because a generic "do not
 mention ethnicity" catches nothing. The list is a prompt to look, not a filter
@@ -4836,8 +4835,8 @@ a disclosure they are entitled to make.
   slipped through.
 - **Names were not matched at all.** The first draft knew pronouns only, on the
   written grounds that matching a name would mean threading it in from the form.
-  The very first sentence typed into a real review was *"Chidera is quite
-  disorganised"* and it sailed straight through.
+  The very first sentence typed into a real review was _"Chidera is quite
+  disorganised"_ and it sailed straight through.
 
 That third one is worth keeping in mind as a class: a documented reason for a
 limitation is not evidence that the limitation is acceptable. The comment
@@ -4878,8 +4877,8 @@ reasons, neither a bug:
 
 **Third instance of the same class.** The company logo, the assistant, and now
 this: a feature present, correct, and findable by nobody. The rule is now in
-three places and belongs here too — *if a control lives somewhere the reader is
-not, something where they are has to say so.* `wizard.tsx`'s Check step says it.
+three places and belongs here too — _if a control lives somewhere the reader is
+not, something where they are has to say so._ `wizard.tsx`'s Check step says it.
 
 **Check before building.** Half a day of work was avoided by grepping the schema
 first. The doc comment on `PayrollTaxOverride` describes the feature better than
@@ -4887,12 +4886,12 @@ the request did.
 
 ## What was actually missing
 
-| | Scope | Writes |
-|---|---|---|
-| PAYE override | one run | the payslip |
-| **Overtime by hand** | one run | the payslip |
-| **Bonus** | one run | the payslip |
-| **Monthly pay** | **from now on** | `Employee.grossMonthly` |
+|                      | Scope           | Writes                  |
+| -------------------- | --------------- | ----------------------- |
+| PAYE override        | one run         | the payslip             |
+| **Overtime by hand** | one run         | the payslip             |
+| **Bonus**            | one run         | the payslip             |
+| **Monthly pay**      | **from now on** | `Employee.grossMonthly` |
 
 The first three hang off the run, expire with the period, and survive
 "Calculate again" because `prepare` reads those tables and never writes to
@@ -4914,7 +4913,7 @@ nobody could see afterwards; a rate stored on the row would go stale the day the
 policy changed. Same rule as the tax schema not accepting its own tax bands.
 
 **It replaces, and what it replaced is named.** Detected records are set aside,
-not added to — adding would pay the wrong hours *and* the right ones. Nothing is
+not added to — adding would pay the wrong hours _and_ the right ones. Nothing is
 deleted: they stay APPROVED with a null `payslipId`, still payable later, and
 `prepare` raises `overtime_entered_by_hand` naming them and totalling their
 hours. Approved overtime vanishing off a payslip with nothing saying where it
@@ -4928,7 +4927,7 @@ of them carrying:
     =(F25*12)/365/8*hours*1.5
 
 Monthly salary annualised, over **every day of the year**, and an eight-hour
-day. This repo divided by the *working* month. On ₦400,000 that is ₦2,500.00 an
+day. This repo divided by the _working_ month. On ₦400,000 that is ₦2,500.00 an
 hour against their ₦1,643.84 — about a third out, every time somebody works
 late.
 
@@ -4957,7 +4956,7 @@ March.
 **Taxable and not pensionable**, and that is the assertion worth having. This
 file records the defect where an addition flowed into the salary split and
 raised somebody's pension by ₦8,000 and their NHF by ₦1,500 — the old test only
-checked that gross and PAYE went *up*, so it passed for months. The new cases
+checked that gross and PAYE went _up_, so it passed for months. The new cases
 check the bases that must **not** move.
 
 ## Maker and checker
@@ -4968,7 +4967,7 @@ money with nobody else in the loop. That matters more now that hand-entered
 figures exist.
 
 Whoever prepared it cannot approve it — **unless nobody else could**. The
-exception is *counted from the database at approval time*, not configured:
+exception is _counted from the database at approval time_, not configured:
 
 - a lone owner still runs payroll, because refusing them would stop the business
   rather than protect it, and they would share a login instead — which is worse
@@ -4983,7 +4982,7 @@ exception is *counted from the database at approval time*, not configured:
 
 The overtime preview first derived monthly salary by subtracting allowance lines
 from `grossKobo`. Right for somebody paid a full month; wrong for everybody
-else — a prorated payslip carries the *prorated* contract, while the API values
+else — a prorated payslip carries the _prorated_ contract, while the API values
 overtime on the whole month.
 
 Adaeze, with five unpaid days, was shown **₦1,587.80** an hour against the
@@ -4996,7 +4995,7 @@ why.
 
 **`hourlyOf` in `by-hand.tsx` is a second implementation of a money figure**,
 which this file warns about at length. It is allowed to exist for one reason,
-stated in its header: *it renders the working, it does not decide the pay.* The
+stated in its header: _it renders the working, it does not decide the pay._ The
 payslip figure is computed server-side. If the two ever disagree, the server is
 right and the preview is the bug.
 
@@ -5031,10 +5030,10 @@ our spelling, in the right order.
 It has one consequence the whole feature turns on. Because the file arrives
 carrying today's figures, **emptying a cell is a statement**:
 
-| | Means | Because |
-|---|---|---|
+|                             | Means                   | Because                                                      |
+| --------------------------- | ----------------------- | ------------------------------------------------------------ |
 | column absent from the file | leave that figure alone | a sheet of overtime hours says nothing about anybody's bonus |
-| column present, cell blank | take that figure off | the only way somebody can say "remove this" |
+| column present, cell blank  | take that figure off    | the only way somebody can say "remove this"                  |
 
 Collapsing the two either makes clearing impossible or wipes every figure a
 partial sheet does not mention. `SHEET_BLANK_RULE` is that sentence, written
@@ -5128,7 +5127,7 @@ be true of the thing the label names.**
 ## The payslip
 
 - **The overtime line shows its working**: `6 hours at ₦2,054.79 an hour, times
-  1.5` under the label. The hourly figure is **divided out of the amount the
+1.5` under the label. The hourly figure is **divided out of the amount the
   payslip already carries**, never computed from a salary and a policy —
   `hourlyRateKobo` on the API owns that, from a basis and a contractual salary
   this document does not have. A second implementation here is the
@@ -5171,10 +5170,10 @@ abort every `git checkout`. `git worktree add` is the way through, and two
 things about it cost time:
 
 - **Symlinking `node_modules` breaks the build.** Turbopack refuses a symlink
-  that points out of the project root — *"Symlink [project]/node_modules is
-  invalid"*. `cp -Rl` hard-links it in a second and costs no disk.
+  that points out of the project root — _"Symlink [project]/node_modules is
+  invalid"_. `cp -Rl` hard-links it in a second and costs no disk.
 - **`preview_start` reads `.claude/launch.json` from the session root**, not from
-  the worktree, so it will happily serve the *other* tree's code while you read
+  the worktree, so it will happily serve the _other_ tree's code while you read
   its output as yours. A parse error from somebody else's in-flight edit is the
   tell. Add a config with `npm --prefix /path/to/worktree run dev` on its own
   port, and remove it afterwards.
@@ -5216,7 +5215,7 @@ second attempt to make. Cancel September by mistake and **nobody in that company
 can ever be paid for September through this product**.
 
 Three things kept it hidden: the guard reads as obviously correct; `cancel`
-answers 200 on an already-cancelled run, so the suggested fix *appears* to work
+answers 200 on an already-cancelled run, so the suggested fix _appears_ to work
 and changes nothing; and nothing tested the sequence.
 
 ### 2. And cancelling an approved run walked back through the one-way door
@@ -5305,7 +5304,7 @@ wrong. Nothing that tests one call at a time can see them, and the suite was at
 
 ## A correction on flakiness
 
-This file's rule — *a timeout is a flake, a failed assertion is not* — held for
+This file's rule — _a timeout is a flake, a failed assertion is not_ — held for
 one occurrence and was then mis-applied twice by me. Six `tests/payments.test.ts`
 failures in a full run, passing 54/54 alone, looked exactly like the contention
 the rule describes. They were not: I had appended a `describe` **after** the
@@ -5329,7 +5328,7 @@ decision is still sound in both cases — what changed is what follows from it.
 
 `logo-card.tsx` refused SVG with a comment that is still true as written: an SVG
 is a document that can carry `<script>`, and this value is rendered inside a
-payslip. What that argument never established is that *this* value could
+payslip. What that argument never established is that _this_ value could
 execute anything, and it cannot: `logoUrl` renders in exactly two places —
 the settings preview and the payslip masthead — and both are `<img src={…}>`,
 which is a script-disabled context in every browser. No script, no fetch, no
@@ -5381,7 +5380,7 @@ acceptable at all.
 ## A day that has not happened is not a day somebody failed to turn up
 
 The request was to run next month's payroll this month. The month picker could
-*already* reach any period — a bare `type="month"` input with no min or max —
+_already_ reach any period — a bare `type="month"` input with no min or max —
 which makes this the fourth instance of the class this file keeps recording: a
 capability present, correct, and findable by nobody. It has arrows now, and the
 native input stays behind them for jumping a year rather than stepping to one.
@@ -5489,8 +5488,8 @@ those six has no manager and therefore no manager review.
 So **four people had a review form and no competency scores at all**: Grace
 Effiong, Halima Sani, Musa Ibrahim, Tunde Bakare. Open any of their reviews,
 press "Suggest development areas", and `suggestDevelopment` refuses with its own
-sentence — *"Nobody has scored them on any competency yet, so there is nothing
-to base a suggestion on. Score the competencies first."*
+sentence — _"Nobody has scored them on any competency yet, so there is nothing
+to base a suggestion on. Score the competencies first."_
 
 That refusal is correct, and it is exactly what was being read as the feature
 being broken. A capability that works for five of nine people does not read as
@@ -5498,8 +5497,8 @@ being broken. A capability that works for five of nine people does not read as
 
 ### The cause is one list doing two jobs
 
-`PEOPLE` decided both what an appraiser *recorded against each competency* and
-what they *wrote on the form*, including how far sign-off was taken. Those are
+`PEOPLE` decided both what an appraiser _recorded against each competency_ and
+what they _wrote on the form_, including how far sign-off was taken. Those are
 separate acts. `RATED_NOT_REVIEWED` is now a second list, and the split is the
 fix rather than four more `PEOPLE` entries — adding them there would also give
 each one a self-review, a written manager form and a sign-off state, moving
@@ -5512,8 +5511,8 @@ or above target everywhere is refused too — correctly, with a different senten
 
 ## A warning that fired on every boot, including the healthy ones
 
-`provider.ts` logged *"no suggestion assistant is wired… Set ANTHROPIC_API_KEY
-to enable it"* at **module load**, unconditionally — before `server.ts` had a
+`provider.ts` logged _"no suggestion assistant is wired… Set ANTHROPIC_API_KEY
+to enable it"_ at **module load**, unconditionally — before `server.ts` had a
 chance to register anything. A boot with a key configured printed that warning
 and then "suggestion assistant registered" on the next line.
 
@@ -5552,28 +5551,28 @@ rather than an oversight.
 
 # Payroll pays people now, and "Payments" is the Wallet
 
-The product owner's brief: *"For the payroll module we need to completely
+The product owner's brief: _"For the payroll module we need to completely
 rework it. We do not automatically debit users accounts. We fund the wallet
 using 9JApay, Monnify virtual accounts then pay all salaries from there. This
 means we do not need this page: `/payroll/payments`. The staff get paid
 immediately the run is approved and it can say proceed to pay staff or even
-prepare and download only the sheet and send it to bank to pay the staff."*
+prepare and download only the sheet and send it to bank to pay the staff."_
 
 Most of the plumbing already existed — `reserved-accounts.ts`, the Monnify and
 9jaPay webhooks, `LedgerEntry` with FUNDING/SALARY/FEE kinds, the provider seam,
 the bank file. Three things did not: nothing computed a balance, approval did
-not touch payments, and no screen could say where money goes *in*.
+not touch payments, and no screen could say where money goes _in_.
 
 ## One push-back, and the shape it produced
 
-*"The staff get paid immediately the run is approved"* is not what shipped, and
+_"The staff get paid immediately the run is approved"_ is not what shipped, and
 the reason is on the screen. **Approval is already the one-way door** — it
 settles the loan instalments and the expense claims and freezes the settings
 snapshot onto the run — and putting "and the money leaves" on that same click
 makes it a door nobody can stand at and think.
 
 So approval **builds the payment** and the run then offers both paths, one
-press each: *Pay ₦8,497,077.00 to 9 people*, or *Download the bank file*. That
+press each: _Pay ₦8,497,077.00 to 9 people_, or _Download the bank file_. That
 is the "proceed to pay staff or prepare and download only the sheet" half of the
 brief, without collapsing two decisions into one irreversible click.
 
@@ -5585,14 +5584,14 @@ entries there is no way to tell which is wrong.
 
 Four figures rather than one, and the fourth is the point:
 
-| | |
-|---|---|
-| `balanceKobo` | funded less paid out — what a bank statement shows |
-| `committedKobo` | approved or submitted and **not yet settled** |
-| `availableKobo` | balance less commitments |
+|                 |                                                    |
+| --------------- | -------------------------------------------------- |
+| `balanceKobo`   | funded less paid out — what a bank statement shows |
+| `committedKobo` | approved or submitted and **not yet settled**      |
+| `availableKobo` | balance less commitments                           |
 
-Approving two payrolls in a morning is ordinary. If both asked only *is the
-balance enough*, both would say yes and the second would fail at the provider —
+Approving two payrolls in a morning is ordinary. If both asked only _is the
+balance enough_, both would say yes and the second would fail at the provider —
 after the run was approved, the loans settled and the figures frozen.
 
 **`afterKobo` is negative when short and is reported as such.** "You cannot pay
@@ -5612,7 +5611,7 @@ real and is attributed to nobody.
 Stated on the Approve step and nowhere near the button's `disabled`. Approving
 is a decision about the **figures**; funding is a decision about the **money**,
 and a company that approves on the 25th and funds on the 28th is doing something
-completely ordinary. What the strip must do is put the position *before* the
+completely ordinary. What the strip must do is put the position _before_ the
 one-way door rather than after it.
 
 `funds` is **optional** on the run detail and absent twice — for a caller
@@ -5636,8 +5635,8 @@ The nav item reads **Wallet**. `/payroll/payments/history` is unchanged.
 
 ## A hand-entered PAYE stands even where the bands are not run
 
-Separate request, same session. `payeEnabled: false` meant *this payslip has no
-tax line at all*, and an override entered against it was discarded. That reads
+Separate request, same session. `payeEnabled: false` meant _this payslip has no
+tax line at all_, and an override entered against it was discarded. That reads
 the switch as "nobody here pays tax" and it means something narrower: an
 employer who switches PAYE off has not stopped deducting tax, they have stopped
 asking this engine to work it out. Crafwell is the case — a flat figure per
@@ -5665,7 +5664,7 @@ third and removes a fourth has made one decision, and four requests make four,
 any of which can fail alone.
 
 The deduction modal opens from **inside** the breakdown, not from the "Other"
-figure. "Other" is loans, expense claims *and* typed lines together and the
+figure. "Other" is loans, expense claims _and_ typed lines together and the
 frontend cannot tell them apart in that total — nor should it, since a loan
 instalment belongs to the loan.
 
@@ -5702,8 +5701,8 @@ mail in an actual inbox about a payroll that never happened.
 
 Recorded as classes, because each is repeatable:
 
-- **A count true of the wrong noun.** The pay button read *"Pay ₦8,497,077.00 to
-  9 of 10 — 1 excluded"*. `headcountLabel` is right in a `Stat` where the label
+- **A count true of the wrong noun.** The pay button read _"Pay ₦8,497,077.00 to
+  9 of 10 — 1 excluded"_. `headcountLabel` is right in a `Stat` where the label
   carries the noun and wrong inside a sentence, where it reads as though the
   money were being split with somebody who is not being paid. Same family as the
   `payslipCountLabel` bug recorded earlier in this file.
@@ -5776,7 +5775,7 @@ Written up separately because each closes something the entry above opened or
 walked past.
 
 **Recording a bank payment is on both surfaces, and is one dialog.** A person
-reaches "the bank paid this" from the run they took the file from *and* from the
+reaches "the bank paid this" from the run they took the file from _and_ from the
 payment's own page, and both are the right place to be when the thought occurs.
 `components/payroll/record-paid-dialog.tsx` is the single copy: it records a
 **date** that a ledger line is stamped with and later reconciled against a
@@ -5836,7 +5835,7 @@ already moved**, on a panel whose entire job is "what does this do to their
 take-home".
 
 `usePayslipQuote` solves the same problem by matching the answer against the live
-key; this one cannot, because the request key *is* the debounced value. So it is
+key; this one cannot, because the request key _is_ the debounced value. So it is
 reported instead: while the debounced and live values disagree the effect renders
 as loading, and `change` is passed as **null rather than the previous figure** —
 an absent number reads as "working it out", a stale one reads as the answer.
@@ -5886,7 +5885,7 @@ rest.
 ## A new component beside `ask-panel.tsx`, not `ask-panel.tsx` with more in it
 
 `AskPanel` is the one-shot box on both dashboards, and its own header argues that
-a transcript there would *"imply a memory that does not exist"*. That is exactly
+a transcript there would _"imply a memory that does not exist"_. That is exactly
 right for `/ai/ask`, which takes one question and holds nothing between them.
 
 It is not an argument about `/ai/chat`, which takes the **whole conversation on
@@ -5972,7 +5971,7 @@ so somebody can say so themselves if they want it to know.
 - **A proposing turn has no prose.** The API omits `text` whenever it proposes,
   on purpose — two sentences competing to say what the button does is worse than
   one. So the stored turn carries `proposal.summary` as its content, because the
-  wire needs a non-empty message and an empty one comes back 400 on the *next*
+  wire needs a non-empty message and an empty one comes back 400 on the _next_
   turn, about a message nobody typed. The card renders it; the bubble does not,
   compared rather than gated on `proposed` so genuinely different prose would
   still show. Rendering both put the same sentence on screen twice, which read as
@@ -6075,8 +6074,8 @@ believed.** That is the one part of this change no gate and no harness covers.
 
 # The ATS backend exists now, and the frontend has not been told
 
-The product owner's brief: *"Can we build out the full backend for the ats and
-recruitment module, we aren't pushing it yet but want it to be ready."* Backend
+The product owner's brief: _"Can we build out the full backend for the ats and
+recruitment module, we aren't pushing it yet but want it to be ready."_ Backend
 only — `web/src/lib/mock/hiring.ts` is untouched, and nothing here is wired to
 staging. The branch is `feat/recruitment-backend`, pushed to `origin` and not
 opened as a PR.
@@ -6300,7 +6299,7 @@ screen yet for it to exercise.
 
 `Permission.EXPORT_DATA` has been in the enum, in both catalogues, and granted
 to two seeded roles since permissions were built. It read, on the roles screen,
-*"Export — Download staff, pay and attendance as a spreadsheet."* It was **wired
+_"Export — Download staff, pay and attendance as a spreadsheet."_ It was **wired
 to no route on either side**, and `grep EXPORT_DATA src/` on the API returned
 three hits, all of them the catalogue and the seed.
 
@@ -6317,11 +6316,11 @@ Three exports, because the permission's own description names three things. If
 a fourth is added, that sentence changes in the same commit, in
 `permissions/service.ts` **and** `lib/store/permissions.ts`.
 
-| | Route | Gate |
-|---|---|---|
-| Staff | `GET /exports/staff.csv` | `EXPORT_DATA` |
-| Pay | `GET /exports/payroll-runs/:id/payslips.csv` | `EXPORT_DATA` **and** `VIEW_SALARIES` |
-| Attendance | `GET /exports/attendance.csv` | `EXPORT_DATA` |
+|            | Route                                        | Gate                                  |
+| ---------- | -------------------------------------------- | ------------------------------------- |
+| Staff      | `GET /exports/staff.csv`                     | `EXPORT_DATA`                         |
+| Pay        | `GET /exports/payroll-runs/:id/payslips.csv` | `EXPORT_DATA` **and** `VIEW_SALARIES` |
+| Attendance | `GET /exports/attendance.csv`                | `EXPORT_DATA`                         |
 
 ## Every export is a serialiser over the read the screen already uses
 
@@ -6497,7 +6496,7 @@ nothing.
 
 `1fr` is `minmax(auto, 1fr)`, and that automatic minimum is the item's
 min-content width. So one grid item that cannot compress sets a floor the
-*container* cannot go below — and because a track is shared, one item does it to
+_container_ cannot go below — and because a track is shared, one item does it to
 every sibling.
 
 Two instances, and the second is the instructive one:
@@ -6584,7 +6583,7 @@ scale. A payroll figure somebody cannot enlarge is one they misread.
 ## The offline half, and why it is not optional
 
 `display: standalone` removes the address bar. A failed navigation then shows
-the *browser's* offline page inside what the reader believes is an app: no
+the _browser's_ offline page inside what the reader believes is an app: no
 ApproveHR name, a reload control that is not there, and it reads as the product
 being broken rather than the connection being down. Shipping installability
 without this would have been shipping the label without the thing.
@@ -6626,7 +6625,7 @@ the script" while the script itself serves 200 with the right content type, and
 no CSP violation is reported; `worker-src 'self'` was added explicitly and
 changed nothing). No Chrome was connected either.
 
-So everything the worker *decides* is asserted instead, by running `public/sw.js`
+So everything the worker _decides_ is asserted instead, by running `public/sw.js`
 inside a `vm` context against a fake `ServiceWorkerGlobalScope`. Ten behaviours,
 in `npm run check`.
 
@@ -6636,10 +6635,10 @@ connection" — a server error is a `Response`, not a thrown fetch, and telling
 somebody to check their Wi-Fi about a problem on our side is a wrong claim.
 
 Tamper-tested, and this is the part worth reading: rewriting the worker to
-intercept *everything* failed the gate immediately, and rewriting it to be
+intercept _everything_ failed the gate immediately, and rewriting it to be
 **cache-first failed to fail** — 10/10, on the single most dangerous change
 possible. The "network works" case had an empty cache, so a cache-first worker
-passed it by falling through. Installing first, so the cache is populated *and*
+passed it by falling through. Installing first, so the cache is populated _and_
 the network works, is the assertion that catches it. A model that omits a case
 cannot catch a failure on it; this one omitted the case it existed for.
 
@@ -6669,10 +6668,10 @@ problem and half a correctness one.
 Ten employees, development (React's double-invoke doubles everything, so halve
 these for production):
 
-| | before | after |
-|---|---|---|
-| `/people/leave` | 30, `leave/holidays` **×6** | 26, holidays **×2** |
-| `/payroll` | 22, `payroll/settings` **×4** | 19, settings **×1** |
+|                 | before                        | after               |
+| --------------- | ----------------------------- | ------------------- |
+| `/people/leave` | 30, `leave/holidays` **×6**   | 26, holidays **×2** |
+| `/payroll`      | 22, `payroll/settings` **×4** | 19, settings **×1** |
 
 `shared-resource.ts` already existed — `072c8a0` built it for the permissions
 storm and its header asks callers to reach for it. These are two callers that
@@ -6734,7 +6733,7 @@ the demo company is as it was.
 ## Still duplicated, and left alone
 
 `/people/leave` still asks `leave/requests` ×4 and `employees` ×3. Those are
-different *queries* against one endpoint rather than the same read repeated —
+different _queries_ against one endpoint rather than the same read repeated —
 the balances panel, the request table and the booking form want different rows —
 so a keyed cache would not collapse them and pretending otherwise would mean one
 of the three rendering somebody else's filter.
@@ -6802,7 +6801,7 @@ which frequently contains whatever was being processed when it threw.
 `Cannot read properties of undefined … on 0123456789` is an account number in a
 stack trace nobody decided to send.
 
-Four shapes are stripped from the message *and the stack*: a work email, a
+Four shapes are stripped from the message _and the stack_: a work email, a
 `PEN`+9-digit pension PIN, a bare ten-digit NUBAN, and a JWT.
 `npm run verify-error-reporting` asserts them — and asserts just as hard that
 ordinary text **survives**, because a redaction that strips anything which might
@@ -6841,24 +6840,24 @@ by deleting the account-number rule: 14/16, naming both cases.
 
 # It does work at a thousand employees, and the audit was wrong about that
 
-`loadtest` in the backlog. The audit said the product *"works at 10 employees;
-it will not work at 1,000"* — a reasonable inference from reading the code, and
+`loadtest` in the backlog. The audit said the product _"works at 10 employees;
+it will not work at 1,000"_ — a reasonable inference from reading the code, and
 **nobody had run it**. An inference about performance is a guess with a citation.
 
 `npm run load-test` in `approvehr-api` builds its own tenant, measures, and
 tears it down in a `finally`. Measured, local Postgres, no network between the
 API and the database:
 
-| | 1,000 | 5,000 |
-|---|---|---|
-| directory, page 1 of 25 | 31ms | 43ms |
-| directory, page 40 (deep paging) | 9ms | 20ms |
-| directory summary | 10ms | 11ms |
-| org chart, whole company | 13ms | 47ms |
-| `staff.csv` export | 41ms (107KB) | 143ms (536KB) |
-| **payroll prepare** | **1,207ms** | **6,522ms** |
-| payslip list, page 1 | 10ms | 36ms |
-| `payslips.csv` export | 40ms (112KB) | 170ms (562KB) |
+|                                  | 1,000        | 5,000         |
+| -------------------------------- | ------------ | ------------- |
+| directory, page 1 of 25          | 31ms         | 43ms          |
+| directory, page 40 (deep paging) | 9ms          | 20ms          |
+| directory summary                | 10ms         | 11ms          |
+| org chart, whole company         | 13ms         | 47ms          |
+| `staff.csv` export               | 41ms (107KB) | 143ms (536KB) |
+| **payroll prepare**              | **1,207ms**  | **6,522ms**   |
+| payslip list, page 1             | 10ms         | 36ms          |
+| `payslips.csv` export            | 40ms (112KB) | 170ms (562KB) |
 
 **Everything paged is flat and `prepare` is linear** — five times the people for
 5.4 times the time, not 25. There is no quadratic term hiding in the run.
@@ -6880,8 +6879,8 @@ the frontend already uses, is worth more than any query in this table.
 
 ## One thing the run surfaced and this did not chase
 
-At 5,000 the pg driver logs *"Calling client.query() when the client is already
-executing a query is deprecated and will be removed in pg@9.0"*. That is the
+At 5,000 the pg driver logs _"Calling client.query() when the client is already
+executing a query is deprecated and will be removed in pg@9.0"_. That is the
 class HANDOVER already records under "writes return ids, reads return shapes" —
 Prisma loading relations in parallel inside a transaction. It is a warning today
 and a breakage at pg 9, so it is worth finding before the upgrade rather than
@@ -6910,10 +6909,10 @@ static or bundle-level checks and they are the right tool for those jobs.
 What none of them can do is **render something and press it**. Every defect this
 file records as "found in the browser, not by `tsc`" is that shape:
 
-- a count true of the wrong noun — *"Apply to 1 person"* over *"4 people's
-  figures changed"*;
+- a count true of the wrong noun — _"Apply to 1 person"_ over _"4 people's
+  figures changed"_;
 - a live "Try again" beside a 409 that will refuse identically forever;
-- *"Counting for 20%"* directly above *"weighted at 0%"*;
+- _"Counting for 20%"_ directly above _"weighted at 0%"_;
 - `₦0.00` where a figure does not belong.
 
 Every one satisfied every type in the codebase. `netKobo: number` is satisfied
@@ -6924,7 +6923,7 @@ by a zero, and so is the type of every wrong claim.
 **`my-overview.test.tsx`** — absent-is-not-zero, which is the rule this file
 states in a dozen places and enforces nowhere. The card is the right first
 subject because it puts all three shapes on one screen: an absence that must
-draw nothing, a *nil* that must draw `₦0.00` because a payroll really did run,
+draw nothing, a _nil_ that must draw `₦0.00` because a payroll really did run,
 and a zero queue that is a real and useful answer.
 
 **`export-button.test.tsx`** — "the server's refusal, verbatim", which is prose
@@ -6970,13 +6969,13 @@ other two, because it is the one that decides whether the rest is safe.
 **Yes, and the `active` switch is respected.** Not inferred from the code —
 measured against the demo tenant's August 2026 run:
 
-| Pay component | Assigned to | On payslips | Total |
-|---|---|---|---|
-| Transport allowance | 4 | 4 | ₦185,000 |
-| Meal allowance | 2 | 2 | ₦50,000 |
-| Shift allowance | 1 | 1 | ₦35,625 |
-| Cooperative contribution | 1 | 1 | ₦20,000 |
-| Union dues | 1 | 1 | ₦5,000 |
+| Pay component            | Assigned to | On payslips | Total    |
+| ------------------------ | ----------- | ----------- | -------- |
+| Transport allowance      | 4           | 4           | ₦185,000 |
+| Meal allowance           | 2           | 2           | ₦50,000  |
+| Shift allowance          | 1           | 1           | ₦35,625  |
+| Cooperative contribution | 1           | 1           | ₦20,000  |
+| Union dues               | 1           | 1           | ₦5,000   |
 
 `assemble.ts` calls `resolveComponentsForMany`, which filters on
 `component: { active: true, archivedAt: null }`. So switching one off stops it
@@ -7049,7 +7048,7 @@ Hiding a figure that is in the net pay is "absent is not zero" inverted into
 something worse — money on the payslip and nothing on the table to account for
 it, which is the reconciliation defect this product is sold against.
 
-`CellValue` gained `addable` for the consequence: on such a run every *other*
+`CellValue` gained `addable` for the consequence: on such a run every _other_
 person's cell would otherwise offer an "Add hours" the API now refuses. Found
 by looking at it — the first version shipped exactly that dead control, on
 Adaeze's row, on a table that was otherwise correct.
@@ -7138,12 +7137,11 @@ In the browser, connected, on the demo company's August run: both switches on �
 all 15 columns; bonuses off → 13, with `bonus` and `bonus_reason` gone and
 `overtime_hours` **kept** because the run carries approved overtime; the
 sentence following in both cases. Then an "old" sheet carrying a bonus was
-uploaded with bonuses off — read as *"1 person with a figure that moves"*,
-applied, and refused: *"This company does not award bonuses through payroll, so
+uploaded with bonuses off — read as _"1 person with a figure that moves"_,
+applied, and refused: _"This company does not award bonuses through payroll, so
 one cannot be added here. Switch bonuses on under Pay setup → Extras first.
-Nothing in the file was applied, so the payroll is exactly as it was."*
+Nothing in the file was applied, so the payroll is exactly as it was."_
 Confirmed in the database that no bonus row and no payslip line were written.
-
 
 ---
 
@@ -7156,12 +7154,12 @@ Four of them were the same absence, so this is what closed them.
 
 `components/portal/load-failure.tsx` turns a failed **read** into a sentence and
 does it well — advice by class of failure, the server's own words wherever the
-server wrote them about *that* refusal, a **Try again** only where retrying could
+server wrote them about _that_ refusal, a **Try again** only where retrying could
 help, never a status code on screen.
 
 What it could not do is lend that judgement to a failed **write**, because its
 wording is baked to a read: "did not load", "while loading", "took too long to
-*send*". A save that is refused did not fail to load anything.
+_send_". A save that is refused did not fail to load anything.
 
 So **126 sites across 84 files** each made the call by hand, and **89** of them
 ended at the same typed `"Something went wrong. Try again."` with the API's own
@@ -7174,17 +7172,17 @@ created to remove, one verb along.
 A 403 names a permission whichever verb provoked it, a 409 is a refusal rather
 than a fault either way, and retrying a 404 is futile in both directions.
 
-| File | Owns |
-|---|---|
-| `lib/api/failure.ts` | **what happened.** `kindOf`, `serverSentence`, `retryCouldHelp`, `asApiError`. No React, no wording. |
-| `components/portal/load-failure.tsx` | how a failed **read** says it. Its own sentences, unchanged. |
-| `lib/use-action.ts` | how a failed **write** says it, plus `notice`. |
+| File                                 | Owns                                                                                                 |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `lib/api/failure.ts`                 | **what happened.** `kindOf`, `serverSentence`, `retryCouldHelp`, `asApiError`. No React, no wording. |
+| `components/portal/load-failure.tsx` | how a failed **read** says it. Its own sentences, unchanged.                                         |
+| `lib/use-action.ts`                  | how a failed **write** says it, plus `notice`.                                                       |
 
 **Keep wording out of `failure.ts`.** The moment a sentence lands there, one of
 the two surfaces will want it phrased the other way and the split stops holding.
 
 `serverSentence` is the rule that must never be duplicated: it returns the API's
-message only where the API wrote one *about this refusal* — 400, 403, 409, 422,
+message only where the API wrote one _about this refusal_ — 400, 403, 409, 422,
 and any status this file has no opinion about. Paraphrasing a server message
 locally is how the two stop agreeing.
 
@@ -7199,8 +7197,8 @@ re-running that way if you touch the classifier.
 
 The one place `use-action.ts` deliberately does **not** copy `LoadFailure`.
 
-A 504 on a `GET` means the answer did not arrive. A 504 on a `POST` means *the
-answer* did not arrive — the write may well have landed. All 89 copied sites say
+A 504 on a `GET` means the answer did not arrive. A 504 on a `POST` means _the
+answer_ did not arrive — the write may well have landed. All 89 copied sites say
 "Something went wrong. Try again." there, which is both a claim this side cannot
 support and an invitation to create a second objective, a second rating, a second
 bonus on one payroll.
@@ -7215,8 +7213,8 @@ A write that succeeded and still has something the reader must know: people whos
 department moved, a figure that was clamped, a note the API returned. Return a
 sentence and the toast turns amber; return `null` and nothing is flagged.
 
-Its first customer is `cancelGoal`, which returns *"Recorded as off track. Goal
-status has no separate cancelled yet"* — the server explaining its own limitation,
+Its first customer is `cancelGoal`, which returns _"Recorded as off track. Goal
+status has no separate cancelled yet"_ — the server explaining its own limitation,
 which nothing was rendering.
 
 ## Adopted where the defects touched, and not further
@@ -7229,13 +7227,13 @@ change about fixing thirteen things. Worth doing; worth doing on its own.
 - **A comment describing a rule is not a test of it.** `goal-dialogs.tsx`
   filtered its owner picker on `managerId === employeeId` under a comment that
   described that rule accurately. `createGoal` had since widened to `leadsWorkOf`
-  — direct reports *plus* departments you head — and the filter did not follow, so
+  — direct reports _plus_ departments you head — and the filter did not follow, so
   a department head was never offered their own department. The comment read as a
   decision and hid the gap. Both pickers in that file now share one mirror of the
   API rule.
 
 - **An error under a label is a claim about that field.** Two forms carried one
-  `error` string for field errors *and* form errors and rendered all of it under
+  `error` string for field errors _and_ form errors and rendered all of it under
   the first field, so a 500 from `POST /cycles` sent somebody off to retype a name
   that was never the problem. Field errors on their field; everything else above
   the form.

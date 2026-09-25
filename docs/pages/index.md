@@ -4,11 +4,11 @@ One file per platform, listing every route it serves. Generated from each repo's
 source, so a row here exists because the code puts it there — not because somebody remembered
 to write it down.
 
-| Platform | File | Routes | What it is |
-|---|---|---:|---|
-| **Frontend v2** | [`frontend-v2.md`](frontend-v2.md) | 113 | `approvehr-frontend-v2` — the current product. Next.js 16 App Router; the signed-in app and the public marketing site in one application. |
-| **Platform frontend** | [`platform-frontend.md`](platform-frontend.md) | 152 | `approvehr-platform-frontend` — the React Router build of the product. |
-| **Landing site** | [`landing-frontend.md`](landing-frontend.md) | 14 | `aprrovehr-frontend` — the standalone marketing and careers site. |
+| Platform              | File                                           | Routes | What it is                                                                                                                                |
+| --------------------- | ---------------------------------------------- | -----: | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frontend v2**       | [`frontend-v2.md`](frontend-v2.md)             |    113 | `approvehr-frontend-v2` — the current product. Next.js 16 App Router; the signed-in app and the public marketing site in one application. |
+| **Platform frontend** | [`platform-frontend.md`](platform-frontend.md) |    152 | `approvehr-platform-frontend` — the React Router build of the product.                                                                    |
+| **Landing site**      | [`landing-frontend.md`](landing-frontend.md)   |     14 | `aprrovehr-frontend` — the standalone marketing and careers site.                                                                         |
 
 `approvehr-backend` has no pages. Its HTTP surface — 644 endpoints — is in
 [`../components/backend-api.md`](../components/backend-api.md).
@@ -16,7 +16,7 @@ to write it down.
 ## How to read a row
 
 - **Route** is the URL a browser sees. `:id` and `[id]` are parameters; `*` is the catch-all.
-  Segments in round brackets — `(app)`, `(marketing)` — are Next.js route *groups*: folders that
+  Segments in round brackets — `(app)`, `(marketing)` — are Next.js route _groups_: folders that
   organise the code and never appear in the URL.
 - **Screen** is the component that renders the page, with layout and guard wrappers stripped.
 - **File** is where to open it.

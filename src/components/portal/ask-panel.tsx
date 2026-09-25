@@ -15,37 +15,6 @@ import { useAsk, useAssistantAvailable } from "@/lib/store/ai";
 
 /**
  * Ask a question about the company's own records.
- *
- * ## Absent, not disabled
- *
- * Renders nothing at all when no assistant is wired, which is the rule every
- * other suggestion surface in this product follows: a control that is present
- * and always refuses teaches people the product is broken. `/settings/ai` is
- * where somebody finds out the capability exists and how to switch it on —
- * discoverability and availability are two different jobs, and this component
- * only does the second.
- *
- * ## The reads are shown, not logged
- *
- * Every answer carries the reads it came from, on screen. An answer whose
- * working cannot be checked is an oracle, and this product is sold against a
- * competitor that shipped exactly that. It is also the honest way to explain a
- * short answer: "I looked at the headcount and did not find that" reads very
- * differently from a model shrugging.
- *
- * ## Not a conversation
- *
- * Each answer replaces the last. The API holds no history — every question
- * carries its own whole context — and a running transcript here would imply a
- * memory that does not exist, which is the kind of small lie that costs trust
- * the first time somebody says "as I mentioned above" and it means nothing.
- *
- * **That is still true of `/ai/ask`, and `/assistant` is a different endpoint.**
- * `/ai/chat` takes the whole conversation on every turn and can offer a change
- * to confirm, so a transcript there is the request body rather than an implied
- * memory. This panel keeps its shape; the link in its header is the only thing
- * that changed, and it is here because a chat findable only by knowing the URL
- * is the discoverability defect this module has recorded four times.
  */
 export function AskPanel() {
   const assistant = useAssistantAvailable();
@@ -80,8 +49,6 @@ export function AskPanel() {
             aria-label="Your question"
             className="min-w-0 flex-1"
             onChange={(event) => setQuestion(event.target.value)}
-            /* Enter sends. This is one field and one button, so there is no
-               form to submit and nothing else Enter could reasonably do. */
             onKeyDown={(event) => {
               if (event.key === "Enter") send();
             }}
@@ -116,27 +83,30 @@ export function AskPanel() {
 
         {answer && !asking && (
           <div className="rounded-md border border-line bg-canvas px-3 py-2">
-            {/* The API's own sentence when it refused. Never paraphrased —
-                it knows whether this was a missing key, a permission or a
-                question about nothing, and nothing here does. */}
             <p className="text-body-sm leading-relaxed whitespace-pre-wrap text-ink">
               {answer.text ?? answer.reason}
             </p>
-            {answer.used.length > 0 && (
-              <p className="mt-2 text-meta text-muted">
-                Read from: {answer.used.join(", ").replace(/_/g, " ")}
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                clear();
-                setQuestion("");
-              }}
-              className="mt-2 text-meta text-muted underline-offset-2 hover:text-accent-text hover:underline"
-            >
-              Ask something else
-            </button>
+
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-line/50 pt-2 text-meta text-muted">
+              {(answer.used?.length ?? 0) > 0 ? (
+                <span>
+                  Read from: {answer.used?.join(", ").replace(/_/g, " ")}
+                </span>
+              ) : (
+                <span className="italic">No records queried</span>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  clear();
+                  setQuestion("");
+                }}
+                className="underline-offset-2 hover:text-accent-text hover:underline"
+              >
+                Ask something else
+              </button>
+            </div>
           </div>
         )}
       </CardBody>
