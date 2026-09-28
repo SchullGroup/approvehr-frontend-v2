@@ -273,7 +273,7 @@ export function EnrolmentsDrawer({
             <EmptyState
               icon={<UserRound aria-hidden="true" />}
               title="Nobody is mapped yet"
-              description="Until a number is mapped, taps from it are recorded against nobody and reach no timesheet. Nothing is lost — they are claimed the moment you map the number."
+              description="Until a number is mapped, taps from it are recorded against nobody and reach no timesheet. Nothing is lost: they are claimed the moment you map the number."
             />
           ) : (
             <ul className="flex flex-col divide-y divide-line">
