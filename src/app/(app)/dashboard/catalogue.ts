@@ -245,8 +245,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
   {
     id: "chart-headcount-trend",
     title: "Headcount over time",
-    blurb:
-      "A month-by-month line, derived from real start and end dates — not a snapshot table, and nothing invented.",
+    blurb: "A month-by-month line, derived from real start and end dates.",
     group: "charts",
     span: "half",
     source: "reports",

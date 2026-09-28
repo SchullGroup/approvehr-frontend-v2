@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Check } from "lucide-react";
 import Image from "next/image";
 import { Reveal } from "@/components/marketing/motion";
+import { SITE_URL } from "@/lib/marketing/site";
 import { DemoForm } from "./form";
 
 const LOGOS = [
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
   title: "Book a demo",
   description:
     "See the value of ApproveHR in ten minutes. No setup, no slides, just a focused look at what it can do for your organisation.",
+  alternates: { canonical: `${SITE_URL}/demo` },
 };
 
 export default function DemoPage() {

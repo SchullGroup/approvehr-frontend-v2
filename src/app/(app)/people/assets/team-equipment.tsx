@@ -117,22 +117,21 @@ export function TeamEquipment() {
         />
       </PageBody>
 
-      {panelId && (
-        <ItemPanel
-          itemId={panelId}
-          canEdit={false}
-          onClose={() => setPanelId(null)}
-          onEdit={() => {}}
-          onHandOver={() => {}}
-          onTakeBack={() => {}}
-          onLogRepair={() => {}}
-          onArchive={() => {}}
-          onRestore={() => {}}
-          onSetStatus={() => {}}
-          onFixed={() => {}}
-          onFinishRepair={() => {}}
-        />
-      )}
+      <ItemPanel
+        itemId={panelId}
+        open={panelId !== null}
+        canEdit={false}
+        onClose={() => setPanelId(null)}
+        onEdit={() => {}}
+        onHandOver={() => {}}
+        onTakeBack={() => {}}
+        onLogRepair={() => {}}
+        onArchive={() => {}}
+        onRestore={() => {}}
+        onSetStatus={() => {}}
+        onFixed={() => {}}
+        onFinishRepair={() => {}}
+      />
     </>
   );
 }

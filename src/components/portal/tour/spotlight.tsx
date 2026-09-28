@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "@/lib/cn";
 import { useIsClient } from "@/hooks/use-is-client";
 
 /**
@@ -57,10 +58,15 @@ export function Spotlight({
   /** Tried in order. The first one rendered and visible wins. */
   target,
   onDismiss,
+  /** True for exactly the exit animation — see `useDismiss` in
+   *  `guided-tour.tsx`, which owns the open/closed state this positioner
+   *  has no notion of. */
+  closing = false,
   children,
 }: {
   target: readonly string[];
   onDismiss: () => void;
+  closing?: boolean;
   children: React.ReactNode;
 }) {
   const isClient = useIsClient();
@@ -199,7 +205,10 @@ export function Spotlight({
         role="dialog"
         aria-modal="false"
         aria-label="Guided tour"
-        className="animate-scale-in fixed w-[min(20rem,calc(100vw-1.5rem))] rounded-lg border border-line bg-surface p-4 shadow-xl"
+        className={cn(
+          closing ? "animate-scale-out" : "animate-scale-in",
+          "fixed w-[min(20rem,calc(100vw-1.5rem))] rounded-lg border border-line bg-surface p-4 shadow-xl",
+        )}
       >
         {children}
       </div>

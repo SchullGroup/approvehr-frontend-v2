@@ -66,12 +66,14 @@ export type Draft = {
 export function AnnouncementForm({
   notice,
   departments,
+  open,
   onClose,
   onSave,
 }: {
   /** Absent when writing a new one. */
   notice?: ApiAnnouncement;
   departments: { id: string; name: string }[];
+  open: boolean;
   onClose: () => void;
   /** `publish` is what the pressed button asked for. */
   onSave: (draft: Draft, publish: boolean) => Promise<void>;
@@ -148,7 +150,7 @@ export function AnnouncementForm({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="lg"
       title={editing ? `Edit “${notice.title}”` : "Write a notice"}

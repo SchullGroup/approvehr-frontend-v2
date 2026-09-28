@@ -6,6 +6,7 @@ import {
   Badge,
   Button,
   ButtonLink,
+  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -91,7 +92,44 @@ function rateHelp(label: string, rate: number, when: string): string {
 }
 
 export function OvertimePolicyForm() {
-  const { policy, loading, error, saving, editable, source, save } =
+  const { source } = useOvertimePolicy();
+
+  return (
+    <>
+      <PageHeader
+        title="Overtime"
+        breadcrumb={[{ href: "/settings", label: "Settings" }]}
+        meta={
+          sourceNote(source === "api") && (
+            <Badge tone="warning" size="sm" dot>
+              {sourceNote(source === "api")}
+            </Badge>
+          )
+        }
+        action={
+          <ButtonLink size="sm" href="/people/overtime">
+            See overtime
+          </ButtonLink>
+        }
+      />
+
+      <PageBody className="flex flex-col gap-6">
+        <OvertimePolicyFields />
+      </PageBody>
+    </>
+  );
+}
+
+/**
+ * The policy form's actual content, with no page chrome of its own — so
+ * `OvertimePolicyForm` above can wrap it in a `PageHeader`/`PageBody` for the
+ * standalone settings route, and `payroll/pay-setup/extras-panel.tsx` can
+ * mount the exact same thing inside its own tab. One form, two doors, same
+ * reasoning as `PayrollSettingsForm` next door — never a second copy that can
+ * say something different from the one somebody last saved.
+ */
+export function OvertimePolicyFields() {
+  const { policy, loading, error, saving, editable, save } =
     useOvertimePolicy();
   const { settings } = usePayrollSettings();
   const toast = useToast();
@@ -152,239 +190,220 @@ export function OvertimePolicyForm() {
 
   return (
     <>
-      <PageHeader
-        title="Overtime"
-        breadcrumb={[{ href: "/settings", label: "Settings" }]}
-        meta={
-          sourceNote(source === "api") && (
-            <Badge tone="warning" size="sm" dot>
-              {sourceNote(source === "api")}
-            </Badge>
-          )
-        }
-        action={
-          <ButtonLink size="sm" href="/people/overtime">
-            See overtime
-          </ButtonLink>
-        }
-      />
+      {/* `useOvertimePolicy` flattens the error to a string before a screen
+          sees it, so there is no `ApiError` left to classify and this renders
+          the general advice. Widening that state to `ApiError | null` is what
+          would let the API's own sentence through. */}
+      <LoadFailure subject="the overtime policy" error={error} />
 
-      <PageBody className="flex flex-col gap-6">
-        {/* `useOvertimePolicy` flattens the error to a string before a screen
-            sees it, so there is no `ApiError` left to classify and this renders
-            the general advice. Widening that state to `ApiError | null` is what
-            would let the API's own sentence through. */}
-        <LoadFailure subject="the overtime policy" error={error} />
-
-        {loading ? (
-          <span className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading
-          </span>
-        ) : !editable ? (
-          <ReadOnlyPolicy policy={policy} hourly={hourly} />
-        ) : (
-          <>
-            <Card>
-              <CardBody>
-                <Switch
-                  label="Pay overtime"
-                  description="Off means extra hours are not worked out from the clock and nothing reaches payroll."
-                  checked={value.enabled}
-                  onChange={(e) => {
-                    const next = e.target.checked;
-                    set("enabled", next);
-                  }}
-                />
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader
-                title="What counts"
-                description="Overtime is read from clock-outs. These two decide which ones."
+      {loading ? (
+        <span className="flex items-center gap-2 text-body-sm text-muted">
+          <Spinner size="sm" />
+          Loading
+        </span>
+      ) : !editable ? (
+        <ReadOnlyPolicy policy={policy} hourly={hourly} />
+      ) : (
+        <>
+          <Card>
+            <CardBody>
+              <Switch
+                label="Pay overtime"
+                description="Off means extra hours are not worked out from the clock and nothing reaches payroll."
+                checked={value.enabled}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  set("enabled", next);
+                }}
               />
-              <CardBody className="grid gap-5 sm:grid-cols-2">
-                <Field label="Grace" help={graceHelp(value.graceMinutes)}>
-                  <Select
-                    value={String(value.graceMinutes)}
-                    onChange={(e) => {
-                      const next = Number(e.target.value);
-                      set("graceMinutes", next);
-                    }}
-                  >
-                    {withCurrent(GRACE_CHOICES, value.graceMinutes).map(
-                      (minutes) => (
-                        <option key={minutes} value={minutes}>
-                          {minutes === 0 ? "None" : `${minutes} minutes`}
-                        </option>
-                      ),
-                    )}
-                  </Select>
-                </Field>
+            </CardBody>
+          </Card>
 
-                <Field
-                  label="Most one day can pay"
-                  help="However late the clock-out. Somebody who forgot to clock out is capped here instead of paid for the night."
-                >
-                  <Select
-                    value={String(value.dailyCapMinutes)}
-                    onChange={(e) => {
-                      const next = Number(e.target.value);
-                      set("dailyCapMinutes", next);
-                    }}
-                  >
-                    {withCurrent(CAP_CHOICES, value.dailyCapMinutes).map(
-                      (minutes) => (
-                        <option key={minutes} value={minutes}>
-                          {spokenHours(minutes)}
-                        </option>
-                      ),
-                    )}
-                  </Select>
-                </Field>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader
-                title="What it pays"
-                description="Multipliers on the normal hourly rate. None of these are statutory in Nigeria: they are what your contracts say."
-              />
-              <CardBody className="grid gap-5 sm:grid-cols-2">
-                <Field
-                  label="Weekday rate"
-                  help={rateHelp(
-                    "Weekday rate",
-                    value.weekdayRate,
-                    "of overtime",
-                  )}
-                >
-                  <RateSelect
-                    value={value.weekdayRate}
-                    onPick={(next) => set("weekdayRate", next)}
-                  />
-                </Field>
-
-                <Field
-                  label="Weekend rate"
-                  help={rateHelp(
-                    "Weekend rate",
-                    value.weekendRate,
-                    "worked on a day off",
-                  )}
-                >
-                  <RateSelect
-                    value={value.weekendRate}
-                    onPick={(next) => set("weekendRate", next)}
-                  />
-                </Field>
-
-                <Field
-                  label="Public holiday rate"
-                  help={rateHelp(
-                    "Public holiday rate",
-                    value.holidayRate,
-                    "worked on a public holiday",
-                  )}
-                >
-                  <RateSelect
-                    value={value.holidayRate}
-                    onPick={(next) => set("holidayRate", next)}
-                  />
-                </Field>
-
-                <Field
-                  label="Hours in a normal day"
-                  help="The divisor. One hour is worth monthly pay ÷ working days ÷ hours in a day."
-                >
-                  <Select
-                    value={String(value.hoursPerDay)}
-                    onChange={(e) => {
-                      const next = Number(e.target.value);
-                      set("hoursPerDay", next);
-                    }}
-                  >
-                    {withCurrent(HOURS_CHOICES, value.hoursPerDay).map(
-                      (hours) => (
-                        <option key={hours} value={hours}>
-                          {hours} hours
-                        </option>
-                      ),
-                    )}
-                  </Select>
-                </Field>
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardBody>
-                <Switch
-                  label="A manager approves it first"
-                  description="Off means overtime is approved the moment it is worked out, and the next payroll pays it with nobody looking."
-                  checked={value.requiresApproval}
+          <Card>
+            <CardHeader
+              title="What counts"
+              description="Overtime is read from clock-outs. These two decide which ones."
+            />
+            <CardBody className="grid gap-5 sm:grid-cols-2">
+              <Field label="Grace" help={graceHelp(value.graceMinutes)}>
+                <Select
+                  value={String(value.graceMinutes)}
                   onChange={(e) => {
-                    const next = e.target.checked;
-                    set("requiresApproval", next);
+                    const next = Number(e.target.value);
+                    set("graceMinutes", next);
                   }}
-                />
-              </CardBody>
-            </Card>
+                >
+                  {withCurrent(GRACE_CHOICES, value.graceMinutes).map(
+                    (minutes) => (
+                      <option key={minutes} value={minutes}>
+                        {minutes === 0 ? "None" : `${minutes} minutes`}
+                      </option>
+                    ),
+                  )}
+                </Select>
+              </Field>
 
-            {/* Closed by default — `PARITY.md` Rule 5. An illustration is
+              <Field
+                label="Most one day can pay"
+                help="However late the clock-out. Somebody who forgot to clock out is capped here instead of paid for the night."
+              >
+                <Select
+                  value={String(value.dailyCapMinutes)}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    set("dailyCapMinutes", next);
+                  }}
+                >
+                  {withCurrent(CAP_CHOICES, value.dailyCapMinutes).map(
+                    (minutes) => (
+                      <option key={minutes} value={minutes}>
+                        {spokenHours(minutes)}
+                      </option>
+                    ),
+                  )}
+                </Select>
+              </Field>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="What it pays"
+              description="Multipliers on the normal hourly rate. None of these are statutory in Nigeria: they are what your contracts say."
+            />
+            <CardBody className="grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Weekday rate"
+                help={rateHelp(
+                  "Weekday rate",
+                  value.weekdayRate,
+                  "of overtime",
+                )}
+              >
+                <RateSelect
+                  value={value.weekdayRate}
+                  onPick={(next) => set("weekdayRate", next)}
+                />
+              </Field>
+
+              <Field
+                label="Weekend rate"
+                help={rateHelp(
+                  "Weekend rate",
+                  value.weekendRate,
+                  "worked on a day off",
+                )}
+              >
+                <RateSelect
+                  value={value.weekendRate}
+                  onPick={(next) => set("weekendRate", next)}
+                />
+              </Field>
+
+              <Field
+                label="Public holiday rate"
+                help={rateHelp(
+                  "Public holiday rate",
+                  value.holidayRate,
+                  "worked on a public holiday",
+                )}
+              >
+                <RateSelect
+                  value={value.holidayRate}
+                  onPick={(next) => set("holidayRate", next)}
+                />
+              </Field>
+
+              <Field
+                label="Hours in a normal day"
+                help="The divisor. One hour is worth monthly pay ÷ working days ÷ hours in a day."
+              >
+                <Select
+                  value={String(value.hoursPerDay)}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    set("hoursPerDay", next);
+                  }}
+                >
+                  {withCurrent(HOURS_CHOICES, value.hoursPerDay).map(
+                    (hours) => (
+                      <option key={hours} value={hours}>
+                        {hours} hours
+                      </option>
+                    ),
+                  )}
+                </Select>
+              </Field>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody>
+              <Switch
+                label="A manager approves it first"
+                description="Off means overtime is approved the moment it is worked out, and the next payroll pays it with nobody looking."
+                checked={value.requiresApproval}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  set("requiresApproval", next);
+                }}
+              />
+            </CardBody>
+          </Card>
+
+          {/* Closed by default — `PARITY.md` Rule 5. An illustration is
                 reference: it never needs action, it only needs to be findable,
                 and the figure it turns on is in the summary so most readers do
                 not have to open it. Everything above it is a live form and stays
                 open. */}
-            <Disclosure
-              className="bg-surface"
-              title="Worked example"
-              meta={
-                <Badge tone="neutral" size="sm">
-                  An ordinary hour is{" "}
-                  {formatMoney(naira(hourly), "NGN", { decimals: true })}
-                </Badge>
-              }
-              hint={`On a ₦1,000,000 monthly salary, at ${settings.workingDaysPerMonth} working days a month.`}
-              panelClassName="flex flex-col gap-4 p-5"
+          <Disclosure
+            className="bg-surface"
+            title="Worked example"
+            meta={
+              <Badge tone="neutral" size="sm">
+                An ordinary hour is{" "}
+                {formatMoney(naira(hourly), "NGN", { decimals: true })}
+              </Badge>
+            }
+            hint={`On a ₦1,000,000 monthly salary, at ${settings.workingDaysPerMonth} working days a month.`}
+            panelClassName="flex flex-col gap-4 p-5"
+          >
+            <ExampleFigures policy={value} hourly={hourly} />
+            <ButtonLink
+              size="sm"
+              href="/settings/payroll"
+              className="self-start"
             >
-              <ExampleFigures policy={value} hourly={hourly} />
-              <ButtonLink
-                size="sm"
-                href="/settings/payroll"
-                className="self-start"
-              >
-                Working days
-              </ButtonLink>
-            </Disclosure>
+              Working days
+            </ButtonLink>
+          </Disclosure>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
-              <p className="text-body-sm text-muted">
-                {dirty
-                  ? `${changed.length} ${changed.length === 1 ? "change" : "changes"} not saved yet.`
-                  : "Applies the next time a month is worked out."}
-              </p>
-              <div className="flex shrink-0 gap-2">
-                <Button
-                  variant="secondary"
-                  disabled={!dirty || saving}
-                  onClick={() => setEdited(null)}
-                >
-                  Discard
-                </Button>
-                <Button
-                  variant="accent"
-                  loading={saving}
-                  disabled={!dirty}
-                  onClick={() => void onSave()}
-                >
-                  Save changes
-                </Button>
-              </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
+            <p className="text-body-sm text-muted">
+              {dirty
+                ? `${changed.length} ${changed.length === 1 ? "change" : "changes"} not saved yet.`
+                : "Applies the next time a month is worked out."}
+            </p>
+            <div className="flex shrink-0 gap-2">
+              <Button
+                variant="secondary"
+                disabled={!dirty || saving}
+                onClick={() => setEdited(null)}
+              >
+                Discard
+              </Button>
+              <Button
+                variant="accent"
+                loading={saving}
+                disabled={!dirty}
+                onClick={() => void onSave()}
+              >
+                Save changes
+              </Button>
             </div>
-          </>
-        )}
-      </PageBody>
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -551,5 +570,88 @@ function ReadOnlyPolicy({
         </CardBody>
       </Card>
     </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The single "Pay overtime" switch, on its own, saving the moment it's
+ * pressed — for a module screen that wants the on/off decision without the
+ * rest of the policy form beside it (`people/attendance/attendance-screen.tsx`).
+ * `OvertimePolicyFields` above already carries this exact field as part of its
+ * own draft-then-save flow; this is deliberately the other shape, immediate
+ * rather than staged, because a capability bar is for "is this on," not for
+ * editing a policy.
+ *
+ * Self-contained: nothing not editable is shown disabled, it's simply absent,
+ * which is what `useOvertimePolicy`'s own `editable` already decides (it's
+ * `MANAGE_PAY_STRUCTURE`, the same permission the full form requires).
+ */
+export function OvertimeEnableSwitch() {
+  const { policy, loading, saving, editable, source, save } =
+    useOvertimePolicy();
+  const toast = useToast();
+  const [note, setNote] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  if (!editable) return null;
+
+  async function toggle(next: boolean) {
+    setFailed(null);
+    try {
+      await save({ enabled: next });
+      setNote(
+        next
+          ? "The payroll run will show an Overtime column again."
+          : "The Overtime column has gone from the payroll run. Overtime already approved is still paid, and the column comes back on any payroll that carries some.",
+      );
+      toast.push({
+        title: next ? "Overtime switched on" : "Overtime switched off",
+        tone: "success",
+      });
+    } catch (error) {
+      setFailed(
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Could not save that.",
+      );
+    }
+  }
+
+  return (
+    <Card>
+      <CardBody>
+        <Switch
+          label="Pay overtime"
+          description="Hours beyond a shift, worked out from the clock at the company's own multipliers. Off, the payroll run does not offer to add hours to anybody and the Overtime column is not shown."
+          checked={policy.enabled}
+          disabled={loading || saving}
+          onChange={(event) => void toggle(event.target.checked)}
+        />
+        {loading && (
+          <p className="mt-3 flex items-center gap-2 text-body-sm text-muted">
+            <Spinner size="sm" />
+            Loading
+          </p>
+        )}
+        {/* Guarded, not conditional-at-runtime: `source` cannot be "demo" in a
+            production build, and `verify-demo` is about the **string** being
+            in the bundle at all rather than about whether a branch can run. */}
+        {DEMO_ENABLED && source === "demo" && (
+          <p className="mt-3 text-body-sm text-muted">
+            Saved in this browser only, like everything else in the demo.
+          </p>
+        )}
+        {note && <p className="mt-3 text-body-sm text-muted">{note}</p>}
+        {failed && (
+          <Callout tone="danger" className="mt-3">
+            {failed}
+          </Callout>
+        )}
+      </CardBody>
+    </Card>
   );
 }

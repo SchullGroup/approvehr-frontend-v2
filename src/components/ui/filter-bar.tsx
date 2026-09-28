@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { Badge, TONES } from "./badge";
 import { Button } from "./button";
 import { Input } from "./input";
 
@@ -115,16 +116,24 @@ export function FilterBar({
             <SlidersHorizontal aria-hidden="true" className="size-4" />
             Filters
             {applied.length > 0 && (
-              <span className="rounded-full bg-accent-soft px-1.5 text-meta font-semibold text-accent-text">
+              <Badge tone="accent" size="sm" className="font-semibold">
                 {applied.length}
-              </span>
+              </Badge>
             )}
           </Button>
         )}
 
         {sort}
 
-        <div className="ml-auto flex items-center gap-2">
+        {/* `flex-wrap`: `actions` is sometimes a multi-option SegmentedControl
+            (the expenses register's status filter is the case that found
+            this), and at 375px that alone is close to the full width of the
+            bar. `ml-auto` already drops this block onto its own line once the
+            search box and the Filters button crowd it there; without its own
+            `flex-wrap` too, the count sat beside the control on that line
+            regardless, and the two together ran the bar 45px past the
+            viewport. */}
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {/* The count sits with the filters rather than in a stat card so the
               number and the thing narrowing it are read together. */}
           {count !== undefined && noun && (
@@ -149,7 +158,15 @@ export function FilterBar({
               key={`${filter.label}:${filter.value}`}
               type="button"
               onClick={filter.onClear}
-              className="inline-flex items-center gap-1.5 rounded-full border border-accent-line bg-accent-soft px-2.5 py-1 text-meta text-accent-text transition-colors hover:bg-accent/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+              /* Can't be a `Badge` — that renders a `<span>`, and this needs
+                 real button semantics for keyboard use — so it borrows
+                 Badge's accent tone classes directly instead of
+                 re-deriving them. */
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-meta transition-colors",
+                "hover:bg-accent/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
+                TONES.accent,
+              )}
             >
               <span className="text-muted">{filter.label}:</span>
               <span className="font-medium">{filter.value}</span>

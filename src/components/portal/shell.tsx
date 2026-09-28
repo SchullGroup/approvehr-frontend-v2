@@ -463,6 +463,14 @@ function SidebarNav({
                         Coming soon
                       </span>
                     )}
+                    {/* Deliberately hand-rolled, not `Badge`: the active state
+                        is a solid accent fill with no matching tone today, and
+                        every existing tone is a soft/tinted fill by design (see
+                        `button.tsx`'s note on keeping solid colour rare). Adding
+                        a one-off "solid accent" tone for this single nav pill
+                        would be a wider API change for a bespoke bit of chrome
+                        that belongs to the sidebar's own active/inactive
+                        language, not to Badge's status vocabulary. */}
                     {count !== undefined && count > 0 && !item.soon && (
                       <span
                         className={cn(
@@ -887,7 +895,16 @@ export function PageHeader({
           )}
         </div>
 
-        {tabs}
+        {tabs && (
+          /* The title row above carries its own `pb-5`, which is the header's
+             breathing room before the `border-b` on the outer wrapper — fine
+             when tabs are absent, since that row is then the last thing in the
+             header. When tabs are present they render as a sibling after it
+             with no padding of their own, so they sat flush against the
+             divider. Same `pb-5` here gives whichever section actually ends
+             the header the same gap before the line. */
+          <div className="pb-5">{tabs}</div>
+        )}
       </div>
     </div>
   );

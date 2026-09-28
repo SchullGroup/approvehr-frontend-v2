@@ -169,7 +169,7 @@ const PRIVACY: LegalDoc = {
       id: "cookies",
       heading: "Cookies",
       body: [
-        "This website sets no advertising or tracking cookies, and no third-party analytics runs on it. The product sets one cookie to keep you signed in. That is the whole list, which is why there is no consent banner in your way.",
+        "This website sets no advertising or tracking cookies, and no third-party analytics runs on it. Staying signed in works through your browser's own local storage, not a cookie. There is nothing here that needs your consent to run, which is why there is no banner in your way.",
       ],
     },
     {

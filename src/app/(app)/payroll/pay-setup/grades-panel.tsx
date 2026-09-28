@@ -265,20 +265,45 @@ export function GradesPanel() {
               }
             />
           ) : (
-            <TableWrap caption="Salary grades, ordered by level">
-              <THead>
-                <TH className="w-16">Level</TH>
-                <TH>Grade</TH>
-                <TH>Band a month</TH>
-                <TH align="right">People</TH>
-                <TH align="right">Monthly cost</TH>
-                <TH>
-                  <span className="sr-only-focusable">Actions</span>
-                </TH>
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap caption="Salary grades, ordered by level">
+                  <THead>
+                    <TH className="w-16">Level</TH>
+                    <TH>Grade</TH>
+                    <TH>Band a month</TH>
+                    <TH align="right">People</TH>
+                    <TH align="right">Monthly cost</TH>
+                    <TH>
+                      <span className="sr-only-focusable">Actions</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {grades.rows.map((row) => (
+                      <GradeRow
+                        key={row.id}
+                        row={row}
+                        editable={grades.editable}
+                        canApply={increase.canApply}
+                        onView={() => setViewing(row)}
+                        onRaise={() => setRaising(row)}
+                        onEdit={() => setEditing(row)}
+                        onArchive={() => setArchiving(row)}
+                        onRestore={() =>
+                          void run(
+                            () => grades.restore(row.id),
+                            `${row.code} is back on the ladder`,
+                          )
+                        }
+                      />
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
                 {grades.rows.map((row) => (
-                  <GradeRow
+                  <GradeCard
                     key={row.id}
                     row={row}
                     editable={grades.editable}
@@ -295,57 +320,49 @@ export function GradesPanel() {
                     }
                   />
                 ))}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
         </CardBody>
       </Card>
 
-      {creating && (
-        <GradeDialog
-          mode="create"
-          nextLevel={nextLevel}
-          onClose={() => setCreating(false)}
-          onSubmit={async (body) => {
-            const ok = await run(
-              () => grades.create(body),
-              `${body.code} ${body.name} added`,
-            );
-            if (ok) setCreating(false);
-          }}
-        />
-      )}
+      <GradeDialog
+        open={creating}
+        mode="create"
+        nextLevel={nextLevel}
+        onClose={() => setCreating(false)}
+        onSubmit={async (body) => {
+          const ok = await run(
+            () => grades.create(body),
+            `${body.code} ${body.name} added`,
+          );
+          if (ok) setCreating(false);
+        }}
+      />
 
-      {editing && (
-        <GradeDialog
-          mode="edit"
-          grade={editing}
-          nextLevel={editing.level}
-          onClose={() => setEditing(null)}
-          onSubmit={async (body) => {
-            const ok = await run(
-              () => grades.update(editing.id, body),
-              "Saved",
-            );
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
+      <GradeDialog
+        open={editing !== null}
+        mode="edit"
+        grade={editing ?? undefined}
+        nextLevel={editing?.level ?? nextLevel}
+        onClose={() => setEditing(null)}
+        onSubmit={async (body) => {
+          if (!editing) return;
+          const ok = await run(() => grades.update(editing.id, body), "Saved");
+          if (ok) setEditing(null);
+        }}
+      />
 
-      {raising && (
-        <RaiseDialog
-          grade={raising}
-          onClose={() => setRaising(null)}
-          onApplied={() => {
-            setRaising(null);
-            void grades.reload();
-          }}
-        />
-      )}
+      <RaiseDialog
+        grade={raising}
+        onClose={() => setRaising(null)}
+        onApplied={() => {
+          setRaising(null);
+          void grades.reload();
+        }}
+      />
 
-      {viewing && (
-        <PeopleDrawer grade={viewing} onClose={() => setViewing(null)} />
-      )}
+      <PeopleDrawer grade={viewing} onClose={() => setViewing(null)} />
 
       <ConfirmDialog
         open={archiving !== null}
@@ -496,6 +513,124 @@ function GradeRow({
   );
 }
 
+/** The mobile card for one grade — the same facts and actions as `GradeRow`. */
+function GradeCard({
+  row,
+  editable,
+  canApply,
+  onView,
+  onRaise,
+  onEdit,
+  onArchive,
+  onRestore,
+}: {
+  row: ApiGrade;
+  editable: boolean;
+  canApply: boolean;
+  onView: () => void;
+  onRaise: () => void;
+  onEdit: () => void;
+  onArchive: () => void;
+  onRestore: () => void;
+}) {
+  return (
+    <li className={cn("flex flex-col gap-2 p-4", row.archived && "opacity-60")}>
+      <div className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+        <span className="tabular text-meta text-muted">L{row.level}</span>
+        <span className="tabular">{row.code}</span>
+        <span className="font-normal text-body">{row.name}</span>
+        {row.archived && (
+          <Badge tone="neutral" size="sm">
+            Archived
+          </Badge>
+        )}
+      </div>
+      {row.outsideBand > 0 && (
+        <button
+          type="button"
+          onClick={onView}
+          className="self-start rounded text-meta font-medium text-warning-text hover:underline underline-offset-4"
+        >
+          {row.outsideBand === 1
+            ? "1 person outside this band"
+            : `${row.outsideBand} people outside this band`}
+        </button>
+      )}
+
+      <div className="text-body-sm text-ink">
+        <span className="tabular">
+          <Money amount={naira(row.minGrossKobo)} decimals /> —{" "}
+          <Money amount={naira(row.maxGrossKobo)} decimals />
+        </span>
+        <span className="mt-0.5 block text-meta text-muted">
+          Mid-point <Money amount={naira(row.midGrossKobo)} decimals />
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-body-sm text-muted">People</span>
+        {row.employees === 0 ? (
+          <span className="text-body-sm text-faint">Nobody yet</span>
+        ) : (
+          <button
+            type="button"
+            onClick={onView}
+            className="tabular text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
+          >
+            {row.employees}
+          </button>
+        )}
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-body-sm text-muted">Monthly cost</span>
+        <span className="tabular text-body-sm text-ink">
+          <Money amount={naira(row.monthlyPayrollKobo)} decimals />
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {row.archived ? (
+          editable && (
+            <Button variant="secondary" size="sm" onClick={onRestore}>
+              <RotateCcw aria-hidden="true" className="size-3.5" />
+              Restore
+            </Button>
+          )
+        ) : (
+          <>
+            {row.employees > 0 && canApply && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onRaise}
+                aria-label={`Give everyone on ${row.code} a rise`}
+              >
+                <TrendingUp aria-hidden="true" className="size-3.5" />
+                Give a rise
+              </Button>
+            )}
+            {editable && (
+              <>
+                <Button variant="ghost" size="sm" onClick={onEdit}>
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onArchive}
+                  aria-label={`Archive ${row.code}`}
+                >
+                  <Trash2 aria-hidden="true" className="size-3.5" />
+                </Button>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </li>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 
 type GradeBody = {
@@ -517,12 +652,14 @@ type GradeBody = {
  * moment it does.
  */
 function GradeDialog({
+  open,
   mode,
   grade,
   nextLevel,
   onClose,
   onSubmit,
 }: {
+  open: boolean;
   mode: "create" | "edit";
   grade?: ApiGrade;
   nextLevel: number;
@@ -598,7 +735,7 @@ function GradeDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={mode === "create" ? "Add a grade" : `Edit ${grade?.code ?? ""}`}
       description={
@@ -762,7 +899,9 @@ function RaiseDialog({
   onClose,
   onApplied,
 }: {
-  grade: ApiGrade;
+  /* Nullable: `GradesPanel` renders this unconditionally now and passes
+     whichever grade is being raised, or `null` when none is. */
+  grade: ApiGrade | null;
   onClose: () => void;
   onApplied: () => void;
 }) {
@@ -795,6 +934,7 @@ function RaiseDialog({
   };
 
   const showPreview = () => {
+    if (!grade) return;
     setFailure(null);
     void increase
       .preview(grade, current)
@@ -809,6 +949,7 @@ function RaiseDialog({
   };
 
   const apply = () => {
+    if (!grade) return;
     setFailure(null);
     void increase
       .apply(grade, current)
@@ -831,14 +972,18 @@ function RaiseDialog({
       );
   };
 
-  const people = grade.employees;
+  const people = grade?.employees ?? 0;
 
   return (
     <Modal
-      open
+      open={grade !== null}
       onClose={onClose}
       size="lg"
-      title={`Give everyone on ${grade.code} ${grade.name} a rise`}
+      title={
+        grade
+          ? `Give everyone on ${grade.code} ${grade.name} a rise`
+          : "Give a rise"
+      }
       description={
         preview
           ? undefined
@@ -886,7 +1031,7 @@ function RaiseDialog({
         </Callout>
       )}
 
-      {preview ? (
+      {preview && grade ? (
         <PreviewBody
           preview={preview}
           grade={grade}
@@ -1084,24 +1229,32 @@ function PeopleDrawer({
   grade,
   onClose,
 }: {
-  grade: ApiGrade;
+  /* Nullable: `GradesPanel` renders this unconditionally now and passes
+     whichever grade is being viewed, or `null` when none is. */
+  grade: ApiGrade | null;
   onClose: () => void;
 }) {
-  const band = {
-    minGrossKobo: grade.minGrossKobo,
-    midGrossKobo: grade.midGrossKobo,
-    maxGrossKobo: grade.maxGrossKobo,
-  };
-  const { rows, loading, error } = useGradeEmployees(grade.id, band);
+  const band = grade
+    ? {
+        minGrossKobo: grade.minGrossKobo,
+        midGrossKobo: grade.midGrossKobo,
+        maxGrossKobo: grade.maxGrossKobo,
+      }
+    : null;
+  const { rows, loading, error } = useGradeEmployees(grade?.id ?? null, band);
 
   return (
     <Drawer
-      open
+      open={grade !== null}
       onClose={onClose}
-      title={`${grade.code} ${grade.name}`}
-      description={`Level ${grade.level} · ${formatPlain(
-        naira(grade.minGrossKobo),
-      )} to ${formatPlain(naira(grade.maxGrossKobo))} a month`}
+      title={grade ? `${grade.code} ${grade.name}` : ""}
+      description={
+        grade
+          ? `Level ${grade.level} · ${formatPlain(
+              naira(grade.minGrossKobo),
+            )} to ${formatPlain(naira(grade.maxGrossKobo))} a month`
+          : undefined
+      }
     >
       <div className="flex flex-col gap-5">
         {error && <LoadFailure subject="the list" error={error} />}
@@ -1129,13 +1282,15 @@ function PeopleDrawer({
             <p className="text-body-sm text-muted">
               {person.jobTitle} · {person.employeeNo}
             </p>
-            <BandMeter
-              className="mt-3"
-              band={band}
-              grossKobo={person.grossMonthlyKobo}
-              placement={person.position}
-              size="sm"
-            />
+            {band && (
+              <BandMeter
+                className="mt-3"
+                band={band}
+                grossKobo={person.grossMonthlyKobo}
+                placement={person.position}
+                size="sm"
+              />
+            )}
           </div>
         ))}
       </div>

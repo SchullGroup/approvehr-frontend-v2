@@ -12,7 +12,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import { daysLabel, type LeaveRow } from "@/lib/api/leave";
+import { daysLabel, type LeaveRow, type LeaveTypeRow } from "@/lib/api/leave";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
   useLeaveBalancesFor,
@@ -170,7 +170,25 @@ export function BookLeaveDialog({
         )
       : 0;
 
-  const chosenType = types.find((type) => type.name === draft.type);
+  /**
+   * Only the types this person could actually take.
+   *
+   * `employees` already carries `gender` as one of the three words a
+   * `LeaveType.eligibleGender` is set to, or `undefined` — no free-text
+   * normalising needed here the way the API needs it for older records, since
+   * this list is this session's own read of the directory. Unset on either
+   * side means no restriction: an employee with no gender on file, or a type
+   * with none set, is never the reason a type is hidden.
+   */
+  const bookingFor = employees.find((person) => person.id === draft.employeeId);
+  const availableTypes = types.filter(
+    (type) =>
+      !type.eligibleGender ||
+      !bookingFor?.gender ||
+      type.eligibleGender === bookingFor.gender,
+  );
+
+  const chosenType = availableTypes.find((type) => type.name === draft.type);
   const balances = useLeaveBalancesFor(
     draft.employeeId ? [draft.employeeId] : [],
     draft.type,
@@ -296,7 +314,30 @@ export function BookLeaveDialog({
               value={draft.employeeId}
               onChange={(e) => {
                 const employeeId = e.target.value;
-                setDraft((d) => ({ ...d, employeeId }));
+                setDraft((d) => {
+                  /* A type chosen for the previous person can stop applying to
+                     the new one — Maternity picked for a woman, then the
+                     picker moved to a man. Left alone, the select would show
+                     a value not among its own options. Falls back to the
+                     first type this person can actually take, so the field
+                     is never left pointing at one they cannot. */
+                  const nextGender = employees.find(
+                    (person) => person.id === employeeId,
+                  )?.gender;
+                  const takeable = (type: LeaveTypeRow) =>
+                    !type.eligibleGender ||
+                    !nextGender ||
+                    type.eligibleGender === nextGender;
+                  const current = types.find((type) => type.name === d.type);
+                  return {
+                    ...d,
+                    employeeId,
+                    type:
+                      current && takeable(current)
+                        ? d.type
+                        : (types.find(takeable)?.name ?? d.type),
+                  };
+                });
               }}
             >
               <option value="">Choose someone…</option>
@@ -340,7 +381,7 @@ export function BookLeaveDialog({
               setDraft((d) => ({ ...d, type }));
             }}
           >
-            {types.map((type) => (
+            {availableTypes.map((type) => (
               <option key={type.name} value={type.name}>
                 {type.name}
               </option>

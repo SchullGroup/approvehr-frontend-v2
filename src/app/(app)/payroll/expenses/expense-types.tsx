@@ -120,128 +120,231 @@ export function ExpenseTypes({
               : {})}
           />
         ) : (
-          <TableWrap className="rounded-none border-0" caption="Expense types">
-            <THead>
-              <TH>Type</TH>
-              <TH>Receipt</TH>
-              <TH align="right">Cap a claim</TH>
-              <TH align="right">Claims</TH>
-              {canManage && <TH align="right">Change</TH>}
-            </THead>
-            <TBody>
-              {types.map((type) => (
-                <TR key={type.id}>
-                  <TD className="max-w-[24rem]">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-ink">{type.name}</span>
-                      {type.archived && (
-                        <Badge tone="neutral" size="sm">
-                          Archived
-                        </Badge>
-                      )}
-                      {!type.archived && !type.active && (
-                        <Badge tone="warning" size="sm">
-                          Switched off
-                        </Badge>
-                      )}
-                    </span>
-                    {type.description && (
-                      <span className="mt-0.5 block text-body-sm text-muted">
-                        {type.description}
-                      </span>
-                    )}
-                  </TD>
+          <>
+            <div className="hidden sm:block">
+              <TableWrap
+                className="rounded-none border-0"
+                caption="Expense types"
+              >
+                <THead>
+                  <TH>Type</TH>
+                  <TH>Receipt</TH>
+                  <TH align="right">Cap a claim</TH>
+                  <TH align="right">Claims</TH>
+                  {canManage && <TH align="right">Change</TH>}
+                </THead>
+                <TBody>
+                  {types.map((type) => (
+                    <TR key={type.id}>
+                      <TD className="max-w-[24rem]">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-ink">
+                            {type.name}
+                          </span>
+                          {type.archived && (
+                            <Badge tone="neutral" size="sm">
+                              Archived
+                            </Badge>
+                          )}
+                          {!type.archived && !type.active && (
+                            <Badge tone="warning" size="sm">
+                              Switched off
+                            </Badge>
+                          )}
+                        </span>
+                        {type.description && (
+                          <span className="mt-0.5 block text-body-sm text-muted">
+                            {type.description}
+                          </span>
+                        )}
+                      </TD>
 
-                  <TD>
+                      <TD>
+                        {type.requiresReceipt ? (
+                          <Badge tone="warning" size="sm">
+                            Needed
+                          </Badge>
+                        ) : (
+                          <span className="text-body-sm text-muted">
+                            Not needed
+                          </span>
+                        )}
+                      </TD>
+
+                      <TD align="right" className="tabular text-ink">
+                        {type.cap === null ? (
+                          <span className="text-muted">No cap</span>
+                        ) : (
+                          <Money amount={type.cap} decimals />
+                        )}
+                      </TD>
+
+                      <TD align="right" className="tabular text-body">
+                        {type.claimCount}
+                      </TD>
+
+                      {canManage && (
+                        <TD align="right">
+                          <div className="flex justify-end gap-1.5">
+                            {type.archived ? (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() =>
+                                  void onUpdate(type.id, { active: true })
+                                }
+                              >
+                                <RotateCcw
+                                  aria-hidden="true"
+                                  className="size-3.5"
+                                />
+                                Switch back on
+                              </Button>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setEditing(type)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`Archive ${type.name}`}
+                                  onClick={() => setArchiving(type)}
+                                >
+                                  <Trash2
+                                    aria-hidden="true"
+                                    className="size-3.5"
+                                  />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TD>
+                      )}
+                    </TR>
+                  ))}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
+              {types.map((type) => (
+                <li key={type.id} className="flex flex-col gap-2 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-ink">
+                          {type.name}
+                        </span>
+                        {type.archived && (
+                          <Badge tone="neutral" size="sm">
+                            Archived
+                          </Badge>
+                        )}
+                        {!type.archived && !type.active && (
+                          <Badge tone="warning" size="sm">
+                            Switched off
+                          </Badge>
+                        )}
+                      </span>
+                      {type.description && (
+                        <p className="mt-0.5 text-body-sm text-muted">
+                          {type.description}
+                        </p>
+                      )}
+                    </div>
                     {type.requiresReceipt ? (
                       <Badge tone="warning" size="sm">
                         Needed
                       </Badge>
                     ) : (
-                      <span className="text-body-sm text-muted">
-                        Not needed
+                      <span className="shrink-0 text-body-sm text-muted">
+                        No receipt
                       </span>
                     )}
-                  </TD>
+                  </div>
 
-                  <TD align="right" className="tabular text-ink">
-                    {type.cap === null ? (
-                      <span className="text-muted">No cap</span>
-                    ) : (
-                      <Money amount={type.cap} decimals />
-                    )}
-                  </TD>
-
-                  <TD align="right" className="tabular text-body">
-                    {type.claimCount}
-                  </TD>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-body-sm text-muted">Cap a claim</span>
+                    <span className="tabular text-body-sm text-ink">
+                      {type.cap === null ? (
+                        <span className="text-muted">No cap</span>
+                      ) : (
+                        <Money amount={type.cap} decimals />
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-body-sm text-muted">Claims</span>
+                    <span className="tabular text-body-sm text-body">
+                      {type.claimCount}
+                    </span>
+                  </div>
 
                   {canManage && (
-                    <TD align="right">
-                      <div className="flex justify-end gap-1.5">
-                        {type.archived ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {type.archived ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            void onUpdate(type.id, { active: true })
+                          }
+                        >
+                          <RotateCcw aria-hidden="true" className="size-3.5" />
+                          Switch back on
+                        </Button>
+                      ) : (
+                        <>
                           <Button
-                            variant="secondary"
+                            variant="ghost"
                             size="sm"
-                            onClick={() =>
-                              void onUpdate(type.id, { active: true })
-                            }
+                            onClick={() => setEditing(type)}
                           >
-                            <RotateCcw
-                              aria-hidden="true"
-                              className="size-3.5"
-                            />
-                            Switch back on
+                            Edit
                           </Button>
-                        ) : (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditing(type)}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              aria-label={`Archive ${type.name}`}
-                              onClick={() => setArchiving(type)}
-                            >
-                              <Trash2 aria-hidden="true" className="size-3.5" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TD>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Archive ${type.name}`}
+                            onClick={() => setArchiving(type)}
+                          >
+                            <Trash2 aria-hidden="true" className="size-3.5" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   )}
-                </TR>
+                </li>
               ))}
-            </TBody>
-          </TableWrap>
+            </ul>
+          </>
         )}
       </Card>
 
-      {creating && (
-        <TypeDialog
-          onClose={() => setCreating(false)}
-          onSave={async (input) => {
-            const ok = await onCreate(input);
-            if (ok) setCreating(false);
-          }}
-        />
-      )}
+      <TypeDialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        onSave={async (input) => {
+          const ok = await onCreate(input);
+          if (ok) setCreating(false);
+        }}
+      />
 
-      {editing && (
-        <TypeDialog
-          type={editing}
-          onClose={() => setEditing(null)}
-          onSave={async (input) => {
-            const ok = await onUpdate(editing.id, input);
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
+      <TypeDialog
+        open={editing !== null}
+        type={editing ?? undefined}
+        onClose={() => setEditing(null)}
+        onSave={async (input) => {
+          if (!editing) return;
+          const ok = await onUpdate(editing.id, input);
+          if (ok) setEditing(null);
+        }}
+      />
 
       <ConfirmDialog
         open={archiving !== null}
@@ -268,10 +371,12 @@ export function ExpenseTypes({
 /* -------------------------------------------------------------------------- */
 
 function TypeDialog({
+  open,
   type,
   onClose,
   onSave,
 }: {
+  open: boolean;
   type?: ExpenseType;
   onClose: () => void;
   onSave: (input: CreateTypeInput) => Promise<void>;
@@ -292,7 +397,7 @@ function TypeDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="sm"
       title={type ? `Edit ${type.name}` : "Add an expense type"}

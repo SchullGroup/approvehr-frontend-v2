@@ -8,7 +8,10 @@ import { cn } from "@/lib/cn";
 export type BadgeTone =
   "neutral" | "accent" | "success" | "warning" | "danger" | "info" | "ink";
 
-const TONES: Record<BadgeTone, string> = {
+/** Exported so a genuinely interactive look-alike (a `<button>`, which this
+ *  span-only component cannot become) can share the same colours instead of
+ *  re-deriving them — see the applied-filter chip in `filter-bar.tsx`. */
+export const TONES: Record<BadgeTone, string> = {
   neutral: "bg-sunken text-body border-line",
   accent: "bg-accent-soft text-accent-text border-accent-line",
   success: "bg-success-soft text-success-text border-success-line",
@@ -35,6 +38,7 @@ export function Badge({
   icon,
   className,
   children,
+  ...props
 }: {
   tone?: BadgeTone;
   size?: "sm" | "md";
@@ -43,7 +47,7 @@ export function Badge({
   icon?: React.ReactNode;
   className?: string;
   children: React.ReactNode;
-}) {
+} & React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       className={cn(
@@ -52,6 +56,7 @@ export function Badge({
         TONES[tone],
         className,
       )}
+      {...props}
     >
       {dot && (
         <span
@@ -76,11 +81,12 @@ export function Tag({
   className,
   icon,
   children,
+  ...props
 }: {
   className?: string;
   icon?: React.ReactNode;
   children: React.ReactNode;
-}) {
+} & React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
       className={cn(
@@ -88,6 +94,7 @@ export function Tag({
         "px-2 py-1 text-meta font-medium text-body whitespace-nowrap",
         className,
       )}
+      {...props}
     >
       {icon && (
         <span aria-hidden="true" className="shrink-0 [&>svg]:size-3 text-faint">

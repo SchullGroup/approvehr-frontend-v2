@@ -15,6 +15,7 @@ import {
   CardHeader,
   EmptyState,
   Money,
+  Skeleton,
   Stat,
   TBody,
   TD,
@@ -26,6 +27,7 @@ import {
   rowClick,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
   RunStatusBadge,
@@ -212,10 +214,22 @@ export function PayrollScreen() {
 
         {error && <LoadFailure subject="payroll" error={error} />}
 
-        {/* An error is not an empty state. "No run yet" beside "you need
+        {/* Shape-matched, same pattern as record-history.tsx. `SourceBadge`
+            above already says "Loading…" in words, but that is easy to miss
+            above blank space — this is what fills the gap while `current`
+            is still null. */}
+        {loading && !error && runs.length === 0 ? (
+          <Card>
+            <CardBody className="flex flex-col gap-2">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <span className="sr-only">Loading this period’s payroll</span>
+            </CardBody>
+          </Card>
+        ) : /* An error is not an empty state. "No run yet" beside "you need
             VIEW_SALARIES" tells somebody to prepare a run they would not be
-            allowed to see, which is two wrong answers rather than one. */}
-        {!loading && !error && runs.length === 0 ? (
+            allowed to see, which is two wrong answers rather than one. */
+        !loading && !error && runs.length === 0 ? (
           <EmptyState
             icon={<CalendarClock aria-hidden="true" />}
             title={`No payroll run for ${periodLabel(currentPeriod)} yet`}
@@ -302,22 +316,19 @@ export function PayrollScreen() {
                 detail.run.exceptions.length > 0 &&
                 current.status !== "APPROVED" &&
                 current.status !== "PAID" && (
-                  <Callout tone={counts.blockers > 0 ? "danger" : "warning"}>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <span>
-                        {counts.blockers > 0
-                          ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} to fix before this can be approved${counts.warnings > 0 ? `, ${counts.warnings} more worth a look` : ""}.`
-                          : `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look before approving. Nothing stops the run.`}
-                      </span>
-                      <ButtonLink
-                        href={`/payroll/runs/new?period=${current.period}`}
-                        size="sm"
-                        variant={counts.blockers > 0 ? "accent" : "secondary"}
-                      >
-                        Open the run
-                      </ButtonLink>
-                    </div>
-                  </Callout>
+                  <NoticeLine tone={counts.blockers > 0 ? "danger" : "warning"}>
+                    <span>
+                      {counts.blockers > 0
+                        ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} to fix before this can be approved${counts.warnings > 0 ? `, ${counts.warnings} more worth a look` : ""}.`
+                        : `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look before approving. Nothing stops the run.`}
+                    </span>
+                    <Link
+                      href={`/payroll/runs/new?period=${current.period}`}
+                      className={NOTICE_LINK}
+                    >
+                      Open the run
+                    </Link>
+                  </NoticeLine>
                 )}
 
               {/* The last thing anybody does, and the easiest to forget.
@@ -417,67 +428,119 @@ export function PayrollScreen() {
                 </Badge>
               }
             />
-            <TableWrap className="rounded-none border-0">
-              <THead>
-                <TH>Period</TH>
-                <TH align="right">People</TH>
-                <TH align="right">Gross</TH>
-                {/* The column spans runs of every status, most of which have
-                    paid nobody. */}
-                <TH align="right">Net</TH>
-                <TH>Status</TH>
-                <TH>Pays</TH>
-              </THead>
-              <TBody>
-                {runs.map((run) => (
-                  <TR
-                    key={run.id}
-                    interactive
-                    onClick={rowClick(() =>
-                      router.push(`/payroll/runs/new?period=${run.period}`),
-                    )}
-                  >
-                    <TDPrimary
-                      title={
-                        <Link
-                          href={`/payroll/runs/new?period=${run.period}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
-                          {periodLabel(run.period)}
-                        </Link>
-                      }
-                      subtitle={run.label ?? undefined}
-                    />
-                    <TD align="right" className="tabular">
-                      {/* Two lines rather than one long string: a numeric column
-                          has to stay scannable, and "9" alone beside a company
-                          of ten is the claim this whole field exists to stop. */}
-                      {run.excludedCount > 0 ? (
-                        <>
-                          {run.employeeCount} of{" "}
-                          {run.employeeCount + run.excludedCount}
-                          <span className="mt-0.5 block text-meta font-normal text-warning-text">
-                            {run.excludedCount} excluded
-                          </span>
-                        </>
-                      ) : (
-                        run.employeeCount
+            <div className="hidden sm:block">
+              <TableWrap className="rounded-none border-0">
+                <THead>
+                  <TH>Period</TH>
+                  <TH align="right">People</TH>
+                  <TH align="right">Gross</TH>
+                  {/* The column spans runs of every status, most of which have
+                      paid nobody. */}
+                  <TH align="right">Net</TH>
+                  <TH>Status</TH>
+                  <TH>Pays</TH>
+                </THead>
+                <TBody>
+                  {runs.map((run) => (
+                    <TR
+                      key={run.id}
+                      interactive
+                      onClick={rowClick(() =>
+                        router.push(`/payroll/runs/new?period=${run.period}`),
                       )}
-                    </TD>
-                    <TD align="right">
-                      <Money amount={naira(run.grossKobo)} decimals />
-                    </TD>
-                    <TD align="right">
-                      <Money amount={naira(run.netKobo)} decimals />
-                    </TD>
-                    <TD>
-                      <RunStatusBadge status={run.status} />
-                    </TD>
-                    <TD className="tabular text-muted">{run.payDate}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </TableWrap>
+                    >
+                      <TDPrimary
+                        title={
+                          <Link
+                            href={`/payroll/runs/new?period=${run.period}`}
+                            className="hover:text-accent-text hover:underline underline-offset-4"
+                          >
+                            {periodLabel(run.period)}
+                          </Link>
+                        }
+                        subtitle={run.label ?? undefined}
+                      />
+                      <TD align="right" className="tabular">
+                        {/* Two lines rather than one long string: a numeric column
+                            has to stay scannable, and "9" alone beside a company
+                            of ten is the claim this whole field exists to stop. */}
+                        {run.excludedCount > 0 ? (
+                          <>
+                            {run.employeeCount} of{" "}
+                            {run.employeeCount + run.excludedCount}
+                            <span className="mt-0.5 block text-meta font-normal text-warning-text">
+                              {run.excludedCount} excluded
+                            </span>
+                          </>
+                        ) : (
+                          run.employeeCount
+                        )}
+                      </TD>
+                      <TD align="right">
+                        <Money amount={naira(run.grossKobo)} decimals />
+                      </TD>
+                      <TD align="right">
+                        <Money amount={naira(run.netKobo)} decimals />
+                      </TD>
+                      <TD>
+                        <RunStatusBadge status={run.status} />
+                      </TD>
+                      <TD className="tabular text-muted">{run.payDate}</TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
+              {runs.map((run) => (
+                <li
+                  key={run.id}
+                  onClick={rowClick(() =>
+                    router.push(`/payroll/runs/new?period=${run.period}`),
+                  )}
+                  className="flex flex-col gap-2 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/payroll/runs/new?period=${run.period}`}
+                        className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                      >
+                        {periodLabel(run.period)}
+                      </Link>
+                      {run.label && (
+                        <p className="text-body-sm text-muted">{run.label}</p>
+                      )}
+                    </div>
+                    <RunStatusBadge status={run.status} />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                    <span className="tabular">
+                      {run.excludedCount > 0
+                        ? `${run.employeeCount} of ${run.employeeCount + run.excludedCount} people`
+                        : `${run.employeeCount} people`}
+                    </span>
+                    {run.excludedCount > 0 && (
+                      <span className="tabular text-warning-text">
+                        {run.excludedCount} excluded
+                      </span>
+                    )}
+                    <span className="tabular">{run.payDate}</span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm">
+                    <span className="tabular text-ink">
+                      Gross <Money amount={naira(run.grossKobo)} decimals />
+                    </span>
+                    <span className="tabular font-medium text-ink">
+                      Net <Money amount={naira(run.netKobo)} decimals />
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </Card>
         )}
 

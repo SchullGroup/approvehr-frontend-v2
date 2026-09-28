@@ -225,6 +225,52 @@ export function ButtonLink({
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The one inline hyperlink — a word or phrase sitting inside a sentence, a
+ * table cell, or a card, that happens to go somewhere. Not `ButtonLink`,
+ * which looks like a button because it acts like one; this is for the far
+ * more common case of a link that has to read as part of the surrounding
+ * text.
+ *
+ * Before this, each of those call sites wrote its own version of roughly
+ * the same idea, and it drifted: some coloured the link only on hover,
+ * which is the exact failure `GHOST_TREATMENT` above already rejects for
+ * buttons — a control with no visible affordance until somebody happens to
+ * point at it, which is never, on a touch screen. Others got the token
+ * wrong (`text-accent`, meant for white text on a filled background, rather
+ * than `text-accent-text`) or dropped the underline offset. One shared
+ * component is what stops the next call site adding a fourth variant.
+ *
+ * `text-accent-text` is therefore worn at rest, not only on hover — the
+ * link is identifiable before anybody moves the mouse. The underline is
+ * the hover/press affordance on top of that, not the only signal.
+ *
+ * Not for `NoticeLine`'s own embedded link (`NOTICE_LINK` in
+ * `components/portal/notice-line.tsx`): that one deliberately inherits the
+ * notice's own tone (warning/danger/muted) via `currentColor`, so a warning
+ * sentence and its link read as one colour. This component is for every
+ * other case, which is most of them.
+ */
+export function TextLink({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof Link>) {
+  return (
+    <Link
+      className={cn(
+        "font-medium text-accent-text underline-offset-4 hover:underline",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </Link>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
 export type IconButtonProps = Omit<ButtonProps, "block" | "children"> & {
   /** Required. Icon only controls carry no visible text. */
   label: string;
