@@ -57,7 +57,7 @@ import { SignOffDialog } from "./sign-off-dialog";
  * |---|---|
  * | The person it is about | the answer they owe: acknowledge it |
  * | The person who wrote it | the form, and finalising it into the mark of record |
- * | Records permission | both of the above, read-only, plus the employee's answer |
+ * | Records permission | both of the above, read-only, plus recording a dispute if the subject does not accept it |
  *
  * Everything else — the mark, the answers, what the mark is made of — is the same
  * document for all three. The incumbent ships `self-appraisal`,
@@ -228,8 +228,11 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     !review.finalised &&
     (review.mine || canSeeCompany);
 
-  /* The subject owes an answer only once the mark is theirs, and only once. */
-  const owesAnswer =
+  /* The subject owes an acknowledgement only once the mark is theirs, and
+     only once. Disputing is no longer something they do here — see the
+     callout below and `assertMayDispute` on the API, which is the actual
+     gate this mirrors. */
+  const owesAcknowledgement =
     isSubject && review.finalised && !review.acknowledged && !review.disputed;
 
   const answered = review.acknowledged || review.disputed;
@@ -303,7 +306,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             </p>
           )}
 
-          {owesAnswer && (
+          {owesAcknowledgement && (
             <Callout
               tone="accent"
               title="This rating is final. It needs your answer"
@@ -317,7 +320,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 <strong>Acknowledging is not agreeing.</strong> It records that
                 you were shown this and nothing more.
               </p>
-              <p className="mt-3 flex flex-wrap gap-2">
+              <p className="mt-3">
                 <Button
                   variant="accent"
                   size="sm"

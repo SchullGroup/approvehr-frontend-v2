@@ -1010,7 +1010,16 @@ type Mockup = () => React.ReactElement;
  * the commit that causes it rather than a wrong picture somebody notices later.
  */
 export const CAPABILITY_MOCKUPS: Record<ModuleId, (Mockup | undefined)[]> = {
-  "core-hr": [EmployeeRecord, SelfServiceChange, OrgChart, LetterTemplate],
+  /* Indices 4 and 5 are bulk import and custom roles, neither of which has an
+     illustration. */
+  "core-hr": [
+    EmployeeRecord,
+    SelfServiceChange,
+    OrgChart,
+    LetterTemplate,
+    undefined,
+    undefined,
+  ],
   payroll: [
     DeductionBreakdown,
     FilingSchedule,
@@ -1018,7 +1027,16 @@ export const CAPABILITY_MOCKUPS: Record<ModuleId, (Mockup | undefined)[]> = {
     LoanSchedule,
     Payslip,
   ],
-  hiring: [RequisitionApproval, StageConfig, ScreeningAnswers, OfferStatus],
+  /* Indices 4 and 5 are interview scorecards and the public careers page,
+     neither of which has an illustration. */
+  hiring: [
+    RequisitionApproval,
+    StageConfig,
+    ScreeningAnswers,
+    OfferStatus,
+    undefined,
+    undefined,
+  ],
   /* index 3 is timesheets payroll can use, which has no illustration. */
   time: [ClockIn, LeavePolicy, LeaveApproval, undefined, Holidays],
   /* Indices 2 and 5 are the review-language check and AI-assisted drafting,
@@ -1031,5 +1049,7 @@ export const CAPABILITY_MOCKUPS: Record<ModuleId, (Mockup | undefined)[]> = {
     Calibration,
     undefined,
   ],
-  desk: [TicketThread, SlaBoard, KnowledgeBase],
+  /* index 3 is employees raising their own requests, which has no
+     illustration. */
+  desk: [TicketThread, SlaBoard, KnowledgeBase, undefined],
 };

@@ -3,6 +3,7 @@
 import { ProgressMeter } from "@/components/ui";
 import type { Ai2UsageWindow } from "@/lib/api/ai2";
 import { useAi2Usage } from "@/lib/store/ai2-usage";
+import { formatDateShort } from "@/lib/time";
 
 /**
  * How much of the assistant's budget this organisation has spent — today and
@@ -75,10 +76,10 @@ export function UsageGauge({
     );
   }
 
-  const resets = new Date(month.periodEnd).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-  });
+  /* The month's own budget resets at UTC midnight, same as today's — so the
+     date is formatted in UTC explicitly rather than the org's zone, which
+     would round it to the wrong day either side of that boundary. */
+  const resets = formatDateShort(month.periodEnd, "UTC");
 
   return (
     <div className={className}>
