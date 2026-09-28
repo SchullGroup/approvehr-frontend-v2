@@ -406,8 +406,8 @@ const STATUS_TONE = {
  * queue live. An advert with no requisition has nothing to open, so it is plain
  * text and the subtitle says why rather than offering a link into nothing.
  *
- * The two links are in **different cells** on purpose. Wrapping the row in one
- * link and putting another inside it nests anchors, which breaks hydration
+ * Every link on the row is in its **own cell**, on purpose. Wrapping the row in
+ * one link and putting another inside it nests anchors, which breaks hydration
  * silently: the page renders blank and the console says nothing useful.
  */
 function RoleTableRow({ role }: { role: RoleRow }) {
@@ -437,8 +437,17 @@ function RoleTableRow({ role }: { role: RoleRow }) {
           {role.statusLabel}
         </Badge>
       </TD>
-      <TD align="right" className="tabular font-medium text-ink">
-        {role.applications}
+      <TD align="right" className="tabular font-medium">
+        {role.applications > 0 ? (
+          <Link
+            href={`/hiring/postings/applications?posting=${role.postingId}&status=ALL`}
+            className="text-accent-text hover:underline underline-offset-4"
+          >
+            {role.applications}
+          </Link>
+        ) : (
+          <span className="text-ink">{role.applications}</span>
+        )}
       </TD>
       <TD align="right" className="tabular">
         {role.waiting > 0 ? (
@@ -459,7 +468,7 @@ function RoleTableRow({ role }: { role: RoleRow }) {
   );
 }
 
-/** The mobile card for one advertised role — the same two links as
+/** The mobile card for one advertised role — the same links as
  *  `RoleTableRow`, in different elements for the same reason: nesting them
  *  would break hydration silently. */
 function RoleCard({ role }: { role: RoleRow }) {
@@ -491,10 +500,19 @@ function RoleCard({ role }: { role: RoleRow }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
-        <span className="tabular">
-          <span className="font-medium text-ink">{role.applications}</span>{" "}
-          applied
-        </span>
+        {role.applications > 0 ? (
+          <Link
+            href={`/hiring/postings/applications?posting=${role.postingId}&status=ALL`}
+            className="tabular font-medium text-accent-text hover:underline underline-offset-4"
+          >
+            {role.applications} applied
+          </Link>
+        ) : (
+          <span className="tabular">
+            <span className="font-medium text-ink">{role.applications}</span>{" "}
+            applied
+          </span>
+        )}
         {role.waiting > 0 ? (
           <Link
             href={`/hiring/postings/applications?posting=${role.postingId}`}

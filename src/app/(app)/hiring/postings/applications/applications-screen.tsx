@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Copy,
@@ -76,8 +77,12 @@ import {
  */
 export function ApplicationsScreen({
   initialPostingId = "",
+  initialStatus = "",
 }: {
   initialPostingId?: string;
+  /** `"ALL"` when the advert list's own count linked here to show everyone;
+   *  anything else falls back to the ordinary "Waiting" default. */
+  initialStatus?: string;
 }) {
   const { can, loading } = usePermissions();
 
@@ -119,7 +124,12 @@ export function ApplicationsScreen({
     );
   }
 
-  return <Queue initialPostingId={initialPostingId} />;
+  return (
+    <Queue
+      initialPostingId={initialPostingId}
+      initialStatus={initialStatus === "ALL" ? "ALL" : "RECEIVED"}
+    />
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -148,8 +158,16 @@ const STATUS_TONE: Record<
   WITHDRAWN: "info",
 };
 
-function Queue({ initialPostingId }: { initialPostingId: string }) {
-  const [status, setStatus] = useState<ApplicationStatus | "ALL">("RECEIVED");
+function Queue({
+  initialPostingId,
+  initialStatus,
+}: {
+  initialPostingId: string;
+  initialStatus: ApplicationStatus | "ALL";
+}) {
+  const [status, setStatus] = useState<ApplicationStatus | "ALL">(
+    initialStatus,
+  );
   const [postingId, setPostingId] = useState(initialPostingId);
   const [search, setSearch] = useState("");
   const [advancing, setAdvancing] = useState<ApiApplication | null>(null);
@@ -162,6 +180,7 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
     ...(postingId ? { postingId } : {}),
   });
   const toast = useToast();
+  const router = useRouter();
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -316,12 +335,16 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
           if (!advancing) return;
           try {
             const result = await applications.advance(advancing.id, body);
+            setAdvancing(null);
             toast.push({
               title: `${advancing.name} is in the pipeline`,
               tone: "success",
               detail: result.note,
             });
-            setAdvancing(null);
+            /* Land on their record rather than leaving the reader on a queue
+               that just lost a row — this is where Schedule interview lives,
+               and it is the thing screening somebody in is usually for. */
+            router.push(`/hiring/candidates/${result.candidateId}`);
           } catch (error) {
             fail(error);
           }
