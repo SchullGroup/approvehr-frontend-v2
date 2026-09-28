@@ -3,6 +3,7 @@ import {
   BookOpen,
   BriefcaseBusiness,
   Building2,
+  CalendarCheck,
   CalendarClock,
   CalendarDays,
   CalendarRange,
@@ -341,6 +342,44 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/people/onboarding",
       label: "Onboarding",
       icon: <UserRoundPlus aria-hidden="true" />,
+      permission: "EDIT_RECORDS",
+    },
+    {
+      /* Between Onboarding and Exit management because that is where it sits in
+         somebody's employment: joined, confirmed, left.
+
+         **No `feature` key, on purpose.** `probationTracking` exists and this
+         item is deliberately not behind it — see `WORKFLOW_FEATURE_KEYS` in
+         `lib/api/setup.ts`. The flag decides whether new hires are *given* an
+         end date; the screen's second table is everybody already on a probation
+         nobody dated, which a company accumulates precisely while the flag is
+         off. Gating it would hide the list from the only people it is for, and
+         hide the switch that fixes it along with them. */
+      href: "/people/probation",
+      label: "Probation",
+      icon: <CalendarCheck aria-hidden="true" />,
+      permission: "EDIT_RECORDS",
+    },
+    {
+      /* **No permission**, and that is the point: every employee answers
+         surveys and a permission gate would hide the screen from the audience
+         it exists for. `MANAGE_SETTINGS` decides what the same route *shows* —
+         one route, narrowed by role rather than by URL, PARITY Rule 1. The
+         feature flag is what hides it from a company that does not run them. */
+      href: "/surveys",
+      label: "Surveys",
+      icon: <ClipboardList aria-hidden="true" />,
+      feature: "surveys",
+    },
+    {
+      /* After Probation and before Exit management: joined, confirmed,
+         promoted, left. `EDIT_RECORDS` because proposing a change is editing a
+         record; approving one needs `APPROVE_EMPLOYMENT_CHANGE`, and the
+         screen's own Decide button is gated on that separately — an approver
+         who cannot edit reaches this from the approvals queue instead. */
+      href: "/people/changes",
+      label: "Promotions",
+      icon: <TrendingUp aria-hidden="true" />,
       permission: "EDIT_RECORDS",
     },
     {

@@ -4,7 +4,9 @@ import { Pill } from "@/components/marketing/pill";
 import { Reveal } from "@/components/marketing/motion";
 import { SectionHeading } from "@/components/marketing/sections";
 import { ClientLogos } from "@/components/marketing/social-proof";
+import { JsonLd } from "@/components/marketing/json-ld";
 import { TIERS } from "@/lib/marketing/pricing";
+import { SITE_URL } from "@/lib/marketing/site";
 import { cn } from "@/lib/cn";
 import { PricingCalculator } from "./calculator";
 
@@ -12,6 +14,7 @@ export const metadata: Metadata = {
   title: "Pricing",
   description:
     "Per employee, per month, in naira. The rate falls as your headcount rises. See exactly what your company would pay.",
+  alternates: { canonical: `${SITE_URL}/pricing` },
 };
 
 /* -------------------------------------------------------------------------- */
@@ -250,11 +253,24 @@ export default function PricingPage() {
 
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: FAQ.map((item) => ({
+            "@type": "Question",
+            name: item.q,
+            acceptedAnswer: { "@type": "Answer", text: item.a },
+          })),
+        }}
+      />
+
       {/* Hero */}
       <section className="px-4 pb-16 pt-16 sm:pt-24">
         <div className="container-page">
           <Reveal>
             <SectionHeading
+              as="h1"
               align="center"
               eyebrow="Pricing"
               title="Start free. Pay from month two."

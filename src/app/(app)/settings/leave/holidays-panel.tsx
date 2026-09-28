@@ -108,6 +108,57 @@ function weekdayOf(isoDate: string): string {
   return Number.isNaN(date.getTime()) ? "" : (WEEKDAY[date.getUTCDay()] ?? "");
 }
 
+/* Text, not a colour. The calendar card carries the same distinction as fill
+   against dashed outline. */
+function HolidayStatusBadge({ holiday }: { holiday: PublicHolidayRow }) {
+  return holiday.confirmed ? (
+    <Badge tone="success" size="sm">
+      Gazetted
+    </Badge>
+  ) : (
+    <Badge tone="warning" size="sm" dot>
+      Awaiting proclamation
+    </Badge>
+  );
+}
+
+/** Mark confirmed (unconfirmed only), Edit, Remove — one copy shared by the
+    desktop row and the mobile card. */
+function HolidayRowActions({
+  holiday,
+  busy,
+  onConfirm,
+  onEdit,
+  onDelete,
+}: {
+  holiday: PublicHolidayRow;
+  busy: boolean;
+  onConfirm: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <>
+      {!holiday.confirmed && (
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy}
+          onClick={onConfirm}
+        >
+          Mark confirmed
+        </Button>
+      )}
+      <Button variant="ghost" size="sm" onClick={onEdit}>
+        Edit
+      </Button>
+      <IconButton label={`Remove ${holiday.name}`} size="sm" onClick={onDelete}>
+        <Trash2 aria-hidden="true" className="size-3.5" />
+      </IconButton>
+    </>
+  );
+}
+
 export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
   const canManage = useCan("MANAGE_SETTINGS");
   const [year, setYear] = useState(defaultYear);
@@ -257,80 +308,101 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
             }
           />
         ) : (
-          <TableWrap
-            className="rounded-none border-0"
-            caption={`Public holidays for ${year}`}
-          >
-            <THead>
-              <TH>Holiday</TH>
-              <TH>Date</TH>
-              <TH>Status</TH>
-              {canManage && (
-                <TH align="right">
-                  <span className="sr-only">Actions</span>
-                </TH>
-              )}
-            </THead>
-            <TBody>
-              {calendar.holidays.map((holiday) => (
-                <TR key={holiday.id}>
-                  <TDPrimary
-                    title={holiday.name}
-                    subtitle={weekdayOf(holiday.date)}
-                  />
-                  <TD className="tabular">{longDate(holiday.date)}</TD>
-                  <TD>
-                    {/* Text, not a colour. The calendar card carries the same
-                        distinction as fill against dashed outline. */}
-                    {holiday.confirmed ? (
-                      <Badge tone="success" size="sm">
-                        Gazetted
-                      </Badge>
-                    ) : (
-                      <Badge tone="warning" size="sm" dot>
-                        Awaiting proclamation
-                      </Badge>
-                    )}
-                  </TD>
+          <>
+            <div className="hidden sm:block">
+              <TableWrap
+                className="rounded-none border-0"
+                caption={`Public holidays for ${year}`}
+              >
+                <THead>
+                  <TH>Holiday</TH>
+                  <TH>Date</TH>
+                  <TH>Status</TH>
                   {canManage && (
-                    <TD align="right">
-                      <div className="flex justify-end gap-1.5">
-                        {!holiday.confirmed && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={busy}
-                            onClick={() =>
-                              void run(
-                                () => mutations.confirm(holiday.id),
-                                `${holiday.name} confirmed`,
-                              )
-                            }
-                          >
-                            Mark confirmed
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditing(holiday)}
-                        >
-                          Edit
-                        </Button>
-                        <IconButton
-                          label={`Remove ${holiday.name}`}
-                          size="sm"
-                          onClick={() => setDeleting(holiday)}
-                        >
-                          <Trash2 aria-hidden="true" className="size-3.5" />
-                        </IconButton>
-                      </div>
-                    </TD>
+                    <TH align="right">
+                      <span className="sr-only">Actions</span>
+                    </TH>
                   )}
-                </TR>
+                </THead>
+                <TBody>
+                  {calendar.holidays.map((holiday) => (
+                    <TR key={holiday.id}>
+                      <TDPrimary
+                        title={holiday.name}
+                        subtitle={weekdayOf(holiday.date)}
+                      />
+                      <TD className="tabular">{longDate(holiday.date)}</TD>
+                      <TD>
+                        <HolidayStatusBadge holiday={holiday} />
+                      </TD>
+                      {canManage && (
+                        <TD align="right">
+                          <div className="flex justify-end gap-1.5">
+                            <HolidayRowActions
+                              holiday={holiday}
+                              busy={busy}
+                              onConfirm={() =>
+                                void run(
+                                  () => mutations.confirm(holiday.id),
+                                  `${holiday.name} confirmed`,
+                                )
+                              }
+                              onEdit={() => setEditing(holiday)}
+                              onDelete={() => setDeleting(holiday)}
+                            />
+                          </div>
+                        </TD>
+                      )}
+                    </TR>
+                  ))}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
+              {calendar.holidays.map((holiday) => (
+                <li key={holiday.id} className="flex flex-col gap-2 p-4">
+                  <div className="min-w-0">
+                    <p className="text-body-sm font-medium text-ink">
+                      {holiday.name}
+                    </p>
+                    <p className="mt-0.5 text-meta text-muted">
+                      {weekdayOf(holiday.date)}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-body-sm text-muted">Date</span>
+                    <span className="tabular text-body-sm text-body">
+                      {longDate(holiday.date)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-body-sm text-muted">Status</span>
+                    <HolidayStatusBadge holiday={holiday} />
+                  </div>
+
+                  {canManage && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <HolidayRowActions
+                        holiday={holiday}
+                        busy={busy}
+                        onConfirm={() =>
+                          void run(
+                            () => mutations.confirm(holiday.id),
+                            `${holiday.name} confirmed`,
+                          )
+                        }
+                        onEdit={() => setEditing(holiday)}
+                        onDelete={() => setDeleting(holiday)}
+                      />
+                    </div>
+                  )}
+                </li>
               ))}
-            </TBody>
-          </TableWrap>
+            </ul>
+          </>
         )}
       </Card>
 

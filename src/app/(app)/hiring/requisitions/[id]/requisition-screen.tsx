@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  FileQuestion,
   Lock,
   MapPin,
   Megaphone,
@@ -234,6 +235,7 @@ function RealRequisitionDetail({ id }: { id: string }) {
       <PageBody>
         <Card>
           <EmptyState
+            icon={<FileQuestion aria-hidden="true" />}
             title="That requisition is not here"
             description={
               error?.message ??

@@ -13,6 +13,7 @@ import {
   CircleDashed,
   FileText,
   Gauge,
+  BriefcaseBusiness,
   Megaphone,
   ScrollText,
   Sparkles,
@@ -128,6 +129,17 @@ const ONGOING = [
     description:
       "Switch modules on and off — loans, expenses, hiring, shifts, attendance. A module switched off disappears from the sidebar rather than being deleted, and its data is kept.",
     icon: <ToggleRight aria-hidden="true" />,
+  },
+  {
+    /* Beside the other things a company configures once and then uses. Named
+       "Job roles" and never "Roles" — `/settings/roles` further down is
+       permissions, and two things called Roles in one menu is the ambiguity the
+       departments/sub-departments rename already had to fix once. */
+    href: "/settings/job-roles",
+    title: "Job roles",
+    description:
+      "What jobs this company has, what each one involves, and what people on it are judged against. Job titles stay free text until you add some.",
+    icon: <BriefcaseBusiness aria-hidden="true" />,
   },
   {
     href: "/settings/announcements",
