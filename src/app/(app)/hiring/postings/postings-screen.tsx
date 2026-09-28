@@ -565,9 +565,18 @@ function AdvertRow({
       </TD>
 
       <TD align="right">
-        <span className="tabular text-body-sm text-ink">
-          {posting.applicationCount}
-        </span>
+        {posting.applicationCount > 0 ? (
+          <Link
+            href={`/hiring/postings/applications?posting=${posting.id}&status=ALL`}
+            className="tabular text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
+          >
+            {posting.applicationCount}
+          </Link>
+        ) : (
+          <span className="tabular text-body-sm text-ink">
+            {posting.applicationCount}
+          </span>
+        )}
         {waiting > 0 && (
           <Link
             href={`/hiring/postings/applications?posting=${posting.id}`}
@@ -707,7 +716,18 @@ function AdvertCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
-        <span className="tabular">{posting.applicationCount} applications</span>
+        {posting.applicationCount > 0 ? (
+          <Link
+            href={`/hiring/postings/applications?posting=${posting.id}&status=ALL`}
+            className="tabular font-medium text-accent-text hover:underline underline-offset-4"
+          >
+            {posting.applicationCount} applications
+          </Link>
+        ) : (
+          <span className="tabular">
+            {posting.applicationCount} applications
+          </span>
+        )}
         {waiting > 0 && (
           <Link
             href={`/hiring/postings/applications?posting=${posting.id}`}
