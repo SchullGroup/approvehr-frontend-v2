@@ -43,6 +43,10 @@ export const PERMISSION_KEYS = [
   "EDIT_RECORDS_DEPARTMENT",
   "MANAGE_HIRING",
   "APPROVE_HIRING",
+  /* Signing off a promotion, transfer, regrade or pay change. Separate from
+     EDIT_RECORDS, which proposes one — the proposer is very often the person
+     who gains by it. */
+  "APPROVE_EMPLOYMENT_CHANGE",
   /* Time off */
   "APPROVE_LEAVE",
   "APPROVE_LEAVE_ALL",
@@ -165,6 +169,7 @@ export const PERMISSION_SHAPE: Record<
   },
   MANAGE_HIRING: { module: "hiring", action: "manage" },
   APPROVE_HIRING: { module: "hiring", action: "approve" },
+  APPROVE_EMPLOYMENT_CHANGE: { module: "people", action: "approve" },
   APPROVE_LEAVE: { module: "leave", action: "approve", scope: "team" },
   APPROVE_LEAVE_DEPARTMENT: {
     module: "leave",

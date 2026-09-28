@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Info, TriangleAlert } from "lucide-react";
+import { Info, Lock, TriangleAlert } from "lucide-react";
 import {
   Badge,
   Button,
@@ -106,6 +106,7 @@ export function NineBoxScreen({ cycleId }: { cycleId: string }) {
       <PageBody>
         {!canSeeCompany ? (
           <EmptyState
+            icon={<Lock aria-hidden="true" />}
             title="Not yours to read"
             description="A nine-box covers everybody in the company, so it needs the permission to see everybody's record."
           />

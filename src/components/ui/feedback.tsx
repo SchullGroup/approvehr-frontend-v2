@@ -29,7 +29,7 @@ export function EmptyState({
       {icon && (
         <span
           aria-hidden="true"
-          className="mb-4 flex size-11 items-center justify-center rounded-full bg-sunken text-faint [&>svg]:size-5"
+          className="mb-5 flex size-16 items-center justify-center rounded-full bg-sunken text-faint [&>svg]:size-7"
         >
           {icon}
         </span>
