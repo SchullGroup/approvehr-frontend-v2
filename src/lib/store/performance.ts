@@ -130,11 +130,13 @@ import { useRevalidation } from "@/lib/revalidate";
  *
  * ## Acknowledging is not agreeing, and the copy has to keep them apart
  *
- * `acknowledge` records "I have seen this". It is not consent, and a screen that
- * lets it read as consent is worth less than nothing to a company defending a
- * decision. `dispute` records "I do not accept this" and **changes no mark** —
- * the rating stands with the dispute beside it, because rewriting it would
- * destroy the evidence of what was originally decided.
+ * `acknowledge` records "I have seen this", and only the subject may send it. It
+ * is not consent, and a screen that lets it read as consent is worth less than
+ * nothing to a company defending a decision. `dispute` records "they do not
+ * accept this" — HR's to file, not the subject's, for the identical reason the
+ * subject cannot finalise their own rating — and **changes no mark**: the
+ * rating stands with the dispute beside it, because rewriting it would destroy
+ * the evidence of what was originally decided.
  *
  * ## `percent` is never computed on this side when connected
  *

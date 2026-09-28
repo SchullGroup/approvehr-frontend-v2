@@ -181,7 +181,15 @@ function Overview() {
           />
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+        {/* `grid-cols-1` at the base breakpoint, not just implied by having
+            one column below `lg`: with no `grid-template-columns` declared,
+            the single implicit track sizes to `auto` — its content's own
+            width — rather than the container's. The mobile card list below
+            has no TableWrap-style `scroll-x` safety net the way the table it
+            replaces does, so a track sized to content pushed the whole page
+            405px wide at a 375px viewport. `grid-cols-1` gives the track
+            `minmax(0, 1fr)`, which respects the container instead. */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
           <Card>
             <CardHeader
               title="Advertised roles"
@@ -215,20 +223,30 @@ function Overview() {
                 }
               />
             ) : (
-              <TableWrap className="rounded-none border-0">
-                <THead>
-                  <TH>Role</TH>
-                  <TH>Status</TH>
-                  <TH align="right">Applied</TH>
-                  <TH align="right">Waiting</TH>
-                  <TH align="right">Pay range</TH>
-                </THead>
-                <TBody>
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap className="rounded-none border-0">
+                    <THead>
+                      <TH>Role</TH>
+                      <TH>Status</TH>
+                      <TH align="right">Applied</TH>
+                      <TH align="right">Waiting</TH>
+                      <TH align="right">Pay range</TH>
+                    </THead>
+                    <TBody>
+                      {roles.map((role) => (
+                        <RoleTableRow key={role.postingId} role={role} />
+                      ))}
+                    </TBody>
+                  </TableWrap>
+                </div>
+
+                <ul className="divide-y divide-line sm:hidden">
                   {roles.map((role) => (
-                    <RoleTableRow key={role.postingId} role={role} />
+                    <RoleCard key={role.postingId} role={role} />
                   ))}
-                </TBody>
-              </TableWrap>
+                </ul>
+              </>
             )}
           </Card>
 
@@ -438,6 +456,60 @@ function RoleTableRow({ role }: { role: RoleRow }) {
         {payRange(role.salaryMin, role.salaryMax)}
       </TD>
     </TR>
+  );
+}
+
+/** The mobile card for one advertised role — the same two links as
+ *  `RoleTableRow`, in different elements for the same reason: nesting them
+ *  would break hydration silently. */
+function RoleCard({ role }: { role: RoleRow }) {
+  return (
+    <li className="flex flex-col gap-2 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {role.requisitionId ? (
+            <Link
+              href={`/hiring/requisitions/${role.requisitionId}`}
+              className="text-body-sm font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+            >
+              {role.title}
+            </Link>
+          ) : (
+            <p className="text-body-sm font-medium text-ink">{role.title}</p>
+          )}
+          <p className="mt-0.5 text-meta text-muted">
+            {[
+              role.reference ?? "No approved role behind it",
+              role.location ?? "Location not set",
+              role.employmentTypeLabel,
+            ].join(" · ")}
+          </p>
+        </div>
+        <Badge tone={STATUS_TONE[role.status]} size="sm" dot>
+          {role.statusLabel}
+        </Badge>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+        <span className="tabular">
+          <span className="font-medium text-ink">{role.applications}</span>{" "}
+          applied
+        </span>
+        {role.waiting > 0 ? (
+          <Link
+            href={`/hiring/postings/applications?posting=${role.postingId}`}
+            className="tabular font-medium text-accent-text hover:underline underline-offset-4"
+          >
+            {role.waiting} waiting
+          </Link>
+        ) : (
+          <span className="tabular">0 waiting</span>
+        )}
+      </div>
+      <p className="tabular text-body-sm text-body">
+        {payRange(role.salaryMin, role.salaryMax)}
+      </p>
+    </li>
   );
 }
 
