@@ -18,6 +18,7 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
+  LinkedText,
   Skeleton,
   useToast,
 } from "@/components/ui";
@@ -378,7 +379,7 @@ function ApplicantRow({
 
       {row.coverNote && (
         <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-body-sm leading-relaxed text-body">
-          {row.coverNote}
+          <LinkedText>{row.coverNote}</LinkedText>
         </p>
       )}
     </div>

@@ -1070,8 +1070,20 @@ export function useRealPipelineApplication(
   candidateId: string | null | undefined,
 ): RealPipelineState {
   const { isConnected, isLoading } = useSession();
+  /* Keyed on identity alone — not on `nonce` too — so `matched` below stays
+     true across a `reload()`. `RealPipeline`/`RealScreening` call `reload`
+     after every mutation (an offer edit, a withdraw, a reschedule…), and
+     `candidate-screen.tsx`'s loading guard only re-shows a skeleton while the
+     careers-page `record` is also unresolved — which it usually is not, since
+     most of what mutates here is a candidate who already has one. Without
+     this, the moment a reload's fetch was in flight `application` went back
+     to `null` and the page swapped `RealPipeline`/`RealScreening` for their
+     "nothing here yet" fallbacks for the round trip, even though nothing had
+     actually gone missing. Keeping the last-resolved application on screen
+     until the fresh one lands removes the flash rather than papering over it
+     with a longer wait. */
   const [state, setState] = useState<{
-    key: string;
+    identity: string;
     application: ApiApplicationDetail | null;
     error: ApiError | null;
   } | null>(null);
@@ -1079,7 +1091,7 @@ export function useRealPipelineApplication(
   const active =
     isConnected && !isLoading && (Boolean(id) || Boolean(candidateId));
   const [nonce, setNonce] = useState(0);
-  const key = `${id ?? ""}:${candidateId ?? ""}:${nonce}`;
+  const identity = `${id ?? ""}:${candidateId ?? ""}`;
 
   useEffect(() => {
     if (!active) return;
@@ -1148,13 +1160,16 @@ export function useRealPipelineApplication(
           return;
         failure = error instanceof ApiError ? error : null;
       }
-      if (!cancelled) setState({ key, application, error: failure });
+      if (!cancelled) setState({ identity, application, error: failure });
     })();
     return () => {
       cancelled = true;
       controller.abort();
     };
-  }, [active, id, candidateId, key]);
+    /* `nonce` is not read inside the effect — it exists purely to retrigger
+       this one, which is why it is still a dependency despite not appearing
+       in the body above `identity`. */
+  }, [active, id, candidateId, identity, nonce]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -1167,7 +1182,7 @@ export function useRealPipelineApplication(
       reload,
     };
   }
-  const matched = state !== null && state.key === key;
+  const matched = state !== null && state.identity === identity;
   return {
     application: matched ? state.application : null,
     loading: !matched,
