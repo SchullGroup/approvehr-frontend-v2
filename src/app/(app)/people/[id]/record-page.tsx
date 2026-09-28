@@ -3,7 +3,7 @@
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, RotateCcw } from "lucide-react";
+import { Archive, RotateCcw, UserRoundX } from "lucide-react";
 import {
   Badge,
   Button,
@@ -157,6 +157,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
       <PageBody>
         <Card>
           <EmptyState
+            icon={<UserRoundX aria-hidden="true" />}
             title={failure.title}
             description={failure.detail}
             action={

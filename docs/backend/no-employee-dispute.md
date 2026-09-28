@@ -4,11 +4,11 @@ The frontend no longer lets an employee dispute their rating. Everything below
 is what the **API** still does, and the decisions that are yours rather than
 ours. Nothing in this document has been changed on the backend.
 
-| | |
-|---|---|
-| **Asked for by** | the product owner — "we wanna remove the ability of an employee to dispute a review" |
-| **Done on the frontend** | the dialog's dispute half, the "I do not accept it" button, `useSignOff().dispute`, the `disputeReview` wrapper and `ApiReviewDisputed` |
-| **Not done, and cannot be** | the endpoint itself |
+|                             |                                                                                                                                         |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Asked for by**            | the product owner — "we wanna remove the ability of an employee to dispute a review"                                                    |
+| **Done on the frontend**    | the dialog's dispute half, the "I do not accept it" button, `useSignOff().dispute`, the `disputeReview` wrapper and `ApiReviewDisputed` |
+| **Not done, and cannot be** | the endpoint itself                                                                                                                     |
 
 ---
 
@@ -22,7 +22,7 @@ nothing**: anybody holding a valid token can still call it with `curl`, and it
 will still
 
 - set `Review.disputedAt` and overwrite `Review.employeeComment`,
-- notify `finalisedById` *and* `authorId` when they differ,
+- notify `finalisedById` _and_ `authorId` when they differ,
 - write a `review.disputed` audit entry,
 - return `{ disputed: true, note: "The rating stands and the dispute is on the record beside it." }`.
 
@@ -32,11 +32,11 @@ produced, and the screens would render it — because they still read
 
 **The decision is yours, and there are three defensible answers:**
 
-| Option | What it means |
-|---|---|
-| **Refuse it** — `410 Gone`, or `403` | the capability is withdrawn. Cleanest if the product owner means "this is not a thing we do" |
+| Option                                 | What it means                                                                                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Refuse it** — `410 Gone`, or `403`   | the capability is withdrawn. Cleanest if the product owner means "this is not a thing we do"                                                           |
 | **Keep it, gate it** on `EDIT_RECORDS` | disputing becomes something HR records on an employee's behalf, off a conversation or an email. Keeps the evidence trail without a self-service button |
-| **Leave it** | it is unreachable from the product and stays available to an integration. The weakest of the three — an open write path nobody owns |
+| **Leave it**                           | it is unreachable from the product and stays available to an integration. The weakest of the three — an open write path nobody owns                    |
 
 We have not assumed which. If you refuse it, the refusal sentence is what our
 screens would show, so make it one a person can read.
@@ -59,8 +59,8 @@ screens would show, so make it one a person can read.
 
 ## 3. Why we kept reading `disputed` rather than hiding it
 
-Stated so it does not read as something we forgot. Removing the *ability* to
-raise a dispute is not the same as removing the *record* of ones already
+Stated so it does not read as something we forgot. Removing the _ability_ to
+raise a dispute is not the same as removing the _record_ of ones already
 raised. Hiding an existing dispute would be a wrong claim about a real
 decision, in the module whose entire pitch is that a mark can be defended.
 
@@ -82,7 +82,7 @@ rating at 10:08; an administrator sent the review back at 10:14.
 
 After the send-back: `disputedAt` **NULL**, `submittedAt` **NULL**,
 `finalisedAt` **NULL** — and `employeeComment` still holds
-*"Oga manager, I no like am abeg, change abeg."*
+_"Oga manager, I no like am abeg, change abeg."_
 
 So the review records **no dispute** while carrying the dispute's own words,
 which the acknowledged branch of our UI would quote as though the employee had
@@ -114,11 +114,11 @@ pressing it twice.
 
 Branch `feat/no-employee-dispute`, four files:
 
-| File | What |
-|---|---|
-| `reviews/[id]/sign-off-dialog.tsx` | acknowledge-only; the dispute half removed |
-| `reviews/[id]/review-screen.tsx` | the "I do not accept it" button, and the copy that promised the choice |
-| `lib/store/performance.ts` | `useSignOff().dispute` removed |
-| `lib/api/performance.ts` | `disputeReview` and `ApiReviewDisputed` removed |
+| File                               | What                                                                   |
+| ---------------------------------- | ---------------------------------------------------------------------- |
+| `reviews/[id]/sign-off-dialog.tsx` | acknowledge-only; the dispute half removed                             |
+| `reviews/[id]/review-screen.tsx`   | the "I do not accept it" button, and the copy that promised the choice |
+| `lib/store/performance.ts`         | `useSignOff().dispute` removed                                         |
+| `lib/api/performance.ts`           | `disputeReview` and `ApiReviewDisputed` removed                        |
 
 Every read of `disputed` / `disputedAt` is untouched.

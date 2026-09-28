@@ -19,42 +19,21 @@ import {
   Spinner,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { UsageGauge } from "@/components/ai/usage-gauge";
 import { useCan } from "@/lib/permissions";
 import { useAssistantAvailable } from "@/lib/store/ai";
 
 /**
  * The assistant: what it does, whether it is on, and how it is switched on.
- *
- * ## Why a settings page for something with no settings on it
- *
- * There is no form here and there must not be one. The credential is an
- * environment variable read at boot (`server.ts` picks Gemini when
- * `GEMINI_API_KEY` is set, Anthropic otherwise), so a field on this page could
- * only ever be a box that looks like it saves a key and does not — the same
- * failure as a green "Paid" against money nobody moved.
- *
- * What this page is for is **finding out the thing exists**.
- *
- * Every screen that can offer a suggestion follows the project's own rule:
- * absent, not disabled. `components/performance/suggestions.tsx` renders `null`
- * when no assistant is wired, which is right — a button that is present and
- * always refuses teaches people the product is broken. But that rule was the
- * *only* thing in the frontend reading `useAssistantAvailable`, so with no key
- * set the feature was not merely invisible, it was **undiscoverable**: no card,
- * no row, no sentence anywhere told an administrator that an assistant was a
- * thing, that it was off, or that there was a key to switch it on.
- *
- * That is the company-logo defect exactly — a feature present, correct, and
- * findable by nobody. A thing you cannot find is a thing you do not have.
- *
- * So: the rule stays where it is, and discoverability lives here instead.
+ * No form here — the credential is an environment variable read at boot, so a
+ * field here could only look like it saves a key and not. This page exists so
+ * the feature is discoverable at all: other screens render `null` when no
+ * assistant is wired, which left nowhere saying it existed.
  */
 
 /** Everywhere it appears, and what each one is built from. */
 const USES = [
   {
-    /* First, because it is the only one with an address of its own and the only
-       one that can lead to a change. The three below land inside a form. */
     icon: <MessagesSquare aria-hidden="true" />,
     title: "A conversation about your own records",
     where: "Assistant, in the sidebar",
@@ -127,14 +106,12 @@ export function AiScreen() {
                 <p className="text-body-sm text-body">
                   Suggestions are available across the product.
                 </p>
-                {/* The adapter names itself — "Google gemini-2.5-flash". Read
-                    from the server rather than assumed here, so this cannot
-                    disagree with whichever key is actually answering. */}
                 {assistant && (
                   <p className="text-body-sm text-muted">
                     Answering: <span className="text-ink">{assistant}</span>
                   </p>
                 )}
+                <UsageGauge className="mt-2" />
               </>
             ) : (
               <>
@@ -211,9 +188,6 @@ export function AiScreen() {
           ))}
         </section>
 
-        {/* Closed by default. Somebody arriving to switch the thing on does not
-            need the data-protection argument first — but somebody deciding
-            whether to switch it on needs it to be here and to be exact. */}
         <Disclosure
           title="What is sent, and what is not"
           level={2}
@@ -239,11 +213,6 @@ export function AiScreen() {
               directly, on purpose.
             </p>
 
-            {/* The paragraph that had to be written when Ask shipped. The
-                heading above used to promise that no name and no salary ever
-                left the platform, and Ask makes that untrue for the people who
-                may already see them. Widening the promise quietly would have
-                been the worse half of this feature. */}
             <p>
               <strong className="font-semibold text-ink">
                 Asking a question is different, and sends more.
@@ -263,11 +232,6 @@ export function AiScreen() {
               on file.
             </p>
 
-            {/* The paragraph the chat had to add. The one above promises the
-                assistant only reads, which stays true of every lookup — a
-                proposal is not a write, and the write is a separate endpoint a
-                person calls by pressing a button. Saying "it only reads" and
-                leaving out the Confirm button would be the comfortable half. */}
             <p>
               <strong className="font-semibold text-ink">
                 It can also offer to make a change, and never make one.
@@ -281,8 +245,6 @@ export function AiScreen() {
               offer you something you could have done yourself.
             </p>
 
-            {/* Retention, which is the question a conversation raises and a
-                one-shot answer does not. */}
             <p>
               A conversation is not stored anywhere. The whole exchange is sent
               again on every turn so that no transcript has to be kept, and
