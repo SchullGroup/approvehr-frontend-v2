@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { FileSignature, FileText, Plus } from "lucide-react";
 import {
   Badge,
@@ -11,6 +10,7 @@ import {
   Drawer,
   EmptyState,
   Spinner,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { ExportButton } from "@/components/portal/export-button";
@@ -124,12 +124,12 @@ export function EmployeeFileDrawer({
         footer={
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
             {file.file ? (
-              <Link
+              <TextLink
                 href={`/people/${file.file.employeeId}`}
-                className="text-body-sm text-accent-text underline-offset-4 hover:underline"
+                className="text-body-sm font-normal"
               >
                 Open their record
-              </Link>
+              </TextLink>
             ) : (
               <span />
             )}

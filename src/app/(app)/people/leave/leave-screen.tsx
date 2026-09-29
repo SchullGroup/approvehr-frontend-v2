@@ -2,7 +2,6 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   CalendarDays,
@@ -39,6 +38,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   useToast,
   type BadgeTone,
 } from "@/components/ui";
@@ -481,12 +481,9 @@ export function LeaveScreen() {
                       <TR key={r.id}>
                         <TDPrimary
                           title={
-                            <Link
-                              href={`/people/${r.employeeId}`}
-                              className="hover:text-accent-text hover:underline underline-offset-4"
-                            >
+                            <TextLink href={`/people/${r.employeeId}`}>
                               {r.employeeName}
-                            </Link>
+                            </TextLink>
                           }
                           subtitle={r.reason ?? r.decisionNote ?? undefined}
                         />
@@ -586,12 +583,9 @@ export function LeaveScreen() {
                   <li key={r.id} className="flex flex-col gap-2 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <Link
-                          href={`/people/${r.employeeId}`}
-                          className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                        >
+                        <TextLink href={`/people/${r.employeeId}`}>
                           {r.employeeName}
-                        </Link>
+                        </TextLink>
                         {(r.reason ?? r.decisionNote) && (
                           <p className="mt-0.5 text-body-sm text-muted">
                             {r.reason ?? r.decisionNote}
@@ -1004,12 +998,12 @@ function RequestPanel({
                     key={clash.id}
                     className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-canvas px-3 py-2.5 text-body-sm"
                   >
-                    <Link
+                    <TextLink
                       href={`/people/${clash.employeeId}`}
-                      className="min-w-0 flex-1 truncate text-ink hover:text-accent-text hover:underline underline-offset-4"
+                      className="min-w-0 flex-1 truncate font-normal"
                     >
                       {clash.employeeName}
-                    </Link>
+                    </TextLink>
                     <span className="tabular text-meta text-muted">
                       {clash.from} → {clash.to}
                     </span>

@@ -47,6 +47,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   useToast,
   type AppliedFilter,
   type BadgeTone,
@@ -731,12 +732,9 @@ export function Directory({
                       )}
                       <TDPrimary
                         title={
-                          <Link
-                            href={`/people/${e.id}`}
-                            className="hover:text-accent-text hover:underline underline-offset-4"
-                          >
+                          <TextLink href={`/people/${e.id}`}>
                             {fullName(e)}
-                          </Link>
+                          </TextLink>
                         }
                         subtitle={`${e.jobTitle} · ${e.employeeNo}`}
                       />
@@ -821,12 +819,12 @@ export function Directory({
                       </span>
                     )}
                     <div className="min-w-0 flex-1">
-                      <Link
+                      <TextLink
                         href={`/people/${e.id}`}
-                        className="block text-body-sm font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                        className="block text-body-sm"
                       >
                         {fullName(e)}
-                      </Link>
+                      </TextLink>
                       <p className="mt-0.5 text-meta text-muted">
                         {e.jobTitle} · {e.employeeNo}
                       </p>

@@ -23,6 +23,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -413,12 +414,9 @@ function TodayView({
                   <TR key={row.employeeId} interactive>
                     <TDPrimary
                       title={
-                        <Link
-                          href={`/people/${row.employeeId}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
+                        <TextLink href={`/people/${row.employeeId}`}>
                           {row.employeeName}
-                        </Link>
+                        </TextLink>
                       }
                       subtitle={row.jobTitle}
                     />
@@ -475,12 +473,9 @@ function TodayView({
               <li key={row.employeeId} className="flex flex-col gap-2 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <Link
-                      href={`/people/${row.employeeId}`}
-                      className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                    >
+                    <TextLink href={`/people/${row.employeeId}`}>
                       {row.employeeName}
-                    </Link>
+                    </TextLink>
                     {row.jobTitle && (
                       <p className="mt-0.5 text-body-sm text-muted">
                         {row.jobTitle}
@@ -563,12 +558,9 @@ function RosterStatusDetails({
         row.clockIn ? (
           <span className="mt-0.5 block text-meta text-muted">
             Worked a rest day on their rota,{" "}
-            <Link
-              href="/people/overtime"
-              className="font-medium text-accent-text underline underline-offset-4"
-            >
+            <TextLink href="/people/overtime" className="underline">
               check overtime
-            </Link>
+            </TextLink>
           </span>
         ) : (
           <span className="mt-0.5 block text-meta text-muted">
