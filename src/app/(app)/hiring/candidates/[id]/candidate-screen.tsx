@@ -208,19 +208,24 @@ function Record({ id }: { id: string }) {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/hiring", label: "Pipeline" },
+          { href: "/hiring", label: "Hiring" },
           ...(realApp
             ? [
                 {
+                  /* The reference (e.g. "REQ-2026-014"), not the job title —
+                     matching how the requisition names itself in its own
+                     breadcrumb and everywhere else in this module refers to
+                     it. A reader following this crumb should see the same
+                     entity called the same thing on both ends. */
                   href: `/hiring/requisitions/${realApp.requisitionId}`,
-                  label: realApp.requisitionJobTitle,
+                  label: realApp.requisitionReference,
                 },
               ]
             : card
               ? [
                   {
                     href: `/hiring/requisitions/${card.requisitionId}`,
-                    label: card.requisition.title,
+                    label: card.requisition.reference,
                   },
                 ]
               : [
@@ -244,13 +249,18 @@ function Record({ id }: { id: string }) {
           ) : undefined
         }
         action={
+          /* "Back to the role", not "Back to pipeline" — this module's own
+             breadcrumb crumb already uses "Pipeline"/"Hiring" for the module
+             root (`/hiring`), and reusing it here for one specific
+             requisition made the same word point at two different
+             destinations depending on which control on the page you read. */
           realApp ? (
             <ButtonLink
               href={`/hiring/requisitions/${realApp.requisitionId}`}
               variant="secondary"
               size="sm"
             >
-              Back to pipeline
+              Back to the role
             </ButtonLink>
           ) : card ? (
             <ButtonLink
@@ -258,7 +268,7 @@ function Record({ id }: { id: string }) {
               variant="secondary"
               size="sm"
             >
-              Back to pipeline
+              Back to the role
             </ButtonLink>
           ) : (
             <ButtonLink
@@ -1165,7 +1175,7 @@ function NotFoundHere({
   return (
     <>
       <PageHeader
-        breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+        breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
         title="Candidate record"
       />
       <PageBody>

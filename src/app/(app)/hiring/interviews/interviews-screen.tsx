@@ -77,8 +77,8 @@ export function InterviewsScreen() {
               title="You cannot see interviews"
               description="An interview record names a candidate and what was said about them, so it is kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."
               action={
-                <ButtonLink href="/dashboard" variant="secondary" size="sm">
-                  Back to your dashboard
+                <ButtonLink href="/hiring" variant="secondary" size="sm">
+                  Back to hiring
                 </ButtonLink>
               }
             />
@@ -129,7 +129,7 @@ function Diary() {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/hiring", label: "Pipeline" },
+          { href: "/hiring", label: "Hiring" },
           { href: "/hiring/interviews", label: "Interviews" },
         ]}
         title="Interviews"
