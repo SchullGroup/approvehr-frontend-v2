@@ -362,6 +362,23 @@ function Record({ id }: { id: string }) {
 
             {realApp ? (
               <RealPipeline application={realApp} onChanged={real.reload} />
+            ) : isConnected && real.loading ? (
+              /* `stillResolving` above only blocks the page-level skeleton on
+                 `real.loading` while the careers-side `record` is also still
+                 null — so a redirect straight off an advance (which resolves
+                 `record` quickly, before the recruitment-side lookup has had
+                 its turn) reaches this branch while `realApp` is still being
+                 fetched, not because nothing exists. Rendering the "nobody
+                 has screened them in" sentence here would be a wrong claim
+                 about a pipeline record that in fact exists and is still in
+                 flight — the same "absent vs. not-yet-loaded" mistake this
+                 codebase keeps a rule against elsewhere. */
+              <Card>
+                <CardHeader title="Their pipeline record" />
+                <CardBody>
+                  <Skeleton className="h-24 w-full" />
+                </CardBody>
+              </Card>
             ) : isConnected ? (
               <Card>
                 <CardHeader title="Their pipeline record" />

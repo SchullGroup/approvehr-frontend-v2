@@ -75,13 +75,23 @@ import {
  *   that before you press it, and the row afterwards hands you a message to send
  *   yourself.
  */
+/** Every status value a link into this screen may legitimately name. */
+const LINKABLE_STATUSES = new Set<string>([
+  "ALL",
+  "RECEIVED",
+  "ADVANCED",
+  "DECLINED",
+]);
+
 export function ApplicationsScreen({
   initialPostingId = "",
   initialStatus = "",
 }: {
   initialPostingId?: string;
-  /** `"ALL"` when the advert list's own count linked here to show everyone;
-   *  anything else falls back to the ordinary "Waiting" default. */
+  /** One of `LINKABLE_STATUSES`, when a count elsewhere in the module linked
+   *  here to answer a specific question ("how many are screened in" links
+   *  with `ADVANCED`, not always "Waiting"); anything else — including no
+   *  value at all — falls back to the ordinary "Waiting" default. */
   initialStatus?: string;
 }) {
   const { can, loading } = usePermissions();
@@ -127,7 +137,11 @@ export function ApplicationsScreen({
   return (
     <Queue
       initialPostingId={initialPostingId}
-      initialStatus={initialStatus === "ALL" ? "ALL" : "RECEIVED"}
+      initialStatus={
+        LINKABLE_STATUSES.has(initialStatus)
+          ? (initialStatus as ApplicationStatus | "ALL")
+          : "RECEIVED"
+      }
     />
   );
 }

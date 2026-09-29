@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Inbox,
@@ -87,6 +88,7 @@ function ScreeningCard({
   const [screening, setScreening] = useState<ScreeningRow | null>(null);
   const [declining, setDeclining] = useState<ScreeningRow | null>(null);
   const toast = useToast();
+  const router = useRouter();
 
   const fail = (error: unknown) =>
     toast.push({
@@ -214,6 +216,12 @@ function ScreeningCard({
               detail: result.note,
             });
             setScreening(null);
+            /* Same fix as the applications queue (PR #357): land on their
+               record rather than a list this panel does not itself refresh —
+               this queue and the pipeline board on the same page are separate
+               reads with no shared reload, so staying here would show a
+               success toast against an apparently unchanged screen. */
+            router.push(`/hiring/candidates/${result.candidateId}`);
           } catch (error) {
             fail(error);
           }

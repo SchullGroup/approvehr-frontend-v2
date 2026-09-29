@@ -16,7 +16,10 @@ export const metadata: Metadata = {
  *
  * `status` rides the same way: the advert list's own applicant count links
  * here with `status=ALL`, because "how many applied" and "how many are still
- * waiting" are different questions, and the count answers the first one.
+ * waiting" are different questions, and the count answers the first one. Any
+ * of the screen's own filter values work the same way — `status=ADVANCED`,
+ * `status=DECLINED` — so a "Screened in" figure elsewhere in the module can
+ * land on the tab that answers it rather than always on "Waiting".
  */
 export default async function ApplicationsPage({
   searchParams,
@@ -37,7 +40,7 @@ export default async function ApplicationsPage({
   return (
     <ApplicationsScreen
       initialPostingId={posting ?? ""}
-      initialStatus={status === "ALL" ? "ALL" : ""}
+      initialStatus={status ?? ""}
     />
   );
 }

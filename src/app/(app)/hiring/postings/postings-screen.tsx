@@ -278,34 +278,52 @@ function Adverts() {
             value={totals ? String(totals.live) : "—"}
             hint={totals ? `${totals.postings} written in total` : undefined}
           />
-          <Stat
-            label="Applications"
-            value={totals ? String(totals.applications) : "—"}
-          />
-          <Stat
-            label="Waiting to screen"
-            value={totals ? String(totals.waiting) : "—"}
-            trend={
-              totals && totals.waiting > 0
-                ? { direction: "down", label: "Nobody has looked" }
-                : undefined
-            }
-          />
-          <Stat
-            label="Screened in"
-            value={
-              totals
-                ? totals.advanceRate === null
-                  ? "—"
-                  : `${totals.advanceRate}%`
-                : "—"
-            }
-            hint={
-              totals && totals.advanceRate === null
-                ? "Nobody screened yet"
-                : "of everyone screened"
-            }
-          />
+          <Link
+            href="/hiring/postings/applications?status=ALL"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="Applications"
+              value={totals ? String(totals.applications) : "—"}
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
+          <Link
+            href="/hiring/postings/applications?status=RECEIVED"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="Waiting to screen"
+              value={totals ? String(totals.waiting) : "—"}
+              trend={
+                totals && totals.waiting > 0
+                  ? { direction: "down", label: "Nobody has looked" }
+                  : undefined
+              }
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
+          <Link
+            href="/hiring/postings/applications?status=ADVANCED"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="Screened in"
+              value={
+                totals
+                  ? totals.advanceRate === null
+                    ? "—"
+                    : `${totals.advanceRate}%`
+                  : "—"
+              }
+              hint={
+                totals && totals.advanceRate === null
+                  ? "Nobody screened yet"
+                  : "of everyone screened"
+              }
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
         </div>
 
         <Card>
@@ -531,9 +549,12 @@ function AdvertRow({
           <span className="flex flex-wrap items-center gap-2">
             {posting.title}
             {posting.requisitionReference ? (
-              <span className="tabular text-meta font-normal text-muted">
+              <Link
+                href={`/hiring/requisitions/${posting.requisitionId}`}
+                className="tabular text-meta font-normal text-muted hover:text-accent-text hover:underline underline-offset-4"
+              >
                 {posting.requisitionReference}
-              </span>
+              </Link>
             ) : (
               <Badge tone="warning" size="sm">
                 No approved role
@@ -687,9 +708,12 @@ function AdvertCard({
           <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
             {posting.title}
             {posting.requisitionReference ? (
-              <span className="tabular text-meta font-normal text-muted">
+              <Link
+                href={`/hiring/requisitions/${posting.requisitionId}`}
+                className="tabular text-meta font-normal text-muted hover:text-accent-text hover:underline underline-offset-4"
+              >
                 {posting.requisitionReference}
-              </span>
+              </Link>
             ) : (
               <Badge tone="warning" size="sm">
                 No approved role
