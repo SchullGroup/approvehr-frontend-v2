@@ -700,12 +700,9 @@ function Application({
             className="size-4 shrink-0 text-faint"
           />
           {record.cvUrl ? (
-            <a
-              href={record.cvUrl}
-              className="text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
-            >
+            <TextLink href={record.cvUrl} className="text-body-sm">
               Open their CV
-            </a>
+            </TextLink>
           ) : (
             <span className="min-w-0 flex-1 text-body-sm text-body">
               {record.cvNote ?? "No CV is attached to this application."}

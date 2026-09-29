@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Filter, TriangleAlert, UserRoundPlus } from "lucide-react";
 import {
   Badge,
@@ -16,6 +15,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
@@ -184,12 +184,9 @@ export function RealRequisitionWorkspace({
                   <TR key={a.id}>
                     <TDPrimary
                       title={
-                        <Link
-                          href={`/hiring/candidates/${a.id}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
+                        <TextLink href={`/hiring/candidates/${a.id}`}>
                           {a.candidateName}
-                        </Link>
+                        </TextLink>
                       }
                       subtitle={a.candidateEmail}
                     />
@@ -229,12 +226,9 @@ export function RealRequisitionWorkspace({
             {visible.map((a) => (
               <li key={a.id} className="flex flex-col gap-2 p-4">
                 <div className="min-w-0">
-                  <Link
-                    href={`/hiring/candidates/${a.id}`}
-                    className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                  >
+                  <TextLink href={`/hiring/candidates/${a.id}`}>
                     {a.candidateName}
-                  </Link>
+                  </TextLink>
                   <p className="text-body-sm text-muted">{a.candidateEmail}</p>
                 </div>
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import {
   Check,
   Copy,
@@ -32,6 +31,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   formatMoney,
   useToast,
 } from "@/components/ui";
@@ -546,13 +546,13 @@ function AdvertRow({
             <span>{EMPLOYMENT_TYPE_LABEL[posting.employmentType]}</span>
             {posting.location && <span>· {posting.location}</span>}
             {isLive && (
-              <Link
+              <TextLink
                 href={careersPath(posting.publicPath)}
-                className="tabular inline-flex items-center gap-1 text-accent-text hover:underline underline-offset-4"
+                className="tabular inline-flex items-center gap-1 font-normal"
               >
                 {careersPath(posting.publicPath)}
                 <ExternalLink aria-hidden="true" className="size-3" />
-              </Link>
+              </TextLink>
             )}
           </span>
         }
@@ -569,12 +569,12 @@ function AdvertRow({
           {posting.applicationCount}
         </span>
         {waiting > 0 && (
-          <Link
+          <TextLink
             href={`/hiring/postings/applications?posting=${posting.id}`}
-            className="mt-0.5 block text-meta text-accent-text hover:underline underline-offset-4"
+            className="mt-0.5 block text-meta font-normal"
           >
             {waiting} waiting
-          </Link>
+          </TextLink>
         )}
       </TD>
 
@@ -692,13 +692,13 @@ function AdvertCard({
             {posting.location && <span>· {posting.location}</span>}
           </p>
           {isLive && (
-            <Link
+            <TextLink
               href={careersPath(posting.publicPath)}
-              className="tabular mt-0.5 inline-flex items-center gap-1 text-meta text-accent-text hover:underline underline-offset-4"
+              className="tabular mt-0.5 inline-flex items-center gap-1 text-meta font-normal"
             >
               {careersPath(posting.publicPath)}
               <ExternalLink aria-hidden="true" className="size-3" />
-            </Link>
+            </TextLink>
           )}
         </div>
         <Badge tone={STATUS_TONE[posting.status]} size="sm" dot>
@@ -709,12 +709,12 @@ function AdvertCard({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
         <span className="tabular">{posting.applicationCount} applications</span>
         {waiting > 0 && (
-          <Link
+          <TextLink
             href={`/hiring/postings/applications?posting=${posting.id}`}
-            className="tabular text-accent-text hover:underline underline-offset-4"
+            className="tabular"
           >
             {waiting} waiting
-          </Link>
+          </TextLink>
         )}
         <span className="tabular">
           {posting.closesOn ? `Closes ${posting.closesOn}` : "Open"}

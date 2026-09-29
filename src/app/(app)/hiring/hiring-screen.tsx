@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   ArrowRight,
   CalendarClock,
@@ -27,6 +26,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   formatMoney,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -325,12 +325,12 @@ function Overview() {
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-body-sm font-medium text-ink">
-                          <Link
+                          <TextLink
                             href={`/hiring/candidates/${card.id}`}
-                            className="after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
+                            className="after:absolute after:inset-0"
                           >
                             {fullName(card.candidate)}
-                          </Link>
+                          </TextLink>
                         </p>
                         <p className="truncate text-meta text-muted">
                           {card.requisition.title}
@@ -416,12 +416,9 @@ function RoleTableRow({ role }: { role: RoleRow }) {
       <TDPrimary
         title={
           role.requisitionId ? (
-            <Link
-              href={`/hiring/requisitions/${role.requisitionId}`}
-              className="hover:text-accent-text hover:underline underline-offset-4"
-            >
+            <TextLink href={`/hiring/requisitions/${role.requisitionId}`}>
               {role.title}
-            </Link>
+            </TextLink>
           ) : (
             role.title
           )
@@ -442,12 +439,11 @@ function RoleTableRow({ role }: { role: RoleRow }) {
       </TD>
       <TD align="right" className="tabular">
         {role.waiting > 0 ? (
-          <Link
+          <TextLink
             href={`/hiring/postings/applications?posting=${role.postingId}`}
-            className="font-medium text-accent-text hover:underline underline-offset-4"
           >
             {role.waiting}
-          </Link>
+          </TextLink>
         ) : (
           <span className="text-muted">0</span>
         )}
@@ -468,12 +464,12 @@ function RoleCard({ role }: { role: RoleRow }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           {role.requisitionId ? (
-            <Link
+            <TextLink
               href={`/hiring/requisitions/${role.requisitionId}`}
-              className="text-body-sm font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+              className="text-body-sm"
             >
               {role.title}
-            </Link>
+            </TextLink>
           ) : (
             <p className="text-body-sm font-medium text-ink">{role.title}</p>
           )}
@@ -496,12 +492,12 @@ function RoleCard({ role }: { role: RoleRow }) {
           applied
         </span>
         {role.waiting > 0 ? (
-          <Link
+          <TextLink
             href={`/hiring/postings/applications?posting=${role.postingId}`}
-            className="tabular font-medium text-accent-text hover:underline underline-offset-4"
+            className="tabular"
           >
             {role.waiting} waiting
-          </Link>
+          </TextLink>
         ) : (
           <span className="tabular">0 waiting</span>
         )}
