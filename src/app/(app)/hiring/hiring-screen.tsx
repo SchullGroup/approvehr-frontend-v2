@@ -158,27 +158,45 @@ function Overview() {
                 : `${numbers.adverts - numbers.liveAdverts} draft or closed`
             }
           />
-          <Stat
-            label="People who applied"
-            value={String(numbers.applications)}
-          />
-          <Stat
-            label="Waiting to be screened"
-            value={String(numbers.waiting)}
-            icon={<TriangleAlert aria-hidden="true" />}
-            hint={
-              numbers.waiting > 0 ? "nobody has looked yet" : "queue is clear"
-            }
-          />
-          <Stat
-            label="Screened in"
-            value={String(numbers.advanced)}
-            hint={
-              numbers.advanceRate === null
-                ? "no rate until somebody is screened"
-                : `${numbers.advanceRate}% of everyone screened`
-            }
-          />
+          <Link
+            href="/hiring/postings/applications?status=ALL"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="People who applied"
+              value={String(numbers.applications)}
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
+          <Link
+            href="/hiring/postings/applications?status=RECEIVED"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="Waiting to be screened"
+              value={String(numbers.waiting)}
+              icon={<TriangleAlert aria-hidden="true" />}
+              hint={
+                numbers.waiting > 0 ? "nobody has looked yet" : "queue is clear"
+              }
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
+          <Link
+            href="/hiring/postings/applications?status=ADVANCED"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="Screened in"
+              value={String(numbers.advanced)}
+              hint={
+                numbers.advanceRate === null
+                  ? "no rate until somebody is screened"
+                  : `${numbers.advanceRate}% of everyone screened`
+              }
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
         </div>
 
         {/* `grid-cols-1` at the base breakpoint, not just implied by having
