@@ -422,43 +422,89 @@ function Form() {
             title="Legal entities"
             description="Each entity files separately. Headcount is live from the directory. Adding one is not self-service yet — ask us and we will set it up."
           />
-          <TableWrap className="rounded-none border-0">
-            <THead>
-              <TH>Entity</TH>
-              <TH>RC number</TH>
-              <TH>Tax state</TH>
-              <TH align="right">Employees</TH>
-              <TH>Address</TH>
-            </THead>
-            <TBody>
-              {profile.entities.map((entity) => (
-                <TR key={entity.id}>
-                  <TDPrimary
-                    title={
-                      <span className="flex items-center gap-2">
-                        <Building2
-                          aria-hidden="true"
-                          className="size-3.5 text-faint"
-                        />
-                        {entity.name}
-                        {entity.isPrimary && (
-                          <Badge tone="accent" size="sm">
-                            Primary
-                          </Badge>
-                        )}
-                      </span>
-                    }
+          <div className="hidden sm:block">
+            <TableWrap className="rounded-none border-0">
+              <THead>
+                <TH>Entity</TH>
+                <TH>RC number</TH>
+                <TH>Tax state</TH>
+                <TH align="right">Employees</TH>
+                <TH>Address</TH>
+              </THead>
+              <TBody>
+                {profile.entities.map((entity) => (
+                  <TR key={entity.id}>
+                    <TDPrimary
+                      title={
+                        <span className="flex items-center gap-2">
+                          <Building2
+                            aria-hidden="true"
+                            className="size-3.5 text-faint"
+                          />
+                          {entity.name}
+                          {entity.isPrimary && (
+                            <Badge tone="accent" size="sm">
+                              Primary
+                            </Badge>
+                          )}
+                        </span>
+                      }
+                    />
+                    <TD className="tabular">{entity.rcNumber}</TD>
+                    <TD>{entity.taxState}</TD>
+                    <TD align="right" className="tabular font-medium text-ink">
+                      {headcountByState[entity.taxState] ?? 0}
+                    </TD>
+                    <TD className="text-muted">{entity.address}</TD>
+                  </TR>
+                ))}
+              </TBody>
+            </TableWrap>
+          </div>
+
+          <ul className="divide-y divide-line sm:hidden">
+            {profile.entities.map((entity) => (
+              <li key={entity.id} className="flex flex-col gap-2 p-4">
+                <p className="flex items-center gap-2 text-body-sm font-medium text-ink">
+                  <Building2
+                    aria-hidden="true"
+                    className="size-3.5 text-faint"
                   />
-                  <TD className="tabular">{entity.rcNumber}</TD>
-                  <TD>{entity.taxState}</TD>
-                  <TD align="right" className="tabular font-medium text-ink">
+                  {entity.name}
+                  {entity.isPrimary && (
+                    <Badge tone="accent" size="sm">
+                      Primary
+                    </Badge>
+                  )}
+                </p>
+
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-body-sm text-muted">RC number</span>
+                  <span className="tabular text-body-sm text-body">
+                    {entity.rcNumber}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-body-sm text-muted">Tax state</span>
+                  <span className="text-body-sm text-body">
+                    {entity.taxState}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-body-sm text-muted">Employees</span>
+                  <span className="tabular text-body-sm font-medium text-ink">
                     {headcountByState[entity.taxState] ?? 0}
-                  </TD>
-                  <TD className="text-muted">{entity.address}</TD>
-                </TR>
-              ))}
-            </TBody>
-          </TableWrap>
+                  </span>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-body-sm text-muted">Address</span>
+                  <span className="text-right text-body-sm text-muted">
+                    {entity.address}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
           <CardBody className="border-t border-line">
             <p className="text-body-sm leading-relaxed text-muted">
               Adding and removing entities is not wired up yet: it changes which

@@ -112,115 +112,197 @@ export function ApprovalQueue({
             }
           />
         ) : (
-          <TableWrap
-            className="rounded-none border-0"
-            caption="Expense claims waiting for a decision"
-          >
-            <THead>
-              <TH>Who</TH>
-              <TH>What for</TH>
-              <TH>Spent on</TH>
-              <TH align="right">Amount</TH>
-              <TH>Receipt</TH>
-              <TH align="right">Decision</TH>
-            </THead>
-            <TBody>
+          <>
+            <div className="hidden sm:block">
+              <TableWrap
+                className="rounded-none border-0"
+                caption="Expense claims waiting for a decision"
+              >
+                <THead>
+                  <TH>Who</TH>
+                  <TH>What for</TH>
+                  <TH>Spent on</TH>
+                  <TH align="right">Amount</TH>
+                  <TH>Receipt</TH>
+                  <TH align="right">Decision</TH>
+                </THead>
+                <TBody>
+                  {claims.map((claim) => {
+                    const waiting = daysSince(claim.incurredOn);
+                    const mine = claim.employeeId === myEmployeeId;
+                    const busy = working === claim.id;
+
+                    return (
+                      <TR key={claim.id}>
+                        <TD>
+                          <span className="block font-medium text-ink">
+                            {claim.employeeName}
+                            {mine && (
+                              <span className="ml-1.5 text-meta font-normal text-muted">
+                                you
+                              </span>
+                            )}
+                          </span>
+                          <span className="block text-meta text-muted">
+                            {claim.employeeNo}
+                          </span>
+                        </TD>
+
+                        <TD className="max-w-[22rem]">
+                          <span className="block text-ink">
+                            {claim.description}
+                          </span>
+                          <span className="block text-meta text-muted">
+                            {claim.type}
+                          </span>
+                        </TD>
+
+                        <TD>
+                          <span className="tabular block text-ink">
+                            {claim.incurredOn}
+                          </span>
+                          <span className="block text-meta text-muted">
+                            {waiting === 0
+                              ? "today"
+                              : `${waiting} ${waiting === 1 ? "day" : "days"} ago`}
+                          </span>
+                        </TD>
+
+                        <TD
+                          align="right"
+                          className="tabular font-medium text-ink"
+                        >
+                          <Money amount={claim.amount} decimals />
+                        </TD>
+
+                        <TD>
+                          <ReceiptCell claim={claim} types={types} />
+                        </TD>
+
+                        <TD align="right">
+                          <div className="flex justify-end gap-1.5">
+                            {mine ? (
+                              <span className="self-center text-meta text-muted">
+                                Not yours to approve
+                              </span>
+                            ) : (
+                              <Button
+                                variant="approve"
+                                size="sm"
+                                loading={busy}
+                                disabled={busy}
+                                onClick={() => void approve(claim)}
+                              >
+                                <Check
+                                  aria-hidden="true"
+                                  className="size-3.5"
+                                />
+                                Approve
+                              </Button>
+                            )}
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => setDeclining(claim)}
+                            >
+                              <X aria-hidden="true" className="size-3.5" />
+                              Decline
+                            </Button>
+                          </div>
+                        </TD>
+                      </TR>
+                    );
+                  })}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
               {claims.map((claim) => {
                 const waiting = daysSince(claim.incurredOn);
                 const mine = claim.employeeId === myEmployeeId;
                 const busy = working === claim.id;
 
                 return (
-                  <TR key={claim.id}>
-                    <TD>
-                      <span className="block font-medium text-ink">
-                        {claim.employeeName}
-                        {mine && (
-                          <span className="ml-1.5 text-meta font-normal text-muted">
-                            you
-                          </span>
-                        )}
+                  <li key={claim.id} className="flex flex-col gap-2 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink">
+                          {claim.employeeName}
+                          {mine && (
+                            <span className="ml-1.5 text-meta font-normal text-muted">
+                              you
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-meta text-muted">
+                          {claim.employeeNo}
+                        </p>
+                      </div>
+                      <span className="tabular shrink-0 font-medium text-ink">
+                        <Money amount={claim.amount} decimals />
                       </span>
-                      <span className="block text-meta text-muted">
-                        {claim.employeeNo}
-                      </span>
-                    </TD>
+                    </div>
 
-                    <TD className="max-w-[22rem]">
-                      <span className="block text-ink">
-                        {claim.description}
-                      </span>
-                      <span className="block text-meta text-muted">
-                        {claim.type}
-                      </span>
-                    </TD>
-
-                    <TD>
-                      <span className="tabular block text-ink">
-                        {claim.incurredOn}
-                      </span>
-                      <span className="block text-meta text-muted">
+                    <div>
+                      <p className="text-ink">{claim.description}</p>
+                      <p className="text-meta text-muted">
+                        {claim.type} · {claim.incurredOn} ·{" "}
                         {waiting === 0
                           ? "today"
                           : `${waiting} ${waiting === 1 ? "day" : "days"} ago`}
-                      </span>
-                    </TD>
+                      </p>
+                    </div>
 
-                    <TD align="right" className="tabular font-medium text-ink">
-                      <Money amount={claim.amount} decimals />
-                    </TD>
-
-                    <TD>
+                    <div>
                       <ReceiptCell claim={claim} types={types} />
-                    </TD>
+                    </div>
 
-                    <TD align="right">
-                      <div className="flex justify-end gap-1.5">
-                        {mine ? (
-                          <span className="self-center text-meta text-muted">
-                            Not yours to approve
-                          </span>
-                        ) : (
-                          <Button
-                            variant="approve"
-                            size="sm"
-                            loading={busy}
-                            disabled={busy}
-                            onClick={() => void approve(claim)}
-                          >
-                            <Check aria-hidden="true" className="size-3.5" />
-                            Approve
-                          </Button>
-                        )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {mine ? (
+                        <span className="self-center text-meta text-muted">
+                          Not yours to approve
+                        </span>
+                      ) : (
                         <Button
-                          variant="secondary"
+                          variant="approve"
                           size="sm"
+                          loading={busy}
                           disabled={busy}
-                          onClick={() => setDeclining(claim)}
+                          onClick={() => void approve(claim)}
                         >
-                          <X aria-hidden="true" className="size-3.5" />
-                          Decline
+                          <Check aria-hidden="true" className="size-3.5" />
+                          Approve
                         </Button>
-                      </div>
-                    </TD>
-                  </TR>
+                      )}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => setDeclining(claim)}
+                      >
+                        <X aria-hidden="true" className="size-3.5" />
+                        Decline
+                      </Button>
+                    </div>
+                  </li>
                 );
               })}
-            </TBody>
-          </TableWrap>
+            </ul>
+          </>
         )}
       </Card>
 
-      {declining && (
-        <DeclineDialog
-          claim={declining}
-          onClose={() => setDeclining(null)}
-          onDecline={async (reason) => {
-            await onDecline(declining, reason);
-            setDeclining(null);
-          }}
-        />
-      )}
+      <DeclineDialog
+        claim={declining}
+        onClose={() => setDeclining(null)}
+        onDecline={async (reason) => {
+          if (!declining) return;
+          await onDecline(declining, reason);
+          setDeclining(null);
+        }}
+      />
     </>
   );
 }
@@ -276,7 +358,9 @@ function DeclineDialog({
   onClose,
   onDecline,
 }: {
-  claim: Claim;
+  /* Nullable: `ApprovalQueue` renders this unconditionally now and passes
+     whichever claim is being declined, or `null` when none is. */
+  claim: Claim | null;
   onClose: () => void;
   onDecline: (reason: string) => Promise<void>;
 }) {
@@ -285,11 +369,15 @@ function DeclineDialog({
 
   return (
     <Modal
-      open
+      open={claim !== null}
       onClose={onClose}
       size="sm"
-      title={`Decline ${claim.employeeName}'s claim?`}
-      description={`${claim.description}. They will read your reason.`}
+      title={
+        claim ? `Decline ${claim.employeeName}'s claim?` : "Decline claim?"
+      }
+      description={
+        claim ? `${claim.description}. They will read your reason.` : undefined
+      }
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose} disabled={busy}>
@@ -298,7 +386,7 @@ function DeclineDialog({
           <Button
             variant="danger"
             loading={busy}
-            disabled={busy || reason.trim() === ""}
+            disabled={busy || reason.trim() === "" || !claim}
             onClick={() => {
               setBusy(true);
               void onDecline(reason.trim()).finally(() => setBusy(false));

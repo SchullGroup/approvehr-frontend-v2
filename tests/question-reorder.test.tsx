@@ -72,6 +72,7 @@ beforeEach(() => {
 const mount = (onReorder?: (ids: string[]) => Promise<void>) => {
   render(
     <QuestionsDialog
+      open
       cycleId="c-1"
       periodName="H2 2026 Appraisal"
       onClose={vi.fn()}

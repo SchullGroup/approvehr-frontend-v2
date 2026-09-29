@@ -533,141 +533,138 @@ function Register() {
         </Tabs>
       </PageBody>
 
-      {panelId && (
-        <ItemPanel
-          itemId={panelId}
-          canEdit
-          onClose={() => setPanelId(null)}
-          onEdit={setEditing}
-          onHandOver={setHandingOver}
-          onTakeBack={setTakingBack}
-          onLogRepair={setRepairing}
-          onArchive={setArchiving}
-          onRestore={(item) =>
-            void run(
-              () => register.restoreItem(item.id),
-              `${item.name} is back on the register`,
-            )
+      <ItemPanel
+        itemId={panelId}
+        open={panelId !== null}
+        canEdit
+        onClose={() => setPanelId(null)}
+        onEdit={setEditing}
+        onHandOver={setHandingOver}
+        onTakeBack={setTakingBack}
+        onLogRepair={setRepairing}
+        onArchive={setArchiving}
+        onRestore={(item) =>
+          void run(
+            () => register.restoreItem(item.id),
+            `${item.name} is back on the register`,
+          )
+        }
+        onSetStatus={(item, status) => void setStatus(item, status)}
+        onFixed={(item) =>
+          void run(
+            () =>
+              register.editItem(item.id, {
+                status: "AVAILABLE",
+                condition: "GOOD",
+              }),
+            `${item.name} is back in the store`,
+          )
+        }
+        onFinishRepair={(repair) => void finishRepair(repair)}
+      />
+
+      <ItemForm
+        open={adding}
+        kinds={kinds.usable}
+        onCreateKind={() => setAddingKind(true)}
+        onClose={() => setAdding(false)}
+        onCreate={async (input, assignTo) => {
+          const id = await register.addItem(input);
+          if (!assignTo) {
+            toast.push({ title: `${input.name} added`, tone: "success" });
+            return;
           }
-          onSetStatus={(item, status) => void setStatus(item, status)}
-          onFixed={(item) =>
-            void run(
-              () =>
-                register.editItem(item.id, {
-                  status: "AVAILABLE",
-                  condition: "GOOD",
-                }),
-              `${item.name} is back in the store`,
-            )
-          }
-          onFinishRepair={(repair) => void finishRepair(repair)}
-        />
-      )}
-
-      {adding && (
-        <ItemForm
-          kinds={kinds.usable}
-          onCreateKind={() => setAddingKind(true)}
-          onClose={() => setAdding(false)}
-          onCreate={async (input, assignTo) => {
-            const id = await register.addItem(input);
-            if (!assignTo) {
-              toast.push({ title: `${input.name} added`, tone: "success" });
-              return;
-            }
-            /* The register write already succeeded — a refusal past this
-               point (an employee archived between opening the form and
-               submitting it, say) must not read as "not saved" when the item
-               plainly is. Named, and pointed at the door that still works. */
-            try {
-              await register.handOver(id, {
-                employeeId: assignTo.employeeId,
-                ...(input.condition ? { condition: input.condition } : {}),
-              });
-              toast.push({
-                title: `${input.name} added and handed over`,
-                tone: "success",
-              });
-            } catch (error) {
-              toast.push({
-                title: `${input.name} added, but could not be handed over`,
-                tone: "warning",
-                detail:
-                  error instanceof ApiError
-                    ? error.message
-                    : "Hand it over from its own page instead.",
-              });
-            }
-          }}
-        />
-      )}
-
-      {addingKind && (
-        /* Over the item form, which stays mounted behind it and keeps what was
-           typed. `addKind` refetches, so the new kind is in the picker as soon
-           as this closes. */
-        <AddKindDialog
-          onClose={() => setAddingKind(false)}
-          onAdd={(input) =>
-            run(() => kinds.addKind(input), `${input.name} added`)
-          }
-        />
-      )}
-
-      {editing && (
-        <ItemForm
-          item={editing}
-          kinds={kinds.usable}
-          onCreateKind={() => setAddingKind(true)}
-          onClose={() => setEditing(null)}
-          onSave={async (patch) => {
-            await register.editItem(editing.id, patch);
-            toast.push({ title: "Saved", tone: "success" });
-          }}
-        />
-      )}
-
-      {handingOver && (
-        <HandOverDialog
-          item={handingOver}
-          onClose={() => setHandingOver(null)}
-          onHandOver={async (input) => {
-            await register.handOver(handingOver.id, input);
+          /* The register write already succeeded — a refusal past this
+             point (an employee archived between opening the form and
+             submitting it, say) must not read as "not saved" when the item
+             plainly is. Named, and pointed at the door that still works. */
+          try {
+            await register.handOver(id, {
+              employeeId: assignTo.employeeId,
+              ...(input.condition ? { condition: input.condition } : {}),
+            });
             toast.push({
-              title: `${handingOver.name} handed over`,
+              title: `${input.name} added and handed over`,
               tone: "success",
             });
-          }}
-        />
-      )}
-
-      {takingBack && (
-        <TakeBackDialog
-          item={takingBack}
-          onClose={() => setTakingBack(null)}
-          onTakeBack={async (input) => {
-            await register.takeBack(takingBack.id, input);
+          } catch (error) {
             toast.push({
-              title:
-                input.outcome === "DAMAGED"
-                  ? `${takingBack.name} came back broken: it is in the workshop`
-                  : `${takingBack.name} is back in the store`,
-              tone: "success",
+              title: `${input.name} added, but could not be handed over`,
+              tone: "warning",
+              detail:
+                error instanceof ApiError
+                  ? error.message
+                  : "Hand it over from its own page instead.",
             });
-          }}
-        />
-      )}
+          }
+        }}
+      />
 
-      {repairing && (
-        <RepairDialog
-          item={repairing}
-          onClose={() => setRepairing(null)}
-          onLog={async (input) => {
-            await register.logRepair(repairing.id, input);
-            toast.push({ title: "Repair logged", tone: "success" });
-          }}
-        />
-      )}
+      {/* Over the item form, which stays mounted behind it and keeps what was
+          typed. `addKind` refetches, so the new kind is in the picker as soon
+          as this closes. */}
+      <AddKindDialog
+        open={addingKind}
+        onClose={() => setAddingKind(false)}
+        onAdd={(input) =>
+          run(() => kinds.addKind(input), `${input.name} added`)
+        }
+      />
+
+      <ItemForm
+        open={editing !== null}
+        item={editing}
+        kinds={kinds.usable}
+        onCreateKind={() => setAddingKind(true)}
+        onClose={() => setEditing(null)}
+        onSave={async (patch) => {
+          if (!editing) return;
+          await register.editItem(editing.id, patch);
+          toast.push({ title: "Saved", tone: "success" });
+        }}
+      />
+
+      <HandOverDialog
+        open={handingOver !== null}
+        item={handingOver}
+        onClose={() => setHandingOver(null)}
+        onHandOver={async (input) => {
+          if (!handingOver) return;
+          await register.handOver(handingOver.id, input);
+          toast.push({
+            title: `${handingOver.name} handed over`,
+            tone: "success",
+          });
+        }}
+      />
+
+      <TakeBackDialog
+        open={takingBack !== null}
+        item={takingBack}
+        onClose={() => setTakingBack(null)}
+        onTakeBack={async (input) => {
+          if (!takingBack) return;
+          await register.takeBack(takingBack.id, input);
+          toast.push({
+            title:
+              input.outcome === "DAMAGED"
+                ? `${takingBack.name} came back broken: it is in the workshop`
+                : `${takingBack.name} is back in the store`,
+            tone: "success",
+          });
+        }}
+      />
+
+      <RepairDialog
+        open={repairing !== null}
+        item={repairing}
+        onClose={() => setRepairing(null)}
+        onLog={async (input) => {
+          if (!repairing) return;
+          await register.logRepair(repairing.id, input);
+          toast.push({ title: "Repair logged", tone: "success" });
+        }}
+      />
 
       <ConfirmDialog
         open={archiving !== null}

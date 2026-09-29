@@ -101,11 +101,13 @@ export type LocationDraft = {
 
 export function LocationForm({
   location,
+  open,
   onClose,
   onSave,
 }: {
   /** Absent when adding. */
   location?: ApiWorkLocation;
+  open: boolean;
   onClose: () => void;
   onSave: (draft: LocationDraft) => Promise<void>;
 }) {
@@ -178,7 +180,7 @@ export function LocationForm({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title={editing ? `Edit ${location.name}` : "Add a work location"}

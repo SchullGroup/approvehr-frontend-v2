@@ -1,15 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { LayoutGrid } from "lucide-react";
-import {
-  Button,
-  ButtonLink,
-  Callout,
-  Card,
-  CardBody,
-  Spinner,
-} from "@/components/ui";
+import { Button, Callout, Card, CardBody, Spinner } from "@/components/ui";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody } from "@/components/portal/shell";
 import { useCan, usePermissions } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
@@ -234,8 +229,21 @@ export function DashboardScreen() {
              is full width below `sm` — a stat at a quarter of a phone is
              unreadable — and each carries `min-w-0` from `SPAN_CLASS`, without
              which one item that cannot compress floors the whole track. See the
-             responsive entry in HANDOVER. */
-          <div className="grid grid-cols-12 gap-4">
+             responsive entry in HANDOVER.
+
+             `grid-flow-dense`: measured against a live account rather than
+             assumed. It does **not** eliminate a gap — if the spans in a
+             cluster do not sum to a multiple of 12 (a quarter + a half + two
+             quarters is 15), something is short a slot no matter the packing
+             algorithm; dense only chooses which row absorbs it, pulling a
+             later same-size widget forward to close an earlier gap and
+             leaving an equal one behind it. Kept anyway because that pull
+             front-loads completeness — the topmost row ends up full — and it
+             never touches DOM or tab order, only visual position. If a
+             customized arrangement ever reads as widgets shuffled for no
+             reason, this is why; the real fix is choosing spans that sum
+             evenly per cluster, not a CSS property. */
+          <div className="grid grid-cols-12 gap-4 grid-flow-dense">
             {chosen.map((widget) => {
               const Widget = WIDGET_COMPONENTS[widget.id];
               if (!Widget) return null;
@@ -334,32 +342,28 @@ function SetupPrompt() {
   const first = outstanding[0]!;
   return (
     <>
-      <Callout tone="info" className="mb-4">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <p className="text-body-sm">
-            <span className="font-medium">
-              {outstanding.length} of {rows.length} still to set up.
-            </span>{" "}
-            {/* Names the next one rather than only counting. A number alone is a
-                nag; a number and the next step is a thing somebody can finish. */}
-            <span className="text-muted">
-              Next: {first.title.toLowerCase()}.
-            </span>
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* The way back to the walk. The guide offers itself once per
-                browser; without this, somebody who dismissed it — or who
-                arrived after a colleague dismissed it on a shared machine —
-                has no way to ask for it again. */}
-            <Button size="sm" variant="ghost" onClick={() => setGuiding(true)}>
-              Walk me through it
-            </Button>
-            <ButtonLink size="sm" variant="secondary" href={first.href}>
-              {first.linkLabel}
-            </ButtonLink>
-          </div>
-        </div>
-      </Callout>
+      <NoticeLine tone="accent" className="mb-4">
+        {/* Names the next one rather than only counting. A number alone is a
+            nag; a number and the next step is a thing somebody can finish. */}
+        <span>
+          {outstanding.length} of {rows.length} still to set up. Next:{" "}
+          {first.title.toLowerCase()}.
+        </span>
+        <Link href={first.href} className={NOTICE_LINK}>
+          {first.linkLabel}
+        </Link>
+        {/* The way back to the walk. The guide offers itself once per browser;
+            without this, somebody who dismissed it — or who arrived after a
+            colleague dismissed it on a shared machine — has no way to ask for
+            it again. */}
+        <button
+          type="button"
+          className={NOTICE_LINK}
+          onClick={() => setGuiding(true)}
+        >
+          Walk me through it
+        </button>
+      </NoticeLine>
       {guide}
     </>
   );

@@ -28,11 +28,13 @@ import { fullName } from "@/lib/types";
 export function SendInviteDialog({
   roles,
   pending,
+  open,
   onClose,
   onSend,
 }: {
   roles: RoleView[];
   pending: PendingInvite[];
+  open: boolean;
   onClose: () => void;
   onSend: (employeeId: string, roleIds: string[]) => Promise<boolean>;
 }) {
@@ -72,7 +74,7 @@ export function SendInviteDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="sm"
       title="Invite someone to sign in"

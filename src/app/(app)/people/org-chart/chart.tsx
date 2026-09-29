@@ -586,6 +586,11 @@ export function OrgChartScreen() {
           screens away. Same writes as the drag. */}
       {picking !== null && model !== null && (
         <MoveDialog
+          /* Keyed so switching targets without closing remounts with fresh
+             state, rather than deriving state from props during render —
+             `choice` would otherwise carry over from whichever person or
+             department was picked last. */
+          key={`${picking.kind}-${picking.kind === "person" ? picking.person.id : picking.node.department.id}`}
           picking={picking}
           model={model}
           onClose={() => setPicking(null)}

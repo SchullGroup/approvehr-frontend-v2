@@ -572,7 +572,190 @@ export const employees = {
       by: string;
       diff: unknown;
     }>(`/employees/${id}/history`),
+
+  /**
+   * Probations ending, and the people who have one with no date on it.
+   *
+   * Both halves in one call because they are one question. `needsADate` is the
+   * population this feature inherited rather than created — anybody imported
+   * as "probation", which the importer maps onto `status: ONBOARDING` — and a
+   * screen that showed the queue without them would repeat the defect the
+   * feature exists to close.
+   */
+  probationDue: (signal?: AbortSignal) =>
+    request<ApiProbationDue>("/employees/probation/due", {
+      ...(signal ? { signal } : {}),
+    }),
+
+  employmentChanges: (id: string, signal?: AbortSignal) =>
+    request<ApiEmploymentChange[]>(`/employees/${id}/employment-changes`, {
+      ...(signal ? { signal } : {}),
+    }),
+
+  decideProbation: (id: string, body: ProbationDecisionBody) =>
+    request<{ id: string; kind: string; effectiveOn: string }>(
+      `/employees/${id}/probation-decision`,
+      { method: "POST", body },
+    ),
+
+  /* ------------------------ promotions, transfers and pay changes --------- */
+
+  /** Proposed, or agreed and not yet in effect. Never the applied ones. */
+  employmentChangesInFlight: (signal?: AbortSignal) =>
+    request<ApiEmploymentChangeRow[]>("/employees/employment-changes", {
+      ...(signal ? { signal } : {}),
+    }),
+
+  proposeEmploymentChange: (body: EmploymentChangeBody) =>
+    request<ApiEmploymentChangeDetail>("/employees/employment-changes", {
+      method: "POST",
+      body,
+    }),
+
+  decideEmploymentChange: (
+    id: string,
+    body: { approve: boolean; note?: string },
+  ) =>
+    request<ApiEmploymentChangeDetail>(
+      `/employees/employment-changes/${id}/decision`,
+      { method: "POST", body },
+    ),
+
+  cancelEmploymentChange: (id: string, note: string) =>
+    request<ApiEmploymentChangeDetail>(
+      `/employees/employment-changes/${id}/cancel`,
+      { method: "POST", body: { note } },
+    ),
 };
+
+export type ApiProbationRow = {
+  employeeId: string;
+  employeeNo: string;
+  name: string;
+  jobTitle: string;
+  startDate: string;
+  probationEndsAt: string;
+  /** Negative once it is overdue, which is the state that matters most. */
+  daysRemaining: number;
+};
+
+export type ApiProbationUndated = {
+  employeeId: string;
+  employeeNo: string;
+  name: string;
+  jobTitle: string;
+  startDate: string;
+  daysSinceStart: number;
+};
+
+export type ApiProbationDue = {
+  due: ApiProbationRow[];
+  needsADate: ApiProbationUndated[];
+};
+
+/**
+ * Every kind of thing that has happened to somebody's employment.
+ *
+ * One union, not two, because there is one table and one timeline behind it.
+ * The three probation members and the four change members differ in what
+ * produced them and in nothing a reader cares about: each is a dated decision
+ * with a before, an after and somebody's name on it.
+ */
+export type ApiEmploymentChangeKind =
+  | "CONFIRMATION"
+  | "PROBATION_EXTENDED"
+  | "PROBATION_FAILED"
+  | "PROMOTION"
+  | "TRANSFER"
+  | "GRADE_CHANGE"
+  | "PAY_CHANGE";
+
+/**
+ * Where a change is in its life.
+ *
+ * `SCHEDULED` is the one worth reading the API's own docs about: it means
+ * **agreed and not yet written**. A screen that renders it as done would be
+ * claiming somebody's salary had moved a month before it does.
+ */
+export type ApiEmploymentChangeStatus =
+  "PENDING_APPROVAL" | "SCHEDULED" | "APPLIED" | "REJECTED" | "CANCELLED";
+
+/**
+ * The fields a change moved, either side of it.
+ *
+ * Every member is optional and the absence is meaningful: a key that is not
+ * here is a field this change did not touch, and `null` is a field moved to
+ * nothing. Rendering the two the same way would turn "we did not change their
+ * department" into "we removed them from their department".
+ */
+export type ApiFieldSnapshot = {
+  jobTitle?: string | null;
+  departmentId?: string | null;
+  salaryGradeId?: string | null;
+  /** Integer kobo, like every money figure on this API. */
+  grossMonthlyKobo?: number | null;
+  managerId?: string | null;
+  workLocationId?: string | null;
+};
+
+export type ApiEmploymentChange = {
+  id: string;
+  kind: ApiEmploymentChangeKind;
+  effectiveOn: string;
+  decidedAt: string;
+  decidedById: string | null;
+  note: string | null;
+  fromValue: ApiFieldSnapshot | null;
+  toValue: ApiFieldSnapshot | null;
+};
+
+/** A row in the in-flight queue. Carries the person, so a list needs no join. */
+export type ApiEmploymentChangeRow = {
+  id: string;
+  employeeId: string;
+  employeeNo: string | null;
+  name: string;
+  jobTitle: string | null;
+  kind: ApiEmploymentChangeKind;
+  kindLabel: string;
+  status: ApiEmploymentChangeStatus;
+  effectiveOn: string;
+  /**
+   * Negative once the date has passed.
+   *
+   * A `SCHEDULED` row with a negative number means the sweep has not run, which
+   * is worth being able to see rather than infer from two timestamps.
+   */
+  daysUntilEffective: number;
+  requestedById: string | null;
+  requestedAt: string;
+  note: string | null;
+  fromValue: ApiFieldSnapshot | null;
+  toValue: ApiFieldSnapshot | null;
+};
+
+export type ApiEmploymentChangeDetail = ApiEmploymentChangeRow & {
+  decidedById: string | null;
+  decidedAt: string;
+  /** Null until it is written. Never derived from `effectiveOn` — a sweep that
+   *  was down applies late, and the row says so. */
+  appliedAt: string | null;
+  decisionNote: string | null;
+};
+
+export type EmploymentChangeBody = {
+  employeeId: string;
+  kind: "PROMOTION" | "TRANSFER" | "GRADE_CHANGE" | "PAY_CHANGE";
+  /** When it takes effect, not when it was agreed. The API refuses the past. */
+  effectiveOn: string;
+  to: ApiFieldSnapshot;
+  note: string;
+};
+
+export type ProbationDecisionBody =
+  | { outcome: "confirm"; note?: string }
+  | { outcome: "extend"; extendTo: string; note: string }
+  | { outcome: "not_confirmed"; note: string };
 
 /* -------------------------------------------------------------------- leave */
 

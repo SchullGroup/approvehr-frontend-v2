@@ -267,39 +267,39 @@ export function ChecklistSettingsScreen() {
         )}
       </PageBody>
 
-      {adding && (
-        <LineDialog
-          onClose={() => setAdding(false)}
-          onSave={async (body) => {
-            const ok = await run(
-              () =>
-                templates.add({
-                  kind: body.kind,
-                  label: body.label,
-                  owner: body.owner,
-                  mandatory: body.mandatory,
-                  appliesTo: body.appliesTo,
-                }),
-              "Added to the checklist",
-            );
-            if (ok) setAdding(false);
-          }}
-        />
-      )}
+      {/* Two separate mounts, one per gate — `adding` and `editing` are
+          independent states, and neither `<LineDialog>` early-returns on its
+          own open-ness any more: `Modal` inside it owns that from its `open`
+          prop, so both stay mounted and pass the real boolean through. */}
+      <LineDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        onSave={async (body) => {
+          const ok = await run(
+            () =>
+              templates.add({
+                kind: body.kind,
+                label: body.label,
+                owner: body.owner,
+                mandatory: body.mandatory,
+                appliesTo: body.appliesTo,
+              }),
+            "Added to the checklist",
+          );
+          if (ok) setAdding(false);
+        }}
+      />
 
-      {editing && (
-        <LineDialog
-          existing={editing}
-          onClose={() => setEditing(null)}
-          onSave={async (body) => {
-            const ok = await run(
-              () => templates.edit(editing.id, body),
-              "Saved",
-            );
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
+      <LineDialog
+        open={editing !== null}
+        existing={editing ?? undefined}
+        onClose={() => setEditing(null)}
+        onSave={async (body) => {
+          if (!editing) return;
+          const ok = await run(() => templates.edit(editing.id, body), "Saved");
+          if (ok) setEditing(null);
+        }}
+      />
     </>
   );
 }
@@ -325,10 +325,12 @@ const OWNERS: { value: string; label: string }[] = [
  * still one click away.
  */
 function LineDialog({
+  open,
   existing,
   onClose,
   onSave,
 }: {
+  open: boolean;
   existing?: ApiExitTemplate;
   onClose: () => void;
   onSave: (body: {
@@ -355,7 +357,7 @@ function LineDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title={existing ? "Change this line" : "Add a line"}
