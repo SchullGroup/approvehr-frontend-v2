@@ -97,47 +97,48 @@ export function ReportFaultButton({
         Report a fault
       </Button>
 
-      {open && (
-        <Modal
-          open
-          onClose={() => setOpen(false)}
-          title={`Report a fault — ${assetName}`}
-          description="Say what is wrong with it. Somebody who looks after equipment will pick it up, and you will see it move along here."
-          footer={
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="accent"
-                loading={saving}
-                /* Ten characters, matching the API's own floor rather than a
-                   number invented here. "It is broken" is a row somebody has
-                   to chase the reporter about, which is the step the request
-                   exists to remove. */
-                disabled={fault.trim().length < 10}
-                onClick={() => void submit()}
-              >
-                Send it
-              </Button>
-            </div>
-          }
+      {/* No `{open && ...}` gate here: `Modal` decides whether to render from
+          its own `open` prop and internal exit-animation state, so this stays
+          mounted and keeps passing the real `open` through. */}
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`Report a fault — ${assetName}`}
+        description="Say what is wrong with it. Somebody who looks after equipment will pick it up, and you will see it move along here."
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              loading={saving}
+              /* Ten characters, matching the API's own floor rather than a
+                 number invented here. "It is broken" is a row somebody has
+                 to chase the reporter about, which is the step the request
+                 exists to remove. */
+              disabled={fault.trim().length < 10}
+              onClick={() => void submit()}
+            >
+              Send it
+            </Button>
+          </div>
+        }
+      >
+        <Field
+          label="What is wrong with it"
+          {...(error ? { error } : {})}
+          help="Enough for somebody to act on without coming back to ask."
         >
-          <Field
-            label="What is wrong with it"
-            {...(error ? { error } : {})}
-            help="Enough for somebody to act on without coming back to ask."
-          >
-            <Textarea
-              value={fault}
-              rows={4}
-              autoFocus
-              onChange={(event) => setFault(event.target.value)}
-              placeholder="The screen flickers whenever it is unplugged."
-            />
-          </Field>
-        </Modal>
-      )}
+          <Textarea
+            value={fault}
+            rows={4}
+            autoFocus
+            onChange={(event) => setFault(event.target.value)}
+            placeholder="The screen flickers whenever it is unplugged."
+          />
+        </Field>
+      </Modal>
     </>
   );
 }

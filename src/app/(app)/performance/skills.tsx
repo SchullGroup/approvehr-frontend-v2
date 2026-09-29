@@ -184,37 +184,69 @@ export function SkillsTab({
               description="Either everyone is where they should be, or nobody has been assessed yet."
             />
           ) : (
-            <TableWrap>
-              {/* `THead` writes the `<tr>` itself. A `TR` in here nests one
-                  inside another, which is invalid HTML and shows up as a
-                  hydration error rather than as anything visible — found in the
-                  browser console, not by `tsc`. */}
-              <THead>
-                <TH>Person</TH>
-                <TH>Skill</TH>
-                <TH align="right">Level</TH>
-                <TH align="right">Target</TH>
-                <TH align="right">Gap</TH>
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap>
+                  {/* `THead` writes the `<tr>` itself. A `TR` in here nests
+                      one inside another, which is invalid HTML and shows up
+                      as a hydration error rather than as anything visible —
+                      found in the browser console, not by `tsc`. */}
+                  <THead>
+                    <TH>Person</TH>
+                    <TH>Skill</TH>
+                    <TH align="right">Level</TH>
+                    <TH align="right">Target</TH>
+                    <TH align="right">Gap</TH>
+                  </THead>
+                  <TBody>
+                    {gaps.gaps.map((gap) => (
+                      <TR key={`${gap.employeeId}-${gap.competencyId}`}>
+                        <TDPrimary title={gap.employeeName} />
+                        <TD>
+                          {gap.competencyName}
+                          {gap.sectionName && (
+                            <span className="mt-0.5 block text-meta text-muted">
+                              {gap.sectionName}
+                            </span>
+                          )}
+                        </TD>
+                        <TD align="right" className="tabular">
+                          {gap.level} of {gap.scaleMax}
+                        </TD>
+                        <TD align="right" className="tabular">
+                          {gap.target}
+                        </TD>
+                        <TD align="right">
+                          <Badge
+                            tone="warning"
+                            size="sm"
+                            icon={<AlertTriangle aria-hidden="true" />}
+                          >
+                            {gap.gap === 1 ? "1 level" : `${gap.gap} levels`}
+                          </Badge>
+                        </TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line rounded-lg border border-line bg-surface sm:hidden">
                 {gaps.gaps.map((gap) => (
-                  <TR key={`${gap.employeeId}-${gap.competencyId}`}>
-                    <TDPrimary title={gap.employeeName} />
-                    <TD>
-                      {gap.competencyName}
-                      {gap.sectionName && (
-                        <span className="mt-0.5 block text-meta text-muted">
-                          {gap.sectionName}
-                        </span>
-                      )}
-                    </TD>
-                    <TD align="right" className="tabular">
-                      {gap.level} of {gap.scaleMax}
-                    </TD>
-                    <TD align="right" className="tabular">
-                      {gap.target}
-                    </TD>
-                    <TD align="right">
+                  <li
+                    key={`${gap.employeeId}-${gap.competencyId}`}
+                    className="flex flex-col gap-2 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-body-sm font-medium text-ink">
+                          {gap.employeeName}
+                        </p>
+                        <p className="mt-0.5 text-meta text-muted">
+                          {gap.competencyName}
+                          {gap.sectionName && ` · ${gap.sectionName}`}
+                        </p>
+                      </div>
                       <Badge
                         tone="warning"
                         size="sm"
@@ -222,11 +254,17 @@ export function SkillsTab({
                       >
                         {gap.gap === 1 ? "1 level" : `${gap.gap} levels`}
                       </Badge>
-                    </TD>
-                  </TR>
+                    </div>
+                    <div className="flex items-center gap-4 text-body-sm text-muted">
+                      <span className="tabular">
+                        Level {gap.level} of {gap.scaleMax}
+                      </span>
+                      <span className="tabular">Target {gap.target}</span>
+                    </div>
+                  </li>
                 ))}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
         </Card>
       )}
@@ -289,36 +327,35 @@ export function SkillsTab({
         </Card>
       )}
 
-      {recording && (
-        <RecordLevelDialog
-          onClose={() => setRecording(false)}
-          onSave={async (competencyId, body) => {
-            try {
-              await rating.rate(competencyId, body);
-              toast.push({ title: "Level recorded", tone: "success" });
-              /* All three reads, not one. `mine` is the signed-in person's own
-                 skills and `rateCompetency` refuses a self-rating, so it is the
-                 one panel on this screen a save here can never change — while
-                 the gap table and the heatmap are exactly what a new level
-                 moves. Reloading only `mine` left both of those showing the
-                 figures from before the save until somebody refreshed. */
-              mine.reload();
-              gaps.reload();
-              grid.reload();
-              setRecording(false);
-            } catch (error) {
-              toast.push({
-                title: "That did not work",
-                tone: "danger",
-                detail:
-                  error instanceof ApiError
-                    ? error.message
-                    : "Something went wrong. Try again.",
-              });
-            }
-          }}
-        />
-      )}
+      <RecordLevelDialog
+        open={recording}
+        onClose={() => setRecording(false)}
+        onSave={async (competencyId, body) => {
+          try {
+            await rating.rate(competencyId, body);
+            toast.push({ title: "Level recorded", tone: "success" });
+            /* All three reads, not one. `mine` is the signed-in person's own
+               skills and `rateCompetency` refuses a self-rating, so it is the
+               one panel on this screen a save here can never change — while
+               the gap table and the heatmap are exactly what a new level
+               moves. Reloading only `mine` left both of those showing the
+               figures from before the save until somebody refreshed. */
+            mine.reload();
+            gaps.reload();
+            grid.reload();
+            setRecording(false);
+          } catch (error) {
+            toast.push({
+              title: "That did not work",
+              tone: "danger",
+              detail:
+                error instanceof ApiError
+                  ? error.message
+                  : "Something went wrong. Try again.",
+            });
+          }
+        }}
+      />
     </div>
   );
 }

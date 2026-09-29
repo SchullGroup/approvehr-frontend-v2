@@ -53,6 +53,17 @@ const REDIRECTED_PATHS = new Set([
   "/dpa",
 ]);
 
+/**
+ * `/paye-calculator` is excluded from the redirect set above for exactly
+ * `/pricing`'s own reason, stated in this file's header: the standalone site
+ * is not yet what is actually deployed at the real domain (see HANDOVER.md,
+ * "Connected mode works now" and after — the redeploy is still a manual step
+ * someone has to do). Redirecting a real, working page here into a domain
+ * that does not serve it yet would be worse than not redirecting it. Add it
+ * to `REDIRECTED_PATHS` and this matcher's list in the same change that
+ * confirms the standalone site actually serves this route.
+ */
+
 const REDIRECTED_PREFIXES = ["/product"];
 
 export function proxy(request: NextRequest) {

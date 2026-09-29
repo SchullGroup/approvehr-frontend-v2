@@ -397,6 +397,11 @@ export function DepartmentsScreen() {
 
       {assigning && (
         <AssignPeopleDialog
+          /* Keyed so assigning to a different department remounts with fresh
+             state, rather than deriving state from props during render —
+             without it, the search text and the ticked selection would carry
+             over onto the next department. */
+          key={assigning.id}
           title={`Assign people to ${assigning.name}`}
           description="Move a group into this department in one go, rather than editing records one at a time."
           effect={`Everybody chosen is reported under ${assigning.name} from now on. Past payslips keep the department they were run with.`}
@@ -445,24 +450,23 @@ export function DepartmentsScreen() {
         />
       )}
 
-      {creating && (
-        <CreateDialog
-          parentId={creating.parentId}
-          parentName={
-            creating.parentId
-              ? departments.flat.find((d) => d.id === creating.parentId)?.name
-              : undefined
-          }
-          onClose={() => setCreating(null)}
-          onCreate={async (body) => {
-            const ok = await run(
-              () => departments.create(body),
-              body.parentId ? "Sub-department added" : "Department added",
-            );
-            if (ok) setCreating(null);
-          }}
-        />
-      )}
+      <CreateDialog
+        open={creating !== null}
+        parentId={creating?.parentId}
+        parentName={
+          creating?.parentId
+            ? departments.flat.find((d) => d.id === creating?.parentId)?.name
+            : undefined
+        }
+        onClose={() => setCreating(null)}
+        onCreate={async (body) => {
+          const ok = await run(
+            () => departments.create(body),
+            body.parentId ? "Sub-department added" : "Department added",
+          );
+          if (ok) setCreating(null);
+        }}
+      />
 
       {editing && (
         <EditDialog
@@ -483,6 +487,10 @@ export function DepartmentsScreen() {
 
       {assigningHead && (
         <AssignHeadDialog
+          /* Keyed so assigning a different department's head remounts with
+             fresh state, rather than deriving state from props during
+             render. */
+          key={assigningHead.id}
           departmentName={assigningHead.name}
           currentHeadId={assigningHead.headId}
           employees={employees.map((e) => ({
@@ -844,11 +852,15 @@ function DepartmentRow({
 /* -------------------------------------------------------------------------- */
 
 function CreateDialog({
+  open,
   parentId,
   parentName,
   onClose,
   onCreate,
 }: {
+  /* Controlled by `DepartmentsScreen`. Stays mounted at all times so its own
+     exit animation can run when `open` goes false. */
+  open: boolean;
   parentId?: string;
   parentName?: string;
   onClose: () => void;
@@ -864,7 +876,7 @@ function CreateDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={
         parentId ? `Add a sub-department in ${parentName}` : "Add a department"

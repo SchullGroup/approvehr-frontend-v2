@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Filter, UserRoundPlus } from "lucide-react";
+import { Filter, TriangleAlert, UserRoundPlus } from "lucide-react";
 import {
   Badge,
   Button,
@@ -121,6 +121,7 @@ export function RealRequisitionWorkspace({
   if (error) {
     return (
       <EmptyState
+        icon={<TriangleAlert aria-hidden="true" />}
         title="Could not load this pipeline"
         description={error.message}
         action={
@@ -169,41 +170,85 @@ export function RealRequisitionWorkspace({
           }
         />
       ) : (
-        <TableWrap caption="Candidates, their stage and outcome">
-          <THead>
-            <TH>Candidate</TH>
-            <TH>Stage</TH>
-            <TH>Outcome</TH>
-            <TH align="right">Move to</TH>
-          </THead>
-          <TBody>
+        <>
+          <div className="hidden sm:block">
+            <TableWrap caption="Candidates, their stage and outcome">
+              <THead>
+                <TH>Candidate</TH>
+                <TH>Stage</TH>
+                <TH>Outcome</TH>
+                <TH align="right">Move to</TH>
+              </THead>
+              <TBody>
+                {visible.map((a) => (
+                  <TR key={a.id}>
+                    <TDPrimary
+                      title={
+                        <TextLink href={`/hiring/candidates/${a.id}`}>
+                          {a.candidateName}
+                        </TextLink>
+                      }
+                      subtitle={a.candidateEmail}
+                    />
+                    <TD>
+                      <Badge tone="neutral" size="sm">
+                        {a.stageName ?? "Not placed"}
+                      </Badge>
+                    </TD>
+                    <TD>
+                      <Badge tone={OUTCOME_TONE[a.outcome]} size="sm">
+                        {OUTCOME_LABEL[a.outcome] ?? a.outcome}
+                      </Badge>
+                    </TD>
+                    <TD align="right">
+                      {a.outcome === "IN_PROGRESS" && (
+                        <Select
+                          value={a.stageId ?? ""}
+                          disabled={busyId === a.id}
+                          onChange={(e) => void move(a, e.currentTarget.value)}
+                          className="ml-auto w-auto"
+                        >
+                          {ordered.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </Select>
+                      )}
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </TableWrap>
+          </div>
+
+          <ul className="divide-y divide-line sm:hidden">
             {visible.map((a) => (
-              <TR key={a.id}>
-                <TDPrimary
-                  title={
-                    <TextLink href={`/hiring/candidates/${a.id}`}>
-                      {a.candidateName}
-                    </TextLink>
-                  }
-                  subtitle={a.candidateEmail}
-                />
-                <TD>
+              <li key={a.id} className="flex flex-col gap-2 p-4">
+                <div className="min-w-0">
+                  <TextLink href={`/hiring/candidates/${a.id}`}>
+                    {a.candidateName}
+                  </TextLink>
+                  <p className="text-body-sm text-muted">{a.candidateEmail}</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
                   <Badge tone="neutral" size="sm">
                     {a.stageName ?? "Not placed"}
                   </Badge>
-                </TD>
-                <TD>
                   <Badge tone={OUTCOME_TONE[a.outcome]} size="sm">
                     {OUTCOME_LABEL[a.outcome] ?? a.outcome}
                   </Badge>
-                </TD>
-                <TD align="right">
-                  {a.outcome === "IN_PROGRESS" && (
+                </div>
+
+                {a.outcome === "IN_PROGRESS" && (
+                  <div>
+                    <p className="mb-1 text-meta text-muted">Move to</p>
                     <Select
+                      aria-label={`Move ${a.candidateName} to a stage`}
                       value={a.stageId ?? ""}
                       disabled={busyId === a.id}
                       onChange={(e) => void move(a, e.currentTarget.value)}
-                      className="ml-auto w-auto"
                     >
                       {ordered.map((s) => (
                         <option key={s.id} value={s.id}>
@@ -211,12 +256,12 @@ export function RealRequisitionWorkspace({
                         </option>
                       ))}
                     </Select>
-                  )}
-                </TD>
-              </TR>
+                  </div>
+                )}
+              </li>
             ))}
-          </TBody>
-        </TableWrap>
+          </ul>
+        </>
       )}
     </div>
   );

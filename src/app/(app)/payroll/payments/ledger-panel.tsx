@@ -97,70 +97,157 @@ export function LedgerPanel({
           />
         ) : (
           <>
-            <TableWrap
-              className="rounded-none border-0"
-              caption="Account activity, newest first"
-            >
-              <THead>
-                <TH>Date</TH>
-                <TH>What it was</TH>
-                <TH align="right">In</TH>
-                <TH align="right">Out</TH>
-                <TH align="right">Balance after</TH>
-              </THead>
-              <TBody>
-                {ledger.rows.map((row) => (
-                  <TR key={row.id}>
-                    <TDPrimary
-                      title={longDate(row.occurredAt)}
-                      subtitle={row.bankAccount ?? undefined}
-                    />
-                    <TD>
-                      <span className="flex flex-wrap items-center gap-2">
-                        <Badge
-                          tone={
-                            row.direction === "CREDIT" ? "accent" : "neutral"
-                          }
-                          size="sm"
-                          icon={
-                            row.direction === "CREDIT" ? (
-                              <ArrowDownLeft aria-hidden="true" />
-                            ) : (
-                              <ArrowUpRight aria-hidden="true" />
-                            )
-                          }
-                        >
-                          {LEDGER_KIND_LABEL[row.kind] ?? row.kind}
-                        </Badge>
-                        {row.batchReference && (
-                          <span className="tabular text-meta text-muted">
-                            {row.batchReference}
+            <div className="hidden sm:block">
+              <TableWrap
+                className="rounded-none border-0"
+                caption="Account activity, newest first"
+              >
+                <THead>
+                  <TH>Date</TH>
+                  <TH>What it was</TH>
+                  <TH align="right">In</TH>
+                  <TH align="right">Out</TH>
+                  <TH align="right">Balance after</TH>
+                </THead>
+                <TBody>
+                  {ledger.rows.map((row) => (
+                    <TR key={row.id}>
+                      <TDPrimary
+                        title={longDate(row.occurredAt)}
+                        subtitle={row.bankAccount ?? undefined}
+                      />
+                      <TD>
+                        <span className="flex flex-wrap items-center gap-2">
+                          <Badge
+                            tone={
+                              row.direction === "CREDIT" ? "accent" : "neutral"
+                            }
+                            size="sm"
+                            icon={
+                              row.direction === "CREDIT" ? (
+                                <ArrowDownLeft aria-hidden="true" />
+                              ) : (
+                                <ArrowUpRight aria-hidden="true" />
+                              )
+                            }
+                          >
+                            {LEDGER_KIND_LABEL[row.kind] ?? row.kind}
+                          </Badge>
+                          {row.batchReference && (
+                            <span className="tabular text-meta text-muted">
+                              {row.batchReference}
+                            </span>
+                          )}
+                        </span>
+                        {(row.note ?? row.reference) && (
+                          <span className="mt-1 block text-meta text-muted">
+                            {row.note ?? row.reference}
                           </span>
                         )}
-                      </span>
-                      {(row.note ?? row.reference) && (
-                        <span className="mt-1 block text-meta text-muted">
-                          {row.note ?? row.reference}
-                        </span>
+                      </TD>
+                      <TD align="right" className="tabular">
+                        {row.direction === "CREDIT" ? (
+                          <Money amount={naira(row.amountKobo)} decimals />
+                        ) : (
+                          <span className="text-faint">—</span>
+                        )}
+                      </TD>
+                      <TD align="right" className="tabular">
+                        {row.direction === "DEBIT" ? (
+                          <Money amount={naira(row.amountKobo)} decimals />
+                        ) : (
+                          <span className="text-faint">—</span>
+                        )}
+                      </TD>
+                      <TD align="right" className="tabular">
+                        {row.balanceAfterKobo === null ? (
+                          /* Not on the statement we were given. Never a
+                             guess. */
+                          <span
+                            className="text-faint"
+                            title="Not recorded from a statement"
+                          >
+                            —
+                          </span>
+                        ) : (
+                          <Money
+                            amount={naira(row.balanceAfterKobo)}
+                            decimals
+                          />
+                        )}
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
+              {ledger.rows.map((row) => (
+                <li key={row.id} className="flex flex-col gap-2 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-body-sm font-medium text-ink">
+                        {longDate(row.occurredAt)}
+                      </p>
+                      {row.bankAccount && (
+                        <p className="mt-0.5 text-meta text-muted">
+                          {row.bankAccount}
+                        </p>
                       )}
-                    </TD>
-                    <TD align="right" className="tabular">
+                    </div>
+                    <Badge
+                      tone={row.direction === "CREDIT" ? "accent" : "neutral"}
+                      size="sm"
+                      icon={
+                        row.direction === "CREDIT" ? (
+                          <ArrowDownLeft aria-hidden="true" />
+                        ) : (
+                          <ArrowUpRight aria-hidden="true" />
+                        )
+                      }
+                    >
+                      {LEDGER_KIND_LABEL[row.kind] ?? row.kind}
+                    </Badge>
+                  </div>
+
+                  {row.batchReference && (
+                    <p className="tabular text-meta text-muted">
+                      {row.batchReference}
+                    </p>
+                  )}
+                  {(row.note ?? row.reference) && (
+                    <p className="text-meta text-muted">
+                      {row.note ?? row.reference}
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-body-sm text-muted">In</span>
+                    <span className="tabular text-body-sm text-ink">
                       {row.direction === "CREDIT" ? (
                         <Money amount={naira(row.amountKobo)} decimals />
                       ) : (
                         <span className="text-faint">—</span>
                       )}
-                    </TD>
-                    <TD align="right" className="tabular">
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-body-sm text-muted">Out</span>
+                    <span className="tabular text-body-sm text-ink">
                       {row.direction === "DEBIT" ? (
                         <Money amount={naira(row.amountKobo)} decimals />
                       ) : (
                         <span className="text-faint">—</span>
                       )}
-                    </TD>
-                    <TD align="right" className="tabular">
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-body-sm text-muted">
+                      Balance after
+                    </span>
+                    <span className="tabular text-body-sm text-ink">
                       {row.balanceAfterKobo === null ? (
-                        /* Not on the statement we were given. Never a guess. */
                         <span
                           className="text-faint"
                           title="Not recorded from a statement"
@@ -170,11 +257,11 @@ export function LedgerPanel({
                       ) : (
                         <Money amount={naira(row.balanceAfterKobo)} decimals />
                       )}
-                    </TD>
-                  </TR>
-                ))}
-              </TBody>
-            </TableWrap>
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
 
             <CardBody className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-t border-line">
               <p className="text-body-sm text-muted">
@@ -199,15 +286,14 @@ export function LedgerPanel({
         )}
       </Card>
 
-      {recording && (
-        <RecordFundingModal
-          onClose={() => setRecording(false)}
-          onDone={() => {
-            setRecording(false);
-            ledger.reload();
-          }}
-        />
-      )}
+      <RecordFundingModal
+        open={recording}
+        onClose={() => setRecording(false)}
+        onDone={() => {
+          setRecording(false);
+          ledger.reload();
+        }}
+      />
     </>
   );
 }
@@ -222,9 +308,11 @@ export function LedgerPanel({
  * something this form can work out.
  */
 function RecordFundingModal({
+  open,
   onClose,
   onDone,
 }: {
+  open: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -277,7 +365,7 @@ function RecordFundingModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Record money in"
       description="A transfer into the account salaries come from, as it appears on your statement."

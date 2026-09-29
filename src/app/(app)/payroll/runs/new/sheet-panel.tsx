@@ -59,6 +59,7 @@ import { useOvertimePolicy } from "@/lib/store/overtime";
  * somebody has actually come here to do this.
  */
 export function SheetPanel({
+  open = true,
   runId,
   period,
   sources,
@@ -67,6 +68,14 @@ export function SheetPanel({
   /** False on an approved run: the figures are frozen and so is this. */
   editable,
 }: {
+  /**
+   * Defaults to `true`: the one caller (`runs/new/wizard.tsx`) still mounts
+   * this conditionally (`{run && sheetOpen && <SheetPanel .../>}`) and does
+   * not pass `open` — this keeps that caller working exactly as it does
+   * today until it threads the real boolean through and drops `sheetOpen`
+   * from the mounting condition.
+   */
+  open?: boolean;
   runId: string;
   /** `YYYY-MM`, for the filename. */
   period: string;
@@ -105,7 +114,7 @@ export function SheetPanel({
   if (sources === null) {
     return (
       <Modal
-        open
+        open={open}
         onClose={onClose}
         title="Work this payroll in a spreadsheet"
         description="Reading everyone's current figures…"
@@ -230,7 +239,7 @@ export function SheetPanel({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Work this payroll in a spreadsheet"
       description={`${String(sources.length)} ${sources.length === 1 ? "person" : "people"} on this payroll.`}
