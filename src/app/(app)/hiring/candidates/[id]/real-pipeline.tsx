@@ -227,6 +227,15 @@ export function RealPipeline({
         <Card>
           <CardHeader title="Move this candidate" />
           <CardBody className="flex flex-wrap items-center gap-2">
+            {stagesState.stages.length > 0 &&
+              stagesState.stages.filter((s) => s.id !== application.stageId)
+                .length === 0 && (
+                <p className="w-full text-body-sm text-muted">
+                  This requisition has only the one stage they are already in,
+                  so there is nowhere else to move them — reject or withdraw
+                  them instead, or add another stage on the requisition.
+                </p>
+              )}
             {stagesState.stages
               .filter((s) => s.id !== application.stageId)
               .map((s) => (
@@ -633,11 +642,19 @@ function OfferCard({
                 Withdraw
               </Button>
             )}
-          {offer.status === "ACCEPTED" && (
-            <span className="text-meta text-success-text">
-              Became an employee record.
-            </span>
-          )}
+          {offer.status === "ACCEPTED" &&
+            (offer.employeeId ? (
+              <Link
+                href={`/people/${offer.employeeId}`}
+                className="text-meta text-success-text underline underline-offset-2"
+              >
+                Became an employee record.
+              </Link>
+            ) : (
+              <span className="text-meta text-success-text">
+                Became an employee record.
+              </span>
+            ))}
         </div>
       </CardBody>
 
