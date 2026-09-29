@@ -282,59 +282,53 @@ export function TeamsPanel({
         }
       />
 
-      {creating && (
-        <TeamDialog
-          mode="create"
-          departments={departments}
-          employees={employees}
-          onClose={() => setCreating(false)}
-          onSave={async (body) => {
-            const ok = await run(
-              () =>
-                mutations.create({
-                  name: body.name,
-                  ...(body.departmentId
-                    ? { departmentId: body.departmentId }
-                    : {}),
-                  ...(body.leadId ? { leadId: body.leadId } : {}),
-                  ...(body.purpose ? { purpose: body.purpose } : {}),
-                }),
-              `${body.name} added`,
-            );
-            if (ok) setCreating(false);
-          }}
-        />
-      )}
+      <TeamDialog
+        open={creating}
+        mode="create"
+        departments={departments}
+        employees={employees}
+        onClose={() => setCreating(false)}
+        onSave={async (body) => {
+          const ok = await run(
+            () =>
+              mutations.create({
+                name: body.name,
+                ...(body.departmentId
+                  ? { departmentId: body.departmentId }
+                  : {}),
+                ...(body.leadId ? { leadId: body.leadId } : {}),
+                ...(body.purpose ? { purpose: body.purpose } : {}),
+              }),
+            `${body.name} added`,
+          );
+          if (ok) setCreating(false);
+        }}
+      />
 
-      {editing && (
-        <TeamDialog
-          /* Keyed so editing a different team remounts with fresh state,
-             rather than deriving state from props during render — `create`
-             mode needs no key since `creating` is a plain boolean with only
-             one team in flight at a time. */
-          key={editing.id}
-          mode="edit"
-          team={editing}
-          departments={departments}
-          employees={employees}
-          onClose={() => setEditing(null)}
-          onSave={async (body) => {
-            const ok = await run(
-              () =>
-                mutations.update(editing.id, {
-                  ...(body.name !== editing.name ? { name: body.name } : {}),
-                  departmentId:
-                    body.departmentId === "" ? null : body.departmentId,
-                  leadId: body.leadId === "" ? null : body.leadId,
-                  purpose: body.purpose === "" ? null : body.purpose,
-                }),
-              "Saved",
-              (result) => result.moved,
-            );
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
+      <TeamDialog
+        open={editing !== null}
+        mode="edit"
+        team={editing ?? undefined}
+        departments={departments}
+        employees={employees}
+        onClose={() => setEditing(null)}
+        onSave={async (body) => {
+          if (!editing) return;
+          const ok = await run(
+            () =>
+              mutations.update(editing.id, {
+                ...(body.name !== editing.name ? { name: body.name } : {}),
+                departmentId:
+                  body.departmentId === "" ? null : body.departmentId,
+                leadId: body.leadId === "" ? null : body.leadId,
+                purpose: body.purpose === "" ? null : body.purpose,
+              }),
+            "Saved",
+            (result) => result.moved,
+          );
+          if (ok) setEditing(null);
+        }}
+      />
 
       <ConfirmDialog
         open={archiving !== null}
@@ -709,13 +703,15 @@ type TeamDraft = {
  * team into the new department.
  */
 function TeamDialog({
+  open,
   mode,
-  team,
+  team: teamProp,
   departments,
   employees,
   onClose,
   onSave,
 }: {
+  open: boolean;
   mode: "create" | "edit";
   team?: ApiTeam;
   departments: { id: string; name: string; depth: number; archived: boolean }[];
@@ -723,6 +719,12 @@ function TeamDialog({
   onClose: () => void;
   onSave: (draft: TeamDraft) => Promise<void>;
 }) {
+  /* Remembers the last real team: the parent clears its prop the instant it
+     closes this, but the modal has to stay mounted with real content so
+     `Modal` below can animate its own close off the real `open`. */
+  const [team, setTeam] = useState(teamProp);
+  if (teamProp && teamProp !== team) setTeam(teamProp);
+
   const [draft, setDraft] = useState<TeamDraft>({
     name: team?.name ?? "",
     departmentId: team?.departmentId ?? "",
@@ -730,6 +732,25 @@ function TeamDialog({
     purpose: team?.purpose ?? "",
   });
   const [busy, setBusy] = useState(false);
+
+  /* Re-seeds the draft on every genuine open, not just the first mount —
+     this dialog now stays mounted between edits, so the `useState`
+     initializer above would otherwise keep showing whichever team was
+     edited first, forever. Reads `teamProp` directly rather than the
+     frozen `team` above, since the raw prop is always current for this
+     render with no same-render ordering to reason about. */
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setDraft({
+        name: teamProp?.name ?? "",
+        departmentId: teamProp?.departmentId ?? "",
+        leadId: teamProp?.leadId ?? "",
+        purpose: teamProp?.purpose ?? "",
+      });
+    }
+  }
 
   const departmentChanged =
     mode === "edit" && draft.departmentId !== (team?.departmentId ?? "");
@@ -739,7 +760,7 @@ function TeamDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={mode === "create" ? "Add a team" : `Edit ${team?.name ?? ""}`}
       description={
