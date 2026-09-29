@@ -194,6 +194,8 @@ export type ApiBilling = {
     months: number;
     amountKobo: number;
   } | null;
+  /** Money received into the subscription account that nothing has been applied to yet (short, or unexpected). 0 when none. */
+  unappliedKobo: number;
 };
 ```
 
@@ -495,9 +497,11 @@ If `ModuleId` has more members than these six (check `src/lib/marketing/modules.
     - **Continue** calls `api.checkout({ planId, months: 3 })`, then shows "Transfer exactly ₦150,000", the account number, the bank and the account name.
   - **Resume (Review Focus 4):** `currentCheckout` resolving an order opens directly at step 2 with that order's amount and account.
   - **Polling:** at step 2, advancing timers by `pollMs` calls `refresh` once per tick.
-    - When the mocked session's `billing.status` becomes `ACTIVE`, the screen shows "Payment received — you're on Growth until …" and further ticks don't call `refresh` (Review Focus 5).
+    - When the mocked session's `billing.order` becomes `null` and `billing.entitled` is true, the screen shows "Payment received — you're on Growth until …", and further ticks don't call `refresh` (Review Focus 5). It must **not** switch just because `status` is already `ACTIVE`: a company renewing early is ACTIVE before it has paid.
+    - When `billing.unappliedKobo > 0` while still waiting, the screen shows "We've received ₦X so far, which doesn't cover this order. Our team will be in touch."
     - Unmounting stops the calls.
   - **Change plan** goes back to step 1.
+  - A 422 from `checkout` with the message "Payments are not set up on this server yet." shows a clear "Online payment isn't available yet — contact support to subscribe." state, not a raw error.
   - An `ApiError` from `checkout` shows its message inline, and the screen stays on step 1.
 
 - [ ] **Step 2:** Run the tests and confirm they fail.
@@ -528,10 +532,10 @@ Check `npm run verify-titles` in `check`, and follow whatever title rule it enfo
   - **`transfer`:**
     - "Transfer exactly **{amount}** to:", then the bank, the account number with a **Copy** button (copy the pattern at `src/components/portal/invite-link.tsx:108-116`: `navigator.clipboard.writeText` in try/catch plus a toast), and the account name;
     - the line "This account belongs to your company. We'll switch you on as soon as the money arrives — usually within a minute.";
-    - "Paid a different amount? Contact support.";
+    - when `billing.unappliedKobo > 0`: "We've received {formatMoney(nairaOf(unappliedKobo))} so far, which doesn't cover this order. Our team will be in touch." Otherwise: "Paid a different amount? Contact support.";
     - a **Change plan** link, back to `choose`;
     - an effect: `setInterval(refresh, pollMs)`, cleared on unmount and on leaving `transfer`.
-  - **`done`:** when `useBilling()?.status === "ACTIVE"` and `entitled`, switch here and stop polling. Show "Payment received — you're on {plan.name} until {formatDate(currentPeriodEnd)}." with a link to `/dashboard`.
+  - **`done`:** when `useBilling()` has `order === null` and `entitled === true`, switch here and stop polling. Don't use `status === "ACTIVE"` on its own: a company renewing early is already ACTIVE before it pays. Show "Payment received — you're on {plan.name} until {formatDate(currentPeriodEnd)}." with a link to `/dashboard`.
 
 - [ ] **Step 5:** Run `npx vitest run tests/billing-pay-screen.test.tsx`, then typecheck, lint and format:check. Update the `docs/pages/` inventory. Commit with `feat(billing): Subscribe / Pay screen with the company's account and exact amount`.
 
