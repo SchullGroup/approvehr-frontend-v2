@@ -10,7 +10,6 @@ import {
   useRef,
   useState,
 } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -2399,12 +2398,9 @@ function PayslipTable({
                   <TR>
                     <TDPrimary
                       title={
-                        <Link
-                          href={`/payroll/payslips/${slip.id}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
+                        <TextLink href={`/payroll/payslips/${slip.id}`}>
                           {slip.name}
-                        </Link>
+                        </TextLink>
                       }
                       subtitle={slip.employeeNo}
                     />
@@ -2685,12 +2681,9 @@ function PayslipTable({
               <li className="flex flex-col gap-3 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <Link
-                      href={`/payroll/payslips/${slip.id}`}
-                      className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                    >
+                    <TextLink href={`/payroll/payslips/${slip.id}`}>
                       {slip.name}
-                    </Link>
+                    </TextLink>
                     <p className="mt-0.5 text-body-sm text-muted">
                       {slip.employeeNo}
                     </p>
