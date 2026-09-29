@@ -154,25 +154,43 @@ function Diary() {
               </Button>
             </LoadFailure>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Stat
-                label="Waiting to be screened"
-                value={String(backlog.numbers.waiting)}
-                icon={<TriangleAlert aria-hidden="true" />}
-                hint={
-                  backlog.numbers.waiting > 0
-                    ? "nobody has looked yet"
-                    : "queue is clear"
-                }
-              />
-              <Stat
-                label="Screened in"
-                value={String(backlog.numbers.advanced)}
-                hint="in a pipeline somewhere"
-              />
-              <Stat
-                label="People who applied"
-                value={String(backlog.numbers.applications)}
-              />
+              <Link
+                href="/hiring/postings/applications?status=RECEIVED"
+                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <Stat
+                  label="Waiting to be screened"
+                  value={String(backlog.numbers.waiting)}
+                  icon={<TriangleAlert aria-hidden="true" />}
+                  hint={
+                    backlog.numbers.waiting > 0
+                      ? "nobody has looked yet"
+                      : "queue is clear"
+                  }
+                  className="transition-colors group-hover:border-accent"
+                />
+              </Link>
+              <Link
+                href="/hiring/postings/applications?status=ADVANCED"
+                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <Stat
+                  label="Screened in"
+                  value={String(backlog.numbers.advanced)}
+                  hint="in a pipeline somewhere"
+                  className="transition-colors group-hover:border-accent"
+                />
+              </Link>
+              <Link
+                href="/hiring/postings/applications?status=ALL"
+                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <Stat
+                  label="People who applied"
+                  value={String(backlog.numbers.applications)}
+                  className="transition-colors group-hover:border-accent"
+                />
+              </Link>
             </div>
             {backlog.numbers.waiting > 0 && (
               <ButtonLink

@@ -194,6 +194,15 @@ function RealOfferCard({
               Mark as sent
             </Button>
           )}
+          {/* Same sentence as the candidate page's `OfferCard` for this
+              exact state — an approver-only viewer holds `canApprove` but
+              not `canManage`, so neither button above renders and the card
+              otherwise says nothing about where the offer stands. */}
+          {offer.approvedAt && !canManage && (
+            <span className="text-meta text-muted">
+              Approved. Waiting to be sent.
+            </span>
+          )}
           {/* Only once approved, which is the API's own gate — see
               `lib/api/exports.ts#offerLetter`. Rendering it earlier would be a
               button whose only outcome is a refusal. */}
