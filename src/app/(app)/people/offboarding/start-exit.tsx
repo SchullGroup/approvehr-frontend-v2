@@ -12,7 +12,11 @@ import {
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import { EXIT_KINDS, type ExitKind } from "@/lib/api/offboarding";
+import {
+  EXIT_KINDS,
+  NON_HR_EXIT_KINDS,
+  type ExitKind,
+} from "@/lib/api/offboarding";
 import { useStartExit } from "@/lib/store/offboarding";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { TODAY } from "@/lib/today";
@@ -62,17 +66,28 @@ type Subject =
  * refuses that by name — "…already has an exit in progress. Open that one
  * instead of starting a second." — and the demo store refuses in the same
  * words, so the refusal is shown rather than guessed at.
+ *
+ * ## `restrictKinds`
+ *
+ * A Departmental Lead reaches this same dialog from a report's record page,
+ * and the API restricts what they — like a self-service starter — may record
+ * to a resignation or a retirement (`offboarding/service.ts#create`). Pass
+ * `restrictKinds` so the picker only ever offers what the API would accept,
+ * rather than letting somebody choose "We let them go" and find out from a
+ * 403 after typing a reason.
  */
 export function StartExitDialog({
   open,
   onClose,
   onStarted,
+  restrictKinds = false,
   employeeId: fixedId,
   employeeName: fixedName,
 }: {
   open: boolean;
   onClose: () => void;
   onStarted: (exitId: string) => void;
+  restrictKinds?: boolean;
 } & Subject) {
   const router = useRouter();
   const toast = useToast();
@@ -164,7 +179,10 @@ export function StartExitDialog({
             value={kind}
             onChange={(e) => setKind(e.target.value as ExitKind)}
           >
-            {EXIT_KINDS.map((option) => (
+            {EXIT_KINDS.filter(
+              (option) =>
+                !restrictKinds || NON_HR_EXIT_KINDS.includes(option.value),
+            ).map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

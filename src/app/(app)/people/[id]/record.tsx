@@ -299,7 +299,11 @@ export function EmployeeRecord({
      `RecordHistory` already make on this page: a control that cannot work is
      worse present than absent. */
   const canEditRecords = useCan("EDIT_RECORDS");
-  const canRecordExit = canEditRecords;
+  /* The Departmental Lead half of the same door — `leadsDepartmentOf` on the
+     API. `canRecordExit` itself is derived below, once `currentDepartment` is
+     in scope: heading a department is a fact about this employee's own
+     department, not a bare permission. */
+  const holdsStartExitDepartment = useCan("START_EXIT_DEPARTMENT");
   /* Issuing a login is its own permission, deliberately split from editing a
      record — see the header of `modules/invites/router.ts`. */
   const canInvite = useCan("INVITE_STAFF");
@@ -370,6 +374,17 @@ export function EmployeeRecord({
   const currentDepartment = departments.flat.find(
     (d) => d.name === employee.department,
   );
+
+  /* Mirrors `leadsDepartmentOf` on the API exactly: `START_EXIT_DEPARTMENT`
+     plus actually heading *this* employee's own department — the same
+     permission-plus-relationship shape `canApproveAsManager` already uses on
+     the exit detail screen for the identical question about releasing a
+     report. A Departmental Lead reaches this door with no `EDIT_RECORDS` at
+     all, so `canRecordExit` has to be the union rather than a further
+     narrowing of it. */
+  const leadsThisDepartment =
+    holdsStartExitDepartment && currentDepartment?.headId === me;
+  const canRecordExit = canEditRecords || leadsThisDepartment;
 
   /* Same reasoning as `currentDepartment`, one field down: `Employee` carries
      the work location's name (`location`), not its id, so the picker below has
@@ -592,13 +607,14 @@ export function EmployeeRecord({
                 blue primary button on every employee record would read as the
                 page's suggestion.
 
-                `!isSelf`: this is the HR door onto somebody else's exit — a
-                kind picker that includes TERMINATION and DEATH_IN_SERVICE,
-                open to anyone holding EDIT_RECORDS. Viewing your own record
-                with that permission must not offer it about yourself; `Resign`
-                below is the one door self-service ever gets, the same "name
-                who can" rule `isSelf` already applies to documents and
-                appraisal history on this page. */}
+                `!isSelf`: this is the door onto somebody else's exit, for
+                whoever holds EDIT_RECORDS (the full kind picker, including
+                TERMINATION and DEATH_IN_SERVICE) or heads this employee's own
+                department (resignation or retirement only — `restrictKinds`
+                below). Viewing your own record with either must not offer it
+                about yourself; `Resign` below is the one door self-service
+                ever gets, the same "name who can" rule `isSelf` already
+                applies to documents and appraisal history on this page. */}
             {canRecordExit && !hasLeft && !isSelf && (
               <Button
                 variant="secondary"
@@ -1539,6 +1555,7 @@ export function EmployeeRecord({
         open={exitOpen}
         employeeId={employee.id}
         employeeName={name}
+        restrictKinds={!canEditRecords}
         onClose={() => setExitOpen(false)}
         onStarted={() => setExitOpen(false)}
       />
