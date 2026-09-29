@@ -16,6 +16,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  DescriptionList,
   Disclosure,
   EmptyState,
   Spinner,
@@ -26,6 +27,7 @@ import {
   dayLabel,
   dayOf,
   ratingWordsFrom,
+  weightLabel,
   type ApiGoal,
   type ApiPeerFeedback,
   type ApiReview,
@@ -42,10 +44,11 @@ import {
   useObjectiveApprovals,
   useRatingScale,
   useReviewsIWrote,
+  useScoringWeights,
 } from "@/lib/store/performance";
 import { AppraisersDialog } from "./appraiser-map";
 import { ManagerQuestionButton } from "./manager-question";
-import { PeriodStatus } from "./period-status";
+import { PeriodExceptionNotice, PeriodStatus } from "./period-status";
 import { ReviewFormModal } from "./review-form";
 import { StartPeriodButton } from "./start-period";
 
@@ -214,11 +217,11 @@ export function WhatNeedsYouTab({
    * answered.
    *
    * The other half of `toFinalise`, and it belongs in the other tab: once a
-   * rating is final the next move is not the appraiser's, it is the subject's —
-   * they acknowledge it or they formally dispute it, and until one of those
-   * happens the sign-off is open. That is the definition of waiting on somebody
-   * else, and it was the one thing genuinely of this person's that had nowhere
-   * on this screen to be.
+   * rating is final the next move is not the appraiser's — the subject
+   * acknowledges it, or HR records a dispute if they do not accept it, and
+   * until one of those happens the sign-off is open. That is the definition
+   * of waiting on somebody else, and it was the one thing genuinely of this
+   * person's that had nowhere on this screen to be.
    *
    * All three flags, never `!acknowledged` alone. Not acknowledged usually
    * means nobody has been asked yet, which is a third state and the common one
@@ -463,28 +466,28 @@ export function WhatNeedsYouTab({
        * two tiles. The period moved to the rail below, which says what stage it
        * is at rather than only naming it.
        */}
-      <Card>
-        <CardBody className="flex flex-col gap-1">
-          {waitingOnMe > 0 ? (
-            <>
-              <p className="flex flex-wrap items-baseline gap-2">
-                <span className="tabular text-h2 font-semibold text-ink">
-                  {waitingOnMe}
-                </span>
-                <span className="font-semibold text-ink">
-                  {waitingOnMe === 1 ? "thing needs you" : "things need you"}
-                </span>
-              </p>
-              <p className="text-body-sm text-muted">{needsYouLine}</p>
-            </>
-          ) : (
-            <>
-              <p className="font-semibold text-ink">Nothing needs you here</p>
-              <p className="text-body-sm text-muted">{needsYouLine}</p>
-            </>
-          )}
-        </CardBody>
-      </Card>
+      {/* Omitted rather than shown empty — Kene: "remove this from here, it is
+          taking too much space." When there is nothing to act on, this card
+          said so above tabs that say the identical thing a second time
+          ("Waiting on you", its own "nothing waiting" state) and, usually, a
+          third ("No appraisal period is running" on "This period"). A real
+          count is worth a card; a card whose only content is the absence of
+          one is furniture. */}
+      {waitingOnMe > 0 && (
+        <Card>
+          <CardBody className="flex flex-col gap-1">
+            <p className="flex flex-wrap items-baseline gap-2">
+              <span className="tabular text-h2 font-semibold text-ink">
+                {waitingOnMe}
+              </span>
+              <span className="font-semibold text-ink">
+                {waitingOnMe === 1 ? "thing needs you" : "things need you"}
+              </span>
+            </p>
+            <p className="text-body-sm text-muted">{needsYouLine}</p>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Switched off, and the way to switch it on. The one appraisal thing a
           company that said "no formal appraisals" is shown, because the answer
@@ -523,7 +526,7 @@ export function WhatNeedsYouTab({
         <Card>
           <CardHeader
             title="Your rating is final"
-            description="Read it, then acknowledge that you have seen it or say formally that you do not accept it. Acknowledging is not agreeing."
+            description="Read it, then acknowledge that you have seen it. If you do not accept it, say so to HR — recording a formal dispute is theirs to do, not yours. Acknowledging is not agreeing."
             action={
               <Badge
                 tone="accent"
@@ -576,7 +579,12 @@ export function WhatNeedsYouTab({
             <CardHeader
               title="This period"
               action={
-                openPeriod ? undefined : (
+                openPeriod ? (
+                  <PeriodExceptionNotice
+                    cycle={openPeriod}
+                    canSeeCompany={canSeeCompany}
+                  />
+                ) : (
                   <StartPeriodButton variant="accent" withIcon />
                 )
               }
@@ -670,10 +678,13 @@ export function WhatNeedsYouTab({
                     everybody else rather than zeroed — see `period-status.tsx`.
                     This card said which period was open and nothing about its
                     state, so "where is this up to" was two clicks from the screen
-                    that asked it. */}
+                    that asked it. The no-appraiser notice itself now sits in the
+                    card heading, beside "This period" — `showExceptions` stops
+                    it rendering a second time here. */}
                 <PeriodStatus
                   cycle={openPeriod}
                   canSeeCompany={canSeeCompany}
+                  showExceptions={false}
                 />
               </>
             )}
@@ -802,7 +813,7 @@ export function WhatNeedsYouTab({
                       review.finalisedAt
                         ? `Final on ${dayOf(review.finalisedAt)}. `
                         : ""
-                    }They either acknowledge it or formally dispute it, and the sign-off stays open until one of those.`}
+                    }They can acknowledge it. If they do not accept it, HR records a dispute — the sign-off stays open until one of those happens.`}
                     href={`/performance/reviews/${review.id}`}
                     action="Open it"
                   />
@@ -871,6 +882,23 @@ export function WhatNeedsYouTab({
        * rather than left exported with no importers — see the note in
        * `how-it-works.tsx` for why a spare copy is worse than none.
        */}
+
+      {/* A read-only summary, not the settings forms themselves — `weights-
+          form.tsx`/`scale-form.tsx` are two whole forms, not switches, and a
+          settings sub-form is what closed-by-default is for. Reading never
+          refuses offline (only saving does), so this needs no demo-mode
+          branch beyond the ordinary loading check. Gated on `scored` like its
+          neighbours below: a company with appraisals off has no composite
+          score for these weights to describe. */}
+      {scored && (
+        <Disclosure
+          title="How a mark is made"
+          hint="The weights behind a composite score, and what each point on the scale means."
+          level={2}
+        >
+          <ScoringSettingsBody canManage={canManagePeriods} />
+        </Disclosure>
+      )}
 
       {scored && (
         <Disclosure
@@ -1039,13 +1067,12 @@ export function WhatNeedsYouTab({
           task. `/performance/skills` shows them their own actual levels, which
           is the version of that question with an answer in it. */}
 
-      {opened && (
-        <ReviewFormModal
-          reviewId={opened}
-          onClose={() => setOpened(null)}
-          onDone={appraisals.reload}
-        />
-      )}
+      <ReviewFormModal
+        reviewId={opened}
+        open={opened !== null}
+        onClose={() => setOpened(null)}
+        onDone={appraisals.reload}
+      />
 
       {/* The same dialog the period screen uses, on the screen where the
           problem was noticed. One implementation of "who appraises this
@@ -1069,6 +1096,51 @@ export function WhatNeedsYouTab({
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * The weights and the scale, read-only, with a way to change them.
+ *
+ * Self-contained on purpose — calls both hooks itself rather than taking the
+ * scale `WhatNeedsYouTab` already holds as a prop, the same "each embedded
+ * piece owns its own hook" shape `OvertimeEnableSwitch` and the Attendance
+ * capability-bar switches already established. Not gated on
+ * `MANAGE_SETTINGS`: both hooks' own design intent is that everyone being
+ * scored can see what they are being scored against — only the outbound
+ * link's wording changes for somebody who can actually change it.
+ */
+function ScoringSettingsBody({ canManage }: { canManage: boolean }) {
+  const { weights, loading: weightsLoading } = useScoringWeights();
+  const { scale, loading: scaleLoading } = useRatingScale();
+
+  return (
+    <div className="flex flex-col gap-4">
+      {weightsLoading || scaleLoading || !weights ? (
+        <span className="flex items-center gap-2 text-body-sm text-muted">
+          <Spinner size="sm" />
+          Loading
+        </span>
+      ) : (
+        <>
+          <DescriptionList
+            layout="rows"
+            items={weights.rows.map((row) => ({
+              term: row.label,
+              value: weightLabel(row.weightBp),
+            }))}
+          />
+          <p className="text-body-sm text-muted">
+            {scale.levels
+              .map((level) => `${level.level} ${level.label}`)
+              .join(" · ")}
+          </p>
+        </>
+      )}
+      <ButtonLink size="sm" variant="secondary" href="/settings/performance">
+        {canManage ? "Manage scoring settings" : "See scoring settings"}
+      </ButtonLink>
+    </div>
+  );
+}
 
 /** Three names and a count, never a bare count. */
 function objectiveNames(goals: ApiGoal[]): string {

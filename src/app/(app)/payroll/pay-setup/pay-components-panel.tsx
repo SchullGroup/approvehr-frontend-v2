@@ -267,56 +267,104 @@ export function PayComponentsPanel({
             }
           />
         ) : (
-          <TableWrap caption="Allowances and deductions on this person's pay">
-            <THead>
-              <TH>Line</TH>
-              <TH>How it is worked out</TH>
-              <TH>What it does</TH>
-              <TH align="right">This month</TH>
-              <TH>
-                <span className="sr-only-focusable">Actions</span>
-              </TH>
-            </THead>
-            <TBody>
+          <>
+            <div className="hidden sm:block">
+              <TableWrap caption="Allowances and deductions on this person's pay">
+                <THead>
+                  <TH>Line</TH>
+                  <TH>How it is worked out</TH>
+                  <TH>What it does</TH>
+                  <TH align="right">This month</TH>
+                  <TH>
+                    <span className="sr-only-focusable">Actions</span>
+                  </TH>
+                </THead>
+                <TBody>
+                  {assignments.map((row) => {
+                    const chips = flagChips(row, settings.pension);
+                    const allowance = row.kind === "ALLOWANCE";
+                    return (
+                      <TR key={row.id}>
+                        <TDPrimary
+                          title={row.name}
+                          subtitle={
+                            row.effectiveTo
+                              ? `${shortDate(row.effectiveFrom)} to ${shortDate(row.effectiveTo)}`
+                              : `From ${shortDate(row.effectiveFrom)}, every month`
+                          }
+                        />
+                        <TD>
+                          <span className="text-body-sm text-body">
+                            {assignmentLine(row)}
+                          </span>
+                          {row.note && (
+                            <span className="mt-0.5 block text-meta text-muted">
+                              {row.note}
+                            </span>
+                          )}
+                        </TD>
+                        <TD>
+                          <span className="flex flex-wrap gap-1.5">
+                            {chips.map((chip) => (
+                              <span key={chip.label} title={chip.why}>
+                                <Badge
+                                  size="sm"
+                                  tone={chip.tone}
+                                  className="cursor-help"
+                                >
+                                  {chip.label}
+                                </Badge>
+                              </span>
+                            ))}
+                          </span>
+                        </TD>
+                        <TD align="right">
+                          <span
+                            className={cn(
+                              "tabular text-body-sm font-medium",
+                              allowance ? "text-ink" : "text-body",
+                            )}
+                          >
+                            {allowance
+                              ? signedMoney(row.resolvedKobo)
+                              : signedMoney(-row.resolvedKobo)}
+                          </span>
+                        </TD>
+                        <TD align="right">
+                          {lines.editable && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setRemoving(row)}
+                            >
+                              Stop it
+                            </Button>
+                          )}
+                        </TD>
+                      </TR>
+                    );
+                  })}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
               {assignments.map((row) => {
                 const chips = flagChips(row, settings.pension);
                 const allowance = row.kind === "ALLOWANCE";
                 return (
-                  <TR key={row.id}>
-                    <TDPrimary
-                      title={row.name}
-                      subtitle={
-                        row.effectiveTo
-                          ? `${shortDate(row.effectiveFrom)} to ${shortDate(row.effectiveTo)}`
-                          : `From ${shortDate(row.effectiveFrom)}, every month`
-                      }
-                    />
-                    <TD>
-                      <span className="text-body-sm text-body">
-                        {assignmentLine(row)}
-                      </span>
-                      {row.note && (
-                        <span className="mt-0.5 block text-meta text-muted">
-                          {row.note}
-                        </span>
-                      )}
-                    </TD>
-                    <TD>
-                      <span className="flex flex-wrap gap-1.5">
-                        {chips.map((chip) => (
-                          <span key={chip.label} title={chip.why}>
-                            <Badge
-                              size="sm"
-                              tone={chip.tone}
-                              className="cursor-help"
-                            >
-                              {chip.label}
-                            </Badge>
-                          </span>
-                        ))}
-                      </span>
-                    </TD>
-                    <TD align="right">
+                  <li key={row.id} className="flex flex-col gap-2 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-body-sm font-medium text-ink">
+                          {row.name}
+                        </p>
+                        <p className="mt-0.5 text-meta text-muted">
+                          {row.effectiveTo
+                            ? `${shortDate(row.effectiveFrom)} to ${shortDate(row.effectiveTo)}`
+                            : `From ${shortDate(row.effectiveFrom)}, every month`}
+                        </p>
+                      </div>
                       <span
                         className={cn(
                           "tabular text-body-sm font-medium",
@@ -327,59 +375,78 @@ export function PayComponentsPanel({
                           ? signedMoney(row.resolvedKobo)
                           : signedMoney(-row.resolvedKobo)}
                       </span>
-                    </TD>
-                    <TD align="right">
-                      {lines.editable && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setRemoving(row)}
-                        >
-                          Stop it
-                        </Button>
-                      )}
-                    </TD>
-                  </TR>
+                    </div>
+
+                    <p className="text-body-sm text-body">
+                      {assignmentLine(row)}
+                    </p>
+                    {row.note && (
+                      <p className="text-meta text-muted">{row.note}</p>
+                    )}
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {chips.map((chip) => (
+                        <span key={chip.label} title={chip.why}>
+                          <Badge
+                            size="sm"
+                            tone={chip.tone}
+                            className="cursor-help"
+                          >
+                            {chip.label}
+                          </Badge>
+                        </span>
+                      ))}
+                    </div>
+
+                    {lines.editable && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="self-start"
+                        onClick={() => setRemoving(row)}
+                      >
+                        Stop it
+                      </Button>
+                    )}
+                  </li>
                 );
               })}
-            </TBody>
-          </TableWrap>
+            </ul>
+          </>
         )}
       </CardBody>
 
-      {adding && (
-        <AddLineDialog
-          employeeId={employeeId}
-          onClose={() => setAdding(false)}
-          onSave={async (body) => {
-            try {
-              await lines.assign(body);
-              toast.push({ title: "Added to their pay", tone: "success" });
-              baseline.reload();
-              setAdding(false);
-            } catch (error) {
-              report(error);
-            }
-          }}
-        />
-      )}
+      <AddLineDialog
+        open={adding}
+        employeeId={employeeId}
+        onClose={() => setAdding(false)}
+        onSave={async (body) => {
+          try {
+            await lines.assign(body);
+            toast.push({ title: "Added to their pay", tone: "success" });
+            baseline.reload();
+            setAdding(false);
+          } catch (error) {
+            report(error);
+          }
+        }}
+      />
 
-      {removing && (
-        <RemoveLineDialog
-          employeeId={employeeId}
-          assignment={removing}
-          onClose={() => setRemoving(null)}
-          onConfirm={async () => {
-            try {
-              const result = await lines.remove(removing.id);
-              toast.push({ title: result.note, tone: "success" });
-              setRemoving(null);
-            } catch (error) {
-              report(error);
-            }
-          }}
-        />
-      )}
+      <RemoveLineDialog
+        employeeId={employeeId}
+        assignment={removing}
+        onClose={() => setRemoving(null)}
+        onConfirm={async () => {
+          if (!removing) return;
+          try {
+            const result = await lines.remove(removing.id);
+            toast.push({ title: result.note, tone: "success" });
+            setRemoving(null);
+          } catch (error) {
+            report(error);
+          }
+        }}
+      />
     </Card>
   );
 }
@@ -518,10 +585,12 @@ const EMPTY_DRAFT: AddDraft = {
  * would be a worse answer than not asking.
  */
 function AddLineDialog({
+  open,
   employeeId,
   onClose,
   onSave,
 }: {
+  open: boolean;
   employeeId: string;
   onClose: () => void;
   onSave: (body: AssignBody) => Promise<void>;
@@ -612,7 +681,7 @@ function AddLineDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="lg"
       title="Add to this person's pay"
@@ -836,21 +905,24 @@ function RemoveLineDialog({
   onConfirm,
 }: {
   employeeId: string;
-  assignment: ApiResolvedAssignment;
+  /* Nullable: `PayComponentsPanel` renders this unconditionally now and
+     passes whichever assignment is being stopped, or `null` when none is. */
+  assignment: ApiResolvedAssignment | null;
   onClose: () => void;
   onConfirm: () => Promise<void>;
 }) {
-  const preview = usePayPreview(employeeId, {
-    dropAssignmentId: assignment.id,
-  });
+  const preview = usePayPreview(
+    employeeId,
+    assignment ? { dropAssignmentId: assignment.id } : {},
+  );
   const [saving, setSaving] = useState(false);
 
   return (
     <Modal
-      open
+      open={assignment !== null}
       onClose={onClose}
       size="md"
-      title={`Stop ${assignment.name}?`}
+      title={assignment ? `Stop ${assignment.name}?` : "Stop this line?"}
       description="It ends at the end of last month, so the next run does not include it. Payslips that already show it are unchanged."
       footer={
         <>
@@ -860,6 +932,7 @@ function RemoveLineDialog({
           <Button
             variant="danger"
             loading={saving}
+            disabled={!assignment}
             onClick={() => {
               setSaving(true);
               void onConfirm().finally(() => setSaving(false));
@@ -871,19 +944,20 @@ function RemoveLineDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        {preview.available ? (
-          <ChangeEffect
-            change={preview.data?.change ?? null}
-            loading={preview.loading}
-          />
-        ) : (
-          <OfflineEffect
-            component={assignment}
-            amountKobo={
-              assignment.resolvedKobo === 0 ? null : -assignment.resolvedKobo
-            }
-          />
-        )}
+        {assignment &&
+          (preview.available ? (
+            <ChangeEffect
+              change={preview.data?.change ?? null}
+              loading={preview.loading}
+            />
+          ) : (
+            <OfflineEffect
+              component={assignment}
+              amountKobo={
+                assignment.resolvedKobo === 0 ? null : -assignment.resolvedKobo
+              }
+            />
+          ))}
 
         <LoadFailure
           subject="the effect on their pay"

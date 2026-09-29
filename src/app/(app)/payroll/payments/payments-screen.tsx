@@ -338,71 +338,153 @@ export function PaymentsScreen() {
               action={<ButtonLink href="/payroll">Go to payroll</ButtonLink>}
             />
           ) : (
-            <TableWrap
-              className="rounded-none border-0"
-              caption="Payments, newest first"
-            >
-              <THead>
-                <TH>Reference</TH>
-                <TH>Pays</TH>
-                <TH align="right">People</TH>
-                <TH align="right">Total</TH>
-                <TH>From</TH>
-                <TH>Status</TH>
-                <TH align="right">
-                  <span className="sr-only">Actions</span>
-                </TH>
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-none border-0"
+                  caption="Payments, newest first"
+                >
+                  <THead>
+                    <TH>Reference</TH>
+                    <TH>Pays</TH>
+                    <TH align="right">People</TH>
+                    <TH align="right">Total</TH>
+                    <TH>From</TH>
+                    <TH>Status</TH>
+                    <TH align="right">
+                      <span className="sr-only">Actions</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {list.batches.map((batch) => {
+                      const status = BATCH_STATUS[batch.status];
+                      return (
+                        <TR key={batch.id}>
+                          <TDPrimary
+                            title={
+                              <Link
+                                href={`/payroll/payments/${batch.id}`}
+                                className="hover:text-accent-text hover:underline underline-offset-4"
+                              >
+                                {batch.reference}
+                              </Link>
+                            }
+                            subtitle={batch.narration ?? undefined}
+                          />
+                          <TD>
+                            {batch.payDate ? longDate(batch.payDate) : "—"}
+                          </TD>
+                          <TD align="right" className="tabular">
+                            {batch.itemCount}
+                          </TD>
+                          <TD
+                            align="right"
+                            className="tabular font-medium text-ink"
+                          >
+                            <Money
+                              amount={naira(batch.computedTotalKobo)}
+                              decimals
+                            />
+                          </TD>
+                          <TD>
+                            <span className="text-body-sm">
+                              {batch.sourceBankName}
+                            </span>
+                            <span className="tabular mt-0.5 block text-meta text-muted">
+                              {batch.sourceAccountMasked}
+                            </span>
+                          </TD>
+                          <TD>
+                            <Badge tone={status.tone} size="sm" dot>
+                              {status.label}
+                            </Badge>
+                          </TD>
+                          <TD align="right">
+                            <div className="flex justify-end gap-2">
+                              {/* Still here, and it is not a leftover of the old
+                                  console: somebody who downloaded a file and lost
+                                  it needs it again, and the run it came from is
+                                  months back by then. `can.downloadFile` is the
+                                  server's own view of the state machine, so this
+                                  cannot offer what the endpoint would refuse. */}
+                              {batch.can.downloadFile && (
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  loading={downloading === batch.id}
+                                  onClick={() => void download(batch)}
+                                >
+                                  <ArrowDownToLine
+                                    aria-hidden="true"
+                                    className="size-3.5"
+                                  />
+                                  Bank file
+                                </Button>
+                              )}
+                              <ButtonLink
+                                href={`/payroll/payments/${batch.id}`}
+                                variant="ghost"
+                                size="sm"
+                              >
+                                Open
+                              </ButtonLink>
+                            </div>
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
                 {list.batches.map((batch) => {
                   const status = BATCH_STATUS[batch.status];
                   return (
-                    <TR key={batch.id}>
-                      <TDPrimary
-                        title={
+                    <li key={batch.id} className="flex flex-col gap-2 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
                           <Link
                             href={`/payroll/payments/${batch.id}`}
-                            className="hover:text-accent-text hover:underline underline-offset-4"
+                            className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
                           >
                             {batch.reference}
                           </Link>
-                        }
-                        subtitle={batch.narration ?? undefined}
-                      />
-                      <TD>{batch.payDate ? longDate(batch.payDate) : "—"}</TD>
-                      <TD align="right" className="tabular">
-                        {batch.itemCount}
-                      </TD>
-                      <TD
-                        align="right"
-                        className="tabular font-medium text-ink"
-                      >
-                        <Money
-                          amount={naira(batch.computedTotalKobo)}
-                          decimals
-                        />
-                      </TD>
-                      <TD>
-                        <span className="text-body-sm">
-                          {batch.sourceBankName}
+                          {batch.narration && (
+                            <p className="text-body-sm text-muted">
+                              {batch.narration}
+                            </p>
+                          )}
+                        </div>
+                        <span className="tabular shrink-0 font-medium text-ink">
+                          <Money
+                            amount={naira(batch.computedTotalKobo)}
+                            decimals
+                          />
                         </span>
-                        <span className="tabular mt-0.5 block text-meta text-muted">
-                          {batch.sourceAccountMasked}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                        <span>
+                          {batch.payDate ? longDate(batch.payDate) : "—"}
                         </span>
-                      </TD>
-                      <TD>
+                        <span className="tabular">
+                          {batch.itemCount}{" "}
+                          {batch.itemCount === 1 ? "person" : "people"}
+                        </span>
+                        <span>
+                          {batch.sourceBankName}{" "}
+                          <span className="tabular">
+                            {batch.sourceAccountMasked}
+                          </span>
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <Badge tone={status.tone} size="sm" dot>
                           {status.label}
                         </Badge>
-                      </TD>
-                      <TD align="right">
-                        <div className="flex justify-end gap-2">
-                          {/* Still here, and it is not a leftover of the old
-                              console: somebody who downloaded a file and lost
-                              it needs it again, and the run it came from is
-                              months back by then. `can.downloadFile` is the
-                              server's own view of the state machine, so this
-                              cannot offer what the endpoint would refuse. */}
+                        <div className="flex gap-2">
                           {batch.can.downloadFile && (
                             <Button
                               variant="secondary"
@@ -425,12 +507,12 @@ export function PaymentsScreen() {
                             Open
                           </ButtonLink>
                         </div>
-                      </TD>
-                    </TR>
+                      </div>
+                    </li>
                   );
                 })}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
         </Card>
 

@@ -3,11 +3,12 @@
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Plus } from "lucide-react";
+import { Check, Plus, UserRoundPlus } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Avatar,
   Badge,
+  type BadgeTone,
   Button,
   ButtonLink,
   Card,
@@ -18,6 +19,7 @@ import {
   ProgressMeter,
   Skeleton,
   Stat,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -41,11 +43,11 @@ import {
   type Employee,
 } from "@/lib/types";
 
-const OWNER: Record<string, { label: string; tone: string }> = {
-  employee: { label: "Employee", tone: "bg-info-soft text-info-text" },
-  hr: { label: "HR", tone: "bg-accent-soft text-accent-text" },
-  manager: { label: "Manager", tone: "bg-warning-soft text-warning-text" },
-  it: { label: "IT", tone: "bg-sunken text-muted" },
+const OWNER: Record<string, { label: string; tone: BadgeTone }> = {
+  employee: { label: "Employee", tone: "info" },
+  hr: { label: "HR", tone: "accent" },
+  manager: { label: "Manager", tone: "warning" },
+  it: { label: "IT", tone: "neutral" },
 };
 
 /**
@@ -233,6 +235,7 @@ export function OnboardingScreen() {
         ) : employees.length === 0 ? (
           <Card>
             <EmptyState
+              icon={<UserRoundPlus aria-hidden="true" />}
               title="Nobody is onboarding right now"
               description="Somebody appears here while their status is Onboarding, and drops off it the moment you finish them."
               action={
@@ -289,14 +292,7 @@ function StarterCard({
   return (
     <Card>
       <CardHeader
-        title={
-          <Link
-            href={`/people/${employee.id}`}
-            className="hover:text-accent-text hover:underline underline-offset-4"
-          >
-            {name}
-          </Link>
-        }
+        title={<TextLink href={`/people/${employee.id}`}>{name}</TextLink>}
         description={`${employee.jobTitle} · started ${employee.startDate}`}
         action={
           /* Only a missing bank account is actually "blocking" — a missing
@@ -426,12 +422,7 @@ function StepRow({
             {done ? (
               step.label
             ) : (
-              <Link
-                href={`/people/${employeeId}`}
-                className="hover:text-accent-text hover:underline underline-offset-4"
-              >
-                {step.label}
-              </Link>
+              <TextLink href={`/people/${employeeId}`}>{step.label}</TextLink>
             )}
             <span className="sr-only">
               {done
@@ -439,9 +430,9 @@ function StepRow({
                 : ", outstanding on their record"}
             </span>
           </span>
-          <span className="shrink-0 rounded-full bg-sunken px-1.5 py-0.5 text-meta font-medium text-muted">
+          <Badge tone="neutral" size="sm" className="shrink-0">
             Their record
-          </span>
+          </Badge>
         </>
       ) : (
         <>
@@ -460,14 +451,13 @@ function StepRow({
               </span>
             }
           />
-          <span
-            className={cn(
-              "shrink-0 rounded-full px-1.5 py-0.5 text-meta font-medium",
-              OWNER[step.owner]?.tone ?? "bg-sunken text-muted",
-            )}
+          <Badge
+            tone={OWNER[step.owner]?.tone ?? "neutral"}
+            size="sm"
+            className="shrink-0"
           >
             {OWNER[step.owner]?.label ?? step.owner}
-          </span>
+          </Badge>
         </>
       )}
       <span

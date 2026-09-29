@@ -24,12 +24,20 @@ export function SectionHeading({
   lead,
   align = "left",
   className,
+  as: Heading = "h2",
 }: {
   eyebrow?: string;
   title: string;
   lead?: string;
   align?: "left" | "center";
   className?: string;
+  /**
+   * Every caller but one is a section inside a page that already has its own
+   * `<h1>`, so `h2` is the right default. Pricing's hero is the one page with
+   * no heading of its own above this — pass `as="h1"` there, and nowhere else,
+   * or the page grows a second top-level heading instead of gaining its first.
+   */
+  as?: "h1" | "h2";
 }) {
   return (
     <div
@@ -44,7 +52,7 @@ export function SectionHeading({
           {eyebrow}
         </p>
       )}
-      <h2 className="text-h1 text-slate">{title}</h2>
+      <Heading className="text-h1 text-slate">{title}</Heading>
       {lead && <p className="mt-5 text-lead text-slate-muted">{lead}</p>}
     </div>
   );

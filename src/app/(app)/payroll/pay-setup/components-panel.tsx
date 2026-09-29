@@ -261,20 +261,46 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
               }
             />
           ) : (
-            <TableWrap caption={copy.caption}>
-              <THead>
-                <TH>Name</TH>
-                <TH>How much</TH>
-                <TH>What it does</TH>
-                <TH align="right">People</TH>
-                <TH>Status</TH>
-                <TH>
-                  <span className="sr-only-focusable">Actions</span>
-                </TH>
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap caption={copy.caption}>
+                  <THead>
+                    <TH>Name</TH>
+                    <TH>How much</TH>
+                    <TH>What it does</TH>
+                    <TH align="right">People</TH>
+                    <TH>Status</TH>
+                    <TH>
+                      <span className="sr-only-focusable">Actions</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {components.rows.map((row) => (
+                      <ComponentRow
+                        key={row.id}
+                        row={row}
+                        rates={settings.pension}
+                        editable={components.editable}
+                        onView={() => setViewing(row)}
+                        onEdit={() => setEditing(row)}
+                        onArchive={() => setArchiving(row)}
+                        onToggle={() =>
+                          void run(
+                            () => components.setActive(row.id, !row.active),
+                            row.active
+                              ? `${row.name} is off. The next run will not include it.`
+                              : `${row.name} is on again.`,
+                          )
+                        }
+                      />
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
                 {components.rows.map((row) => (
-                  <ComponentRow
+                  <ComponentCard
                     key={row.id}
                     row={row}
                     rates={settings.pension}
@@ -292,34 +318,33 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
                     }
                   />
                 ))}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
         </CardBody>
       </Card>
 
-      {(creating || editing) && (
-        <ComponentDialog
-          kind={kind}
-          component={editing}
-          rates={settings.pension}
-          onClose={() => {
-            setCreating(false);
-            setEditing(null);
-          }}
-          onCreate={async (body) => {
-            const ok = await run(
-              () => components.create(body),
-              `${body.name} added`,
-            );
-            if (ok) setCreating(false);
-          }}
-          onUpdate={async (id, body) => {
-            const ok = await run(() => components.update(id, body), "Saved");
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
+      <ComponentDialog
+        open={creating || editing !== null}
+        kind={kind}
+        component={editing}
+        rates={settings.pension}
+        onClose={() => {
+          setCreating(false);
+          setEditing(null);
+        }}
+        onCreate={async (body) => {
+          const ok = await run(
+            () => components.create(body),
+            `${body.name} added`,
+          );
+          if (ok) setCreating(false);
+        }}
+        onUpdate={async (id, body) => {
+          const ok = await run(() => components.update(id, body), "Saved");
+          if (ok) setEditing(null);
+        }}
+      />
 
       {archiving && (
         <ConfirmDialog
@@ -356,26 +381,25 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
         />
       )}
 
-      {viewing && (
-        <AssigneesDrawer
-          component={viewing}
-          rates={settings.pension}
-          editable={components.editable}
-          onClose={() => setViewing(null)}
-          onEdit={() => {
-            setEditing(viewing);
-            setViewing(null);
-          }}
-          onToggle={() =>
-            void run(
-              () => components.setActive(viewing.id, !viewing.active),
-              viewing.active
-                ? `${viewing.name} is off. The next run will not include it.`
-                : `${viewing.name} is on again.`,
-            ).then(() => setViewing(null))
-          }
-        />
-      )}
+      <AssigneesDrawer
+        component={viewing}
+        rates={settings.pension}
+        editable={components.editable}
+        onClose={() => setViewing(null)}
+        onEdit={() => {
+          setEditing(viewing);
+          setViewing(null);
+        }}
+        onToggle={() => {
+          if (!viewing) return;
+          void run(
+            () => components.setActive(viewing.id, !viewing.active),
+            viewing.active
+              ? `${viewing.name} is off. The next run will not include it.`
+              : `${viewing.name} is on again.`,
+          ).then(() => setViewing(null));
+        }}
+      />
     </div>
   );
 }
@@ -529,6 +553,115 @@ function ComponentRow({
   );
 }
 
+/** The mobile card for one component — the same facts and actions as
+ *  `ComponentRow`, opened by a tap on the card the way the row opens on a
+ *  click; each control below stops that from firing the same way the row's
+ *  own buttons do. */
+function ComponentCard({
+  row,
+  rates,
+  editable,
+  onView,
+  onEdit,
+  onArchive,
+  onToggle,
+}: {
+  row: ApiPayComponent;
+  rates: Rates;
+  editable: boolean;
+  onView: () => void;
+  onEdit: () => void;
+  onArchive: () => void;
+  onToggle: () => void;
+}) {
+  const chips = flagChips(row, rates);
+
+  return (
+    <li onClick={onView} className="flex flex-col gap-2 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="text-body-sm font-medium text-ink">
+              {row.name}
+            </span>
+            {row.isSystem && (
+              <span title="Built in. It can be turned off but not removed: payslips already point at it.">
+                <Badge size="sm" tone="neutral" className="cursor-help">
+                  Built in
+                </Badge>
+              </span>
+            )}
+          </span>
+          <p className="mt-0.5 text-meta text-muted">{row.code}</p>
+        </div>
+        {row.archived ? (
+          <Badge size="sm" tone="warning">
+            Archived
+          </Badge>
+        ) : row.active ? (
+          <Badge size="sm" tone="success" dot>
+            On
+          </Badge>
+        ) : (
+          <Badge size="sm" tone="neutral" dot>
+            Off
+          </Badge>
+        )}
+      </div>
+
+      <p className="text-body-sm text-body">{amountLine(row)}</p>
+
+      <div className="flex flex-wrap gap-1.5">
+        {chips.map((chip) => (
+          <span key={chip.label} title={chip.why}>
+            <Badge size="sm" tone={chip.tone} className="cursor-help">
+              {chip.label}
+            </Badge>
+          </span>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-body-sm text-muted">People</span>
+        <span className="tabular text-body-sm text-body">
+          {row.assignmentCount}
+        </span>
+      </div>
+
+      {editable && !row.archived && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="flex flex-wrap items-center gap-1"
+        >
+          <Button variant="ghost" size="sm" onClick={onToggle}>
+            {row.active ? "Turn off" : "Turn on"}
+          </Button>
+          <IconButton size="sm" label={`Edit ${row.name}`} onClick={onEdit}>
+            <Pencil aria-hidden="true" className="size-4" />
+          </IconButton>
+          {row.isSystem ? (
+            <IconButton
+              size="sm"
+              disabled
+              label="Built in. Turn it off instead of removing it"
+            >
+              <Trash2 aria-hidden="true" className="size-4" />
+            </IconButton>
+          ) : (
+            <IconButton
+              size="sm"
+              label={`Archive ${row.name}`}
+              onClick={onArchive}
+            >
+              <Trash2 aria-hidden="true" className="size-4" />
+            </IconButton>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
 /* ------------------------------------------------------------- who is on it */
 
 function AssigneesDrawer({
@@ -539,7 +672,9 @@ function AssigneesDrawer({
   onEdit,
   onToggle,
 }: {
-  component: ApiPayComponent;
+  /* Nullable: `ComponentsPanel` renders this unconditionally now and passes
+     whichever component is being viewed, or `null` when none is. */
+  component: ApiPayComponent | null;
   rates: Rates;
   editable: boolean;
   onClose: () => void;
@@ -547,13 +682,20 @@ function AssigneesDrawer({
   onToggle: () => void;
 }) {
   const { detail, loading, error, reload } = usePayComponentDetail(
-    component.id,
+    component?.id ?? null,
   );
   const assignMany = useAssignManyToComponent();
   const { employees } = useEmployeeDirectory({ pageSize: 200 });
   const toast = useToast();
-  const chips = flagChips(component, rates);
+  const chips = component ? flagChips(component, rates) : [];
+  /* Empty whenever `component` is null: `usePayComponentDetail` only ever
+     resolves `detail` for the id it was asked for (see its own comment), and
+     we ask it for `component?.id ?? null` below — so `basis` here is never
+     actually read on a null `component`. */
   const assignees = detail?.assignees ?? [];
+  const isSystem = component?.isSystem ?? false;
+  const isActive = component?.active ?? false;
+  const basis = component?.basis ?? "FIXED";
 
   const [assigning, setAssigning] = useState(false);
   const [assignBusy, setAssignBusy] = useState(false);
@@ -574,10 +716,10 @@ function AssigneesDrawer({
   return (
     <>
       <Drawer
-        open
+        open={component !== null}
         onClose={onClose}
-        title={component.name}
-        description={amountLine(component)}
+        title={component?.name ?? ""}
+        description={component ? amountLine(component) : undefined}
         footer={
           assignMany.editable || editable ? (
             <div className="flex flex-wrap items-center gap-2">
@@ -600,7 +742,7 @@ function AssigneesDrawer({
                     Edit
                   </Button>
                   <Button variant="secondary" size="sm" onClick={onToggle}>
-                    {component.active ? "Turn off" : "Turn on"}
+                    {isActive ? "Turn off" : "Turn on"}
                   </Button>
                 </>
               )}
@@ -629,7 +771,7 @@ function AssigneesDrawer({
             ))}
           </ul>
 
-          {component.isSystem && (
+          {isSystem && (
             <div className="rounded-lg border border-line bg-canvas p-4">
               <p className="text-body-sm font-semibold text-ink">
                 Built in, so it cannot be removed
@@ -645,7 +787,7 @@ function AssigneesDrawer({
                   className="mt-3"
                   onClick={onToggle}
                 >
-                  {component.active ? "Turn it off" : "Turn it on"}
+                  {isActive ? "Turn it off" : "Turn it on"}
                 </Button>
               )}
             </div>
@@ -692,7 +834,7 @@ function AssigneesDrawer({
                       {person.amountKobo !== null
                         ? money(person.amountKobo)
                         : person.rate !== null
-                          ? `${percent(person.rate)} of ${basisOf(component.basis)}`
+                          ? `${percent(person.rate)} of ${basisOf(basis)}`
                           : "Default"}
                     </span>
                   </li>
@@ -703,7 +845,7 @@ function AssigneesDrawer({
         </div>
       </Drawer>
 
-      {assigning && (
+      {assigning && component && (
         <AssignComponentToManyDialog
           component={component}
           candidates={candidates}
@@ -789,6 +931,7 @@ const BASIS_OPTIONS: { value: PayComponentBasis; label: string }[] = [
  * nobody checked is worse than a blank somebody has to fill in.
  */
 function ComponentDialog({
+  open,
   kind,
   component,
   rates,
@@ -796,6 +939,7 @@ function ComponentDialog({
   onCreate,
   onUpdate,
 }: {
+  open: boolean;
   kind: PayComponentKind;
   component: ApiPayComponent | null;
   rates: Rates;
@@ -893,7 +1037,7 @@ function ComponentDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title={

@@ -1176,6 +1176,92 @@ type ApiRunDetail = ApiRun & {
   batch: RunBatch | null;
 };
 
+type ApiBankRegister = {
+  run: {
+    id: string;
+    period: string;
+    status: PayrollRunStatus;
+    label: string | null;
+    organizationName: string;
+    preparedAt: string | null;
+    preparedBy: { firstName: string; lastName: string } | null;
+    approvedAt: string | null;
+    approvedBy: { firstName: string; lastName: string } | null;
+    paidAt: string | null;
+  };
+  employees: {
+    employeeNo: string;
+    firstName: string;
+    lastName: string;
+    bankName: string;
+    bankAccountNumber: string;
+    bankAccountName: string;
+    gross: string;
+    basic: string;
+    housing: string;
+    transport: string;
+    paye: string;
+    pensionEmployee: string;
+    pensionEmployer: string;
+    nhf: string;
+    otherDeductions: string;
+    net: string;
+    unpaidDays: number;
+  }[];
+  rowCount: number;
+  generatedAt: string;
+};
+
+/**
+ * Every calculated figure on a run, joined with unmasked bank details — a
+ * document a company can hand straight to their bank, as an alternative to
+ * paying through the wallet. See the API's own doc comment on
+ * `payroll.bankRegister` for why this deliberately includes what
+ * `payslips.csv` excludes.
+ *
+ * Every money field arrives already formatted (`"50000.00"`, no symbol) — the
+ * same string the API's own CSV exports use — so it can go straight into an
+ * `.xlsx` cell with no further conversion. Read these figures as text, never
+ * through `koboFromDecimal`.
+ */
+export type BankRegister = {
+  run: {
+    id: string;
+    period: string;
+    status: PayrollRunStatus;
+    label: string | null;
+    organizationName: string;
+    preparedAt: string | null;
+    preparedByName: string | null;
+    approvedAt: string | null;
+    approvedByName: string | null;
+    paidAt: string | null;
+  };
+  employees: ApiBankRegister["employees"];
+  rowCount: number;
+  generatedAt: string;
+};
+
+function toBankRegister(row: ApiBankRegister): BankRegister {
+  return {
+    run: {
+      id: row.run.id,
+      period: periodKey(row.run.period),
+      status: row.run.status,
+      label: row.run.label,
+      organizationName: row.run.organizationName,
+      preparedAt: row.run.preparedAt,
+      preparedByName: nameOf(row.run.preparedBy),
+      approvedAt: row.run.approvedAt,
+      approvedByName: nameOf(row.run.approvedBy),
+      paidAt: row.run.paidAt,
+    },
+    employees: row.employees,
+    rowCount: row.rowCount,
+    generatedAt: row.generatedAt,
+  };
+}
+
 /** "First Last", or null — for the who-did-this pairs above. */
 function nameOf(
   who: { firstName: string; lastName: string } | null | undefined,
@@ -1378,6 +1464,22 @@ export const payrollApi = {
       ...(row.funds ? { funds: row.funds } : {}),
       batch: row.batch ?? null,
     };
+  },
+
+  /**
+   * A bank-actionable register for a run that has been prepared: every
+   * calculated payslip figure joined with unmasked bank details, for handing
+   * straight to a bank. See `BankRegister`'s own doc comment.
+   */
+  bankRegister: async (
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<BankRegister> => {
+    const row = await request<ApiBankRegister>(
+      `/payroll/runs/${id}/bank-register`,
+      { ...(signal ? { signal } : {}) },
+    );
+    return toBankRegister(row);
   },
 
   /**

@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { Check, ThumbsDown } from "lucide-react";
+import { Check, ThumbsDown, TriangleAlert } from "lucide-react";
 import {
   Badge,
   Button,
@@ -13,6 +12,7 @@ import {
   EmptyState,
   Money,
   Skeleton,
+  TextLink,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { offerLetter } from "@/lib/api/exports";
@@ -44,6 +44,7 @@ export function RealApprovals() {
     return (
       <Card>
         <EmptyState
+          icon={<TriangleAlert aria-hidden="true" />}
           title="Could not load offers"
           description={error.message}
           action={
@@ -135,12 +136,9 @@ function RealOfferCard({
     <Card>
       <CardHeader
         title={
-          <Link
-            href={`/hiring/candidates/${application.id}`}
-            className="hover:text-accent-text hover:underline underline-offset-4"
-          >
+          <TextLink href={`/hiring/candidates/${application.id}`}>
             {application.candidateName}
-          </Link>
+          </TextLink>
         }
         description={`${application.requisitionJobTitle} · ${application.requisitionReference}`}
         action={
@@ -225,12 +223,12 @@ function RealOfferCard({
               Decline
             </Button>
           )}
-          <Link
+          <TextLink
             href={`/hiring/candidates/${application.id}`}
-            className="ml-auto text-body-sm text-accent-text hover:underline underline-offset-4"
+            className="ml-auto text-body-sm"
           >
             Read the full record
-          </Link>
+          </TextLink>
         </div>
       </CardBody>
     </Card>

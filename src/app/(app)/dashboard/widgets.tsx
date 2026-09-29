@@ -484,7 +484,7 @@ const HeadcountTrend: WidgetComponent = ({ reports, reportsLoading }) => {
   return (
     <Panel
       title="Headcount over time"
-      description="From real start and end dates. Nothing here is a snapshot or an estimate."
+      description="From real start and end dates."
     >
       <AreaChart
         points={trend.map((row) => ({

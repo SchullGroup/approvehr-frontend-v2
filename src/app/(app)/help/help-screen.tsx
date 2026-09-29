@@ -2,14 +2,7 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  AlertTriangle,
-  Inbox,
-  LifeBuoy,
-  Search,
-  Send,
-  UserPlus,
-} from "lucide-react";
+import { Inbox, LifeBuoy, Search, Send, UserPlus } from "lucide-react";
 import {
   Avatar,
   Badge,
@@ -19,6 +12,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Disclosure,
   EmptyState,
   Field,
   Input,
@@ -38,6 +32,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -57,6 +52,7 @@ import {
 import { PRIORITY, STATUS, TicketClockBadge } from "./ticket-labels";
 import { TicketThread } from "./ticket-thread";
 import { KbSearch } from "@/app/(app)/help/kb/kb-search";
+import { CategoriesAndSlaPanel } from "@/app/(app)/settings/helpdesk/helpdesk-screen";
 
 /**
  * `/help` — one route, two readers.
@@ -127,6 +123,10 @@ function QueueView() {
   const { categories, workingDay } = useRaiseTicket();
   const list = useTickets({ scope, view, q, categoryId }, bump);
   const pulse = useHelpdeskPulse(true, bump);
+  /* Narrower than `EDIT_RECORDS`, which is what admits somebody to this whole
+     view — a manager who can triage tickets may still lack the permission to
+     change what a category or a reply-time promise means for everybody. */
+  const canManageCatalogue = useCan("MANAGE_SETTINGS");
 
   const refresh = () => setBump((n) => n + 1);
 
@@ -224,25 +224,25 @@ function QueueView() {
         )}
 
         {/*
-          A count and a button, not a paragraph. The number is the whole point
-          and pressing it filters the queue down to exactly those tickets.
+          A line, not a panel. A broken reply-time promise is a real failure —
+          `danger` still means that — but it is a count sitting in the queue
+          below, not a decision to make right here. See `NoticeLine`.
         */}
         {pulse.overdue > 0 && (
-          <Callout
-            tone="danger"
-            title={`${pulse.overdue} ${
-              pulse.overdue === 1 ? "person has" : "people have"
-            } had no reply in the time you promised`}
-            icon={<AlertTriangle aria-hidden="true" />}
-          >
-            <Button
-              variant="secondary"
-              size="sm"
+          <NoticeLine tone="danger">
+            <span>
+              {pulse.overdue === 1
+                ? "1 person has had no reply in the time you promised"
+                : `${pulse.overdue} people have had no reply in the time you promised`}
+            </span>
+            <button
+              type="button"
+              className={NOTICE_LINK}
               onClick={() => setChoice("queue:overdue")}
             >
               Show me those
-            </Button>
-          </Callout>
+            </button>
+          </NoticeLine>
         )}
 
         <Card>
@@ -317,23 +317,44 @@ function QueueView() {
             totalPages={list.totalPages}
           />
         </Card>
+
+        {/* Closed by default, and omitted rather than shown disabled for
+            anybody without `MANAGE_SETTINGS` — the same "each embedded piece
+            owns its own hook" shape the rest of this session's module-
+            embedded settings work already established. `CategoriesAndSlaPanel`
+            is the exact same component `/settings/helpdesk` renders; imported
+            here rather than reimplemented, so raising, editing or switching
+            off a category never means leaving the queue. */}
+        {canManageCatalogue && (
+          <Disclosure
+            title="Categories & reply targets"
+            hint="What a request can be about, and how quickly you have promised to answer — switched on, off, or added to, without leaving the queue."
+          >
+            <div className="flex flex-col gap-4">
+              <CategoriesAndSlaPanel />
+            </div>
+          </Disclosure>
+        )}
       </PageBody>
 
-      {openId !== null && (
-        <TicketThread
-          id={openId}
-          onClose={() => setOpenId(null)}
-          onChanged={refresh}
-          minutesPerDay={workingDay.minutesPerDay}
-        />
-      )}
+      {/* Always mounted: `TicketThread`'s own `Drawer` decides whether to
+          render, from the `open` prop passed here. Unmounting this whenever
+          `openId` goes back to null would remove the Drawer before it could
+          play its close animation — the same reasoning applies to
+          `RaiseRequestModal` below. */}
+      <TicketThread
+        open={openId !== null}
+        id={openId}
+        onClose={() => setOpenId(null)}
+        onChanged={refresh}
+        minutesPerDay={workingDay.minutesPerDay}
+      />
 
-      {raising && (
-        <RaiseRequestModal
-          onClose={() => setRaising(false)}
-          onRaised={refresh}
-        />
-      )}
+      <RaiseRequestModal
+        open={raising}
+        onClose={() => setRaising(false)}
+        onRaised={refresh}
+      />
     </>
   );
 }
@@ -404,13 +425,13 @@ function MyRequestsView() {
             onOpen={setOpenId}
             emptyTitle={
               view === "resolved"
-                ? "Nothing sorted yet"
-                : "You have not asked anything"
+                ? "No resolved requests yet"
+                : "No requests yet"
             }
             emptyDescription={
               view === "resolved"
-                ? "Anything HR closes off shows up here with what they did about it."
-                : "Ask a question and it lands with whoever handles that kind of thing."
+                ? "Closed requests appear here with how they were resolved."
+                : "Submit a request and it will be routed to the right team."
             }
             emptyAction={
               view === "open" ? (
@@ -434,21 +455,19 @@ function MyRequestsView() {
         </Card>
       </PageBody>
 
-      {openId !== null && (
-        <TicketThread
-          id={openId}
-          onClose={() => setOpenId(null)}
-          onChanged={() => setBump((n) => n + 1)}
-          minutesPerDay={workingDay.minutesPerDay}
-        />
-      )}
+      <TicketThread
+        open={openId !== null}
+        id={openId}
+        onClose={() => setOpenId(null)}
+        onChanged={() => setBump((n) => n + 1)}
+        minutesPerDay={workingDay.minutesPerDay}
+      />
 
-      {raising && (
-        <RaiseRequestModal
-          onClose={() => setRaising(false)}
-          onRaised={() => setBump((n) => n + 1)}
-        />
-      )}
+      <RaiseRequestModal
+        open={raising}
+        onClose={() => setRaising(false)}
+        onRaised={() => setBump((n) => n + 1)}
+      />
     </>
   );
 }
@@ -513,104 +532,189 @@ function TicketTable({
   }
 
   return (
-    <TableWrap
-      className="rounded-none border-0 border-t"
-      caption="Requests, soonest promise first"
-    >
-      <THead>
-        <TH>Request</TH>
-        {triage && <TH>Raised by</TH>}
-        <TH>Category</TH>
-        <TH>Urgency</TH>
-        <TH>Waiting</TH>
-        {triage && <TH>Who has it</TH>}
-        <TH>Where it is up to</TH>
-      </THead>
-      <TBody>
+    <>
+      {/* Up to seven columns for a manager's queue — request, requester,
+          category, urgency, waiting, assignee, status — under 375px instead
+          becomes a card per request. Same click-opens-the-thread behaviour,
+          same badges, same `TicketClockBadge`; only the row becomes a card. */}
+      <div className="hidden sm:block">
+        <TableWrap
+          className="rounded-none border-0 border-t"
+          caption="Requests, soonest promise first"
+        >
+          <THead>
+            <TH>Request</TH>
+            {triage && <TH>Raised by</TH>}
+            <TH>Category</TH>
+            <TH>Urgency</TH>
+            <TH>Waiting</TH>
+            {triage && <TH>Who has it</TH>}
+            <TH>Where it is up to</TH>
+          </THead>
+          <TBody>
+            {tickets.map((ticket) => {
+              const late =
+                ticketClock(ticket, minutesPerDay).state === "overdue";
+              return (
+                <TR
+                  key={ticket.id}
+                  interactive
+                  onClick={() => onOpen(ticket.id)}
+                  className={late ? "bg-danger-soft" : undefined}
+                >
+                  <TDPrimary
+                    title={
+                      /* A button, not only a clickable row. A `tr` with an onClick
+                         is unreachable by keyboard and absent from the
+                         accessibility tree — the row click stays a convenience for
+                         a mouse, and this is the control that opens the thread. */
+                      <button
+                        type="button"
+                        className="text-left font-medium text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpen(ticket.id);
+                        }}
+                      >
+                        {ticket.subject}
+                      </button>
+                    }
+                    subtitle={`${ticket.reference} · ${ticket.commentCount} message${
+                      ticket.commentCount === 1 ? "" : "s"
+                    }`}
+                  />
+                  {triage && (
+                    <TD>
+                      {ticket.requester ? (
+                        <span className="flex items-center gap-2">
+                          <Avatar name={ticket.requester.name} size="xs" />
+                          <span className="truncate">
+                            {ticket.requester.name}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted">Not recorded</span>
+                      )}
+                    </TD>
+                  )}
+                  <TD>
+                    <Badge tone="neutral" size="sm">
+                      {ticket.categoryName ?? ticket.category}
+                    </Badge>
+                  </TD>
+                  <TD>
+                    <Badge tone={PRIORITY[ticket.priority].tone} size="sm">
+                      {PRIORITY[ticket.priority].label}
+                    </Badge>
+                  </TD>
+                  <TD>
+                    <TicketClockBadge
+                      ticket={ticket}
+                      minutesPerDay={minutesPerDay}
+                      detail={triage}
+                    />
+                  </TD>
+                  {triage && (
+                    <TD>
+                      {ticket.assignee ? (
+                        ticket.assignee.name
+                      ) : (
+                        <Badge
+                          tone="warning"
+                          size="sm"
+                          icon={<UserPlus aria-hidden="true" />}
+                        >
+                          Nobody yet
+                        </Badge>
+                      )}
+                    </TD>
+                  )}
+                  <TD>
+                    <Badge tone={STATUS[ticket.status].tone} size="sm" dot>
+                      {STATUS[ticket.status].label}
+                    </Badge>
+                  </TD>
+                </TR>
+              );
+            })}
+          </TBody>
+        </TableWrap>
+      </div>
+
+      <ul className="divide-y divide-line border-t border-line sm:hidden">
         {tickets.map((ticket) => {
           const late = ticketClock(ticket, minutesPerDay).state === "overdue";
           return (
-            <TR
+            <li
               key={ticket.id}
-              interactive
               onClick={() => onOpen(ticket.id)}
-              className={late ? "bg-danger-soft" : undefined}
+              className={`flex flex-col gap-2 p-4 ${late ? "bg-danger-soft" : ""}`}
             >
-              <TDPrimary
-                title={
-                  /* A button, not only a clickable row. A `tr` with an onClick
-                     is unreachable by keyboard and absent from the
-                     accessibility tree — the row click stays a convenience for
-                     a mouse, and this is the control that opens the thread. */
-                  <button
-                    type="button"
-                    className="text-left font-medium text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onOpen(ticket.id);
-                    }}
-                  >
-                    {ticket.subject}
-                  </button>
-                }
-                subtitle={`${ticket.reference} · ${ticket.commentCount} message${
-                  ticket.commentCount === 1 ? "" : "s"
-                }`}
-              />
-              {triage && (
-                <TD>
-                  {ticket.requester ? (
-                    <span className="flex items-center gap-2">
-                      <Avatar name={ticket.requester.name} size="xs" />
-                      <span className="truncate">{ticket.requester.name}</span>
-                    </span>
-                  ) : (
-                    <span className="text-muted">Not recorded</span>
-                  )}
-                </TD>
-              )}
-              <TD>
+              <button
+                type="button"
+                className="text-left font-medium text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpen(ticket.id);
+                }}
+              >
+                {ticket.subject}
+              </button>
+              <p className="text-body-sm text-muted">
+                {ticket.reference} · {ticket.commentCount} message
+                {ticket.commentCount === 1 ? "" : "s"}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-1.5">
                 <Badge tone="neutral" size="sm">
                   {ticket.categoryName ?? ticket.category}
                 </Badge>
-              </TD>
-              <TD>
                 <Badge tone={PRIORITY[ticket.priority].tone} size="sm">
                   {PRIORITY[ticket.priority].label}
                 </Badge>
-              </TD>
-              <TD>
-                <TicketClockBadge
-                  ticket={ticket}
-                  minutesPerDay={minutesPerDay}
-                  detail={triage}
-                />
-              </TD>
-              {triage && (
-                <TD>
-                  {ticket.assignee ? (
-                    ticket.assignee.name
-                  ) : (
-                    <Badge
-                      tone="warning"
-                      size="sm"
-                      icon={<UserPlus aria-hidden="true" />}
-                    >
-                      Nobody yet
-                    </Badge>
-                  )}
-                </TD>
-              )}
-              <TD>
                 <Badge tone={STATUS[ticket.status].tone} size="sm" dot>
                   {STATUS[ticket.status].label}
                 </Badge>
-              </TD>
-            </TR>
+              </div>
+
+              <TicketClockBadge
+                ticket={ticket}
+                minutesPerDay={minutesPerDay}
+                detail={triage}
+              />
+
+              {triage && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body-sm text-muted">
+                  <span className="flex items-center gap-1.5">
+                    {ticket.requester ? (
+                      <>
+                        <Avatar name={ticket.requester.name} size="xs" />
+                        {ticket.requester.name}
+                      </>
+                    ) : (
+                      "Not recorded"
+                    )}
+                  </span>
+                  <span>
+                    {ticket.assignee ? (
+                      ticket.assignee.name
+                    ) : (
+                      <Badge
+                        tone="warning"
+                        size="sm"
+                        icon={<UserPlus aria-hidden="true" />}
+                      >
+                        Nobody yet
+                      </Badge>
+                    )}
+                  </span>
+                </div>
+              )}
+            </li>
           );
         })}
-      </TBody>
-    </TableWrap>
+      </ul>
+    </>
   );
 }
 
@@ -661,9 +765,11 @@ function Pager({
  * is not late by Monday.
  */
 function RaiseRequestModal({
+  open,
   onClose,
   onRaised,
 }: {
+  open: boolean;
   onClose: () => void;
   onRaised: () => void;
 }) {
@@ -739,7 +845,7 @@ function RaiseRequestModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Get help"
       description="Three things and it is on somebody's desk."

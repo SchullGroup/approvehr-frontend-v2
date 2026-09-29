@@ -716,112 +716,114 @@ export function KpisTab({
         )}
       </Card>
 
-      {creating && (
-        <NewKpiDialog
-          parentId={creating.parentId}
-          parentTitle={
-            creating.parentId
-              ? kpis.goals.find((goal) => goal.id === creating.parentId)?.title
-              : undefined
-          }
-          onClose={() => setCreating(null)}
-          onCreate={async (body) => {
-            const ok = await run(() => mutations.createGoal(body), "KPI added");
-            if (ok) setCreating(null);
-          }}
-        />
-      )}
+      <NewKpiDialog
+        open={creating !== null}
+        parentId={creating?.parentId}
+        parentTitle={
+          creating?.parentId
+            ? kpis.goals.find((goal) => goal.id === creating.parentId)?.title
+            : undefined
+        }
+        onClose={() => setCreating(null)}
+        onCreate={async (body) => {
+          const ok = await run(() => mutations.createGoal(body), "KPI added");
+          if (ok) setCreating(null);
+        }}
+      />
 
-      {assigning && (
-        <AssignKpiDialog
-          parent={{
-            id: assigning.id,
-            title: assigning.title,
-            departmentId: assigning.departmentId,
-            dueQuarter: assigning.dueQuarter,
-          }}
-          onClose={() => setAssigning(null)}
-          onAssign={async (parentId, body) => {
-            const result = await mutations.assignObjective(parentId, body);
-            /* The count, not the intent. Somebody who picked eight and saw six
-               appear is owed the two names rather than a tick — and "already
-               had it" is a perfectly good outcome, so it is not an error. */
-            toast.push({
-              title:
-                result.created.length === 1
-                  ? "1 KPI assigned"
-                  : `${result.created.length} KPIs assigned`,
-              tone: "success",
-              ...(result.alreadyHad.length > 0
-                ? {
-                    detail: `${result.alreadyHad
-                      .map((one) => one.name)
-                      .join(", ")} already had it.`,
-                  }
-                : {}),
-            });
-            kpis.reload();
-            setAssigning(null);
-            return result;
-          }}
-        />
-      )}
+      <AssignKpiDialog
+        open={assigning !== null}
+        parent={
+          assigning
+            ? {
+                id: assigning.id,
+                title: assigning.title,
+                departmentId: assigning.departmentId,
+                dueQuarter: assigning.dueQuarter,
+              }
+            : null
+        }
+        onClose={() => setAssigning(null)}
+        onAssign={async (parentId, body) => {
+          const result = await mutations.assignObjective(parentId, body);
+          /* The count, not the intent. Somebody who picked eight and saw six
+             appear is owed the two names rather than a tick — and "already
+             had it" is a perfectly good outcome, so it is not an error. */
+          toast.push({
+            title:
+              result.created.length === 1
+                ? "1 KPI assigned"
+                : `${result.created.length} KPIs assigned`,
+            tone: "success",
+            ...(result.alreadyHad.length > 0
+              ? {
+                  detail: `${result.alreadyHad
+                    .map((one) => one.name)
+                    .join(", ")} already had it.`,
+                }
+              : {}),
+          });
+          kpis.reload();
+          setAssigning(null);
+          return result;
+        }}
+      />
 
-      {addingTo && (
-        <AddMeasureDialog
-          goalTitle={addingTo.title}
-          onClose={() => setAddingTo(null)}
-          onAdd={async (body) => {
-            const ok = await run(
-              () => mutations.addKeyResult(addingTo.id, body),
-              "Measure added",
-            );
-            if (ok) setAddingTo(null);
-          }}
-        />
-      )}
+      <AddMeasureDialog
+        open={addingTo !== null}
+        goalTitle={addingTo?.title ?? null}
+        onClose={() => setAddingTo(null)}
+        onAdd={async (body) => {
+          if (!addingTo) return;
+          const ok = await run(
+            () => mutations.addKeyResult(addingTo.id, body),
+            "Measure added",
+          );
+          if (ok) setAddingTo(null);
+        }}
+      />
 
-      {stopping && (
-        <StopKpiDialog
-          goalTitle={stopping.title}
-          onClose={() => setStopping(null)}
-          onStop={async (reason) => {
-            /* `action.run` rather than the `run` wrapper, for `notice`: the
-               API returns a sentence saying what it could not do —
-               "Recorded as off track. Goal status has no separate cancelled
-               yet." — and nothing was showing it. So the card afterwards read
-               "Agreed · Off track", indistinguishable from an objective that
-               is merely going badly, with no account of the difference. The
-               server explaining its own limitation is worth more than
-               silence; the limitation itself is BE-35. */
-            const outcome = await action.run(
-              () => mutations.cancelGoal(stopping.id, reason),
-              {
-                success: `"${stopping.title}" stopped`,
-                subject: "the objective",
-                notice: (goal) => goal.note,
-                onDone: kpis.reload,
-              },
-            );
-            if (outcome.ok) setStopping(null);
-          }}
-        />
-      )}
+      <StopKpiDialog
+        open={stopping !== null}
+        goalTitle={stopping?.title ?? null}
+        onClose={() => setStopping(null)}
+        onStop={async (reason) => {
+          if (!stopping) return;
+          /* `action.run` rather than the `run` wrapper, for `notice`: the
+             API returns a sentence saying what it could not do —
+             "Recorded as off track. Goal status has no separate cancelled
+             yet." — and nothing was showing it. So the card afterwards read
+             "Agreed · Off track", indistinguishable from an objective that
+             is merely going badly, with no account of the difference. The
+             server explaining its own limitation is worth more than
+             silence; the limitation itself is BE-35. */
+          const outcome = await action.run(
+            () => mutations.cancelGoal(stopping.id, reason),
+            {
+              success: `"${stopping.title}" stopped`,
+              subject: "the objective",
+              notice: (goal) => goal.note,
+              onDone: kpis.reload,
+            },
+          );
+          if (outcome.ok) setStopping(null);
+        }}
+      />
 
-      {reopening && (
-        <ApprovalReasonDialog
-          act="revise"
-          goalTitle={reopening.title}
-          onClose={() => setReopening(null)}
-          onConfirm={async (reason) => {
-            const ok = await run(
-              () => objectives.revise(reopening.id, reason),
-              `"${reopening.title}" reopened: it has to be agreed again`,
-            );
-            if (ok) setReopening(null);
-          }}
-        />
-      )}
+      <ApprovalReasonDialog
+        act={reopening ? "revise" : null}
+        goalTitle={reopening?.title ?? null}
+        open={reopening !== null}
+        onClose={() => setReopening(null)}
+        onConfirm={async (reason) => {
+          if (!reopening) return;
+          const ok = await run(
+            () => objectives.revise(reopening.id, reason),
+            `"${reopening.title}" reopened: it has to be agreed again`,
+          );
+          if (ok) setReopening(null);
+        }}
+      />
 
       <ConfirmDialog
         open={sending !== null}

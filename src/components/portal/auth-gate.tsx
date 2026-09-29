@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { ArrowRight, Info, Loader2, WifiOff } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -14,6 +13,7 @@ import {
   Field,
   Input,
   Spinner,
+  TextLink,
 } from "@/components/ui";
 import { AuthShell } from "@/components/portal/auth-shell";
 import { PasswordField } from "@/components/portal/password-field";
@@ -216,12 +216,12 @@ function SignIn() {
                 Under the field rather than beside the label: this is the
                 thing you look for *after* typing the wrong password, which
                 is the moment your eye is at the bottom of the form. */}
-            <Link
+            <TextLink
               href="/forgot-password"
-              className="-mt-1 self-start text-body-sm text-muted underline-offset-4 hover:text-accent-text hover:underline"
+              className="-mt-1 self-start text-body-sm"
             >
               Forgot your password?
-            </Link>
+            </TextLink>
 
             <Button
               variant="accent"
@@ -345,13 +345,7 @@ function SignIn() {
           nothing to register against either way. */}
       {(DEMO_ENABLED ? reachable !== null : reachable !== false) && (
         <p className="mt-8 border-t border-line pt-6 text-body-sm text-muted">
-          New company?{" "}
-          <Link
-            href="/register"
-            className="font-medium text-accent-text hover:underline underline-offset-4"
-          >
-            Create an account
-          </Link>
+          New company? <TextLink href="/register">Create an account</TextLink>
         </p>
       )}
     </AuthShell>

@@ -407,21 +407,20 @@ export function PayPanel({
         )}
       </CardBody>
 
-      {recording && (
-        <RecordPaidDialog
-          batchId={batch.id}
-          reference={batch.reference}
-          amountKobo={run.netKobo}
-          people={paidPeopleLabel(run)}
-          onClose={() => {
-            setRecording(false);
-          }}
-          onRecorded={() => {
-            setRecording(false);
-            onChanged();
-          }}
-        />
-      )}
+      <RecordPaidDialog
+        open={recording}
+        batchId={batch.id}
+        reference={batch.reference}
+        amountKobo={run.netKobo}
+        people={paidPeopleLabel(run)}
+        onClose={() => {
+          setRecording(false);
+        }}
+        onRecorded={() => {
+          setRecording(false);
+          onChanged();
+        }}
+      />
     </Card>
   );
 }
