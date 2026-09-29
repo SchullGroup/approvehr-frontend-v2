@@ -12,6 +12,7 @@ import {
   helpdeskApi,
   WORKING_DAY_FALLBACK,
   type ApiPerson,
+  type ApiSlaPolicy,
   type ApiTicket,
   type ApiTicketCategory,
   type ApiTicketComment,
@@ -1165,6 +1166,62 @@ export function useRaiseTicket() {
     error: isConnected ? state.error : null,
     raise,
   };
+}
+
+/* --------------------------------------------------------------- the catalogue */
+
+/**
+ * Every category and reply-target policy, active and switched off alike.
+ *
+ * Extracted from `HelpdeskSettingsScreen`'s own inline fetch so
+ * `CategoriesAndSlaPanel` (`settings/helpdesk/helpdesk-screen.tsx`) can be
+ * mounted a second time, inside the ticket queue, without a second copy of
+ * this request. `useRaiseTicket` above is the wrong hook to share for this —
+ * it reads active-only categories and has no SLA-editing shape at all.
+ *
+ * Deliberately refuses offline rather than falling back to a demo list, unlike
+ * every sibling hook in this file. A category and its reply-time policy decide
+ * where a real ticket lands and when it is judged late; one kept in this
+ * browser would route nothing and promise a deadline nothing enforces.
+ */
+export function useHelpdeskCatalogue() {
+  const { isConnected } = useSession();
+  const [categories, setCategories] = useState<ApiTicketCategory[] | null>(
+    null,
+  );
+  const [policies, setPolicies] = useState<ApiSlaPolicy[] | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
+  const [revision, setRevision] = useState(0);
+  const reload = useCallback(() => setRevision((n) => n + 1), []);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [cats, sla] = await Promise.all([
+          /* `includeInactive` on: this is the one reader that also has to show
+             somebody a switched-off category to turn it back on. */
+          helpdeskApi.categories(true),
+          helpdeskApi.sla(true),
+        ]);
+        if (cancelled) return;
+        setCategories(cats);
+        setPolicies(sla.policies);
+        setError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setError(caught instanceof ApiError ? caught : null);
+        setCategories([]);
+        setPolicies([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, revision]);
+
+  return { isConnected, categories, policies, error, reload };
 }
 
 /* --------------------------------------------------------------------- pulse */

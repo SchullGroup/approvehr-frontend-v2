@@ -538,7 +538,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               directly. Scrolling to the card that can is the honest
               affordance rather than a control that guesses. */}
           {noAppraiser && (
-            <NoticeLine tone="danger">
+            <NoticeLine tone="accent">
               <span>
                 {noAppraiser.length === 1
                   ? `${noAppraiser[0]} has no appraiser`
@@ -709,8 +709,14 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         </div>
       </PageBody>
 
-      {questionsOpen && period && (
+      {/* `period` is unrelated data, not the open/closed signal — kept as the
+          mount guard since the dialog cannot render without it. `open` is the
+          real signal, threaded through so `QuestionsDialog`'s `Modal` can see
+          it go false and play its exit animation instead of the whole dialog
+          vanishing with `questionsOpen` itself. */}
+      {period && (
         <QuestionsDialog
+          open={questionsOpen}
           cycleId={cycleId}
           periodName={period.name}
           onClose={() => {
@@ -1421,33 +1427,59 @@ function Register({
         }
       />
       <CardBody className="p-0">
-        <TableWrap caption="Everybody in this period, their score and their sign-off">
-          <THead>
-            <TH>Person</TH>
-            <TH>Objectives agreed</TH>
-            <TH align="right">Score</TH>
-            <TH>Sign-off</TH>
-            {canAskPeers && <TH>Feedback</TH>}
-            {canCalibrate && <TH>Calibration</TH>}
-            {canRequestRevision && !revisionsUnavailable && <TH>Revision</TH>}
-          </THead>
-          <TBody>
-            {register.rows.map((row) => (
-              <RegisterRow
-                key={row.employeeId}
-                row={row}
-                cycleId={cycleId}
-                canAskPeers={canAskPeers}
-                canCalibrate={canCalibrate}
-                canRequestRevision={canRequestRevision && !revisionsUnavailable}
-                existingRevision={revisionRequests.find(
-                  (request) => request.employeeId === row.employeeId,
-                )}
-                onAsked={onAsked}
-              />
-            ))}
-          </TBody>
-        </TableWrap>
+        {/* Up to seven columns, one of them (Score) already two lines and a
+            breakdown, is unreadable under 375px. Below `sm` this becomes a
+            card per person — `RegisterCard` is `RegisterRow`'s sibling, same
+            `SignOffCell` / `ScoreParts` / action buttons, arranged as a list
+            instead of columns. */}
+        <div className="hidden sm:block">
+          <TableWrap caption="Everybody in this period, their score and their sign-off">
+            <THead>
+              <TH>Person</TH>
+              <TH>Objectives agreed</TH>
+              <TH align="right">Score</TH>
+              <TH>Sign-off</TH>
+              {canAskPeers && <TH>Feedback</TH>}
+              {canCalibrate && <TH>Calibration</TH>}
+              {canRequestRevision && !revisionsUnavailable && <TH>Revision</TH>}
+            </THead>
+            <TBody>
+              {register.rows.map((row) => (
+                <RegisterRow
+                  key={row.employeeId}
+                  row={row}
+                  cycleId={cycleId}
+                  canAskPeers={canAskPeers}
+                  canCalibrate={canCalibrate}
+                  canRequestRevision={
+                    canRequestRevision && !revisionsUnavailable
+                  }
+                  existingRevision={revisionRequests.find(
+                    (request) => request.employeeId === row.employeeId,
+                  )}
+                  onAsked={onAsked}
+                />
+              ))}
+            </TBody>
+          </TableWrap>
+        </div>
+
+        <ul className="divide-y divide-line sm:hidden">
+          {register.rows.map((row) => (
+            <RegisterCard
+              key={row.employeeId}
+              row={row}
+              cycleId={cycleId}
+              canAskPeers={canAskPeers}
+              canCalibrate={canCalibrate}
+              canRequestRevision={canRequestRevision && !revisionsUnavailable}
+              existingRevision={revisionRequests.find(
+                (request) => request.employeeId === row.employeeId,
+              )}
+              onAsked={onAsked}
+            />
+          ))}
+        </ul>
       </CardBody>
     </Card>
   );
@@ -1566,6 +1598,108 @@ function RegisterRow({
         </TD>
       )}
     </TR>
+  );
+}
+
+/** `RegisterRow`'s sibling: the same person, as a card instead of a row. */
+function RegisterCard({
+  row,
+  cycleId,
+  canAskPeers,
+  canCalibrate,
+  canRequestRevision,
+  existingRevision,
+  onAsked,
+}: {
+  row: ApiScoreRow;
+  cycleId: string;
+  canAskPeers: boolean;
+  canCalibrate: boolean;
+  canRequestRevision: boolean;
+  existingRevision: ApiRevisionRequest | undefined;
+  onAsked: () => void;
+}) {
+  return (
+    <li className="flex flex-col gap-2 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Link
+            href={`/performance/history/${row.employeeId}`}
+            className="font-medium text-ink underline-offset-2 hover:text-accent-text hover:underline"
+          >
+            {row.employeeName}
+          </Link>
+          <p className="mt-0.5 text-meta text-muted">
+            {row.jobTitle}
+            {row.departmentName ? ` · ${row.departmentName}` : ""}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          {row.scoreBp === null ? (
+            <span className="text-body-sm text-muted">No mark</span>
+          ) : (
+            <span className="tabular font-medium text-ink">
+              {scoreLabel(row.scoreBp)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {row.scoreBp !== null && (
+        <div>
+          {row.calibration && (
+            <p className="text-meta text-muted" title={row.calibration.reason}>
+              Moved from {scoreLabel(row.calibration.originalBp)}
+            </p>
+          )}
+          <ScoreParts components={row.components} />
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+        <span className="tabular">
+          {row.objectives.agreed} objective
+          {row.objectives.agreed === 1 ? "" : "s"} agreed
+          {row.objectives.awaitingApproval > 0 &&
+            ` · ${row.objectives.awaitingApproval} waiting`}
+        </span>
+      </div>
+
+      <div>
+        <SignOffCell row={row} />
+      </div>
+
+      {(canAskPeers || canCalibrate || canRequestRevision) && (
+        <div className="flex flex-wrap items-center gap-3 border-t border-line pt-2">
+          {canAskPeers && (
+            <AskPeersButton
+              cycleId={cycleId}
+              subjectId={row.employeeId}
+              subjectName={row.employeeName}
+              onAsked={onAsked}
+            />
+          )}
+          {canCalibrate &&
+            (row.scoreBp === null ? (
+              <span className="text-meta text-muted">No mark yet</span>
+            ) : (
+              <CalibrateButton
+                cycleId={cycleId}
+                row={row}
+                onChanged={onAsked}
+              />
+            ))}
+          {canRequestRevision && (
+            <RevisionButton
+              cycleId={cycleId}
+              row={row}
+              existing={existingRevision}
+              onChanged={onAsked}
+            />
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 
@@ -2011,95 +2145,96 @@ function CalibrateButton({
         {existing ? "Change it" : "Move the mark"}
       </Button>
 
-      {open && (
-        <Modal
-          open
-          onClose={() => setOpen(false)}
-          title={`Move ${row.employeeName}'s mark`}
-          description={`The answers produced ${scoreLabel(row.computedBp ?? row.scoreBp ?? 0)}.`}
-          size="sm"
-          footer={
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {/* Only offered where there is something to undo, and away from
-                  the save button — it is the destructive half. */}
-              {existing ? (
-                <Button
-                  variant="ghost"
-                  disabled={busy}
-                  onClick={() => void clear()}
-                >
-                  Put it back
-                </Button>
-              ) : (
-                <span />
-              )}
-              <div className="flex gap-2">
-                <Button disabled={busy} onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="accent"
-                  loading={busy}
-                  onClick={() => void save()}
-                >
-                  Save the change
-                </Button>
-              </div>
-            </div>
-          }
-        >
-          <div className="flex flex-col gap-4">
-            {existing && (
-              <Callout tone="neutral" title="It has already been moved">
-                Now {scoreLabel(existing.calibratedBp)}, from{" "}
-                {scoreLabel(existing.originalBp)}
-                {existing.calibratedByName
-                  ? `, by ${existing.calibratedByName}`
-                  : ""}
-                . The reason given was &ldquo;{existing.reason}&rdquo;.
-              </Callout>
-            )}
-
-            <Field
-              label="Mark it as"
-              required
-              {...(failed ? { error: failed } : {})}
-            >
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  inputMode="numeric"
-                  className="w-28"
-                  value={percent}
-                  disabled={busy}
-                  onChange={(event) => setPercent(event.target.value)}
-                />
-                <span className="text-body-sm text-muted">%</span>
-              </div>
-            </Field>
-
-            <Field
-              label="Why"
-              required
-              help="This is kept with the mark and is what explains it if anybody asks later."
-            >
-              <Textarea
-                rows={3}
-                value={reason}
+      {/* No open-gating here: `Modal` decides whether to render from its own
+          `useDismiss` state, so this has to stay mounted and keep passing the
+          real `open` through for its exit animation to have a chance to play. */}
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`Move ${row.employeeName}'s mark`}
+        description={`The answers produced ${scoreLabel(row.computedBp ?? row.scoreBp ?? 0)}.`}
+        size="sm"
+        footer={
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* Only offered where there is something to undo, and away from
+                the save button — it is the destructive half. */}
+            {existing ? (
+              <Button
+                variant="ghost"
                 disabled={busy}
-                placeholder="Moderated at the calibration meeting: the team's targets were set higher than the rest of the department."
-                onChange={(event) => setReason(event.target.value)}
-              />
-            </Field>
-
-            <p className="text-meta text-muted">
-              What the answers produced is kept beside this, not replaced.
-            </p>
+                onClick={() => void clear()}
+              >
+                Put it back
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <Button disabled={busy} onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="accent"
+                loading={busy}
+                onClick={() => void save()}
+              >
+                Save the change
+              </Button>
+            </div>
           </div>
-        </Modal>
-      )}
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {existing && (
+            <Callout tone="neutral" title="It has already been moved">
+              Now {scoreLabel(existing.calibratedBp)}, from{" "}
+              {scoreLabel(existing.originalBp)}
+              {existing.calibratedByName
+                ? `, by ${existing.calibratedByName}`
+                : ""}
+              . The reason given was &ldquo;{existing.reason}&rdquo;.
+            </Callout>
+          )}
+
+          <Field
+            label="Mark it as"
+            required
+            {...(failed ? { error: failed } : {})}
+          >
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                inputMode="numeric"
+                className="w-28"
+                value={percent}
+                disabled={busy}
+                onChange={(event) => setPercent(event.target.value)}
+              />
+              <span className="text-body-sm text-muted">%</span>
+            </div>
+          </Field>
+
+          <Field
+            label="Why"
+            required
+            help="This is kept with the mark and is what explains it if anybody asks later."
+          >
+            <Textarea
+              rows={3}
+              value={reason}
+              disabled={busy}
+              placeholder="Moderated at the calibration meeting: the team's targets were set higher than the rest of the department."
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </Field>
+
+          <p className="text-meta text-muted">
+            What the answers produced is kept beside this, not replaced.
+          </p>
+        </div>
+      </Modal>
     </>
   );
 }
@@ -2208,59 +2343,56 @@ function RevisionButton({
         Send back
       </Button>
 
-      {open && (
-        <Modal
-          open
-          onClose={() => setOpen(false)}
-          title={`Send ${row.employeeName}'s review back`}
-          description="Reopens that one review so they can redo it. Nobody else's review moves."
-          size="sm"
-          footer={
-            <div className="flex justify-end gap-2">
-              <Button disabled={busy} onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="accent"
-                loading={busy}
-                onClick={() => void save()}
-              >
-                Send it back
-              </Button>
-            </div>
-          }
-        >
-          <div className="flex flex-col gap-4">
-            <Field label="Which review" required>
-              <Select
-                value={targetStage}
-                disabled={busy}
-                onChange={(event) =>
-                  setTargetStage(event.target.value as "SELF" | "MANAGER")
-                }
-              >
-                <option value="MANAGER">Manager review</option>
-                <option value="SELF">Self-appraisal</option>
-              </Select>
-            </Field>
-
-            <Field
-              label="Why"
-              required
-              {...(failed ? { error: failed } : {})}
-              help="This is kept with the request and is what they see for it."
-            >
-              <Textarea
-                rows={3}
-                value={reason}
-                disabled={busy}
-                placeholder="The objectives section is missing answers for two of the agreed goals. Please complete before resubmitting."
-                onChange={(event) => setReason(event.target.value)}
-              />
-            </Field>
+      {/* No open-gating here, matching `CalibrateButton` above: `Modal` reads
+          its own `useDismiss` state, so it has to stay mounted with the real
+          `open` passed through rather than being unmounted by this wrapper. */}
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`Send ${row.employeeName}'s review back`}
+        description="Reopens that one review so they can redo it. Nobody else's review moves."
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button disabled={busy} onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="accent" loading={busy} onClick={() => void save()}>
+              Send it back
+            </Button>
           </div>
-        </Modal>
-      )}
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Field label="Which review" required>
+            <Select
+              value={targetStage}
+              disabled={busy}
+              onChange={(event) =>
+                setTargetStage(event.target.value as "SELF" | "MANAGER")
+              }
+            >
+              <option value="MANAGER">Manager review</option>
+              <option value="SELF">Self-appraisal</option>
+            </Select>
+          </Field>
+
+          <Field
+            label="Why"
+            required
+            {...(failed ? { error: failed } : {})}
+            help="This is kept with the request and is what they see for it."
+          >
+            <Textarea
+              rows={3}
+              value={reason}
+              disabled={busy}
+              placeholder="The objectives section is missing answers for two of the agreed goals. Please complete before resubmitting."
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </Field>
+        </div>
+      </Modal>
     </>
   );
 }

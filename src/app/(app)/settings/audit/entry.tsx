@@ -246,47 +246,91 @@ export function Changes({ detail }: { detail: AuditEntryDetail }) {
   return (
     <div className="flex flex-col gap-3">
       {detail.diff.changes.length > 0 && (
-        <TableWrap caption="Fields that changed, with the value before and after">
-          <THead>
-            <TH>Field</TH>
-            <TH>Before</TH>
-            <TH>After</TH>
-          </THead>
-          <TBody>
+        <>
+          <div className="hidden sm:block">
+            <TableWrap caption="Fields that changed, with the value before and after">
+              <THead>
+                <TH>Field</TH>
+                <TH>Before</TH>
+                <TH>After</TH>
+              </THead>
+              <TBody>
+                {detail.diff.changes.map((change) => (
+                  <TR key={change.field}>
+                    <TH scope="row" className="font-medium text-ink">
+                      {prettyField(change.label)}
+                    </TH>
+                    {change.redacted ? (
+                      /* No value on either side — the fact of the change is the
+                         whole record here. Kept as two cells rather than one
+                         spanning both so a diff with a mix of redacted and plain
+                         rows keeps its columns aligned. See `diff.ts` in the API
+                         for why the redaction is unconditional rather than
+                         permission-dependent. */
+                      <>
+                        <TD className="text-muted">Not shown</TD>
+                        <TD>
+                          <Badge tone="warning" size="sm">
+                            Changed
+                          </Badge>
+                        </TD>
+                      </>
+                    ) : (
+                      <>
+                        <TD>
+                          <Value field={change.field} value={change.from} />
+                        </TD>
+                        <TD className="text-ink">
+                          <Value field={change.field} value={change.to} />
+                        </TD>
+                      </>
+                    )}
+                  </TR>
+                ))}
+              </TBody>
+            </TableWrap>
+          </div>
+
+          {/* Before and After stack rather than sit side by side: a changed
+              field's value can run long (a note, a JSON blob), and two
+              columns of it would each be squeezed to nothing on a phone. */}
+          <ul className="divide-y divide-line rounded-md border border-line bg-canvas px-4 sm:hidden">
             {detail.diff.changes.map((change) => (
-              <TR key={change.field}>
-                <TH scope="row" className="font-medium text-ink">
+              <li key={change.field} className="flex flex-col gap-1.5 py-3">
+                <p className="text-body-sm font-medium text-ink">
                   {prettyField(change.label)}
-                </TH>
+                </p>
                 {change.redacted ? (
-                  /* No value on either side — the fact of the change is the
-                     whole record here. Kept as two cells rather than one
-                     spanning both so a diff with a mix of redacted and plain
-                     rows keeps its columns aligned. See `diff.ts` in the API
-                     for why the redaction is unconditional rather than
-                     permission-dependent. */
-                  <>
-                    <TD className="text-muted">Not shown</TD>
-                    <TD>
-                      <Badge tone="warning" size="sm">
-                        Changed
-                      </Badge>
-                    </TD>
-                  </>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-body-sm text-muted">Not shown</span>
+                    <Badge tone="warning" size="sm">
+                      Changed
+                    </Badge>
+                  </div>
                 ) : (
                   <>
-                    <TD>
-                      <Value field={change.field} value={change.from} />
-                    </TD>
-                    <TD className="text-ink">
-                      <Value field={change.field} value={change.to} />
-                    </TD>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="shrink-0 text-body-sm text-muted">
+                        Before
+                      </span>
+                      <span className="text-right text-body-sm text-muted">
+                        <Value field={change.field} value={change.from} />
+                      </span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="shrink-0 text-body-sm text-muted">
+                        After
+                      </span>
+                      <span className="text-right text-body-sm text-ink">
+                        <Value field={change.field} value={change.to} />
+                      </span>
+                    </div>
                   </>
                 )}
-              </TR>
+              </li>
             ))}
-          </TBody>
-        </TableWrap>
+          </ul>
+        </>
       )}
 
       {facts.length > 0 && (

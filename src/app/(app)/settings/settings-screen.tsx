@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   ArrowRight,
   Bell,
@@ -13,6 +12,7 @@ import {
   CircleDashed,
   FileText,
   Gauge,
+  BriefcaseBusiness,
   Megaphone,
   ScrollText,
   Sparkles,
@@ -32,6 +32,7 @@ import {
   LinkCard,
   ProgressMeter,
   Spinner,
+  TextLink,
   type BadgeTone,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -128,6 +129,17 @@ const ONGOING = [
     description:
       "Switch modules on and off — loans, expenses, hiring, shifts, attendance. A module switched off disappears from the sidebar rather than being deleted, and its data is kept.",
     icon: <ToggleRight aria-hidden="true" />,
+  },
+  {
+    /* Beside the other things a company configures once and then uses. Named
+       "Job roles" and never "Roles" — `/settings/roles` further down is
+       permissions, and two things called Roles in one menu is the ambiguity the
+       departments/sub-departments rename already had to fix once. */
+    href: "/settings/job-roles",
+    title: "Job roles",
+    description:
+      "What jobs this company has, what each one involves, and what people on it are judged against. Job titles stay free text until you add some.",
+    icon: <BriefcaseBusiness aria-hidden="true" />,
   },
   {
     href: "/settings/announcements",
@@ -410,13 +422,7 @@ export function SettingsScreen() {
                 <>
                   Everything a payroll needs is in place. No logo yet: it goes
                   on every payslip and on the emails the platform sends.{" "}
-                  <Link
-                    href="/settings/company"
-                    className="font-medium text-accent-text underline-offset-2 hover:underline"
-                  >
-                    Add one
-                  </Link>
-                  .
+                  <TextLink href="/settings/company">Add one</TextLink>.
                 </>
               ) : (
                 "Everything a payroll needs is in place."

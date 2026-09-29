@@ -122,42 +122,51 @@ export function UnlinkedAccountsPanel({ canManage }: { canManage: boolean }) {
         ))}
       </CardBody>
 
-      {target?.mode === "link" && (
-        <LinkToExisting
-          account={target}
-          state={state}
-          onClose={() => setTarget(null)}
-        />
-      )}
-      {target?.mode === "create" && (
-        <CreateRecord
-          account={target}
-          state={state}
-          onClose={() => setTarget(null)}
-        />
-      )}
+      <LinkToExisting
+        open={target?.mode === "link"}
+        account={target?.mode === "link" ? target : null}
+        state={state}
+        onClose={() => setTarget(null)}
+      />
+      <CreateRecord
+        open={target?.mode === "create"}
+        account={target?.mode === "create" ? target : null}
+        state={state}
+        onClose={() => setTarget(null)}
+      />
     </Card>
   );
 }
 
 /** The picker side — same directory-wide picker `send-invite.tsx` uses. */
 function LinkToExisting({
-  account,
+  account: accountProp,
   state,
+  open,
   onClose,
 }: {
-  account: { userId: string; name: string; email: string };
+  /** `null` while closed — see the freeze below for why. */
+  account: { userId: string; name: string; email: string } | null;
   state: UnlinkedAccountsState;
+  open: boolean;
   onClose: () => void;
 }) {
+  /* Remembers the last real target: the parent clears its prop to null the
+     instant it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`. */
+  const [account, setAccount] = useState(accountProp);
+  if (accountProp && accountProp !== account) setAccount(accountProp);
+
   const toast = useToast();
   const directory = useEmployeeDirectory({ pageSize: 200 });
   const [employeeId, setEmployeeId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  if (!account) return null;
+
   async function submit() {
-    if (!employeeId) return;
+    if (!account || !employeeId) return;
     setBusy(true);
     setError(null);
     try {
@@ -180,7 +189,7 @@ function LinkToExisting({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Link ${account.name} to a record`}
       footer={
@@ -228,14 +237,21 @@ function LinkToExisting({
  *  details: those stay behind their own feature flags on the record once it
  *  exists, exactly as they would for anybody added through `/people/new`. */
 function CreateRecord({
-  account,
+  account: accountProp,
   state,
+  open,
   onClose,
 }: {
-  account: { userId: string; name: string; email: string };
+  /** `null` while closed — see the freeze below for why. */
+  account: { userId: string; name: string; email: string } | null;
   state: UnlinkedAccountsState;
+  open: boolean;
   onClose: () => void;
 }) {
+  /* Same freeze as `LinkToExisting` above. */
+  const [account, setAccount] = useState(accountProp);
+  if (accountProp && accountProp !== account) setAccount(accountProp);
+
   const toast = useToast();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -245,6 +261,8 @@ function CreateRecord({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  if (!account) return null;
+
   const canSubmit =
     firstName.trim() !== "" &&
     lastName.trim() !== "" &&
@@ -252,7 +270,7 @@ function CreateRecord({
     startDate !== "";
 
   async function submit() {
-    if (!canSubmit) return;
+    if (!account || !canSubmit) return;
     setBusy(true);
     setError(null);
     try {
@@ -283,7 +301,7 @@ function CreateRecord({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Create a record for ${account.email}`}
       footer={

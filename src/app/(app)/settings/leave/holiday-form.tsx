@@ -24,11 +24,13 @@ import type { PublicHolidayRow } from "@/lib/api/leave";
  */
 export function HolidayForm({
   holiday,
+  open,
   onClose,
   onSave,
 }: {
   /** Absent when adding. */
   holiday?: PublicHolidayRow;
+  open: boolean;
   onClose: () => void;
   onSave: (body: {
     date: string;
@@ -63,7 +65,7 @@ export function HolidayForm({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="sm"
       title={editing ? `Edit ${holiday.name}` : "Add a public holiday"}

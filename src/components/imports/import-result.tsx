@@ -228,43 +228,72 @@ export function ImportOutcome({
             title={`The ${count(missed)} ${missed === 1 ? "row" : "rows"} that did not import`}
             description="Named, not counted. Every one of these is still exactly as it was in your file."
           />
-          <TableWrap
-            className="rounded-none border-0 border-t border-line"
-            caption="Rows that did not import"
-          >
-            <THead>
-              <TH className="w-20">Row</TH>
-              <TH>Who</TH>
-              <TH>Why it did not import</TH>
-            </THead>
-            <TBody>
-              {result.notImported.slice(0, 60).map((row) => {
-                const line = byRow.get(row);
-                return (
-                  <TR key={row}>
-                    <TD className="tabular align-top font-medium text-ink">
-                      {row}
-                    </TD>
-                    <TD className="align-top">
-                      <span className="text-meta text-ink">
-                        {line?.name ?? line?.employeeNo ?? "—"}
-                      </span>
-                    </TD>
-                    <TD className="align-top">
-                      <span className="text-meta text-body">
-                        {line?.duplicate?.decision === "skip"
-                          ? `You chose to leave ${line.duplicate.name} alone.`
-                          : (line?.problems.find(
-                              (issue) => issue.severity === "error",
-                            )?.problem ??
-                            "This row was not sent, because an earlier part failed.")}
-                      </span>
-                    </TD>
-                  </TR>
-                );
-              })}
-            </TBody>
-          </TableWrap>
+          <div className="hidden sm:block">
+            <TableWrap
+              className="rounded-none border-0 border-t border-line"
+              caption="Rows that did not import"
+            >
+              <THead>
+                <TH className="w-20">Row</TH>
+                <TH>Who</TH>
+                <TH>Why it did not import</TH>
+              </THead>
+              <TBody>
+                {result.notImported.slice(0, 60).map((row) => {
+                  const line = byRow.get(row);
+                  return (
+                    <TR key={row}>
+                      <TD className="tabular align-top font-medium text-ink">
+                        {row}
+                      </TD>
+                      <TD className="align-top">
+                        <span className="text-meta text-ink">
+                          {line?.name ?? line?.employeeNo ?? "—"}
+                        </span>
+                      </TD>
+                      <TD className="align-top">
+                        <span className="text-meta text-body">
+                          {line?.duplicate?.decision === "skip"
+                            ? `You chose to leave ${line.duplicate.name} alone.`
+                            : (line?.problems.find(
+                                (issue) => issue.severity === "error",
+                              )?.problem ??
+                              "This row was not sent, because an earlier part failed.")}
+                        </span>
+                      </TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </TableWrap>
+          </div>
+
+          <ul className="divide-y divide-line border-t border-line sm:hidden">
+            {result.notImported.slice(0, 60).map((row) => {
+              const line = byRow.get(row);
+              return (
+                <li key={row} className="flex flex-col gap-1.5 p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="tabular text-body-sm font-medium text-ink">
+                      Row {row}
+                    </span>
+                    <span className="text-meta text-ink">
+                      {line?.name ?? line?.employeeNo ?? "—"}
+                    </span>
+                  </div>
+                  <p className="text-meta text-body">
+                    {line?.duplicate?.decision === "skip"
+                      ? `You chose to leave ${line.duplicate.name} alone.`
+                      : (line?.problems.find(
+                          (issue) => issue.severity === "error",
+                        )?.problem ??
+                        "This row was not sent, because an earlier part failed.")}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+
           {missed > 60 && (
             <CardBody className="py-3.5 text-meta text-muted">
               The first 60 are listed. Download the file above for all{" "}
@@ -305,45 +334,49 @@ export function ImportOutcome({
         </CardBody>
       </Card>
 
-      {/* Clean import only — see the note above `ImportOutcome`. */}
-      {result.failure === null &&
-        result.notImported.length === 0 &&
-        !acknowledged && (
-          <Modal
-            open
-            onClose={() => setAcknowledged(true)}
-            size="sm"
-            title={`${count(result.created + result.updated)} ${people(
-              result.created + result.updated,
-            )} imported`}
-            footer={
-              <div className="flex w-full flex-wrap justify-center gap-2">
-                <Button variant="secondary" onClick={onAnother}>
-                  Import another file
-                </Button>
-                <ButtonLink href={surface.home.href} variant="accent">
-                  {surface.home.label}
-                </ButtonLink>
-              </div>
-            }
-          >
-            <div className="flex flex-col items-center gap-3 py-2 text-center">
-              <span className="flex size-12 items-center justify-center rounded-full bg-success-soft">
-                <CheckCircle2
-                  aria-hidden="true"
-                  className="size-6 text-success-text"
-                />
-              </span>
-              <p className="text-body text-ink">
-                {count(result.created)} added and {count(result.updated)}{" "}
-                updated from {filename}.
-              </p>
-              <p className="text-body-sm text-muted">
-                Every row in the file landed.
-              </p>
+      {/* Clean import only — see the note above `ImportOutcome`. This guard is
+          unrelated to open/closed: it decides whether the success modal ever
+          applies to this result at all, never whether it is currently shown.
+          `acknowledged` is the real open state, so it stays out of this
+          condition and goes to `Modal`'s own `open` prop below instead —
+          otherwise dismissing it would unmount the whole subtree before its
+          exit animation could run. */}
+      {result.failure === null && result.notImported.length === 0 && (
+        <Modal
+          open={!acknowledged}
+          onClose={() => setAcknowledged(true)}
+          size="sm"
+          title={`${count(result.created + result.updated)} ${people(
+            result.created + result.updated,
+          )} imported`}
+          footer={
+            <div className="flex w-full flex-wrap justify-center gap-2">
+              <Button variant="secondary" onClick={onAnother}>
+                Import another file
+              </Button>
+              <ButtonLink href={surface.home.href} variant="accent">
+                {surface.home.label}
+              </ButtonLink>
             </div>
-          </Modal>
-        )}
+          }
+        >
+          <div className="flex flex-col items-center gap-3 py-2 text-center">
+            <span className="flex size-12 items-center justify-center rounded-full bg-success-soft">
+              <CheckCircle2
+                aria-hidden="true"
+                className="size-6 text-success-text"
+              />
+            </span>
+            <p className="text-body text-ink">
+              {count(result.created)} added and {count(result.updated)} updated
+              from {filename}.
+            </p>
+            <p className="text-body-sm text-muted">
+              Every row in the file landed.
+            </p>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

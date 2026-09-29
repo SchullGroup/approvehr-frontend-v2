@@ -240,27 +240,25 @@ export function MyPolicies({ className }: { className?: string }) {
         </CardBody>
       </Card>
 
-      {opening && (
-        <PolicyDrawer
-          key={opening.id}
-          policyId={opening.id}
-          title={opening.title}
-          onClose={() => setOpening(null)}
-          footer={
-            mine.outstanding.some((p) => p.id === opening.id) ? (
-              <div className="flex w-full justify-end">
-                <Button
-                  variant="approve"
-                  disabled={busy === opening.id}
-                  onClick={() => void accept(opening.id, opening.title)}
-                >
-                  {busy === opening.id ? "Saving…" : "Accept"}
-                </Button>
-              </div>
-            ) : undefined
-          }
-        />
-      )}
+      <PolicyDrawer
+        open={opening !== null}
+        policyId={opening?.id ?? null}
+        title={opening?.title ?? ""}
+        onClose={() => setOpening(null)}
+        footer={
+          opening && mine.outstanding.some((p) => p.id === opening.id) ? (
+            <div className="flex w-full justify-end">
+              <Button
+                variant="approve"
+                disabled={busy === opening.id}
+                onClick={() => void accept(opening.id, opening.title)}
+              >
+                {busy === opening.id ? "Saving…" : "Accept"}
+              </Button>
+            </div>
+          ) : undefined
+        }
+      />
     </>
   );
 }

@@ -144,20 +144,39 @@ function check(draft: Draft): Problems {
 }
 
 export function PostingEditor({
-  posting,
+  open,
+  posting: postingProp,
   onClose,
   onCreate,
   onUpdate,
 }: {
+  open: boolean;
   /** Absent for a new advert. */
   posting?: ApiPosting;
   onClose: () => void;
   onCreate: (body: CreatePostingBody) => Promise<boolean>;
   onUpdate: (id: string, body: UpdatePostingBody) => Promise<boolean>;
 }) {
+  /* Freezes which posting (or "a new one", carried as undefined) this is
+     editing, and the draft along with it, so Modal below can keep real
+     content in view and play its own exit animation off the real `open`
+     instead of unmounting — the parent renders this unconditionally now.
+     Gated on `open` rather than on a truthy value: unlike the other frozen
+     dialogs in this codebase, "no posting" is itself a legitimate *open*
+     state here (a new advert), not only the closed one, so freezing on
+     truthiness alone would never notice a close-then-reopen-to-create. The
+     draft resets alongside it — this is an edit form pre-filled from the
+     posting's own committed fields, so leaving it stale would show one
+     posting's title/salary/etc. under another's name. */
+  const [posting, setPosting] = useState(postingProp);
   const [draft, setDraft] = useState<Draft>(() =>
     posting ? fromPosting(posting) : blank(),
   );
+  if (open && postingProp !== posting) {
+    setPosting(postingProp);
+    setDraft(postingProp ? fromPosting(postingProp) : blank());
+  }
+
   const [showProblems, setShowProblems] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -229,7 +248,7 @@ export function PostingEditor({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="lg"
       title={posting ? `Edit ${posting.title}` : "New advert"}

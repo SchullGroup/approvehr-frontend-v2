@@ -46,22 +46,33 @@ import {
  * came back are the two halves of the same conversation.
  */
 export function TakeBackDialog({
-  item,
+  item: itemProp,
+  open,
   onClose,
   onTakeBack,
 }: {
-  item: EquipmentItem;
+  /** `null` while closed — see the freeze below for why. */
+  item: EquipmentItem | null;
+  open: boolean;
   onClose: () => void;
   onTakeBack: (input: TakeBackInput) => Promise<void>;
 }) {
+  /* Remembers the last real item: the parent clears its prop to null the
+     instant it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`. */
+  const [item, setItem] = useState(itemProp);
+  if (itemProp && itemProp !== item) setItem(itemProp);
+
   const [outcome, setOutcome] = useState<ReturnOutcome>("RETURNED");
   const [condition, setCondition] = useState<AssetCondition>(
-    item.holder?.conditionOut ?? item.condition,
+    item?.holder?.conditionOut ?? item?.condition ?? "GOOD",
   );
   const [returnedOn, setReturnedOn] = useState(today());
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
+
+  if (!item) return null;
 
   const damaged = outcome === "DAMAGED";
   const holderName = item.holder?.name ?? "whoever has it";
@@ -92,7 +103,7 @@ export function TakeBackDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Take ${item.name} back`}
       description={

@@ -59,11 +59,13 @@ export type DeviceDraft = {
 export function DeviceForm({
   device,
   locations,
+  open,
   onClose,
   onSave,
 }: {
   device?: ApiAttendanceDevice;
   locations: ApiWorkLocation[];
+  open: boolean;
   onClose: () => void;
   onSave: (draft: DeviceDraft) => Promise<void>;
 }) {
@@ -95,7 +97,7 @@ export function DeviceForm({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
       title={editing ? `Edit ${device.label}` : "Register a terminal"}

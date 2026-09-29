@@ -317,105 +317,139 @@ export function AnnouncementsScreen() {
               }
             />
           ) : (
-            <TableWrap
-              className="rounded-none border-0"
-              caption="Every notice, newest first, with who it is for and whether it is on the board"
-            >
-              <THead>
-                <TH>Notice</TH>
-                <TH>Who it is for</TH>
-                <TH>State</TH>
-                {canManage && board.editable && (
-                  <TH align="right">
-                    <span className="sr-only">Actions</span>
-                  </TH>
-                )}
-              </THead>
-              <TBody>
-                {board.announcements.map((notice) => (
-                  <TR key={notice.id}>
-                    <TDPrimary
-                      title={
-                        <span className="flex flex-wrap items-center gap-2">
-                          {notice.title}
-                          {notice.pinned && (
-                            <Badge
-                              tone="accent"
-                              size="sm"
-                              icon={
-                                <Pin aria-hidden="true" className="size-3" />
-                              }
-                            >
-                              Pinned
-                            </Badge>
-                          )}
-                        </span>
-                      }
-                      subtitle={firstLine(notice.body)}
-                    />
-                    <TD className="text-muted">
-                      {audienceLabel(notice.audience, notice.departmentNames)}
-                    </TD>
-                    <TD>
-                      <State notice={notice} />
-                    </TD>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-none border-0"
+                  caption="Every notice, newest first, with who it is for and whether it is on the board"
+                >
+                  <THead>
+                    <TH>Notice</TH>
+                    <TH>Who it is for</TH>
+                    <TH>State</TH>
                     {canManage && board.editable && (
-                      <TD align="right">
-                        <div className="flex justify-end gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={busy}
-                            onClick={() => setEditing(notice)}
-                          >
-                            Edit
-                          </Button>
-
-                          {notice.published ? (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              disabled={busy}
-                              onClick={() => setTakingDown(notice)}
-                            >
-                              Take it down
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="accent"
-                              size="sm"
-                              disabled={busy}
-                              onClick={() =>
-                                void run(
-                                  async () => {
-                                    const result = await mutations.publish(
-                                      notice.id,
-                                    );
-                                    return result;
-                                  },
-                                  `${notice.title} is on the board`,
-                                  reachSentence(notice),
-                                )
-                              }
-                            >
-                              Publish
-                            </Button>
-                          )}
-
-                          <IconButton
-                            label={`Delete ${notice.title}`}
-                            size="sm"
-                            onClick={() => setDeleting(notice)}
-                          >
-                            <Trash2 aria-hidden="true" className="size-3.5" />
-                          </IconButton>
-                        </div>
-                      </TD>
+                      <TH align="right">
+                        <span className="sr-only">Actions</span>
+                      </TH>
                     )}
-                  </TR>
+                  </THead>
+                  <TBody>
+                    {board.announcements.map((notice) => (
+                      <TR key={notice.id}>
+                        <TDPrimary
+                          title={
+                            <span className="flex flex-wrap items-center gap-2">
+                              {notice.title}
+                              {notice.pinned && (
+                                <Badge
+                                  tone="accent"
+                                  size="sm"
+                                  icon={
+                                    <Pin
+                                      aria-hidden="true"
+                                      className="size-3"
+                                    />
+                                  }
+                                >
+                                  Pinned
+                                </Badge>
+                              )}
+                            </span>
+                          }
+                          subtitle={firstLine(notice.body)}
+                        />
+                        <TD className="text-muted">
+                          {audienceLabel(
+                            notice.audience,
+                            notice.departmentNames,
+                          )}
+                        </TD>
+                        <TD>
+                          <State notice={notice} />
+                        </TD>
+                        {canManage && board.editable && (
+                          <TD align="right">
+                            <div className="flex justify-end gap-1.5">
+                              <NoticeRowActions
+                                notice={notice}
+                                busy={busy}
+                                onEdit={() => setEditing(notice)}
+                                onTakeDown={() => setTakingDown(notice)}
+                                onPublish={() =>
+                                  void run(
+                                    () => mutations.publish(notice.id),
+                                    `${notice.title} is on the board`,
+                                    reachSentence(notice),
+                                  )
+                                }
+                                onDelete={() => setDeleting(notice)}
+                              />
+                            </div>
+                          </TD>
+                        )}
+                      </TR>
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
+                {board.announcements.map((notice) => (
+                  <li key={notice.id} className="flex flex-col gap-2 p-4">
+                    <div className="min-w-0">
+                      <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                        {notice.title}
+                        {notice.pinned && (
+                          <Badge
+                            tone="accent"
+                            size="sm"
+                            icon={<Pin aria-hidden="true" className="size-3" />}
+                          >
+                            Pinned
+                          </Badge>
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-meta text-muted">
+                        {firstLine(notice.body)}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">
+                        Who it is for
+                      </span>
+                      <span className="text-body-sm text-muted">
+                        {audienceLabel(notice.audience, notice.departmentNames)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">State</span>
+                      <State notice={notice} />
+                    </div>
+
+                    {canManage && board.editable && (
+                      <div className="flex flex-wrap gap-1.5">
+                        <NoticeRowActions
+                          notice={notice}
+                          busy={busy}
+                          onEdit={() => setEditing(notice)}
+                          onTakeDown={() => setTakingDown(notice)}
+                          onPublish={() =>
+                            void run(
+                              () => mutations.publish(notice.id),
+                              `${notice.title} is on the board`,
+                              reachSentence(notice),
+                            )
+                          }
+                          onDelete={() => setDeleting(notice)}
+                        />
+                      </div>
+                    )}
+                  </li>
                 ))}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
 
           {board.announcements.length > 0 &&
@@ -430,52 +464,50 @@ export function AnnouncementsScreen() {
         </Card>
       </PageBody>
 
-      {writing && (
-        <AnnouncementForm
-          departments={pickable}
-          onClose={() => setWriting(false)}
-          onSave={async (draft, publish) => {
-            const ok = await run(
-              () => mutations.create(bodyFrom(draft, publish)),
-              publish ? `${draft.title} is on the board` : "Saved as a draft",
-              publish ? undefined : DRAFT_EFFECT,
-            );
-            if (ok) setWriting(false);
-          }}
-        />
-      )}
+      <AnnouncementForm
+        open={writing}
+        departments={pickable}
+        onClose={() => setWriting(false)}
+        onSave={async (draft, publish) => {
+          const ok = await run(
+            () => mutations.create(bodyFrom(draft, publish)),
+            publish ? `${draft.title} is on the board` : "Saved as a draft",
+            publish ? undefined : DRAFT_EFFECT,
+          );
+          if (ok) setWriting(false);
+        }}
+      />
 
-      {editing && (
-        <AnnouncementForm
-          key={editing.id}
-          notice={editing}
-          departments={pickable}
-          onClose={() => setEditing(null)}
-          onSave={async (draft, publish) => {
-            const target = editing;
-            const ok = await run(
-              async () => {
-                await mutations.update(target.id, {
-                  title: draft.title,
-                  body: draft.body,
-                  audience: draft.audience,
-                  departmentIds: draft.departmentIds,
-                  pinned: draft.pinned,
-                  /* An empty date clears it. `null` and absent mean different
-                   things to the API, and this is the one that means "clear". */
-                  expiresOn: draft.expiresOn === "" ? null : draft.expiresOn,
-                });
-                /* Two calls, because they are two acts: the edit stands whether or
-                 not the publish is asked for, and publishing has its own
-                 refusals (an archived department, a date already past). */
-                if (publish) await mutations.publish(target.id);
-              },
-              publish ? `${draft.title} is on the board` : "Saved",
-            );
-            if (ok) setEditing(null);
-          }}
-        />
-      )}
+      <AnnouncementForm
+        open={editing !== null}
+        notice={editing ?? undefined}
+        departments={pickable}
+        onClose={() => setEditing(null)}
+        onSave={async (draft, publish) => {
+          const target = editing;
+          if (!target) return;
+          const ok = await run(
+            async () => {
+              await mutations.update(target.id, {
+                title: draft.title,
+                body: draft.body,
+                audience: draft.audience,
+                departmentIds: draft.departmentIds,
+                pinned: draft.pinned,
+                /* An empty date clears it. `null` and absent mean different
+                 things to the API, and this is the one that means "clear". */
+                expiresOn: draft.expiresOn === "" ? null : draft.expiresOn,
+              });
+              /* Two calls, because they are two acts: the edit stands whether or
+               not the publish is asked for, and publishing has its own
+               refusals (an archived department, a date already past). */
+              if (publish) await mutations.publish(target.id);
+            },
+            publish ? `${draft.title} is on the board` : "Saved",
+          );
+          if (ok) setEditing(null);
+        }}
+      />
 
       {/* Reversible, and the dialog says so — but it changes what every member
           of staff sees, so it is asked first. */}
@@ -572,6 +604,51 @@ function State({ notice }: { notice: ApiAnnouncement }) {
         </span>
       )}
     </span>
+  );
+}
+
+/** Edit, then Publish or Take it down depending on state, then Delete — one
+    copy shared by the desktop row and the mobile card. */
+function NoticeRowActions({
+  notice,
+  busy,
+  onEdit,
+  onTakeDown,
+  onPublish,
+  onDelete,
+}: {
+  notice: ApiAnnouncement;
+  busy: boolean;
+  onEdit: () => void;
+  onTakeDown: () => void;
+  onPublish: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <>
+      <Button variant="ghost" size="sm" disabled={busy} onClick={onEdit}>
+        Edit
+      </Button>
+
+      {notice.published ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy}
+          onClick={onTakeDown}
+        >
+          Take it down
+        </Button>
+      ) : (
+        <Button variant="accent" size="sm" disabled={busy} onClick={onPublish}>
+          Publish
+        </Button>
+      )}
+
+      <IconButton label={`Delete ${notice.title}`} size="sm" onClick={onDelete}>
+        <Trash2 aria-hidden="true" className="size-3.5" />
+      </IconButton>
+    </>
   );
 }
 
