@@ -70,6 +70,16 @@ type State = {
    * for a value none of them can use.
    */
   stepUpActions: StepUpAction[];
+  /**
+   * How long a probation runs here, in months. Not a flag, same as above.
+   *
+   * Only meaningful while `flags.probationTracking` is on, and kept separately
+   * from it rather than folded into one nullable number: "we do not track
+   * probation" and "we track it and the length is nothing" are different
+   * claims, and a screen showing the second where the first is true would be
+   * inventing a policy.
+   */
+  probationMonths: number;
   headcountBand: HeadcountBand;
   setupStep: number;
   totalSteps: number;
@@ -115,6 +125,8 @@ type State = {
  */
 const BASE_FLAGS: FeatureFlags = {
   departments: false,
+  /* Off, like every module. */
+  surveys: false,
   grades: false,
   shifts: false,
   loans: false,
@@ -141,8 +153,17 @@ const BASE_FLAGS: FeatureFlags = {
   /* Off, matching the API's own default: a company that has not asked for a
      second approver keeps the one-step flow it already had. */
   leaveTwoStepApproval: false,
+  /* Off, matching the schema. On, every new hire is given a probation end date
+     the moment they are created and somebody is reminded before it lands. A
+     flag that arrived switched on would start dating probations for companies
+     that have never run one — and the screen it belongs to is deliberately not
+     gated on this, so nothing is hidden by the default. */
+  probationTracking: false,
   twoFactor: false,
 };
+
+/** The schema's own default, and what renders before the real row arrives. */
+const PROBATION_MONTHS_FALLBACK = 6;
 
 const TOTAL_STEPS_FALLBACK = 5;
 
@@ -159,6 +180,7 @@ const LOADING: State = {
      protected" — it is "we have not been told yet" — but the two render the
      same and nothing is gated on it, so an empty default is safe here. */
   stepUpActions: [],
+  probationMonths: PROBATION_MONTHS_FALLBACK,
   loading: true,
   error: null,
   source: "loading",
@@ -192,6 +214,10 @@ export const FEATURE_COPY: Record<
     soon?: boolean;
   }
 > = {
+  surveys: {
+    label: "Surveys",
+    line: "Ask everybody the same questions and see what came back. Results are held back until enough people have answered that a small group cannot be identified from them.",
+  },
   departments: {
     label: "Departments and teams",
     line: "Group people into departments, and see what each one costs a month.",
@@ -259,6 +285,13 @@ export const FEATURE_COPY: Record<
   leaveTwoStepApproval: {
     label: "The departmental lead approves leave first",
     line: "A request goes to the person who heads their department, and to HR only once that is approved. A decline at either step is final and the employee hears once.",
+  },
+  /* Rendered on `/people/probation`, which is the module's only screen and
+     therefore its settings page — the same relationship `/settings/leave` has
+     with the switch above. */
+  probationTracking: {
+    label: "Put a probation end date on new hires",
+    line: "Somebody joining is given an end date from the day they start, and it appears here as it approaches. Nobody already on a probation is given one — their record is what it is.",
   },
 };
 
@@ -659,8 +692,10 @@ function fromApi(features: ApiFeatures): State {
     /* The payroll settings row is the authority connected — see the field. */
     deductions: null,
     stepUpActions: features.stepUpActions,
+    probationMonths: features.probationMonths,
     flags: {
       departments: features.departments,
+      surveys: features.surveys,
       twoFactor: features.twoFactor,
       grades: features.grades,
       shifts: features.shifts,
@@ -674,6 +709,7 @@ function fromApi(features: ApiFeatures): State {
       bankDetails: features.bankDetails,
       multiAppraiser: features.multiAppraiser,
       leaveTwoStepApproval: features.leaveTwoStepApproval,
+      probationTracking: features.probationTracking,
     },
     headcountBand: features.headcountBand,
     setupStep: features.setupStep,
@@ -694,6 +730,11 @@ function fromDemo(demo: DemoState): State {
        no email to send one to. Empty rather than absent, because nothing here
        is waiting on a server. */
     stepUpActions: [],
+    /* The schema's default, shown rather than persisted. Demo mode refuses the
+       probation switch — see `DEMO_PROBATION_REFUSAL` — so there is no local
+       answer to carry, and a number somebody had "set" here would describe a
+       policy no employee record in this browser was created under. */
+    probationMonths: PROBATION_MONTHS_FALLBACK,
     headcountBand: demo.headcountBand,
     setupStep: demo.setupStep,
     totalSteps: DEMO_QUESTIONS.length,
@@ -862,6 +903,7 @@ export function useFeatureSettings() {
         commit(features);
         return {
           departments: features.departments,
+          surveys: features.surveys,
           twoFactor: features.twoFactor,
           grades: features.grades,
           shifts: features.shifts,
@@ -875,6 +917,7 @@ export function useFeatureSettings() {
           bankDetails: features.bankDetails,
           multiAppraiser: features.multiAppraiser,
           leaveTwoStepApproval: features.leaveTwoStepApproval,
+          probationTracking: features.probationTracking,
           headcountBand: features.headcountBand,
         };
       } finally {
@@ -920,6 +963,20 @@ export function useFeatureSettings() {
       [save],
     ),
     stepUpActions: state.stepUpActions,
+    /**
+     * How long a probation runs, in months.
+     *
+     * Changing it moves **nobody already on one**. Their end date is a column
+     * on their own record from the day they were created, and re-dating it
+     * from a setting would move a decision somebody is owed notice of. The
+     * screen says this beside the field rather than leaving it to be found out.
+     */
+    setProbationMonths: useCallback(
+      (probationMonths: number) =>
+        save({ probationMonths }, "probationTracking"),
+      [save],
+    ),
+    probationMonths: state.probationMonths,
   };
 }
 

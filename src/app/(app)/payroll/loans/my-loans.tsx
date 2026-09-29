@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   Badge,
   Button,
@@ -12,6 +11,7 @@ import {
   Money,
   ProgressMeter,
   Spinner,
+  TextLink,
   formatMoney,
 } from "@/components/ui";
 import { naira, type ApiLoan } from "@/lib/api/loans";
@@ -195,12 +195,9 @@ export function MyLoans({ className }: { className?: string }) {
             <p className="text-meta text-muted">
               {past.length} earlier {past.length === 1 ? "loan" : "loans"}{" "}
               repaid in full ·{" "}
-              <Link
-                href="/payroll/loans"
-                className="text-accent-text hover:underline"
-              >
+              <TextLink href="/payroll/loans" className="font-normal">
                 see them
-              </Link>
+              </TextLink>
             </p>
           )}
         </CardBody>

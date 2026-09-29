@@ -9,6 +9,7 @@ import {
   FileField,
   Select,
   Textarea,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import {
@@ -286,17 +287,16 @@ export function PeriodFraming({
       )}
       {guideUrl && (
         <p className={cn("text-body-sm", (period || instructions) && "mt-2")}>
-          <a
+          <TextLink
             href={guideUrl}
             target="_blank"
             /* `noreferrer` as well as `noopener`: the guide is a URL somebody
                at the company typed, and it has no business being told which
                appraisal screen the reader came from. */
             rel="noopener noreferrer"
-            className="font-medium text-accent-text underline-offset-2 hover:underline"
           >
             Read the company&apos;s guide
-          </a>
+          </TextLink>
         </p>
       )}
     </div>

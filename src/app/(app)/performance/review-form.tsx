@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   Badge,
   Button,
@@ -10,6 +9,7 @@ import {
   Select,
   Spinner,
   Textarea,
+  TextLink,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { LanguageCheck } from "@/components/performance/language-check";
@@ -88,10 +88,13 @@ import {
 
 export function ReviewFormModal({
   reviewId,
+  open,
   onClose,
   onDone,
 }: {
-  reviewId: string;
+  /** `null` while closed. `useReview` already tolerates that. */
+  reviewId: string | null;
+  open: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -130,7 +133,7 @@ export function ReviewFormModal({
 
   if (loading) {
     return (
-      <Modal open onClose={onClose} title="Review" size="md">
+      <Modal open={open} onClose={onClose} title="Review" size="md">
         <span className="flex items-center gap-2 text-body-sm text-muted">
           <Spinner size="sm" />
           Loading the form
@@ -141,7 +144,7 @@ export function ReviewFormModal({
 
   if (!review) {
     return (
-      <Modal open onClose={onClose} title="Review" size="md">
+      <Modal open={open} onClose={onClose} title="Review" size="md">
         <p className="text-body-sm text-body">
           {error?.message ?? "That review is not available to you."}
         </p>
@@ -261,7 +264,7 @@ export function ReviewFormModal({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`${review.kindLabel} · ${review.cycleName}`}
       description={
@@ -306,12 +309,9 @@ export function ReviewFormModal({
           screen should be about that job. */}
       {review.submitted && (
         <p className="mb-4 text-body-sm text-muted">
-          <Link
-            href={`/performance/reviews/${review.id}`}
-            className="font-medium text-accent-text underline-offset-2 hover:underline"
-          >
+          <TextLink href={`/performance/reviews/${review.id}`}>
             See what came of this
-          </Link>{" "}
+          </TextLink>{" "}
           , the mark, and whether it has been signed off.
         </p>
       )}

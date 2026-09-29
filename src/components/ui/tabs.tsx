@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { Badge } from "./badge";
 
 /*
  * Tabs follow the ARIA authoring practice: roving tabindex, arrow key
@@ -86,16 +87,13 @@ export function Tabs({
               )}
               {item.label}
               {item.count !== undefined && (
-                <span
-                  className={cn(
-                    "tabular rounded-full px-1.5 py-0.5 text-meta font-semibold",
-                    selected
-                      ? "bg-accent-soft text-accent-text"
-                      : "bg-sunken text-muted",
-                  )}
+                <Badge
+                  tone={selected ? "accent" : "neutral"}
+                  size="sm"
+                  className="tabular font-semibold"
                 >
                   {item.count}
-                </span>
+                </Badge>
               )}
             </button>
           );
@@ -148,16 +146,13 @@ export function LinkTabs({
           >
             {item.label}
             {item.count !== undefined && (
-              <span
-                className={cn(
-                  "tabular rounded-full px-1.5 py-0.5 text-meta font-semibold",
-                  active
-                    ? "bg-accent-soft text-accent-text"
-                    : "bg-sunken text-muted",
-                )}
+              <Badge
+                tone={active ? "accent" : "neutral"}
+                size="sm"
+                className="tabular font-semibold"
               >
                 {item.count}
-              </span>
+              </Badge>
             )}
           </Link>
         );
@@ -187,7 +182,13 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={label}
       className={cn(
-        "inline-flex rounded-md border border-line bg-canvas p-0.5",
+        /* `flex-wrap`, not a plain `inline-flex` row: a control with four or
+           five longer labels (the equipment register's "Nobody has it" /
+           "With somebody" / "Being fixed" / "Lost" is the case that found
+           this) is wider than a 375px card on its own, and nothing upstream
+           of this component can make its own pills wrap for it. A no-op
+           wherever the options already fit on one line. */
+        "inline-flex flex-wrap rounded-md border border-line bg-canvas p-0.5",
         className,
       )}
     >

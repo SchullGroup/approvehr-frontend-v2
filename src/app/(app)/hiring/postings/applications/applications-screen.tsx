@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import {
   ArrowRight,
   Copy,
@@ -28,6 +27,7 @@ import {
   Select,
   Skeleton,
   Textarea,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -302,49 +302,53 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
         </Card>
       </PageBody>
 
-      {advancing && (
-        <AdvanceDialog
-          application={advancing}
-          posting={index.get(advancing.postingId)}
-          onClose={() => setAdvancing(null)}
-          onConfirm={async (body) => {
-            try {
-              const result = await applications.advance(advancing.id, body);
-              toast.push({
-                title: `${advancing.name} is in the pipeline`,
-                tone: "success",
-                detail: result.note,
-              });
-              setAdvancing(null);
-            } catch (error) {
-              fail(error);
-            }
-          }}
-        />
-      )}
+      {/* Always mounted: `Modal` reads `open` and decides for itself whether
+          to render, so it can see it go false and play its exit animation.
+          `application` stays nullable rather than gating the mount — both
+          dialogs below already guard every place they touch it. */}
+      <AdvanceDialog
+        open={advancing !== null}
+        application={advancing}
+        posting={advancing ? index.get(advancing.postingId) : undefined}
+        onClose={() => setAdvancing(null)}
+        onConfirm={async (body) => {
+          if (!advancing) return;
+          try {
+            const result = await applications.advance(advancing.id, body);
+            toast.push({
+              title: `${advancing.name} is in the pipeline`,
+              tone: "success",
+              detail: result.note,
+            });
+            setAdvancing(null);
+          } catch (error) {
+            fail(error);
+          }
+        }}
+      />
 
-      {declining && (
-        <DeclineDialog
-          application={declining}
-          onClose={() => setDeclining(null)}
-          onConfirm={async (reason) => {
-            try {
-              await applications.decline(
-                declining.id,
-                reason.trim() === "" ? undefined : reason.trim(),
-              );
-              toast.push({
-                title: `${declining.name} turned down`,
-                tone: "success",
-                detail: "Nothing was sent to them. Use Copy message to write.",
-              });
-              setDeclining(null);
-            } catch (error) {
-              fail(error);
-            }
-          }}
-        />
-      )}
+      <DeclineDialog
+        open={declining !== null}
+        application={declining}
+        onClose={() => setDeclining(null)}
+        onConfirm={async (reason) => {
+          if (!declining) return;
+          try {
+            await applications.decline(
+              declining.id,
+              reason.trim() === "" ? undefined : reason.trim(),
+            );
+            toast.push({
+              title: `${declining.name} turned down`,
+              tone: "success",
+              detail: "Nothing was sent to them. Use Copy message to write.",
+            });
+            setDeclining(null);
+          } catch (error) {
+            fail(error);
+          }
+        }}
+      />
     </>
   );
 }
@@ -393,32 +397,32 @@ function ApplicationRow({
               </Badge>
             )}
             {application.cv?.url && (
-              <a
+              <TextLink
                 href={application.cv.url}
-                className="inline-flex items-center gap-1 text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
+                className="inline-flex items-center gap-1 text-body-sm"
               >
                 <Paperclip aria-hidden="true" className="size-3.5" />
                 Open CV
-              </a>
+              </TextLink>
             )}
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
             <span>{application.postingTitle}</span>
-            <a
+            <TextLink
               href={`mailto:${application.email}`}
-              className="inline-flex items-center gap-1 hover:text-accent-text hover:underline underline-offset-4"
+              className="inline-flex items-center gap-1 font-normal"
             >
               <Mail aria-hidden="true" className="size-3.5" />
               {application.email}
-            </a>
+            </TextLink>
             {application.phone && (
-              <a
+              <TextLink
                 href={`tel:${application.phone}`}
-                className="tabular inline-flex items-center gap-1 hover:text-accent-text hover:underline underline-offset-4"
+                className="tabular inline-flex items-center gap-1 font-normal"
               >
                 <Phone aria-hidden="true" className="size-3.5" />
                 {application.phone}
-              </a>
+              </TextLink>
             )}
             <span className="tabular">
               Applied {application.appliedAt.slice(0, 10)}
@@ -429,13 +433,13 @@ function ApplicationRow({
 
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           {application.status === "ADVANCED" && application.candidateId && (
-            <Link
+            <TextLink
               href={`/hiring/candidates/${application.candidateId}`}
-              className="inline-flex items-center gap-1 text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
+              className="inline-flex items-center gap-1 text-body-sm"
             >
               See them in the pipeline
               <ArrowRight aria-hidden="true" className="size-3.5" />
-            </Link>
+            </TextLink>
           )}
           {application.status === "DECLINED" && (
             <Button variant="ghost" size="sm" onClick={onCopyMessage}>
@@ -488,12 +492,15 @@ function ApplicationRow({
  * case that would otherwise fail, an advert with no approved role behind it.
  */
 function AdvanceDialog({
+  open,
   application,
   posting,
   onClose,
   onConfirm,
 }: {
-  application: ApiApplication;
+  open: boolean;
+  /** Null while closed — the caller stays mounted rather than gating on this. */
+  application: ApiApplication | null;
   posting: ApiPosting | undefined;
   onClose: () => void;
   onConfirm: (body: AdvanceBody) => Promise<void>;
@@ -540,10 +547,14 @@ function AdvanceDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
-      title={`Move ${application.name} into the pipeline`}
+      title={
+        application
+          ? `Move ${application.name} into the pipeline`
+          : "Move into the pipeline"
+      }
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -563,7 +574,7 @@ function AdvanceDialog({
       <div className="flex flex-col gap-5">
         <DescriptionList
           items={[
-            { term: "Applied for", value: application.postingTitle },
+            { term: "Applied for", value: application?.postingTitle ?? "—" },
             {
               term: "Approved role",
               value: posting?.requisitionReference ?? "None on this advert",
@@ -616,11 +627,14 @@ function AdvanceDialog({
 /* -------------------------------------------------------------------------- */
 
 function DeclineDialog({
+  open,
   application,
   onClose,
   onConfirm,
 }: {
-  application: ApiApplication;
+  open: boolean;
+  /** Null while closed — the caller stays mounted rather than gating on this. */
+  application: ApiApplication | null;
   onClose: () => void;
   onConfirm: (reason: string) => Promise<void>;
 }) {
@@ -629,10 +643,14 @@ function DeclineDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       size="md"
-      title={`Turn down ${application.name}?`}
+      title={
+        application
+          ? `Turn down ${application.name}?`
+          : "Turn down application?"
+      }
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>

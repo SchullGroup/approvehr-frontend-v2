@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { CalendarClock, Inbox, Lock, TriangleAlert } from "lucide-react";
 import {
   Avatar,
@@ -13,6 +12,7 @@ import {
   EmptyState,
   Skeleton,
   Stat,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -277,21 +277,18 @@ function Diary() {
 
                       <div className="min-w-0 flex-1">
                         <p className="text-body-sm font-medium text-ink">
-                          <Link
-                            href={`/hiring/candidates/${card.id}`}
-                            className="hover:text-accent-text hover:underline underline-offset-4"
-                          >
+                          <TextLink href={`/hiring/candidates/${card.id}`}>
                             {fullName(card.candidate)}
-                          </Link>
+                          </TextLink>
                         </p>
                         <p className="text-meta text-muted">
                           {KIND_LABEL[iv.kind] ?? iv.kind} ·{" "}
-                          <Link
+                          <TextLink
                             href={`/hiring/requisitions/${card.requisitionId}`}
-                            className="hover:text-accent-text hover:underline underline-offset-4"
+                            className="font-normal"
                           >
                             {card.requisition.title}
-                          </Link>
+                          </TextLink>
                         </p>
                         <p className="tabular mt-0.5 text-meta text-muted">
                           {when.toLocaleTimeString("en-NG", {

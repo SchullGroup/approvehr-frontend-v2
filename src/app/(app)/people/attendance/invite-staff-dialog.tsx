@@ -78,6 +78,7 @@ export function InviteStaffDialog({
   busy,
   result,
   banner,
+  open,
   onClose,
   onSend,
 }: {
@@ -89,6 +90,7 @@ export function InviteStaffDialog({
   /** A whole-batch refusal — a duplicate address across two rows, a network
    *  failure — as against a per-person one, which `result.failed` carries. */
   banner?: string | null;
+  open: boolean;
   onClose: () => void;
   onSend: (
     people: { employeeId: string; email: string }[],
@@ -156,7 +158,7 @@ export function InviteStaffDialog({
   if (result) {
     return (
       <Modal
-        open
+        open={open}
         onClose={onClose}
         title="Invitations sent"
         size="lg"
@@ -219,7 +221,7 @@ export function InviteStaffDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Invite staff to sign in"
       size="lg"

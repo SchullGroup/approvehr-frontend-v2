@@ -41,9 +41,11 @@ import { useSession } from "@/lib/store/session";
  * below target" arithmetic rather than an opinion somebody has to supply later.
  */
 export function RecordLevelDialog({
+  open,
   onClose,
   onSave,
 }: {
+  open: boolean;
   onClose: () => void;
   onSave: (competencyId: string, body: RateBody) => Promise<void>;
 }) {
@@ -119,7 +121,7 @@ export function RecordLevelDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Record a level"
       size="md"

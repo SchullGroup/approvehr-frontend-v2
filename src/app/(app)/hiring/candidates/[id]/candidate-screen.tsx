@@ -396,52 +396,52 @@ function Record({ id }: { id: string }) {
         </div>
       </PageBody>
 
-      {screening && record && (
-        <ScreenInDialog
-          applicantName={record.name}
-          appliedFor={record.postingTitle}
-          roleName={card?.requisition.title ?? record.postingTitle}
-          onClose={() => setScreening(false)}
-          onConfirm={async (input) => {
-            try {
-              const result = await view.screenIn(input);
-              /* The API writes this sentence and it names the stage they landed
-                 in. Showing it rather than composing one means the screen
-                 cannot disagree with what actually happened. */
-              toast.push({
-                title: `${record.name} is in the pipeline`,
-                tone: "success",
-                detail: result.note,
-              });
-              setScreening(false);
-            } catch (error) {
-              fail(error);
-            }
-          }}
-        />
-      )}
+      <ScreenInDialog
+        open={screening}
+        applicantName={record?.name ?? ""}
+        appliedFor={record?.postingTitle ?? ""}
+        roleName={card?.requisition.title ?? record?.postingTitle ?? ""}
+        onClose={() => setScreening(false)}
+        onConfirm={async (input) => {
+          if (!record) return;
+          try {
+            const result = await view.screenIn(input);
+            /* The API writes this sentence and it names the stage they landed
+               in. Showing it rather than composing one means the screen
+               cannot disagree with what actually happened. */
+            toast.push({
+              title: `${record.name} is in the pipeline`,
+              tone: "success",
+              detail: result.note,
+            });
+            setScreening(false);
+          } catch (error) {
+            fail(error);
+          }
+        }}
+      />
 
-      {declining && record && (
-        <DeclineDialog
-          applicantName={record.name}
-          onClose={() => setDeclining(false)}
-          onConfirm={async (reason) => {
-            try {
-              await view.screenOut(
-                reason.trim() === "" ? undefined : reason.trim(),
-              );
-              toast.push({
-                title: `${record.name} turned down`,
-                tone: "success",
-                detail: "Nothing was sent to them. Write to them yourself.",
-              });
-              setDeclining(false);
-            } catch (error) {
-              fail(error);
-            }
-          }}
-        />
-      )}
+      <DeclineDialog
+        open={declining}
+        applicantName={record?.name ?? ""}
+        onClose={() => setDeclining(false)}
+        onConfirm={async (reason) => {
+          if (!record) return;
+          try {
+            await view.screenOut(
+              reason.trim() === "" ? undefined : reason.trim(),
+            );
+            toast.push({
+              title: `${record.name} turned down`,
+              tone: "success",
+              detail: "Nothing was sent to them. Write to them yourself.",
+            });
+            setDeclining(false);
+          } catch (error) {
+            fail(error);
+          }
+        }}
+      />
     </>
   );
 }
@@ -700,12 +700,9 @@ function Application({
             className="size-4 shrink-0 text-faint"
           />
           {record.cvUrl ? (
-            <a
-              href={record.cvUrl}
-              className="text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
-            >
+            <TextLink href={record.cvUrl} className="text-body-sm">
               Open their CV
-            </a>
+            </TextLink>
           ) : (
             <span className="min-w-0 flex-1 text-body-sm text-body">
               {record.cvNote ?? "No CV is attached to this application."}

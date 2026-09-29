@@ -126,10 +126,16 @@ export function useStepUp() {
     [toast],
   );
 
-  const dialog = pending ? (
+  /* Always constructed, never `pending ? <StepUpDialog ... /> : null` —
+     `StepUpDialog` reads `open` from the real `pending !== null` state and
+     decides for itself whether to render, so `Modal` can see it go false and
+     play its exit animation instead of the whole thing vanishing with it. */
+  const dialog = (
     <StepUpDialog
+      open={pending !== null}
       pending={pending}
       onClose={() => {
+        if (!pending) return;
         /* Cancelling rejects the caller's promise with the original refusal, so
            a screen's own catch runs exactly as it would have without this
            wrapper. Resolving with undefined would have every call site treat a
@@ -140,6 +146,7 @@ export function useStepUp() {
         setPending(null);
       }}
       onVerified={() => {
+        if (!pending) return;
         void (async () => {
           try {
             /* The same thunk, invoked again. The grant now exists, so the
@@ -153,17 +160,20 @@ export function useStepUp() {
         })();
       }}
     />
-  ) : null;
+  );
 
   return { run, dialog };
 }
 
 function StepUpDialog({
+  open,
   pending,
   onClose,
   onVerified,
 }: {
-  pending: Pending<unknown>;
+  open: boolean;
+  /** Null while closed — `useStepUp` stays mounted rather than gating on this. */
+  pending: Pending<unknown> | null;
   onClose: () => void;
   onVerified: () => void;
 }) {
@@ -174,6 +184,7 @@ function StepUpDialog({
   const [failed, setFailed] = useState<string | null>(null);
 
   const verify = async () => {
+    if (!pending) return;
     setBusy(true);
     setFailed(null);
     try {
@@ -203,7 +214,7 @@ function StepUpDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Confirm it is you"
       size="sm"
@@ -224,16 +235,18 @@ function StepUpDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="text-body-sm text-body">
-          {ACTION_LINE[pending.action]} Your company asks for a code before this
-          one.
-        </p>
+        {pending && (
+          <p className="text-body-sm text-body">
+            {ACTION_LINE[pending.action]} Your company asks for a code before
+            this one.
+          </p>
+        )}
 
-        {pending.delivery && !useRecovery && (
+        {pending?.delivery && !useRecovery && (
           <Callout tone="warning" title="No email was sent">
             This server cannot send email, so here is the code:{" "}
             <span className="font-mono font-medium text-ink">
-              {pending.delivery.token}
+              {pending?.delivery?.token}
             </span>
           </Callout>
         )}
@@ -250,7 +263,7 @@ function StepUpDialog({
         {useRecovery ? (
           <Field
             label="Recovery code"
-            help={`${String(pending.recoveryCodesLeft)} left. Each one works once.`}
+            help={`${String(pending?.recoveryCodesLeft ?? 0)} left. Each one works once.`}
           >
             <Input
               value={recovery}

@@ -182,27 +182,62 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
               />
             </CardBody>
           ) : (
-            <TableWrap
-              className="rounded-none border-0"
-              caption="People in this unit"
-            >
-              <THead>
-                <TH>Name</TH>
-                <TH>Job title</TH>
-                <TH align="right">Monthly</TH>
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-none border-0"
+                  caption="People in this unit"
+                >
+                  <THead>
+                    <TH>Name</TH>
+                    <TH>Job title</TH>
+                    <TH align="right">Monthly</TH>
+                  </THead>
+                  <TBody>
+                    {people.map((person) => (
+                      <TR key={person.id}>
+                        <TDPrimary
+                          title={
+                            <TextLink href={`/people/${person.id}`}>
+                              {person.name}
+                            </TextLink>
+                          }
+                        />
+                        <TD>{person.jobTitle}</TD>
+                        <TD align="right">
+                          <Money
+                            amount={
+                              person.grossMonthlyKobo === null
+                                ? null
+                                : person.grossMonthlyKobo / 100
+                            }
+                            size="sm"
+                          />
+                        </TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
                 {people.map((person) => (
-                  <TR key={person.id}>
-                    <TDPrimary
-                      title={
-                        <TextLink href={`/people/${person.id}`}>
-                          {person.name}
-                        </TextLink>
-                      }
-                    />
-                    <TD>{person.jobTitle}</TD>
-                    <TD align="right">
+                  <li
+                    key={person.id}
+                    className="flex items-center justify-between gap-3 p-4"
+                  >
+                    <div className="min-w-0">
+                      <TextLink
+                        href={`/people/${person.id}`}
+                        className="text-body-sm"
+                      >
+                        {person.name}
+                      </TextLink>
+                      <p className="mt-0.5 text-meta text-muted">
+                        {person.jobTitle}
+                      </p>
+                    </div>
+                    <span className="tabular shrink-0 text-body-sm text-body">
                       <Money
                         amount={
                           person.grossMonthlyKobo === null
@@ -211,11 +246,11 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
                         }
                         size="sm"
                       />
-                    </TD>
-                  </TR>
+                    </span>
+                  </li>
                 ))}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
         </Card>
 

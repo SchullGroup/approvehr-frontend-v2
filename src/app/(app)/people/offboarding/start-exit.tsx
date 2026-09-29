@@ -64,11 +64,13 @@ type Subject =
  * words, so the refusal is shown rather than guessed at.
  */
 export function StartExitDialog({
+  open,
   onClose,
   onStarted,
   employeeId: fixedId,
   employeeName: fixedName,
 }: {
+  open: boolean;
   onClose: () => void;
   onStarted: (exitId: string) => void;
 } & Subject) {
@@ -116,7 +118,7 @@ export function StartExitDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Start an exit"
       description="This builds their leaving checklist straight away."

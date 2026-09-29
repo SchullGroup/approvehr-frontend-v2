@@ -293,7 +293,7 @@ function Reports() {
             level={3}
             description={
               workforce.trend.length > 0
-                ? `Employed at each month end, and who joined or left. Derived from everybody's start and end dates — this is what happened, not a snapshot taken later.`
+                ? `Employed at each month end, and who joined or left. Derived from everybody's start and end dates.`
                 : undefined
             }
           />

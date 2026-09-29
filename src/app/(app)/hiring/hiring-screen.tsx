@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   ArrowRight,
   CalendarClock,
@@ -27,6 +26,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   formatMoney,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -181,7 +181,15 @@ function Overview() {
           />
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+        {/* `grid-cols-1` at the base breakpoint, not just implied by having
+            one column below `lg`: with no `grid-template-columns` declared,
+            the single implicit track sizes to `auto` — its content's own
+            width — rather than the container's. The mobile card list below
+            has no TableWrap-style `scroll-x` safety net the way the table it
+            replaces does, so a track sized to content pushed the whole page
+            405px wide at a 375px viewport. `grid-cols-1` gives the track
+            `minmax(0, 1fr)`, which respects the container instead. */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
           <Card>
             <CardHeader
               title="Advertised roles"
@@ -215,20 +223,30 @@ function Overview() {
                 }
               />
             ) : (
-              <TableWrap className="rounded-none border-0">
-                <THead>
-                  <TH>Role</TH>
-                  <TH>Status</TH>
-                  <TH align="right">Applied</TH>
-                  <TH align="right">Waiting</TH>
-                  <TH align="right">Pay range</TH>
-                </THead>
-                <TBody>
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap className="rounded-none border-0">
+                    <THead>
+                      <TH>Role</TH>
+                      <TH>Status</TH>
+                      <TH align="right">Applied</TH>
+                      <TH align="right">Waiting</TH>
+                      <TH align="right">Pay range</TH>
+                    </THead>
+                    <TBody>
+                      {roles.map((role) => (
+                        <RoleTableRow key={role.postingId} role={role} />
+                      ))}
+                    </TBody>
+                  </TableWrap>
+                </div>
+
+                <ul className="divide-y divide-line sm:hidden">
                   {roles.map((role) => (
-                    <RoleTableRow key={role.postingId} role={role} />
+                    <RoleCard key={role.postingId} role={role} />
                   ))}
-                </TBody>
-              </TableWrap>
+                </ul>
+              </>
             )}
           </Card>
 
@@ -307,12 +325,12 @@ function Overview() {
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-body-sm font-medium text-ink">
-                          <Link
+                          <TextLink
                             href={`/hiring/candidates/${card.id}`}
-                            className="after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
+                            className="after:absolute after:inset-0"
                           >
                             {fullName(card.candidate)}
-                          </Link>
+                          </TextLink>
                         </p>
                         <p className="truncate text-meta text-muted">
                           {card.requisition.title}
@@ -398,12 +416,9 @@ function RoleTableRow({ role }: { role: RoleRow }) {
       <TDPrimary
         title={
           role.requisitionId ? (
-            <Link
-              href={`/hiring/requisitions/${role.requisitionId}`}
-              className="hover:text-accent-text hover:underline underline-offset-4"
-            >
+            <TextLink href={`/hiring/requisitions/${role.requisitionId}`}>
               {role.title}
-            </Link>
+            </TextLink>
           ) : (
             role.title
           )
@@ -424,12 +439,11 @@ function RoleTableRow({ role }: { role: RoleRow }) {
       </TD>
       <TD align="right" className="tabular">
         {role.waiting > 0 ? (
-          <Link
+          <TextLink
             href={`/hiring/postings/applications?posting=${role.postingId}`}
-            className="font-medium text-accent-text hover:underline underline-offset-4"
           >
             {role.waiting}
-          </Link>
+          </TextLink>
         ) : (
           <span className="text-muted">0</span>
         )}
@@ -438,6 +452,60 @@ function RoleTableRow({ role }: { role: RoleRow }) {
         {payRange(role.salaryMin, role.salaryMax)}
       </TD>
     </TR>
+  );
+}
+
+/** The mobile card for one advertised role — the same two links as
+ *  `RoleTableRow`, in different elements for the same reason: nesting them
+ *  would break hydration silently. */
+function RoleCard({ role }: { role: RoleRow }) {
+  return (
+    <li className="flex flex-col gap-2 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {role.requisitionId ? (
+            <TextLink
+              href={`/hiring/requisitions/${role.requisitionId}`}
+              className="text-body-sm"
+            >
+              {role.title}
+            </TextLink>
+          ) : (
+            <p className="text-body-sm font-medium text-ink">{role.title}</p>
+          )}
+          <p className="mt-0.5 text-meta text-muted">
+            {[
+              role.reference ?? "No approved role behind it",
+              role.location ?? "Location not set",
+              role.employmentTypeLabel,
+            ].join(" · ")}
+          </p>
+        </div>
+        <Badge tone={STATUS_TONE[role.status]} size="sm" dot>
+          {role.statusLabel}
+        </Badge>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+        <span className="tabular">
+          <span className="font-medium text-ink">{role.applications}</span>{" "}
+          applied
+        </span>
+        {role.waiting > 0 ? (
+          <TextLink
+            href={`/hiring/postings/applications?posting=${role.postingId}`}
+            className="tabular"
+          >
+            {role.waiting} waiting
+          </TextLink>
+        ) : (
+          <span className="tabular">0 waiting</span>
+        )}
+      </div>
+      <p className="tabular text-body-sm text-body">
+        {payRange(role.salaryMin, role.salaryMax)}
+      </p>
+    </li>
   );
 }
 

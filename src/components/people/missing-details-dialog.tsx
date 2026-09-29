@@ -4,7 +4,13 @@ import { useState } from "react";
 import { Button, Field, Input, Modal, useToast } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { useEmployeeMutations } from "@/lib/store/employees-api";
-import { fullName, type Employee, type PayrollGap } from "@/lib/types";
+import {
+  fullName,
+  payrollFieldsForDisplay,
+  payrollGapsFor,
+  type Employee,
+  type PayrollGap,
+} from "@/lib/types";
 
 /**
  * The same three fields `payrollGapsFor` can ever name, so this never has to
@@ -34,22 +40,35 @@ const MAX_LENGTH: Partial<Record<PayrollGap["field"], number>> = {
  * it belongs to rather than a toast the reader has to translate.
  */
 export function MissingDetailsDialog({
-  employee,
-  gaps,
+  employee: employeeProp,
+  open,
   onClose,
   onSaved,
 }: {
-  employee: Employee;
-  gaps: PayrollGap[];
+  /** `null` while closed, or if the row was not found — see the freeze
+   *  below for why. */
+  employee: Employee | null;
+  open: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
+  /* Remembers the last real employee: the parent clears its prop to null the
+     instant it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`.
+     `gaps` is derived from it below rather than threaded as its own prop, so
+     there is one freeze instead of two that could drift apart. */
+  const [employee, setEmployee] = useState(employeeProp);
+  if (employeeProp && employeeProp !== employee) setEmployee(employeeProp);
+
   const mutations = useEmployeeMutations();
   const toast = useToast();
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
+  if (!employee) return null;
+
+  const gaps: PayrollGap[] = payrollGapsFor(payrollFieldsForDisplay(employee));
   const filled = gaps.filter((g) => (values[g.field] ?? "").trim() !== "");
 
   function setValue(field: string, value: string) {
@@ -63,7 +82,7 @@ export function MissingDetailsDialog({
   }
 
   async function save() {
-    if (filled.length === 0) return;
+    if (!employee || filled.length === 0) return;
     const patch = Object.fromEntries(
       filled.map((g) => [g.field, values[g.field]!.trim()]),
     );
@@ -108,7 +127,7 @@ export function MissingDetailsDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Missing for ${fullName(employee)}`}
       description="Only what's needed to pay them: everything else stays on their full record."

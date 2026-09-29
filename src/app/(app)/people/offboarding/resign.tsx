@@ -145,16 +145,19 @@ export function Resign() {
         </div>
       </Disclosure>
 
-      {open && (
-        <ResignDialog
-          start={mine.start}
-          onClose={() => setOpen(false)}
-          onDone={() => {
-            setOpen(false);
-            mine.reload();
-          }}
-        />
-      )}
+      {/* No `{open && (...)}` gate: `Modal` inside `ResignDialog` decides
+          whether to render from its own `open` prop, so the dialog has to
+          stay mounted and keep receiving the real boolean. `mine.start` is a
+          function reference, always available. */}
+      <ResignDialog
+        open={open}
+        start={mine.start}
+        onClose={() => setOpen(false)}
+        onDone={() => {
+          setOpen(false);
+          mine.reload();
+        }}
+      />
     </>
   );
 }
@@ -167,10 +170,12 @@ export function Resign() {
  * behind it kept showing "you have not resigned".
  */
 function ResignDialog({
+  open,
   start,
   onClose,
   onDone,
 }: {
+  open: boolean;
   start: (body: {
     kind: "RESIGNATION";
     reason: string;
@@ -216,7 +221,7 @@ function ResignDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Hand in my notice"
       footer={

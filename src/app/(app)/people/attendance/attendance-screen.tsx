@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Clock, MoreHorizontal, Timer, TriangleAlert } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { Clock, MoreHorizontal, Timer } from "lucide-react";
 import {
   Badge,
   Button,
@@ -11,12 +10,10 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   Field,
   Input,
   Modal,
   Select,
-  SegmentedControl,
   Skeleton,
   Stat,
   TBody,
@@ -27,7 +24,6 @@ import {
   TR,
   TableWrap,
   TextLink,
-  formatMoney,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -36,10 +32,13 @@ import { MyClockCard } from "@/components/portal/my-clock-card";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { type ApiRosterRow, type ApiWorkLocation } from "@/lib/api/attendance";
-import { addDays, hoursLabel, timesLabel } from "@/lib/api/shifts";
+import {
+  addDays,
+  hoursLabel,
+  timesLabel,
+  type ApiRotaCell,
+} from "@/lib/api/shifts";
 import { useCan, useIsManager } from "@/lib/permissions";
-import { attendanceCsv } from "@/lib/api/exports";
-import { ExportButton } from "@/components/portal/export-button";
 import {
   STATUS_LABEL,
   STATUS_TONE,
@@ -53,17 +52,18 @@ import {
 } from "@/lib/store/attendance";
 import { useSession } from "@/lib/store/session";
 import { shortDate } from "@/lib/today";
+import { AttendanceSettingsButton } from "./capability-bar";
 import { MyAttendanceHistoryPanel } from "./my-attendance-history";
 
 /**
- * The window both the table and its export ask for.
+ * The window a plain employee's own summary reads.
  *
- * Named because they are two requests and a file covering a different fortnight
- * than the table above it is the export version of a stale figure.
+ * The manager-facing table this used to also size — and its export — moved to
+ * `/people/attendance/history`, which keeps its own copy of the same number
+ * rather than importing this one: two screens agreeing on 15 by convention is
+ * fine, two screens sharing one file's constant across a route boundary is not.
  */
 const TIMESHEET_DAYS = 15;
-
-type View = "today" | "timesheet";
 
 /**
  * Attendance.
@@ -130,7 +130,6 @@ export function AttendanceScreen() {
   const canImport = useCan("IMPORT_DATA");
   const canSeeRoster = isManager || canEditRecords;
 
-  const [view, setView] = useState<View>("today");
   const [correcting, setCorrecting] = useState<ApiRosterRow | null>(null);
 
   const refresh = () => {
@@ -150,6 +149,7 @@ export function AttendanceScreen() {
                   two copies drift until one stops defaulting to the right role
                   or stops filtering out people who already have an account. */}
               <BulkInviteButton />
+              <AttendanceSettingsButton />
               {canImport && (
                 <ButtonLink
                   href="/people/attendance/import"
@@ -158,20 +158,6 @@ export function AttendanceScreen() {
                 >
                   Import attendance
                 </ButtonLink>
-              )}
-              {/* The view toggle chooses between two company-wide reads, so
-                  it has no reason to exist for somebody who cannot see
-                  either of them. */}
-              {canSeeRoster && (
-                <SegmentedControl
-                  label="View"
-                  value={view}
-                  onChange={setView}
-                  options={[
-                    { value: "today", label: "Today" },
-                    { value: "timesheet", label: "Timesheet" },
-                  ]}
-                />
               )}
             </div>
           ) : undefined
@@ -183,10 +169,11 @@ export function AttendanceScreen() {
           <LoadFailure subject="today's roster" error={roster.error} />
         )}
 
-        {/* Own clock-in. Deliberately the first thing on the page: the person
-            looking at this screen most often is looking for this control.
-            Shared with `/dashboard` — see `components/portal/my-clock-card.tsx`
-            for why this used to be inline here and no longer is. */}
+        {/* Own clock-in. Deliberately the first *open* thing on the page: the
+            person looking at this screen most often is looking for this
+            control. Shared with `/dashboard` — see
+            `components/portal/my-clock-card.tsx` for why this used to be
+            inline here and no longer is. */}
         <MyClockCard onRecorded={refresh} />
 
         {/* Everybody clocks in above. Everybody else's day is a different
@@ -194,22 +181,14 @@ export function AttendanceScreen() {
             see "Who sees the roster" on this component. A plain employee
             gets their own recent attendance instead of the company's. */}
         {canSeeRoster ? (
-          view === "today" ? (
-            roster.date ? (
-              <TodayView
-                roster={roster}
-                onCorrect={setCorrecting}
-                canCorrect={canEditRecords}
-              />
-            ) : (
-              <LoadingPanel label="Loading today's roster" />
-            )
-          ) : sheet.error ? (
-            <LoadFailure subject="the timesheet" error={sheet.error} />
-          ) : sheet.from ? (
-            <TimesheetView sheet={sheet} />
+          roster.date ? (
+            <TodayView
+              roster={roster}
+              onCorrect={setCorrecting}
+              canCorrect={canEditRecords}
+            />
           ) : (
-            <LoadingPanel label="Loading the timesheet" />
+            <LoadingPanel label="Loading today's roster" />
           )
         ) : (
           <>
@@ -413,97 +392,187 @@ function TodayView({
 
       <Card>
         <CardHeader title={`Roster · ${shortDate(roster.date)}`} />
-        <TableWrap className="rounded-none border-0">
-          <THead>
-            <TH>Employee</TH>
-            <TH>Status</TH>
-            <TH>In</TH>
-            <TH>Out</TH>
-            <TH align="right">Actions</TH>
-          </THead>
-          <TBody>
-            {roster.rows.map((row) => {
-              const shift = rota.shiftOn(row.employeeId, roster.date);
-              const off = offToday(row);
-              return (
-                <TR key={row.employeeId} interactive>
-                  <TDPrimary
-                    title={
-                      <TextLink href={`/people/${row.employeeId}`}>
-                        {row.employeeName}
-                      </TextLink>
-                    }
-                    subtitle={row.jobTitle}
-                  />
-                  <TD>
+        {/* Status alone can carry five optional lines — late, leave, an
+            anomaly, the rota, a correction — on top of the name, times and
+            actions. Five columns of that is unreadable under 375px, so below
+            `sm` this becomes a card per person instead. `RosterStatusDetails`
+            is the one copy of what those lines say, read by both. */}
+        <div className="hidden sm:block">
+          <TableWrap className="rounded-none border-0">
+            <THead>
+              <TH>Employee</TH>
+              <TH>Status</TH>
+              <TH>In</TH>
+              <TH>Out</TH>
+              <TH align="right">Actions</TH>
+            </THead>
+            <TBody>
+              {roster.rows.map((row) => {
+                const shift = rota.shiftOn(row.employeeId, roster.date);
+                const off = offToday(row);
+                return (
+                  <TR key={row.employeeId} interactive>
+                    <TDPrimary
+                      title={
+                        <TextLink href={`/people/${row.employeeId}`}>
+                          {row.employeeName}
+                        </TextLink>
+                      }
+                      subtitle={row.jobTitle}
+                    />
+                    <TD>
+                      <Badge tone={STATUS_TONE[row.status]} size="sm" dot>
+                        {STATUS_LABEL[row.status]}
+                      </Badge>
+                      <RosterStatusDetails row={row} shift={shift} off={off} />
+                    </TD>
+                    <TD className="tabular">{row.clockIn ?? "—"}</TD>
+                    <TD className="tabular text-muted">
+                      {row.clockOut ? (
+                        row.clockOut
+                      ) : row.clockIn ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          {/* A fact about this row — clocked in, nothing clocked
+                              out against it yet — not a page-refresh countdown
+                              this screen does not run. True whether or not
+                              anybody reloads. Ping ring matches `ThinkingState`;
+                              the solid dot matches `Badge`'s own status dot. */}
+                          <span
+                            aria-hidden="true"
+                            className="relative flex size-3 shrink-0 items-center justify-center"
+                          >
+                            <span className="absolute inline-flex size-3 rounded-full bg-success/40 motion-safe:animate-ping" />
+                            <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+                          </span>
+                          still in
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TD>
+                    <TD align="right">
+                      <RowActions
+                        row={row}
+                        off={off}
+                        canCorrect={canCorrect}
+                        onCorrect={onCorrect}
+                      />
+                    </TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </TableWrap>
+        </div>
+
+        <ul className="divide-y divide-line sm:hidden">
+          {roster.rows.map((row) => {
+            const shift = rota.shiftOn(row.employeeId, roster.date);
+            const off = offToday(row);
+            return (
+              <li key={row.employeeId} className="flex flex-col gap-2 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <TextLink href={`/people/${row.employeeId}`}>
+                      {row.employeeName}
+                    </TextLink>
+                    {row.jobTitle && (
+                      <p className="mt-0.5 text-body-sm text-muted">
+                        {row.jobTitle}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
                     <Badge tone={STATUS_TONE[row.status]} size="sm" dot>
                       {STATUS_LABEL[row.status]}
                     </Badge>
-                    {row.lateByMinutes > 0 && (
-                      <span className="mt-0.5 block text-meta text-warning-text">
-                        {row.lateByMinutes > 60
-                          ? hoursLabel(row.lateByMinutes)
-                          : `${row.lateByMinutes} min`}{" "}
-                        late
-                      </span>
-                    )}
-                    {row.leave && (
-                      <span className="mt-0.5 block text-meta text-faint">
-                        {row.leave.type}, to {row.leave.endDate}
-                      </span>
-                    )}
-                    {row.anomaly && (
-                      <span className="mt-0.5 block text-meta font-medium text-warning-text">
-                        {row.anomaly}
-                      </span>
-                    )}
-                    {/* The rota, where there is one. A day off on a rota is a
-                        rest day whatever the office calendar says, so saying so
-                        here is what keeps this row and the payslip agreeing —
-                        and a rest day somebody worked anyway is money owed, on
-                        a surface this screen does not own. */}
-                    {shift ? (
-                      <span className="mt-0.5 block text-meta text-faint">
-                        On the rota: {shift.shiftName}, {timesLabel(shift)}
-                      </span>
-                    ) : off ? (
-                      row.clockIn ? (
-                        <span className="mt-0.5 block text-meta text-muted">
-                          Worked a rest day on their rota,{" "}
-                          <TextLink href="/people/overtime">
-                            check overtime
-                          </TextLink>
-                        </span>
-                      ) : (
-                        <span className="mt-0.5 block text-meta text-muted">
-                          Rest day on their rota: no pay is held back
-                        </span>
-                      )
-                    ) : null}
-                    {row.correctionNote && (
-                      <span className="mt-0.5 block text-meta text-faint">
-                        Corrected: {row.correctionNote}
-                      </span>
-                    )}
-                  </TD>
-                  <TD className="tabular">{row.clockIn ?? "—"}</TD>
-                  <TD className="tabular text-muted">
-                    {row.clockOut ?? (row.clockIn ? "still in" : "—")}
-                  </TD>
-                  <TD align="right">
                     <RowActions
                       row={row}
                       off={off}
                       canCorrect={canCorrect}
                       onCorrect={onCorrect}
                     />
-                  </TD>
-                </TR>
-              );
-            })}
-          </TBody>
-        </TableWrap>
+                  </div>
+                </div>
+
+                <RosterStatusDetails row={row} shift={shift} off={off} />
+
+                <div className="flex items-center gap-4 text-body-sm tabular text-muted">
+                  <span>In {row.clockIn ?? "—"}</span>
+                  <span>
+                    Out {row.clockOut ?? (row.clockIn ? "still in" : "—")}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </Card>
+    </>
+  );
+}
+
+/**
+ * The optional lines under a roster status — late, leave, an anomaly, the
+ * rota, a correction. One copy read by both the desktop cell and the mobile
+ * card, so a sixth line added here reaches both without being written twice.
+ */
+function RosterStatusDetails({
+  row,
+  shift,
+  off,
+}: {
+  row: ApiRosterRow;
+  shift: ApiRotaCell | null;
+  off: boolean;
+}) {
+  return (
+    <>
+      {row.lateByMinutes > 0 && (
+        <span className="mt-0.5 block text-meta text-warning-text">
+          {row.lateByMinutes > 60
+            ? hoursLabel(row.lateByMinutes)
+            : `${row.lateByMinutes} min`}{" "}
+          late
+        </span>
+      )}
+      {row.leave && (
+        <span className="mt-0.5 block text-meta text-faint">
+          {row.leave.type}, to {row.leave.endDate}
+        </span>
+      )}
+      {row.anomaly && (
+        <span className="mt-0.5 block text-meta font-medium text-warning-text">
+          {row.anomaly}
+        </span>
+      )}
+      {/* The rota, where there is one. A day off on a rota is a rest day
+          whatever the office calendar says, so saying so here is what keeps
+          this row and the payslip agreeing — and a rest day somebody worked
+          anyway is money owed, on a surface this screen does not own. */}
+      {shift ? (
+        <span className="mt-0.5 block text-meta text-faint">
+          On the rota: {shift.shiftName}, {timesLabel(shift)}
+        </span>
+      ) : off ? (
+        row.clockIn ? (
+          <span className="mt-0.5 block text-meta text-muted">
+            Worked a rest day on their rota,{" "}
+            <TextLink href="/people/overtime" className="underline">
+              check overtime
+            </TextLink>
+          </span>
+        ) : (
+          <span className="mt-0.5 block text-meta text-muted">
+            Rest day on their rota: no pay is held back
+          </span>
+        )
+      ) : null}
+      {row.correctionNote && (
+        <span className="mt-0.5 block text-meta text-faint">
+          Corrected: {row.correctionNote}
+        </span>
+      )}
     </>
   );
 }
@@ -586,191 +655,6 @@ function RowActions({
         </>
       )}
     </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/**
- * The timesheet.
- *
- * Two things here are somebody else's to compute and this view links to them
- * rather than reproducing them: **overtime**, which `/people/overtime` derives
- * from clock-outs, and **a shift worker's unpaid days**, which payroll counts
- * against their rota. For anyone on a rota the office-week figures are not the
- * ones a run would use, so the cell says where the real answer lives instead of
- * printing a naira amount nobody can reconcile.
- */
-function TimesheetView({ sheet }: { sheet: TimesheetState }) {
-  const rota = useRotaContext(sheet.from, sheet.to);
-  const mayExport = useCan("EXPORT_DATA");
-  /* Download-only: the on-screen table stays the full roster, since the
-     "Needs looking at" column already reads as "nothing to look at" on a
-     clean row. The file is the artefact somebody actually filters, files
-     or hands to auditing — the feedback's own words. */
-  const [exceptionsOnly, setExceptionsOnly] = useState(false);
-
-  return (
-    <Card>
-      <CardHeader
-        title={`Timesheet · ${shortDate(sheet.from)} to ${shortDate(sheet.to)}`}
-        description={`${sheet.workingDays} working days, public holidays excluded. Hours are clocked time; anyone on a rota is measured against their rota.`}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            {/* `EXPORT_DATA`, and only connected: the honest offline file would
-                be the fifteen rows already on screen, and unlike the directory
-                nobody is asking for that. No `VIEW_SALARIES` branch either —
-                this file carries days, not money. The timesheet read computes a
-                proration *amount* as well and it is deliberately not a column:
-                that is a salary figure wearing an attendance label, on the one
-                export that does not need the pay permission. */}
-            {sheet.source === "api" && mayExport && (
-              <>
-                <Checkbox
-                  label="Exceptions only"
-                  checked={exceptionsOnly}
-                  onChange={(e) => setExceptionsOnly(e.target.checked)}
-                />
-                <ExportButton
-                  label="Download"
-                  download={() =>
-                    attendanceCsv({
-                      days: TIMESHEET_DAYS,
-                      to: sheet.to,
-                      ...(exceptionsOnly ? { exceptionsOnly: true } : {}),
-                    })
-                  }
-                />
-              </>
-            )}
-            <ButtonLink href="/people/overtime" variant="secondary" size="sm">
-              <Timer aria-hidden="true" className="size-4" />
-              Overtime
-            </ButtonLink>
-          </div>
-        }
-      />
-      <TableWrap className="rounded-none border-0">
-        <THead>
-          <TH>Employee</TH>
-          <TH align="right">Present</TH>
-          <TH align="right">Late</TH>
-          <TH align="right">On leave</TH>
-          <TH align="right">Unexplained</TH>
-          <TH align="right">Hours</TH>
-          {/* What actually needs looking at. The columns to the left are
-              figures a reader has to interpret; this is the product saying
-              which of them is a problem — the feedback's "automatically pick
-              up attendance exceptions". */}
-          <TH>Needs looking at</TH>
-          <TH align="right">Payroll effect</TH>
-        </THead>
-        <TBody>
-          {[...sheet.rows]
-            .sort((a, b) => b.daysUnexplained - a.daysUnexplained)
-            .map((row) => {
-              const onRota = rota.onRota.has(row.employeeId);
-              const rostered = rota.rosteredDays.get(row.employeeId) ?? 0;
-              return (
-                <TR key={row.employeeId} interactive>
-                  <TDPrimary
-                    title={
-                      <TextLink href={`/people/${row.employeeId}`}>
-                        {row.employeeName}
-                      </TextLink>
-                    }
-                    subtitle={
-                      onRota
-                        ? `${rostered} rostered days in this window`
-                        : `${row.daysPresent} of ${row.workingDays} working days`
-                    }
-                  />
-                  <TD align="right" className="tabular font-medium text-ink">
-                    {row.daysPresent}
-                  </TD>
-                  <TD
-                    align="right"
-                    className={cn(
-                      "tabular",
-                      row.daysLate > 2 ? "text-warning-text" : "text-muted",
-                    )}
-                  >
-                    {row.daysLate || "—"}
-                  </TD>
-                  <TD align="right" className="tabular text-muted">
-                    {row.daysOnLeave || "—"}
-                  </TD>
-                  <TD
-                    align="right"
-                    className={cn(
-                      "tabular",
-                      onRota
-                        ? "text-muted"
-                        : row.daysUnexplained > 0
-                          ? "font-medium text-danger-text"
-                          : "text-muted",
-                    )}
-                  >
-                    {/* An office-week count means nothing for somebody on a
-                        rota, so it is not shown as though it did. */}
-                    {onRota ? "—" : row.daysUnexplained || "—"}
-                  </TD>
-                  <TD align="right" className="tabular text-muted">
-                    {row.hours || "—"}
-                  </TD>
-                  {/* The API's own labels, and its own counts. A second copy
-                      of these four names here is how the screen and the
-                      downloaded report come to describe the same day
-                      differently. Empty reads as "nothing to look at", which
-                      is exactly right — a word like "none" is one more thing
-                      to scan past on a clean month. */}
-                  <TD>
-                    {row.exceptions.length === 0 ? (
-                      <span className="text-faint">—</span>
-                    ) : (
-                      <span className="flex flex-wrap gap-1">
-                        {row.exceptions.map((issue) => (
-                          <Badge key={issue.code} tone="warning" size="sm">
-                            {issue.label}
-                            {issue.days > 1 ? ` ×${issue.days}` : ""}
-                          </Badge>
-                        ))}
-                      </span>
-                    )}
-                  </TD>
-                  <TD align="right" className="tabular">
-                    {rota.loading ? (
-                      <Skeleton className="ml-auto h-4 w-20" />
-                    ) : onRota ? (
-                      <TextLink href="/people/shifts" className="text-body-sm">
-                        From their rota
-                      </TextLink>
-                    ) : (row.proration.amount ?? 0) > 0 ? (
-                      <span className="inline-flex flex-col items-end">
-                        <span className="inline-flex items-center gap-1.5 font-medium text-danger-text">
-                          <TriangleAlert
-                            aria-hidden="true"
-                            className="size-3.5"
-                          />
-                          {`−${formatMoney(row.proration.amount ?? 0, "NGN", {
-                            decimals: true,
-                          })}`}
-                        </span>
-                        <span className="text-meta text-muted">
-                          {row.proration.unpaidDays} of{" "}
-                          {row.proration.workingDaysPerMonth} days
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-faint">Full pay</span>
-                    )}
-                  </TD>
-                </TR>
-              );
-            })}
-        </TBody>
-      </TableWrap>
-    </Card>
   );
 }
 

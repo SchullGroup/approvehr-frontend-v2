@@ -111,7 +111,14 @@ export function useAttendanceStore() {
     store.getServerSnapshot,
   );
 
-  const policy: AttendancePolicy = { ...DEFAULT_POLICY, ...state.policy };
+  /* Memoised on `state.policy`, which useSyncExternalStore already keeps
+     stable across renders that change nothing — an unmemoised copy here is a
+     fresh reference every render, and useAttendancePolicy's demoPolicy below
+     composes over this value, so that breaks too. */
+  const policy: AttendancePolicy = useMemo(
+    () => ({ ...DEFAULT_POLICY, ...state.policy }),
+    [state.policy],
+  );
 
   const entries: AttendanceEntry[] = [
     ...ATTENDANCE.map((e) => patched(e, state.overrides)),
@@ -803,10 +810,15 @@ export function useAttendancePolicy(): AttendancePolicyState {
     };
   }, [isConnected, attempt, revalidation]);
 
+  /* Matches useOvertimePolicy's demoPolicy: memoised so
+     AttendancePolicyForm's `edited.from === policy` draft check survives a
+     render instead of reverting every edit. */
+  const demoPolicy = useMemo(() => toApiPolicy(local.policy), [local.policy]);
+
   const fromApi = fetched?.connected === true ? fetched.policy : null;
   const policy = isConnected
     ? (fromApi ?? toApiPolicy(DEFAULT_POLICY))
-    : toApiPolicy(local.policy);
+    : demoPolicy;
 
   const save = useCallback(
     async (patch: PolicyBody): Promise<ApiAttendancePolicy> => {

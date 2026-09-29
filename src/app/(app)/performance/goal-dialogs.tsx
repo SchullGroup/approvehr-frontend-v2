@@ -126,11 +126,13 @@ const quarterText = (quarter: string) => {
 export function NewKpiDialog({
   parentId,
   parentTitle,
+  open,
   onClose,
   onCreate,
 }: {
   parentId?: string;
   parentTitle?: string;
+  open: boolean;
   onClose: () => void;
   onCreate: (body: CreateGoalBody) => Promise<void>;
 }) {
@@ -223,7 +225,7 @@ export function NewKpiDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={parentTitle ? `New KPI under "${parentTitle}"` : "New KPI"}
       size="md"
@@ -419,16 +421,19 @@ export function NewKpiDialog({
  * worth anything.
  */
 export function AssignKpiDialog({
-  parent,
+  parent: parentProp,
+  open,
   onClose,
   onAssign,
 }: {
+  /** `null` while closed — see the freeze below for why. */
   parent: {
     id: string;
     title: string;
     departmentId: string | null;
     dueQuarter: string | null;
-  };
+  } | null;
+  open: boolean;
   onClose: () => void;
   onAssign: (
     parentId: string,
@@ -440,11 +445,17 @@ export function AssignKpiDialog({
     },
   ) => Promise<{ created: unknown[]; alreadyHad: { name: string }[] }>;
 }) {
+  /* Remembers the last real parent: the caller clears its prop to null the
+     instant it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`. */
+  const [parent, setParent] = useState(parentProp);
+  if (parentProp && parentProp !== parent) setParent(parentProp);
+
   /* Everybody when the objective is the company's; the department's own people
      when it is a department's. Filing a Sales KPI under Marketing's target is
      something the API refuses, so the list does not offer it. */
   const { employees: inScope } = useEmployeeDirectory(
-    parent.departmentId
+    parent?.departmentId
       ? { departmentId: parent.departmentId, pageSize: 200 }
       : { pageSize: 200 },
   );
@@ -473,10 +484,12 @@ export function AssignKpiDialog({
   const [description, setDescription] = useState("");
   const [chosen, setChosen] = useState<string[]>([]);
   const [quarter, setQuarter] = useState(
-    parent.dueQuarter ?? quarters[1] ?? quarters[0] ?? "",
+    parent?.dueQuarter ?? quarters[1] ?? quarters[0] ?? "",
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  if (!parent) return null;
 
   const toggle = (id: string) =>
     setChosen((was) =>
@@ -511,7 +524,7 @@ export function AssignKpiDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={`Give a KPI to people under "${parent.title}"`}
       size="md"
@@ -609,14 +622,23 @@ export function AssignKpiDialog({
 }
 
 export function AddMeasureDialog({
-  goalTitle,
+  goalTitle: goalTitleProp,
+  open,
   onClose,
   onAdd,
 }: {
-  goalTitle: string;
+  /** `null` while closed — see the freeze below for why. */
+  goalTitle: string | null;
+  open: boolean;
   onClose: () => void;
   onAdd: (body: CreateKeyResultBody) => Promise<void>;
 }) {
+  /* Remembers the last real title: the caller clears its prop to null the
+     instant it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`. */
+  const [goalTitle, setGoalTitle] = useState(goalTitleProp);
+  if (goalTitleProp && goalTitleProp !== goalTitle) setGoalTitle(goalTitleProp);
+
   const [label, setLabel] = useState("");
   const [unit, setUnit] = useState("");
   const [start, setStart] = useState("0");
@@ -625,6 +647,8 @@ export function AddMeasureDialog({
   const [countDown, setCountDown] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  if (goalTitle === null) return null;
 
   const submit = async () => {
     const found: Record<string, string> = {};
@@ -666,7 +690,7 @@ export function AddMeasureDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Add a measure"
       description={goalTitle}
@@ -750,17 +774,28 @@ export function AddMeasureDialog({
 
 /** Stopping a KPI. The reason is required because it is the only record of it. */
 export function StopKpiDialog({
-  goalTitle,
+  goalTitle: goalTitleProp,
+  open,
   onClose,
   onStop,
 }: {
-  goalTitle: string;
+  /** `null` while closed — see the freeze below for why. */
+  goalTitle: string | null;
+  open: boolean;
   onClose: () => void;
   onStop: (reason: string) => Promise<void>;
 }) {
+  /* Remembers the last real title: the caller clears its prop to null the
+     instant it closes this, but the modal has to stay mounted with real
+     content so `Modal` below can animate its own close off the real `open`. */
+  const [goalTitle, setGoalTitle] = useState(goalTitleProp);
+  if (goalTitleProp && goalTitleProp !== goalTitle) setGoalTitle(goalTitleProp);
+
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  if (goalTitle === null) return null;
 
   const submit = async () => {
     if (reason.trim().length < 3) {
@@ -778,7 +813,7 @@ export function StopKpiDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title="Stop this KPI"
       description={goalTitle}

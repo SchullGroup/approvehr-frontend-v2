@@ -41,6 +41,7 @@ import { usePayrollActions } from "@/lib/store/payroll";
  * once rather than flickering through four intermediate figures.
  */
 export function LinesDialog({
+  open = true,
   runId,
   employeeId,
   name,
@@ -48,6 +49,13 @@ export function LinesDialog({
   onClose,
   onSaved,
 }: {
+  /**
+   * Defaults to `true`: the one caller (`runs/new/wizard.tsx`) still mounts
+   * this conditionally on `linesOpen` and does not pass `open` — this keeps
+   * that caller working exactly as it does today until it threads the real
+   * boolean through and renders unconditionally instead.
+   */
+  open?: boolean;
   runId: string;
   employeeId: string;
   name: string;
@@ -160,7 +168,7 @@ export function LinesDialog({
 
   return (
     <Modal
-      open
+      open={open}
       onClose={onClose}
       title={kind === "bonus" ? `Bonus for ${name}` : `Deductions for ${name}`}
       description={
