@@ -77,6 +77,31 @@ export const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
 export type RequisitionStatus =
   "DRAFT" | "PENDING_APPROVAL" | "OPEN" | "ON_HOLD" | "FILLED" | "CANCELLED";
 
+/**
+ * Why a requisition-linked advert cannot take a fresh screen-in right now, or
+ * `null` when it still can (including having no requisition at all — that is
+ * a different, separately-flagged fact).
+ *
+ * This is the **one** place this condition is computed. `advance()` on the API
+ * refuses a FILLED or CANCELLED requisition outright (`careers/service.ts`),
+ * and three screens — the roles overview, the job adverts list, and the
+ * applications queue — each used to re-derive their own, narrower version of
+ * "is this usable" that checked only whether a requisition was attached at
+ * all, so none of them warned about this specific, common case: accepting an
+ * offer sets a requisition to FILLED automatically, which means every other
+ * still-published advert pointing at it silently becomes a trap the moment a
+ * hire completes. Sharing this function is what stops the three screens
+ * drifting back into three different answers to the same question.
+ */
+export function requisitionClosedNote(
+  status: RequisitionStatus | null,
+): string | null {
+  if (status === "FILLED") return "Role filled — cannot take a new candidate";
+  if (status === "CANCELLED")
+    return "Role cancelled — cannot take a new candidate";
+  return null;
+}
+
 /** An advert, as every internal list returns it. */
 export type ApiPosting = {
   id: string;

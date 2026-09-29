@@ -271,7 +271,7 @@ export function UnknownRequisition({ id }: { id: string }) {
   return (
     <>
       <PageHeader
-        breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+        breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
         title={roleName}
         meta={
           queue.reference ? (

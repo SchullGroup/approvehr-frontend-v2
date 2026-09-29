@@ -10,6 +10,7 @@ import {
   Megaphone,
   Plus,
   Search,
+  TriangleAlert,
 } from "lucide-react";
 import {
   Badge,
@@ -43,6 +44,7 @@ import {
   careersPath,
   careersUrl,
   naira,
+  requisitionClosedNote,
   type ApiPosting,
   type ApiPostingTally,
   type CreatePostingBody,
@@ -78,7 +80,7 @@ export function PostingsScreen() {
       <>
         <PageHeader
           title="Job adverts"
-          breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+          breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
         />
         <PageBody>
           <Skeleton className="h-40 w-full" />
@@ -93,7 +95,7 @@ export function PostingsScreen() {
       <>
         <PageHeader
           title="Job adverts"
-          breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+          breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
         />
         <PageBody>
           <Card>
@@ -231,7 +233,7 @@ function Adverts() {
     <>
       <PageHeader
         title="Job adverts"
-        breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+        breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
         action={
           <>
             <ButtonLink
@@ -560,6 +562,15 @@ function AdvertRow({
                 No approved role
               </Badge>
             )}
+            {requisitionClosedNote(posting.requisitionStatus) && (
+              <Badge
+                tone="warning"
+                size="sm"
+                icon={<TriangleAlert aria-hidden="true" />}
+              >
+                {requisitionClosedNote(posting.requisitionStatus)}
+              </Badge>
+            )}
           </span>
         }
         subtitle={
@@ -717,6 +728,15 @@ function AdvertCard({
             ) : (
               <Badge tone="warning" size="sm">
                 No approved role
+              </Badge>
+            )}
+            {requisitionClosedNote(posting.requisitionStatus) && (
+              <Badge
+                tone="warning"
+                size="sm"
+                icon={<TriangleAlert aria-hidden="true" />}
+              >
+                {requisitionClosedNote(posting.requisitionStatus)}
               </Badge>
             )}
           </p>
