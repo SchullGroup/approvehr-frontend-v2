@@ -235,7 +235,15 @@ export function toQueueItem(item: ApprovalItem): QueueItem {
  *   properly" are one click apart rather than a search. An exit row does the
  *   same, for a stronger reason: an exit carries *two* approvals and a checklist,
  *   and `HREF[record_change]` would drop somebody on the directory with no way
- *   to tell which leaver the row was about.
+ *   to tell which leaver the row was about. A requisition row does the same
+ *   again — `subjectId` *is* the requisition's own id, so `HREF[requisition]`'s
+ *   hub is only the fallback for a row with no subject to point at.
+ *
+ * `offer` stays on `HREF[offer]`, the `/hiring/offers` hub, deliberately —
+ * `subjectId` there is the *offer's* id, and the candidate page it would need
+ * to deep-link into resolves an application or candidate id, neither of which
+ * an offer id is. Same shape as `payroll_run`/`loan`/`expense`: a hub rather
+ * than a row this file cannot cheaply resolve.
  */
 export function queueItemFromApproval(
   row: ApprovalRow,
@@ -249,7 +257,9 @@ export function queueItemFromApproval(
         ? /* An exit's two approvals need the checklist in front of you, and
              `HREF[record_change]` would land on the directory. */
           `/people/offboarding/${row.subjectId}`
-        : HREF[row.kind];
+        : row.subjectType === "requisitions"
+          ? `/hiring/requisitions/${row.subjectId}`
+          : HREF[row.kind];
 
   return {
     id: row.id,

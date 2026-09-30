@@ -26,6 +26,7 @@ import {
   Input,
   LinkedText,
   Modal,
+  Picker,
   SegmentedControl,
   Select,
   Skeleton,
@@ -37,12 +38,14 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   kobo,
+  requisitionClosedNote,
   type AdvanceBody,
   type ApiApplication,
   type ApiPosting,
   type ApplicationStatus,
 } from "@/lib/api/careers";
 import { usePermissions } from "@/lib/permissions";
+import { useRequisitions } from "@/lib/store/recruitment";
 import {
   useApplications,
   usePostingIndex,
@@ -102,7 +105,7 @@ export function ApplicationsScreen({
         <PageHeader
           title="Applications"
           breadcrumb={[
-            { href: "/hiring", label: "Pipeline" },
+            { href: "/hiring", label: "Hiring" },
             { href: "/hiring/postings", label: "Job adverts" },
           ]}
         />
@@ -119,7 +122,7 @@ export function ApplicationsScreen({
       <>
         <PageHeader
           title="Applications"
-          breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+          breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
         />
         <PageBody>
           <Card>
@@ -225,7 +228,7 @@ function Queue({
       <PageHeader
         title="Applications"
         breadcrumb={[
-          { href: "/hiring", label: "Pipeline" },
+          { href: "/hiring", label: "Hiring" },
           { href: "/hiring/postings", label: "Job adverts" },
         ]}
       />
@@ -412,6 +415,10 @@ function ApplicationRow({
   const waiting = application.status === "RECEIVED";
   const noApprovedRole =
     posting !== undefined && posting.requisitionId === null;
+  const closedNote =
+    posting !== undefined
+      ? requisitionClosedNote(posting.requisitionStatus)
+      : null;
 
   return (
     <div className="flex flex-col gap-3 rounded-md border border-line p-4">
@@ -511,6 +518,13 @@ function ApplicationRow({
         </p>
       )}
 
+      {waiting && closedNote && (
+        <p className="text-body-sm text-danger-text">
+          {posting?.requisitionReference}: {closedNote}. Advancing will be
+          refused — edit the advert to link a different open role first.
+        </p>
+      )}
+
       {application.status === "DECLINED" && application.declineReason && (
         <p className="text-body-sm text-muted">
           Reason kept on file: {application.declineReason}
@@ -548,6 +562,21 @@ function AdvanceDialog({
   const [expected, setExpected] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const requisitions = useRequisitions({ pageSize: 100 });
+  const requisitionOptions = useMemo(
+    () =>
+      requisitions.requisitions.map((r) => {
+        const closed = requisitionClosedNote(r.status);
+        return {
+          value: r.id,
+          label: `${r.reference} · ${r.jobTitle}`,
+          hint: closed ?? undefined,
+          disabled: closed !== null,
+        };
+      }),
+    [requisitions.requisitions],
+  );
+
   /**
    * Only ask when we know there is nothing to land on.
    *
@@ -557,7 +586,12 @@ function AdvanceDialog({
    * blocker, which beats demanding an id the advert may already have.
    */
   const needsRole = posting !== undefined && posting.requisitionId === null;
-  const ready = !needsRole || requisitionId.trim().length > 0;
+  const closedNote =
+    posting !== undefined
+      ? requisitionClosedNote(posting.requisitionStatus)
+      : null;
+  const ready =
+    closedNote === null && (!needsRole || requisitionId.trim().length > 0);
 
   const number = (value: string): number | null => {
     const cleaned = value.replace(/[^0-9.]/g, "");
@@ -620,16 +654,28 @@ function AdvanceDialog({
           ]}
         />
 
-        {needsRole ? (
+        {closedNote ? (
+          <Callout tone="danger" title="This role cannot take anybody new">
+            {posting?.requisitionReference}: {closedNote}. Close this dialog and
+            edit the advert from the Job adverts list to link a different, open
+            role before advancing anybody through it.
+          </Callout>
+        ) : needsRole ? (
           <Field
-            label="Approved role ID"
+            label="Approved role"
             required
-            help="They have to land on an approved role. There is no picker for this yet. Paste the ID."
+            help={
+              requisitions.error
+                ? `${requisitions.error.message} Roles are unavailable.`
+                : "They have to land on an approved role."
+            }
           >
-            <Input
-              autoFocus
+            <Picker
               value={requisitionId}
-              onChange={(event) => setRequisitionId(event.target.value)}
+              onChange={setRequisitionId}
+              placeholder="Choose a role"
+              loading={requisitions.loading}
+              options={requisitionOptions}
             />
           </Field>
         ) : (

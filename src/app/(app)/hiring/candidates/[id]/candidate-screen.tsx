@@ -144,6 +144,35 @@ export function CandidateScreen({ id }: { id: string }) {
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Which tab of the applications queue actually shows this person.
+ *
+ * The queue has four tabs — Waiting, Screened in, Turned down, Everyone — and
+ * defaults to Waiting. Landing there after leaving a candidate's own record
+ * would send the reader back to a tab this person has, by definition, already
+ * left: nobody reaches this page without having been screened in, turned
+ * down, or (rarely) withdrawn. This names the tab that actually holds them
+ * instead of the queue's own generic default.
+ *
+ * `record` is the careers-side status, and it is the authoritative one here —
+ * a record matched by email and a seeded pipeline card can disagree about
+ * where somebody got to (`ApplicantView.matchedBy`'s own note), and the queue
+ * reads the careers side. With no `record` at all — opened straight from the
+ * pipeline board, which does not carry the original application — the only
+ * way a real pipeline `Application` exists is through `advance()`, which
+ * always sets `ADVANCED`, so that is the safe assumption.
+ *
+ * `WITHDRAWN` has no tab of its own (`ApplicationStatus`'s own comment: set by
+ * nothing in this API yet, and the queue's status filters never offered one),
+ * so it falls back to "Everyone" rather than linking to a filter that does
+ * not exist.
+ */
+function queueStatusFor(record: ApplicantRecord | null): string {
+  if (record === null) return "ADVANCED";
+  if (record.status === "WITHDRAWN") return "ALL";
+  return record.status;
+}
+
 function Record({ id }: { id: string }) {
   const view = useApplicantRecord(id);
   const { isConnected } = useSession();
@@ -208,19 +237,24 @@ function Record({ id }: { id: string }) {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/hiring", label: "Pipeline" },
+          { href: "/hiring", label: "Hiring" },
           ...(realApp
             ? [
                 {
+                  /* The reference (e.g. "REQ-2026-014"), not the job title —
+                     matching how the requisition names itself in its own
+                     breadcrumb and everywhere else in this module refers to
+                     it. A reader following this crumb should see the same
+                     entity called the same thing on both ends. */
                   href: `/hiring/requisitions/${realApp.requisitionId}`,
-                  label: realApp.requisitionJobTitle,
+                  label: realApp.requisitionReference,
                 },
               ]
             : card
               ? [
                   {
                     href: `/hiring/requisitions/${card.requisitionId}`,
-                    label: card.requisition.title,
+                    label: card.requisition.reference,
                   },
                 ]
               : [
@@ -244,31 +278,45 @@ function Record({ id }: { id: string }) {
           ) : undefined
         }
         action={
-          realApp ? (
+          <>
+            {/* Always present, whatever else this candidate has. The only way
+                back to "all applications" used to be this breadcrumb's own
+                "Hiring" crumb, then a stat tile on the overview, then
+                whichever status tab happened to be selected there — the
+                queue's own default — which a screened-in candidate has, by
+                definition, already left. This link names the tab that
+                actually shows them instead. */}
             <ButtonLink
-              href={`/hiring/requisitions/${realApp.requisitionId}`}
-              variant="secondary"
-              size="sm"
-            >
-              Back to pipeline
-            </ButtonLink>
-          ) : card ? (
-            <ButtonLink
-              href={`/hiring/requisitions/${card.requisitionId}`}
-              variant="secondary"
-              size="sm"
-            >
-              Back to pipeline
-            </ButtonLink>
-          ) : (
-            <ButtonLink
-              href="/hiring/postings/applications"
+              href={`/hiring/postings/applications?status=${queueStatusFor(record)}`}
               variant="secondary"
               size="sm"
             >
               Back to applications
             </ButtonLink>
-          )
+            {/* "Back to the role", not "Back to pipeline" — this module's own
+                breadcrumb crumb already uses "Pipeline"/"Hiring" for the
+                module root (`/hiring`), and reusing it here for one specific
+                requisition made the same word point at two different
+                destinations depending on which control on the page you
+                read. */}
+            {realApp ? (
+              <ButtonLink
+                href={`/hiring/requisitions/${realApp.requisitionId}`}
+                variant="secondary"
+                size="sm"
+              >
+                Back to the role
+              </ButtonLink>
+            ) : card ? (
+              <ButtonLink
+                href={`/hiring/requisitions/${card.requisitionId}`}
+                variant="secondary"
+                size="sm"
+              >
+                Back to the role
+              </ButtonLink>
+            ) : null}
+          </>
         }
       />
 
@@ -1165,7 +1213,7 @@ function NotFoundHere({
   return (
     <>
       <PageHeader
-        breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+        breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
         title="Candidate record"
       />
       <PageBody>
