@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import {
   Banknote,
   CalendarClock,
+  History as HistoryIcon,
   Landmark,
   Laptop,
   LogOut,
   Phone,
   Receipt,
+  ShieldAlert,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
@@ -46,6 +48,8 @@ import { MyLoans } from "@/app/(app)/payroll/loans";
 import { MyRota } from "@/app/(app)/people/shifts";
 import { MyAssets } from "@/app/(app)/people/assets";
 import { Resign } from "@/app/(app)/people/offboarding";
+import { ConductPanel } from "@/app/(app)/people/[id]/conduct";
+import { EmploymentHistoryPanel } from "@/app/(app)/people/[id]/employment-history";
 import { TYPE_LABELS, enumKey } from "@/app/(app)/people/[id]/record";
 import {
   fullName,
@@ -92,10 +96,15 @@ import { MyDetails } from "./my-details";
  * kit somebody holds and a read-only table. Rule 5 says a screen answers one
  * question and the rest goes behind a reveal.
  *
- * Four questions, so four tabs rather than eight disclosures — a reveal per
- * section is the same nine-item scroll with nine clicks added, and `pay-setup`
- * is the model here: large panels, one at a time. The ids and their order live
- * in `./tabs.ts`, which the server page also reads.
+ * Four questions to begin with, so four tabs rather than eight disclosures —
+ * a reveal per section is the same nine-item scroll with nine clicks added,
+ * and `pay-setup` is the model here: large panels, one at a time. Two more
+ * joined later (`conduct`, `history`) once `/people/[id]` — the page that
+ * used to answer them for your own record too — started redirecting your
+ * own id straight back to this one instead of rendering a second, competing
+ * view of the same person; see `./tabs.ts`'s own header for why those two
+ * specifically. The ids and their order live in `./tabs.ts`, which the
+ * server page also reads.
  *
  * **The tabs carry no counts.** `Tabs` takes one, and every count worth showing
  * here — how many assets, how many loan instalments left — belongs to a store
@@ -313,6 +322,17 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
             </div>
           )}
 
+          {/* The same panel `/people/[id]` mounted for anyone with EDIT_RECORDS
+              or the record's own subject — this is always the second half of
+              that check, and the component already knows it: it derives
+              "is this me" from the session itself rather than trusting
+              whatever page renders it. Nothing about it changes here. */}
+          {tab === "conduct" && <ConductPanel employeeId={employeeId} />}
+
+          {tab === "history" && (
+            <EmploymentHistoryPanel employeeId={employeeId} />
+          )}
+
           {/* No feature flag: every company hands somebody a laptop or a phone,
               and the person holding it is the one who has to hand it back.
               `GET /assets/employees/:id` needs no permission for your own id,
@@ -330,6 +350,8 @@ const TAB_META: Record<ProfileTab, { label: string; icon: React.ReactNode }> = {
   details: { label: "Details", icon: <UserRound aria-hidden="true" /> },
   pay: { label: "Pay", icon: <Banknote aria-hidden="true" /> },
   "time-off": { label: "Leave", icon: <CalendarClock aria-hidden="true" /> },
+  conduct: { label: "Conduct", icon: <ShieldAlert aria-hidden="true" /> },
+  history: { label: "History", icon: <HistoryIcon aria-hidden="true" /> },
   equipment: { label: "Things I hold", icon: <Laptop aria-hidden="true" /> },
 };
 

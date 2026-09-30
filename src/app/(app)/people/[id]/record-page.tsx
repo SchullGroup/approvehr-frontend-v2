@@ -1,8 +1,8 @@
 "use client";
 
 import { sourceNote } from "@/lib/demo";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Archive, RotateCcw, UserRoundX } from "lucide-react";
 import {
   Badge,
@@ -13,6 +13,7 @@ import {
   ConfirmDialog,
   EmptyState,
   Skeleton,
+  Spinner,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -66,7 +67,7 @@ function recordFailureDetail(error: unknown): string {
 }
 
 /**
- * One person's record, from whichever source is answering.
+ * Somebody else's record — never your own, which redirects below.
  *
  * ## Why the record is fetched on its own
  *
@@ -81,16 +82,31 @@ function recordFailureDetail(error: unknown): string {
  * give: the manager's job title, and who reports to this person. Connected that
  * is the first 200 employees, the same slice the directory screen works from.
  */
+
+/**
+ * Where a query the record page understands lands on `/profile` instead.
+ *
+ * Best-effort, not exhaustive: record.tsx's `?field=` auto-focus (used by
+ * payroll-exception "Fix it now" links) has no equivalent on profile's
+ * editing components and is not reproduced here. `employment` has no direct
+ * match — `EmploymentCard` on `details` is the closest read-only answer.
+ */
+const PROFILE_TAB_FOR: Record<string, string> = {
+  personal: "details",
+  employment: "details",
+  pay: "pay",
+  leave: "time-off",
+  conduct: "conduct",
+  history: "history",
+};
+
 export function EmployeeRecordPage({ id }: { id: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
   const record = useEmployee(id);
   const mutations = useEmployeeMutations();
   const directory = useEmployeeDirectory({ pageSize: 200 });
-  /* The API refuses this anyway (`archive` in `employees/service.ts`) — this
-     is the same "no button rather than a disabled one" rule the record's own
-     exit action follows: an Archive button that will always 403 is worse
-     present than absent. */
   const { employeeId: me } = useSession();
   const isSelf = me !== null && me === id;
   /* Both leave reads are scoped to this person and go through the leave store,
@@ -114,6 +130,28 @@ export function EmployeeRecordPage({ id }: { id: string }) {
           ? error.message
           : "Something went wrong. Try again.",
     });
+
+  /* This page is the HR-facing view of somebody else's record — `/profile`
+     is the one place your own is actually editable, and the account menu no
+     longer offers this page as a second door onto yourself. Redirect rather
+     than render, so a self-view (a stale bookmark, a typed URL, the back
+     button) never lands here at all, whatever permission the signed-in
+     account holds. Checked before every loading/error branch below, so nothing
+     of this page flashes first. */
+  useEffect(() => {
+    if (!isSelf) return;
+    const tab = PROFILE_TAB_FOR[searchParams.get("tab") ?? ""];
+    router.replace(tab ? `/profile?tab=${tab}` : "/profile");
+  }, [isSelf, router, searchParams]);
+
+  if (isSelf) {
+    return (
+      <PageBody className="flex items-center justify-center py-24">
+        <Spinner />
+        <span className="sr-only">Taking you to your profile</span>
+      </PageBody>
+    );
+  }
 
   if (record.loading) {
     return (
