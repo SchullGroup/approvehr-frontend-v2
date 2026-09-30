@@ -40,6 +40,7 @@ import { useHaveIAnySignatures } from "@/lib/store/signatures";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
 import { useSession } from "@/lib/store/session";
 import { useCompanyLogo } from "@/lib/store/company";
+import { HolidayBanner } from "./holiday-banner";
 import { InstallPrompt } from "./install-prompt";
 import { VerificationBanner } from "./verification-banner";
 
@@ -280,6 +281,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               Renders nothing on a desktop, nothing if it is already installed,
               and nothing in a browser that cannot install — see the component. */}
           <InstallPrompt />
+          {/* Last of the three, and the only one that is ever gone within
+              days on its own: the other two persist for as long as their
+              condition holds (an unverified email, an installable browser);
+              this one is on screen only while a confirmed holiday sits
+              inside its own two-day window. Same sticky/dismiss shape as
+              InstallPrompt — see the component. */}
+          <HolidayBanner />
           {children}
         </main>
       </div>
