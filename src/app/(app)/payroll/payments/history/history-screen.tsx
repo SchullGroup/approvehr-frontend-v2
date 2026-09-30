@@ -2,7 +2,6 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Banknote, History, Receipt } from "lucide-react";
 import {
   Badge,
@@ -25,6 +24,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   type PickerOption,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -365,12 +365,9 @@ export function PaymentHistoryScreen() {
                                  link to `/people/null` is worse than plain
                                  text. */
                               row.employeeId ? (
-                                <Link
-                                  href={`/people/${row.employeeId}`}
-                                  className="hover:text-accent-text hover:underline underline-offset-4"
-                                >
+                                <TextLink href={`/people/${row.employeeId}`}>
                                   {row.payeeName}
-                                </Link>
+                                </TextLink>
                               ) : (
                                 row.payeeName
                               )
@@ -412,12 +409,12 @@ export function PaymentHistoryScreen() {
                             )}
                           </TD>
                           <TD>
-                            <Link
+                            <TextLink
                               href={`/payroll/payments/${row.batchId}`}
-                              className="text-body-sm text-accent-text hover:underline underline-offset-4"
+                              className="text-body-sm font-normal"
                             >
                               {row.batchReference}
-                            </Link>
+                            </TextLink>
                             {row.payDate && (
                               <span className="mt-0.5 block text-meta text-muted">
                                 Due {longDate(row.payDate)}
@@ -439,12 +436,12 @@ export function PaymentHistoryScreen() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           {row.employeeId ? (
-                            <Link
+                            <TextLink
                               href={`/people/${row.employeeId}`}
-                              className="text-body-sm font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                              className="text-body-sm"
                             >
                               {row.payeeName}
-                            </Link>
+                            </TextLink>
                           ) : (
                             <p className="text-body-sm font-medium text-ink">
                               {row.payeeName}
@@ -485,12 +482,9 @@ export function PaymentHistoryScreen() {
                       </div>
 
                       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-body-sm">
-                        <Link
-                          href={`/payroll/payments/${row.batchId}`}
-                          className="text-accent-text hover:underline underline-offset-4"
-                        >
+                        <TextLink href={`/payroll/payments/${row.batchId}`}>
                           {row.batchReference}
-                        </Link>
+                        </TextLink>
                         {row.payDate && (
                           <span className="tabular text-meta text-muted">
                             Due {longDate(row.payDate)}
@@ -534,12 +528,9 @@ export function PaymentHistoryScreen() {
           <span>
             This is money. For what somebody earned and what was deducted, open
             their{" "}
-            <Link
-              href="/payroll/payslips"
-              className="text-accent-text hover:underline underline-offset-4"
-            >
+            <TextLink href="/payroll/payslips" className="font-normal">
               payslip
-            </Link>
+            </TextLink>
             .
           </span>
         </p>

@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardBody, Disclosure, Switch, useToast } from "@/components/ui";
+import { SlidersHorizontal } from "lucide-react";
+import {
+  Button,
+  Card,
+  CardBody,
+  Modal,
+  Switch,
+  useToast,
+} from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
 import { FEATURE_COPY, useFeatureSettings } from "@/lib/store/features";
@@ -10,54 +18,69 @@ import { OvertimeEnableSwitch } from "@/app/(app)/settings/overtime/form";
 import { ApprovalWorkflow } from "@/app/(app)/settings/leave/form";
 
 /**
- * The bar of on/off switches for Time & Leave, on the Attendance tab.
+ * The on/off switches for Time & Leave, reached from a button on the
+ * Attendance tab's own header.
  *
  * ## Why here, and why only here
  *
  * Attendance is first in this module's own nav group, and the request was for
- * one bar rather than the same four switches repeated across Attendance,
+ * one door rather than the same four switches repeated across Attendance,
  * Leave, Shifts and Overtime — a company checks its capability posture once,
  * not once per screen it happens to be looking at.
  *
- * ## A bar, not a form
+ * ## A modal, not a form
  *
  * Every switch here is the same immediate-save on/off decision its standalone
  * settings page already offers, imported rather than reimplemented — never a
  * second store, never a second `save` call. Rates, caps, entitlements and
  * holidays stay on `/settings/overtime` and `/settings/leave`; this is the
- * on/off layer only, closed by default behind one click, because a settings
- * sub-form is exactly what `Disclosure` exists for.
+ * on/off layer only. It used to sit open-by-default in the page body as a
+ * `Disclosure`, ahead of the clock-in card everybody actually opens this
+ * screen for; a button beside "Invite staff" gets it off the page entirely
+ * until somebody asks for it, with no ceremony beyond the switches themselves
+ * — so there is no footer, no save button, nothing to confirm.
  *
- * ## Omitted rather than shown disabled, per switch and for the bar itself
+ * ## Omitted rather than shown disabled, per switch and for the button itself
  *
  * A manager who can approve leave but holds neither `MANAGE_PAY_STRUCTURE` nor
- * `MANAGE_SETTINGS` should not find an "Attendance settings" row that opens
- * onto nothing — so the whole bar is absent for them, not merely empty inside.
- * Each switch then makes its own, narrower version of the same call.
+ * `MANAGE_SETTINGS` should not find an "Attendance settings" button that opens
+ * onto nothing — so the whole button is absent for them, not merely empty
+ * inside. Each switch then makes its own, narrower version of the same call.
  */
-export function AttendanceCapabilityBar() {
+export function AttendanceSettingsButton() {
   const canOvertime = useCan("MANAGE_PAY_STRUCTURE");
   const canSettings = useCan("MANAGE_SETTINGS");
+  const [open, setOpen] = useState(false);
 
   /* A bare permission check, on purpose — matching `canSeeRoster` on this same
      screen rather than special-casing demo mode. A demo persona is still a
      persona: `attendance-screen.tsx` already hides the roster from a plain
-     employee offline, and a settings bar that opened onto nothing for the same
-     reader would be the one inconsistent surface on the page. */
+     employee offline, and a settings button that opened onto nothing for the
+     same reader would be the one inconsistent surface on the page. */
   if (!canOvertime && !canSettings) return null;
 
   return (
-    <Disclosure
-      title="Attendance settings"
-      hint="Overtime, leave approval, shifts and self clock-in — switched on or off without leaving this tab. Rates, caps and entitlements still live on their own settings pages."
-    >
-      <div className="flex flex-col gap-4">
-        <OvertimeEnableSwitch />
-        <LeaveApprovalWorkflowSlot />
-        <ShiftsEnableSwitch />
-        <SelfServiceClockInSwitch />
-      </div>
-    </Disclosure>
+    <>
+      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
+        <SlidersHorizontal aria-hidden="true" className="size-4" />
+        Attendance settings
+      </Button>
+      {open && (
+        <Modal
+          open
+          onClose={() => setOpen(false)}
+          title="Attendance settings"
+          description="Overtime, leave approval, shifts and self clock-in — switched on or off without leaving this tab. Rates, caps and entitlements still live on their own settings pages."
+        >
+          <div className="flex flex-col gap-4">
+            <OvertimeEnableSwitch />
+            <LeaveApprovalWorkflowSlot />
+            <ShiftsEnableSwitch />
+            <SelfServiceClockInSwitch />
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
 

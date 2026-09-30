@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import type { Point } from "@/components/ui";
-import Link from "next/link";
 import {
   CalendarOff,
   Lock,
@@ -32,6 +31,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   formatMoney,
 } from "@/components/ui";
 import { ExportButton } from "@/components/portal/export-button";
@@ -556,12 +556,9 @@ function DayTable({
                       aria-hidden="true"
                       className="size-3.5 shrink-0 text-faint"
                     />
-                    <Link
-                      href={`/people/${row.employeeId}`}
-                      className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                    >
+                    <TextLink href={`/people/${row.employeeId}`}>
                       {row.employeeName}
-                    </Link>
+                    </TextLink>
                     {row.leave && (
                       <span className="text-muted">
                         {row.leave.type}, to {shortDate(row.leave.endDate)}
@@ -620,12 +617,9 @@ function DayTable({
                   key={row.employeeId}
                   className="flex flex-wrap items-center gap-2 text-body-sm text-body"
                 >
-                  <Link
-                    href={`/people/${row.employeeId}`}
-                    className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                  >
+                  <TextLink href={`/people/${row.employeeId}`}>
                     {row.employeeName}
-                  </Link>
+                  </TextLink>
                   <span className="tabular text-muted">
                     in {row.clockIn}
                     {row.clockOut ? `, out ${row.clockOut}` : ""}
@@ -683,12 +677,9 @@ function DayTable({
                 <TR key={row.employeeId}>
                   <TDPrimary
                     title={
-                      <Link
-                        href={`/people/${row.employeeId}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
-                      >
+                      <TextLink href={`/people/${row.employeeId}`}>
                         {row.employeeName}
-                      </Link>
+                      </TextLink>
                     }
                     subtitle={row.jobTitle}
                   />
@@ -763,12 +754,12 @@ function DayTable({
           return (
             <li key={row.employeeId} className="flex flex-col gap-1.5 p-4">
               <div className="min-w-0">
-                <Link
+                <TextLink
                   href={`/people/${row.employeeId}`}
-                  className="text-body-sm font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                  className="text-body-sm"
                 >
                   {row.employeeName}
-                </Link>
+                </TextLink>
                 <p className="mt-0.5 text-meta text-muted">{row.jobTitle}</p>
               </div>
 
@@ -946,12 +937,9 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                   <TR key={row.employeeId} interactive>
                     <TDPrimary
                       title={
-                        <Link
-                          href={`/people/${row.employeeId}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
+                        <TextLink href={`/people/${row.employeeId}`}>
                           {row.employeeName}
-                        </Link>
+                        </TextLink>
                       }
                       subtitle={
                         onRota
@@ -1024,12 +1012,9 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
             return (
               <li key={row.employeeId} className="flex flex-col gap-3 p-4">
                 <div>
-                  <Link
-                    href={`/people/${row.employeeId}`}
-                    className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                  >
+                  <TextLink href={`/people/${row.employeeId}`}>
                     {row.employeeName}
-                  </Link>
+                  </TextLink>
                   <p className="mt-0.5 text-body-sm text-muted">
                     {onRota
                       ? `${rostered} rostered days in this window`
@@ -1127,12 +1112,9 @@ function TimesheetPayrollEffect({
   if (loading) return <Skeleton className="ml-auto h-4 w-20" />;
   if (onRota) {
     return (
-      <Link
-        href="/people/shifts"
-        className="text-body-sm font-medium text-accent-text underline underline-offset-4"
-      >
+      <TextLink href="/people/shifts" className="text-body-sm underline">
         From their rota
-      </Link>
+      </TextLink>
     );
   }
   if ((row.proration.amount ?? 0) > 0) {

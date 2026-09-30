@@ -2,7 +2,6 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { CreditCard, Plus, Wallet } from "lucide-react";
 import {
@@ -20,6 +19,7 @@ import {
   TBody,
   TD,
   TDPrimary,
+  TextLink,
   TH,
   THead,
   TR,
@@ -392,14 +392,11 @@ export function LoansScreen() {
                       <TR key={loan.id}>
                         <TDPrimary
                           title={
-                            <Link
-                              href={`/payroll/loans/${loan.id}`}
-                              className="text-ink hover:text-accent-text hover:underline"
-                            >
+                            <TextLink href={`/payroll/loans/${loan.id}`}>
                               {seeEverybody
                                 ? loan.employeeName
                                 : (loan.reason ?? "Staff loan")}
-                            </Link>
+                            </TextLink>
                           }
                           subtitle={
                             seeEverybody
@@ -472,14 +469,14 @@ export function LoansScreen() {
                   <li key={loan.id} className="flex flex-col gap-2 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <Link
+                        <TextLink
                           href={`/payroll/loans/${loan.id}`}
-                          className="text-body-sm font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                          className="text-body-sm"
                         >
                           {seeEverybody
                             ? loan.employeeName
                             : (loan.reason ?? "Staff loan")}
-                        </Link>
+                        </TextLink>
                         <p className="mt-0.5 text-meta text-muted">
                           {seeEverybody
                             ? `${loan.employeeNo} · ${loan.jobTitle}`
