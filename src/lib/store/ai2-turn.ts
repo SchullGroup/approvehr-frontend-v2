@@ -5,10 +5,8 @@ import type { ApiProposedAction } from "@/lib/api/ai";
 
 /**
  * One streamed turn, as a thing a store can await. Shared by the assistant
- * page and the Ask page, which differ in what they do with a conversation but
- * not in how a turn arrives.
- *
- * `onLive` is provisional; the resolved value is not.
+ * page and the Ask page — they differ in what they do with a conversation,
+ * not in how a turn arrives. `onLive` is provisional; the resolved value is not.
  */
 
 /** One thing the assistant did, or is doing, during a turn. */
@@ -50,11 +48,9 @@ export type TurnResult = {
 let noteCounter = 0;
 
 /**
- * Ask, and report the turn as it happens. `onLive` receives the whole live
- * state on every change, not a diff.
- *
- * Throws only if the request never started. Once the stream is open, a
- * failure is a `declined` in the resolved value.
+ * Ask, and report the turn as it happens; `onLive` receives the whole live
+ * state on every change, not a diff. Throws only if the request never
+ * started — once the stream is open, a failure is a `declined` value instead.
  */
 export async function runAi2Turn(
   messages: Ai2Message[],

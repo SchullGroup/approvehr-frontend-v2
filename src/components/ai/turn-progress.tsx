@@ -8,11 +8,9 @@ import type { Live, Step } from "@/lib/store/ai2-turn";
  * What the assistant is doing, and the answer as it is written. Shared by
  * both `/ai2` surfaces so a turn is narrated in one vocabulary.
  *
- * The narration is **live only**: one line beside the orb saying what is
- * happening now, and nothing left behind once the answer lands. A list of
- * ticked-off lookups above a finished answer is a record of how the sausage
- * was made, sitting where the answer should be — and it grows with the
- * conversation, so by the fourth question most of the card is bookkeeping.
+ * The narration is **live only** — one line beside the orb, gone once the
+ * answer lands. A permanent checklist of finished lookups would just grow
+ * with the conversation.
  */
 
 /** A catalogue entity name, in English. Unknown names fall through as-is. */
@@ -42,10 +40,8 @@ const recordName = (entity: string | undefined): string =>
     : (RECORD_NAMES[entity] ?? entity.replace(/_/g, " "));
 
 /**
- * Everything worth saying about this turn, newest last. A lookup is kept in
- * the list after it finishes: the model then spends seconds composing, and
- * naming what it read fills that time with something true. A note only speaks
- * for itself while nothing has been read yet.
+ * Everything worth saying about this turn, newest last. Finished lookups stay
+ * in the list so there's something true to show while the model composes.
  */
 function narration(steps: Step[]): string[] {
   const names = [
@@ -64,13 +60,9 @@ function narration(steps: Step[]): string[] {
 }
 
 /**
- * A lookup can finish in under a tenth of a second, far quicker than a line
- * can be read, so naming only the one in flight showed nothing at all. These
- * rotate through the model's own latency instead — the seconds it spends
- * composing are spent saying what it read.
- *
- * Nothing here holds the answer back. The moment prose arrives this whole
- * line is unmounted, mid-rotation, by `LiveTurn`.
+ * Lookups finish too fast to show only the one in flight, so these rotate
+ * through the composing delay instead. `LiveTurn` unmounts this the moment
+ * prose arrives, so nothing here holds the answer back.
  */
 const ROTATE_MS = 1300;
 
@@ -78,10 +70,8 @@ function useRotating(items: string[]): string {
   const key = items.join("\n");
   const [index, setIndex] = useState(0);
 
-  /* Keyed on the list, so a lookup appearing restarts the clock rather than
-     cutting the line already on screen short — two lookups fired together
-     arrive milliseconds apart, and jumping to the newer one is what made the
-     first invisible. Rotation reaches it either way. */
+  /* Keyed on the list, not the newest item, so a lookup arriving mid-rotation
+     restarts the clock instead of cutting the current line short. */
   useEffect(() => {
     if (items.length < 2) return undefined;
     const id = setInterval(

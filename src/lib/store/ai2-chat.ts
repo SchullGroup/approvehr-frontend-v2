@@ -11,16 +11,11 @@ export type { Live, Step } from "./ai2-turn";
 
 /**
  * A conversation with the `/ai2` assistant, streamed. No persistence — same
- * reasoning as `ai-chat.ts`: the API stores no transcript.
- *
- * What is on screen during a turn is not yet a turn: a streamed answer is
- * shown before anyone knows it is one, so it lives in `live`, separate from
- * `turns`, and only joins the transcript once the server sends finished
- * text. The wire transcript is built from `turns` alone.
- *
- * `error` covers both a failed turn and an `unavailable` event — a refusal is
- * never appended to the transcript, or the next turn would see it as
- * something the assistant said.
+ * reasoning as `ai-chat.ts`. A streamed answer lives in `live`, separate from
+ * `turns`, until the server sends finished text — the wire transcript is
+ * built from `turns` alone. `error` covers a failed turn and an `unavailable`
+ * event, and is never appended to the transcript, or the next turn would see
+ * it as something the assistant said.
  */
 
 /* -------------------------------------------------------------------- shape */
