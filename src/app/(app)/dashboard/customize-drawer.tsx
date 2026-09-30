@@ -13,7 +13,6 @@ import {
 } from "@/components/ui";
 import {
   GROUP_LABELS,
-  SPAN_CLASS,
   WIDGET_GROUPS,
   availableWidgets,
   type WidgetContext,
@@ -55,6 +54,12 @@ import {
  * nobody can read. Offering a resize handle would let somebody build a
  * dashboard the data cannot fill, and then the product looks broken rather than
  * the choice looking wrong.
+ *
+ * **No resizing, and no fixed fraction either.** Small tiles share out the row
+ * they land in rather than each holding a rigid quarter, so three of them are
+ * thirds and four are quarters. That is a consequence of the order somebody
+ * chooses here, not another thing to choose — which is why the badge beside a
+ * small tile says "Small" rather than naming a fraction it cannot promise.
  *
  * **No columns.** One reorderable flow, laid out by span, which is what keeps
  * the same arrangement legible on a phone. A free canvas would need a mobile
@@ -294,8 +299,22 @@ export function CustomizeDrawer({
  * dashboard is a layout, and knowing a chart takes half the width is what
  * stops somebody adding six of them and wondering why it scrolls.
  */
+/**
+ * How much room a widget takes, in words the arrangement cannot contradict.
+ *
+ * `quarter` deliberately does not say "quarter width" any more. A run of small
+ * tiles divides its row between them — three become thirds, two become halves,
+ * four stay quarters, see `tileSpans` in `dashboard-screen.tsx` — so the exact
+ * fraction depends on what a person has put beside it, and this drawer is the
+ * one place that cannot know. A badge reading "Quarter width" on a tile
+ * rendering at a third is the product disagreeing with itself on two surfaces
+ * a click apart.
+ *
+ * The other three are still exact, because they still are: a half is always
+ * six columns and a full is always twelve.
+ */
 const SPAN_LABELS: Readonly<Record<WidgetSpec["span"], string>> = {
-  quarter: "Quarter width",
+  quarter: "Small",
   third: "Third",
   half: "Half width",
   full: "Full width",

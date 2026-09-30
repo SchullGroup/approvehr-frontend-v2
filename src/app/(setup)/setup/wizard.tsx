@@ -723,7 +723,7 @@ export function SetupWizard() {
       {awaitingOffice && (
         <div className="mt-6 flex flex-col gap-4 rounded-lg border border-accent-line bg-accent-soft p-5">
           <div>
-            <p className="text-body font-semibold text-ink">
+            <p className="font-semibold text-ink">
               {editingLocationId
                 ? "Change where people clock in"
                 : "Where do people clock in?"}
@@ -842,7 +842,7 @@ export function SetupWizard() {
           return (
             <div className="mt-6 flex flex-col gap-4 rounded-lg border border-accent-line bg-accent-soft p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-body font-semibold text-ink">
+                <p className="font-semibold text-ink">
                   How does gross pay split up?
                 </p>
                 {complete && (

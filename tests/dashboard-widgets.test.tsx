@@ -355,3 +355,62 @@ describe("a widget survives a report missing a section", () => {
     }
   });
 });
+
+/**
+ * `monthLabel`'s malformed-input case, covering the render-crash fix.
+ *
+ * `formatDate` degrades an unparseable date to `"—"` rather than throwing,
+ * which is right for it — but `monthLabel` was reading `.split(" ")[1]` off
+ * that result unguarded, so `"—".split(" ")` (one element) made `longMonth`
+ * `undefined` and `.slice(0, 3)` threw from inside the render. `"2026-1x"`
+ * and `"bad-data"` both pass `monthLabel`'s own `!year || !month` guard (both
+ * halves are non-empty strings) and only fail later, when `Number(...)`
+ * turns one of them into `NaN`.
+ */
+describe("monthLabel survives a malformed period", () => {
+  const MALFORMED = ["2026-1x", "bad-data"];
+
+  it("does not throw building the headcount trend chart", () => {
+    for (const month of MALFORMED) {
+      const reports: ReportsData = {
+        period: "2026-09",
+        payrollByDepartment: null,
+        grossBreakdown: null,
+        workforce: {
+          trend: [
+            { month, headcount: 3, joiners: 1, leavers: 0 },
+            { month: "2026-08", headcount: 4, joiners: 1, leavers: 0 },
+          ],
+          turnoverBp: null,
+          turnoverWindowMonths: 12,
+          averageTenureMonths: null,
+          headcountNow: 4,
+        },
+      };
+      for (const id of ["chart-headcount-trend", "chart-joiners-leavers"]) {
+        const Widget = WIDGET_COMPONENTS[id];
+        if (!Widget) throw new Error(`No component for ${id}`);
+        expect(() =>
+          render(
+            <Widget
+              dashboard={EMPTY}
+              reports={reports}
+              reportsLoading={false}
+            />,
+          ),
+        ).not.toThrow();
+      }
+    }
+  });
+
+  it("does not throw on the owner's own last-payslip tile", () => {
+    for (const period of MALFORMED) {
+      expect(() =>
+        renderWidget("my-pay", {
+          ...base,
+          pay: { period, netKobo: 500_000_00, paid: true },
+        }),
+      ).not.toThrow();
+    }
+  });
+});

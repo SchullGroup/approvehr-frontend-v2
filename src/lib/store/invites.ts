@@ -126,6 +126,60 @@ export function useInvites(): InvitesState {
 }
 
 /**
+ * Whether this deployment can send email at all — `GET /invites/delivery`.
+ *
+ * Not the same question as "did they get it", and the screens must not treat it
+ * as one. It answers exactly one thing: whether taking an invitation link
+ * invalidates a real email sitting in somebody's inbox, or invalidates nothing
+ * because nothing was ever sent.
+ *
+ * `null` until known, and `null` again if the read fails. Only an explicit
+ * `email: false` means "no transport" — guessing in either direction puts a
+ * sentence about somebody's deployment on screen that nobody checked.
+ *
+ * Gated on `INVITE_STAFF` like `useInvites` above, for the same reason spelled
+ * out there: the endpoint requires it, and firing a request that can only come
+ * back 403 renders a permission as a breakage.
+ */
+export function useInviteDelivery(): {
+  email: boolean;
+  note: string | null;
+} | null {
+  const { isConnected } = useSession();
+  const { can, loading: permissionsLoading } = usePermissions();
+  const mayRead = can("INVITE_STAFF");
+  const [delivery, setDelivery] = useState<{
+    email: boolean;
+    note: string | null;
+  } | null>(null);
+
+  /* The async IIFE `invite-to-sign-in.tsx` already reads this endpoint with:
+     the only `setDelivery` is after an await, so there is no synchronous state
+     write in the effect for `react-hooks/set-state-in-effect` to reject.
+     Resetting on the way out would be one too, and a worse answer than
+     deriving it below — state cleared in an effect lands a render late, so the
+     screen shows the previous answer once before the reset arrives. */
+  useEffect(() => {
+    if (!isConnected || permissionsLoading || !mayRead) return;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const answer = await invitesApi.delivery(controller.signal);
+        if (!controller.signal.aborted) setDelivery(answer);
+      } catch {
+        /* An unanswered check says nothing. The link is still offered; only
+           the sentence about their email is withheld. */
+      }
+    })();
+    return () => controller.abort();
+  }, [isConnected, permissionsLoading, mayRead]);
+
+  /* Derived, not stored: nothing was read, so nothing is claimed — in the same
+     render rather than the one after. */
+  return isConnected && mayRead ? delivery : null;
+}
+
+/**
  * Real sign-ins with no personnel record — `invitesApi.unlinked()`.
  *
  * No demo mirror, same reasoning as `useInvites`: these are real accounts

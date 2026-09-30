@@ -43,6 +43,8 @@ import {
 import { daysInStage } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
 import { REJECTION_REASONS as REJECTION_REASON_OPTIONS } from "@/lib/reference/lists";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateShort, formatWeekdayTime } from "@/lib/time";
 import { StagePill, stageLabel } from "./stage-pill";
 
 /*
@@ -95,6 +97,7 @@ export function CandidatePanel({
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState(REJECTION_REASONS[0]);
   const toast = useToast();
+  const timeZone = useOrgTimezone();
 
   /**
    * What a control does when there is nothing behind it.
@@ -321,7 +324,7 @@ export function CandidatePanel({
                 <h4 className="mb-2 text-meta font-semibold text-muted">
                   Activity
                 </h4>
-                <Timeline entries={activityFor(card)} />
+                <Timeline entries={activityFor(card, timeZone)} />
               </div>
             </div>
           )}
@@ -382,14 +385,8 @@ export function CandidatePanel({
                       {INTERVIEW_LABEL[iv.kind]}
                     </p>
                     <p className="mt-0.5 text-meta text-muted">
-                      {new Date(iv.scheduledFor).toLocaleString("en-NG", {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}{" "}
-                      · {iv.durationMins} mins
+                      {formatWeekdayTime(iv.scheduledFor, timeZone)} ·{" "}
+                      {iv.durationMins} mins
                     </p>
                     <p className="mt-1 text-meta text-muted">
                       {iv.interviewerIds
@@ -599,7 +596,7 @@ function SalaryFit({
   );
 }
 
-function activityFor(card: PipelineCard): TimelineEntry[] {
+function activityFor(card: PipelineCard, timeZone: string): TimelineEntry[] {
   const entries: TimelineEntry[] = [];
 
   if (card.offer) {
@@ -621,10 +618,7 @@ function activityFor(card: PipelineCard): TimelineEntry[] {
     entries.push({
       id: iv.id,
       title: `${INTERVIEW_LABEL[iv.kind]} ${iv.status}`,
-      timestamp: new Date(iv.scheduledFor).toLocaleDateString("en-NG", {
-        day: "numeric",
-        month: "short",
-      }),
+      timestamp: formatDateShort(iv.scheduledFor, timeZone),
       tone: iv.status === "completed" ? "success" : "neutral",
     });
   }

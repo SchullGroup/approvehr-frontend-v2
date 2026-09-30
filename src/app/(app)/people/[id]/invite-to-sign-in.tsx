@@ -13,6 +13,8 @@ import {
 import { ApiError } from "@/lib/api/client";
 import { invitesApi } from "@/lib/api/invites";
 import { permissionsApi } from "@/lib/api/permissions";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDate } from "@/lib/time";
 import { DeliveryNote } from "@/components/portal/delivery-note";
 import { InviteLinkButton } from "@/components/portal/invite-link";
 import type { PendingInvite, SentInvite } from "@/lib/api/invites";
@@ -81,6 +83,7 @@ export function InviteToSignIn({
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const [sent, setSent] = useState<SentInvite | null>(null);
+  const timeZone = useOrgTimezone();
   /**
    * The invitation already outstanding for this person.
    *
@@ -215,8 +218,8 @@ export function InviteToSignIn({
   };
 
   /* Once it has gone, the dialog stops being a form and becomes a receipt —
-     the same shape the bulk invite uses, and the only place the link appears
-     when no mail transport is wired. */
+     the same shape the bulk invite uses, and where the link is offered whether
+     or not a mail transport carried it. */
   if (sent) {
     return (
       <Modal
@@ -241,7 +244,20 @@ export function InviteToSignIn({
             </Callout>
           )}
 
-          {noEmail && <InviteLinkButton userId={sent.userId} name={name} />}
+          {/* Offered on both branches. Where no transport is wired this is the
+              only way in; where one is, it is the way in when the email does
+              not arrive — and "the server sent it" is not the same fact as
+              "they received it". */}
+          <InviteLinkButton
+            userId={sent.userId}
+            name={name}
+            replacesEmail={!noEmail}
+            {...(noEmail
+              ? {}
+              : {
+                  hint: "If it does not reach them, take a link and send it yourself.",
+                })}
+          />
 
           <DeliveryNote
             hint={sent.delivery}
@@ -361,28 +377,31 @@ export function InviteToSignIn({
             <p className="text-body-sm leading-relaxed text-body">
               An invitation went to{" "}
               <span className="font-medium text-ink">{pending.email}</span> on{" "}
-              {new Date(pending.invitedAt).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "long",
-              })}
-              , and they have not set a password yet.
+              {formatDate(pending.invitedAt, timeZone)}, and they have not set a
+              password yet.
             </p>
             {pending.expired && (
               <Callout tone="warning" title="That link has expired">
                 {noEmail
                   ? "Take a new link below."
-                  : "Sending it again issues a fresh one."}
+                  : "Sending it again issues a fresh one, or take a link below."}
               </Callout>
             )}
-            {/* The way through when nothing can be emailed: the invitation
-                exists and, without this, nobody could ever act on it. */}
-            {noEmail && (
-              <InviteLinkButton
-                userId={pending.userId}
-                name={name}
-                hint="They have an account waiting. This is the link that lets them set a password."
-              />
-            )}
+            {/* This is the state somebody is looking at when they have been
+                told the email never arrived: the account exists, the person
+                cannot get in, and until this came out from behind `noEmail`
+                the only offer on screen was to send the same email again to
+                the same address that already swallowed one. */}
+            <InviteLinkButton
+              userId={pending.userId}
+              name={name}
+              replacesEmail={!noEmail}
+              hint={
+                noEmail
+                  ? "They have an account waiting. This is the link that lets them set a password."
+                  : "If the email never reached them, this is the way in."
+              }
+            />
             {pending.email !== email && email && (
               /* The record has moved on since the invitation went out. This is
                  exactly the case somebody hits when they came here to correct

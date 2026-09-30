@@ -1,3 +1,4 @@
+import { todayIn } from "@/lib/time";
 import {
   buildDictionary,
   normalizeKey,
@@ -370,9 +371,6 @@ const MAX_VALUE_KOBO = 50_000_000_00;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 
-/** Today as `YYYY-MM-DD`, UTC, so it compares against a parsed date directly. */
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
-
 /**
  * Everything the file alone can settle that is not a property of one cell.
  *
@@ -389,7 +387,7 @@ const todayIso = (): string => new Date().toISOString().slice(0, 10);
  * so out loud rather than implying a clean file will import cleanly.
  */
 function assetRowRules(ctx: RowContext<AssetField>): void {
-  const { text, error, warn, tally, seen } = ctx;
+  const { text, error, warn, tally, seen, timeZone } = ctx;
 
   const tag = text("tag");
   if (tag !== "") {
@@ -462,7 +460,7 @@ function assetRowRules(ctx: RowContext<AssetField>): void {
     }
   }
 
-  const today = todayIso();
+  const today = todayIn(timeZone);
   const purchased = text("purchasedOn");
   if (purchased !== "") {
     const parsed = parseImportDate(purchased);

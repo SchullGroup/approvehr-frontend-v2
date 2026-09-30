@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Copy,
@@ -22,7 +23,9 @@ import {
   EmptyState,
   Field,
   Input,
+  LinkedText,
   Modal,
+  Picker,
   SegmentedControl,
   Select,
   Skeleton,
@@ -35,12 +38,14 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   kobo,
+  requisitionClosedNote,
   type AdvanceBody,
   type ApiApplication,
   type ApiPosting,
   type ApplicationStatus,
 } from "@/lib/api/careers";
 import { usePermissions } from "@/lib/permissions";
+import { useRequisitions } from "@/lib/store/recruitment";
 import {
   useApplications,
   usePostingIndex,
@@ -73,10 +78,24 @@ import {
  *   that before you press it, and the row afterwards hands you a message to send
  *   yourself.
  */
+/** Every status value a link into this screen may legitimately name. */
+const LINKABLE_STATUSES = new Set<string>([
+  "ALL",
+  "RECEIVED",
+  "ADVANCED",
+  "DECLINED",
+]);
+
 export function ApplicationsScreen({
   initialPostingId = "",
+  initialStatus = "",
 }: {
   initialPostingId?: string;
+  /** One of `LINKABLE_STATUSES`, when a count elsewhere in the module linked
+   *  here to answer a specific question ("how many are screened in" links
+   *  with `ADVANCED`, not always "Waiting"); anything else — including no
+   *  value at all — falls back to the ordinary "Waiting" default. */
+  initialStatus?: string;
 }) {
   const { can, loading } = usePermissions();
 
@@ -86,7 +105,7 @@ export function ApplicationsScreen({
         <PageHeader
           title="Applications"
           breadcrumb={[
-            { href: "/hiring", label: "Pipeline" },
+            { href: "/hiring", label: "Hiring" },
             { href: "/hiring/postings", label: "Job adverts" },
           ]}
         />
@@ -103,7 +122,7 @@ export function ApplicationsScreen({
       <>
         <PageHeader
           title="Applications"
-          breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+          breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
         />
         <PageBody>
           <Card>
@@ -118,7 +137,16 @@ export function ApplicationsScreen({
     );
   }
 
-  return <Queue initialPostingId={initialPostingId} />;
+  return (
+    <Queue
+      initialPostingId={initialPostingId}
+      initialStatus={
+        LINKABLE_STATUSES.has(initialStatus)
+          ? (initialStatus as ApplicationStatus | "ALL")
+          : "RECEIVED"
+      }
+    />
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -147,8 +175,16 @@ const STATUS_TONE: Record<
   WITHDRAWN: "info",
 };
 
-function Queue({ initialPostingId }: { initialPostingId: string }) {
-  const [status, setStatus] = useState<ApplicationStatus | "ALL">("RECEIVED");
+function Queue({
+  initialPostingId,
+  initialStatus,
+}: {
+  initialPostingId: string;
+  initialStatus: ApplicationStatus | "ALL";
+}) {
+  const [status, setStatus] = useState<ApplicationStatus | "ALL">(
+    initialStatus,
+  );
   const [postingId, setPostingId] = useState(initialPostingId);
   const [search, setSearch] = useState("");
   const [advancing, setAdvancing] = useState<ApiApplication | null>(null);
@@ -161,6 +197,7 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
     ...(postingId ? { postingId } : {}),
   });
   const toast = useToast();
+  const router = useRouter();
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -191,7 +228,7 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
       <PageHeader
         title="Applications"
         breadcrumb={[
-          { href: "/hiring", label: "Pipeline" },
+          { href: "/hiring", label: "Hiring" },
           { href: "/hiring/postings", label: "Job adverts" },
         ]}
       />
@@ -315,12 +352,16 @@ function Queue({ initialPostingId }: { initialPostingId: string }) {
           if (!advancing) return;
           try {
             const result = await applications.advance(advancing.id, body);
+            setAdvancing(null);
             toast.push({
               title: `${advancing.name} is in the pipeline`,
               tone: "success",
               detail: result.note,
             });
-            setAdvancing(null);
+            /* Land on their record rather than leaving the reader on a queue
+               that just lost a row — this is where Schedule interview lives,
+               and it is the thing screening somebody in is usually for. */
+            router.push(`/hiring/candidates/${result.candidateId}`);
           } catch (error) {
             fail(error);
           }
@@ -374,6 +415,10 @@ function ApplicationRow({
   const waiting = application.status === "RECEIVED";
   const noApprovedRole =
     posting !== undefined && posting.requisitionId === null;
+  const closedNote =
+    posting !== undefined
+      ? requisitionClosedNote(posting.requisitionStatus)
+      : null;
 
   return (
     <div className="flex flex-col gap-3 rounded-md border border-line p-4">
@@ -462,7 +507,7 @@ function ApplicationRow({
 
       {application.coverNote && (
         <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-body-sm leading-relaxed text-body">
-          {application.coverNote}
+          <LinkedText>{application.coverNote}</LinkedText>
         </p>
       )}
 
@@ -470,6 +515,13 @@ function ApplicationRow({
         <p className="text-body-sm text-warning-text">
           {application.postingTitle} has no approved role behind it. Advancing
           will ask you for one.
+        </p>
+      )}
+
+      {waiting && closedNote && (
+        <p className="text-body-sm text-danger-text">
+          {posting?.requisitionReference}: {closedNote}. Advancing will be
+          refused — edit the advert to link a different open role first.
         </p>
       )}
 
@@ -510,6 +562,21 @@ function AdvanceDialog({
   const [expected, setExpected] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const requisitions = useRequisitions({ pageSize: 100 });
+  const requisitionOptions = useMemo(
+    () =>
+      requisitions.requisitions.map((r) => {
+        const closed = requisitionClosedNote(r.status);
+        return {
+          value: r.id,
+          label: `${r.reference} · ${r.jobTitle}`,
+          hint: closed ?? undefined,
+          disabled: closed !== null,
+        };
+      }),
+    [requisitions.requisitions],
+  );
+
   /**
    * Only ask when we know there is nothing to land on.
    *
@@ -519,7 +586,12 @@ function AdvanceDialog({
    * blocker, which beats demanding an id the advert may already have.
    */
   const needsRole = posting !== undefined && posting.requisitionId === null;
-  const ready = !needsRole || requisitionId.trim().length > 0;
+  const closedNote =
+    posting !== undefined
+      ? requisitionClosedNote(posting.requisitionStatus)
+      : null;
+  const ready =
+    closedNote === null && (!needsRole || requisitionId.trim().length > 0);
 
   const number = (value: string): number | null => {
     const cleaned = value.replace(/[^0-9.]/g, "");
@@ -582,16 +654,28 @@ function AdvanceDialog({
           ]}
         />
 
-        {needsRole ? (
+        {closedNote ? (
+          <Callout tone="danger" title="This role cannot take anybody new">
+            {posting?.requisitionReference}: {closedNote}. Close this dialog and
+            edit the advert from the Job adverts list to link a different, open
+            role before advancing anybody through it.
+          </Callout>
+        ) : needsRole ? (
           <Field
-            label="Approved role ID"
+            label="Approved role"
             required
-            help="They have to land on an approved role. There is no picker for this yet. Paste the ID."
+            help={
+              requisitions.error
+                ? `${requisitions.error.message} Roles are unavailable.`
+                : "They have to land on an approved role."
+            }
           >
-            <Input
-              autoFocus
+            <Picker
               value={requisitionId}
-              onChange={(event) => setRequisitionId(event.target.value)}
+              onChange={setRequisitionId}
+              placeholder="Choose a role"
+              loading={requisitions.loading}
+              options={requisitionOptions}
             />
           </Field>
         ) : (

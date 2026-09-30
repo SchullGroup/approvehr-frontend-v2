@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Inbox,
@@ -17,6 +18,7 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
+  LinkedText,
   Skeleton,
   TextLink,
   useToast,
@@ -86,6 +88,7 @@ function ScreeningCard({
   const [screening, setScreening] = useState<ScreeningRow | null>(null);
   const [declining, setDeclining] = useState<ScreeningRow | null>(null);
   const toast = useToast();
+  const router = useRouter();
 
   const fail = (error: unknown) =>
     toast.push({
@@ -213,6 +216,12 @@ function ScreeningCard({
               detail: result.note,
             });
             setScreening(null);
+            /* Same fix as the applications queue (PR #357): land on their
+               record rather than a list this panel does not itself refresh —
+               this queue and the pipeline board on the same page are separate
+               reads with no shared reload, so staying here would show a
+               success toast against an apparently unchanged screen. */
+            router.push(`/hiring/candidates/${result.candidateId}`);
           } catch (error) {
             fail(error);
           }
@@ -262,7 +271,7 @@ export function UnknownRequisition({ id }: { id: string }) {
   return (
     <>
       <PageHeader
-        breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+        breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
         title={roleName}
         meta={
           queue.reference ? (
@@ -378,7 +387,7 @@ function ApplicantRow({
 
       {row.coverNote && (
         <p className="whitespace-pre-line rounded-md bg-canvas p-3 text-body-sm leading-relaxed text-body">
-          {row.coverNote}
+          <LinkedText>{row.coverNote}</LinkedText>
         </p>
       )}
     </div>

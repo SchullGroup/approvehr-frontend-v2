@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { Badge, Button, Select, Textarea } from "@/components/ui";
+import { Badge, Button, LinkedText, Select, Textarea } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { ApiKeyResult, ApiTask } from "@/lib/api/performance";
 import { useGoalTasks, useTaskActions } from "@/lib/store/performance";
@@ -163,7 +163,7 @@ export function TaskLogPanel({
                 className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line px-3 py-2"
               >
                 <span className="min-w-0 text-body-sm text-body">
-                  {task.description}
+                  <LinkedText>{task.description}</LinkedText>
                 </span>
                 <Badge tone={GRADE_TONE[key]} size="sm">
                   {GRADE_LABEL[key]}

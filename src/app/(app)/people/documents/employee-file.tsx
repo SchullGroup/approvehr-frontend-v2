@@ -25,6 +25,8 @@ import {
 } from "@/lib/api/signatures";
 import { useEmployeeFile } from "@/lib/store/documents";
 import { useSignatures } from "@/lib/store/signatures";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateShort } from "@/lib/time";
 import { TONE, overdueBy } from "../signatures/signatures-screen";
 import {
   AddDocumentModal,
@@ -32,7 +34,7 @@ import {
   RemindModal,
   WaiveModal,
 } from "./dialogs";
-import { DocumentRow, readableDate, RequestRow } from "./document-rows";
+import { DocumentRow, RequestRow } from "./document-rows";
 
 /**
  * One person's file, in a drawer.
@@ -365,17 +367,18 @@ export function EmployeeFileDrawer({
  * acting on a pending one, stays on that screen.
  */
 function SignatureRow({ record }: { record: ApiSignature }) {
-  const overdueDays = overdueBy(record);
+  const timeZone = useOrgTimezone();
+  const overdueDays = overdueBy(record, timeZone);
 
   const secondary = [
     record.status === "SIGNED" && record.signedAt
-      ? `Signed ${readableDate(record.signedAt)}`
+      ? `Signed ${formatDateShort(record.signedAt, timeZone)}`
       : null,
     record.status === "DECLINED" && record.declineReason
       ? `Declined: ${record.declineReason}`
       : null,
     record.status === "PENDING" && record.dueDate
-      ? `Due ${readableDate(record.dueDate)}`
+      ? `Due ${formatDateShort(record.dueDate, timeZone)}`
       : null,
   ]
     .filter(Boolean)

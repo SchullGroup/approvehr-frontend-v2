@@ -108,7 +108,7 @@ export function MyLoans({ className }: { className?: string }) {
                   })}
                 </span>
               </div>
-              <p className="text-body leading-relaxed text-ink">
+              <p className="leading-relaxed text-ink">
                 If it is approved,{" "}
                 <strong className="font-semibold">
                   {formatMoney(naira(live.monthlyRepaymentKobo), "NGN", {

@@ -33,6 +33,7 @@ import {
   type Repair,
   type SettableStatus,
 } from "@/lib/store/assets";
+import { useOrgTimezone } from "@/lib/store/session";
 
 /** The badge tone for each status. Colour never carries the meaning alone. */
 export const STATUS_TONE: Record<EquipmentItem["status"], BadgeTone> = {
@@ -101,6 +102,7 @@ export function ItemPanel({
   if (itemIdProp && itemIdProp !== itemId) setItemId(itemIdProp);
 
   const { detail, loading, error } = useEquipmentItem(itemId);
+  const timeZone = useOrgTimezone();
 
   return (
     <Drawer
@@ -148,7 +150,7 @@ export function ItemPanel({
           {detail.holder && (
             <Callout tone="accent" title={`${detail.holder.name} has it`}>
               Since {dayLabel(detail.holder.assignedOn)} —{" "}
-              {daysSince(detail.holder.assignedOn)} days. Went out{" "}
+              {daysSince(detail.holder.assignedOn, timeZone)} days. Went out{" "}
               {CONDITION_LABEL[detail.holder.conditionOut].toLowerCase()}.{" "}
               <Link
                 href={`/people/${detail.holder.employeeId}`}

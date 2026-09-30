@@ -44,6 +44,8 @@ export type ApiUser = {
     id: string;
     legalName: string;
     tradingName: string | null;
+    /** IANA zone name. Every date on every screen is formatted in it. */
+    timezone: string;
   };
   employeeId: string | null;
   permissions: string[];
@@ -203,6 +205,8 @@ export const auth = {
           id: string;
           legalName: string;
           tradingName: string | null;
+          /** IANA zone name. Every date on every screen is formatted in it. */
+          timezone: string;
         };
       }
     >("/auth/me"),

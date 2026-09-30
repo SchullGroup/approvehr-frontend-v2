@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/api/client";
 import { attendanceApi, type ApiAttendanceDay } from "@/lib/api/attendance";
 import { PUBLIC_HOLIDAYS } from "@/lib/mock/workflows";
 import { TODAY } from "@/lib/today";
+import { todayIn } from "@/lib/time";
 import {
   employedOn,
   firstRecordedDate,
@@ -15,7 +16,7 @@ import {
 import { useAttendanceStore, type AttendanceSource } from "./attendance";
 import { useEmployeeStore } from "./employees";
 import { useLeaveStore } from "./leave";
-import { useSession } from "./session";
+import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
 
 /**
@@ -102,6 +103,7 @@ const pad = (n: number): string => String(n).padStart(2, "0");
 
 export function useAttendanceMonth(month: string): AttendanceMonthState {
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const local = useAttendanceStore();
   const { directory } = useEmployeeStore();
   const leave = useLeaveStore();
@@ -145,7 +147,7 @@ export function useAttendanceMonth(month: string): AttendanceMonthState {
           setFetched({
             key,
             month,
-            today: new Date().toISOString().slice(0, 10),
+            today: todayIn(timeZone),
             firstRecordedDate: null,
             days: NO_DAYS,
             error: error instanceof ApiError ? error : null,
@@ -157,7 +159,7 @@ export function useAttendanceMonth(month: string): AttendanceMonthState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, month, key, revalidation]);
+  }, [isConnected, month, key, revalidation, timeZone]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -253,10 +255,10 @@ export function useAttendanceMonth(month: string): AttendanceMonthState {
     month: matched ? fetched.month : month,
     today: matched
       ? fetched.today
-      : /* Not yet known. The browser's date is the honest placeholder for one
-           render, and nothing is claimed from it: with no days there is no cell
-           to mark or to disable. */
-        new Date().toISOString().slice(0, 10),
+      : /* Not yet known. The company's own placeholder for one render, and
+           nothing is claimed from it: with no days there is no cell to mark
+           or to disable. */
+        todayIn(timeZone),
     firstRecordedDate: matched ? fetched.firstRecordedDate : null,
     days: matched ? fetched.days : NO_DAYS,
     loading: !matched,

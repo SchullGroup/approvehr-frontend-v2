@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Clock, MoreHorizontal, Timer } from "lucide-react";
+import { Clock, MoreHorizontal, Timer, TriangleAlert } from "lucide-react";
+import { cn } from "@/lib/cn";
 import {
   Badge,
   Button,
@@ -10,10 +11,12 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Checkbox,
   Field,
   Input,
   Modal,
   Select,
+  SegmentedControl,
   Skeleton,
   Stat,
   TBody,
@@ -24,6 +27,7 @@ import {
   TR,
   TableWrap,
   TextLink,
+  formatMoney,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -39,6 +43,8 @@ import {
   type ApiRotaCell,
 } from "@/lib/api/shifts";
 import { useCan, useIsManager } from "@/lib/permissions";
+import { attendanceCsv } from "@/lib/api/exports";
+import { ExportButton } from "@/components/portal/export-button";
 import {
   STATUS_LABEL,
   STATUS_TONE,
@@ -56,14 +62,14 @@ import { AttendanceSettingsButton } from "./capability-bar";
 import { MyAttendanceHistoryPanel } from "./my-attendance-history";
 
 /**
- * The window a plain employee's own summary reads.
+ * The window both the table and its export ask for.
  *
- * The manager-facing table this used to also size — and its export — moved to
- * `/people/attendance/history`, which keeps its own copy of the same number
- * rather than importing this one: two screens agreeing on 15 by convention is
- * fine, two screens sharing one file's constant across a route boundary is not.
+ * Named because they are two requests and a file covering a different fortnight
+ * than the table above it is the export version of a stale figure.
  */
 const TIMESHEET_DAYS = 15;
+
+type View = "today" | "timesheet";
 
 /**
  * Attendance.
@@ -113,8 +119,6 @@ const TIMESHEET_DAYS = 15;
  * itself scopes them to.
  */
 export function AttendanceScreen() {
-  const roster = useAttendanceRoster();
-  const sheet = useAttendanceTimesheet(TIMESHEET_DAYS);
   const locations = useWorkLocations();
   const session = useSession();
   /* Two separate hook calls, never short-circuited into one expression — a
@@ -130,12 +134,43 @@ export function AttendanceScreen() {
   const canImport = useCan("IMPORT_DATA");
   const canSeeRoster = isManager || canEditRecords;
 
+  /**
+   * An account with no employee record, and no permission to see everybody's,
+   * has nothing on this screen at all.
+   *
+   * Both halves are known here, before any request. The API refuses all three
+   * attendance reads for this person with one correct sentence
+   * (`attendance/router.ts#attendanceScope`), and this screen used to make all
+   * three and render that sentence **three times, in three red callouts** —
+   * above a fourth panel telling them they were "signed in to run this
+   * company". Four panels, one fact, and it read as a broken product rather
+   * than a screen with nothing for you.
+   *
+   * So the reads are declined rather than made and mourned. `enabled: false`
+   * is quiet — no request, no error — and the one explanation below is the
+   * whole screen.
+   */
+  const nothingHere = !session.employeeId && !canSeeRoster;
+
+  const roster = useAttendanceRoster(undefined, !nothingHere);
+  const sheet = useAttendanceTimesheet(TIMESHEET_DAYS, !nothingHere);
+
+  const [view, setView] = useState<View>("today");
   const [correcting, setCorrecting] = useState<ApiRosterRow | null>(null);
 
-  const refresh = () => {
-    roster.reload();
-    sheet.reload();
-  };
+  /* Nothing on this screen refreshes itself after a clock or a correction.
+
+     Every mutation that can move these panels calls `announceClock()`, and
+     both reads here subscribe to it — so the screen is already covered, and
+     the explicit reloads that used to sit here were doing harm rather than
+     nothing: they changed each hook's cache key, which aborted the in-flight
+     request the announcement had just started and marked the rows on screen
+     as stale until a second round trip came back. See the note in
+     `my-clock-card.tsx` for the measurement.
+
+     The rule the bus states, and the one those calls broke: the generation
+     belongs in a fetch effect's dependency list, never in the key a hook
+     compares during render to decide whether it is showing current data. */
 
   return (
     <>
@@ -150,6 +185,20 @@ export function AttendanceScreen() {
                   or stops filtering out people who already have an account. */}
               <BulkInviteButton />
               <AttendanceSettingsButton />
+              {/* The view toggle chooses between two company-wide reads, so
+                  it has no reason to exist for somebody who cannot see
+                  either of them. */}
+              {canSeeRoster && (
+                <SegmentedControl
+                  label="View"
+                  value={view}
+                  onChange={setView}
+                  options={[
+                    { value: "today", label: "Today" },
+                    { value: "timesheet", label: "Timesheet" },
+                  ]}
+                />
+              )}
               {canImport && (
                 <ButtonLink
                   href="/people/attendance/import"
@@ -165,38 +214,54 @@ export function AttendanceScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {roster.error && (
-          <LoadFailure subject="today's roster" error={roster.error} />
-        )}
+        {nothingHere ? (
+          <NoRecordHere canAddPeople={canEditRecords} />
+        ) : (
+          <>
+            {roster.error && (
+              <LoadFailure subject="today's roster" error={roster.error} />
+            )}
 
-        {/* Own clock-in. Deliberately the first *open* thing on the page: the
-            person looking at this screen most often is looking for this
-            control. Shared with `/dashboard` — see
-            `components/portal/my-clock-card.tsx` for why this used to be
-            inline here and no longer is. */}
-        <MyClockCard onRecorded={refresh} />
+            {/* Own clock-in. Deliberately the first *open* thing on the page: the
+                person looking at this screen most often is looking for this
+                control. Shared with `/dashboard` — see
+                `components/portal/my-clock-card.tsx` for why this used to be
+                inline here and no longer is. Its own settings are reachable
+                from `AttendanceSettingsButton` in the header rather than a
+                second bar repeated inline here. */}
+            <MyClockCard />
 
-        {/* Everybody clocks in above. Everybody else's day is a different
+            {/* Everybody clocks in above. Everybody else's day is a different
             question, and only a manager or `EDIT_RECORDS` gets to ask it —
             see "Who sees the roster" on this component. A plain employee
             gets their own recent attendance instead of the company's. */}
-        {canSeeRoster ? (
-          roster.date ? (
-            <TodayView
-              roster={roster}
-              onCorrect={setCorrecting}
-              canCorrect={canEditRecords}
-            />
-          ) : (
-            <LoadingPanel label="Loading today's roster" />
-          )
-        ) : (
-          <>
-            <MyAttendanceSummary
-              sheet={sheet}
-              employeeId={session.employeeId}
-            />
-            <MyAttendanceHistoryPanel />
+            {canSeeRoster ? (
+              view === "today" ? (
+                roster.date ? (
+                  <TodayView
+                    roster={roster}
+                    onCorrect={setCorrecting}
+                    canCorrect={canEditRecords}
+                  />
+                ) : (
+                  <LoadingPanel label="Loading today's roster" />
+                )
+              ) : sheet.error ? (
+                <LoadFailure subject="the timesheet" error={sheet.error} />
+              ) : sheet.from ? (
+                <TimesheetView sheet={sheet} />
+              ) : (
+                <LoadingPanel label="Loading the timesheet" />
+              )
+            ) : (
+              <>
+                <MyAttendanceSummary
+                  sheet={sheet}
+                  employeeId={session.employeeId}
+                />
+                <MyAttendanceHistoryPanel />
+              </>
+            )}
           </>
         )}
       </PageBody>
@@ -210,7 +275,6 @@ export function AttendanceScreen() {
           date={roster.date}
           locations={locations.locations}
           onClose={() => setCorrecting(null)}
-          onSaved={refresh}
         />
       )}
     </>
@@ -244,6 +308,46 @@ function LoadingPanel({ label }: { label: string }) {
  * yet in the window); both render the same quiet "nothing recorded" rather
  * than a wall of zeroes standing in for data that was never fetched.
  */
+/**
+ * The whole screen, for somebody it has nothing for.
+ *
+ * Said once. The three reads behind this screen all refuse this account with
+ * the same sentence, and rendering that sentence once per read is how one fact
+ * became three red callouts.
+ *
+ * **Not red.** Nothing has gone wrong and nothing here is theirs to fix: their
+ * account simply is not linked to an employee record. A danger callout for a
+ * state the reader cannot act on teaches people to ignore the colour.
+ *
+ * The way out depends on who is reading, and getting this wrong is what the
+ * old copy did. With `EDIT_RECORDS` this is the owner on day one — registering
+ * a company creates a `User` and no `Employee` — and they can fix it
+ * themselves in one click. Without it, they cannot: `POST /employees` needs
+ * `EDIT_RECORDS`, so offering them "Add yourself as an employee" is a button
+ * whose only outcome is a refusal. They are told who can fix it instead.
+ */
+function NoRecordHere({ canAddPeople }: { canAddPeople: boolean }) {
+  return (
+    <Card>
+      <CardBody className="flex flex-col items-start gap-3">
+        <p className="font-semibold text-ink">
+          There is no attendance to show you
+        </p>
+        <p className="max-w-prose text-body-sm leading-relaxed text-body">
+          {canAddPeople
+            ? "This account runs the company but is not on its payroll, so there is no record to clock in or out against. Add yourself as an employee and this becomes your own day."
+            : "This account is not linked to an employee record, so there is nothing to clock in or out against and no attendance of your own to show. Whoever looks after your people records can link it — ask them, and this becomes your own day."}
+        </p>
+        {canAddPeople && (
+          <ButtonLink href="/people/new" variant="secondary" size="sm">
+            Add yourself as an employee
+          </ButtonLink>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 function MyAttendanceSummary({
   sheet,
   employeeId,
@@ -661,6 +765,189 @@ function RowActions({
 /* -------------------------------------------------------------------------- */
 
 /**
+ * The timesheet.
+ *
+ * Two things here are somebody else's to compute and this view links to them
+ * rather than reproducing them: **overtime**, which `/people/overtime` derives
+ * from clock-outs, and **a shift worker's unpaid days**, which payroll counts
+ * against their rota. For anyone on a rota the office-week figures are not the
+ * ones a run would use, so the cell says where the real answer lives instead of
+ * printing a naira amount nobody can reconcile.
+ */
+function TimesheetView({ sheet }: { sheet: TimesheetState }) {
+  const rota = useRotaContext(sheet.from, sheet.to);
+  const mayExport = useCan("EXPORT_DATA");
+  /* Download-only: the on-screen table stays the full roster, since the
+     "Needs looking at" column already reads as "nothing to look at" on a
+     clean row. The file is the artefact somebody actually filters, files
+     or hands to auditing — the feedback's own words. */
+  const [exceptionsOnly, setExceptionsOnly] = useState(false);
+
+  return (
+    <Card>
+      <CardHeader
+        title={`Timesheet · ${shortDate(sheet.from)} to ${shortDate(sheet.to)}`}
+        description={`${sheet.workingDays} working days, public holidays excluded. Hours are clocked time; anyone on a rota is measured against their rota.`}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            {/* `EXPORT_DATA`, and only connected: the honest offline file would
+                be the fifteen rows already on screen, and unlike the directory
+                nobody is asking for that. No `VIEW_SALARIES` branch either —
+                this file carries days, not money. The timesheet read computes a
+                proration *amount* as well and it is deliberately not a column:
+                that is a salary figure wearing an attendance label, on the one
+                export that does not need the pay permission. */}
+            {sheet.source === "api" && mayExport && (
+              <>
+                <Checkbox
+                  label="Exceptions only"
+                  checked={exceptionsOnly}
+                  onChange={(e) => setExceptionsOnly(e.target.checked)}
+                />
+                <ExportButton
+                  label="Download"
+                  download={() =>
+                    attendanceCsv({
+                      days: TIMESHEET_DAYS,
+                      to: sheet.to,
+                      ...(exceptionsOnly ? { exceptionsOnly: true } : {}),
+                    })
+                  }
+                />
+              </>
+            )}
+            <ButtonLink href="/people/overtime" variant="secondary" size="sm">
+              <Timer aria-hidden="true" className="size-4" />
+              Overtime
+            </ButtonLink>
+          </div>
+        }
+      />
+      <TableWrap className="rounded-none border-0">
+        <THead>
+          <TH>Employee</TH>
+          <TH align="right">Present</TH>
+          <TH align="right">Late</TH>
+          <TH align="right">On leave</TH>
+          <TH align="right">Unexplained</TH>
+          <TH align="right">Hours</TH>
+          {/* What actually needs looking at. The columns to the left are
+              figures a reader has to interpret; this is the product saying
+              which of them is a problem — the feedback's "automatically pick
+              up attendance exceptions". */}
+          <TH>Needs looking at</TH>
+          <TH align="right">Payroll effect</TH>
+        </THead>
+        <TBody>
+          {[...sheet.rows]
+            .sort((a, b) => b.daysUnexplained - a.daysUnexplained)
+            .map((row) => {
+              const onRota = rota.onRota.has(row.employeeId);
+              const rostered = rota.rosteredDays.get(row.employeeId) ?? 0;
+              return (
+                <TR key={row.employeeId} interactive>
+                  <TDPrimary
+                    title={
+                      <TextLink href={`/people/${row.employeeId}`}>
+                        {row.employeeName}
+                      </TextLink>
+                    }
+                    subtitle={
+                      onRota
+                        ? `${rostered} rostered days in this window`
+                        : `${row.daysPresent} of ${row.workingDays} working days`
+                    }
+                  />
+                  <TD align="right" className="tabular font-medium text-ink">
+                    {row.daysPresent}
+                  </TD>
+                  <TD
+                    align="right"
+                    className={cn(
+                      "tabular",
+                      row.daysLate > 2 ? "text-warning-text" : "text-muted",
+                    )}
+                  >
+                    {row.daysLate || "—"}
+                  </TD>
+                  <TD align="right" className="tabular text-muted">
+                    {row.daysOnLeave || "—"}
+                  </TD>
+                  <TD
+                    align="right"
+                    className={cn(
+                      "tabular",
+                      onRota
+                        ? "text-muted"
+                        : row.daysUnexplained > 0
+                          ? "font-medium text-danger-text"
+                          : "text-muted",
+                    )}
+                  >
+                    {/* An office-week count means nothing for somebody on a
+                        rota, so it is not shown as though it did. */}
+                    {onRota ? "—" : row.daysUnexplained || "—"}
+                  </TD>
+                  <TD align="right" className="tabular text-muted">
+                    {row.hours || "—"}
+                  </TD>
+                  {/* The API's own labels, and its own counts. A second copy
+                      of these four names here is how the screen and the
+                      downloaded report come to describe the same day
+                      differently. Empty reads as "nothing to look at", which
+                      is exactly right — a word like "none" is one more thing
+                      to scan past on a clean month. */}
+                  <TD>
+                    {row.exceptions.length === 0 ? (
+                      <span className="text-faint">—</span>
+                    ) : (
+                      <span className="flex flex-wrap gap-1">
+                        {row.exceptions.map((issue) => (
+                          <Badge key={issue.code} tone="warning" size="sm">
+                            {issue.label}
+                            {issue.days > 1 ? ` ×${issue.days}` : ""}
+                          </Badge>
+                        ))}
+                      </span>
+                    )}
+                  </TD>
+                  <TD align="right" className="tabular">
+                    {rota.loading ? (
+                      <Skeleton className="ml-auto h-4 w-20" />
+                    ) : onRota ? (
+                      <TextLink href="/people/shifts">From their rota</TextLink>
+                    ) : (row.proration.amount ?? 0) > 0 ? (
+                      <span className="inline-flex flex-col items-end">
+                        <span className="inline-flex items-center gap-1.5 font-medium text-danger-text">
+                          <TriangleAlert
+                            aria-hidden="true"
+                            className="size-3.5"
+                          />
+                          {`−${formatMoney(row.proration.amount ?? 0, "NGN", {
+                            decimals: true,
+                          })}`}
+                        </span>
+                        <span className="text-meta text-muted">
+                          {row.proration.unpaidDays} of{" "}
+                          {row.proration.workingDaysPerMonth} days
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-faint">Full pay</span>
+                    )}
+                  </TD>
+                </TR>
+              );
+            })}
+        </TBody>
+      </TableWrap>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
  * An HR correction.
  *
  * The note is required rather than optional. Payroll pays against this number,
@@ -677,13 +964,11 @@ function CorrectionDialog({
   date,
   locations,
   onClose,
-  onSaved,
 }: {
   row: ApiRosterRow;
   date: string;
   locations: ApiWorkLocation[];
   onClose: () => void;
-  onSaved: () => void;
 }) {
   const { correct } = useAttendanceMutations();
   const toast = useToast();
@@ -715,7 +1000,8 @@ function CorrectionDialog({
         tone: "success",
         detail: "The change and your reason are both on the record.",
       });
-      onSaved();
+      /* `correct` announces, so every attendance read on this screen refetches
+         itself. All this has left to do is shut the dialog. */
       onClose();
     } catch (error) {
       toast.push({

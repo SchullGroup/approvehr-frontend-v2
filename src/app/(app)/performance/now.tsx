@@ -217,16 +217,19 @@ export function WhatNeedsYouTab({
    * answered.
    *
    * The other half of `toFinalise`, and it belongs in the other tab: once a
-   * rating is final the next move is not the appraiser's — the subject
-   * acknowledges it, or HR records a dispute if they do not accept it, and
-   * until one of those happens the sign-off is open. That is the definition
-   * of waiting on somebody else, and it was the one thing genuinely of this
-   * person's that had nowhere on this screen to be.
+   * rating is final the next move is not the appraiser's, it is the subject's —
+   * they acknowledge it, and until they do the sign-off is open. That is the
+   * definition of waiting on somebody else, and it was the one thing genuinely
+   * of this person's that had nowhere on this screen to be.
    *
    * All three flags, never `!acknowledged` alone. Not acknowledged usually
    * means nobody has been asked yet, which is a third state and the common one
    * — the same rule `owesAnswer` above follows for the same reason, one side of
    * the same fact along.
+   *
+   * `!disputed` stays although nothing can raise a dispute any more: reviews
+   * disputed before that was removed are answered, and dropping the flag would
+   * put them back on this list as though nobody had replied.
    */
   const awaitingAnswer = written.reviews.filter(
     (review) => review.finalised && !review.acknowledged && !review.disputed,
@@ -813,7 +816,7 @@ export function WhatNeedsYouTab({
                       review.finalisedAt
                         ? `Final on ${dayOf(review.finalisedAt)}. `
                         : ""
-                    }They can acknowledge it. If they do not accept it, HR records a dispute — the sign-off stays open until one of those happens.`}
+                    }The sign-off stays open until they acknowledge it.`}
                     href={`/performance/reviews/${review.id}`}
                     action="Open it"
                   />

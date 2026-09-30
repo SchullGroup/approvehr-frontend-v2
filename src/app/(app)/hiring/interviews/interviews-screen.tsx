@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { CalendarClock, Inbox, Lock, TriangleAlert } from "lucide-react";
 import {
   Avatar,
@@ -23,7 +24,8 @@ import { pipelineSnapshot, useScreeningBacklog } from "@/lib/store/hiring";
 import { cardById } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
 import { fullName } from "@/lib/types";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { formatDate, formatTime } from "@/lib/time";
 import { RealDiary } from "./real-diary";
 
 /**
@@ -76,8 +78,8 @@ export function InterviewsScreen() {
               title="You cannot see interviews"
               description="An interview record names a candidate and what was said about them, so it is kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."
               action={
-                <ButtonLink href="/dashboard" variant="secondary" size="sm">
-                  Back to your dashboard
+                <ButtonLink href="/hiring" variant="secondary" size="sm">
+                  Back to hiring
                 </ButtonLink>
               }
             />
@@ -102,6 +104,7 @@ const KIND_LABEL: Record<string, string> = {
 function Diary() {
   const backlog = useScreeningBacklog();
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const pipeline = pipelineSnapshot();
   const toast = useToast();
 
@@ -127,7 +130,7 @@ function Diary() {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/hiring", label: "Pipeline" },
+          { href: "/hiring", label: "Hiring" },
           { href: "/hiring/interviews", label: "Interviews" },
         ]}
         title="Interviews"
@@ -152,25 +155,43 @@ function Diary() {
               </Button>
             </LoadFailure>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Stat
-                label="Waiting to be screened"
-                value={String(backlog.numbers.waiting)}
-                icon={<TriangleAlert aria-hidden="true" />}
-                hint={
-                  backlog.numbers.waiting > 0
-                    ? "nobody has looked yet"
-                    : "queue is clear"
-                }
-              />
-              <Stat
-                label="Screened in"
-                value={String(backlog.numbers.advanced)}
-                hint="in a pipeline somewhere"
-              />
-              <Stat
-                label="People who applied"
-                value={String(backlog.numbers.applications)}
-              />
+              <Link
+                href="/hiring/postings/applications?status=RECEIVED"
+                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <Stat
+                  label="Waiting to be screened"
+                  value={String(backlog.numbers.waiting)}
+                  icon={<TriangleAlert aria-hidden="true" />}
+                  hint={
+                    backlog.numbers.waiting > 0
+                      ? "nobody has looked yet"
+                      : "queue is clear"
+                  }
+                  className="transition-colors group-hover:border-accent"
+                />
+              </Link>
+              <Link
+                href="/hiring/postings/applications?status=ADVANCED"
+                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <Stat
+                  label="Screened in"
+                  value={String(backlog.numbers.advanced)}
+                  hint="in a pipeline somewhere"
+                  className="transition-colors group-hover:border-accent"
+                />
+              </Link>
+              <Link
+                href="/hiring/postings/applications?status=ALL"
+                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <Stat
+                  label="People who applied"
+                  value={String(backlog.numbers.applications)}
+                  className="transition-colors group-hover:border-accent"
+                />
+              </Link>
             </div>
             {backlog.numbers.waiting > 0 && (
               <ButtonLink
@@ -257,7 +278,17 @@ function Diary() {
                 {scheduled.map((iv) => {
                   const card = cardById(iv.applicationId);
                   if (!card) return null;
-                  const when = new Date(iv.scheduledFor);
+                  /* `formatDate` gives "5 September 2026" — day and month
+                     split off it rather than a fresh Intl call, so the chip
+                     and the time below agree on which zone's day this is.
+                     Before this, the month came from a browser-local Intl
+                     call and the day number from a raw `getDate()` (also
+                     browser-local) — consistent with each other, but never
+                     with the company's own clock. */
+                  const [day, month] = formatDate(
+                    iv.scheduledFor,
+                    timeZone,
+                  ).split(" ");
                   return (
                     /* A plain wrapper. The two links are siblings, never nested —
                        an outer link wrapping an inner one breaks hydration and
@@ -268,10 +299,10 @@ function Diary() {
                     >
                       <div className="flex w-16 shrink-0 flex-col items-center rounded-md bg-sunken px-2 py-1.5">
                         <span className="text-meta text-muted">
-                          {when.toLocaleDateString("en-NG", { month: "short" })}
+                          {month ? month.slice(0, 3) : ""}
                         </span>
                         <span className="tabular text-h4 leading-none text-ink">
-                          {when.getDate()}
+                          {day}
                         </span>
                       </div>
 
@@ -291,11 +322,8 @@ function Diary() {
                           </TextLink>
                         </p>
                         <p className="tabular mt-0.5 text-meta text-muted">
-                          {when.toLocaleTimeString("en-NG", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}{" "}
-                          · {iv.durationMins} mins ·{" "}
+                          {formatTime(iv.scheduledFor, timeZone)} ·{" "}
+                          {iv.durationMins} mins ·{" "}
                           {iv.interviewerIds
                             .map((id) => {
                               const person = employeeById(id);

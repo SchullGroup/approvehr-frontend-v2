@@ -4,6 +4,7 @@ import { useState } from "react";
 import { payslipsCsv } from "@/lib/api/exports";
 import { useCan } from "@/lib/permissions";
 import { ExportButton } from "@/components/portal/export-button";
+import Link from "next/link";
 import { CalendarClock, Mail } from "lucide-react";
 import {
   Badge,
@@ -27,7 +28,6 @@ import {
   THead,
   TR,
   TableWrap,
-  TextLink,
   type AppliedFilter,
   type BadgeTone,
 } from "@/components/ui";
@@ -516,12 +516,12 @@ function PayslipIndex() {
                       <TR key={slip.id} interactive className="relative">
                         <TDPrimary
                           title={
-                            <TextLink
+                            <Link
                               href={href}
-                              className="after:absolute after:inset-0"
+                              className="after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
                             >
                               {slip.name}
-                            </TextLink>
+                            </Link>
                           }
                           subtitle={slip.employeeNo}
                         />
@@ -562,12 +562,12 @@ function PayslipIndex() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <TextLink
+                        <Link
                           href={href}
-                          className="text-body-sm after:absolute after:inset-0"
+                          className="text-body-sm font-medium text-ink after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
                         >
                           {slip.name}
-                        </TextLink>
+                        </Link>
                         <p className="mt-0.5 text-meta text-muted">
                           {slip.employeeNo}
                         </p>

@@ -472,7 +472,7 @@ const report = checkMappedRows(
       gross_monthly: "90000",
     },
   ],
-  { presentFields: present },
+  { presentFields: present, timeZone: "Africa/Lagos" },
 );
 
 eq("three rows checked", report.totalRows, 3);
@@ -522,6 +522,7 @@ eq(
 
 const noColumn = checkMappedRows(EMPLOYEES, [{ first_name: "Ngozi" }], {
   presentFields: new Set(["firstName"] as const),
+  timeZone: "Africa/Lagos",
 });
 eq(
   "a required column the file does not have says so instead of blaming the cell",
@@ -556,7 +557,10 @@ const sameEmail = checkMappedRows(
       email: "ADA@company.test",
     },
   ],
-  { presentFields: new Set(["employeeNo", "email"] as const) },
+  {
+    presentFields: new Set(["employeeNo", "email"] as const),
+    timeZone: "Africa/Lagos",
+  },
 );
 eq(
   "the second row sharing a work email is refused, naming the first",

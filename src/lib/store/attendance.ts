@@ -34,6 +34,7 @@ import {
 } from "@/lib/mock/attendance";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { TODAY } from "@/lib/today";
+import { formatTime } from "@/lib/time";
 import { fullName } from "@/lib/types";
 import {
   employedOn,
@@ -47,7 +48,7 @@ import { useEmployeeStore } from "./employees";
 import { useLeaveStore } from "./leave";
 import { createPersistedState, patched } from "./persisted";
 import { useRota } from "./shifts";
-import { useSession } from "./session";
+import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
 import { useCan } from "@/lib/permissions";
 
@@ -93,16 +94,182 @@ const store = createPersistedState<AttendanceState>({
  * the *time* is real, because clocking in at whatever time it happens to be is
  * the entire behaviour being demonstrated. Pinning both would mean every
  * clock-in landed at the same minute.
+ *
+ * Real, and in the company's zone: somebody travelling clocks in at 09:00
+ * their own time, and the timesheet has to record the company's 09:00, not
+ * theirs. `formatTime` already renders `HH:MM` in a given zone, so this is
+ * that rather than a second hand-rolled clock reading `getHours()`/
+ * `getMinutes()` off the browser's own idea of the time.
  */
-export function nowTime(): string {
-  const now = new Date();
-  return `${String(now.getHours()).padStart(2, "0")}:${String(
-    now.getMinutes(),
-  ).padStart(2, "0")}`;
+export function nowTime(timeZone: string): string {
+  return formatTime(new Date(), timeZone); // reads-the-clock: straight into formatTime with timeZone
 }
 
 const entryId = (employeeId: string, date: string) =>
   `att-${employeeId}-${date}`;
+
+/* ==========================================================================
+ * A clock event invalidates every attendance read on screen
+ * ======================================================================== */
+
+/**
+ * Clocking in or out changes what four separate reads would answer, and until
+ * this existed each **call site** was expected to know which ones.
+ *
+ * It did not work, because there are two places to clock from and they had
+ * different lists. `ClockMenu` lives in the top bar on every screen and
+ * reloaded the shell's roster and nothing else. `MyClockCard` reloaded its own
+ * roster and called `onRecorded`, which on `/people/attendance` reloaded the
+ * roster and the 15-day timesheet — but not "Your day-by-day record" or the
+ * corrections beside it, because that panel takes no props and fetches for
+ * itself. So clocking in left your own record showing yesterday until you
+ * reloaded the page, and clocking in from the navbar left the whole screen
+ * stale.
+ *
+ * The fix is not a longer list at each call site — that is the thing that was
+ * already wrong, and the next panel added to this screen would be stale again.
+ * The mutation announces, and every attendance read listens. A call site cannot
+ * forget a panel it has never heard of.
+ *
+ * Shaped on `lib/revalidate.ts`, deliberately, and deliberately **not** that
+ * module: a window regaining focus is a guess that something somewhere may have
+ * changed, and is rate-limited for it. This is a write this browser just made
+ * and had confirmed, so it is neither a guess nor frequent — twice a day per
+ * person — and it re-asks only the four reads that a clock can actually move,
+ * rather than every store in the app.
+ */
+let clockGeneration = 0;
+const clockListeners = new Set<() => void>();
+
+/** Called after a clock, an undo or a correction the server accepted. */
+function announceClock(): void {
+  clockGeneration += 1;
+  for (const listener of clockListeners) listener();
+}
+
+function subscribeClock(listener: () => void): () => void {
+  clockListeners.add(listener);
+  return () => {
+    clockListeners.delete(listener);
+  };
+}
+
+const clockSnapshot = () => clockGeneration;
+/* The server has no clock events, and starting both sides at the same number
+   is what keeps this out of hydration. */
+const clockServerSnapshot = () => 0;
+
+/**
+ * The number that goes up on every clock event.
+ *
+ * Put it in a fetch effect's dependency list, never in the key a hook compares
+ * during render to decide `loading` — same rule as `useRevalidation`. The
+ * effect refires, the answer replaces the old one when it lands, and the panel
+ * never flashes a skeleton over a row it is already showing.
+ */
+function useClockGeneration(): number {
+  return useSyncExternalStore(
+    subscribeClock,
+    clockSnapshot,
+    clockServerSnapshot,
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Where you clocked in last                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The location a clock-in defaults to: the one this person used last.
+ *
+ * Both widgets defaulted to `locations[0]` — whatever the API happened to list
+ * first, which is a fact about the company's location table and never about the
+ * person clocking. In a five-branch company everybody but the staff of one
+ * branch re-picked theirs twice a day, and forgetting is not merely a mispress:
+ * `clockIn` judges the geofence of the location it is handed, so the wrong one
+ * is either a refusal at the door or a day recorded against a site they were
+ * never at.
+ *
+ * ## Why this is captured rather than read back
+ *
+ * There is nowhere to read it from. `ApiRosterRow.workLocation` and
+ * `ApiHistoryRow.workLocation` are both the already-resolved **name** — the
+ * roster row says "There is no id on this row" in as many words — and a name
+ * cannot be handed to `clockIn`. The id exists in exactly one place,
+ * `ApiClockResult.workLocation.id`, which is the server's own resolution of
+ * what it actually recorded rather than what the widget asked for. So it is
+ * taken there, at the one choke point both widgets already go through.
+ *
+ * Per browser, which is the honest limit and the right trade. This is a
+ * preselected dropdown, not a claim about anybody's data: getting it wrong
+ * costs one click, and the alternative is a column, a migration and a write on
+ * every clock-in to save that click. If it ever should follow somebody between
+ * devices, the fix is a field on the employee, not a bigger cache here.
+ *
+ * Keyed by employee. A demo browser switches personas, and a shared terminal in
+ * a factory office is exactly where two people clock from one machine.
+ */
+type LastLocationState = { byEmployee: Record<string, string> };
+
+const lastLocationStore = createPersistedState<LastLocationState>({
+  key: "approvehr.attendance.last-location.store",
+  empty: { byEmployee: {} },
+});
+
+/**
+ * Record where a clock-in was accepted. Called after the server confirms.
+ *
+ * A null location is not recorded, and must not be: null means the company
+ * runs no locations, or this person has none assigned, and writing it would
+ * turn "no opinion" into a remembered choice of nothing.
+ */
+function rememberClockLocation(
+  employeeId: string,
+  locationId: string | null | undefined,
+): void {
+  if (!employeeId || !locationId) return;
+  /* `current()`, never `read()`. Nothing on the screens that write this
+     subscribes to the store, so `read()` would compute the write from the seed
+     and drop what this browser already had — the defect `store/persisted.ts`
+     documents at length. */
+  const state = lastLocationStore.current();
+  if (state.byEmployee[employeeId] === locationId) return;
+  lastLocationStore.commit({
+    byEmployee: { ...state.byEmployee, [employeeId]: locationId },
+  });
+}
+
+/** Where this person clocked in last, or null if they never have here. */
+export function useLastClockLocation(): string | null {
+  const { actingId } = useSession();
+  const state = useSyncExternalStore(
+    lastLocationStore.subscribe,
+    lastLocationStore.read,
+    lastLocationStore.getServerSnapshot,
+  );
+  return state.byEmployee[actingId] ?? null;
+}
+
+/**
+ * Which location a clock widget shows, written once rather than in both.
+ *
+ * `picked` wins: it is this visit's explicit choice and nothing should move
+ * under somebody who has just chosen. Then the remembered one — but only while
+ * it is still on the list. A location can be archived or switched off, and
+ * preselecting an id the dropdown no longer offers renders a `<select>` with
+ * nothing showing, which reads as the widget being broken rather than as the
+ * branch being closed. Then the first, which is where both widgets began.
+ */
+export function defaultClockLocationId(
+  locations: readonly { id: string }[],
+  remembered: string | null,
+  picked: string | null,
+): string {
+  if (picked) return picked;
+  if (remembered && locations.some((one) => one.id === remembered))
+    return remembered;
+  return locations[0]?.id ?? "";
+}
 
 export function useAttendanceStore() {
   const state = useSyncExternalStore(
@@ -110,6 +277,7 @@ export function useAttendanceStore() {
     store.read,
     store.getServerSnapshot,
   );
+  const timeZone = useOrgTimezone();
 
   /* Memoised on `state.policy`, which useSyncExternalStore already keeps
      stable across renders that change nothing — an unmemoised copy here is a
@@ -150,17 +318,22 @@ export function useAttendanceStore() {
   );
 
   const clockIn = useCallback(
-    (employeeId: string, locationId: string, at = nowTime(), date = TODAY) => {
+    (
+      employeeId: string,
+      locationId: string,
+      at = nowTime(timeZone),
+      date = TODAY,
+    ) => {
       upsert(employeeId, date, { clockIn: at, locationId });
     },
-    [upsert],
+    [upsert, timeZone],
   );
 
   const clockOut = useCallback(
-    (employeeId: string, at = nowTime(), date = TODAY) => {
+    (employeeId: string, at = nowTime(timeZone), date = TODAY) => {
       upsert(employeeId, date, { clockOut: at });
     },
-    [upsert],
+    [upsert, timeZone],
   );
 
   /**
@@ -334,8 +507,27 @@ export type RosterState = {
  * answers instead. That file is the demo's copy of the same precedence, and the
  * comment above `DEMO_STATUS` is the standing note that the two move together.
  */
-export function useAttendanceRoster(date?: string): RosterState {
+/**
+ * `enabled` exists so a screen can decline to ask a question it already knows
+ * the answer to.
+ *
+ * An account with no employee record and no company-attendance permission gets
+ * a 403 from every attendance read, carrying one correct sentence from
+ * `attendance/router.ts#attendanceScope`. `/people/attendance` made three such
+ * reads and rendered that sentence three times in three red callouts, which
+ * reads as a product that is broken rather than a screen that has nothing for
+ * you. Both facts are known on this side before any request, so the screen
+ * passes `enabled: false` and says it once itself.
+ *
+ * Disabled is **quiet, not failed**: no request, and `error` stays null. A
+ * disabled read that reported an error would put the callout straight back.
+ */
+export function useAttendanceRoster(
+  date?: string,
+  enabled = true,
+): RosterState {
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const local = useAttendanceStore();
   const { directory } = useEmployeeStore();
   const leave = useLeaveStore();
@@ -363,8 +555,9 @@ export function useAttendanceRoster(date?: string): RosterState {
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
+  const clocked = useClockGeneration();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !enabled) return;
     const ticket = latest.current + 1;
     latest.current = ticket;
     let cancelled = false;
@@ -409,7 +602,7 @@ export function useAttendanceRoster(date?: string): RosterState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, date, key, revalidation]);
+  }, [isConnected, enabled, date, key, revalidation, clocked]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -453,10 +646,12 @@ export function useAttendanceRoster(date?: string): RosterState {
 
     return {
       date: on,
-      /* The browser's own clock, which is the right answer offline: the demo's
-         clock-ins were made by this browser, so there is no offset to correct
-         for and no server to ask. */
-      time: new Date().toTimeString().slice(0, 5),
+      /* No server to ask offline, so this reads the clock locally — but the
+         company's zone, not the browser's, via the same `nowTime` a clock-in
+         defaults through above: the demo's clock-ins are recorded in the
+         company's time, and a live "now" reading the browser's would disagree
+         with the entries it sits beside for any reader outside that zone. */
+      time: nowTime(timeZone),
       policy: toApiPolicy(local.policy),
       rows,
       recorded: local.forDate(on).filter((entry) => entry.clockIn).length,
@@ -549,6 +744,7 @@ export function useAttendanceHistory(params: HistoryParams = {}): HistoryState {
   const latest = useRef(0);
 
   const revalidation = useRevalidation();
+  const clocked = useClockGeneration();
   useEffect(() => {
     if (!isConnected) return;
     const ticket = latest.current + 1;
@@ -581,7 +777,7 @@ export function useAttendanceHistory(params: HistoryParams = {}): HistoryState {
       controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `params` is a fresh object every render; `key` already carries every primitive field it contributes.
-  }, [isConnected, key, revalidation]);
+  }, [isConnected, key, revalidation, clocked]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   const matched = fetched !== null && fetched.key === key;
@@ -686,6 +882,7 @@ export function useMyCorrections(): CorrectionsState {
   } | null>(null);
 
   const revalidation = useRevalidation();
+  const clocked = useClockGeneration();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -710,7 +907,7 @@ export function useMyCorrections(): CorrectionsState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, tick, revalidation]);
+  }, [isConnected, tick, revalidation, clocked]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   const matched = fetched !== null && fetched.key === tick;
@@ -913,7 +1110,25 @@ export type TimesheetState = {
  * a month for a four-on-four-off crew — so a screen showing these figures must
  * pair them with `useRotaContext` and say which basis applies.
  */
-export function useAttendanceTimesheet(days = 15): TimesheetState {
+/**
+ * `enabled` exists so a screen can decline to ask a question it already knows
+ * the answer to.
+ *
+ * An account with no employee record and no company-attendance permission gets
+ * a 403 from every attendance read, carrying one correct sentence from
+ * `attendance/router.ts#attendanceScope`. `/people/attendance` made three such
+ * reads and rendered that sentence three times in three red callouts, which
+ * reads as a product that is broken rather than a screen that has nothing for
+ * you. Both facts are known on this side before any request, so the screen
+ * passes `enabled: false` and says it once itself.
+ *
+ * Disabled is **quiet, not failed**: no request, and `error` stays null. A
+ * disabled read that reported an error would put the callout straight back.
+ */
+export function useAttendanceTimesheet(
+  days = 15,
+  enabled = true,
+): TimesheetState {
   const { isConnected } = useSession();
   const local = useAttendanceStore();
   const { directory } = useEmployeeStore();
@@ -938,8 +1153,9 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
+  const clocked = useClockGeneration();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || !enabled) return;
     const ticket = latest.current + 1;
     latest.current = ticket;
     let cancelled = false;
@@ -973,7 +1189,7 @@ export function useAttendanceTimesheet(days = 15): TimesheetState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, days, key, revalidation]);
+  }, [isConnected, enabled, days, key, revalidation, clocked]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
   const matched = fetched !== null && fetched.key === key;
@@ -1127,6 +1343,7 @@ export type ClockInLocation = {
 export function useAttendanceMutations() {
   const { isConnected, actingId } = useSession();
   const local = useAttendanceStore();
+  const timeZone = useOrgTimezone();
 
   const clockIn = useCallback(
     async (location?: ClockInLocation | null) => {
@@ -1139,8 +1356,9 @@ export function useAttendanceMutations() {
             `Already clocked in at ${entry.clockIn}. Use a correction to change it.`,
           );
         }
-        const at = nowTime();
+        const at = nowTime(timeZone);
         local.clockIn(actingId, location?.id ?? "", at);
+        rememberClockLocation(actingId, location?.id);
         /* No position asked for, and none used. A demo fence is drawn and not
            enforced — there is no server here to judge it — and `store/
            work-locations.ts` says so on the settings screen rather than letting
@@ -1148,18 +1366,28 @@ export function useAttendanceMutations() {
            for a permission this mode cannot act on would be worse than the gap.
            `workLocation` is absent rather than null: the demo genuinely does not
            resolve a name here, and absent is not the same claim as "none". */
+        announceClock();
         return { employeeId: actingId, date: TODAY, time: at };
       }
 
       /* On the click, not on page load, and only where the answer matters. */
       const position = location?.geofenceEnforced ? await readPosition() : null;
 
-      return attendanceApi.clockIn({
+      const recorded = await attendanceApi.clockIn({
         ...(location ? { workLocationId: location.id } : {}),
         ...(position ? { position } : {}),
       });
+      /* After the server confirmed it, never beside the attempt — a refetch
+         triggered by a clock that was refused would re-render the same rows
+         and read as the refusal having worked. */
+      announceClock();
+      /* The server's resolution, not the widget's request. `clockIn` falls back
+         to the employee's own record when no location is sent, so `recorded` is
+         the only account of where this clock-in actually landed. */
+      rememberClockLocation(actingId, recorded.workLocation?.id);
+      return recorded;
     },
-    [isConnected, actingId, local],
+    [isConnected, actingId, local, timeZone],
   );
 
   const clockOut = useCallback(async () => {
@@ -1179,12 +1407,15 @@ export function useAttendanceMutations() {
           `Already clocked out at ${entry.clockOut}.`,
         );
       }
-      const at = nowTime();
+      const at = nowTime(timeZone);
       local.clockOut(actingId, at);
+      announceClock();
       return { employeeId: actingId, date: TODAY, time: at };
     }
-    return attendanceApi.clockOut();
-  }, [isConnected, actingId, local]);
+    const recorded = await attendanceApi.clockOut();
+    announceClock();
+    return recorded;
+  }, [isConnected, actingId, local, timeZone]);
 
   /**
    * Undo your own clock-out, just after making it.
@@ -1211,9 +1442,12 @@ export function useAttendanceMutations() {
         { clockOut: undefined },
         "Clock-out reversed",
       );
+      announceClock();
       return { employeeId: actingId, date: TODAY, clockIn: entry.clockIn };
     }
-    return attendanceApi.undoClockOut();
+    const reversed = await attendanceApi.undoClockOut();
+    announceClock();
+    return reversed;
   }, [isConnected, actingId, local]);
 
   /**
@@ -1255,6 +1489,7 @@ export function useAttendanceMutations() {
           },
           reason,
         );
+        announceClock();
         return;
       }
       await attendanceApi.correct(employeeId, date, {
@@ -1265,6 +1500,7 @@ export function useAttendanceMutations() {
           : { workLocationId: patch.locationId }),
         note: reason,
       });
+      announceClock();
     },
     [isConnected, local],
   );

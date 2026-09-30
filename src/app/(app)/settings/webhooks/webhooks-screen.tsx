@@ -32,6 +32,7 @@ import { ApiError } from "@/lib/api/client";
 import { hostOf, pathOf, type ApiWebhook } from "@/lib/api/webhooks";
 import { fullStamp } from "@/lib/audit/language";
 import { usePermissions } from "@/lib/permissions";
+import { useOrgTimezone } from "@/lib/store/session";
 import {
   useWebhookActions,
   useWebhookCatalogue,
@@ -303,6 +304,7 @@ function EndpointCard({
   editable: boolean;
   onSetActive: (active: boolean) => void;
 }) {
+  const timeZone = useOrgTimezone();
   /* Switched itself off, rather than somebody switching it off: the API records
      the reason either way, and the wording it uses for a manual switch-off is
      the sentence "Switched off in Settings." */
@@ -363,7 +365,7 @@ function EndpointCard({
             <dt className="text-muted">Last delivered</dt>
             <dd className="tabular text-ink">
               {webhook.health.lastDeliveredAt
-                ? fullStamp(webhook.health.lastDeliveredAt)
+                ? fullStamp(webhook.health.lastDeliveredAt, timeZone)
                 : "Never"}
             </dd>
           </div>

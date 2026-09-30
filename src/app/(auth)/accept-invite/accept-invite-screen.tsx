@@ -81,7 +81,7 @@ export function AcceptInviteScreen({ token }: { token: string | null }) {
     return (
       <>
         <h1 className="text-h2 text-ink">This link is incomplete</h1>
-        <p className="mt-4 text-body text-muted">
+        <p className="mt-4 text-muted">
           Ask whoever invited you to send it again.
         </p>
       </>

@@ -20,6 +20,7 @@ import type { AuditEntry, AuditListParams } from "@/lib/api/audit";
 import { dayHeading, dayKey, readableDate } from "@/lib/audit/language";
 import { usePermissions } from "@/lib/permissions";
 import { useAuditFilterOptions, useAuditTrail } from "@/lib/store/audit";
+import { useOrgTimezone } from "@/lib/store/session";
 import { TrailEntry } from "./entry";
 
 /**
@@ -134,6 +135,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [includeReads, setIncludeReads] = useState(false);
+  const timeZone = useOrgTimezone();
 
   /**
    * The number beside a name in the "Who" dropdown.
@@ -196,7 +198,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
       { key: string; heading: string; entries: AuditEntry[] }
     >();
     for (const entry of trail.entries) {
-      const key = dayKey(entry.at);
+      const key = dayKey(entry.at, timeZone);
       const group = map.get(key);
       if (group) {
         group.entries.push(entry);
@@ -204,12 +206,12 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
       }
       map.set(key, {
         key,
-        heading: dayHeading(entry.at, trail.now),
+        heading: dayHeading(entry.at, trail.now, timeZone),
         entries: [entry],
       });
     }
     return [...map.values()];
-  }, [trail.entries, trail.now]);
+  }, [trail.entries, trail.now, timeZone]);
 
   const filtered = Boolean(
     query || actor || entityType || entityId || from || to || includeReads,
@@ -445,6 +447,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
                       key={entry.id}
                       entry={entry}
                       now={trail.now}
+                      timeZone={timeZone}
                       rail={index < group.entries.length - 1}
                     />
                   ))}

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { ReportFaultButton, RepairStatusLine } from "./report-fault";
 import {
   CONDITION_LABEL,
@@ -79,6 +79,7 @@ export function MyAssets({
   className?: string;
 }) {
   const session = useSession();
+  const timeZone = useOrgTimezone();
   const id = employeeId ?? session.employeeId;
   const { kit, loading, error, acknowledge } = useMyEquipment(id);
   const toast = useToast();
@@ -176,9 +177,10 @@ export function MyAssets({
                     </p>
                     <p className="mt-0.5 text-body-sm text-muted">
                       {item.kind ? `${item.kind} · ` : ""}Given to you{" "}
-                      {dayLabel(item.assignedOn)} · {daysSince(item.assignedOn)}{" "}
-                      days · {CONDITION_LABEL[item.conditionOut].toLowerCase()}{" "}
-                      when you got it
+                      {dayLabel(item.assignedOn)} ·{" "}
+                      {daysSince(item.assignedOn, timeZone)} days ·{" "}
+                      {CONDITION_LABEL[item.conditionOut].toLowerCase()} when
+                      you got it
                     </p>
                     {mine &&
                       (item.acknowledgedAt ? (

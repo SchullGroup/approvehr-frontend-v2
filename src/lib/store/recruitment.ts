@@ -302,6 +302,12 @@ export function useStages(requisitionId: string | undefined): StageListState {
   } | null>(null);
 
   const active = isConnected && Boolean(requisitionId);
+  /* Without this, moving a candidate's stage on the requisition board (which
+     does subscribe) never reached this hook — the "Move this candidate" card
+     on a candidate's own tab would keep offering a stale stage list, and its
+     current-stage highlight, indefinitely until an unrelated mutation or a
+     hard reload. Same bus every other read in this module uses. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active || !requisitionId) return;
     const controller = new AbortController();
@@ -331,7 +337,7 @@ export function useStages(requisitionId: string | undefined): StageListState {
       cancelled = true;
       controller.abort();
     };
-  }, [active, requisitionId, nonce]);
+  }, [active, requisitionId, nonce, revalidation]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -1070,8 +1076,20 @@ export function useRealPipelineApplication(
   candidateId: string | null | undefined,
 ): RealPipelineState {
   const { isConnected, isLoading } = useSession();
+  /* Keyed on identity alone — not on `nonce` too — so `matched` below stays
+     true across a `reload()`. `RealPipeline`/`RealScreening` call `reload`
+     after every mutation (an offer edit, a withdraw, a reschedule…), and
+     `candidate-screen.tsx`'s loading guard only re-shows a skeleton while the
+     careers-page `record` is also unresolved — which it usually is not, since
+     most of what mutates here is a candidate who already has one. Without
+     this, the moment a reload's fetch was in flight `application` went back
+     to `null` and the page swapped `RealPipeline`/`RealScreening` for their
+     "nothing here yet" fallbacks for the round trip, even though nothing had
+     actually gone missing. Keeping the last-resolved application on screen
+     until the fresh one lands removes the flash rather than papering over it
+     with a longer wait. */
   const [state, setState] = useState<{
-    key: string;
+    identity: string;
     application: ApiApplicationDetail | null;
     error: ApiError | null;
   } | null>(null);
@@ -1079,7 +1097,14 @@ export function useRealPipelineApplication(
   const active =
     isConnected && !isLoading && (Boolean(id) || Boolean(candidateId));
   const [nonce, setNonce] = useState(0);
-  const key = `${id ?? ""}:${candidateId ?? ""}:${nonce}`;
+  const identity = `${id ?? ""}:${candidateId ?? ""}`;
+  /* Without this, a stage/offer/interview change made from the requisition
+     board (which does subscribe to this bus) never reached a candidate tab
+     already open on the same person — it kept showing whatever it last
+     fetched until an unrelated write on that page or a hard reload. Every
+     other read hook in this module is wired to it; this one and `useStages`
+     were the two that were not. */
+  const revalidation = useRevalidation();
 
   useEffect(() => {
     if (!active) return;
@@ -1148,13 +1173,17 @@ export function useRealPipelineApplication(
           return;
         failure = error instanceof ApiError ? error : null;
       }
-      if (!cancelled) setState({ key, application, error: failure });
+      if (!cancelled) setState({ identity, application, error: failure });
     })();
     return () => {
       cancelled = true;
       controller.abort();
     };
-  }, [active, id, candidateId, key]);
+    /* `nonce` and `revalidation` are not read inside the effect — each exists
+       purely to retrigger this one (a manual `reload()` and the app-wide
+       revalidation bus respectively), which is why both are still
+       dependencies despite not appearing in the body above `identity`. */
+  }, [active, id, candidateId, identity, nonce, revalidation]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -1167,7 +1196,7 @@ export function useRealPipelineApplication(
       reload,
     };
   }
-  const matched = state !== null && state.key === key;
+  const matched = state !== null && state.identity === identity;
   return {
     application: matched ? state.application : null,
     loading: !matched,

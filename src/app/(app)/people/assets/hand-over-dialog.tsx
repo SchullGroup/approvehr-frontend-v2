@@ -20,6 +20,7 @@ import {
   type EquipmentItem,
   type HandOverInput,
 } from "@/lib/store/assets";
+import { useOrgTimezone } from "@/lib/store/session";
 
 /**
  * Hand a piece of equipment to somebody.
@@ -65,9 +66,10 @@ export function HandOverDialog({
   const { employees, loading: peopleLoading } = useEmployeeDirectory({
     pageSize: 200,
   });
+  const timeZone = useOrgTimezone();
 
   const [employeeId, setEmployeeId] = useState("");
-  const [assignedOn, setAssignedOn] = useState(today());
+  const [assignedOn, setAssignedOn] = useState(today(timeZone));
   const [condition, setCondition] = useState<AssetCondition>(
     item?.condition ?? "GOOD",
   );
@@ -166,7 +168,7 @@ export function HandOverDialog({
             <Input
               type="date"
               value={assignedOn}
-              max={today()}
+              max={today(timeZone)}
               onChange={(e) => {
                 const value = e.target.value;
                 setAssignedOn(value);

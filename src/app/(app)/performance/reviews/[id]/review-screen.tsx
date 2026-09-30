@@ -46,7 +46,7 @@ import {
   ReadAnswer,
   draftFrom,
 } from "../../review-parts";
-import { SignOffDialog, type SignOffAct } from "./sign-off-dialog";
+import { SignOffDialog } from "./sign-off-dialog";
 
 /**
  * One appraisal, projected by who is reading it.
@@ -132,16 +132,16 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const { review, loading, error, reload } = useReview(reviewId);
   /* The company's own words. A record of a mark is the last place that should
      be quoting a scale the company renamed — it is the screen somebody reads
-     when they are deciding whether to dispute it. */
+     when they are being told what they were marked. */
   const { scale } = useRatingScale();
   const ratingWords = ratingWordsFrom(scale.levels);
   const { actingId } = useSession();
   const canSeeCompany = useCan("EDIT_RECORDS");
-  const signOff = useSignOff(canSeeCompany);
+  const signOff = useSignOff();
   const toast = useToast();
 
   const [answering, setAnswering] = useState(false);
-  const [signingOff, setSigningOff] = useState<SignOffAct | null>(null);
+  const [signingOff, setSigningOff] = useState(false);
   const [finalising, setFinalising] = useState(false);
 
   const isSubject = review !== null && review.subjectId === actingId;
@@ -235,16 +235,6 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const owesAcknowledgement =
     isSubject && review.finalised && !review.acknowledged && !review.disputed;
 
-  /* Never for their own rating — `!isSubject` is doing the same job here
-     `assertMayDispute` does on the API: the person a rating is about is
-     exactly who should not also be the one filing a formal dispute over it. */
-  const hrMayDispute =
-    canSeeCompany &&
-    !isSubject &&
-    review.finalised &&
-    !review.acknowledged &&
-    !review.disputed;
-
   const answered = review.acknowledged || review.disputed;
 
   return (
@@ -323,9 +313,8 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             >
               <p>
                 You have been told your rating for {review.cycleName}.
-                Acknowledge that you have seen it. If you do not accept it, say
-                so to HR — recording a formal dispute is theirs to do, not
-                yours.
+                Acknowledge that you have seen it. It is recorded with the date,
+                and leaving it unanswered is not the same thing.
               </p>
               <p className="mt-2">
                 <strong>Acknowledging is not agreeing.</strong> It records that
@@ -335,24 +324,9 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 <Button
                   variant="accent"
                   size="sm"
-                  onClick={() => setSigningOff("acknowledge")}
+                  onClick={() => setSigningOff(true)}
                 >
                   I have seen this
-                </Button>
-              </p>
-            </Callout>
-          )}
-
-          {hrMayDispute && (
-            <Callout tone="neutral" title="Nobody has answered this rating yet">
-              <p>
-                {review.subjectName} has not acknowledged or disputed this
-                rating. If they have told you they do not accept it, record the
-                dispute here — that is not something they can do themselves.
-              </p>
-              <p className="mt-3">
-                <Button size="sm" onClick={() => setSigningOff("dispute")}>
-                  Record a dispute
                 </Button>
               </p>
             </Callout>
@@ -561,6 +535,11 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
         </div>
       </PageBody>
 
+      {/* Mounted whichever way `answering` is going, so `Modal` can animate
+          its own close off a real `open` — origin/staging's change, kept.
+          `useReview` tolerates a null id, and this screen always has a
+          review, so the id is passed unconditionally exactly as staging
+          passed it. */}
       <ReviewFormModal
         reviewId={review.id}
         open={answering}
@@ -568,25 +547,19 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
         onDone={reload}
       />
 
-      <SignOffDialog
-        act={signingOff}
-        review={review}
-        open={signingOff !== null}
-        onClose={() => setSigningOff(null)}
-        onConfirm={async (comment) => {
-          if (!signingOff) return;
-          const ok = await run(
-            () =>
-              signingOff === "acknowledge"
-                ? signOff.acknowledge(review, comment)
-                : signOff.dispute(review, comment ?? ""),
-            signingOff === "acknowledge"
-              ? "Acknowledgement recorded"
-              : "Dispute recorded. The rating stands beside it",
-          );
-          if (ok) setSigningOff(null);
-        }}
-      />
+      {signingOff && (
+        <SignOffDialog
+          review={review}
+          onClose={() => setSigningOff(false)}
+          onConfirm={async (comment) => {
+            const ok = await run(
+              () => signOff.acknowledge(review, comment),
+              "Acknowledgement recorded",
+            );
+            if (ok) setSigningOff(false);
+          }}
+        />
+      )}
 
       <FinaliseDialog
         open={finalising}
@@ -743,8 +716,8 @@ function FinaliseDialog({
       tone="primary"
       body={
         <span>
-          {review.subjectName} will be told, and will be asked to acknowledge it
-          or dispute it.{" "}
+          {review.subjectName} will be told, and will be asked to acknowledge
+          it.{" "}
           {review.rating === null
             ? "This form carries no overall mark, so what they read is the answers."
             : `The mark of record becomes "${ratingWords(review.rating)}".`}{" "}

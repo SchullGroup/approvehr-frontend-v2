@@ -19,7 +19,9 @@ import type {
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useDepartments } from "@/lib/store/departments";
 import { useEmploymentChangeActions } from "@/lib/store/employment-changes";
+import { useOrgTimezone } from "@/lib/store/session";
 import { money } from "@/lib/pay/flags";
+import { todayIn } from "@/lib/time";
 
 type Kind = EmploymentChangeBody["kind"];
 
@@ -72,10 +74,13 @@ export function ProposeChangeDialog({ onClose }: { onClose: () => void }) {
   const directory = useEmployeeDirectory();
   const departments = useDepartments();
   const toast = useToast();
+  const timeZone = useOrgTimezone();
 
   const [employeeId, setEmployeeId] = useState("");
   const [kind, setKind] = useState<Kind>("PROMOTION");
-  const [effectiveOn, setEffectiveOn] = useState(firstOfNextMonth);
+  const [effectiveOn, setEffectiveOn] = useState(() =>
+    firstOfNextMonth(timeZone),
+  );
   const [jobTitle, setJobTitle] = useState("");
   const [grossMonthly, setGrossMonthly] = useState("");
   const [departmentId, setDepartmentId] = useState("");
@@ -283,15 +288,14 @@ export function ProposeChangeDialog({ onClose }: { onClose: () => void }) {
 }
 
 /**
- * The first of next month.
+ * The first of next month, in the company's own zone.
  *
  * Never today, deliberately: a date left at today's applies the moment it is
  * approved, and this whole feature exists so that does not happen by accident.
  */
-function firstOfNextMonth(): string {
-  const now = new Date();
-  const next = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
-  );
-  return next.toISOString().slice(0, 10);
+function firstOfNextMonth(timeZone: string): string {
+  const [year, month] = todayIn(timeZone).split("-").map(Number);
+  const nextMonth = (month ?? 1) % 12;
+  const nextYear = (year ?? 0) + (month === 12 ? 1 : 0);
+  return `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-01`;
 }

@@ -27,6 +27,7 @@ import { ApiError } from "@/lib/api/client";
 import { formatKobo, periodLabel } from "@/lib/api/payroll";
 import { KIND_LABEL, dueIn, statutory } from "@/lib/api/statutory";
 import { useStatutorySchedules } from "@/lib/store/statutory";
+import { useOrgTimezone } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
 
 /**
@@ -53,6 +54,7 @@ import { useCan } from "@/lib/permissions";
  */
 export function SchedulesTable() {
   const state = useStatutorySchedules();
+  const timeZone = useOrgTimezone();
   const mayFile = useCan("APPROVE_PAYROLL");
 
   if (!state.available) {
@@ -154,7 +156,7 @@ export function SchedulesTable() {
                       <span title={row.dueDateBasis}>{row.dueDate}</span>
                       {row.filedAt === null && (
                         <span className="text-meta text-faint">
-                          {dueIn(row.dueDate)}
+                          {dueIn(row.dueDate, timeZone)}
                         </span>
                       )}
                     </span>
@@ -210,7 +212,7 @@ export function SchedulesTable() {
                   <span title={row.dueDateBasis}>{row.dueDate}</span>
                   {row.filedAt === null && (
                     <span className="block text-meta text-faint">
-                      {dueIn(row.dueDate)}
+                      {dueIn(row.dueDate, timeZone)}
                     </span>
                   )}
                 </span>

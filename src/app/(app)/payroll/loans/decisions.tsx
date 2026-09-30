@@ -310,7 +310,7 @@ export function CounterOfferModal({
         </Field>
 
         {priced && (
-          <div className="rounded-lg border border-line bg-canvas p-4 text-body text-ink">
+          <div className="rounded-lg border border-line bg-canvas p-4 text-ink">
             <strong className="font-semibold">
               {money(priced.instalmentKobo)} a month
             </strong>{" "}

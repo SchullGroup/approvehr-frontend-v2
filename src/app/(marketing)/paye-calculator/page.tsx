@@ -81,7 +81,7 @@ export default function PayeCalculatorPage() {
           </Reveal>
 
           <Reveal delay={60}>
-            <div className="mt-8 flex flex-col gap-6 text-body leading-relaxed text-slate-soft">
+            <div className="mt-8 flex flex-col gap-6 leading-relaxed text-slate-soft">
               <p>
                 Personal income tax in Nigeria is Pay As You Earn, or PAYE, and
                 since 1 January 2026 it runs on the bands set by the Nigeria Tax
@@ -174,9 +174,7 @@ export default function PayeCalculatorPage() {
               <dl className="mt-5 flex flex-col divide-y divide-sand-line border-t border-sand-line">
                 {FAQ.map((item) => (
                   <div key={item.q} className="py-5">
-                    <dt className="text-body font-medium text-slate">
-                      {item.q}
-                    </dt>
+                    <dt className="font-medium text-slate">{item.q}</dt>
                     <dd className="mt-2 text-body-sm leading-relaxed text-slate-muted">
                       {item.a}
                     </dd>
@@ -193,9 +191,7 @@ export default function PayeCalculatorPage() {
         <div className="container-page max-w-3xl">
           <Reveal>
             <div className="rounded-2xl border border-sand-line bg-white/60 p-7">
-              <h3 className="text-body font-semibold text-slate">
-                What this is not
-              </h3>
+              <h3 className="font-semibold text-slate">What this is not</h3>
               <p className="mt-3 text-body-sm leading-relaxed text-slate-muted">
                 This calculator is not tax advice, and ApproveHR is not liable
                 for any decision made from its figures. It computes statutory

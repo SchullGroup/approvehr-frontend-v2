@@ -8,6 +8,8 @@ import { ApiError } from "@/lib/api/client";
 import { payrollApi, periodLabel } from "@/lib/api/payroll";
 import type { BankRegister, PayrollRunDetail } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateTimeShort } from "@/lib/time";
 import { downloadXlsx, writeXlsx } from "@/lib/xlsx";
 import type { SheetSpec } from "@/lib/xlsx";
 
@@ -24,6 +26,7 @@ import type { SheetSpec } from "@/lib/xlsx";
  */
 export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
   const canDownload = useCan("RUN_PAYROLL");
+  const timeZone = useOrgTimezone();
   const { push } = useToast();
   const [busy, setBusy] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
@@ -35,7 +38,10 @@ export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
     setRefused(null);
     try {
       const register = await payrollApi.bankRegister(run.id);
-      downloadXlsx(filenameFor(register), writeXlsx(sheetsFor(register)));
+      downloadXlsx(
+        filenameFor(register),
+        writeXlsx(sheetsFor(register, timeZone)),
+      );
       push({
         tone: "success",
         title: "Bank register downloaded",
@@ -95,28 +101,25 @@ function filenameFor(register: BankRegister): string {
   return `bank-register-${register.run.period}.xlsx`;
 }
 
-/** `"2026-08-20T09:00:00.000Z"` → `"20 Aug 2026, 09:00"`, or blank if unset. */
-function stamp(iso: string | null): string {
+/** `"2026-08-20T09:00:00.000Z"` → `"20 Aug, 09:00"`, or blank if unset. */
+function stamp(iso: string | null, timeZone: string): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleString("en-NG", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return formatDateTimeShort(iso, timeZone);
 }
 
-function sheetsFor(register: BankRegister): SheetSpec[] {
+function sheetsFor(register: BankRegister, timeZone: string): SheetSpec[] {
   const meta = register.run;
 
   const infoRows: string[][] = [
     ["Company", meta.organizationName],
     ["Pay period", periodLabel(meta.period)],
     ["Status", meta.status],
-    ["Prepared at", stamp(meta.preparedAt)],
+    ["Prepared at", stamp(meta.preparedAt, timeZone)],
     ["Prepared by", meta.preparedByName ?? ""],
-    ["Approved at", stamp(meta.approvedAt)],
+    ["Approved at", stamp(meta.approvedAt, timeZone)],
     ["Approved by", meta.approvedByName ?? ""],
-    ["Paid at", stamp(meta.paidAt)],
-    ["Generated at", stamp(register.generatedAt)],
+    ["Paid at", stamp(meta.paidAt, timeZone)],
+    ["Generated at", stamp(register.generatedAt, timeZone)],
   ];
 
   const header = [

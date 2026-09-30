@@ -1,5 +1,14 @@
 import { formatMoney } from "@/components/ui";
 import type { AuditEntry } from "@/lib/api/audit";
+import {
+  daysBetweenIn,
+  dayIn,
+  formatDateShort,
+  formatDateTimeShort,
+  formatTime,
+  isValidInstant,
+  weekdayIn,
+} from "@/lib/time";
 
 /**
  * Turning an audit row into a sentence a shop owner can read.
@@ -372,8 +381,6 @@ const MONTHS = [
   "Dec",
 ];
 
-const pad = (n: number) => String(n).padStart(2, "0");
-
 /** Field names that hold integer kobo. The one place money crosses over. */
 const isKoboField = (field: string): boolean =>
   field
@@ -409,6 +416,7 @@ const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 export function formatFieldValue(
   field: string,
   value: unknown,
+  timeZone: string,
 ): FormattedValue {
   if (value === null || value === undefined)
     return { text: "Not set", kind: "empty" };
@@ -441,7 +449,8 @@ export function formatFieldValue(
     }
     if (DATE_ONLY.test(value))
       return { text: readableDate(value), kind: "value" };
-    if (TIMESTAMP.test(value)) return { text: fullStamp(value), kind: "value" };
+    if (TIMESTAMP.test(value))
+      return { text: fullStamp(value, timeZone), kind: "value" };
     return { text: value, kind: "value" };
   }
 
@@ -451,7 +460,9 @@ export function formatFieldValue(
       return { text: `${value.length} items`, kind: "value" };
     }
     return {
-      text: value.map((item) => formatFieldValue(field, item).text).join(", "),
+      text: value
+        .map((item) => formatFieldValue(field, item, timeZone).text)
+        .join(", "),
       kind: "value",
     };
   }
@@ -459,7 +470,7 @@ export function formatFieldValue(
   if (typeof value === "object") {
     const parts = Object.entries(value as Record<string, unknown>).map(
       ([key, inner]) =>
-        `${prettyField(humanise(key))}: ${formatFieldValue(key, inner).text}`,
+        `${prettyField(humanise(key))}: ${formatFieldValue(key, inner, timeZone).text}`,
     );
     if (parts.length === 0) return { text: "Nothing", kind: "empty" };
     return { text: parts.join(" · "), kind: "value" };
@@ -477,54 +488,40 @@ export function readableDate(iso: string): string {
   return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
-/** The exact moment. For a tooltip, and for anybody who has to be sure. */
-export function fullStamp(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}, ${pad(
-    date.getHours(),
-  )}:${pad(date.getMinutes())}`;
+/** The exact moment, in the company's zone. For a tooltip, and for anybody
+ *  who has to be sure. */
+export function fullStamp(iso: string, timeZone: string): string {
+  if (!isValidInstant(iso)) return iso;
+  return formatDateTimeShort(iso, timeZone);
 }
 
+export const dayKey = (iso: string, timeZone: string): string =>
+  dayIn(iso, timeZone) ?? iso;
+
 /**
- * Local day parts, not UTC.
+ * "Today", "Yesterday", "Tuesday", then a date — in the company's zone.
  *
- * An audit timestamp is an instant, so "which day was that" is a question about
- * the reader's day. Nigeria is UTC+1 with no daylight saving, which is exactly
- * the hour that would push a late-evening event into tomorrow if this used the
- * UTC getters `lib/today.ts` correctly uses for calendar-only values.
+ * An audit timestamp is an instant, and "which day was that" has to be a
+ * question about the *company's* day, not whichever reader happens to be
+ * looking. Two colleagues in different countries reading different days off
+ * one audit trail is exactly the bug this reverses: this function used to
+ * read the browser's own local getters, on the reasoning that "which day"
+ * is a question about the reader — Nigeria being UTC+1 with no daylight
+ * saving made that read as harmless, since the reader was assumed to be in
+ * Lagos too. It is not always. That was a considered decision, and it was
+ * wrong; this is the fix.
  */
-const startOfDay = (d: Date) =>
-  new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-
-export const dayKey = (iso: string): string => {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
-
-const WEEKDAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
-
-/** "Today", "Yesterday", "Tuesday", then a date. The heading over a day's rows. */
-export function dayHeading(iso: string, now: Date): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  const days = Math.round((startOfDay(now) - startOfDay(date)) / 86_400_000);
+export function dayHeading(iso: string, now: Date, timeZone: string): string {
+  if (!isValidInstant(iso)) return iso;
+  const days = daysBetweenIn(iso, now, timeZone);
   if (days <= 0) return "Today";
   if (days === 1) return "Yesterday";
-  if (days < 7) return WEEKDAYS[date.getDay()] ?? "";
-  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+  if (days < 7) return weekdayIn(iso, timeZone);
+  return formatDateShort(iso, timeZone);
 }
 
 /** Relative while it is still news, then the clock time — the day is a heading. */
-export function timeLabel(iso: string, now: Date): string {
+export function timeLabel(iso: string, now: Date, timeZone: string): string {
   const then = new Date(iso);
   if (Number.isNaN(then.getTime())) return iso;
   const minutes = Math.max(
@@ -535,5 +532,5 @@ export function timeLabel(iso: string, now: Date): string {
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
   if (hours < 24) return hours === 1 ? "1 hour ago" : `${hours} hours ago`;
-  return `${pad(then.getHours())}:${pad(then.getMinutes())}`;
+  return formatTime(then, timeZone);
 }

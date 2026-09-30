@@ -37,7 +37,7 @@ import { useSession } from "@/lib/store/session";
 import { RealApprovals } from "./real-approvals";
 
 const BREADCRUMB = [
-  { href: "/hiring", label: "Pipeline" },
+  { href: "/hiring", label: "Hiring" },
   { href: "/hiring/offers", label: "Offers" },
 ];
 
@@ -321,7 +321,14 @@ function OfferCard({
             {fullName(card.candidate)}
           </TextLink>
         }
-        description={`${card.requisition.title} · ${card.requisition.reference}`}
+        description={
+          <>
+            {card.requisition.title} ·{" "}
+            <TextLink href={`/hiring/requisitions/${card.requisitionId}`}>
+              {card.requisition.reference}
+            </TextLink>
+          </>
+        }
         action={
           <Badge tone="warning" dot>
             Awaiting your approval

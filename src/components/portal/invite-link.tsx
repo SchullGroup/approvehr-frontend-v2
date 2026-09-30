@@ -5,9 +5,11 @@ import { Check, Copy, Link2 } from "lucide-react";
 import { Button, Callout, useToast } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { invitesApi } from "@/lib/api/invites";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateTime } from "@/lib/time";
 
 /**
- * The invitation link, when no email can carry it.
+ * The invitation link, for when the email did not get there.
  *
  * ## The failure this closes
  *
@@ -21,6 +23,20 @@ import { invitesApi } from "@/lib/api/invites";
  * `assertCanGrant` over the roles the account holds, refused outright for an
  * account that already has a password, and audited by user. This renders it.
  *
+ * ## And it is not only for a server that cannot send
+ *
+ * This was rendered behind `noEmail &&` — reachable only where
+ * `GET /invites/delivery` says the deployment has no mail transport at all.
+ * That modelled one failure and missed the ordinary one: the server sends, and
+ * the invitation still does not arrive. A typo'd address, a full mailbox, a
+ * filter, a domain that drops mail from an unfamiliar sender. The account
+ * exists, the person cannot get in, and the control that fixes it in ten
+ * seconds was hidden precisely because the *server* was healthy.
+ *
+ * The API never had that gate — `INVITE_STAFF`, `assertCanGrant`, the
+ * no-password-yet refusal and the audit row do not ask whether mail is
+ * configured. Only the screens did.
+ *
  * ## Taking a link is an act, not a display
  *
  * It is behind a button rather than shown on arrival, and that is not
@@ -28,6 +44,10 @@ import { invitesApi } from "@/lib/api/invites";
  * one, so a link somebody was given yesterday stops working. Rendering it
  * automatically would silently break a link already in transit every time
  * somebody opened the dialog.
+ *
+ * That reasoning got sharper, not weaker, when the `noEmail` gate came off:
+ * where mail works, the token this invalidates is the one sitting in their
+ * inbox. `replacesEmail` is what says so before the press and after it.
  *
  * ## And the copy says what it is
  *
@@ -41,12 +61,22 @@ export function InviteLinkButton({
   name,
   /** Rendered before anything is taken. Absent once a link is on screen. */
   hint,
+  /**
+   * Whether an invitation email is actually out there to be replaced.
+   *
+   * True wherever the server can send — then taking a link kills the one in
+   * their inbox, and somebody has to be told that before they press it, not
+   * after a colleague reports a dead link.
+   */
+  replacesEmail = false,
 }: {
   userId: string;
   name: string;
   hint?: string;
+  replacesEmail?: boolean;
 }) {
   const toast = useToast();
+  const timeZone = useOrgTimezone();
   const [link, setLink] = useState<{ url: string; expiresAt: string } | null>(
     null,
   );
@@ -102,20 +132,20 @@ export function InviteLinkButton({
           Get a link to send them
         </Button>
         {hint && <p className="text-meta text-muted">{hint}</p>}
+        {/* Before the press, not after it. Somebody taking a link to help one
+            person must not find out afterwards that they broke the invitation
+            that was already on its way. */}
+        {replacesEmail && (
+          <p className="text-meta text-muted">
+            Taking a link stops the one in their email working.
+          </p>
+        )}
       </div>
     );
   }
 
-  const expires = new Date(link.expiresAt);
-  const when = Number.isNaN(expires.getTime())
-    ? null
-    : expires.toLocaleString([], {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+  const formatted = formatDateTime(link.expiresAt, timeZone);
+  const when = formatted === "—" ? null : formatted;
 
   return (
     <Callout tone="warning" title={`Send this to ${name} yourself`}>
@@ -124,6 +154,16 @@ export function InviteLinkButton({
         the way you would send a password.
         {when ? ` It stops working on ${when}.` : ""}
       </p>
+
+      {/* Stated once it has happened, because now it is a fact about their
+          inbox rather than a warning about a button: if they do find the old
+          email, following it will refuse. */}
+      {replacesEmail && (
+        <p className="mt-2">
+          The link in their email has stopped working. This is the only one that
+          will let them in now.
+        </p>
+      )}
 
       {/* Readonly rather than a paragraph: it has to be selectable on a
           machine where the clipboard is refused, and a wrapped URL in prose is

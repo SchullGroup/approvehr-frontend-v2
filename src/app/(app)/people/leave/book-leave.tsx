@@ -13,7 +13,7 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { daysLabel, type LeaveRow, type LeaveTypeRow } from "@/lib/api/leave";
-import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useEmployee, useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
   useLeaveBalancesFor,
   useLeaveMutations,
@@ -27,9 +27,10 @@ import {
 } from "@/lib/store/leave";
 import { useAttendancePolicy } from "@/lib/store/attendance";
 import { usePublicHolidays } from "@/lib/store/holidays";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
 import { fullName } from "@/lib/types";
+import { todayIn } from "@/lib/time";
 
 type Draft = {
   employeeId: string;
@@ -83,14 +84,18 @@ export function BookLeaveDialog({
   requests: readonly LeaveRow[];
 }) {
   const session = useSession();
+  const timeZone = useOrgTimezone();
   const { employees } = useEmployeeDirectory({ pageSize: 200 });
   const { types } = useLeaveTypes();
   const mutations = useLeaveMutations();
   const toast = useToast();
   const { policy: attendancePolicy } = useAttendancePolicy();
   /* Load the current and next year's holidays so a leave range spanning
-     Dec–Jan still nets off public holidays correctly. */
-  const currentYear = new Date().getFullYear();
+     Dec–Jan still nets off public holidays correctly. The company's year,
+     not the browser's: someone booking leave from another timezone close to
+     31 December could otherwise have their own "current year" disagree with
+     the company's, and load the wrong pair of holiday calendars. */
+  const currentYear = Number(todayIn(timeZone).slice(0, 4));
   const cal0 = usePublicHolidays(currentYear);
   const cal1 = usePublicHolidays(currentYear + 1);
   const confirmedHolidays = [
@@ -125,6 +130,24 @@ export function BookLeaveDialog({
   const mayEditRecords = useCan("EDIT_RECORDS");
   const canBookForOthers = mayApproveAnyLeave || mayEditRecords;
 
+  /**
+   * The caller's own record, and the only permission-safe source for who their
+   * manager is.
+   *
+   * The directory list is **not** that source. `GET /employees` answers for
+   * everybody, but it withholds `managerId` from a reader without
+   * `VIEW_SALARIES` — the field is absent from the row, not null. Reading that
+   * absence as "they have no manager" raised every self-booked request
+   * **unrouted**: `PENDING` for ever, in nobody's queue, while the employee's
+   * own screen said "Waiting". `leave/service.ts` names no approver of its own
+   * and says so — "a request with no approver named has nowhere to go".
+   *
+   * `GET /employees/:id` is `requirePermissionOrSelf`, so your own record always
+   * answers and carries `managerId`. Absent is not the same claim as none; this
+   * is the one read that can tell them apart.
+   */
+  const mine = useEmployee(session.employeeId ?? "");
+
   /* Their own record, for the prefilled case. */
   const me = session.employeeId ?? "";
 
@@ -154,10 +177,42 @@ export function BookLeaveDialog({
     if (!session.employeeId) return {};
     if (subjectId !== session.employeeId)
       return { approverId: session.employeeId };
-    const manager = employees.find(
-      (person) => person.id === subjectId,
-    )?.managerId;
+    /* Their own record first — see `mine` above for why the directory cannot
+       answer this for an ordinary employee. The directory stays as the fallback
+       for a reader who can see `managerId` on it, so nothing that worked before
+       depends on the extra read landing. */
+    const manager =
+      mine.employee?.managerId ??
+      employees.find((person) => person.id === subjectId)?.managerId;
     return manager ? { approverId: manager } : {};
+  };
+
+  /**
+   * Where the request actually went, from the row the server sent back.
+   *
+   * This used to read "It is waiting in your approvals inbox." for every
+   * request, whoever raised it and wherever it was routed. An employee filing
+   * their own leave was told it was sitting in an inbox they cannot open, on a
+   * screen with no inbox on it — and the one thing they wanted to know, who has
+   * it, was already on the response and thrown away.
+   *
+   * `approverId` rather than `approverName`, because the comparison is with an
+   * id: a name can be blank on a row that is routed perfectly well, and two
+   * people can share one. The name is only for the sentence.
+   */
+  const waitingWith = (request: LeaveRow): string => {
+    if (!request.approverId) {
+      /* `approverFor` returns no approver when nobody could be resolved — see
+         its own comment. Saying so is better than naming an inbox at random:
+         somebody has to route it, and they cannot if they think it is done. */
+      return "Nobody is routed to decide it yet.";
+    }
+    if (request.approverId === session.employeeId) {
+      return "It is waiting in your approvals inbox.";
+    }
+    return request.approverName
+      ? `It is waiting with ${request.approverName}.`
+      : "It is waiting with their approver.";
   };
 
   const days =
@@ -261,7 +316,7 @@ export function BookLeaveDialog({
         detail:
           result.warnings.length > 0
             ? result.warnings.join(" ")
-            : `${daysLabel(result.request.days)} for ${result.request.employeeName}. It is waiting in your approvals inbox.`,
+            : `${daysLabel(result.request.days)} for ${result.request.employeeName}. ${waitingWith(result.request)}`,
       });
       onCreated();
       close();

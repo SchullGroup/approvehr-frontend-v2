@@ -72,6 +72,7 @@ export function DeliveryLog({
   editable,
   retriesRunning,
   onRetry,
+  timeZone,
 }: {
   log: ReturnType<typeof useDeliveryLog>;
   filters: LogFilters;
@@ -82,6 +83,7 @@ export function DeliveryLog({
   /** False: nothing retries on its own here, so say so next to the buttons. */
   retriesRunning: boolean;
   onRetry: (deliveryId: string) => Promise<void>;
+  timeZone: string;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -207,10 +209,10 @@ export function DeliveryLog({
                             }
                           />
                           <TD className="whitespace-nowrap tabular">
-                            {fullStamp(row.createdAt)}
+                            {fullStamp(row.createdAt, timeZone)}
                           </TD>
                           <TD>
-                            <Outcome row={row} />
+                            <Outcome row={row} timeZone={timeZone} />
                           </TD>
                           <TD className="whitespace-nowrap tabular">
                             {row.attempt} of {row.maxAttempts}
@@ -233,7 +235,7 @@ export function DeliveryLog({
                         {open && (
                           <TR>
                             <TD colSpan={5}>
-                              <Detail row={row} />
+                              <Detail row={row} timeZone={timeZone} />
                             </TD>
                           </TR>
                         )}
@@ -261,13 +263,13 @@ export function DeliveryLog({
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-body-sm text-muted">When</span>
                       <span className="tabular text-body-sm text-body">
-                        {fullStamp(row.createdAt)}
+                        {fullStamp(row.createdAt, timeZone)}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-body-sm text-muted">Result</span>
-                      <Outcome row={row} />
+                      <Outcome row={row} timeZone={timeZone} />
                     </div>
 
                     <div className="flex items-center justify-between gap-3">
@@ -290,7 +292,7 @@ export function DeliveryLog({
                       )}
                     </div>
 
-                    {open && <Detail row={row} />}
+                    {open && <Detail row={row} timeZone={timeZone} />}
                   </li>
                 );
               })}
@@ -370,7 +372,7 @@ function RetryButton({
  * The status code is on the badge line rather than in a column of its own,
  * because `503` on its own is not the answer — "given up on, after a 503" is.
  */
-function Outcome({ row }: { row: ApiDelivery }) {
+function Outcome({ row, timeZone }: { row: ApiDelivery; timeZone: string }) {
   if (row.state === "delivered") {
     return (
       <span className="flex flex-col gap-1">
@@ -391,7 +393,9 @@ function Outcome({ row }: { row: ApiDelivery }) {
           Waiting
         </Badge>
         <span className="text-meta text-muted">
-          {row.retryAt ? `Next try ${fullStamp(row.retryAt)}` : "Queued"}
+          {row.retryAt
+            ? `Next try ${fullStamp(row.retryAt, timeZone)}`
+            : "Queued"}
         </span>
       </span>
     );
@@ -409,7 +413,7 @@ function Outcome({ row }: { row: ApiDelivery }) {
   );
 }
 
-function Detail({ row }: { row: ApiDelivery }) {
+function Detail({ row, timeZone }: { row: ApiDelivery; timeZone: string }) {
   return (
     <div className="flex flex-col gap-3 rounded-md border border-line bg-canvas p-3">
       <dl className="flex flex-col gap-1 text-body-sm">
@@ -421,10 +425,10 @@ function Detail({ row }: { row: ApiDelivery }) {
         </Line>
         {row.error && <Line term="Error">{row.error}</Line>}
         {row.deliveredAt && (
-          <Line term="Delivered">{fullStamp(row.deliveredAt)}</Line>
+          <Line term="Delivered">{fullStamp(row.deliveredAt, timeZone)}</Line>
         )}
         {row.retryAt && (
-          <Line term="Next attempt">{fullStamp(row.retryAt)}</Line>
+          <Line term="Next attempt">{fullStamp(row.retryAt, timeZone)}</Line>
         )}
       </dl>
       <PayloadBlock title="Payload sent" value={row.payload} />

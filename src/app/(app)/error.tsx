@@ -68,7 +68,7 @@ export default function AppError({
                 className="mt-0.5 size-5 shrink-0 text-danger-text"
               />
               <div className="flex flex-col gap-1">
-                <p className="text-body text-ink">
+                <p className="text-ink">
                   This part of the page could not be shown. Nothing you were
                   looking at has changed, and nothing has been saved or sent.
                 </p>

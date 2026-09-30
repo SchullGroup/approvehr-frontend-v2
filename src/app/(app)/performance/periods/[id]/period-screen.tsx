@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -74,6 +74,7 @@ import {
 } from "@/lib/store/performance";
 import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
+import { SectionsDialog } from "../../sections-dialog";
 import { AppraisersDialog } from "../../appraiser-map";
 import { AskPeersButton } from "./ask-peers";
 
@@ -161,6 +162,13 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const [deleting, setDeleting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [questionsOpen, setQuestionsOpen] = useState(false);
+  const [sectionsOpen, setSectionsOpen] = useState(false);
+  /* Latches on the first open and never clears — see the mount below. */
+  const [sectionsEverOpened, setSectionsEverOpened] = useState(false);
+  const openSections = useCallback(() => {
+    setSectionsEverOpened(true);
+    setSectionsOpen(true);
+  }, []);
   const [publishing, setPublishing] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   /* Named lists, not counts, and they survive the toast. Both are somebody who
@@ -397,6 +405,21 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         }
         action={
           <>
+            {/* The sections the whole company is appraised against, reachable
+                at every stage.
+
+                While the period is a draft this sits in the setup card beside
+                "Write the questions", which is where somebody writing a form
+                wants it. Once the period starts that card is gone — and the
+                framework is not the period's, so the way into it must not go
+                with it. A section outlives every period filed under it, and a
+                name typed wrongly on day one would otherwise be uncorrectable
+                the moment anybody started an appraisal. */}
+            {canManage && !draft && (
+              <Button size="sm" variant="secondary" onClick={openSections}>
+                Sections and subsections
+              </Button>
+            )}
             {/* The outcome is a different question from "who is not finished",
                 and a different screen. Linked from here because this is where
                 somebody is when they decide they want it. */}
@@ -496,6 +519,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                   <Button size="sm" onClick={() => setQuestionsOpen(true)}>
                     Write the questions
                   </Button>
+                  {/* Its own control rather than something inside the question
+                      form, because it is not this period's: sections and the
+                      subsections under them are the company's framework, shared
+                      by every period. Somebody comes here to read what an
+                      appraisal is made of and correct a name, which is a
+                      different errand from writing this period's questions. */}
+                  <Button variant="secondary" size="sm" onClick={openSections}>
+                    Sections and subsections
+                  </Button>
                   <Button
                     variant="accent"
                     size="sm"
@@ -515,6 +547,12 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 <ManagerQuestionsToggle
                   cycleId={period.id}
                   value={period.managersCanAddQuestions}
+                  onChanged={() => detail.reload()}
+                />
+                <AppraiseLeadersToggle
+                  cycleId={period.id}
+                  appraiseOwner={period.appraiseOwner}
+                  appraiseHrManager={period.appraiseHrManager}
                   onChanged={() => detail.reload()}
                 />
                 <PeriodFramingEditor
@@ -708,6 +746,22 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           )}
         </div>
       </PageBody>
+
+      {/* Framework-level, so it is not inside the `period` guard below: a
+          section exists whether or not this period has loaded.
+
+          Mounted from the first open rather than always, and kept mounted
+          afterwards. `useSections` and `useFramework` fetch on mount, and a
+          panel nobody has opened should not spend two requests on every load
+          of this page. Keeping it mounted after that is what lets `Modal` see
+          `open` go false and play its exit animation — the same reason
+          `QuestionsDialog` below takes `open` as a prop. */}
+      {sectionsEverOpened && (
+        <SectionsDialog
+          open={sectionsOpen}
+          onClose={() => setSectionsOpen(false)}
+        />
+      )}
 
       {/* `period` is unrelated data, not the open/closed signal — kept as the
           mount guard since the dialog cannot render without it. `open` is the
@@ -2021,6 +2075,86 @@ function ManagerQuestionsToggle({
       disabled={busy}
       onChange={(event) => void toggle(event.target.checked)}
     />
+  );
+}
+
+/**
+ * Whether the Owner and the HR manager are appraised in this period.
+ *
+ * Two checkboxes and two independent writes, because they are two unrelated
+ * decisions: an HR manager is an employee with a manager like anybody else, so
+ * a company that does not appraise the person who owns it may still want its
+ * HR manager appraised. Sending both every time would make one an edit nobody
+ * made.
+ *
+ * ## Why this sits on a draft's card and is not refused afterwards
+ *
+ * The API does not guard either field to `DRAFT`, and that is deliberate
+ * rather than an oversight to mirror: the exclusion only ever applies to
+ * somebody with **no form in the period**, so switching one off after the
+ * forms are written leaves everybody who already has one exactly where they
+ * are. It is rendered with the draft's other settings because that is where it
+ * changes anything, not because the API would refuse it later.
+ */
+function AppraiseLeadersToggle({
+  cycleId,
+  appraiseOwner,
+  appraiseHrManager,
+  onChanged,
+}: {
+  cycleId: string;
+  appraiseOwner: boolean;
+  appraiseHrManager: boolean;
+  onChanged: () => void;
+}) {
+  const periods = useCycleMutations();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  const toggle = async (
+    field: "appraiseOwner" | "appraiseHrManager",
+    checked: boolean,
+  ) => {
+    setBusy(true);
+    try {
+      await periods.updateCycle(cycleId, { [field]: checked });
+      onChanged();
+    } catch (caught) {
+      toast.push({
+        title: "That did not save",
+        tone: "danger",
+        detail:
+          caught instanceof ApiError
+            ? caught.message
+            : "Could not change that setting.",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Checkbox
+        label="Appraise the Owner in this period"
+        checked={appraiseOwner}
+        disabled={busy}
+        onChange={(event) => void toggle("appraiseOwner", event.target.checked)}
+      />
+      <Checkbox
+        label="Appraise the HR manager in this period"
+        checked={appraiseHrManager}
+        disabled={busy}
+        onChange={(event) =>
+          void toggle("appraiseHrManager", event.target.checked)
+        }
+      />
+      <p className="text-meta text-muted">
+        Off for both by default. Whoever is left out still appraises their own
+        team &mdash; they simply get no form of their own, so they do not finish
+        the period counted as unscored.
+      </p>
+    </div>
   );
 }
 

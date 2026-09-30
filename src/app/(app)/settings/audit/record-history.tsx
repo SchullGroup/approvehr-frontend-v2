@@ -4,6 +4,7 @@ import { History } from "lucide-react";
 import { Badge, Disclosure, Skeleton, TextLink } from "@/components/ui";
 import { usePermissions } from "@/lib/permissions";
 import { useRecordTimeline } from "@/lib/store/audit";
+import { useOrgTimezone } from "@/lib/store/session";
 import { TrailEntry } from "./entry";
 
 /**
@@ -80,6 +81,7 @@ function Panel({
   className,
 }: RecordHistoryProps) {
   const timeline = useRecordTimeline(entityType, entityId, { limit });
+  const timeZone = useOrgTimezone();
 
   const href = `/settings/audit?entityType=${encodeURIComponent(
     entityType,
@@ -147,6 +149,7 @@ function Panel({
                 key={entry.id}
                 entry={entry}
                 now={timeline.now}
+                timeZone={timeZone}
                 rail={index < timeline.entries.length - 1}
               />
             ))}

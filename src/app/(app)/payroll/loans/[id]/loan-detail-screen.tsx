@@ -41,6 +41,7 @@ import {
   priceLoan,
   shortMonthLabel,
 } from "@/lib/loans/schedule";
+import { formatDate } from "@/lib/time";
 import {
   LOAN_STATUS_LABEL,
   REPAYMENT_STATUS_LABEL,
@@ -48,7 +49,7 @@ import {
   useLoanActions,
 } from "@/lib/store/loans";
 import { usePermissions } from "@/lib/permissions";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
 import {
   CounterOfferModal,
@@ -115,6 +116,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
   const { employeeId } = useSession();
   const { approve } = useLoanActions();
   const toast = useToast();
+  const timeZone = useOrgTimezone();
 
   const [approving, setApproving] = useState(false);
   const [countering, setCountering] = useState<ApiLoanDetail | null>(null);
@@ -334,15 +336,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
                   {" "}
                   — {loan.decidedByName}
                   {loan.decidedAt
-                    ? ` on ${new Date(loan.decidedAt).toLocaleDateString(
-                        "en-NG",
-                        {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                          timeZone: "UTC",
-                        },
-                      )}`
+                    ? ` on ${formatDate(loan.decidedAt, timeZone)}`
                     : ""}
                 </>
               )}
@@ -428,9 +422,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
 
         {loan.schedule.length > 0 ? (
           <div className="flex flex-col gap-3">
-            <h2 className="text-body font-semibold text-ink">
-              The repayment schedule
-            </h2>
+            <h2 className="font-semibold text-ink">The repayment schedule</h2>
             <div className="hidden sm:block">
               <TableWrap caption="Every instalment, what was taken and what is still owed">
                 <THead>
@@ -653,7 +645,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
           </div>
         ) : proposed ? (
           <div className="flex flex-col gap-3">
-            <h2 className="text-body font-semibold text-ink">
+            <h2 className="font-semibold text-ink">
               What the schedule would be
             </h2>
             <p className="text-body-sm leading-relaxed text-body">
@@ -723,15 +715,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
             title="Fully repaid"
           >
             {loan.completedAt
-              ? `Cleared on ${new Date(loan.completedAt).toLocaleDateString(
-                  "en-NG",
-                  {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                    timeZone: "UTC",
-                  },
-                )}. Nothing is deducted from now on.`
+              ? `Cleared on ${formatDate(loan.completedAt, timeZone)}. Nothing is deducted from now on.`
               : "Nothing is deducted from now on."}
           </Callout>
         )}

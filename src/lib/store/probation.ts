@@ -12,8 +12,9 @@ import {
 } from "@/lib/api/endpoints";
 import { createSharedResource } from "@/lib/shared-resource";
 import { useRevalidation } from "@/lib/revalidate";
+import { daysBetweenIn, todayIn } from "@/lib/time";
 import { useEmployeeDirectory } from "./employees-api";
-import { useSession } from "./session";
+import { useOrgTimezone, useSession } from "./session";
 
 /**
  * Probations ending, and the people who have one with no date on them.
@@ -69,6 +70,7 @@ export type ProbationState = {
 
 export function useProbation(): ProbationState {
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const outcome = probationDue.use(isConnected ? "due" : null);
   const directory = useEmployeeDirectory();
 
@@ -91,7 +93,7 @@ export function useProbation(): ProbationState {
    */
   const demoUndated = useMemo<ApiProbationUndated[]>(() => {
     if (isConnected) return [];
-    const today = new Date();
+    const today = todayIn(timeZone);
     return directory.employees
       .filter(
         /* Both, and the pair is not redundant. The frontend's own status union
@@ -110,12 +112,10 @@ export function useProbation(): ProbationState {
         startDate: row.startDate,
         daysSinceStart: Math.max(
           0,
-          Math.round(
-            (today.getTime() - new Date(row.startDate).getTime()) / 86_400_000,
-          ),
+          daysBetweenIn(row.startDate, today, timeZone),
         ),
       }));
-  }, [isConnected, directory.employees]);
+  }, [isConnected, directory.employees, timeZone]);
 
   if (!isConnected) {
     return {

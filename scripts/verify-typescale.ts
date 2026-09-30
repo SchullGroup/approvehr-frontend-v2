@@ -167,6 +167,77 @@ if (collisions.length > 0) {
   process.exit(1);
 }
 
+/* -------------------------------------------------------------------------- */
+/* One element, one text colour                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Two base text-colour utilities in one class string, where only one can win.
+ *
+ * This is the collision above wearing its other face. The token clash is fixed —
+ * the 16px step is `--text-body-md` and the check above keeps it that way — but
+ * `text-body` still *reads* like the body-size class, so it kept being pasted in
+ * beside the colour somebody actually wanted. `text-body leading-relaxed
+ * text-body` and `text-body font-medium text-slate` are the shape it takes, and
+ * both were in the app.
+ *
+ * Which one wins is decided by the order Tailwind happens to emit them in, at
+ * equal specificity, which is not something a call site can see or should
+ * depend on. Forty-two of these were removed in one pass; the author's colour
+ * was already the one on screen in every case, so nothing moved.
+ *
+ * Only **base** utilities count. `hover:`, `focus:` and `dark:` variants are a
+ * different state and belong beside a base colour, and a size plus a colour
+ * (`text-body-sm text-body`) is not a clash at all. Two colours in separate
+ * arguments of a `cn()` call are separate strings and are not flagged either —
+ * that is an intentional either/or, not an override.
+ */
+const textColours = new Set([...named("color")].map((name) => `text-${name}`));
+
+type Clash = { file: string; line: number; snippet: string; found: string[] };
+const clashes: Clash[] = [];
+
+for (const file of walk(SRC)) {
+  fs.readFileSync(file, "utf8")
+    .split("\n")
+    .forEach((line, index) => {
+      for (const match of line.matchAll(
+        /"([^"\n]*\btext-[a-z0-9-]+[^"\n]*)"/g,
+      )) {
+        const classes = (match[1] ?? "").split(/\s+/);
+        const base = classes.filter(
+          (name) => !name.includes(":") && textColours.has(name),
+        );
+        if (base.length < 2) continue;
+        clashes.push({
+          file: path.relative(process.cwd(), file),
+          line: index + 1,
+          snippet: match[1] ?? "",
+          found: base,
+        });
+      }
+    });
+}
+
+if (clashes.length > 0) {
+  console.error(
+    `\nThese elements carry more than one text colour, so one of them is dead\n` +
+      `and which one is decided by stylesheet order rather than by the call site:\n\n` +
+      clashes
+        .map(
+          (clash) =>
+            `  ${clash.file}:${clash.line}\n` +
+            `    ${clash.found.join(" + ")}\n` +
+            `    "${clash.snippet}"`,
+        )
+        .join("\n\n") +
+      `\n\nKeep the colour you mean and delete the other. If you wanted a SIZE,\n` +
+      `the body scale is text-body-lg / text-body-md / text-body-sm / text-meta —\n` +
+      `\`text-body\` is a colour and carries no size at all.\n`,
+  );
+  process.exit(1);
+}
+
 console.log(
   `\nType scale check passed. ${sizesChecked} explicit ${
     sizesChecked === 1 ? "size" : "sizes"

@@ -39,6 +39,8 @@ import {
   useSignatures,
 } from "@/lib/store/signatures";
 import { useCan } from "@/lib/permissions";
+import { useOrgTimezone } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
 
 /**
  * Documents to sign, and documents sent for signature.
@@ -111,16 +113,18 @@ export const TONE: Record<
  * Exported for the same reason `TONE` is — `employee-file.tsx`'s signature
  * rows show the same overdue badge this screen does.
  */
-export function overdueBy(record: ApiSignature): number | null {
+export function overdueBy(
+  record: ApiSignature,
+  timeZone: string,
+): number | null {
   if (record.status !== "PENDING" || !record.dueDate) return null;
   const due = Date.parse(`${record.dueDate}T00:00:00Z`);
   if (Number.isNaN(due)) return null;
-  const now = new Date();
-  const today = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate(),
-  );
+  /* `dueDate` is a calendar fact, pinned to UTC midnight — not an instant,
+     so it is never read through the company's zone. Only "today" is: the
+     company's own calendar day, anchored at UTC midnight the same way, so
+     the subtraction below stays a whole-day count either side. */
+  const today = Date.parse(`${todayIn(timeZone)}T00:00:00Z`);
   const days = Math.round((today - due) / 86_400_000);
   return days >= 0 ? days : null;
 }
@@ -273,9 +277,10 @@ function SignatureCard({
 }) {
   const mutations = useSignatureMutations();
   const toast = useToast();
+  const timeZone = useOrgTimezone();
   const [busy, setBusy] = useState(false);
   const [first, second] = fingerprintHalves(record.documentSha256);
-  const overdueDays = overdueBy(record);
+  const overdueDays = overdueBy(record, timeZone);
   /* "due 2026-08-01" for something not yet late, and nothing at all for
      something settled: a due date on a document signed last month is noise,
      and on one taken back it is noise about a document that no longer

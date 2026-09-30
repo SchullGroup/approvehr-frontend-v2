@@ -10,6 +10,7 @@ export function ProgressMeter({
   max = 100,
   label,
   showValue = true,
+  valueLabel,
   tone = "accent",
   size = "md",
   className,
@@ -18,6 +19,18 @@ export function ProgressMeter({
   max?: number;
   label?: string;
   showValue?: boolean;
+  /**
+   * What to print on the right of the label, instead of the percentage.
+   *
+   * A percentage is the right reading for a completion bar and the wrong one
+   * for a quantity somebody counts in whole units: "50%" of an annual leave
+   * entitlement is a figure nobody books a holiday against, where "10 of 20
+   * days" is. The bar still carries the proportion; this carries the amount.
+   *
+   * It rides with the label for the same reason the percentage does — see
+   * below — so a meter given no label prints nothing here either.
+   */
+  valueLabel?: React.ReactNode;
   tone?: "accent" | "success" | "info" | "warning" | "danger" | "ink";
   size?: "sm" | "md";
   className?: string;
@@ -50,7 +63,7 @@ export function ProgressMeter({
           <span className="text-body-sm font-medium text-body">{label}</span>
           {showValue && (
             <span className="tabular shrink-0 text-body-sm text-muted">
-              {Math.round(pct)}%
+              {valueLabel ?? `${String(Math.round(pct))}%`}
             </span>
           )}
         </div>

@@ -6,11 +6,12 @@ import {
   type DashboardData,
   type ReportsData,
 } from "@/lib/api/insights";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { useEmployeeStore } from "@/lib/store/employees";
 import { DEMO_ANNOUNCEMENTS } from "@/lib/mock/announcements";
 import { useRevalidation } from "@/lib/revalidate";
 import { hasAnyPermission, usePermissions } from "@/lib/permissions";
+import { todayIn } from "@/lib/time";
 
 /**
  * The dashboard and reports: the API when there is one, local figures when
@@ -65,14 +66,12 @@ type ReportsState = {
   error: string | null;
 };
 
-const iso = (d: Date): string => d.toISOString().slice(0, 10);
-const monthKey = (d: Date): string => iso(d).slice(0, 7);
-
 const message = (caught: unknown, fallback: string): string =>
   caught instanceof Error ? caught.message : fallback;
 
 export function useDashboard(): DashboardState & { reload: () => void } {
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const { directory } = useEmployeeStore();
   /* The same pair the API gates `headcount`/`approvals`/`today` on — see the
      comment on `DashboardData`. Demo mode has to withhold the same blocks the
@@ -85,11 +84,11 @@ export function useDashboard(): DashboardState & { reload: () => void } {
   ]);
 
   const demo = useCallback((): DashboardData => {
-    const now = new Date();
-    const month = monthKey(now);
+    const today = todayIn(timeZone);
+    const month = today.slice(0, 7);
 
     return {
-      asOf: iso(now),
+      asOf: today,
       /* Assigned via spread rather than declared unconditionally, so the key
          is genuinely absent for a plain employee — matching the API, which
          the tests pin on `"headcount" in d` rather than a falsy check. */
@@ -171,7 +170,7 @@ export function useDashboard(): DashboardState & { reload: () => void } {
         ).length,
       },
     };
-  }, [directory, seesCompanyOverview]);
+  }, [directory, seesCompanyOverview, timeZone]);
 
   const demoData = useMemo(
     () => (isConnected ? null : demo()),
@@ -238,6 +237,7 @@ export function useReports(
   enabled = true,
 ): ReportsState & { reload: () => void } {
   const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
   const { directory } = useEmployeeStore();
 
   const demo = useCallback((): ReportsData => {
@@ -252,7 +252,7 @@ export function useReports(
     }
 
     return {
-      period: period ?? monthKey(new Date()),
+      period: period ?? todayIn(timeZone).slice(0, 7),
       /* Money needs payslips from a real run. A chart of invented department
          costs is worse than an empty state saying to run payroll first. */
       payrollByDepartment: null,
@@ -292,7 +292,7 @@ export function useReports(
         headcountNow: directory.length,
       },
     };
-  }, [directory, period]);
+  }, [directory, period, timeZone]);
 
   const demoData = useMemo(
     () => (isConnected ? null : demo()),

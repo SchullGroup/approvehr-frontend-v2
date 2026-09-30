@@ -11,6 +11,8 @@ import {
 } from "@/lib/api/documents";
 import { dueLabel } from "@/lib/store/documents";
 import { documentFile, saveDocument } from "@/lib/api/uploads";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateShort } from "@/lib/time";
 
 /**
  * The two rows every documents screen is built from.
@@ -25,27 +27,6 @@ import { documentFile, saveDocument } from "@/lib/api/uploads";
  * cannot — and that decision belongs to the screen with the permission check
  * in it.
  */
-
-/** `2022-03-14T…` → `14 Mar 2022`. A contract from four years ago needs its year. */
-export function readableDate(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${date.getUTCDate()} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-}
 
 /** Late is danger, this week is warning, later is neutral. Colour never carries it alone. */
 export function DueChip({
@@ -97,12 +78,13 @@ export function RequestRow({
   showPerson?: boolean;
   actions?: React.ReactNode;
 }) {
+  const timeZone = useOrgTimezone();
   const secondary = [
     request.status === "WAIVED" && request.waivedReason
       ? `Dropped: ${request.waivedReason}`
       : null,
     request.status === "FULFILLED" && request.fulfilledAt
-      ? `Received ${readableDate(request.fulfilledAt)}`
+      ? `Received ${formatDateShort(request.fulfilledAt, timeZone)}`
       : null,
     request.status === "OPEN" ? request.reason : null,
     request.status === "OPEN" && request.requestedByName
@@ -154,6 +136,8 @@ export function DocumentRow({
   document: ApiDocument;
   action?: React.ReactNode;
 }) {
+  const timeZone = useOrgTimezone();
+
   return (
     <div
       className={cn(
@@ -197,7 +181,7 @@ export function DocumentRow({
             because it was all there was; a reader has no use for a storage
             path once the file behind it can actually be fetched. */}
         <p className="mt-0.5 truncate text-body-sm text-muted">
-          Added {readableDate(document.uploadedAt)}
+          Added {formatDateShort(document.uploadedAt, timeZone)}
         </p>
         <OpenDocument
           id={document.id}

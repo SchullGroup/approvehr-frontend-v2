@@ -524,9 +524,7 @@ function SentApprovalRow({ row }: { row: ApiApprovalRow }) {
             </Badge>
           </div>
 
-          <h3 className="mt-1.5 text-body font-semibold text-ink">
-            {row.title}
-          </h3>
+          <h3 className="mt-1.5 font-semibold text-ink">{row.title}</h3>
           {row.summary && (
             <p className="mt-0.5 text-body-sm leading-relaxed text-body">
               {row.summary}
@@ -552,7 +550,7 @@ function SentApprovalRow({ row }: { row: ApiApprovalRow }) {
         {row.amount !== null && (
           <div className="shrink-0 text-right">
             <p className="text-meta text-faint">Value</p>
-            <p className="tabular text-body font-semibold text-ink">
+            <p className="tabular font-semibold text-ink">
               <Money amount={row.amount} decimals />
             </p>
           </div>
@@ -617,7 +615,7 @@ function ApprovalRow({
             )}
           </div>
 
-          <h3 className="mt-1.5 text-body font-semibold text-ink">
+          <h3 className="mt-1.5 font-semibold text-ink">
             <Link
               href={item.href}
               className="hover:text-accent-text hover:underline underline-offset-4"
@@ -645,7 +643,7 @@ function ApprovalRow({
             <p className="text-meta text-faint">Value</p>
             {/* Never abbreviated. This is a figure somebody reconciles against a
                 bank statement, and ₦93.0m is not that figure. */}
-            <p className="tabular text-body font-semibold text-ink">
+            <p className="tabular font-semibold text-ink">
               <Money amount={item.amount} decimals />
             </p>
           </div>

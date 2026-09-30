@@ -46,8 +46,10 @@ import {
   useBenefitPlans,
 } from "@/lib/store/benefits";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useOrgTimezone } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
 import { fullName } from "@/lib/types";
+import { todayIn } from "@/lib/time";
 
 /**
  * Benefits: the plans, who is on them, and what they cost.
@@ -77,11 +79,6 @@ const KINDS: ApiBenefitKind[] = [
   "WELLNESS",
   "OTHER",
 ];
-
-const thisMonth = (): string => {
-  const now = new Date();
-  return `${String(now.getUTCFullYear())}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-};
 
 /**
  * Benefits, as a panel inside Pay setup rather than a route of its own.
@@ -116,6 +113,7 @@ export function BenefitsPanel() {
   const canPrice = useCan("MANAGE_PAY_STRUCTURE");
   const canEnrol = useCan("EDIT_RECORDS");
   const canSeeMoney = useCan("VIEW_SALARIES");
+  const timeZone = useOrgTimezone();
 
   const [tab, setTab] = useState<"plans" | "people">("plans");
   const [creating, setCreating] = useState(false);
@@ -124,7 +122,7 @@ export function BenefitsPanel() {
   const plans = useBenefitPlans(true);
   const enrolments = useBenefitEnrolments({ includeEnded: true });
   const notices = useBenefitNotices();
-  const cost = useBenefitCost(thisMonth(), canSeeMoney);
+  const cost = useBenefitCost(todayIn(timeZone).slice(0, 7), canSeeMoney);
 
   return (
     <>
@@ -447,6 +445,7 @@ function People({
 }) {
   const mutations = useBenefitMutations();
   const toast = useToast();
+  const timeZone = useOrgTimezone();
 
   if (read.error) {
     return (
@@ -470,10 +469,7 @@ function People({
 
   async function endEnrolment(row: ApiBenefitEnrolment) {
     try {
-      await mutations.endEnrolment(
-        row.id,
-        new Date().toISOString().slice(0, 10),
-      );
+      await mutations.endEnrolment(row.id, todayIn(timeZone));
       toast.push({ tone: "success", title: "Cover ended" });
       read.reload();
     } catch (error) {
@@ -802,10 +798,19 @@ function EnrolDialog({
   const mutations = useBenefitMutations();
   const directory = useEmployeeDirectory({ pageSize: 200 });
   const toast = useToast();
+  const timeZone = useOrgTimezone();
   const [employeeId, setEmployeeId] = useState("");
-  const [startedOn, setStartedOn] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
+  /**
+   * `null` until somebody picks a date, not `todayIn(timeZone)` snapshotted
+   * at mount: `useOrgTimezone()` answers the `"Africa/Lagos"` fallback until
+   * the session hydrates, so a company in another zone opening this modal
+   * before that finishes would freeze the default on the wrong day for the
+   * rest of the modal's life, the same shape `reports-screen.tsx`'s `period`
+   * had. Falling back to `todayIn(timeZone)` at the point of use instead
+   * keeps the default current for as long as nobody has picked a date.
+   */
+  const [startedOn, setStartedOn] = useState<string | null>(null);
+  const effectiveStartedOn = startedOn ?? todayIn(timeZone);
   const [dependants, setDependants] = useState("0");
   const [priceThem, setPriceThem] = useState(false);
   const [employer, setEmployer] = useState("");
@@ -823,7 +828,7 @@ function EnrolDialog({
           <Button
             variant="accent"
             loading={busy}
-            disabled={!plan || employeeId === "" || startedOn === ""}
+            disabled={!plan || employeeId === "" || effectiveStartedOn === ""}
             onClick={() => {
               if (!plan) return;
               void (async () => {
@@ -832,7 +837,7 @@ function EnrolDialog({
                 try {
                   await mutations.enrol(plan.id, {
                     employeeId,
-                    startedOn,
+                    startedOn: effectiveStartedOn,
                     dependants: Number(dependants) || 0,
                     /* Omitted entirely unless somebody priced them. Sending 0
                        would mean "this person's cover is free", which is a
@@ -883,7 +888,7 @@ function EnrolDialog({
         <Field label="Cover starts" help={wholeMonthNotice ?? undefined}>
           <Input
             type="date"
-            value={startedOn}
+            value={effectiveStartedOn}
             onChange={(event) => setStartedOn(event.target.value)}
           />
         </Field>

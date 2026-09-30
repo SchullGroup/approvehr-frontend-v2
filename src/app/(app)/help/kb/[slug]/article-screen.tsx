@@ -161,7 +161,7 @@ export function ArticleScreen({ slug }: { slug: string }) {
         <Card className="max-w-3xl">
           <CardBody className="flex flex-col gap-4">
             {paragraphs.map((block, index) => (
-              <p key={index} className="text-body leading-relaxed text-body">
+              <p key={index} className="text-body leading-relaxed">
                 {block}
               </p>
             ))}

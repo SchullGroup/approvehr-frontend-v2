@@ -740,6 +740,13 @@ const demoCycles: ApiCycle[] = [
     departmentIds: [],
     remindDaysBefore: null,
     managersCanAddQuestions: false,
+    /* Both demo periods appraise everybody, which is what a period written
+       before these settings existed did: the columns defaulted off, and every
+       row already in the table was one nobody had been excluded from. Seeding
+       them false would quietly drop the seeded Owner out of the demo's own
+       register. */
+    appraiseOwner: true,
+    appraiseHrManager: true,
     createdAt: "2026-07-01T09:00:00.000Z",
   },
   {
@@ -762,6 +769,8 @@ const demoCycles: ApiCycle[] = [
     departmentIds: [],
     remindDaysBefore: null,
     managersCanAddQuestions: false,
+    appraiseOwner: true,
+    appraiseHrManager: true,
     createdAt: "2026-01-08T09:00:00.000Z",
   },
 ];
@@ -2393,7 +2402,7 @@ const FINALISE_OFFLINE =
   "record rather than in a browser.";
 
 /**
- * Finalise, then acknowledge **or** dispute. In that order, once each.
+ * Finalise, then acknowledge. In that order, once each.
  *
  * Nobody in this market records the employee's answer, and the exposure is real:
  * without a stored acknowledgement there is no evidence the employee was ever
@@ -2405,22 +2414,14 @@ const FINALISE_OFFLINE =
  * - **Finalising is somebody else's act.** The author, the person's manager, or
  *   `EDIT_RECORDS`. It refuses offline, because a mark of record written in one
  *   browser is not a mark of record.
- * - **Acknowledging is the subject's own act; disputing is HR's.** The person a
- *   rating is about may acknowledge it and nobody else. Disputing moved the
- *   other way deliberately — the subject is exactly who should not also be the
- *   one deciding a disagreement becomes a formal record — so it is gated on
- *   `isHr` instead, matching `assertMayDispute` on the API. Both refuse offline
- *   in the API's own words when the guard fails.
- * - **One answer, not both.** Whichever arrives first is the record; the second
- *   is refused rather than overwriting the first.
- *
- * `isHr` is a parameter, not a `useCan("EDIT_RECORDS")` call in here — the same
- * reason `useCycleRegister`'s `enabled` is a parameter: the caller already
- * holds this (`review-screen.tsx`'s own `canSeeCompany`), and asking for it a
- * second time would be a second permissions fetch for every consumer whether
- * or not they render the dispute control.
+ * - **Acknowledging is the subject's own act**, so it works in both modes —
+ *   the same line `useReviewMutations` sits on. Only the person a rating is
+ *   about may send it, and the demo refuses anybody else in the API's own
+ *   words.
+ * - **One answer, once.** A review already answered — acknowledged, or
+ *   disputed before disputing was removed — refuses a second.
  */
-export function useSignOff(isHr: boolean) {
+export function useSignOff() {
   const { isConnected, actingId } = useSession();
 
   const answer = useCallback((id: string, next: DemoSignOff) => {
@@ -2431,46 +2432,31 @@ export function useSignOff(isHr: boolean) {
     });
   }, []);
 
-  /** The state check both answers share, in the API's words. */
-  const assertSignOffIsOpen = useCallback((review: ApiReview) => {
-    if (!review.finalised) {
-      offline(
-        "That rating is not final yet, so there is nothing to answer. You will " +
-          "be told when it is.",
-      );
-    }
-    if (review.acknowledged) {
-      offline("This rating has already been acknowledged.");
-    }
-    if (review.disputed) {
-      offline(
-        "This rating has already been disputed. It is on the record and " +
-          "somebody has to answer it.",
-      );
-    }
-  }, []);
-
-  const assertMayAcknowledge = useCallback(
+  /** The guard both employee answers share, in the API's words. */
+  const assertMayAnswer = useCallback(
     (review: ApiReview) => {
       if (review.subjectId !== actingId) {
-        offline("Only the person a rating is about can acknowledge it.");
-      }
-      assertSignOffIsOpen(review);
-    },
-    [actingId, assertSignOffIsOpen],
-  );
-
-  const assertMayDispute = useCallback(
-    (review: ApiReview) => {
-      if (!isHr) {
         offline(
-          "Disputing a rating is recorded by HR, not by the person it is " +
-            "about. Tell them what you disagree with and ask them to record it.",
+          "Only the person a rating is about can acknowledge or dispute it.",
         );
       }
-      assertSignOffIsOpen(review);
+      if (!review.finalised) {
+        offline(
+          "That rating is not final yet, so there is nothing to answer. You will " +
+            "be told when it is.",
+        );
+      }
+      if (review.acknowledged) {
+        offline("You have already acknowledged this rating.");
+      }
+      if (review.disputed) {
+        offline(
+          "You have already disputed this rating. It is on the record and " +
+            "somebody has to answer it.",
+        );
+      }
     },
-    [isHr, assertSignOffIsOpen],
+    [actingId],
   );
 
   return {
@@ -2496,37 +2482,25 @@ export function useSignOff(isHr: boolean) {
       async (review: ApiReview, comment?: string) => {
         if (isConnected)
           return performanceApi.acknowledgeReview(review.id, comment);
-        assertMayAcknowledge(review);
+        assertMayAnswer(review);
         answer(review.id, {
           acknowledgedAt: new Date().toISOString(),
           disputedAt: null,
           comment: comment ?? null,
         });
       },
-      [isConnected, assertMayAcknowledge, answer],
+      [isConnected, assertMayAnswer, answer],
     ),
 
-    /**
-     * "This is disputed." The rating **does not move**.
-     *
-     * Rewriting the mark on a dispute would leave no evidence of what was
-     * originally decided, which makes the trail worse rather than better. The
-     * comment is required — a dispute with no grounds gives nobody anything to
-     * answer. Recorded by HR, never by the subject — see the header above.
-     */
-    dispute: useCallback(
-      async (review: ApiReview, comment: string) => {
-        if (isConnected)
-          return performanceApi.disputeReview(review.id, comment);
-        assertMayDispute(review);
-        answer(review.id, {
-          acknowledgedAt: null,
-          disputedAt: new Date().toISOString(),
-          comment,
-        });
-      },
-      [isConnected, assertMayDispute, answer],
-    ),
+    /* `dispute` was here: "I do not accept this", comment required, recorded
+       beside a mark that did not move. Removed at the product owner's
+       instruction along with the dialog and the button that reached it.
+
+       `assertMayAnswer` below still refuses an already-disputed review, and
+       must keep doing so — a review disputed before this change has been
+       answered, and offering its subject an acknowledgement would let one
+       review carry both answers. The API still exposes the endpoint; nothing
+       here calls it. */
   };
 }
 
@@ -2563,6 +2537,7 @@ export type FrameworkGroup = {
 export function useSections(): {
   sections: ApiSection[];
   loading: boolean;
+  reload: () => void;
 } {
   const { isConnected } = useSession();
   const load = useCallback(
@@ -2573,6 +2548,7 @@ export function useSections(): {
   return {
     sections: isConnected ? (fetched.data ?? []) : [],
     loading: isConnected ? fetched.loading : false,
+    reload: fetched.reload,
   };
 }
 
@@ -2583,6 +2559,7 @@ export function useFramework(): {
   loading: boolean;
   error: ApiError | null;
   source: Source;
+  reload: () => void;
 } {
   const { isConnected } = useSession();
 
@@ -2624,6 +2601,7 @@ export function useFramework(): {
     loading: fetched.loading,
     error: fetched.error,
     source: isConnected ? "api" : "demo",
+    reload: fetched.reload,
   };
 }
 
@@ -2673,6 +2651,95 @@ export function useFrameworkActions() {
             "but you can still rate anybody against it.",
         );
         return performanceApi.createCompetency(body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Rename or reorder a section — including one of the four seeded ones.
+     *
+     * There is no such thing as a section this refuses. The API never had a
+     * "default" it protected, and `modules/performance/framework.ts` says so
+     * in as many words: the four it seeds are "a starting point, not a
+     * model". A rename is safe because the engine stopped resolving a section
+     * by its name — `AppraisalSection.component` names the scored component
+     * instead, precisely so renaming "Leadership" could not silently stop
+     * every rating under it counting.
+     */
+    updateSection: useCallback(
+      async (id: string, body: { name?: string; order?: number }) => {
+        guard(
+          "Renaming a section needs the API: sections are shared across every " +
+            "appraisal period, and a name kept in this browser would not " +
+            "reach any of them.",
+        );
+        return performanceApi.updateSection(id, body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Remove the heading. The subsections under it stay, unfiled.
+     *
+     * `Competency.sectionId` is `onDelete: SetNull`, so nothing filed under a
+     * deleted section is lost — it lands back in the unfiled list waiting to
+     * be re-filed, and its ratings are untouched. The dialog says this before
+     * it happens rather than after.
+     */
+    deleteSection: useCallback(
+      async (id: string) => {
+        guard(
+          "Removing a section needs the API: it is shared across every " +
+            "appraisal period.",
+        );
+        return performanceApi.deleteSection(id);
+      },
+      [guard],
+    ),
+
+    /**
+     * Rename a subsection, or move it to a different section.
+     *
+     * A move re-files every rating recorded against it into a different part
+     * of the mark, which is a real consequence rather than a tidy-up — the
+     * panel states it at the moment the move is made.
+     *
+     * `sectionId: null` is "unfiled", and is deliberately different from
+     * absent: absent leaves the filing alone, null takes it out of its
+     * section.
+     */
+    updateCompetency: useCallback(
+      async (
+        id: string,
+        body: {
+          name?: string;
+          sectionId?: string | null;
+          description?: string | null;
+          isCore?: boolean;
+          scaleMax?: number;
+          active?: boolean;
+        },
+      ) => {
+        guard(
+          "Editing a subsection needs the API: the demo framework is fixed, " +
+            "but you can still rate anybody against it.",
+        );
+        return performanceApi.updateCompetency(id, body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Archive a subsection. Never a delete, and the API's own answer says how
+     * many ratings it kept — a past rating is the evidence somebody improved,
+     * so the row stops being offered and stops being nothing.
+     */
+    archiveCompetency: useCallback(
+      async (id: string) => {
+        guard(
+          "Archiving a subsection needs the API: the demo framework is fixed.",
+        );
+        return performanceApi.archiveCompetency(id);
       },
       [guard],
     ),
@@ -2852,6 +2919,15 @@ export function useCycleMutations() {
           departmentIds?: string[];
           remindDaysBefore?: number;
           managersCanAddQuestions?: boolean;
+          /**
+           * Whether the Owner and the HR manager are appraised in this period.
+           *
+           * Both off at the API unless sent, and sent only when true — a
+           * period that says nothing gets the API's own default rather than
+           * this screen restating it.
+           */
+          appraiseOwner?: boolean;
+          appraiseHrManager?: boolean;
           periodStart?: string;
           periodEnd?: string;
           instructions?: string;
@@ -2871,6 +2947,8 @@ export function useCycleMutations() {
           ...(options?.managersCanAddQuestions
             ? { managersCanAddQuestions: true }
             : {}),
+          ...(options?.appraiseOwner ? { appraiseOwner: true } : {}),
+          ...(options?.appraiseHrManager ? { appraiseHrManager: true } : {}),
           /* Both or neither, decided here rather than sent half-formed for the
              API to refuse. A dialog that lets somebody fill in one date and
              then reports a server error has asked a question it could have
@@ -3032,6 +3110,9 @@ export function useCycleMutations() {
           departmentIds?: string[];
           remindDaysBefore?: number | null;
           managersCanAddQuestions?: boolean;
+          /** Sent independently: one can change without restating the other. */
+          appraiseOwner?: boolean;
+          appraiseHrManager?: boolean;
           /** Nullable, unlike on create: clearing a period is a real edit. */
           periodStart?: string | null;
           periodEnd?: string | null;

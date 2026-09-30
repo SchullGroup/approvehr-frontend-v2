@@ -20,6 +20,7 @@ import {
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { ApiApplication, ApiStage } from "@/lib/api/recruitment";
+import { useCan } from "@/lib/permissions";
 import {
   useApplicationMutations,
   useApplicationsForRequisition,
@@ -62,6 +63,13 @@ export function RealRequisitionWorkspace({
     });
   const mutations = useApplicationMutations();
   const toast = useToast();
+  /* `POST /applications/:id/move` is gated on `MANAGE_HIRING` server-side.
+     This screen is reachable by anyone holding that or `APPROVE_HIRING` (the
+     entry gate in requisition-screen.tsx admits either), and this file had
+     no permission check at all — an approver-only account saw a live,
+     always-refused stage picker on every row. Same rule the candidate page's
+     "Move this candidate" card already applies to the identical action. */
+  const canManage = useCan("MANAGE_HIRING");
   const [showTerminal, setShowTerminal] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -196,12 +204,29 @@ export function RealRequisitionWorkspace({
                       </Badge>
                     </TD>
                     <TD>
-                      <Badge tone={OUTCOME_TONE[a.outcome]} size="sm">
+                      <Badge
+                        tone={OUTCOME_TONE[a.outcome]}
+                        size="sm"
+                        {...(a.rejectionReason
+                          ? { title: a.rejectionReason }
+                          : {})}
+                      >
                         {OUTCOME_LABEL[a.outcome] ?? a.outcome}
                       </Badge>
+                      {/* Most often "Role filled by <name>." — written by the
+                          API the instant somebody else's offer on this same
+                          requisition is accepted, which rejects everyone
+                          else still in progress. Without this, a recruiter
+                          watching the board sees people flip to Rejected
+                          with an effect and no visible cause. */}
+                      {a.rejectionReason && (
+                        <p className="mt-0.5 text-meta text-muted">
+                          {a.rejectionReason}
+                        </p>
+                      )}
                     </TD>
                     <TD align="right">
-                      {a.outcome === "IN_PROGRESS" && (
+                      {a.outcome === "IN_PROGRESS" && canManage && (
                         <Select
                           value={a.stageId ?? ""}
                           disabled={busyId === a.id}
@@ -240,8 +265,11 @@ export function RealRequisitionWorkspace({
                     {OUTCOME_LABEL[a.outcome] ?? a.outcome}
                   </Badge>
                 </div>
+                {a.rejectionReason && (
+                  <p className="text-meta text-muted">{a.rejectionReason}</p>
+                )}
 
-                {a.outcome === "IN_PROGRESS" && (
+                {a.outcome === "IN_PROGRESS" && canManage && (
                   <div>
                     <p className="mb-1 text-meta text-muted">Move to</p>
                     <Select

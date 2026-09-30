@@ -6,6 +6,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  LinkedText,
   Spinner,
   TBody,
   TD,
@@ -254,7 +255,7 @@ export function ReviewTasksTab() {
                           </p>
                         </div>
                         <p className="text-body-sm text-body">
-                          {task.description}
+                          <LinkedText>{task.description}</LinkedText>
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                           <Button

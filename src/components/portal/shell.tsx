@@ -14,6 +14,7 @@ import {
   ThemeToggle,
 } from "@/components/ui";
 import { CommandPalette } from "./command-palette";
+import { ClockMenu } from "./clock-menu";
 import { GuidedTour, openTour } from "./tour/guided-tour";
 import {
   NAV,
@@ -34,7 +35,7 @@ import { useAssistantAvailable } from "@/lib/store/ai";
 import { useUnreadCount } from "@/lib/store/notifications";
 import { useApprovalQueue } from "@/lib/store/approvals-api";
 import { useLeaveRequests } from "@/lib/store/leave-api";
-import { useAttendanceRoster } from "@/lib/store/attendance";
+import { useAttendanceRoster, type RosterState } from "@/lib/store/attendance";
 import { useAmIInAOneOnOne } from "@/lib/store/one-on-ones";
 import { useHaveIAnySignatures } from "@/lib/store/signatures";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
@@ -54,7 +55,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const pathname = usePathname();
-  const badges = useNavBadges();
+  /* One roster read for the whole chrome, handed to both readers.
+     `useNavBadges` used to make this call itself; the clock menu needs the
+     same answer, and a second call would be a second `GET /attendance/roster`
+     on every page load whose answer could differ from the badge's — leaving
+     the sidebar count and the clock menu disagreeing about whether you are on
+     the clock. */
 
   /* The `/` shortcut the search button's own `kbd` promises. Ignored while
      already typing somewhere — a `/` in a note or an amount must reach the
@@ -93,6 +99,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      second reader is a map lookup, and threading it between two hooks in this
      file would couple the sidebar's filter to the badge counts. */
   const isManager = useIsManager();
+  /* On its own line rather than `||`-ed into `rosterIsRead` below: a
+     short-circuit would skip a hook on whichever render an earlier term
+     answers true, and hooks must run in the same order every render. */
+  const { employeeId: myEmployeeId } = useSession();
+
+  /* The chrome's one roster read, handed to both things that need it --
+     `useNavBadges` used to make it itself, and a second call would be a second
+     `GET /attendance/roster` per page load whose answer could differ from the
+     badge's, leaving the sidebar count and the clock menu disagreeing about
+     whether you are on the clock.
+
+     Both readers are conditional, and for one kind of account neither ever
+     fires: an account with no employee record has nothing to clock, and one
+     without `EDIT_RECORDS` or a direct report is not shown the `notClockedIn`
+     count. That account is refused this read -- correctly, see
+     `attendance/router.ts#attendanceScope` -- so asking was a guaranteed 403
+     on every page it opened. Both facts are known here, so it no longer asks.
+     Nothing rendered changes either way: the badge reads 0 and the clock menu
+     is absent. */
+  const rosterIsRead =
+    Boolean(myEmployeeId) ||
+    isManager ||
+    hasPermission(permissions, "EDIT_RECORDS");
+  const roster = useAttendanceRoster(undefined, rosterIsRead);
+  const badges = useNavBadges(roster);
 
   /* One-to-ones: showing to somebody who manages people, or who is in one as
      the report.
@@ -168,12 +199,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
           </button>
 
+          {/* The wordmark costs 149px and a phone has 375. With it, the whole
+              right-hand cluster sat past the right edge: the user menu's own
+              right edge measured 405 on a 375 viewport *before* the clock icon
+              was added here, so the avatar was already clipped and adding a
+              sixth control made it 443. The mark alone is 28px and everything
+              fits. `showWordmark` already existed on `Logo` for exactly this.
+              `shrink-0` on the link so the mark is never squashed instead. */}
           <Link
             href="/dashboard"
             aria-label="ApproveHR home"
-            className="text-ink hover:opacity-80"
+            className="shrink-0 text-ink hover:opacity-80"
           >
-            <Logo size={24} />
+            {/* The wordmark waits for `lg`.
+                ------------------------------
+                It is 149px against the mark's 28, and at 768 it and the
+                search field arrive at the same breakpoint — together they put
+                the row 28px past the viewport and clipped the control on the
+                end. One of the two had to move, and between a logotype and
+                the control people use to find a colleague, the logotype is
+                the one that can wait: the mark is still there, still links
+                home, and the company name sits next to it in the switcher. */}
+            <Logo size={24} className="hidden lg:block" />
+            <Logo size={24} showWordmark={false} className="lg:hidden" />
           </Link>
 
           <CompanySwitcher />
@@ -185,11 +233,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className={cn(
               "ml-auto hidden items-center gap-2 rounded-md border border-line bg-canvas",
               "px-3 py-1.5 text-body-sm text-muted transition-colors",
-              "hover:border-control-line hover:text-body md:flex md:w-64",
+              /* Three widths rather than one fixed 16rem, and no shrinking.
+                 ----------------------------------------------------------
+                 It was `md:w-64` and could not give way, so at 768 — the
+                 width it first appears at — the row ran 21px past the
+                 viewport and the user control on the end was clipped.
+                 Letting it *shrink* fixed the overflow and produced something
+                 worse: at 768 the field compressed until its label read "S",
+                 which is a search box that looks broken rather than one that
+                 is narrow. A control that cannot show what it is should get
+                 smaller in steps somebody chose, and never below its own
+                 name. */
+              "hover:border-control-line hover:text-body md:flex",
+              "md:w-40 lg:w-64",
             )}
           >
             <Search aria-hidden="true" className="size-3.5 shrink-0" />
-            <span className="flex-1 text-left">Search people, roles…</span>
+            {/* Short at `md`, where the field is 10rem and the full sentence
+                would be clipped mid-word. */}
+            <span className="flex-1 truncate text-left lg:hidden">Search…</span>
+            <span className="hidden flex-1 truncate text-left lg:block">
+              Search people, roles…
+            </span>
             <kbd className="rounded-xs border border-line bg-surface px-1.5 py-0.5 text-meta text-faint">
               /
             </kbd>
@@ -212,6 +277,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <ThemeToggle />
 
             <MoneyPrivacyToggle />
+
+            {/* Clocking in and out without leaving the page you are on.
+                Absent for an account with no employee record, and for a
+                company that has never clocked anybody in — see the header of
+                `clock-menu.tsx` for both, and for the day-one consequence of
+                the second. */}
+            <ClockMenu roster={roster} />
 
             {/* Was a button that did nothing, labelled "3 unread" whatever the
                 truth was. Now a link to the inbox with the real count — the
@@ -333,7 +405,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
  *   `useAttendanceRoster` hooks the approvals inbox, the leave screen and
  *   the attendance screen already call.
  */
-function useNavBadges(): Record<BadgeSource, number> {
+function useNavBadges(roster: RosterState): Record<BadgeSource, number> {
   const unread = useUnreadCount();
   const isManager = useIsManager();
   const { permissions } = usePermissions();
@@ -354,7 +426,6 @@ function useNavBadges(): Record<BadgeSource, number> {
     employeeId: employeeId ?? "",
     status: "pending",
   });
-  const roster = useAttendanceRoster();
 
   return {
     unreadNotifications: unread,
@@ -552,7 +623,24 @@ function UserMenu() {
         className="flex items-center gap-2.5 rounded-md border border-line px-2 py-1.5 text-left hover:bg-canvas"
       >
         <Avatar name={name} size="xs" tone="accent" />
-        <span className="hidden min-w-0 sm:block">
+        {/* Name, subtitle and role badge from `lg`, not `sm`.
+            ----------------------------------------------------
+            The note further up this file records the same class of bug being
+            fixed for the phone by dropping the wordmark below `sm`. It came
+            back in the middle of the range, where nothing had been measured:
+            between 640 and 1023 this button renders the wordmark's return,
+            the company switcher, the full identity block *and* the role
+            badge, and from 768 the 256px search field joins them. Measured at
+            640 on a dashboard, the button's own right edge was 884 against a
+            640 viewport — the name and the badge were simply cut off, on
+            every screen in the product, because they sit in the shell.
+
+            `xl`, not `lg`: at 1024 this block and the search field together
+            still left nothing to spare, and the search is the one people
+            reach for. Below it the control is the avatar and the chevron,
+            which is the same thing the phone has always shown, and the name
+            is the first line of the menu it opens. */}
+        <span className="hidden min-w-0 xl:block">
           <span className="block truncate text-body-sm font-medium leading-tight text-ink">
             {name}
           </span>
@@ -560,7 +648,7 @@ function UserMenu() {
             {subtitle}
           </span>
         </span>
-        <SessionRoleBadge className="hidden shrink-0 sm:inline-flex" />
+        <SessionRoleBadge className="hidden shrink-0 xl:inline-flex" />
         <ChevronDown
           aria-hidden="true"
           className="size-3.5 shrink-0 text-faint"

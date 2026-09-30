@@ -9,55 +9,43 @@ import type { ApiReview } from "@/lib/api/performance";
  * Answering a rating — one act the subject does for themselves, one HR does
  * about them.
  *
- * Two acts, one dialog, and the difference between them is the whole reason the
- * dialog exists rather than a pair of bare buttons:
- *
- * | | Acknowledge | Dispute |
- * |---|---|---|
- * | Who does it | the person the rating is about | HR |
- * | What it records | that they were shown it | that they do not accept it |
- * | The comment | optional | **required** |
- * | What happens to the mark | nothing | **nothing** |
- *
- * **Acknowledging is not agreeing**, and every line of copy here keeps those
- * apart. An acknowledgement that reads as consent is worth less than nothing to
- * a company defending a decision later: the employee can say they only ticked a
+ * One act: they record that they were shown it. **Acknowledging is not
+ * agreeing**, and every line of copy here keeps those apart. An
+ * acknowledgement that reads as consent is worth less than nothing to a
+ * company defending a decision later — the employee can say they only ticked a
  * box, and they would be right.
  *
- * **Disputing is HR's to record, not the subject's** — `review-screen.tsx`
- * only ever opens this dialog in "dispute" mode for somebody who is not the
- * review's own subject, so every string below is written in the third person
- * about `review.subjectName`. Somebody who does not accept a rating says so to
- * HR, and this is where HR writes it down.
+ * ## Disputing was here and is deliberately gone
  *
- * The comment is required on a dispute at ten characters, which is the API's own
- * floor — a dispute with no grounds cannot be answered, which helps the employee
- * least of all. It is optional on an acknowledgement because somebody with
- * nothing to add should not have to invent something to get past a form.
+ * This dialog used to offer a second act: a formal "I do not accept this",
+ * comment required, recorded beside a mark that did not move. It was removed
+ * at the product owner's instruction and the whole write path went with it —
+ * this dialog, the button that opened it, `useSignOff().dispute` and the API
+ * wrapper.
  *
- * The dispute copy says plainly that the rating stands. It has to: somebody who
- * expects disputing to remove the mark will be told otherwise by the record
- * rather than by the screen, and finding out afterwards is the version that
- * becomes a grievance.
+ * Two things follow, and neither is an oversight:
+ *
+ * - **`ApiReview.disputed` is still read, everywhere it was.** Reviews
+ *   disputed before this change exist, and a record of what somebody formally
+ *   refused to accept is the last thing a performance module should stop
+ *   displaying. The badge, the answer card, the register filter and the cycle
+ *   report all still show them. What is gone is the ability to raise a new
+ *   one, which is exactly what was asked for.
+ * - **The API still accepts `POST /performance/reviews/:id/dispute`.** Nothing
+ *   in this product calls it, and a frontend cannot close an endpoint. Until
+ *   the backend refuses it, the capability exists over the wire — see
+ *   `docs/backend/no-employee-dispute.md`.
+ *
+ * The comment stays optional. Somebody with nothing to add should not have to
+ * invent something to get past a form, and with disputing gone there is no
+ * longer a second act whose comment was compulsory.
  */
-
-/** The API's floor for a dispute. Same number, so no refusal surprises anybody. */
-const MIN_DISPUTE = 10;
-
-export type SignOffAct = "acknowledge" | "dispute";
-
 export function SignOffDialog({
-  act,
   review,
-  open,
   onClose,
   onConfirm,
 }: {
-  /** `null` while closed. Degrades to the "acknowledge" copy below — see the
-   *  parent call site for why that is safe. */
-  act: SignOffAct | null;
   review: ApiReview;
-  open: boolean;
   onClose: () => void;
   onConfirm: (comment?: string) => Promise<void>;
 }) {
@@ -65,15 +53,11 @@ export function SignOffDialog({
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
-  const disputing = act === "dispute";
-  const trimmed = comment.trim();
-  const ready = disputing ? trimmed.length >= MIN_DISPUTE : true;
-
   const submit = async () => {
-    if (!ready) return;
     setBusy(true);
     setFailed(null);
     try {
+      const trimmed = comment.trim();
       await onConfirm(trimmed.length > 0 ? trimmed : undefined);
     } catch (error) {
       setFailed(
@@ -88,48 +72,33 @@ export function SignOffDialog({
 
   return (
     <Modal
-      open={open}
+      open
       onClose={onClose}
-      title={
-        disputing
-          ? `Record that ${review.subjectName} does not accept this`
-          : "Acknowledge this rating"
-      }
-      description={
-        disputing
-          ? `${review.subjectName}'s rating for ${review.cycleName} stays as it is. The dispute goes on the record beside it.`
-          : `A record that you were shown your rating for ${review.cycleName}.`
-      }
+      title="Acknowledge this rating"
+      description={`A record that you were shown your rating for ${review.cycleName}.`}
       size="sm"
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
           <Button
-            variant={disputing ? "accent" : "approve"}
+            variant="approve"
             loading={busy}
-            disabled={!ready}
             onClick={() => void submit()}
           >
-            {disputing ? "Record the dispute" : "I have seen this"}
+            I have seen this
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
         <p className="text-body-sm leading-relaxed text-body">
-          {disputing
-            ? "The mark does not change. Whoever finalised it and whoever wrote it are both told, and somebody has to answer what is written here: that is what makes it a dispute rather than an argument."
-            : "This records that you have seen this rating and when. It is not a record that you agree with it, and nothing here says it is."}
+          This records that you have seen this rating and when. It is not a
+          record that you agree with it, and nothing here says it is.
         </p>
 
         <Field
-          label={disputing ? "What the dispute is over" : "Anything to add"}
-          required={disputing}
-          help={
-            disputing
-              ? "Be specific. A dispute with no grounds cannot be answered, which helps them least of all."
-              : "Optional. Leave it blank if you have nothing to add."
-          }
+          label="Anything to add"
+          help="Optional. Leave it blank if you have nothing to add."
         >
           <Textarea
             rows={5}
@@ -138,17 +107,7 @@ export function SignOffDialog({
           />
         </Field>
 
-        {disputing && !ready && trimmed.length > 0 && (
-          <p className="text-body-sm text-body">
-            Say what the dispute is over — a sentence at least.
-          </p>
-        )}
-
-        <p className="text-body-sm text-muted">
-          {disputing
-            ? "This can be recorded once, and cannot be swapped for an acknowledgement afterwards."
-            : "You can do this once, and it cannot be swapped for a dispute afterwards."}
-        </p>
+        <p className="text-body-sm text-muted">You can do this once.</p>
 
         {failed && (
           <p

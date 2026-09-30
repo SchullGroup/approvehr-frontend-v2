@@ -307,11 +307,19 @@ export const NIGERIAN_BANKS: readonly Bank[] = [
   { label: "Zitra MFB", code: "51373" },
 ];
 
-/** Code for a bank name, or null when the name is not one we carry. */
+/**
+ * Code for a bank name, or null when the name is not one we carry.
+ *
+ * Both sides are trimmed. The query always was; the label was not, so a row
+ * that arrived from the source with a trailing space — "Alert MFB " does — could
+ * never be found by the name the picker displayed for it. One row in 254, and
+ * invisible: the name looks right on screen and resolves to nothing.
+ */
 export function bankCodeFor(name: string): string | null {
   const needle = name.trim().toLowerCase();
   return (
-    NIGERIAN_BANKS.find((b) => b.label.toLowerCase() === needle)?.code ?? null
+    NIGERIAN_BANKS.find((b) => b.label.trim().toLowerCase() === needle)?.code ??
+    null
   );
 }
 

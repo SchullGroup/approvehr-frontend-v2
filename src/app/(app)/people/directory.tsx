@@ -72,6 +72,8 @@ import {
   type PayrollGap,
 } from "@/lib/types";
 import { MissingDetailsDialog } from "@/components/people/missing-details-dialog";
+import { useOrgTimezone } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
 import { DirectoryFieldSettings } from "./directory-settings";
 
 const STATUS: Record<EmploymentStatus, { tone: BadgeTone; label: string }> = {
@@ -142,6 +144,7 @@ export function Directory({
   const router = useRouter();
   const toast = useToast();
   const mutations = useEmployeeMutations();
+  const timeZone = useOrgTimezone();
 
   const list = useListQuery<Filters>({
     filters: { departmentId: "", workLocationId: "", status: "" },
@@ -359,7 +362,7 @@ export function Directory({
       }).join("; "),
     }));
     return {
-      filename: `employee-directory-${new Date().toISOString().slice(0, 10)}.csv`,
+      filename: `employee-directory-${todayIn(timeZone)}.csv`,
       body: toCsv(headers, csvRows),
     };
   };
