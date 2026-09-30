@@ -34,6 +34,7 @@ import { SourceBadge } from "@/components/hiring/source-badge";
 import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { usePermissions } from "@/lib/permissions";
 import type { RoleRow } from "@/lib/api/hiring";
+import { requisitionClosedNote } from "@/lib/api/careers";
 import { pipelineSnapshot, useHiringOverview } from "@/lib/store/hiring";
 import { useSession } from "@/lib/store/session";
 import { useInterviews, useOffers } from "@/lib/store/recruitment";
@@ -158,27 +159,45 @@ function Overview() {
                 : `${numbers.adverts - numbers.liveAdverts} draft or closed`
             }
           />
-          <Stat
-            label="People who applied"
-            value={String(numbers.applications)}
-          />
-          <Stat
-            label="Waiting to be screened"
-            value={String(numbers.waiting)}
-            icon={<TriangleAlert aria-hidden="true" />}
-            hint={
-              numbers.waiting > 0 ? "nobody has looked yet" : "queue is clear"
-            }
-          />
-          <Stat
-            label="Screened in"
-            value={String(numbers.advanced)}
-            hint={
-              numbers.advanceRate === null
-                ? "no rate until somebody is screened"
-                : `${numbers.advanceRate}% of everyone screened`
-            }
-          />
+          <Link
+            href="/hiring/postings/applications?status=ALL"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="People who applied"
+              value={String(numbers.applications)}
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
+          <Link
+            href="/hiring/postings/applications?status=RECEIVED"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="Waiting to be screened"
+              value={String(numbers.waiting)}
+              icon={<TriangleAlert aria-hidden="true" />}
+              hint={
+                numbers.waiting > 0 ? "nobody has looked yet" : "queue is clear"
+              }
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
+          <Link
+            href="/hiring/postings/applications?status=ADVANCED"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="Screened in"
+              value={String(numbers.advanced)}
+              hint={
+                numbers.advanceRate === null
+                  ? "no rate until somebody is screened"
+                  : `${numbers.advanceRate}% of everyone screened`
+              }
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
         </div>
 
         {/* `grid-cols-1` at the base breakpoint, not just implied by having
@@ -411,6 +430,7 @@ const STATUS_TONE = {
  * silently: the page renders blank and the console says nothing useful.
  */
 function RoleTableRow({ role }: { role: RoleRow }) {
+  const closedNote = requisitionClosedNote(role.requisitionStatus);
   return (
     <TR interactive>
       <TDPrimary
@@ -426,11 +446,23 @@ function RoleTableRow({ role }: { role: RoleRow }) {
             role.title
           )
         }
-        subtitle={[
-          role.reference ?? "No approved role behind it",
-          role.location ?? "Location not set",
-          role.employmentTypeLabel,
-        ].join(" · ")}
+        subtitle={
+          <>
+            <span>
+              {[
+                role.reference ?? "No approved role behind it",
+                role.location ?? "Location not set",
+                role.employmentTypeLabel,
+              ].join(" · ")}
+            </span>
+            {closedNote && (
+              <span className="ml-2 inline-flex items-center gap-1 text-warning-text">
+                <TriangleAlert aria-hidden="true" className="size-3.5 inline" />
+                {closedNote}
+              </span>
+            )}
+          </>
+        }
       />
       <TD>
         <Badge tone={STATUS_TONE[role.status]} size="sm" dot>
@@ -472,6 +504,7 @@ function RoleTableRow({ role }: { role: RoleRow }) {
  *  `RoleTableRow`, in different elements for the same reason: nesting them
  *  would break hydration silently. */
 function RoleCard({ role }: { role: RoleRow }) {
+  const closedNote = requisitionClosedNote(role.requisitionStatus);
   return (
     <li className="flex flex-col gap-2 p-4">
       <div className="flex items-start justify-between gap-3">
@@ -493,6 +526,12 @@ function RoleCard({ role }: { role: RoleRow }) {
               role.employmentTypeLabel,
             ].join(" · ")}
           </p>
+          {closedNote && (
+            <p className="mt-0.5 flex items-center gap-1 text-meta text-warning-text">
+              <TriangleAlert aria-hidden="true" className="size-3.5" />
+              {closedNote}
+            </p>
+          )}
         </div>
         <Badge tone={STATUS_TONE[role.status]} size="sm" dot>
           {role.statusLabel}
@@ -546,15 +585,33 @@ function RoleCard({ role }: { role: RoleRow }) {
  * component. This is that pattern, applied to the two cards that were missed.
  */
 
-/** Booked interviews, and how many of them nobody has filed a scorecard for. */
+/**
+ * Booked interviews, and how many completed ones nobody has filed a
+ * scorecard for.
+ *
+ * Two separate populations on purpose, and this card used to conflate them:
+ * a **scheduled** interview hasn't happened yet, so `scorecardsSubmitted`
+ * reading 0 on it is the ordinary, expected state — filtering the scheduled
+ * list for that read as an alarming, near-total backlog on every load, while
+ * the diary this card links to (`real-diary.tsx`) has always computed the
+ * genuinely actionable signal — **completed** with nothing filed — from a
+ * different query. Reading "3 have no scorecard yet" here and finding a
+ * different set of interviews (or none) after clicking through was the
+ * result. This now asks the diary's own question.
+ */
 function LiveInterviewsCard() {
-  const { interviews, total, loading, error } = useInterviews({
-    status: "SCHEDULED",
-    pageSize: 100,
-  });
-  const unscored = interviews.filter(
-    (interview) => interview.scorecardsSubmitted === 0,
-  ).length;
+  const scheduled = useInterviews({ status: "SCHEDULED", pageSize: 100 });
+  const completed = useInterviews({ status: "COMPLETED", pageSize: 100 });
+  const { total, loading, error } = scheduled;
+  /* Absent, not zero, when the completed-interviews read itself failed — the
+     scheduled count is still this card's primary fact and worth showing on
+     its own; a wrong "0 have no scorecard yet" would be worse than omitting
+     the sentence. */
+  const unscored = completed.error
+    ? null
+    : completed.interviews.filter(
+        (interview) => interview.scorecardsSubmitted === 0,
+      ).length;
 
   return (
     <Card>
@@ -572,15 +629,20 @@ function LiveInterviewsCard() {
           <p className="text-body-sm text-body">
             <span className="tabular font-medium text-ink">{total}</span>{" "}
             scheduled
-            {unscored > 0 ? (
-              <>
-                , and{" "}
-                <span className="tabular font-medium text-ink">{unscored}</span>{" "}
-                {unscored === 1 ? "has" : "have"} no scorecard yet.
-              </>
-            ) : (
-              ", and every one has a scorecard against it."
-            )}
+            {unscored !== null &&
+              (unscored > 0 ? (
+                <>
+                  .{" "}
+                  <span className="tabular font-medium text-ink">
+                    {unscored}
+                  </span>{" "}
+                  completed{" "}
+                  {unscored === 1 ? "interview has" : "interviews have"} no
+                  scorecard yet.
+                </>
+              ) : (
+                ". Every completed interview has a scorecard against it."
+              ))}
           </p>
         )}
         <ButtonLink href="/hiring/interviews" variant="secondary" size="sm">

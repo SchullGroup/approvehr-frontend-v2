@@ -79,6 +79,7 @@ function Row({
   interview: {
     id: string;
     applicationId: string;
+    requisitionId: string;
     requisitionReference: string;
     candidateName: string;
     kind: keyof typeof INTERVIEW_KIND_LABEL;
@@ -115,7 +116,12 @@ function Row({
         </p>
         <p className="text-meta text-muted">
           {INTERVIEW_KIND_LABEL[interview.kind] ?? interview.kind} ·{" "}
-          {interview.requisitionReference}
+          <Link
+            href={`/hiring/requisitions/${interview.requisitionId}`}
+            className="hover:text-accent-text hover:underline underline-offset-4"
+          >
+            {interview.requisitionReference}
+          </Link>
         </p>
         <p className="tabular mt-0.5 text-meta text-muted">
           {formatTime(interview.scheduledFor, timeZone)} ·{" "}
