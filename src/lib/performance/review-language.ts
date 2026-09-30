@@ -1,55 +1,27 @@
 /**
  * Language in a written review that a mark could not be defended on.
  *
- * ## Why this is not the assistant
+ * Why not the assistant: `/settings/ai` and the DPA both promise no written
+ * appraisal comment leaves the platform, so a model-based coach isn't an
+ * option here — it would send a manager's judgement of a named colleague to a
+ * third party. Being rule-based instead is a net win: it works with no
+ * credential, runs instantly while someone types, and can quote the exact
+ * phrase matched rather than offer an opinion ("you wrote *she is
+ * disorganised*" is a fact; "this reads as judgemental" is an argument).
  *
- * Every other drafting aid in this product is a model call. This one cannot be,
- * and the reason is a promise already published rather than a preference:
- * `/settings/ai` and the data processing agreement both state that **no written
- * appraisal comment leaves the platform**. A model-based coach would send a
- * manager's written judgement of a named colleague to a third party, which
- * would make that sentence false the day it shipped.
+ * What it's for: a mark has to be defensible — "she is disorganised" can't be
+ * pointed at; "three deadlines moved without notice in October" can.
  *
- * Three things follow from doing it here instead, and all three are better:
+ * Never blocks sending. Every finding is advice; the API and the form both
+ * accept the review either way.
  *
- * - It works with **no credential**, which is the state this product is in
- *   today and the state most companies will start in.
- * - It is instant, so it can run while somebody types rather than at the end.
- * - It can quote **the exact phrase it matched**. A model saying "this reads as
- *   judgemental" is an opinion; "you wrote *she is disorganised*" is a fact the
- *   reader can act on or dismiss in one glance.
- *
- * ## What this is for
- *
- * The product's whole argument against the incumbent is that a figure on a
- * screen has to be accountable. A mark is the figure a person's confirmation,
- * promotion or bonus turns on, and the written half is what has to justify it
- * when somebody disputes one — `disputed` is a real state on `Review`, with a
- * reason attached, and somebody reads it.
- *
- * "Chidera is quite disorganised" cannot be defended. "Three deadlines moved
- * without notice in October" can. The difference is not politeness; it is
- * whether there is anything to point at.
- *
- * ## This never blocks anything
- *
- * Every finding is advice. The API accepts the review either way and so does
- * the form — a control that refuses what the server allows teaches people the
- * product is broken, and a manager may have a reason this file cannot know.
- * `HANDOVER.md`'s rule about never refusing on the client's own initiative
- * applies exactly.
- *
- * ## Precision over recall, deliberately
- *
- * A checker that flags half a page is a checker people learn to scroll past, so
- * the character rules require a **person as the subject**: `difficult` alone is
- * not flagged, because "a difficult migration" is ordinary and correct English
- * about a piece of work. `he is difficult` is flagged, because that is a
- * sentence about a person.
- *
- * The exception is `SENSITIVE`, which needs no subject. Any mention of somebody's
- * pregnancy, faith, ethnicity or health in a performance review is worth a
- * second look whatever the grammar around it.
+ * Deliberately precision over recall: the character rules require a person as
+ * the subject (`difficult` alone isn't flagged — "a difficult migration" is
+ * ordinary English about work; `he is difficult` is a sentence about a
+ * person), so the checker doesn't flag so much that people scroll past it.
+ * `SENSITIVE` is the exception and needs no subject — any mention of
+ * pregnancy, faith, ethnicity or health is worth a second look regardless of
+ * grammar.
  */
 
 export type FindingKind =
@@ -80,66 +52,44 @@ const escape = (word: string): string =>
 /* -------------------------------------------------------------- the patterns */
 
 /**
- * Who a sentence can be about.
- *
- * The pronoun catches one form and `the employee` / `this person` the formal
- * one. **The subject's own name is the third, and it is the commonest** — this
- * file's first draft left it out on the grounds that matching a name would mean
- * threading it in from the form, and the very first sentence tested in a
- * browser was *"Chidera is quite disorganised"*, which sailed through.
- *
- * That was the wrong trade. Threading the name in is one optional argument;
- * missing the way most people actually write is the whole feature.
+ * Who a sentence can be about: pronouns, the formal `the employee` / `this
+ * person`, or the subject's own name (the commonest form in practice, e.g.
+ * "Chidera is quite disorganised").
  */
 const PERSON = String.raw`(?:he|she|they|the employee|this person|the staff|the subordinate)`;
 
 /**
- * The subject's name, as alternatives, or nothing.
- *
- * Full name and each part of it, because a manager writing about Tunde Bakare
- * writes "Tunde". Parts shorter than three characters are dropped: an initial
- * would match inside other words and turn the checker into noise.
+ * The subject's name, as alternatives, or nothing. Full name plus each part
+ * of it (a manager writing about Tunde Bakare writes "Tunde"); parts shorter
+ * than three characters are dropped since an initial would match inside other
+ * words and turn the checker into noise.
  */
 function nameAlternatives(subjectName: string | undefined): string[] {
   if (!subjectName) return [];
   const whole = subjectName.trim();
   if (whole === "") return [];
   const parts = whole.split(/\s+/).filter((part) => part.length >= 3);
-  /* Longest first so the full name wins over a part of it and the quoted
-     phrase reads as what was written. */
+  /* Longest first so the full name wins over a part of it. */
   return [...new Set([whole, ...parts])]
     .sort((a, b) => b.length - a.length)
     .map(escape);
 }
 
-/**
- * The same, already carrying its verb.
- *
- * Its own branch rather than a member of `PERSON`, because "she's arrogant" has
- * no room for a second copula and the pattern demanded one — so every
- * contraction slipped through, which is most of how people actually write.
- */
+/** The subject already carrying its verb — its own branch because "she's
+ *  arrogant" has no room for a second copula. */
 const PERSON_CONTRACTED = String.raw`(?:he's|she's|they're)`;
 
-/**
- * The verb.
- *
- * `are` and `were` were missing on the first pass, which made every plural
- * invisible — "they are unprofessional" is the single most likely sentence this
- * whole file exists to catch, and it was the one form that could not match.
- */
+/** The verb linking subject to trait. */
 const COPULA = String.raw`(?:is|are|was|were|isn't|aren't|wasn't|weren't|seems|seem|seemed|appears|appear|remains|remain|has been|have been|can be|tends to be|tend to be|comes across as|come across as|strikes me as)`;
 
 /** An optional hedge. "quite lazy" is the same claim as "lazy". */
 const HEDGE = String.raw`(?:\s+(?:very|quite|rather|somewhat|a bit|a little|too|generally|often|always|never|fairly|extremely))?`;
 
 /**
- * Traits, not conduct.
- *
- * Every word here describes a person's disposition. None of them can be
- * evidenced by pointing at a thing that happened, which is the test — and it is
- * why "late" and "absent" are deliberately absent from this list. Those are
- * facts about attendance with rows behind them.
+ * Traits, not conduct. Each word describes a person's disposition rather than
+ * something that can be evidenced by pointing at an event — which is why
+ * "late" and "absent" are deliberately excluded: those are attendance facts
+ * with records behind them.
  */
 const TRAITS = [
   "lazy",
@@ -171,18 +121,15 @@ const TRAITS = [
 ];
 
 /**
- * Protected characteristics.
+ * Protected characteristics. More than a style note under Nigerian law —
+ * section 42 of the Constitution, the Labour Act, and the Discrimination
+ * Against Persons with Disabilities (Prohibition) Act 2018 all bear on this,
+ * and the National Industrial Court hears discrimination claims where the
+ * written record is the evidence.
  *
- * Nigerian law makes this more than a style note: section 42 of the
- * Constitution, the Labour Act, and the Discrimination Against Persons with
- * Disabilities (Prohibition) Act 2018 all bear on it, and the National
- * Industrial Court hears discrimination claims in which the written record is
- * the evidence. A review that mentions somebody's pregnancy is a document that
- * gets read out.
- *
- * Ethnicity is listed by name because Nigeria is where this product is sold and
- * a generic "do not mention ethnicity" catches nothing. The list is the largest
- * groups and is not exhaustive; it is a prompt to look, not a filter to trust.
+ * Ethnicity is listed by name (largest groups, not exhaustive) since a
+ * generic "do not mention ethnicity" catches nothing — this is a prompt to
+ * look, not a filter to trust.
  */
 const SENSITIVE_WORDS = [
   // Pregnancy, family, marital status
@@ -256,12 +203,9 @@ const COMPARISONS = [
 /* ------------------------------------------------------------------ matching */
 
 /**
- * Every match of `pattern`, as findings.
- *
- * The regex is rebuilt per call rather than kept at module scope. A `g` regex
- * carries `lastIndex` between calls, and a shared one would silently skip the
- * first half of the second text it was given — which on a checker that runs on
- * every keystroke means findings that appear and vanish as somebody types.
+ * Every match of `pattern`, as findings. Rebuilt per call rather than kept at
+ * module scope — a shared `g` regex carries `lastIndex` between calls and
+ * would silently skip part of the next text it's given.
  */
 function findAll(
   text: string,
@@ -281,8 +225,7 @@ function findAll(
       says,
       instead,
     });
-    /* A zero-width match would loop for ever. None of the patterns here can
-       produce one, and the guard costs nothing next to finding out that it can. */
+    /* Guards against an infinite loop on a zero-width match. */
     if (match.index === pattern.lastIndex) pattern.lastIndex += 1;
     match = pattern.exec(text);
   }
@@ -290,12 +233,10 @@ function findAll(
 }
 
 /**
- * What is worth a second look in one piece of written review text.
- *
- * Returns them in the order they appear, deduplicated by position, capped —
- * see `MAX_FINDINGS`. Empty means nothing matched, which is the common case and
- * must render as nothing at all rather than as a green tick: this checker does
- * not know that a review is *good*, only that four specific things are absent.
+ * What is worth a second look in one piece of written review text. Returns
+ * them in order of appearance, deduplicated by position, capped at
+ * `MAX_FINDINGS`. Empty means nothing matched — this checker never confirms a
+ * review is *good*, only that these specific things are absent.
  */
 export function reviewLanguageFindings(
   text: string,
@@ -304,9 +245,8 @@ export function reviewLanguageFindings(
 ): Finding[] {
   if (text.trim().length === 0) return [];
 
-  /* The name is an extra way of naming the subject, never a replacement — a
-     review that says "Chidera is lazy" in one line and "she is lazy" in the
-     next has written the same sentence twice and both should be flagged. */
+  /* The name is an extra way of naming the subject, never a replacement —
+     both "Chidera is lazy" and a later "she is lazy" should be flagged. */
   const subjects = [PERSON, ...nameAlternatives(subjectName)].join("|");
   const subjectsOrContracted = [PERSON_CONTRACTED, subjects].join("|");
 
@@ -341,10 +281,8 @@ export function reviewLanguageFindings(
     ),
   ];
 
-  /* Two rules can match overlapping text — "she is always difficult" is both a
-     character claim and an absolute. Keeping both would show one sentence
-     twice, so the first rule to reach a position wins, and the order above is
-     the order of usefulness. */
+  /* Overlapping matches (e.g. "she is always difficult" is both a character
+     claim and an absolute) are deduplicated by position — first rule wins. */
   const seen = new Set<number>();
   return findings
     .sort((a, b) => a.at - b.at)
@@ -356,14 +294,7 @@ export function reviewLanguageFindings(
     .slice(0, MAX_FINDINGS);
 }
 
-/**
- * How many to show at once.
- *
- * A list longer than this is not more helpful, it is a wall — and somebody
- * whose draft trips ten rules needs to rewrite a paragraph rather than patch
- * ten phrases. `moreThanShown` reports the shortfall so nothing is dropped
- * silently.
- */
+/** How many findings to show at once — more reads as a wall, not help. */
 export const MAX_FINDINGS = 6;
 
 /** Every finding across several boxes, which is how a form holds its text. */
@@ -383,13 +314,9 @@ export function findingsHeadline(count: number): string {
     : `${String(count)} phrases here are worth a second look`;
 }
 
-/**
- * The one sentence that has to appear beside any list of these.
- *
- * It is a hint, not a verdict, and saying so is what keeps it useful: a checker
- * that presents itself as authority gets argued with, and one that presents
- * itself as a prompt gets read.
- */
+/** Must appear beside any list of findings: a hint, not a verdict — a checker
+ *  that presents as authority gets argued with; one that reads as a prompt
+ *  gets read. */
 export const FINDINGS_CAVEAT =
   "Nothing here stops you sending the review. This looks for four specific " +
   "things and cannot tell whether what you wrote is fair, you can.";

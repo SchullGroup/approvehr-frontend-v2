@@ -4,16 +4,11 @@ import { askAi2Stream, type Ai2Event } from "@/lib/api/ai2";
 /**
  * Reading the turn off the wire.
  *
- * The client parses SSE by hand — `EventSource` cannot carry a bearer token or
- * `POST` a transcript, so there was no alternative — and a hand-rolled parser
- * has exactly one interesting failure: it works against a stub that delivers one
- * event per chunk, and loses half an answer against a network that does not. So
- * the bodies below are sliced on byte boundaries that fall inside events rather
- * than between them.
- *
- * The other half is the protocol's one irreversible-looking move: `discard`,
- * which takes prose back off the screen after it has been shown. It is asserted
- * here as an ordered sequence, because the order is the whole meaning.
+ * SSE is parsed by hand — `EventSource` can't carry a bearer token or POST a
+ * transcript — and a hand-rolled parser's one real failure mode is losing an
+ * event split across chunk boundaries, so bodies below are sliced mid-event
+ * on purpose. `discard` (prose taken back after being shown) is asserted as
+ * an ordered sequence, since the order is the whole meaning.
  */
 
 const event = (payload: Ai2Event): string =>

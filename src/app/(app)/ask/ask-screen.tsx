@@ -7,25 +7,13 @@ import { useAi2Available } from "@/lib/store/ai2-chat";
 import { useSession } from "@/lib/store/session";
 
 /**
- * The `/ai2` assistant's own page.
+ * The `/ai2` assistant's own page. Has its own address so it's discoverable
+ * and answers for itself when no assistant is wired, rather than being
+ * reachable only by scrolling another screen.
  *
- * ## Why a route rather than a panel
- *
- * The same argument `/assistant` makes: a chat reachable only by scrolling
- * somebody else's screen is the discoverability defect this codebase has
- * recorded several times. It has an address, and the page answers for itself
- * when no assistant is wired — somebody arriving on a bookmark, or on a link a
- * colleague sent before the key was removed, gets a sentence rather than an
- * empty page.
- *
- * ## Why it is not `/assistant`
- *
- * `/ai2` is read-only and has no proposal path: it answers questions and cannot
- * offer to change anything. `/assistant` can, and its confirm step is the whole
- * point of that screen. Merging them would put a surface that writes and a
- * surface that cannot behind one title, and the difference is exactly what a
- * person needs to know before typing. They converge when `/ai2` grows an action
- * path, and not before.
+ * Kept separate from `/assistant`: this one is read-only with no proposal
+ * path, while `/assistant` can offer changes to confirm. Merge them once
+ * `/ai2` grows an action path, and not before.
  */
 export function AskScreen() {
   const { available, loading, model, reason } = useAi2Available();
@@ -64,12 +52,9 @@ export function AskScreen() {
 /* -------------------------------------------------------------------------- */
 
 /**
- * No assistant, and why.
- *
- * Two different facts, kept apart. Connected, the API wrote a sentence about its
- * own configuration and it is shown verbatim. Not connected, there is no server
- * to have a configuration — nothing here is switched off, and saying so would
- * send somebody looking for a setting that is not the problem.
+ * No assistant, and why. Connected, shows the API's own sentence about its
+ * configuration verbatim. Not connected, there's no server to have a
+ * configuration, so it says that instead of implying a switched-off setting.
  */
 function NotWired({
   connected,

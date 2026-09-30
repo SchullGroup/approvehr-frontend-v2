@@ -28,16 +28,12 @@ import { findScriptedAnswer } from "@/lib/mock/sales-script-qa";
 import { scriptedFallback } from "@/lib/sales-script";
 
 /**
- * The assistant conversation. Nothing is persisted — no `createPersistedState`
- * — because the API stores no transcript either, and mirroring it into
- * localStorage would undo that on a shared machine.
- *
- * The turn itself streams from `/ai2/ask`, which only ever reads. Only
- * `confirm` writes — `POST /ai/actions/:name`, posting `proposed.args` back
- * verbatim. Never call it except from a click.
- *
- * `error` is the conversation failing to go through; a turn's own
- * `actionError` is a refused write. They render in different places.
+ * The assistant conversation. Nothing is persisted — the API stores no
+ * transcript either, and mirroring it to localStorage would leak it on a
+ * shared machine. The turn streams from `/ai2/ask` (read-only); only
+ * `confirm` writes, via `POST /ai/actions/:name`, and only from a click.
+ * `error` is a failed turn; `actionError` is a refused write — rendered
+ * separately.
  */
 
 /* -------------------------------------------------------------------- shape */
