@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { CalendarClock } from "lucide-react";
 import {
   Badge,
@@ -9,6 +8,7 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
+  TextLink,
 } from "@/components/ui";
 import { INTERVIEW_KIND_LABEL } from "@/lib/api/recruitment";
 import { useInterviews } from "@/lib/store/recruitment";
@@ -107,21 +107,15 @@ function Row({
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-body-sm font-medium text-ink">
-          <Link
-            href={`/hiring/candidates/${interview.applicationId}`}
-            className="hover:text-accent-text hover:underline underline-offset-4"
-          >
+          <TextLink href={`/hiring/candidates/${interview.applicationId}`}>
             {interview.candidateName}
-          </Link>
+          </TextLink>
         </p>
         <p className="text-meta text-muted">
           {INTERVIEW_KIND_LABEL[interview.kind] ?? interview.kind} ·{" "}
-          <Link
-            href={`/hiring/requisitions/${interview.requisitionId}`}
-            className="hover:text-accent-text hover:underline underline-offset-4"
-          >
+          <TextLink href={`/hiring/requisitions/${interview.requisitionId}`}>
             {interview.requisitionReference}
-          </Link>
+          </TextLink>
         </p>
         <p className="tabular mt-0.5 text-meta text-muted">
           {formatTime(interview.scheduledFor, timeZone)} ·{" "}

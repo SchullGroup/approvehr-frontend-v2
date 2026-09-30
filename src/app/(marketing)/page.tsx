@@ -338,7 +338,7 @@ export default function HomePage() {
                   <Pill href="/demo" variant="solid" arrow>
                     Get started free
                   </Pill>
-                  <Pill href="/pricing" variant="quiet">
+                  <Pill href="/pricing" variant="ghost">
                     See full pricing
                   </Pill>
                 </div>

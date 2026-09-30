@@ -24,6 +24,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   rowClick,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -454,12 +455,11 @@ export function PayrollScreen() {
                     >
                       <TDPrimary
                         title={
-                          <Link
+                          <TextLink
                             href={`/payroll/runs/new?period=${run.period}`}
-                            className="hover:text-accent-text hover:underline underline-offset-4"
                           >
                             {periodLabel(run.period)}
-                          </Link>
+                          </TextLink>
                         }
                         subtitle={run.label ?? undefined}
                       />
@@ -506,12 +506,9 @@ export function PayrollScreen() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <Link
-                        href={`/payroll/runs/new?period=${run.period}`}
-                        className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                      >
+                      <TextLink href={`/payroll/runs/new?period=${run.period}`}>
                         {periodLabel(run.period)}
-                      </Link>
+                      </TextLink>
                       {run.label && (
                         <p className="text-body-sm text-muted">{run.label}</p>
                       )}
