@@ -302,6 +302,12 @@ export function useStages(requisitionId: string | undefined): StageListState {
   } | null>(null);
 
   const active = isConnected && Boolean(requisitionId);
+  /* Without this, moving a candidate's stage on the requisition board (which
+     does subscribe) never reached this hook — the "Move this candidate" card
+     on a candidate's own tab would keep offering a stale stage list, and its
+     current-stage highlight, indefinitely until an unrelated mutation or a
+     hard reload. Same bus every other read in this module uses. */
+  const revalidation = useRevalidation();
   useEffect(() => {
     if (!active || !requisitionId) return;
     const controller = new AbortController();
@@ -331,7 +337,7 @@ export function useStages(requisitionId: string | undefined): StageListState {
       cancelled = true;
       controller.abort();
     };
-  }, [active, requisitionId, nonce]);
+  }, [active, requisitionId, nonce, revalidation]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -1092,6 +1098,13 @@ export function useRealPipelineApplication(
     isConnected && !isLoading && (Boolean(id) || Boolean(candidateId));
   const [nonce, setNonce] = useState(0);
   const identity = `${id ?? ""}:${candidateId ?? ""}`;
+  /* Without this, a stage/offer/interview change made from the requisition
+     board (which does subscribe to this bus) never reached a candidate tab
+     already open on the same person — it kept showing whatever it last
+     fetched until an unrelated write on that page or a hard reload. Every
+     other read hook in this module is wired to it; this one and `useStages`
+     were the two that were not. */
+  const revalidation = useRevalidation();
 
   useEffect(() => {
     if (!active) return;
@@ -1166,10 +1179,11 @@ export function useRealPipelineApplication(
       cancelled = true;
       controller.abort();
     };
-    /* `nonce` is not read inside the effect — it exists purely to retrigger
-       this one, which is why it is still a dependency despite not appearing
-       in the body above `identity`. */
-  }, [active, id, candidateId, identity, nonce]);
+    /* `nonce` and `revalidation` are not read inside the effect — each exists
+       purely to retrigger this one (a manual `reload()` and the app-wide
+       revalidation bus respectively), which is why both are still
+       dependencies despite not appearing in the body above `identity`. */
+  }, [active, id, candidateId, identity, nonce, revalidation]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 

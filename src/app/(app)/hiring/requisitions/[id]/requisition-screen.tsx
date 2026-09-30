@@ -77,7 +77,7 @@ export function RequisitionScreen({ id }: { id: string }) {
     return (
       <>
         <PageHeader
-          breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+          breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
           title="Requisition"
         />
         <PageBody>
@@ -92,7 +92,7 @@ export function RequisitionScreen({ id }: { id: string }) {
     return (
       <>
         <PageHeader
-          breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+          breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
           title="Requisition"
         />
         <PageBody>
@@ -355,7 +355,7 @@ function RealRequisitionDetail({ id }: { id: string }) {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/hiring", label: "Pipeline" },
+          { href: "/hiring", label: "Hiring" },
           {
             href: `/hiring/requisitions/${requisition.id}`,
             label: requisition.reference,
@@ -371,6 +371,12 @@ function RealRequisitionDetail({ id }: { id: string }) {
               {requisition.reference}
             </Badge>
           </>
+        }
+        action={
+          <ButtonLink href="/hiring/postings" variant="secondary" size="sm">
+            <Megaphone aria-hidden="true" className="size-3.5" />
+            Job adverts
+          </ButtonLink>
         }
       />
 
@@ -962,7 +968,7 @@ function SeededRequisitionDetail({ id }: { id: string }) {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/hiring", label: "Pipeline" },
+          { href: "/hiring", label: "Hiring" },
           { href: `/hiring/requisitions/${req.id}`, label: req.reference },
         ]}
         title={req.title}
