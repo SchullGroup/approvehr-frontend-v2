@@ -28,6 +28,7 @@ import {
   useEmployeeMutations,
   type EmployeePatch,
 } from "@/lib/store/employees-api";
+import { useSession } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
 import { EmployeeRecord } from "./record";
 
@@ -86,6 +87,12 @@ export function EmployeeRecordPage({ id }: { id: string }) {
   const record = useEmployee(id);
   const mutations = useEmployeeMutations();
   const directory = useEmployeeDirectory({ pageSize: 200 });
+  /* The API refuses this anyway (`archive` in `employees/service.ts`) — this
+     is the same "no button rather than a disabled one" rule the record's own
+     exit action follows: an Archive button that will always 403 is worse
+     present than absent. */
+  const { employeeId: me } = useSession();
+  const isSelf = me !== null && me === id;
   /* Both leave reads are scoped to this person and go through the leave store,
      which picks its own source. `GET /leave/balances/:id` and
      `GET /leave/requests?employeeId=` need `VIEW_SALARIES` or the record to be
@@ -262,7 +269,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
               <RotateCcw aria-hidden="true" className="size-3.5" />
               Restore
             </Button>
-          ) : (
+          ) : isSelf ? null : (
             <Button
               variant="secondary"
               size="sm"
