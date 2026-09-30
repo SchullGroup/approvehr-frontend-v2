@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Building2, Users } from "lucide-react";
 
 import {
@@ -19,6 +18,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useDepartment } from "@/lib/store/departments";
@@ -70,12 +70,9 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
             title="That unit is not here"
             description="It may have been archived, or the link may be out of date. The structure screen lists everything that is there."
             action={
-              <Link
-                href="/people/departments"
-                className="text-body-sm font-medium text-accent-text underline underline-offset-4"
-              >
+              <TextLink href="/people/departments" className="text-body-sm">
                 Back to the structure
-              </Link>
+              </TextLink>
             }
           />
         </PageBody>
@@ -178,12 +175,9 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
                 title="Nobody is in this unit yet"
                 description="Assign people to it from the structure screen."
                 action={
-                  <Link
-                    href="/people/departments"
-                    className="text-body-sm font-medium text-accent-text underline underline-offset-4"
-                  >
+                  <TextLink href="/people/departments" className="text-body-sm">
                     Assign people
-                  </Link>
+                  </TextLink>
                 }
               />
             </CardBody>
@@ -204,12 +198,9 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
                       <TR key={person.id}>
                         <TDPrimary
                           title={
-                            <Link
-                              href={`/people/${person.id}`}
-                              className="hover:underline"
-                            >
+                            <TextLink href={`/people/${person.id}`}>
                               {person.name}
-                            </Link>
+                            </TextLink>
                           }
                         />
                         <TD>{person.jobTitle}</TD>
@@ -236,12 +227,12 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
                     className="flex items-center justify-between gap-3 p-4"
                   >
                     <div className="min-w-0">
-                      <Link
+                      <TextLink
                         href={`/people/${person.id}`}
-                        className="text-body-sm font-medium text-ink hover:underline"
+                        className="text-body-sm"
                       >
                         {person.name}
-                      </Link>
+                      </TextLink>
                       <p className="mt-0.5 text-meta text-muted">
                         {person.jobTitle}
                       </p>

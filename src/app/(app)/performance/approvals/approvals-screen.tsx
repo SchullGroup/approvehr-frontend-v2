@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { CheckCheck, Inbox, Target } from "lucide-react";
 import {
   Avatar,
@@ -14,6 +13,7 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -116,12 +116,9 @@ export function ApprovalsScreen() {
             title="Appraisals are switched off"
             description="Agreeing objectives before the period they cover is part of the appraisal module. Turn it on and this queue fills itself."
             action={
-              <Link
-                href="/settings/features"
-                className="text-body-sm font-medium text-accent-text underline-offset-2 hover:underline"
-              >
+              <TextLink href="/settings/features" className="text-body-sm">
                 Open feature settings
-              </Link>
+              </TextLink>
             }
           />
         </PageBody>
