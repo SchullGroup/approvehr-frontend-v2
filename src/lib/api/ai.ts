@@ -117,9 +117,9 @@ export const ask = (question: string): Promise<ApiAnswer> =>
 /* ------------------------------------------------------------------ the chat */
 
 /**
- * `/ai/chat` proposes. `/ai/actions/:name` performs. Never the same press.
+ * The ai2 turn proposes. `/ai/actions/:name` performs. Never the same press.
  *
- * `chat()` can only ever come back with a `proposed` block: a description of
+ * A turn can only ever come back with a `proposed` block: a description of
  * a change plus the arguments that would make it. Nothing is written until a
  * click calls `runAssistantAction` with `proposed.args` posted back verbatim.
  *

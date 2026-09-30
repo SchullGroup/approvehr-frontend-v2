@@ -32,8 +32,9 @@ import { scriptedFallback } from "@/lib/sales-script";
  * — because the API stores no transcript either, and mirroring it into
  * localStorage would undo that on a shared machine.
  *
- * `/ai/chat` proposes; only `confirm` writes, and it posts `proposed.args`
- * back verbatim. Never call it except from a click.
+ * The turn itself streams from `/ai2/ask`, which only ever reads. Only
+ * `confirm` writes — `POST /ai/actions/:name`, posting `proposed.args` back
+ * verbatim. Never call it except from a click.
  *
  * `error` is the conversation failing to go through; a turn's own
  * `actionError` is a refused write. They render in different places.
@@ -204,21 +205,25 @@ export function useAssistantChat(): ChatState & ChatActions {
       if (sequence.current !== mine) return false;
       if (result.usage) refreshAi2Usage();
 
-      if (result.text === null) {
+      if (result.text === null && result.proposed === null) {
         setError(
           result.declined ?? "The assistant answered with nothing. Ask again.",
         );
         return true;
       }
 
+      /* A proposal has no prose of its own: the card's words are read out of
+         the database by the API, so the turn carries the summary rather than
+         anything the model wrote about it. */
       setTurns([
         ...next,
         {
           id: nextId(),
           role: "assistant",
-          content: result.text,
+          content: result.text ?? result.proposed?.proposal.summary ?? "",
           used: [],
           steps: result.steps,
+          ...(result.proposed ? { proposed: result.proposed } : {}),
           ...(result.usage ? { usage: result.usage } : {}),
         },
       ]);
