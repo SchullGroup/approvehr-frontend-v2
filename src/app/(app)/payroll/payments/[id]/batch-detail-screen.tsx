@@ -2,7 +2,6 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
-import Link from "next/link";
 import { Banknote, Landmark, TriangleAlert } from "lucide-react";
 import {
   Badge,
@@ -21,6 +20,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -249,13 +249,13 @@ export function BatchDetailScreen({ id }: { id: string }) {
                   <span className="tabular text-body-sm text-muted">
                     {batch.sourceAccountMasked}
                   </span>
-                  <Link
+                  <TextLink
                     href="/settings/bank-accounts"
-                    className="mt-0.5 flex items-center gap-1.5 text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
+                    className="mt-0.5 flex items-center gap-1.5 text-body-sm"
                   >
                     <Landmark aria-hidden="true" className="size-3.5" />
                     Change account
-                  </Link>
+                  </TextLink>
                 </span>
               }
             />
@@ -325,12 +325,9 @@ export function BatchDetailScreen({ id }: { id: string }) {
                   <TR key={row.id}>
                     <TDPrimary
                       title={
-                        <Link
-                          href={`/people/${row.employeeId}`}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
+                        <TextLink href={`/people/${row.employeeId}`}>
                           {row.payeeName}
-                        </Link>
+                        </TextLink>
                       }
                     />
                     <TD>
@@ -395,12 +392,12 @@ export function BatchDetailScreen({ id }: { id: string }) {
             {batch.instructions.map((row) => (
               <li key={row.id} className="flex flex-col gap-2 p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <Link
+                  <TextLink
                     href={`/people/${row.employeeId}`}
-                    className="min-w-0 text-body-sm font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
+                    className="min-w-0 text-body-sm"
                   >
                     {row.payeeName}
-                  </Link>
+                  </TextLink>
                   <span className="tabular shrink-0 text-body-sm font-medium text-ink">
                     <Money amount={naira(row.amountKobo)} decimals />
                   </span>
@@ -571,12 +568,12 @@ function InstructionState({
               exclusions work; this is the same fix, on the screen where the
               money actually failed rather than where it was predicted to. */}
           {employeeId && (
-            <Link
+            <TextLink
               href={`/people/${employeeId}?tab=pay&field=bankAccount`}
-              className="text-meta font-medium text-accent-text underline-offset-2 hover:underline"
+              className="text-meta"
             >
               Check their bank details
-            </Link>
+            </TextLink>
           )}
         </span>
       )}
