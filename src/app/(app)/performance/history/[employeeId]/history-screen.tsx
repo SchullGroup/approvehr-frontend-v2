@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -19,6 +18,7 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  TextLink,
   type BadgeTone,
 } from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
@@ -538,12 +538,9 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
               {
                 term: "The record",
                 value: (
-                  <Link
-                    href={`/performance/reviews/${signOff.reviewId}`}
-                    className="font-medium text-accent-text underline-offset-2 hover:underline"
-                  >
+                  <TextLink href={`/performance/reviews/${signOff.reviewId}`}>
                     Open the appraisal
-                  </Link>
+                  </TextLink>
                 ),
               },
             ]

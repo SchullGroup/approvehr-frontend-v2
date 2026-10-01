@@ -1,8 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { Layers } from "lucide-react";
-import { Badge, Disclosure, EmptyState, Spinner } from "@/components/ui";
+import {
+  Badge,
+  Disclosure,
+  EmptyState,
+  Spinner,
+  TextLink,
+} from "@/components/ui";
 import { weightLabel } from "@/lib/api/performance";
 import { useFramework, useScoringWeights } from "@/lib/store/performance";
 
@@ -83,12 +88,9 @@ export function HowItWorksBody() {
           A target with a number on it, filed against the period. It has to be{" "}
           <strong className="font-medium text-ink">agreed before</strong> the
           period it covers, on{" "}
-          <Link
-            href="/performance/approvals"
-            className="font-medium text-accent-text underline-offset-2 hover:underline"
-          >
+          <TextLink href="/performance/approvals">
             the objectives queue
-          </Link>
+          </TextLink>
           , and only agreed ones are ever scored. A target agreed after the
           result is known is not a target.
         </p>
@@ -141,12 +143,9 @@ export function HowItWorksBody() {
                   : weights.source === "default"
                     ? "The shipped shares, nobody here has changed them."
                     : "Your company set these."}{" "}
-                <Link
-                  href="/settings/performance"
-                  className="font-medium text-accent-text underline-offset-2 hover:underline"
-                >
+                <TextLink href="/settings/performance">
                   Change what each part is worth
-                </Link>
+                </TextLink>
               </p>
             )}
             {weights?.selfAssessmentNote && (

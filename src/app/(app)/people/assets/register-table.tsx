@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Laptop } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -18,6 +17,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   rowClick,
 } from "@/components/ui";
 import type { SortOrder } from "@/lib/use-list-query";
@@ -181,12 +181,9 @@ export function RegisterTable({
 
                     <TD>
                       {item.holder ? (
-                        <Link
-                          href={`/people/${item.holder.employeeId}`}
-                          className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                        >
+                        <TextLink href={`/people/${item.holder.employeeId}`}>
                           {item.holder.name}
-                        </Link>
+                        </TextLink>
                       ) : (
                         <span className="text-body-sm text-muted">Nobody</span>
                       )}
@@ -261,12 +258,9 @@ export function RegisterTable({
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-body-sm text-muted">Who has it</span>
                   {item.holder ? (
-                    <Link
-                      href={`/people/${item.holder.employeeId}`}
-                      className="font-medium text-ink hover:text-accent-text hover:underline underline-offset-4"
-                    >
+                    <TextLink href={`/people/${item.holder.employeeId}`}>
                       {item.holder.name}
-                    </Link>
+                    </TextLink>
                   ) : (
                     <span className="text-body-sm text-muted">Nobody</span>
                   )}
