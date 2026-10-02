@@ -341,25 +341,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
 
         <main id="main" className="min-w-0 flex-1">
-          {/* Inside `main`, not a sibling of it, so it occupies the content
-              column only — the sidebar (`aside`, above) is a separate flex
-              child it never overlaps. `sticky top-14` pins it to the same
-              offset the sidebar's own sticky nav uses (the header's height),
-              so it stays on screen through a scroll rather than scrolling
-              away with the page. */}
-          <VerificationBanner />
-          {/* Below the verification strip, because verifying an email is
-              something you have to do and installing the app is a suggestion.
-              Renders nothing on a desktop, nothing if it is already installed,
-              and nothing in a browser that cannot install — see the component. */}
-          <InstallPrompt />
-          {/* Last of the three, and the only one that is ever gone within
-              days on its own: the other two persist for as long as their
-              condition holds (an unverified email, an installable browser);
-              this one is on screen only while a confirmed holiday sits
-              inside its own two-day window. Same sticky/dismiss shape as
-              InstallPrompt — see the component. */}
-          <HolidayBanner />
+          {/* One sticky wrapper for all three, not one each. Each banner used
+              to carry its own `sticky top-14 z-20` — harmless with at most
+              one of them ever showing at once, but two independently-sticky
+              siblings at the same offset paint over each other after a short
+              scroll rather than stacking, the moment a second one is ever
+              active. The wrapper is what stays pinned to the header's
+              height; a banner that renders null costs the column nothing, so
+              the ones still showing collapse up to fill its place exactly as
+              they did before. */}
+          <div className="sticky top-14 z-20 flex flex-col">
+            <VerificationBanner />
+            {/* Below the verification strip, because verifying an email is
+                something you have to do and installing the app is a
+                suggestion. Renders nothing on a desktop, nothing if it is
+                already installed, and nothing in a browser that cannot
+                install — see the component. */}
+            <InstallPrompt />
+            {/* Last of the three, and the only one that is ever gone within
+                days on its own: the other two persist for as long as their
+                condition holds (an unverified email, an installable
+                browser); this one is on screen only while a confirmed
+                holiday sits inside its own two-day window. Same dismiss
+                shape as InstallPrompt — see the component. */}
+            <HolidayBanner />
+          </div>
           {children}
         </main>
       </div>

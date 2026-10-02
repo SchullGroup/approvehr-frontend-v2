@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HolidayBanner } from "@/components/portal/holiday-banner";
 import { usePublicHolidays } from "@/lib/store/holidays";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import type { HolidayCalendarState } from "@/lib/store/holidays";
 
 /**
@@ -18,10 +18,14 @@ import type { HolidayCalendarState } from "@/lib/store/holidays";
  */
 
 vi.mock("@/lib/store/holidays", () => ({ usePublicHolidays: vi.fn() }));
-vi.mock("@/lib/store/session", () => ({ useSession: vi.fn() }));
+vi.mock("@/lib/store/session", () => ({
+  useSession: vi.fn(),
+  useOrgTimezone: vi.fn(),
+}));
 
 const mockedHolidays = vi.mocked(usePublicHolidays);
 const mockedSession = vi.mocked(useSession);
+const mockedTimezone = vi.mocked(useOrgTimezone);
 
 /** Fixed, so "today"/"tomorrow" do not depend on when the suite runs. */
 const TODAY = "2026-08-19";
@@ -81,6 +85,9 @@ beforeEach(() => {
   mockedSession.mockReturnValue({ isConnected: false } as unknown as ReturnType<
     typeof useSession
   >);
+  /* Demo mode never reads this (todayIn only runs when isConnected), but the
+     component calls the hook unconditionally, so it still needs a value. */
+  mockedTimezone.mockReturnValue("Africa/Lagos");
   stubHolidays({});
 });
 
