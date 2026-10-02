@@ -6,7 +6,7 @@ design system" both have an answer you can scan.
 
 | Platform              | File                                           | Files | Components | Hooks | Functions |
 | --------------------- | ---------------------------------------------- | ----: | ---------: | ----: | --------: |
-| **Frontend v2**       | [`frontend-v2.md`](frontend-v2.md)             |   659 |        577 |   276 |       478 |
+| **Frontend v2**       | [`frontend-v2.md`](frontend-v2.md)             |   661 |        577 |   277 |       485 |
 | **Platform frontend** | [`platform-frontend.md`](platform-frontend.md) |   800 |        642 |   933 |       208 |
 | **Landing site**      | [`landing-frontend.md`](landing-frontend.md)   |    35 |         46 |     — |        16 |
 | **API**               | [`backend-api.md`](backend-api.md)             |   246 |          — |     — |      1031 |

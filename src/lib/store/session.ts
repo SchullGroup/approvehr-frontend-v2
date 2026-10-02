@@ -149,6 +149,21 @@ export function markSignedIn(user: ApiUser): void {
   });
 }
 
+/**
+ * Re-read `/auth/me` into the session, for a screen that knows the answer has
+ * changed server-side — the Pay screen, watching for a payment to land. A
+ * failure leaves the session as it was: this is a refresh, not a sign-in.
+ */
+export async function refreshSession(): Promise<void> {
+  if (cache.status !== "signed_in" || cache.mode !== "api") return;
+  try {
+    const me = await auth.me();
+    set({ ...cache, user: me });
+  } catch {
+    /* Keep what we had; the next restore or poll tries again. */
+  }
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
   if (!hydrated) {
