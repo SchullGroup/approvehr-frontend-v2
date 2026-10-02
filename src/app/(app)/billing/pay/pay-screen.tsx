@@ -27,7 +27,7 @@ import type { ApiBilling } from "@/lib/api/endpoints";
  * Subscribe / Pay — choose a plan and length, see the exact amount and the
  * company's own account, then watch it clear on its own.
  *
- * ## The success signal (binding)
+ * ## The success signal (binding), and the latch it actually needs
  *
  * The screen switches to `done` when `billing.order === null && billing.entitled
  * === true` — never `status === "ACTIVE"` alone. A company renewing early is
@@ -35,6 +35,29 @@ import type { ApiBilling } from "@/lib/api/endpoints";
  * is cleared; only `order` going `null` says the money has actually been
  * matched to this charge. See `constraints.md` and the polling suite in
  * `tests/billing-pay-screen.test.tsx`.
+ *
+ * That raw condition is not enough on its own, though: `billing` comes from
+ * the *last* `/auth/me`, which for a `TRIALING`, `ACTIVE` or `GRACE` company
+ * already reads `order: null, entitled: true` — before this screen's order
+ * ever existed. The instant `continueToTransfer` (or a resume) moves to
+ * `transfer`, that stale snapshot satisfies the raw condition with no money
+ * having moved. `orderObserved` guards against exactly this: it only ever
+ * arms once a render has actually seen `billing.order !== null` while on
+ * `transfer` — proof the session knows about *this* order — and `paid`
+ * additionally requires it. Detected and set **during render**, the same
+ * render-phase-update pattern `src/hooks/use-dismiss.ts` uses (see its own
+ * header comment on why: this is a render-time question, and answering it
+ * from an effect would be the `react-hooks/set-state-in-effect` anti-pattern
+ * that rule exists to catch, for an extra commit-and-paint round trip with
+ * no benefit). It resets wherever a new order context begins (a fresh
+ * checkout, a resume) or ends (Change plan) — ordinary `setState` calls at
+ * those call sites, not render-phase ones, since nothing there needs to
+ * happen "as part of rendering." `continueToTransfer` and the resume branch
+ * below also call `refresh()` once, eagerly, so the latch has a chance to
+ * arm immediately rather than waiting a full `pollMs` — but never *only*
+ * that, because `refreshSession` swallows its own errors and a dropped
+ * eager call must not leave the latch permanently unarmed; the ordinary
+ * poll still arms it on its own next tick.
  *
  * ## Why `billing` comes from the real `useBilling()`, not a prop
  *
@@ -100,49 +123,99 @@ export function PayScreen({
   const [notSetUp, setNotSetUp] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [, setPollTick] = useState(0);
+  const [reloadToken, setReloadToken] = useState(0);
+  const [orderObserved, setOrderObserved] = useState(false);
 
-  /* On mount: the administrator-only screens fetch nothing at all. Otherwise
-     load the open order and the price list in parallel, and resume straight
-     into `transfer` if there already is one. */
+  /* On mount, and again on "Try again": the administrator-only screens fetch
+     nothing at all. Otherwise load the open order and the price list
+     independently — `Promise.allSettled`, not `Promise.all`, because a
+     failed `currentCheckout()` must not discard a successful `plans()` (or
+     the reverse) — and resume straight into `transfer` if there already is
+     an order. `setLoadError(null)` lives inside the async callback below,
+     not the effect's own synchronous top level, for the same
+     `react-hooks/set-state-in-effect` reason explained on `orderObserved`. */
   useEffect(() => {
     if (!canPay) return;
     let cancelled = false;
     (async () => {
-      try {
-        const [current, planList] = await Promise.all([
-          api.currentCheckout(),
-          api.plans(),
-        ]);
-        if (cancelled) return;
-        setPlans(planList);
-        if (current) {
-          setCheckout(current);
-          setStep("transfer");
-        }
-      } catch (error) {
-        if (!cancelled) {
+      setLoadError(null);
+      const [currentResult, plansResult] = await Promise.allSettled([
+        api.currentCheckout(),
+        api.plans(),
+      ]);
+      if (cancelled) return;
+
+      if (plansResult.status === "fulfilled") {
+        setPlans(plansResult.value);
+        if (currentResult.status === "rejected") {
           setLoadError(
-            error instanceof ApiError
-              ? error.message
-              : "Could not load plans just now.",
+            currentResult.reason instanceof ApiError
+              ? currentResult.reason.message
+              : "Could not check for an existing order just now.",
           );
+        }
+      } else {
+        setLoadError(
+          plansResult.reason instanceof ApiError
+            ? plansResult.reason.message
+            : "Could not load plans just now.",
+        );
+      }
+
+      if (currentResult.status === "fulfilled" && currentResult.value) {
+        setOrderObserved(false);
+        setCheckout(currentResult.value);
+        setStep("transfer");
+        try {
+          /* Eager, so the latch below can arm on this order immediately
+             rather than waiting a full `pollMs` — see the header comment.
+             Swallowed: `refreshSession` already swallows its own errors,
+             and a test double standing in for it might not. */
+          await refresh();
+        } catch {
+          // See above.
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [api, canPay]);
+  }, [api, canPay, refresh, reloadToken]);
 
-  const paid = !!billing && billing.order === null && billing.entitled === true;
+  /* Arms once a render has actually seen this session know about an open
+     order while on `transfer` — proof `billing` is no longer the stale
+     pre-order snapshot. Set **during render** (React's documented
+     "adjust state while rendering" pattern — see `src/hooks/use-dismiss.ts`
+     for the precedent this follows), not from an effect: this is a
+     render-time question answerable from this render's own `step` and
+     `billing`, and the `!orderObserved` guard is what keeps it from looping
+     — once true, the condition is false on every later render until
+     something explicitly resets it. Monotonic while armed: a later render
+     where `order` has gone `null` again (the payment landing) does not
+     re-disarm it. */
+  if (
+    step === "transfer" &&
+    billing &&
+    billing.order !== null &&
+    !orderObserved
+  ) {
+    setOrderObserved(true);
+  }
+
+  const paid =
+    step === "transfer" &&
+    orderObserved &&
+    !!billing &&
+    billing.order === null &&
+    billing.entitled === true;
 
   /* `done` is derived, never written: a store a render away from an effect
      that writes it back is exactly the cascading-render shape
      `react-hooks/set-state-in-effect` flags, and there is nothing for an
-     effect to own here that render can't already answer from `step` and
-     `paid` — `step` itself only ever moves between `choose` and `transfer`,
-     both set directly from a click, not from a dependency watcher. */
-  const effectiveStep: Step = step === "transfer" && paid ? "done" : step;
+     effect to own here that render can't already answer from `paid` —
+     `step` itself only ever moves between `choose` and `transfer`, both set
+     directly from a click, not from a dependency watcher. */
+  const effectiveStep: Step = paid ? "done" : step;
 
   /* Polls while — and only while — a payment is actually being waited on, so
      it tears down itself the same render `paid` flips, with no separate
@@ -174,8 +247,18 @@ export function PayScreen({
         planId: selectedPlan.id,
         months,
       });
+      setOrderObserved(false);
       setCheckout(result);
       setStep("transfer");
+      try {
+        /* Eager, for the same reason the resume branch above calls it —
+           so the latch can arm on *this* order immediately. Swallowed for
+           the same reason: a dropped call must not block the ordinary poll
+           from arming it on its own next tick. */
+        await refresh();
+      } catch {
+        // See above.
+      }
     } catch (error) {
       if (
         error instanceof ApiError &&
@@ -219,7 +302,10 @@ export function PayScreen({
       <TransferStep
         checkout={checkout}
         unappliedKobo={billing?.unappliedKobo ?? 0}
-        onChangePlan={() => setStep("choose")}
+        onChangePlan={() => {
+          setOrderObserved(false);
+          setStep("choose");
+        }}
       />
     );
   } else {
@@ -231,6 +317,7 @@ export function PayScreen({
         months={months}
         onSelectMonths={setMonths}
         onContinue={() => void continueToTransfer()}
+        onRetry={() => setReloadToken((t) => t + 1)}
         submitting={submitting}
         loadError={loadError}
         checkoutError={checkoutError}
@@ -256,6 +343,7 @@ function ChooseStep({
   months,
   onSelectMonths,
   onContinue,
+  onRetry,
   submitting,
   loadError,
   checkoutError,
@@ -266,35 +354,57 @@ function ChooseStep({
   months: (typeof CHECKOUT_MONTHS)[number];
   onSelectMonths: (months: (typeof CHECKOUT_MONTHS)[number]) => void;
   onContinue: () => void;
+  onRetry: () => void;
   submitting: boolean;
   loadError: string | null;
   checkoutError: string | null;
 }) {
-  const selectedPlan = plans?.find((p) => p.id === selectedPlanId) ?? null;
+  /* Nothing to configure without a price list, so a failed or still-loading
+     `plans` gets its own, smaller screen rather than a Length picker and a
+     Continue button with nothing to act on. A successful `plans` with a
+     `loadError` (the open-order check failed, independently — see
+     `Promise.allSettled` in `PayScreen`) still shows the ordinary form, with
+     the error inline rather than blocking it. */
+  if (!plans) {
+    return (
+      <div className="flex max-w-2xl flex-col gap-4">
+        {loadError ? (
+          <>
+            <Callout tone="danger">{loadError}</Callout>
+            <div>
+              <Button variant="secondary" size="sm" onClick={onRetry}>
+                Try again
+              </Button>
+            </div>
+          </>
+        ) : (
+          <p className="text-body-sm text-muted">Loading plans…</p>
+        )}
+      </div>
+    );
+  }
+
+  const selectedPlan = plans.find((p) => p.id === selectedPlanId) ?? null;
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
       {loadError && <Callout tone="danger">{loadError}</Callout>}
 
-      {!plans ? (
-        <p className="text-body-sm text-muted">Loading plans…</p>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {plans.map((plan) => (
-            <RadioCard
-              key={plan.id}
-              name="plan"
-              value={plan.id}
-              checked={plan.id === selectedPlanId}
-              onChange={() => onSelectPlan(plan.id)}
-              label={plan.name}
-              description={`${formatMoney(nairaOf(plan.priceKobo))} / month · ${plan.modules
-                .map((m) => MODULE_LABEL[m] ?? m)
-                .join(", ")}`}
-            />
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {plans.map((plan) => (
+          <RadioCard
+            key={plan.id}
+            name="plan"
+            value={plan.id}
+            checked={plan.id === selectedPlanId}
+            onChange={() => onSelectPlan(plan.id)}
+            label={plan.name}
+            description={`${formatMoney(nairaOf(plan.priceKobo))} / month · ${plan.modules
+              .map((m) => MODULE_LABEL[m] ?? m)
+              .join(", ")}`}
+          />
+        ))}
+      </div>
 
       <div>
         <p className="mb-2 text-body-sm font-medium text-ink">Length</p>
@@ -422,7 +532,12 @@ function CopyAccountNumber({ accountNumber }: { accountNumber: string }) {
   return (
     <span className="inline-flex items-center gap-2">
       <span className="font-mono">{accountNumber}</span>
-      <Button variant="ghost" size="sm" onClick={() => void copy()}>
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-label="Copy account number"
+        onClick={() => void copy()}
+      >
         {copied ? (
           <Check aria-hidden="true" className="size-3.5" />
         ) : (

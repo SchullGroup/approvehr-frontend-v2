@@ -1,6 +1,7 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { ApiBilling } from "@/lib/api/endpoints";
 import { billingApi, type ApiCheckout, type ApiPlan } from "@/lib/api/billing";
@@ -262,13 +263,17 @@ describe("polling while on the transfer step", () => {
     render(<PayScreen api={api} refresh={refresh} pollMs={10_000} />);
     await flush();
     expect(screen.getByText(/Transfer exactly/)).toBeInTheDocument();
+    /* One call already: the eager refresh fired right after resume (ruling
+       1b), which is what lets the latch arm without waiting a full `pollMs`
+       — `WAITING.order` is non-null, so it already has. */
+    expect(refresh).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       vi.advanceTimersByTime(10_000);
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(refresh).toHaveBeenCalledTimes(2);
     expect(screen.queryByText(/Payment received/)).not.toBeInTheDocument();
 
     /* The payment lands: `order` goes null and `entitled` flips true, while
@@ -280,7 +285,7 @@ describe("polling while on the transfer step", () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(refresh).toHaveBeenCalledTimes(3);
     expect(screen.getByText(/Payment received/)).toBeInTheDocument();
 
     await act(async () => {
@@ -288,7 +293,7 @@ describe("polling while on the transfer step", () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(refresh).toHaveBeenCalledTimes(3);
   });
 
   it("stops polling once the component unmounts", async () => {
@@ -302,6 +307,7 @@ describe("polling while on the transfer step", () => {
     );
     await flush();
     expect(screen.getByText(/Transfer exactly/)).toBeInTheDocument();
+    const callsBeforeUnmount = refresh.mock.calls.length;
 
     unmount();
 
@@ -310,7 +316,125 @@ describe("polling while on the transfer step", () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(refresh).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledTimes(callsBeforeUnmount);
+  });
+});
+
+describe("the stale pre-order session (fix round 1, item 1 — CRITICAL)", () => {
+  /**
+   * `billing` is the *last* `/auth/me`. For a `TRIALING`, `ACTIVE` or
+   * `GRACE` company it already reads `order: null, entitled: true` before
+   * this screen's order ever existed — the exact shape that, without a
+   * latch, satisfies the raw "paid" condition the instant `transfer`
+   * renders, with no money having moved. Both tests below start from
+   * exactly that stale snapshot, via the two paths that reach `transfer`:
+   * a fresh checkout and a resume.
+   */
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("via a fresh checkout: stays on transfer until the session has actually seen the order, then the payment", async () => {
+    billing = { ...WAITING, status: "TRIALING", entitled: true, order: null };
+    /* Fake timers from the start: the polling `setInterval` this test needs
+       to advance has to be registered under the *same* timer engine the
+       test later drives with `vi.advanceTimersByTime` — switching to fake
+       timers only after Continue leaves that interval on the real clock,
+       invisible to the fake one. `fireEvent` rather than `userEvent` for the
+       two clicks below, since `userEvent` schedules its own internal delays
+       and hangs against a fake clock regardless of the `advanceTimers`
+       option; `fireEvent` dispatches synchronously and needs neither. */
+    vi.useFakeTimers();
+    const api = fakeApi();
+    const refresh = vi.fn(() => Promise.resolve());
+
+    render(<PayScreen api={api} refresh={refresh} pollMs={10_000} />);
+    await flush();
+
+    fireEvent.click(screen.getByRole("radio", { name: /Growth/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await flush();
+
+    /* Transfer shows (the account number is visible) — but NOT "Payment
+       received", even though the still-stale session already reads
+       `order: null, entitled: true`. */
+    expect(screen.getByText("1234567890")).toBeInTheDocument();
+    expect(screen.queryByText(/Payment received/)).not.toBeInTheDocument();
+    /* The eager refresh from ruling 1b, fired right after checkout
+       succeeds. */
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    /* The session catches up: it now knows about this order. Still not
+       paid — the order hasn't cleared yet. */
+    billing = {
+      ...billing,
+      order: {
+        planId: "growth-id",
+        planName: "Growth",
+        months: 3,
+        amountKobo: 15_000_000,
+      },
+    };
+    await act(async () => {
+      vi.advanceTimersByTime(10_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/Payment received/)).not.toBeInTheDocument();
+
+    /* The payment actually lands. */
+    billing = { ...billing, order: null, entitled: true };
+    await act(async () => {
+      vi.advanceTimersByTime(10_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(refresh).toHaveBeenCalledTimes(3);
+    expect(screen.getByText(/Payment received/)).toBeInTheDocument();
+  });
+
+  it("via resume: stays on transfer until the session has actually seen the order, then the payment", async () => {
+    billing = { ...WAITING, status: "ACTIVE", entitled: true, order: null };
+    vi.useFakeTimers();
+    const api = fakeApi({
+      currentCheckout: vi.fn(() => Promise.resolve(CHECKOUT)),
+    });
+    const refresh = vi.fn(() => Promise.resolve());
+
+    render(<PayScreen api={api} refresh={refresh} pollMs={10_000} />);
+    await flush();
+
+    expect(screen.getByText("1234567890")).toBeInTheDocument();
+    expect(screen.queryByText(/Payment received/)).not.toBeInTheDocument();
+    /* The eager refresh from ruling 1b, fired right after the resume. */
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    billing = {
+      ...billing,
+      order: {
+        planId: "growth-id",
+        planName: "Growth",
+        months: 3,
+        amountKobo: 15_000_000,
+      },
+    };
+    await act(async () => {
+      vi.advanceTimersByTime(10_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/Payment received/)).not.toBeInTheDocument();
+
+    billing = { ...billing, order: null, entitled: true };
+    await act(async () => {
+      vi.advanceTimersByTime(10_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(refresh).toHaveBeenCalledTimes(3);
+    expect(screen.getByText(/Payment received/)).toBeInTheDocument();
   });
 });
 
@@ -365,5 +489,121 @@ describe("an ordinary checkout failure", () => {
       screen.getByRole("button", { name: "Continue" }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Transfer exactly/)).not.toBeInTheDocument();
+  });
+});
+
+describe("when loading fails (fix round 1, item 2)", () => {
+  it("shows Try again instead of a stuck Loading… when plans() itself fails, and retries on click", async () => {
+    const user = userEvent.setup();
+    const plans = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new ApiError(
+          500,
+          "server_error",
+          "Could not reach the plans just now.",
+        ),
+      )
+      .mockResolvedValueOnce([GROWTH]);
+    const api = fakeApi({ plans });
+    render(<PayScreen api={api} refresh={vi.fn()} />);
+
+    expect(
+      await screen.findByText("Could not reach the plans just now."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Loading plans…")).not.toBeInTheDocument();
+    expect(screen.queryByText("Growth")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(await screen.findByText("Growth")).toBeInTheDocument();
+    expect(plans).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders the plan cards and shows the open-order check's error inline when only that call fails", async () => {
+    const api = fakeApi({
+      currentCheckout: vi.fn(() =>
+        Promise.reject(
+          new ApiError(
+            500,
+            "server_error",
+            "Could not check for an order just now.",
+          ),
+        ),
+      ),
+    });
+    render(<PayScreen api={api} refresh={vi.fn()} />);
+
+    expect(await screen.findByText("Growth")).toBeInTheDocument();
+    expect(
+      screen.getByText("Could not check for an order just now."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Loading plans…")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Try again" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("copying the account number (fix round 1, item 3)", () => {
+  it("has the accessible name 'Copy account number'", async () => {
+    const api = fakeApi({
+      currentCheckout: vi.fn(() => Promise.resolve(CHECKOUT)),
+    });
+    render(<PayScreen api={api} refresh={vi.fn()} />);
+
+    expect(
+      await screen.findByRole("button", { name: "Copy account number" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a success toast when the clipboard write succeeds", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    const api = fakeApi({
+      currentCheckout: vi.fn(() => Promise.resolve(CHECKOUT)),
+    });
+    render(
+      <ToastProvider>
+        <PayScreen api={api} refresh={vi.fn()} />
+      </ToastProvider>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Copy account number" }),
+    );
+
+    expect(writeText).toHaveBeenCalledWith("1234567890");
+    expect(
+      await screen.findByText("Account number copied"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the fallback message when the clipboard write fails", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn(() => Promise.reject(new Error("denied"))) },
+      configurable: true,
+    });
+    const api = fakeApi({
+      currentCheckout: vi.fn(() => Promise.resolve(CHECKOUT)),
+    });
+    render(
+      <ToastProvider>
+        <PayScreen api={api} refresh={vi.fn()} />
+      </ToastProvider>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Copy account number" }),
+    );
+
+    expect(
+      await screen.findByText("Could not reach the clipboard"),
+    ).toBeInTheDocument();
   });
 });
