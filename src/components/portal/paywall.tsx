@@ -38,10 +38,15 @@ function headingFor(billing: ApiBilling, timeZone: string): string {
  * caller rather than here — this component has no opinion on permissions,
  * only on what to show for each of the two answers.
  *
- * The outer padding matches `PageBody` in `shell.tsx` exactly, copied rather
- * than imported: `shell.tsx` renders `BillingGate`, which renders this, so
- * importing `PageBody` from it would be a cycle through the app's one
- * central module.
+ * `BillingGate` replaces a route's `children`, which is where that route's
+ * own `PageHeader` normally lives — so without one, a locked page has no
+ * `h1` at all. The markup and classes below are `PageHeader`'s own, for a
+ * title-only call (`<PageHeader title="Subscription" />`, no breadcrumb,
+ * meta, description, action or tabs), copied rather than imported for the
+ * same reason as `PageBody` just below: `shell.tsx` renders `BillingGate`,
+ * which renders this, so importing from it would be a cycle through the
+ * app's one central module. Keep these two blocks in step with
+ * `PageHeader`/`PageBody` in `shell.tsx` if either changes.
  */
 export function Paywall({
   billing,
@@ -52,23 +57,36 @@ export function Paywall({
 }) {
   const timeZone = useOrgTimezone();
   return (
-    <div className="px-5 py-6 sm:px-7">
-      <Card>
-        <EmptyState
-          icon={<CreditCard aria-hidden="true" />}
-          title={headingFor(billing, timeZone)}
-          description={
-            canPay ? undefined : "Ask your administrator to subscribe."
-          }
-          action={
-            canPay ? (
-              <ButtonLink href="/billing/pay" variant="accent">
-                Subscribe / Pay
-              </ButtonLink>
-            ) : undefined
-          }
-        />
-      </Card>
-    </div>
+    <>
+      <div className="grid-fade border-b border-line">
+        <div className="px-5 pt-6 sm:px-7">
+          <div className="flex flex-wrap items-start justify-between gap-4 pb-5">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="text-h3 text-ink">Subscription</h1>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="px-5 py-6 sm:px-7">
+        <Card>
+          <EmptyState
+            icon={<CreditCard aria-hidden="true" />}
+            title={headingFor(billing, timeZone)}
+            description={
+              canPay ? undefined : "Ask your administrator to subscribe."
+            }
+            action={
+              canPay ? (
+                <ButtonLink href="/billing/pay" variant="accent">
+                  Subscribe / Pay
+                </ButtonLink>
+              ) : undefined
+            }
+          />
+        </Card>
+      </div>
+    </>
   );
 }

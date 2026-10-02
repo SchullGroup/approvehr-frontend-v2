@@ -90,6 +90,15 @@ describe("when a company is locked out", () => {
     expect(screen.getByText(/Your subscription ended on/)).toBeInTheDocument();
   });
 
+  it("renders a page-level heading, since BillingGate replaces the route's own PageHeader", () => {
+    billing = { ...LOCKED };
+    pathname = "/dashboard";
+    mount();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Subscription" }),
+    ).toBeInTheDocument();
+  });
+
   it("still renders children on /billing/pay", () => {
     billing = { ...LOCKED };
     pathname = "/billing/pay";
