@@ -37,6 +37,7 @@ import {
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
+import { BillingCard } from "./billing-card";
 import {
   checklistProgress,
   checklistRows,
@@ -463,6 +464,7 @@ export function SettingsScreen() {
 
         <section>
           <h2 className="mb-4 text-meta font-semibold text-muted">Ongoing</h2>
+          <BillingCard />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {ONGOING.map((item) => (
               <LinkCard
