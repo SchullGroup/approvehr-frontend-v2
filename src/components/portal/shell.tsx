@@ -44,6 +44,7 @@ import { useCompanyLogo } from "@/lib/store/company";
 import { HolidayBanner } from "./holiday-banner";
 import { InstallPrompt } from "./install-prompt";
 import { VerificationBanner } from "./verification-banner";
+import { BillingBanner } from "./billing-banner";
 import { BillingGate } from "./billing-gate";
 
 /**
@@ -348,6 +349,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               offset the sidebar's own sticky nav uses (the header's height),
               so it stays on screen through a scroll rather than scrolling
               away with the page. */}
+          <BillingBanner />
           <VerificationBanner />
           {/* Below the verification strip, because verifying an email is
               something you have to do and installing the app is a suggestion.
