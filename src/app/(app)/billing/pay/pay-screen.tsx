@@ -27,7 +27,7 @@ import type { ApiBilling } from "@/lib/api/endpoints";
  * Subscribe / Pay — choose a plan and length, see the exact amount and the
  * company's own account, then watch it clear on its own.
  *
- * ## The success signal (binding), and the latch it actually needs
+ * ## The success signal (binding), and why it is a baseline, not a latch
  *
  * The screen switches to `done` when `billing.order === null && billing.entitled
  * === true` — never `status === "ACTIVE"` alone. A company renewing early is
@@ -36,28 +36,43 @@ import type { ApiBilling } from "@/lib/api/endpoints";
  * matched to this charge. See `constraints.md` and the polling suite in
  * `tests/billing-pay-screen.test.tsx`.
  *
- * That raw condition is not enough on its own, though: `billing` comes from
- * the *last* `/auth/me`, which for a `TRIALING`, `ACTIVE` or `GRACE` company
+ * That raw condition is not enough on its own: `billing` comes from the
+ * *last* `/auth/me`, which for a `TRIALING`, `ACTIVE` or `GRACE` company
  * already reads `order: null, entitled: true` — before this screen's order
  * ever existed. The instant `continueToTransfer` (or a resume) moves to
  * `transfer`, that stale snapshot satisfies the raw condition with no money
- * having moved. `orderObserved` guards against exactly this: it only ever
- * arms once a render has actually seen `billing.order !== null` while on
- * `transfer` — proof the session knows about *this* order — and `paid`
- * additionally requires it. Detected and set **during render**, the same
- * render-phase-update pattern `src/hooks/use-dismiss.ts` uses (see its own
- * header comment on why: this is a render-time question, and answering it
- * from an effect would be the `react-hooks/set-state-in-effect` anti-pattern
- * that rule exists to catch, for an extra commit-and-paint round trip with
- * no benefit). It resets wherever a new order context begins (a fresh
- * checkout, a resume) or ends (Change plan) — ordinary `setState` calls at
- * those call sites, not render-phase ones, since nothing there needs to
- * happen "as part of rendering." `continueToTransfer` and the resume branch
- * below also call `refresh()` once, eagerly, so the latch has a chance to
- * arm immediately rather than waiting a full `pollMs` — but never *only*
- * that, because `refreshSession` swallows its own errors and a dropped
- * eager call must not leave the latch permanently unarmed; the ordinary
- * poll still arms it on its own next tick.
+ * having moved.
+ *
+ * An earlier version guarded this by requiring a render to have *witnessed*
+ * `billing.order !== null` first — proof the session knew about this order —
+ * before trusting a later `null`. That has a race no amount of eager
+ * refreshing closes: if the transfer is matched before the component's first
+ * post-checkout read of `billing` (plausible against a fast-settling
+ * provider, and the one this screen is first exercised against is a fake one
+ * that confirms near-instantly), the order is already `null` on the very
+ * first read — never witnessed open — and the witness-flag then never arms,
+ * ever, because there is no later transition left to observe. The screen
+ * would show transfer instructions forever to a company that had already
+ * paid.
+ *
+ * `periodEndBaseline` instead records what `billing.currentPeriodEnd` *was*
+ * the moment this order began (a fresh checkout, or a resumed one) — a
+ * value, not an event, so there is nothing to race: however fast or slow
+ * settlement is, by the time anything is read, `currentPeriodEnd` either
+ * still equals the baseline (nothing has been applied yet — including the
+ * renewing-early company's pre-existing stale snapshot, which has the *same*
+ * `currentPeriodEnd` as the baseline, since nothing new has extended it) or
+ * it has moved to a later value (`applyToSubscription` on the API always
+ * advances it past `now`, never leaves it standing — see
+ * `approvehr-backend/src/modules/billing/service.ts`). `paid` requires both:
+ * the period end has moved, *and* `order` has gone `null`. Captured in
+ * `continueToTransfer` and the resume branch below from whatever `billing`
+ * already was at that moment (a plain `setState`, not render-phase — there is
+ * nothing here answerable from the render in progress, unlike the derived
+ * `paid` below). Both call sites also call `refresh()` once, eagerly, purely
+ * so the poll does not have to wait a full `pollMs` for the first fresh
+ * read — `refreshSession` swallows its own errors, and a dropped eager call
+ * loses nothing: the ordinary poll tries again on its own next tick.
  *
  * ## Why `billing` comes from the real `useBilling()`, not a prop
  *
@@ -124,7 +139,16 @@ export function PayScreen({
   const [submitting, setSubmitting] = useState(false);
   const [, setPollTick] = useState(0);
   const [reloadToken, setReloadToken] = useState(0);
-  const [orderObserved, setOrderObserved] = useState(false);
+  /**
+   * What `billing.currentPeriodEnd` was the moment the order this screen is
+   * showing began. `undefined` means no order is in progress; `null` is a
+   * real, comparable value (a company with no subscription yet has never
+   * had one). See the header comment for why a baseline rather than a
+   * witnessed transition.
+   */
+  const [periodEndBaseline, setPeriodEndBaseline] = useState<
+    string | null | undefined
+  >(undefined);
 
   /* On mount, and again on "Try again": the administrator-only screens fetch
      nothing at all. Otherwise load the open order and the price list
@@ -132,8 +156,10 @@ export function PayScreen({
      failed `currentCheckout()` must not discard a successful `plans()` (or
      the reverse) — and resume straight into `transfer` if there already is
      an order. `setLoadError(null)` lives inside the async callback below,
-     not the effect's own synchronous top level, for the same
-     `react-hooks/set-state-in-effect` reason explained on `orderObserved`. */
+     not the effect's own synchronous top level, so it only fires once the
+     effect actually has something to report — an unconditional call at the
+     top would flash the error state away and straight back on every
+     `reloadToken` bump, even while the new request is still in flight. */
   useEffect(() => {
     if (!canPay) return;
     let cancelled = false;
@@ -163,14 +189,14 @@ export function PayScreen({
       }
 
       if (currentResult.status === "fulfilled" && currentResult.value) {
-        setOrderObserved(false);
+        setPeriodEndBaseline(billing?.currentPeriodEnd ?? null);
         setCheckout(currentResult.value);
         setStep("transfer");
         try {
-          /* Eager, so the latch below can arm on this order immediately
-             rather than waiting a full `pollMs` — see the header comment.
-             Swallowed: `refreshSession` already swallows its own errors,
-             and a test double standing in for it might not. */
+          /* Eager, so the first poll does not have to wait a full `pollMs`
+             for a fresh read — see the header comment. Swallowed:
+             `refreshSession` already swallows its own errors, and a test
+             double standing in for it might not. */
           await refresh();
         } catch {
           // See above.
@@ -180,34 +206,19 @@ export function PayScreen({
     return () => {
       cancelled = true;
     };
+    // `billing` deliberately omitted: this must read whatever it already was
+    // at the moment the effect ran, not re-run every time billing changes
+    // elsewhere in the app (every poll tick on this very screen included).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, canPay, refresh, reloadToken]);
-
-  /* Arms once a render has actually seen this session know about an open
-     order while on `transfer` — proof `billing` is no longer the stale
-     pre-order snapshot. Set **during render** (React's documented
-     "adjust state while rendering" pattern — see `src/hooks/use-dismiss.ts`
-     for the precedent this follows), not from an effect: this is a
-     render-time question answerable from this render's own `step` and
-     `billing`, and the `!orderObserved` guard is what keeps it from looping
-     — once true, the condition is false on every later render until
-     something explicitly resets it. Monotonic while armed: a later render
-     where `order` has gone `null` again (the payment landing) does not
-     re-disarm it. */
-  if (
-    step === "transfer" &&
-    billing &&
-    billing.order !== null &&
-    !orderObserved
-  ) {
-    setOrderObserved(true);
-  }
 
   const paid =
     step === "transfer" &&
-    orderObserved &&
+    periodEndBaseline !== undefined &&
     !!billing &&
     billing.order === null &&
-    billing.entitled === true;
+    billing.entitled === true &&
+    billing.currentPeriodEnd !== periodEndBaseline;
 
   /* `done` is derived, never written: a store a render away from an effect
      that writes it back is exactly the cascading-render shape
@@ -247,14 +258,15 @@ export function PayScreen({
         planId: selectedPlan.id,
         months,
       });
-      setOrderObserved(false);
+      setPeriodEndBaseline(billing?.currentPeriodEnd ?? null);
       setCheckout(result);
       setStep("transfer");
       try {
         /* Eager, for the same reason the resume branch above calls it —
-           so the latch can arm on *this* order immediately. Swallowed for
-           the same reason: a dropped call must not block the ordinary poll
-           from arming it on its own next tick. */
+           so the first poll does not have to wait a full `pollMs` for a
+           fresh read. Swallowed for the same reason: a dropped call must
+           not block the ordinary poll from catching up on its own next
+           tick. */
         await refresh();
       } catch {
         // See above.
@@ -308,7 +320,7 @@ export function PayScreen({
         checkout={checkout}
         unappliedKobo={billing?.unappliedKobo ?? 0}
         onChangePlan={() => {
-          setOrderObserved(false);
+          setPeriodEndBaseline(undefined);
           setStep("choose");
         }}
       />

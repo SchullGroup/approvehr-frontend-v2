@@ -276,9 +276,15 @@ describe("polling while on the transfer step", () => {
     expect(refresh).toHaveBeenCalledTimes(2);
     expect(screen.queryByText(/Payment received/)).not.toBeInTheDocument();
 
-    /* The payment lands: `order` goes null and `entitled` flips true, while
-       `status` was ACTIVE the whole time. */
-    billing = { ...billing, order: null, entitled: true };
+    /* The payment lands: `order` goes null, `entitled` flips true, and the
+       subscription's period actually extends — while `status` was ACTIVE
+       the whole time. */
+    billing = {
+      ...billing,
+      order: null,
+      entitled: true,
+      currentPeriodEnd: "2026-11-01T00:00:00.000Z",
+    };
 
     await act(async () => {
       vi.advanceTimersByTime(10_000);
@@ -383,8 +389,15 @@ describe("the stale pre-order session (fix round 1, item 1 — CRITICAL)", () =>
     expect(refresh).toHaveBeenCalledTimes(2);
     expect(screen.queryByText(/Payment received/)).not.toBeInTheDocument();
 
-    /* The payment actually lands. */
-    billing = { ...billing, order: null, entitled: true };
+    /* The payment actually lands: the subscription's period genuinely
+       extends, which is the one fact that cannot also be true of the stale
+       pre-order snapshot this test started from. */
+    billing = {
+      ...billing,
+      order: null,
+      entitled: true,
+      currentPeriodEnd: "2026-11-01T00:00:00.000Z",
+    };
     await act(async () => {
       vi.advanceTimersByTime(10_000);
       await Promise.resolve();
@@ -427,13 +440,56 @@ describe("the stale pre-order session (fix round 1, item 1 — CRITICAL)", () =>
     expect(refresh).toHaveBeenCalledTimes(2);
     expect(screen.queryByText(/Payment received/)).not.toBeInTheDocument();
 
-    billing = { ...billing, order: null, entitled: true };
+    billing = {
+      ...billing,
+      order: null,
+      entitled: true,
+      currentPeriodEnd: "2026-11-01T00:00:00.000Z",
+    };
     await act(async () => {
       vi.advanceTimersByTime(10_000);
       await Promise.resolve();
       await Promise.resolve();
     });
     expect(refresh).toHaveBeenCalledTimes(3);
+    expect(screen.getByText(/Payment received/)).toBeInTheDocument();
+  });
+
+  it("recognises a payment that clears before the first refresh resolves, not only one witnessed open first", async () => {
+    /* The fast-settlement case the baseline (vs. a witnessed-open latch)
+       exists for: by the time the *very first* refresh after checkout
+       resolves, the transfer has already cleared — `order` was never seen
+       non-null on this order at all. A latch that required witnessing
+       `order !== null` first could never arm here, and the screen would be
+       stuck on transfer instructions forever despite the company having
+       paid. */
+    const base: ApiBilling = {
+      ...WAITING,
+      status: "TRIALING",
+      entitled: false,
+      order: null,
+    };
+    billing = base;
+    vi.useFakeTimers();
+    const api = fakeApi();
+    const refresh = vi.fn(() => {
+      billing = {
+        ...base,
+        order: null,
+        entitled: true,
+        currentPeriodEnd: "2026-11-01T00:00:00.000Z",
+      };
+      return Promise.resolve();
+    });
+
+    render(<PayScreen api={api} refresh={refresh} pollMs={10_000} />);
+    await flush();
+
+    fireEvent.click(screen.getByRole("radio", { name: /Growth/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await flush();
+
+    expect(refresh).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/Payment received/)).toBeInTheDocument();
   });
 });

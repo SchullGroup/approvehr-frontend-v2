@@ -46,6 +46,12 @@ export type ApiBilling = {
   lockedSince: string | null;
   cancelledAt: string | null;
   order: {
+    /**
+     * Optional because an API a deploy behind this frontend hands back the
+     * same four fields with no `id` — see `pay-screen.tsx`'s latch, which is
+     * the one reader that needs it and falls back when it is absent.
+     */
+    id?: string;
     planId: string;
     planName: string;
     months: number;
