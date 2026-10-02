@@ -153,11 +153,21 @@ export function markSignedIn(user: ApiUser): void {
  * Re-read `/auth/me` into the session, for a screen that knows the answer has
  * changed server-side — the Pay screen, watching for a payment to land. A
  * failure leaves the session as it was: this is a refresh, not a sign-in.
+ *
+ * Skips `set()` when the fetched user is structurally identical to what is
+ * already cached. The Pay screen polls this every `pollMs` while waiting on
+ * a transfer, and `useSession()` reads the store through
+ * `useSyncExternalStore` — writing a brand-new object on every tick, even
+ * when nothing changed, notified every consumer of every poll, including
+ * `AppShell`'s `visibleNav` `useMemo` (it depends on `billing`). A plain
+ * `JSON.stringify` comparison is enough: `me` is small JSON straight off the
+ * wire, with no functions, dates-as-objects or cycles to trip it up.
  */
 export async function refreshSession(): Promise<void> {
   if (cache.status !== "signed_in" || cache.mode !== "api") return;
   try {
     const me = await auth.me();
+    if (JSON.stringify(me) === JSON.stringify(cache.user)) return;
     set({ ...cache, user: me });
   } catch {
     /* Keep what we had; the next restore or poll tries again. */

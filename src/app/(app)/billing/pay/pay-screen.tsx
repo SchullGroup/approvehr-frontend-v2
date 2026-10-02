@@ -292,6 +292,11 @@ export function PayScreen({
         <EmptyState
           icon={<CreditCard aria-hidden="true" />}
           title="Online payment isn't available yet — contact support to subscribe."
+          action={
+            <Button variant="secondary" onClick={() => setNotSetUp(false)}>
+              Back to plans
+            </Button>
+          }
         />
       </Card>
     );

@@ -464,6 +464,42 @@ describe("when payments are not configured", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it("has a Back to plans control that returns to the plan cards", async () => {
+    const user = userEvent.setup();
+    const api = fakeApi({
+      checkout: vi.fn(() =>
+        Promise.reject(
+          new ApiError(
+            422,
+            "payments_not_configured",
+            "Payments are not set up on this server yet.",
+          ),
+        ),
+      ),
+    });
+    render(<PayScreen api={api} refresh={vi.fn()} />);
+    await flush();
+
+    await user.click(screen.getByRole("radio", { name: /Growth/ }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    await screen.findByText(
+      "Online payment isn't available yet — contact support to subscribe.",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Back to plans" }));
+
+    expect(screen.getByText("Growth")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Continue" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Online payment isn't available yet — contact support to subscribe.",
+      ),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("an ordinary checkout failure", () => {
