@@ -13,6 +13,7 @@ import {
   EmptyState,
   Skeleton,
   Stat,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -77,8 +78,8 @@ export function InterviewsScreen() {
               title="You cannot see interviews"
               description="An interview record names a candidate and what was said about them, so it is kept to whoever hires or approves hiring. Ask whoever manages access to add one of those to your role."
               action={
-                <ButtonLink href="/dashboard" variant="secondary" size="sm">
-                  Back to your dashboard
+                <ButtonLink href="/hiring" variant="secondary" size="sm">
+                  Back to hiring
                 </ButtonLink>
               }
             />
@@ -129,7 +130,7 @@ function Diary() {
     <>
       <PageHeader
         breadcrumb={[
-          { href: "/hiring", label: "Pipeline" },
+          { href: "/hiring", label: "Hiring" },
           { href: "/hiring/interviews", label: "Interviews" },
         ]}
         title="Interviews"
@@ -154,25 +155,43 @@ function Diary() {
               </Button>
             </LoadFailure>
             <div className="grid gap-4 sm:grid-cols-3">
-              <Stat
-                label="Waiting to be screened"
-                value={String(backlog.numbers.waiting)}
-                icon={<TriangleAlert aria-hidden="true" />}
-                hint={
-                  backlog.numbers.waiting > 0
-                    ? "nobody has looked yet"
-                    : "queue is clear"
-                }
-              />
-              <Stat
-                label="Screened in"
-                value={String(backlog.numbers.advanced)}
-                hint="in a pipeline somewhere"
-              />
-              <Stat
-                label="People who applied"
-                value={String(backlog.numbers.applications)}
-              />
+              <Link
+                href="/hiring/postings/applications?status=RECEIVED"
+                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <Stat
+                  label="Waiting to be screened"
+                  value={String(backlog.numbers.waiting)}
+                  icon={<TriangleAlert aria-hidden="true" />}
+                  hint={
+                    backlog.numbers.waiting > 0
+                      ? "nobody has looked yet"
+                      : "queue is clear"
+                  }
+                  className="transition-colors group-hover:border-accent"
+                />
+              </Link>
+              <Link
+                href="/hiring/postings/applications?status=ADVANCED"
+                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <Stat
+                  label="Screened in"
+                  value={String(backlog.numbers.advanced)}
+                  hint="in a pipeline somewhere"
+                  className="transition-colors group-hover:border-accent"
+                />
+              </Link>
+              <Link
+                href="/hiring/postings/applications?status=ALL"
+                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <Stat
+                  label="People who applied"
+                  value={String(backlog.numbers.applications)}
+                  className="transition-colors group-hover:border-accent"
+                />
+              </Link>
             </div>
             {backlog.numbers.waiting > 0 && (
               <ButtonLink
@@ -289,21 +308,18 @@ function Diary() {
 
                       <div className="min-w-0 flex-1">
                         <p className="text-body-sm font-medium text-ink">
-                          <Link
-                            href={`/hiring/candidates/${card.id}`}
-                            className="hover:text-accent-text hover:underline underline-offset-4"
-                          >
+                          <TextLink href={`/hiring/candidates/${card.id}`}>
                             {fullName(card.candidate)}
-                          </Link>
+                          </TextLink>
                         </p>
                         <p className="text-meta text-muted">
                           {KIND_LABEL[iv.kind] ?? iv.kind} ·{" "}
-                          <Link
+                          <TextLink
                             href={`/hiring/requisitions/${card.requisitionId}`}
-                            className="hover:text-accent-text hover:underline underline-offset-4"
+                            className="font-normal"
                           >
                             {card.requisition.title}
-                          </Link>
+                          </TextLink>
                         </p>
                         <p className="tabular mt-0.5 text-meta text-muted">
                           {formatTime(iv.scheduledFor, timeZone)} ·{" "}

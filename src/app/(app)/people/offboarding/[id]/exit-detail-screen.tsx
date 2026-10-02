@@ -70,7 +70,17 @@ export function ExitDetailScreen({ id }: { id: string }) {
   const toast = useToast();
 
   const isHr = useCan("EDIT_RECORDS");
-  const canApproveAsManager = useCan("APPROVE_LEAVE_ALL");
+  /* Company-wide, or the narrower door: `APPROVE_LEAVE` plus actually being
+     this person's own manager — the API checks the identical pair (see
+     `mayReleaseAsManager` in offboarding/service.ts) and this mirrors it
+     rather than gating only on the blanket permission, which used to leave an
+     ordinary line manager reading "Femi Lead has to release them" about
+     themselves with no button to press. */
+  const holdsApproveLeaveAll = useCan("APPROVE_LEAVE_ALL");
+  const holdsApproveLeave = useCan("APPROVE_LEAVE");
+  const canApproveAsManager =
+    holdsApproveLeaveAll ||
+    (holdsApproveLeave && exit?.manager?.id === employeeId);
 
   const [closing, setClosing] = useState(false);
   const [declining, setDeclining] = useState(false);

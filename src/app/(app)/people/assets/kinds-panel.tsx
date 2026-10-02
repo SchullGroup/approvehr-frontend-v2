@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Boxes, Plus } from "lucide-react";
+import { cn } from "@/lib/cn";
 import {
   Badge,
   Button,
@@ -118,40 +119,103 @@ export function KindsPanel({
               : {})}
           />
         ) : (
-          <TableWrap
-            className="rounded-none border-0"
-            caption="Kinds of equipment"
-          >
-            <THead>
-              <TH>Kind</TH>
-              <TH align="right">Things</TH>
-              <TH>Hand back on exit</TH>
-              <TH align="right">
-                <span className="sr-only">Actions</span>
-              </TH>
-            </THead>
-            <TBody>
-              {kinds.map((kind) => (
-                <TR
-                  key={kind.id}
-                  className={kind.active ? undefined : "opacity-60"}
-                >
-                  <TDPrimary
-                    title={
-                      <span className="flex flex-wrap items-center gap-2">
-                        {kind.name}
-                        {!kind.active && (
-                          <Badge tone="neutral" size="sm">
-                            Switched off
-                          </Badge>
+          <>
+            <div className="hidden sm:block">
+              <TableWrap
+                className="rounded-none border-0"
+                caption="Kinds of equipment"
+              >
+                <THead>
+                  <TH>Kind</TH>
+                  <TH align="right">Things</TH>
+                  <TH>Hand back on exit</TH>
+                  <TH align="right">
+                    <span className="sr-only">Actions</span>
+                  </TH>
+                </THead>
+                <TBody>
+                  {kinds.map((kind) => (
+                    <TR
+                      key={kind.id}
+                      className={kind.active ? undefined : "opacity-60"}
+                    >
+                      <TDPrimary
+                        title={
+                          <span className="flex flex-wrap items-center gap-2">
+                            {kind.name}
+                            {!kind.active && (
+                              <Badge tone="neutral" size="sm">
+                                Switched off
+                              </Badge>
+                            )}
+                          </span>
+                        }
+                      />
+                      <TD align="right" className="tabular text-body-sm">
+                        {kind.itemCount}
+                      </TD>
+                      <TD>
+                        {canManage ? (
+                          <Switch
+                            label={kind.returnRequired ? "Yes" : "No"}
+                            checked={kind.returnRequired}
+                            onChange={(e) => {
+                              const value = e.target.checked;
+                              void onEdit(kind.id, { returnRequired: value });
+                            }}
+                          />
+                        ) : (
+                          <span className="text-body-sm text-body">
+                            {kind.returnRequired ? "Yes" : "No"}
+                          </span>
                         )}
-                      </span>
-                    }
-                  />
-                  <TD align="right" className="tabular text-body-sm">
-                    {kind.itemCount}
-                  </TD>
-                  <TD>
+                      </TD>
+                      <TD align="right">
+                        {canManage && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              void onEdit(kind.id, { active: !kind.active })
+                            }
+                          >
+                            {kind.active ? "Switch off" : "Switch on"}
+                          </Button>
+                        )}
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
+              {kinds.map((kind) => (
+                <li
+                  key={kind.id}
+                  className={cn(
+                    "flex flex-col gap-2 p-4",
+                    !kind.active && "opacity-60",
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                      {kind.name}
+                      {!kind.active && (
+                        <Badge tone="neutral" size="sm">
+                          Switched off
+                        </Badge>
+                      )}
+                    </span>
+                    <span className="tabular shrink-0 text-body-sm text-muted">
+                      {kind.itemCount} things
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-body-sm text-muted">
+                      Hand back on exit
+                    </span>
                     {canManage ? (
                       <Switch
                         label={kind.returnRequired ? "Yes" : "No"}
@@ -166,24 +230,24 @@ export function KindsPanel({
                         {kind.returnRequired ? "Yes" : "No"}
                       </span>
                     )}
-                  </TD>
-                  <TD align="right">
-                    {canManage && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          void onEdit(kind.id, { active: !kind.active })
-                        }
-                      >
-                        {kind.active ? "Switch off" : "Switch on"}
-                      </Button>
-                    )}
-                  </TD>
-                </TR>
+                  </div>
+
+                  {canManage && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="self-start"
+                      onClick={() =>
+                        void onEdit(kind.id, { active: !kind.active })
+                      }
+                    >
+                      {kind.active ? "Switch off" : "Switch on"}
+                    </Button>
+                  )}
+                </li>
               ))}
-            </TBody>
-          </TableWrap>
+            </ul>
+          </>
         )}
       </Card>
 

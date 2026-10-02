@@ -6,6 +6,7 @@ import {
   CalendarPlus,
   DoorOpen,
   FileUp,
+  LogOut,
   Megaphone,
   PlayCircle,
   UserPlus,
@@ -95,6 +96,16 @@ const ACTIONS: readonly Action[] = [
     icon: <CalendarPlus aria-hidden="true" />,
     /* No permission: everybody has leave, including an account with no staff
        record behind it, which simply sees an empty list rather than a refusal. */
+  },
+  {
+    /* The self-service door: `Resign` on `/profile` needs no permission at
+       all and was reachable only by finding a closed disclosure there —
+       "Record an exit" below is HR starting somebody else's; this is
+       everybody's own, and it was the door people kept not finding. */
+    href: "/profile",
+    label: "Hand in my notice",
+    detail: "Your own resignation or retirement",
+    icon: <LogOut aria-hidden="true" />,
   },
   {
     href: "/hiring/postings",

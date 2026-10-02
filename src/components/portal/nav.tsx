@@ -3,6 +3,7 @@ import {
   BookOpen,
   BriefcaseBusiness,
   Building2,
+  CalendarCheck,
   CalendarClock,
   CalendarDays,
   CalendarRange,
@@ -44,6 +45,8 @@ import {
 import type { PermissionKey } from "@/lib/permissions";
 import type { FeatureKey } from "@/lib/api/setup";
 import { MODULES, type ModuleId } from "@/lib/marketing/modules";
+import { moduleLocked, type BillingModule } from "@/lib/billing";
+import type { ApiBilling } from "@/lib/api/endpoints";
 
 /**
  * Badges that are computed from a live store rather than typed in here.
@@ -216,11 +219,31 @@ export type NavItem = {
    * and so does `assistant` — neither is a question about the reader.
    */
   always?: boolean;
+
+  /**
+   * Set by `visibleNav`, never written here: the item's group costs money the
+   * company's plan does not include.
+   *
+   * Set alongside a rewritten `href` of `/billing/pay` — the one screen that
+   * always renders, locked or not — rather than left pointing at a screen
+   * whose API calls would just come back 402. The render side mutes the row
+   * and swaps its badge slot for a lock icon instead of hiding it: the point
+   * of a paywall is to be seen and explained, not to look like a feature that
+   * was never built.
+   */
+  locked?: boolean;
 };
 
 export type NavGroup = {
   heading?: string;
   items: NavItem[];
+
+  /**
+   * Which paid module this group belongs to, for `visibleNav` to check
+   * against the company's plan. Unset for `PERSONAL` and `COMPANY_WIDE` —
+   * neither is sold separately, so neither can ever be outside the plan.
+   */
+  billingModule?: BillingModule;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -341,6 +364,44 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/people/onboarding",
       label: "Onboarding",
       icon: <UserRoundPlus aria-hidden="true" />,
+      permission: "EDIT_RECORDS",
+    },
+    {
+      /* Between Onboarding and Exit management because that is where it sits in
+         somebody's employment: joined, confirmed, left.
+
+         **No `feature` key, on purpose.** `probationTracking` exists and this
+         item is deliberately not behind it — see `WORKFLOW_FEATURE_KEYS` in
+         `lib/api/setup.ts`. The flag decides whether new hires are *given* an
+         end date; the screen's second table is everybody already on a probation
+         nobody dated, which a company accumulates precisely while the flag is
+         off. Gating it would hide the list from the only people it is for, and
+         hide the switch that fixes it along with them. */
+      href: "/people/probation",
+      label: "Probation",
+      icon: <CalendarCheck aria-hidden="true" />,
+      permission: "EDIT_RECORDS",
+    },
+    {
+      /* **No permission**, and that is the point: every employee answers
+         surveys and a permission gate would hide the screen from the audience
+         it exists for. `MANAGE_SETTINGS` decides what the same route *shows* —
+         one route, narrowed by role rather than by URL, PARITY Rule 1. The
+         feature flag is what hides it from a company that does not run them. */
+      href: "/surveys",
+      label: "Surveys",
+      icon: <ClipboardList aria-hidden="true" />,
+      feature: "surveys",
+    },
+    {
+      /* After Probation and before Exit management: joined, confirmed,
+         promoted, left. `EDIT_RECORDS` because proposing a change is editing a
+         record; approving one needs `APPROVE_EMPLOYMENT_CHANGE`, and the
+         screen's own Decide button is gated on that separately — an approver
+         who cannot edit reaches this from the approvals queue instead. */
+      href: "/people/changes",
+      label: "Promotions",
+      icon: <TrendingUp aria-hidden="true" />,
       permission: "EDIT_RECORDS",
     },
     {
@@ -773,10 +834,21 @@ const COMPANY_WIDE: NavItem[] = [
 const comingSoon = (group: { items: readonly NavItem[] }): boolean =>
   group.items.length > 0 && group.items.every((item) => item.soon === true);
 
+/** Which paid module pays for each nav group. Personal and company-wide groups never lock. */
+const BILLING_MODULE_OF: Record<ModuleId, BillingModule> = {
+  "core-hr": "CORE_HR",
+  payroll: "PAYROLL",
+  time: "TIME_AND_LEAVE",
+  hiring: "RECRUITMENT",
+  performance: "PERFORMANCE",
+  desk: "HELPDESK",
+};
+
 export const NAV: NavGroup[] = [
   { items: PERSONAL },
   ...MODULES.map((module) => ({
     heading: module.label,
+    billingModule: BILLING_MODULE_OF[module.id],
     items: MODULE_ITEMS[module.id],
   })).sort((a, b) => Number(comingSoon(a)) - Number(comingSoon(b))),
   { items: COMPANY_WIDE },
@@ -818,6 +890,17 @@ export const NAV: NavGroup[] = [
  * which is the same answer in all but the rarest case (a role edited in another
  * tab mid-session). Rendering the fuller nav and settling is better than
  * flashing an empty sidebar at everybody on every load.
+ *
+ * ## A fifth question, asked last: is the module paid for
+ *
+ * `billing` is checked after everything above, not instead of it — a lock
+ * narrows what visibility already produced, it never widens it. An employee
+ * who cannot see Payroll by permission still cannot see it when the company's
+ * plan includes Payroll; there is nothing to lock because there was nothing to
+ * show. `moduleLocked` (see `lib/billing.ts`) is itself the source of the
+ * `enforced`/`billing: null` defaults — `undefined` here reads the same as
+ * `null` to it, which is why the parameter can be optional without a second
+ * copy of that reasoning.
  */
 export function visibleNav(
   groups: readonly NavGroup[],
@@ -829,11 +912,16 @@ export function visibleNav(
    * that depends on one; the reasoning for that direction is on the type.
    */
   facts: NavFacts = NOTHING_ANSWERED_YET,
+  /**
+   * The company's billing snapshot. Optional so every caller and test from
+   * before this question existed keeps compiling unchanged — see the doc
+   * above.
+   */
+  billing?: ApiBilling | null,
 ): NavGroup[] {
   return groups
-    .map((group) => ({
-      ...group,
-      items: group.items.flatMap((item) => {
+    .map((group) => {
+      const items = group.items.flatMap((item) => {
         if (item.feature !== undefined && features[item.feature] === false) {
           return [];
         }
@@ -861,7 +949,22 @@ export function visibleNav(
         }
         if (item.permission === undefined) return [item];
         return permissions.has(item.permission) ? [item] : [];
-      }),
-    }))
+      });
+
+      const locked =
+        group.billingModule !== undefined &&
+        moduleLocked(billing ?? null, group.billingModule);
+
+      return {
+        ...group,
+        items: locked
+          ? items.map((item) => ({
+              ...item,
+              locked: true,
+              href: "/billing/pay",
+            }))
+          : items,
+      };
+    })
     .filter((group) => group.items.length > 0);
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { DoorOpen } from "lucide-react";
 import {
   Badge,
@@ -15,6 +14,7 @@ import {
   Modal,
   ProgressMeter,
   Textarea,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
@@ -100,12 +100,12 @@ export function Resign() {
               a second place to keep the wording right, and the page is where
               somebody can see what withdrawing would stop. */}
           <div className="flex flex-col items-start gap-0.5">
-            <Link
+            <TextLink
               href={`/people/offboarding/${exit.id}`}
-              className="text-body-sm font-medium text-accent-text underline-offset-4 hover:underline"
+              className="text-body-sm"
             >
               Open my checklist
-            </Link>
+            </TextLink>
             <span className="text-meta text-faint">
               Changed your mind? You can withdraw it there.
             </span>

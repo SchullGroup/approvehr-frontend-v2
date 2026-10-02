@@ -54,7 +54,9 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       const names = await caches.keys();
-      await Promise.all(names.filter((n) => n !== CACHE).map((n) => caches.delete(n)));
+      await Promise.all(
+        names.filter((n) => n !== CACHE).map((n) => caches.delete(n)),
+      );
       await self.clients.claim();
     })(),
   );
@@ -131,7 +133,9 @@ self.addEventListener("push", (event) => {
        manifest and cached by the browser, so this costs no extra fetch. */
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
-    data: { href: typeof payload.href === "string" ? payload.href : "/dashboard" },
+    data: {
+      href: typeof payload.href === "string" ? payload.href : "/dashboard",
+    },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -146,7 +150,8 @@ self.addEventListener("push", (event) => {
  */
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const href = (event.notification.data && event.notification.data.href) || "/dashboard";
+  const href =
+    (event.notification.data && event.notification.data.href) || "/dashboard";
 
   event.waitUntil(
     (async () => {

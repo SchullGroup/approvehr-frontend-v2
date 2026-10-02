@@ -6,7 +6,8 @@ import { ApiError } from "@/lib/api/client";
 import type { ApiReview } from "@/lib/api/performance";
 
 /**
- * The employee's answer to their own rating.
+ * Answering a rating — one act the subject does for themselves, one HR does
+ * about them.
  *
  * One act: they record that they were shown it. **Acknowledging is not
  * agreeing**, and every line of copy here keeps those apart. An

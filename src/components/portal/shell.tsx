@@ -3,7 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronDown, ChevronLeft, Menu, Search, X } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  ChevronLeft,
+  Lock,
+  Menu,
+  Search,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useCanGoBack } from "@/lib/nav-history";
 import { Logo } from "@/components/brand/logo";
@@ -22,6 +30,7 @@ import {
   type BadgeSource,
   type NavFacts,
   type NavGroup,
+  type NavItem,
 } from "./nav";
 import { SessionRoleBadge } from "./role-badge";
 import {
@@ -41,8 +50,12 @@ import { useHaveIAnySignatures } from "@/lib/store/signatures";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
 import { useSession } from "@/lib/store/session";
 import { useCompanyLogo } from "@/lib/store/company";
+import { HolidayBanner } from "./holiday-banner";
 import { InstallPrompt } from "./install-prompt";
 import { VerificationBanner } from "./verification-banner";
+import { BillingBanner } from "./billing-banner";
+import { BillingGate } from "./billing-gate";
+import { useBilling } from "@/lib/billing";
 
 /**
  * The app shell. The sidebar is a light surface rather than a saturated slab:
@@ -163,9 +176,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       haveSignatures,
     ],
   );
+  const billing = useBilling();
   const groups = useMemo(
-    () => visibleNav(NAV, permissions, features, facts),
-    [permissions, features, facts],
+    () => visibleNav(NAV, permissions, features, facts, billing),
+    [permissions, features, facts, billing],
   );
 
   const nav = (
@@ -346,13 +360,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               offset the sidebar's own sticky nav uses (the header's height),
               so it stays on screen through a scroll rather than scrolling
               away with the page. */}
+          <BillingBanner />
           <VerificationBanner />
           {/* Below the verification strip, because verifying an email is
               something you have to do and installing the app is a suggestion.
               Renders nothing on a desktop, nothing if it is already installed,
               and nothing in a browser that cannot install — see the component. */}
           <InstallPrompt />
-          {children}
+          {/* Last of the three, and the only one that is ever gone within
+              days on its own: the other two persist for as long as their
+              condition holds (an unverified email, an installable browser);
+              this one is on screen only while a confirmed holiday sits
+              inside its own two-day window. Same sticky/dismiss shape as
+              InstallPrompt — see the component. */}
+          <HolidayBanner />
+          <BillingGate>{children}</BillingGate>
         </main>
       </div>
 
@@ -465,6 +487,27 @@ function resolveActiveHref(
   return best;
 }
 
+/**
+ * Whether one row in `SidebarNav` renders as the current page.
+ *
+ * Pulled out of the render, and exported, so the one rule it encodes —
+ * **a locked item is never active** — can be asserted directly rather than by
+ * rendering the whole shell. `resolveActiveHref` above exists to stop two
+ * *different* hrefs from both lighting up; this stops a multi-active bug that
+ * reaches the same symptom through the opposite cause. `visibleNav` maps every
+ * surviving item in a locked group to the identical href `/billing/pay` (see
+ * `nav.tsx`), so without the `!item.locked` guard, standing on that page would
+ * light up every locked row in every locked group at once — `item.href ===
+ * activeHref` is true for all of them simultaneously, because they are all
+ * the same string.
+ */
+export function isNavItemActive(
+  item: Pick<NavItem, "href" | "locked">,
+  activeHref: string | null,
+): boolean {
+  return item.href === activeHref && !item.locked;
+}
+
 function SidebarNav({
   groups,
   pathname,
@@ -489,7 +532,7 @@ function SidebarNav({
           )}
           <ul className="flex flex-col gap-0.5">
             {group.items.map((item) => {
-              const active = item.href === activeHref;
+              const active = isNavItemActive(item, activeHref);
 
               const count =
                 item.badgeSource !== undefined
@@ -497,10 +540,19 @@ function SidebarNav({
                   : item.badge;
 
               return (
-                <li key={item.href}>
+                /* `item.label` rather than `item.href`: a locked group maps
+                   every surviving item's href to the same `/billing/pay`
+                   (see `visibleNav`), which would collide as a React key —
+                   labels stay unique within one group's own item list. */
+                <li key={item.label}>
                   <Link
                     href={item.href}
                     aria-current={active ? "page" : undefined}
+                    aria-label={
+                      item.locked
+                        ? `${item.label} (not in your plan)`
+                        : undefined
+                    }
                     /* The guided tour points at items by route, so it can only
                      ever highlight one this company actually has — the list
                      here is already filtered by permission and feature. */
@@ -525,14 +577,31 @@ function SidebarNav({
                     >
                       {item.icon}
                     </span>
-                    <span className="min-w-0 flex-1 truncate">
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate",
+                        item.locked && "text-faint",
+                      )}
+                    >
                       {item.label}
                     </span>
 
-                    {item.soon && (
+                    {item.soon && !item.locked && (
                       <span className="shrink-0 text-meta font-normal text-faint">
                         Coming soon
                       </span>
+                    )}
+                    {/* The lock takes the same trailing slot a badge count or
+                        "Coming soon" would otherwise use — see `NavItem.locked`.
+                        A group only ever locks as a whole, so this and `soon`
+                        never actually compete on one item today, but the
+                        `!item.soon`/`!item.locked` guards keep it that way
+                        rather than relying on it. */}
+                    {item.locked && (
+                      <Lock
+                        aria-hidden="true"
+                        className="size-3.5 shrink-0 text-faint"
+                      />
                     )}
                     {/* Deliberately hand-rolled, not `Badge`: the active state
                         is a solid accent fill with no matching tone today, and
@@ -542,18 +611,21 @@ function SidebarNav({
                         would be a wider API change for a bespoke bit of chrome
                         that belongs to the sidebar's own active/inactive
                         language, not to Badge's status vocabulary. */}
-                    {count !== undefined && count > 0 && !item.soon && (
-                      <span
-                        className={cn(
-                          "tabular shrink-0 rounded-full px-1.5 py-0.5 text-meta font-semibold",
-                          active
-                            ? "bg-accent text-white"
-                            : "bg-sunken text-muted",
-                        )}
-                      >
-                        {count}
-                      </span>
-                    )}
+                    {count !== undefined &&
+                      count > 0 &&
+                      !item.soon &&
+                      !item.locked && (
+                        <span
+                          className={cn(
+                            "tabular shrink-0 rounded-full px-1.5 py-0.5 text-meta font-semibold",
+                            active
+                              ? "bg-accent text-white"
+                              : "bg-sunken text-muted",
+                          )}
+                        >
+                          {count}
+                        </span>
+                      )}
                   </Link>
                 </li>
               );
@@ -604,7 +676,6 @@ function UserMenu() {
     employee?.jobTitle ??
     (DEMO_ENABLED && mode === "offline" ? "Demo session" : "Signed in");
   const email = user?.email ?? employee?.email ?? null;
-  const recordId = user?.employeeId ?? employee?.id ?? null;
 
   return (
     <div className="relative">
@@ -681,16 +752,6 @@ function UserMenu() {
                 </p>
               )}
             </div>
-            {recordId && (
-              <Link
-                href={`/people/${recordId}`}
-                role="menuitem"
-                onClick={() => setOpen(false)}
-                className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
-              >
-                My record
-              </Link>
-            )}
             {/*
              * The two that came out of the sidebar.
              *
@@ -983,7 +1044,16 @@ export function PageHeader({
           )}
         </div>
 
-        {tabs}
+        {tabs && (
+          /* The title row above carries its own `pb-5`, which is the header's
+             breathing room before the `border-b` on the outer wrapper — fine
+             when tabs are absent, since that row is then the last thing in the
+             header. When tabs are present they render as a sibling after it
+             with no padding of their own, so they sat flush against the
+             divider. Same `pb-5` here gives whichever section actually ends
+             the header the same gap before the line. */
+          <div className="pb-5">{tabs}</div>
+        )}
       </div>
     </div>
   );
