@@ -5,6 +5,7 @@ import {
   visibleNav,
   type NavGroup,
 } from "@/components/portal/nav";
+import { isNavItemActive } from "@/components/portal/shell";
 import { MODULES, type ModuleId } from "@/lib/marketing/modules";
 import type { BillingModule } from "@/lib/billing";
 import type { ApiBilling } from "@/lib/api/endpoints";
@@ -117,6 +118,75 @@ describe("NAV: every module group carries its billing module", () => {
     for (const mod of MODULES) {
       const group = NAV.find((g) => g.heading === mod.label);
       expect(group?.billingModule).toBe(BILLING_MODULE_OF[mod.id]);
+    }
+  });
+});
+
+/**
+ * Fix round 1: a locked item is never the active row.
+ *
+ * `SidebarNav` (shell.tsx) computes `active` with `isNavItemActive`, tested
+ * directly here rather than by rendering `SidebarNav` — that component is
+ * only reachable through `AppShell`, which wires in a dozen hooks
+ * (permissions, features, the assistant, the roster, the session, billing…)
+ * that would all need mocking to render one `<li>`. The function this suite
+ * calls is the whole of what changed: a pure `(item, activeHref) => boolean`.
+ *
+ * The bug: `visibleNav` maps every surviving item in a locked group to the
+ * identical href `/billing/pay` (see the describe block above). Before this
+ * fix, `SidebarNav` compared each item's href to `activeHref` with no
+ * `locked` check, so standing on `/billing/pay` made every locked item in
+ * every locked group compare equal at once — the same multi-active symptom
+ * `resolveActiveHref`'s own doc comment warns a duplicated href causes,
+ * reached here through a shared href instead of a duplicated one.
+ */
+describe("isNavItemActive: a locked item is never active", () => {
+  it("is false for a locked item even though its href is the current page", () => {
+    expect(
+      isNavItemActive({ href: "/billing/pay", locked: true }, "/billing/pay"),
+    ).toBe(false);
+  });
+
+  it("is true for an ordinary item whose href is the current page", () => {
+    /* The regression guard: the fix must not turn off highlighting in
+       general, only for locked items. */
+    expect(
+      isNavItemActive({ href: "/people", locked: undefined }, "/people"),
+    ).toBe(true);
+    expect(isNavItemActive({ href: "/people" }, "/hiring")).toBe(false);
+  });
+
+  it("is false for every item in a locked group while standing on /billing/pay", () => {
+    const group: NavGroup = {
+      heading: "Recruitment",
+      billingModule: "RECRUITMENT",
+      items: [
+        { href: "/hiring", label: "Overview", icon: null, always: true },
+        {
+          href: "/hiring/postings",
+          label: "Job adverts",
+          icon: null,
+          always: true,
+        },
+      ],
+    };
+
+    const [locked] = visibleNav(
+      [group],
+      NO_PERMISSIONS,
+      {},
+      NOTHING_ANSWERED_YET,
+      billingBase,
+    );
+
+    /* Both items now share one href — the setup that reproduces the bug. */
+    expect(locked.items.map((item) => item.href)).toEqual([
+      "/billing/pay",
+      "/billing/pay",
+    ]);
+
+    for (const item of locked.items) {
+      expect(isNavItemActive(item, "/billing/pay")).toBe(false);
     }
   });
 });

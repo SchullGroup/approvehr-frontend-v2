@@ -30,6 +30,7 @@ import {
   type BadgeSource,
   type NavFacts,
   type NavGroup,
+  type NavItem,
 } from "./nav";
 import { SessionRoleBadge } from "./role-badge";
 import {
@@ -486,6 +487,27 @@ function resolveActiveHref(
   return best;
 }
 
+/**
+ * Whether one row in `SidebarNav` renders as the current page.
+ *
+ * Pulled out of the render, and exported, so the one rule it encodes —
+ * **a locked item is never active** — can be asserted directly rather than by
+ * rendering the whole shell. `resolveActiveHref` above exists to stop two
+ * *different* hrefs from both lighting up; this stops a multi-active bug that
+ * reaches the same symptom through the opposite cause. `visibleNav` maps every
+ * surviving item in a locked group to the identical href `/billing/pay` (see
+ * `nav.tsx`), so without the `!item.locked` guard, standing on that page would
+ * light up every locked row in every locked group at once — `item.href ===
+ * activeHref` is true for all of them simultaneously, because they are all
+ * the same string.
+ */
+export function isNavItemActive(
+  item: Pick<NavItem, "href" | "locked">,
+  activeHref: string | null,
+): boolean {
+  return item.href === activeHref && !item.locked;
+}
+
 function SidebarNav({
   groups,
   pathname,
@@ -510,7 +532,7 @@ function SidebarNav({
           )}
           <ul className="flex flex-col gap-0.5">
             {group.items.map((item) => {
-              const active = item.href === activeHref;
+              const active = isNavItemActive(item, activeHref);
 
               const count =
                 item.badgeSource !== undefined
