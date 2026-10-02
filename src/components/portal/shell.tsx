@@ -3,7 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronDown, ChevronLeft, Menu, Search, X } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  ChevronLeft,
+  Lock,
+  Menu,
+  Search,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useCanGoBack } from "@/lib/nav-history";
 import { Logo } from "@/components/brand/logo";
@@ -46,6 +54,7 @@ import { InstallPrompt } from "./install-prompt";
 import { VerificationBanner } from "./verification-banner";
 import { BillingBanner } from "./billing-banner";
 import { BillingGate } from "./billing-gate";
+import { useBilling } from "@/lib/billing";
 
 /**
  * The app shell. The sidebar is a light surface rather than a saturated slab:
@@ -166,9 +175,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       haveSignatures,
     ],
   );
+  const billing = useBilling();
   const groups = useMemo(
-    () => visibleNav(NAV, permissions, features, facts),
-    [permissions, features, facts],
+    () => visibleNav(NAV, permissions, features, facts, billing),
+    [permissions, features, facts, billing],
   );
 
   const nav = (
@@ -508,10 +518,19 @@ function SidebarNav({
                   : item.badge;
 
               return (
-                <li key={item.href}>
+                /* `item.label` rather than `item.href`: a locked group maps
+                   every surviving item's href to the same `/billing/pay`
+                   (see `visibleNav`), which would collide as a React key —
+                   labels stay unique within one group's own item list. */
+                <li key={item.label}>
                   <Link
                     href={item.href}
                     aria-current={active ? "page" : undefined}
+                    aria-label={
+                      item.locked
+                        ? `${item.label} (not in your plan)`
+                        : undefined
+                    }
                     /* The guided tour points at items by route, so it can only
                      ever highlight one this company actually has — the list
                      here is already filtered by permission and feature. */
@@ -536,14 +555,31 @@ function SidebarNav({
                     >
                       {item.icon}
                     </span>
-                    <span className="min-w-0 flex-1 truncate">
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate",
+                        item.locked && "text-faint",
+                      )}
+                    >
                       {item.label}
                     </span>
 
-                    {item.soon && (
+                    {item.soon && !item.locked && (
                       <span className="shrink-0 text-meta font-normal text-faint">
                         Coming soon
                       </span>
+                    )}
+                    {/* The lock takes the same trailing slot a badge count or
+                        "Coming soon" would otherwise use — see `NavItem.locked`.
+                        A group only ever locks as a whole, so this and `soon`
+                        never actually compete on one item today, but the
+                        `!item.soon`/`!item.locked` guards keep it that way
+                        rather than relying on it. */}
+                    {item.locked && (
+                      <Lock
+                        aria-hidden="true"
+                        className="size-3.5 shrink-0 text-faint"
+                      />
                     )}
                     {/* Deliberately hand-rolled, not `Badge`: the active state
                         is a solid accent fill with no matching tone today, and
@@ -553,18 +589,21 @@ function SidebarNav({
                         would be a wider API change for a bespoke bit of chrome
                         that belongs to the sidebar's own active/inactive
                         language, not to Badge's status vocabulary. */}
-                    {count !== undefined && count > 0 && !item.soon && (
-                      <span
-                        className={cn(
-                          "tabular shrink-0 rounded-full px-1.5 py-0.5 text-meta font-semibold",
-                          active
-                            ? "bg-accent text-white"
-                            : "bg-sunken text-muted",
-                        )}
-                      >
-                        {count}
-                      </span>
-                    )}
+                    {count !== undefined &&
+                      count > 0 &&
+                      !item.soon &&
+                      !item.locked && (
+                        <span
+                          className={cn(
+                            "tabular shrink-0 rounded-full px-1.5 py-0.5 text-meta font-semibold",
+                            active
+                              ? "bg-accent text-white"
+                              : "bg-sunken text-muted",
+                          )}
+                        >
+                          {count}
+                        </span>
+                      )}
                   </Link>
                 </li>
               );
