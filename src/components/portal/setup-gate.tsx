@@ -46,7 +46,12 @@ export function SetupGate({ children }: { children: React.ReactNode }) {
   const features = useFeatures();
 
   const exempt =
-    pathname.startsWith("/setup") || pathname === "/settings/features";
+    pathname.startsWith("/setup") ||
+    pathname === "/settings/features" ||
+    // A locked, unfinished company must still be able to reach Subscribe /
+    // Pay — its own API calls are refused with 402, so sending it to
+    // `/setup` first would trap it on a wizard it cannot complete either.
+    pathname.startsWith("/billing");
 
   const send =
     isSignedIn &&
