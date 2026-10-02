@@ -44,6 +44,7 @@ import { useCompanyLogo } from "@/lib/store/company";
 import { HolidayBanner } from "./holiday-banner";
 import { InstallPrompt } from "./install-prompt";
 import { VerificationBanner } from "./verification-banner";
+import { BillingGate } from "./billing-gate";
 
 /**
  * The app shell. The sidebar is a light surface rather than a saturated slab:
@@ -360,7 +361,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               inside its own two-day window. Same sticky/dismiss shape as
               InstallPrompt — see the component. */}
           <HolidayBanner />
-          {children}
+          <BillingGate>{children}</BillingGate>
         </main>
       </div>
 
