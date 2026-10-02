@@ -25,6 +25,42 @@ export const toKobo = (naira: number): number => Math.round(naira * 100);
 
 /* --------------------------------------------------------------------- auth */
 
+/** `/auth/me`'s billing block. Null or absent = show nothing (demo, older API, or a failed read). */
+export type ApiBilling = {
+  status: "TRIALING" | "ACTIVE" | "GRACE" | "LOCKED" | "CANCELLED";
+  entitled: boolean;
+  enforced: boolean;
+  reason: "no_subscription" | "expired" | null;
+  plan: { name: string; priceKobo: number | null } | null;
+  modules: (
+    | "CORE_HR"
+    | "PAYROLL"
+    | "TIME_AND_LEAVE"
+    | "RECRUITMENT"
+    | "PERFORMANCE"
+    | "HELPDESK"
+  )[];
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  graceEndsAt: string | null;
+  lockedSince: string | null;
+  cancelledAt: string | null;
+  order: {
+    /**
+     * Optional because an API a deploy behind this frontend hands back the
+     * same four fields with no `id` — see `pay-screen.tsx`'s latch, which is
+     * the one reader that needs it and falls back when it is absent.
+     */
+    id?: string;
+    planId: string;
+    planName: string;
+    months: number;
+    amountKobo: number;
+  } | null;
+  /** Money received into the subscription account that nothing has been applied to yet (short, or unexpected). 0 when none. */
+  unappliedKobo: number;
+};
+
 export type ApiUser = {
   id: string;
   email: string;
@@ -83,6 +119,15 @@ export type ApiUser = {
    * months later has not seen it either.
    */
   tourDismissedAt: string | null;
+  /**
+   * The signed-in account's subscription state, or `null` for a demo account,
+   * an API a deploy behind this frontend, or a billing read that failed.
+   *
+   * Only `GET /auth/me` returns it — sign-in, register and a token refresh
+   * hand back the account alone, so it is `undefined` on those until the next
+   * restore. See `ApiUser.organization` for the same reasoning.
+   */
+  billing?: ApiBilling | null;
 };
 
 /**
