@@ -183,10 +183,13 @@ function Who({ history }: { history: ApiScoreHistory }) {
       />
       <Stat
         label="Latest mark"
+        /* An em dash, not a sentence — the hint already says why. */
         value={
-          latest?.scoreBp === undefined || latest.scoreBp === null
-            ? "No mark"
-            : scoreLabel(latest.scoreBp)
+          latest?.scoreBp === undefined || latest.scoreBp === null ? (
+            <span className="text-faint">—</span>
+          ) : (
+            scoreLabel(latest.scoreBp)
+          )
         }
         hint={latest ? latest.cycleName : "No cycle has produced one"}
       />
@@ -198,9 +201,11 @@ function Who({ history }: { history: ApiScoreHistory }) {
            record, claimed about a person nobody has appraised. The three Stats
            either side of this one already say their own absence. */
         value={
-          history.counts.cycles === 0
-            ? "None yet"
-            : `${history.counts.scored} of ${history.counts.cycles}`
+          history.counts.cycles === 0 ? (
+            <span className="text-faint">—</span>
+          ) : (
+            `${history.counts.scored} of ${history.counts.cycles}`
+          )
         }
         hint={
           history.counts.cycles === 0
@@ -213,9 +218,11 @@ function Who({ history }: { history: ApiScoreHistory }) {
       <Stat
         label="Across the whole span"
         value={
-          history.trend === null
-            ? "Not a trend yet"
-            : changeLabel(history.trend.changeBp)
+          history.trend === null ? (
+            <span className="text-faint">—</span>
+          ) : (
+            changeLabel(history.trend.changeBp)
+          )
         }
         hint={
           history.trend === null

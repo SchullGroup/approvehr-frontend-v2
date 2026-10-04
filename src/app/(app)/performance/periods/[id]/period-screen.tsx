@@ -1270,17 +1270,21 @@ function Outstanding({
           <Stat
             label="Self-reviews in"
             value={
-              selfTotal === 0
-                ? "Nobody has a form yet"
-                : `${selfIn} of ${selfTotal}`
+              selfTotal === 0 ? (
+                <span className="text-faint">—</span>
+              ) : (
+                `${selfIn} of ${selfTotal}`
+              )
             }
           />
           <Stat
             label="Manager reviews in"
             value={
-              managerTotal === 0
-                ? "No manager review is due yet"
-                : `${managerIn} of ${managerTotal}`
+              managerTotal === 0 ? (
+                <span className="text-faint">—</span>
+              ) : (
+                `${managerIn} of ${managerTotal}`
+              )
             }
           />
           <Stat label="Forms outstanding" value={String(rows.length)} />
