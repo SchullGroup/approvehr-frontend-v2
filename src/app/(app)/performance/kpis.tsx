@@ -438,7 +438,17 @@ export function KpisTab({
         <Stat label="KPIs being tracked" value={String(tracked.length)} />
         <Stat
           label="Average progress"
-          value={average === null ? "Nothing tracked yet" : `${average}%`}
+          /* An em dash, not a sentence — see `Stat`'s other callers
+             (`advances-screen.tsx`, `payments/history-screen.tsx`): nothing
+             tracked is a dash, same size as every other Stat value, not a
+             phrase that reads as a different kind of thing in the same row. */
+          value={
+            average === null ? (
+              <span className="text-faint">—</span>
+            ) : (
+              `${average}%`
+            )
+          }
           {...(average === null
             ? {}
             : {
@@ -459,9 +469,11 @@ export function KpisTab({
           label="Measures at target"
           /* "0 of 0" is a measurement of a set nobody has created. */
           value={
-            measures.length === 0
-              ? "None set yet"
-              : `${hit} of ${measures.length}`
+            measures.length === 0 ? (
+              <span className="text-faint">—</span>
+            ) : (
+              `${hit} of ${measures.length}`
+            )
           }
         />
       </div>
