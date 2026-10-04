@@ -6,8 +6,6 @@ import {
   ChevronDown,
   ChevronRight,
   Crown,
-  Eye,
-  EyeOff,
   GripVertical,
   Pencil,
   UserRound,
@@ -135,7 +133,6 @@ export function OrgChartScreen() {
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  const [showHidden, setShowHidden] = useState(false);
   const [reloadAt, setReloadAt] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [picking, setPicking] = useState<
@@ -515,69 +512,6 @@ export function OrgChartScreen() {
               </div>
             )}
 
-            {model.hidden.length > 0 && (
-              <Card>
-                <CardHeader
-                  title={`${String(model.hidden.length)} hidden ${model.hidden.length === 1 ? "department" : "departments"}`}
-                  level={3}
-                  description="Kept, not deleted — past payslips reference the department somebody was in at the time."
-                  action={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowHidden((on) => !on)}
-                    >
-                      {showHidden ? (
-                        <EyeOff aria-hidden="true" className="size-3.5" />
-                      ) : (
-                        <Eye aria-hidden="true" className="size-3.5" />
-                      )}
-                      {showHidden ? "Hide these" : "Show these"}
-                    </Button>
-                  }
-                />
-                {showHidden && (
-                  <CardBody className="flex flex-col gap-2">
-                    {model.hidden.map((department) => (
-                      <div
-                        key={department.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3"
-                      >
-                        <span className="min-w-0">
-                          <span className="text-body-sm font-medium text-ink">
-                            {department.name}
-                          </span>
-                          <span className="ml-2 text-meta text-muted">
-                            {department.totalEmployees}{" "}
-                            {department.totalEmployees === 1
-                              ? "person"
-                              : "people"}
-                          </span>
-                        </span>
-                        {canStructure && (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            disabled={busy === department.id}
-                            onClick={() =>
-                              void run(
-                                department.id,
-                                `${department.name} is showing again`,
-                                () => departmentsApi.restore(department.id),
-                              )
-                            }
-                          >
-                            Show it again
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </CardBody>
-                )}
-              </Card>
-            )}
           </>
         )}
       </PageBody>
