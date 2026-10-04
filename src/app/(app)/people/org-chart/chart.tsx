@@ -511,7 +511,6 @@ export function OrgChartScreen() {
                 )}
               </div>
             )}
-
           </>
         )}
       </PageBody>
