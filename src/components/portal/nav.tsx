@@ -29,6 +29,7 @@ import {
   Megaphone,
   MessagesSquare,
   Network,
+  Orbit,
   Receipt,
   ReceiptText,
   Settings,
@@ -789,6 +790,16 @@ const COMPANY_WIDE: NavItem[] = [
     label: "Reports",
     icon: <ChartNoAxesColumn aria-hidden="true" />,
     permission: "EXPORT_DATA",
+  },
+  /* No permission: the department tree it draws is the same one the org
+     chart already shows with no gate — "gate the money, not the tree". A
+     later phase that adds a comparative lens (best-in-department, promotion
+     readiness) gates *that lens* on EDIT_RECORDS inside the screen, the way
+     the performance module's nine-box does, rather than gating the route. */
+  {
+    href: "/reports/explore",
+    label: "Explore",
+    icon: <Orbit aria-hidden="true" />,
   },
   {
     href: "/settings",
