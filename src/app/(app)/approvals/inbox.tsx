@@ -604,6 +604,37 @@ function SentApprovalRow({ row }: { row: ApiApprovalRow }) {
   );
 }
 
+/**
+ * Links the "Source: https://…" an FG announcement card ends with. Holiday
+ * cards only, so a link typed into any other card never becomes clickable.
+ */
+function WithSourceLinks({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(https?:\/\/\S+)/).map((part, index) => {
+        if (index % 2 === 0) return part;
+        let host = part;
+        try {
+          host = new URL(part).hostname.replace(/^www\./, "");
+        } catch {
+          return part;
+        }
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-accent-text underline underline-offset-4"
+          >
+            {host}
+          </a>
+        );
+      })}
+    </>
+  );
+}
+
 function ApprovalRow({
   item,
   onApprove,
@@ -668,7 +699,11 @@ function ApprovalRow({
             </Link>
           </h3>
           <p className="mt-0.5 text-body-sm leading-relaxed text-body">
-            {item.summary}
+            {item.kind === "holiday" ? (
+              <WithSourceLinks text={item.summary} />
+            ) : (
+              item.summary
+            )}
           </p>
 
           <div className="mt-2.5 flex flex-wrap items-center gap-3 text-meta text-muted">
