@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   BadgeCheck,
   Banknote,
+  CalendarCheck,
   CalendarClock,
   TrendingUp,
   CalendarDays,
@@ -82,6 +83,7 @@ const ICON: Record<ApprovalKind, React.ReactNode> = {
   loan: <ClipboardList aria-hidden="true" />,
   confirmation: <CalendarClock aria-hidden="true" />,
   employment_change: <TrendingUp aria-hidden="true" />,
+  holiday: <CalendarCheck aria-hidden="true" />,
 };
 
 const TONE: Record<ApprovalKind, BadgeTone> = {
@@ -100,7 +102,32 @@ const TONE: Record<ApprovalKind, BadgeTone> = {
      promotion approved after it means somebody was paid the old figure for a
      month they were owed the new one. */
   employment_change: "warning",
+  holiday: "accent",
 };
+
+/** Holiday rows were raised by the API, not a person, so they get their own copy. */
+function decidedCopy(
+  item: QueueItem,
+  decision: "approved" | "declined",
+): { title: string; detail: string } {
+  if (item.kind === "holiday") {
+    return decision === "approved"
+      ? {
+          title: "Holiday calendar updated",
+          detail: "It is under Settings, Leave, Public holidays.",
+        }
+      : { title: "Declined", detail: "Your reason is kept with the decision." };
+  }
+  return decision === "approved"
+    ? {
+        title: `${item.title} approved`,
+        detail: "The request and the balance behind it are updated.",
+      }
+    : {
+        title: `${item.title} went back`,
+        detail: "It is back with them to revise.",
+      };
+}
 
 /**
  * The approval inbox.
@@ -167,21 +194,15 @@ export function ApprovalInbox() {
         });
         return;
       }
+      const copy = decidedCopy(item, decision);
       toast.push({
-        title:
-          decision === "approved"
-            ? `${item.title} approved`
-            : `${item.title} went back`,
+        title: copy.title,
         tone: outcome.subjectMoved
           ? decision === "approved"
             ? "success"
             : "info"
           : "warning",
-        detail:
-          outcome.note ??
-          (decision === "approved"
-            ? "The request and the balance behind it are updated."
-            : "It is back with them to revise."),
+        detail: outcome.note ?? copy.detail,
       });
     } catch (failure) {
       toast.push({
@@ -446,6 +467,7 @@ export function ApprovalInbox() {
       <DeclineDialog
         open={declining !== null}
         what={declining ? declining.title : ""}
+        reader={declining?.kind === "holiday" ? "record" : "requester"}
         onClose={() => setDeclining(null)}
         onConfirm={async (note) => {
           if (declining) await decide(declining, "declined", note);
@@ -690,7 +712,7 @@ function ApprovalRow({
             </Button>
             <Button variant="secondary" size="sm" onClick={onSendBack}>
               <X aria-hidden="true" className="size-3.5" />
-              Send back
+              {item.kind === "holiday" ? "Decline" : "Send back"}
             </Button>
           </div>
         ) : (
