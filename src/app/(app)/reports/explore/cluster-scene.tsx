@@ -27,6 +27,15 @@ export type ClusterSceneProps = {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   reducedMotion: boolean;
+  /**
+   * The active lens's colour per department name, or `undefined` for
+   * Phase 0's plain headcount view. A cluster missing an entry (no goal or
+   * score data for that department under the active lens) falls back to
+   * the same neutral every cluster uses with no lens active — absent data
+   * reads as "nothing to say", never as a colour that happens to look like
+   * an answer.
+   */
+  colorByName?: ReadonlyMap<string, string>;
 };
 
 export function ClusterScene({
@@ -34,6 +43,7 @@ export function ClusterScene({
   selectedId,
   onSelect,
   reducedMotion,
+  colorByName,
 }: ClusterSceneProps) {
   return (
     <Canvas
@@ -49,6 +59,7 @@ export function ClusterScene({
           cluster={cluster}
           selected={cluster.id === selectedId}
           onSelect={() => onSelect(cluster.id)}
+          color={colorByName?.get(cluster.name) ?? NEUTRAL}
         />
       ))}
       <OrbitControls
@@ -66,10 +77,12 @@ function ClusterSphere({
   cluster,
   selected,
   onSelect,
+  color,
 }: {
   cluster: ClusterNode;
   selected: boolean;
   onSelect: () => void;
+  color: string;
 }) {
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
@@ -80,10 +93,15 @@ function ClusterSphere({
     <group position={cluster.position}>
       <mesh onClick={handleClick}>
         <sphereGeometry args={[cluster.radius, 32, 32]} />
+        {/* The lens colour is always the base colour; selection is shown as
+            an accent glow on top of it, never by replacing it — the two are
+            independent facts (what a department's figures say, and whether
+            it is the one open in the drawer) and conflating them would lose
+            one whenever the other is true. */}
         <meshStandardMaterial
-          color={selected ? ACCENT : NEUTRAL}
+          color={color}
           emissive={selected ? ACCENT : "#000000"}
-          emissiveIntensity={selected ? 0.25 : 0}
+          emissiveIntensity={selected ? 0.35 : 0}
         />
       </mesh>
       <Html position={[0, cluster.radius + 0.35, 0]} center distanceFactor={12}>

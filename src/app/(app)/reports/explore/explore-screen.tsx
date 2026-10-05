@@ -9,13 +9,16 @@ import {
   Drawer,
   DrawerSection,
   EmptyState,
+  SegmentedControl,
   Skeleton,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { useDepartments } from "@/lib/store/departments";
 import { layoutClusters, type ClusterNode } from "./cluster-data";
+import { LENS_COLORS } from "./lens-data";
 import { useReducedMotion, useWebGLSupport } from "./use-3d-support";
+import { useLenses } from "./use-lenses";
 
 /**
  * Phase 0 of the workforce explorer: the department tree as a navigable 3D
@@ -42,10 +45,14 @@ const ClusterScene = dynamic(
   },
 );
 
+type LensChoice = "headcount" | "goals" | "score";
+
 export function ExploreScreen() {
   const { tree, loading, error, source, demoNote, reload } =
     useDepartments(false);
+  const lenses = useLenses();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeLens, setActiveLens] = useState<LensChoice>("headcount");
   const webglSupported = useWebGLSupport();
   const reducedMotion = useReducedMotion();
 
@@ -60,6 +67,42 @@ export function ExploreScreen() {
     clusters.filter((cluster) => cluster.parentId === id);
 
   const checking = loading || webglSupported === null;
+
+  /* Only the lenses this viewer can actually see are offered — "Headcount"
+     is the one constant, Phase 0's own view, since structure carries no
+     permission the way a comparative read does. */
+  const lensOptions: { value: LensChoice; label: string }[] = [
+    { value: "headcount", label: "Headcount" },
+    ...(lenses.goals
+      ? [{ value: "goals" as const, label: lenses.goals.label }]
+      : []),
+    ...(lenses.score
+      ? [{ value: "score" as const, label: lenses.score.label }]
+      : []),
+  ];
+  const activeLensObject =
+    activeLens === "goals"
+      ? lenses.goals
+      : activeLens === "score"
+        ? lenses.score
+        : null;
+
+  /* `undefined` — not an empty map — for the plain headcount view, so
+     `ClusterScene` falls back to its own single neutral rather than
+     colouring every sphere via a map that happens to be empty. */
+  const colorByName = useMemo(() => {
+    if (!activeLensObject) return undefined;
+    const map = new Map<string, string>();
+    for (const [name, value] of activeLensObject.byDepartment) {
+      map.set(name, LENS_COLORS[value.tone]);
+    }
+    return map;
+  }, [activeLensObject]);
+
+  const selectedLensValue =
+    selected && activeLensObject
+      ? (activeLensObject.byDepartment.get(selected.name) ?? null)
+      : null;
 
   return (
     <>
@@ -96,14 +139,25 @@ export function ExploreScreen() {
             description="The explorer needs WebGL, which this device or browser has switched off. The same departments are listed in the table below."
           />
         ) : (
-          <Card className="h-[34rem] overflow-hidden p-0">
-            <ClusterScene
-              clusters={clusters}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              reducedMotion={reducedMotion}
-            />
-          </Card>
+          <>
+            {lensOptions.length > 1 && (
+              <SegmentedControl
+                label="Colour by"
+                options={lensOptions}
+                value={activeLens}
+                onChange={setActiveLens}
+              />
+            )}
+            <Card className="h-[34rem] overflow-hidden p-0">
+              <ClusterScene
+                clusters={clusters}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                reducedMotion={reducedMotion}
+                colorByName={colorByName}
+              />
+            </Card>
+          </>
         )}
 
         <AccessibleClusterTable clusters={clusters} />
@@ -138,6 +192,20 @@ export function ExploreScreen() {
                 )}
               </p>
             </DrawerSection>
+
+            {activeLensObject && (
+              <DrawerSection title={activeLensObject.label}>
+                <p className="text-body-sm text-ink">
+                  {selectedLensValue ? (
+                    selectedLensValue.detail
+                  ) : (
+                    <span className="text-faint">
+                      No data for this department
+                    </span>
+                  )}
+                </p>
+              </DrawerSection>
+            )}
 
             {childrenOf(selected.id).length > 0 && (
               <DrawerSection
