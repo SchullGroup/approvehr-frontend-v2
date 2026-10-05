@@ -21,12 +21,13 @@ import { useReducedMotion, useWebGLSupport } from "./use-3d-support";
 import { useLenses } from "./use-lenses";
 
 /**
- * Phase 0 of the workforce explorer: the department tree as a navigable 3D
- * space, headcount the only dimension. See `/Users/mac/.claude/plans/
- * lexical-wobbling-map.md` for the full phasing — lenses, task-completion
- * intensity, and the two comparative reads (best-in-department, promotion
- * readiness) all land later, on top of this same scene and this same data
- * source, without moving a single cluster.
+ * The workforce explorer: the department tree as a navigable 3D space. See
+ * `/Users/mac/.claude/plans/lexical-wobbling-map.md` for the full phasing.
+ * Phase 0 shipped headcount only; Phase 1 added the goal-achievement and
+ * composite-score lenses; Phase 2 (this one) added task-logging intensity.
+ * The two comparative reads still to come (best-in-department, promotion
+ * readiness) land the same way every lens so far has: on top of this same
+ * scene and this same data source, without moving a single cluster.
  *
  * `useDepartments(false)` — not `ChartModel`/`buildModel()` from the org
  * chart — is the data source. The org chart's own model needs `ApiOrgChart`
@@ -34,8 +35,8 @@ import { useLenses } from "./use-lenses";
  * it would have made this screen connected-mode-only despite the plan's own
  * claim that Phase 0 is fully demoable offline. `useDepartments()` is the
  * same department tree — headcount, head, children, depth — already proven
- * in both modes by `/people/departments`, and it is all Phase 0 needs: no
- * lens here reads the reporting line.
+ * in both modes by `/people/departments`, and it is all the headcount view
+ * needs: no lens here reads the reporting line.
  */
 const ClusterScene = dynamic(
   () => import("./cluster-scene").then((module) => module.ClusterScene),
@@ -45,7 +46,7 @@ const ClusterScene = dynamic(
   },
 );
 
-type LensChoice = "headcount" | "goals" | "score";
+type LensChoice = "headcount" | "goals" | "score" | "intensity";
 
 export function ExploreScreen() {
   const { tree, loading, error, source, demoNote, reload } =
@@ -79,13 +80,18 @@ export function ExploreScreen() {
     ...(lenses.score
       ? [{ value: "score" as const, label: lenses.score.label }]
       : []),
+    ...(lenses.intensity
+      ? [{ value: "intensity" as const, label: lenses.intensity.label }]
+      : []),
   ];
   const activeLensObject =
     activeLens === "goals"
       ? lenses.goals
       : activeLens === "score"
         ? lenses.score
-        : null;
+        : activeLens === "intensity"
+          ? lenses.intensity
+          : null;
 
   /* `undefined` — not an empty map — for the plain headcount view, so
      `ClusterScene` falls back to its own single neutral rather than

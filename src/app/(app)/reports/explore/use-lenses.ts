@@ -5,7 +5,7 @@ import { useSession } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
 import { reportsApi } from "@/lib/api/reports";
 import { performanceApi } from "@/lib/api/performance";
-import { goalLens, scoreLens, type Lens } from "./lens-data";
+import { goalLens, intensityLens, scoreLens, type Lens } from "./lens-data";
 
 /**
  * Both lenses rank or compare people across departments a viewer might not
@@ -15,18 +15,21 @@ import { goalLens, scoreLens, type Lens } from "./lens-data";
  * dataset): a department-level rollup is only honest when the reader can
  * see every department, not a personally-filtered slice of some of them.
  *
- * Neither the Report Builder nor the score register has ever had a
- * demo-mode answer — both already refuse offline for every other screen
- * that reads them, not just this one — so there is nothing to build here
- * for that case. **Absent, not disabled**: without `EDIT_RECORDS` or
- * without a live connection, both lenses stay `null` and the switcher in
- * `explore-screen.tsx` simply does not offer them, rather than offering a
- * control that can only ever fail.
+ * Neither the Report Builder nor the score register (nor the task-intensity
+ * read beside it) has ever had a demo-mode answer — all three already refuse
+ * offline for every other screen that reads them, not just this one — so
+ * there is nothing to build here for that case. **Absent, not disabled**:
+ * without `EDIT_RECORDS` or without a live connection, every lens stays
+ * `null` and the switcher in `explore-screen.tsx` simply does not offer it,
+ * rather than offering a control that can only ever fail.
  */
 export type LensesState = {
   goals: Lens | null;
   score: Lens | null;
+  intensity: Lens | null;
 };
+
+const EMPTY: LensesState = { goals: null, score: null, intensity: null };
 
 export function useLenses(): LensesState {
   const { isConnected } = useSession();
@@ -35,6 +38,7 @@ export function useLenses(): LensesState {
 
   const [goals, setGoals] = useState<Lens | null>(null);
   const [score, setScore] = useState<Lens | null>(null);
+  const [intensity, setIntensity] = useState<Lens | null>(null);
 
   useEffect(() => {
     if (!canSeeLenses) return;
@@ -59,21 +63,32 @@ export function useLenses(): LensesState {
       try {
         const cycles = await performanceApi.cycles({ pageSize: 20 });
         /* The most recently due cycle that has actually started. A draft
-           has no forms in it yet, so it has nothing a score lens could
-           show — the same reasoning `useCycleRegister` applies one
-           module along. */
+           has no forms in it yet, so it has nothing a score or intensity
+           lens could show — the same reasoning `useCycleRegister` applies
+           one module along. Resolved once and shared by both reads below,
+           rather than each independently re-deriving "the current cycle"
+           and risking two different answers. */
         const current = cycles.data
           .filter((cycle) => cycle.stage !== "DRAFT")
           .sort((a, b) => (b.dueDate ?? "").localeCompare(a.dueDate ?? ""))
           .at(0);
-        if (!current) {
-          if (!cancelled) setScore(null);
-          return;
-        }
-        const register = await performanceApi.cycleScores(current.id);
-        if (!cancelled) setScore(scoreLens(register.rows));
+        if (!current) return;
+
+        /* `allSettled`, not `all`: one of these failing (a cycle with no
+           scores yet, say) must not also take down the other — each stays
+           absent on its own, same as the goals fetch above. */
+        await Promise.allSettled([
+          performanceApi.cycleScores(current.id).then((register) => {
+            if (!cancelled) setScore(scoreLens(register.rows));
+          }),
+          performanceApi.taskIntensity(current.id).then((rows) => {
+            if (!cancelled) setIntensity(intensityLens(rows));
+          }),
+        ]);
       } catch {
-        if (!cancelled) setScore(null);
+        /* Only a failure before either request fires (the cycles list
+           itself) lands here — each request's own failure is swallowed by
+           `allSettled` and simply leaves that lens at its initial `null`. */
       }
     })();
 
@@ -82,5 +97,5 @@ export function useLenses(): LensesState {
     };
   }, [canSeeLenses]);
 
-  return canSeeLenses ? { goals, score } : { goals: null, score: null };
+  return canSeeLenses ? { goals, score, intensity } : EMPTY;
 }

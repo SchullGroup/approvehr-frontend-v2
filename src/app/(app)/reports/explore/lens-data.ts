@@ -1,5 +1,8 @@
 import type { ApiReportResult } from "@/lib/api/reports";
-import type { ApiScoreRow } from "@/lib/api/performance";
+import type {
+  ApiDepartmentTaskIntensity,
+  ApiScoreRow,
+} from "@/lib/api/performance";
 
 /**
  * Phase 1's two lenses, and the rule neither may break: a lens repaints
@@ -16,7 +19,7 @@ export type LensValue = {
   detail: string;
 };
 
-export type LensId = "goals" | "score";
+export type LensId = "goals" | "score" | "intensity";
 
 export type Lens = {
   id: LensId;
@@ -160,4 +163,52 @@ export function scoreLens(rows: readonly ApiScoreRow[]): Lens {
   }
 
   return { id: "score", label: "Composite score", byDepartment };
+}
+
+/**
+ * Task-logging intensity, from one cycle's department breakdown.
+ *
+ * Reads participation, not quality — whether someone has a graded task at
+ * all this cycle, never how good it was, which is what the score lens above
+ * already answers. Tone comes from a count of people the cycle asked who
+ * have logged nothing graded yet, the same "any/most is a problem, none is
+ * fine" shape `goalLens` and `scoreLens` both use — not an invented
+ * percentage cutoff. There is no existing band anywhere in this codebase for
+ * what completion rate counts as "enough," and this lens does not invent
+ * one: `avgRate` is shown as context in the detail text, never used to pick
+ * the tone.
+ */
+export function intensityLens(
+  rows: readonly ApiDepartmentTaskIntensity[],
+): Lens {
+  const byDepartment = new Map<string, LensValue>();
+
+  for (const { departmentName, total, logging, silent, avgRate } of rows) {
+    const plural = (n: number) => (n === 1 ? "person" : "people");
+
+    if (logging === 0) {
+      byDepartment.set(departmentName, {
+        tone: "neutral",
+        detail: `None of ${String(total)} ${plural(total)} have a graded task yet this cycle`,
+      });
+      continue;
+    }
+
+    const base = `${String(logging)} of ${String(total)} logging, averaging ${String(avgRate ?? 0)}% complete`;
+    if (silent > logging) {
+      byDepartment.set(departmentName, {
+        tone: "danger",
+        detail: `${base} — ${String(silent)} silent this cycle`,
+      });
+    } else if (silent > 0) {
+      byDepartment.set(departmentName, {
+        tone: "warning",
+        detail: `${base} — ${String(silent)} silent this cycle`,
+      });
+    } else {
+      byDepartment.set(departmentName, { tone: "success", detail: base });
+    }
+  }
+
+  return { id: "intensity", label: "Task-logging intensity", byDepartment };
 }

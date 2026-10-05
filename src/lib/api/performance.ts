@@ -1564,6 +1564,18 @@ const signalOf = (signal?: AbortSignal) => (signal ? { signal } : {});
 export type ApiPotentialLevel = "LOW" | "MEDIUM" | "HIGH";
 export type ApiPerformanceAxis = "BELOW" | "MEETS" | "EXCEEDS";
 
+export type ApiDepartmentTaskIntensity = {
+  departmentName: string;
+  /** Everybody this cycle asked who is in this department. */
+  total: number;
+  /** Of `total`, how many have at least one graded task this cycle. */
+  logging: number;
+  /** `total - logging` — asked, but nothing graded yet all cycle. */
+  silent: number;
+  /** Average completion rate among `logging`. Null, never 0, when `logging` is 0. */
+  avgRate: number | null;
+};
+
 export type ApiNineBoxPerson = {
   employeeId: string;
   employeeName: string;
@@ -2224,6 +2236,19 @@ export const performanceApi = {
   nineBox: (cycleId: string, signal?: AbortSignal) =>
     request<ApiNineBox>(
       `/performance/cycles/${cycleId}/nine-box`,
+      signalOf(signal),
+    ),
+
+  /**
+   * Task-logging intensity by department, for one cycle.
+   *
+   * `EDIT_RECORDS`, like the register and the nine-box beside it — the same
+   * reasoning: a department rollup of who is and is not logging is only
+   * honest seen whole.
+   */
+  taskIntensity: (cycleId: string, signal?: AbortSignal) =>
+    request<ApiDepartmentTaskIntensity[]>(
+      `/performance/cycles/${cycleId}/task-intensity`,
       signalOf(signal),
     ),
 
