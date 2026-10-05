@@ -166,6 +166,7 @@ type WireHoliday = {
 type WireHolidayList = {
   holidays: WireHoliday[];
   awaitingProclamation: number;
+  suggestedAwaitingDecision?: number;
 };
 
 type WireType = {
@@ -318,6 +319,8 @@ export type PublicHolidayRow = {
 export type HolidayCalendar = {
   holidays: PublicHolidayRow[];
   awaitingProclamation: number;
+  /** Suggested holidays waiting in the approvals inbox; not in `holidays`. */
+  suggestedAwaitingDecision: number;
 };
 
 export type NewHolidayInput = {
@@ -613,6 +616,7 @@ export const leaveApi = {
     return {
       holidays: wire.holidays.map(toHoliday),
       awaitingProclamation: wire.awaitingProclamation,
+      suggestedAwaitingDecision: wire.suggestedAwaitingDecision ?? 0,
     };
   },
 
