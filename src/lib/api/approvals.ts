@@ -78,7 +78,8 @@ type WireKind =
   | "REQUISITION"
   | "EXPENSE"
   | "RECORD_CHANGE"
-  | "LOAN";
+  | "LOAN"
+  | "HOLIDAY";
 
 type WireStatus = "PENDING" | "APPROVED" | "DECLINED" | "WITHDRAWN";
 
@@ -179,6 +180,7 @@ const KIND: Record<WireKind, ApprovalKind> = {
   EXPENSE: "expense",
   RECORD_CHANGE: "record_change",
   LOAN: "loan",
+  HOLIDAY: "holiday",
 };
 
 /** `PAYROLL_RUN` → `Payroll run`. Only used for a kind we have no word for. */
@@ -224,6 +226,7 @@ const LABEL: Record<ApprovalKind, string> = {
   expense: "Expense",
   record_change: "Record change",
   loan: "Loan",
+  holiday: "Public holiday",
 };
 
 function toSummary(wire: WireSummary): ApprovalSummary {
