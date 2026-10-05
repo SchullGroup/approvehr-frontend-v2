@@ -199,6 +199,7 @@ const HREF: Record<ApprovalKind, string> = {
   expense: "/payroll/expenses",
   record_change: "/people",
   loan: "/payroll/loans",
+  holiday: "/settings/leave",
 };
 
 /** A seed or derived row, in the shape the screen renders. */
