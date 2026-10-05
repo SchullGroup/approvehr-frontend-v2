@@ -1,5 +1,6 @@
 import type { ApiReportResult } from "@/lib/api/reports";
 import type {
+  ApiDepartmentPromotionReadiness,
   ApiDepartmentTaskIntensity,
   ApiScoreRow,
 } from "@/lib/api/performance";
@@ -19,7 +20,8 @@ export type LensValue = {
   detail: string;
 };
 
-export type LensId = "goals" | "score" | "intensity";
+export type LensId =
+  "goals" | "score" | "intensity" | "topScorer" | "promotion";
 
 export type Lens = {
   id: LensId;
@@ -211,4 +213,93 @@ export function intensityLens(
   }
 
   return { id: "intensity", label: "Task-logging intensity", byDepartment };
+}
+
+/** Narrows a score row to the ones with an actual mark — a department's
+    "best performer" is silent about who has no mark at all, the same
+    absence `scoreLens` already leaves out of `below`/`partial`. */
+function isScored<
+  T extends { scoreBp: number | null; departmentName: string | null },
+>(row: T): row is T & { scoreBp: number; departmentName: string } {
+  return row.scoreBp !== null && row.departmentName !== null;
+}
+
+/**
+ * The top composite score in each department, from the same register rows
+ * `scoreLens` already reads — no second fetch. Reusing `appraiserMark`
+ * off the row is the "full transparency" half of this lens: a top score is
+ * shown with how many appraisers actually produced it, never as a bare
+ * number that could be one person's opinion.
+ *
+ * A tie names everybody at the top figure rather than picking one — silently
+ * dropping a tied second place would be exactly the kind of bias this whole
+ * screen exists to avoid.
+ */
+export function topScorerLens(rows: readonly ApiScoreRow[]): Lens {
+  const byDept = new Map<string, ApiScoreRow[]>();
+  for (const row of rows) {
+    if (row.departmentName === null) continue;
+    const list = byDept.get(row.departmentName) ?? [];
+    list.push(row);
+    byDept.set(row.departmentName, list);
+  }
+
+  const byDepartment = new Map<string, LensValue>();
+  for (const [department, people] of byDept) {
+    const scored = people.filter(isScored);
+    if (scored.length === 0) {
+      byDepartment.set(department, {
+        tone: "neutral",
+        detail: `None of ${String(people.length)} scored yet`,
+      });
+      continue;
+    }
+
+    const topScoreBp = Math.max(...scored.map((row) => row.scoreBp));
+    const top = scored.filter((row) => row.scoreBp === topScoreBp);
+    const names = top.map((row) => row.employeeName).join(" and ");
+    const { appraisers } = top[0]!.appraiserMark;
+    const percent = top[0]!.scorePercent ?? Math.round(topScoreBp / 100);
+    byDepartment.set(department, {
+      tone: "success",
+      detail: `${names} — ${top[0]!.bandLabel ?? "Scored"} at ${String(percent)}%, ${String(appraisers)} ${appraisers === 1 ? "appraiser" : "appraisers"} weighted`,
+    });
+  }
+
+  return { id: "topScorer", label: "Best performer", byDepartment };
+}
+
+/**
+ * Promotion-readiness, from the API's own per-department breakdown.
+ *
+ * A department the API returned with an empty `people` list was checked and
+ * nobody in it currently clears the bar — a real, common, and entirely
+ * different fact from a department this lens never looked at, which is why
+ * it still gets an entry here rather than being left for the generic
+ * "No data for this department" fallback. See the API's own header for what
+ * "clears the bar" means, and why there is no softer, partial version of it.
+ */
+export function promotionReadyLens(
+  rows: readonly ApiDepartmentPromotionReadiness[],
+): Lens {
+  const byDepartment = new Map<string, LensValue>();
+
+  for (const { departmentName, people } of rows) {
+    if (people.length === 0) {
+      byDepartment.set(departmentName, {
+        tone: "neutral",
+        detail: "Nobody clears the bar this cycle",
+      });
+      continue;
+    }
+
+    const names = people.map((person) => person.employeeName).join(", ");
+    const [, latestCycle] = people[0]!.cycles;
+    byDepartment.set(departmentName, {
+      tone: "success",
+      detail: `${names} — top band two cycles running (through ${latestCycle}), meeting every expected competency`,
+    });
+  }
+
+  return { id: "promotion", label: "Promotion-readiness", byDepartment };
 }

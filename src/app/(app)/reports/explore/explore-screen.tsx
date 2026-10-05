@@ -24,10 +24,11 @@ import { useLenses } from "./use-lenses";
  * The workforce explorer: the department tree as a navigable 3D space. See
  * `/Users/mac/.claude/plans/lexical-wobbling-map.md` for the full phasing.
  * Phase 0 shipped headcount only; Phase 1 added the goal-achievement and
- * composite-score lenses; Phase 2 (this one) added task-logging intensity.
- * The two comparative reads still to come (best-in-department, promotion
- * readiness) land the same way every lens so far has: on top of this same
- * scene and this same data source, without moving a single cluster.
+ * composite-score lenses; Phase 2 added task-logging intensity; Phase 3
+ * (this one) added the two comparative reads — best performer and
+ * promotion-readiness — completing the plan. Every lens has landed the same
+ * way: on top of this same scene and this same data source, without ever
+ * moving a single cluster.
  *
  * `useDepartments(false)` — not `ChartModel`/`buildModel()` from the org
  * chart — is the data source. The org chart's own model needs `ApiOrgChart`
@@ -46,7 +47,8 @@ const ClusterScene = dynamic(
   },
 );
 
-type LensChoice = "headcount" | "goals" | "score" | "intensity";
+type LensChoice =
+  "headcount" | "goals" | "score" | "intensity" | "topScorer" | "promotion";
 
 export function ExploreScreen() {
   const { tree, loading, error, source, demoNote, reload } =
@@ -83,6 +85,12 @@ export function ExploreScreen() {
     ...(lenses.intensity
       ? [{ value: "intensity" as const, label: lenses.intensity.label }]
       : []),
+    ...(lenses.topScorer
+      ? [{ value: "topScorer" as const, label: lenses.topScorer.label }]
+      : []),
+    ...(lenses.promotion
+      ? [{ value: "promotion" as const, label: lenses.promotion.label }]
+      : []),
   ];
   const activeLensObject =
     activeLens === "goals"
@@ -91,7 +99,11 @@ export function ExploreScreen() {
         ? lenses.score
         : activeLens === "intensity"
           ? lenses.intensity
-          : null;
+          : activeLens === "topScorer"
+            ? lenses.topScorer
+            : activeLens === "promotion"
+              ? lenses.promotion
+              : null;
 
   /* `undefined` — not an empty map — for the plain headcount view, so
      `ClusterScene` falls back to its own single neutral rather than

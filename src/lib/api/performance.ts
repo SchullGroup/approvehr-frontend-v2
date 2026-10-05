@@ -1576,6 +1576,26 @@ export type ApiDepartmentTaskIntensity = {
   avgRate: number | null;
 };
 
+export type ApiPromotionReadyPerson = {
+  employeeId: string;
+  employeeName: string;
+  jobTitle: string;
+  departmentName: string;
+  /** The two consecutive cycles they held the top band in, oldest first. */
+  cycles: [string, string];
+  /** Always equal to `competenciesExpected` — a partial match is not in this
+      list at all. See the API's own header for why. */
+  competenciesMet: number;
+  competenciesExpected: number;
+};
+
+export type ApiDepartmentPromotionReadiness = {
+  departmentName: string;
+  /** Empty, not absent, when the department was checked and nobody in it
+      qualifies this cycle. */
+  people: ApiPromotionReadyPerson[];
+};
+
 export type ApiNineBoxPerson = {
   employeeId: string;
   employeeName: string;
@@ -2249,6 +2269,18 @@ export const performanceApi = {
   taskIntensity: (cycleId: string, signal?: AbortSignal) =>
     request<ApiDepartmentTaskIntensity[]>(
       `/performance/cycles/${cycleId}/task-intensity`,
+      signalOf(signal),
+    ),
+
+  /**
+   * Promotion-readiness by department, for one cycle.
+   *
+   * `EDIT_RECORDS`, like every other aggregate on this cycle — the register,
+   * the nine-box, and task intensity beside it.
+   */
+  promotionReadiness: (cycleId: string, signal?: AbortSignal) =>
+    request<ApiDepartmentPromotionReadiness[]>(
+      `/performance/cycles/${cycleId}/promotion-readiness`,
       signalOf(signal),
     ),
 
