@@ -11,6 +11,7 @@ import {
 import {
   Badge,
   Button,
+  ButtonLink,
   Callout,
   Card,
   CardBody,
@@ -144,6 +145,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
   }
 
   const awaiting = calendar.awaitingProclamation;
+  const suggested = calendar.suggested;
 
   return (
     <>
@@ -226,6 +228,24 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
                     Confirm one as soon as it is gazetted and both catch up.
                   </span>
                 )}
+              </span>
+            </Callout>
+          )}
+
+          {canManage && suggested !== null && suggested > 0 && (
+            <Callout
+              tone="accent"
+              title={`${suggested} suggested ${suggested === 1 ? "holiday is" : "holidays are"} waiting in Approvals`}
+            >
+              <span className="flex flex-col items-start gap-2.5 text-body-sm leading-relaxed">
+                <span>
+                  Worked out from Nigeria&rsquo;s public holidays, up to ninety
+                  days ahead. None of them is on this calendar, or changes
+                  anybody&rsquo;s pay, until somebody approves it.
+                </span>
+                <ButtonLink href="/approvals" variant="secondary" size="sm">
+                  Open approvals
+                </ButtonLink>
               </span>
             </Callout>
           )}
