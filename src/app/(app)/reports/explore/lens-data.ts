@@ -33,11 +33,55 @@ export type Lens = {
   byDepartment: ReadonlyMap<string, LensValue>;
 };
 
+/**
+ * One muted, earthy family rather than four unrelated hues at different
+ * saturations — the stock traffic-light red/amber/green read as borrowed,
+ * not designed. Same semantic meaning as before (danger is still the red
+ * family, success still green), same two tones everywhere on the screen,
+ * just redrawn so the four read as one considered set.
+ */
 export const LENS_COLORS: Record<LensTone, string> = {
   neutral: "#8492a0",
-  success: "#8ac97d",
-  warning: "#d99400",
-  danger: "#dc3b32",
+  success: "#6fa87d",
+  warning: "#c98a3d",
+  danger: "#c65d52",
+};
+
+/**
+ * What each tone means **for this lens** — not every lens uses all four,
+ * and "danger" means a different concrete thing on each one. Feeds the
+ * legend, which shows only the tones the active lens actually produces,
+ * each with its own real wording rather than a generic colour key.
+ */
+export const LENS_TONE_MEANINGS: Record<
+  LensId,
+  Partial<Record<LensTone, string>>
+> = {
+  goals: {
+    danger: "Off-track goals",
+    warning: "At-risk goals",
+    success: "On track or done",
+  },
+  score: {
+    neutral: "Not scored yet",
+    danger: "Below expectations",
+    warning: "Partially meeting",
+    success: "Meeting or exceeding",
+  },
+  intensity: {
+    neutral: "Nobody logging yet",
+    danger: "Mostly silent",
+    warning: "Some silent",
+    success: "Everyone logging",
+  },
+  topScorer: {
+    neutral: "Nobody scored yet",
+    success: "Top performer found",
+  },
+  promotion: {
+    neutral: "Nobody ready yet",
+    success: "Promotion-ready person found",
+  },
 };
 
 /**

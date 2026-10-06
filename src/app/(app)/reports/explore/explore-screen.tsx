@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
-import { Orbit } from "lucide-react";
+import { Maximize2, Orbit, X } from "lucide-react";
 import {
   Callout,
   Card,
@@ -16,19 +17,21 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { useDepartments } from "@/lib/store/departments";
 import { layoutClusters, type ClusterNode } from "./cluster-data";
-import { LENS_COLORS } from "./lens-data";
+import { LENS_COLORS, type Lens } from "./lens-data";
+import { ExploreLegend } from "./legend";
 import { useReducedMotion, useWebGLSupport } from "./use-3d-support";
-import { useLenses } from "./use-lenses";
+import { useLenses, useWorkforceHeadline } from "./use-lenses";
 
 /**
  * The workforce explorer: the department tree as a navigable 3D space. See
  * `/Users/mac/.claude/plans/lexical-wobbling-map.md` for the full phasing.
  * Phase 0 shipped headcount only; Phase 1 added the goal-achievement and
  * composite-score lenses; Phase 2 added task-logging intensity; Phase 3
- * (this one) added the two comparative reads — best performer and
- * promotion-readiness — completing the plan. Every lens has landed the same
- * way: on top of this same scene and this same data source, without ever
- * moving a single cluster.
+ * added the two comparative reads — best performer and promotion-readiness
+ * — completing the plan. Every lens has landed the same way: on top of this
+ * same scene and this same data source, without ever moving a single
+ * cluster. The fullscreen view, the legend and the headline banner below
+ * are a later pass on top of that finished plan, not a new phase of it.
  *
  * `useDepartments(false)` — not `ChartModel`/`buildModel()` from the org
  * chart — is the data source. The org chart's own model needs `ApiOrgChart`
@@ -54,8 +57,10 @@ export function ExploreScreen() {
   const { tree, loading, error, source, demoNote, reload } =
     useDepartments(false);
   const lenses = useLenses();
+  const headline = useWorkforceHeadline();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeLens, setActiveLens] = useState<LensChoice>("headcount");
+  const [fullscreen, setFullscreen] = useState(false);
   const webglSupported = useWebGLSupport();
   const reducedMotion = useReducedMotion();
 
@@ -92,7 +97,7 @@ export function ExploreScreen() {
       ? [{ value: "promotion" as const, label: lenses.promotion.label }]
       : []),
   ];
-  const activeLensObject =
+  const activeLensObject: Lens | null =
     activeLens === "goals"
       ? lenses.goals
       : activeLens === "score"
@@ -122,6 +127,9 @@ export function ExploreScreen() {
       ? (activeLensObject.byDepartment.get(selected.name) ?? null)
       : null;
 
+  const canRenderScene =
+    !checking && !error && clusters.length > 0 && webglSupported !== false;
+
   return (
     <>
       <PageHeader
@@ -130,6 +138,15 @@ export function ExploreScreen() {
       />
 
       <PageBody className="flex flex-col gap-4">
+        {headline && headline.rule !== "none" && (
+          <Callout
+            tone={headline.rule === "promotion-ready" ? "success" : "danger"}
+            title="Worth a look this cycle"
+          >
+            {headline.sentence}
+          </Callout>
+        )}
+
         {DEMO_ENABLED && source === "demo" && (
           <Callout tone="neutral" title="Demo data, this browser only">
             {demoNote}
@@ -166,7 +183,7 @@ export function ExploreScreen() {
                 onChange={setActiveLens}
               />
             )}
-            <Card className="h-[34rem] overflow-hidden p-0">
+            <Card className="relative h-[34rem] overflow-hidden p-0">
               <ClusterScene
                 clusters={clusters}
                 selectedId={selectedId}
@@ -174,12 +191,41 @@ export function ExploreScreen() {
                 reducedMotion={reducedMotion}
                 colorByName={colorByName}
               />
+              <button
+                type="button"
+                onClick={() => setFullscreen(true)}
+                aria-label="Open fullscreen"
+                className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full border border-line bg-surface text-muted shadow-sm hover:text-ink"
+              >
+                <Maximize2 aria-hidden="true" className="size-4" />
+              </button>
+              <div className="pointer-events-none absolute bottom-3 left-3 right-3">
+                <ExploreLegend
+                  activeLens={activeLensObject}
+                  className="pointer-events-auto rounded-lg border border-line bg-surface/90 px-3 py-1.5 shadow-sm backdrop-blur"
+                />
+              </div>
             </Card>
           </>
         )}
 
         <AccessibleClusterTable clusters={clusters} />
       </PageBody>
+
+      {fullscreen && canRenderScene && (
+        <FullscreenExplorer
+          clusters={clusters}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          reducedMotion={reducedMotion}
+          colorByName={colorByName}
+          lensOptions={lensOptions}
+          activeLens={activeLens}
+          onLensChange={setActiveLens}
+          activeLensObject={activeLensObject}
+          onExit={() => setFullscreen(false)}
+        />
+      )}
 
       <Drawer
         open={selected !== null}
@@ -237,7 +283,7 @@ export function ExploreScreen() {
                     >
                       <button
                         type="button"
-                        className="text-body-sm text-accent hover:underline"
+                        className="text-body-sm text-accent-text hover:underline"
                         onClick={() => setSelectedId(child.id)}
                       >
                         {child.name}
@@ -255,6 +301,105 @@ export function ExploreScreen() {
         )}
       </Drawer>
     </>
+  );
+}
+
+/**
+ * The same scene, taking over the whole viewport — no sidebar, no header,
+ * nothing but the space and the controls to read it. Portalled to
+ * `document.body` at `z-40`, the same door `components/ui/modal.tsx` uses
+ * for the Drawer and every dialog in this app, one layer below the Drawer's
+ * own `z-50` so clicking a cluster while fullscreen still opens its detail
+ * on top of the scene rather than underneath it.
+ *
+ * A hard-coded dark ground rather than this app's own light/dark theme
+ * tokens: the point of fullscreen is the scene, and a fixed, deliberately
+ * immersive background reads as a considered choice precisely because it
+ * does not change with the viewer's own theme setting — the same reasoning
+ * `artifact-design`-style guidance gives a page that commits to one visual
+ * world. The lens palette was designed to read clearly against it.
+ */
+function FullscreenExplorer({
+  clusters,
+  selectedId,
+  onSelect,
+  reducedMotion,
+  colorByName,
+  lensOptions,
+  activeLens,
+  onLensChange,
+  activeLensObject,
+  onExit,
+}: {
+  clusters: readonly ClusterNode[];
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  reducedMotion: boolean;
+  colorByName: ReadonlyMap<string, string> | undefined;
+  lensOptions: { value: LensChoice; label: string }[];
+  activeLens: LensChoice;
+  onLensChange: (value: LensChoice) => void;
+  activeLensObject: Lens | null;
+  onExit: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onExit();
+    };
+    document.addEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onExit]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-40 bg-[#0b1220]">
+      <ClusterScene
+        clusters={clusters}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        reducedMotion={reducedMotion}
+        colorByName={colorByName}
+      />
+
+      <button
+        type="button"
+        onClick={onExit}
+        aria-label="Exit fullscreen"
+        className="absolute right-4 top-4 z-10 inline-flex size-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20"
+      >
+        <X aria-hidden="true" className="size-5" />
+      </button>
+
+      {lensOptions.length > 1 && (
+        /* `right-16` — not a bare `left-4` — bounds this to a width the
+           exit button can never sit under: `SegmentedControl` wraps its own
+           options (it already has to, for a phone-width screen with six
+           lenses on offer), and an unbounded-width wrapper let "Goal
+           achievement" grow wide enough to sit on top of the one button
+           that closes this view, on exactly the narrow screen where
+           wrapping existed to help in the first place. */
+        <div className="absolute left-4 right-16 top-4 drop-shadow-lg">
+          <SegmentedControl
+            label="Colour by"
+            options={lensOptions}
+            value={activeLens}
+            onChange={onLensChange}
+          />
+        </div>
+      )}
+
+      <div className="pointer-events-none absolute bottom-4 left-4 right-4 flex justify-center">
+        <ExploreLegend
+          activeLens={activeLensObject}
+          className="pointer-events-auto rounded-full bg-white/10 px-4 py-2 text-white/90 backdrop-blur"
+        />
+      </div>
+    </div>,
+    document.body,
   );
 }
 

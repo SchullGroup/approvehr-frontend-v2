@@ -5,6 +5,7 @@ import { useSession } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
 import { reportsApi } from "@/lib/api/reports";
 import { performanceApi } from "@/lib/api/performance";
+import { insightsApi, type ApiWorkforceHeadline } from "@/lib/api/insights";
 import {
   goalLens,
   intensityLens,
@@ -128,4 +129,36 @@ export function useLenses(): LensesState {
   return canSeeLenses
     ? { goals, score, intensity, topScorer, promotion }
     : EMPTY;
+}
+
+/**
+ * The same one-line headline the dashboard shows, fetched on its own so this
+ * screen does not pull the whole dashboard payload for one sentence. Same
+ * gate, same "absent, not disabled" shape as every lens above — see that
+ * header.
+ */
+export function useWorkforceHeadline(): ApiWorkforceHeadline | null {
+  const { isConnected } = useSession();
+  const canSeeLenses = useCan("EDIT_RECORDS") && isConnected;
+  const [headline, setHeadline] = useState<ApiWorkforceHeadline | null>(null);
+
+  useEffect(() => {
+    if (!canSeeLenses) return;
+    let cancelled = false;
+
+    insightsApi
+      .workforceHeadline()
+      .then((result) => {
+        if (!cancelled) setHeadline(result);
+      })
+      .catch(() => {
+        if (!cancelled) setHeadline(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canSeeLenses]);
+
+  return canSeeLenses ? headline : null;
 }
