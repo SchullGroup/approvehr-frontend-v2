@@ -173,6 +173,7 @@ function InterviewDialog({
   );
   const [whatWorked, setWhatWorked] = useState(interview?.whatWorked ?? "");
   const [whatDidNot, setWhatDidNot] = useState(interview?.whatDidNot ?? "");
+  const [notes, setNotes] = useState(interview?.notes ?? "");
   const [busy, setBusy] = useState(false);
 
   const anyAnswer =
@@ -180,7 +181,8 @@ function InterviewDialog({
     wouldRecommend !== "" ||
     wouldReturn !== "" ||
     whatWorked.trim() !== "" ||
-    whatDidNot.trim() !== "";
+    whatDidNot.trim() !== "" ||
+    notes.trim() !== "";
   const ready = declined || anyAnswer;
 
   async function submit() {
@@ -201,6 +203,7 @@ function InterviewDialog({
                 : {}),
               ...(whatWorked.trim() ? { whatWorked: whatWorked.trim() } : {}),
               ...(whatDidNot.trim() ? { whatDidNot: whatDidNot.trim() } : {}),
+              ...(notes.trim() ? { notes: notes.trim() } : {}),
             },
       );
       toast.push({ title: "Saved", tone: "success" });
@@ -311,6 +314,18 @@ function InterviewDialog({
                 value={whatDidNot}
                 maxLength={2000}
                 onChange={(e) => setWhatDidNot(e.target.value)}
+              />
+            </Field>
+
+            <Field
+              label="Notes"
+              help="Whatever did not fit the questions above."
+            >
+              <Textarea
+                rows={3}
+                value={notes}
+                maxLength={2000}
+                onChange={(e) => setNotes(e.target.value)}
               />
             </Field>
           </>
