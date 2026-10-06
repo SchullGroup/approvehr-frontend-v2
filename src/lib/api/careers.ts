@@ -39,9 +39,12 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
  * 2. **Screening somebody in needs a requisition.** `advance` creates the
  *    `Candidate` and the pipeline `Application` in one transaction, and there has
  *    to be a requisition for them to land on — either linked to the advert or
- *    named in the request. There is **no requisitions endpoint in this API**, so
- *    nothing here can offer a picker; `AdvanceBody.requisitionId` is the seam,
- *    and the screens ask for it at the moment it is needed rather than failing.
+ *    named in the request. `AdvanceBody.requisitionId` is the seam: the screens
+ *    ask for it at the moment it is needed rather than failing. A requisition
+ *    picker now exists (`recruitmentApi.listRequisitions`, in the sibling
+ *    `recruitment.ts`) — `posting-editor.tsx` and `applications-screen.tsx`'s
+ *    `AdvanceDialog` both use it — this module just has no reason to import
+ *    from `recruitment.ts` itself.
  */
 
 /* ------------------------------------------------------------------- shapes */

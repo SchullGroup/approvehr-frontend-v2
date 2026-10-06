@@ -137,6 +137,25 @@ export function OffboardingScreen() {
           shows up here the same way as one you start for them.
         </p>
 
+        {/* The third door. A Departmental Lead can start a resignation or
+            retirement for somebody in their own department, but only from
+            that person's own record — "Start an exit" above needs
+            `EDIT_RECORDS`, which a lead does not necessarily hold, and this
+            screen has no button for the narrower permission because
+            `canRecordExit` in `people/[id]/record.tsx` depends on which
+            department the *specific person on that record* sits in, which
+            this list view has no reason to resolve for everyone in it just to
+            decide whether to show a button. A line is cheaper than a second
+            relationship check, and was the whole gap: a lead who did not
+            already know to look on the person's own page had no way to find
+            this at all. */}
+        <Can permission="START_EXIT_DEPARTMENT">
+          <p className="text-body-sm text-muted">
+            Heading a department also lets you start a resignation or retirement
+            for somebody in it, from their own record page.
+          </p>
+        </Can>
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
             <Search

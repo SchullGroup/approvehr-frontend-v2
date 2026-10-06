@@ -103,7 +103,7 @@ const EMPTY: Draft = {
   ],
   screeningQuestions: [],
   hiringManagerId: "",
-  recruiterId: "p-06",
+  recruiterId: "",
   notes: "",
 };
 
@@ -720,6 +720,7 @@ function Wizard() {
                   <Select
                     value={draft.recruiterId}
                     onChange={(e) => set("recruiterId", e.currentTarget.value)}
+                    placeholder="Select a recruiter"
                   >
                     {directory.employees.map((e) => (
                       <option key={e.id} value={e.id}>
@@ -747,13 +748,24 @@ function Wizard() {
               <div className="flex flex-col gap-5">
                 <div className="flex flex-col gap-2">
                   <SourceBadge live={adverts.editable} />
-                  <p className="text-body-sm text-body">
-                    This saves the job (title, location, type, pay range and the
-                    text below) as a<strong>draft advert</strong>. Nothing is
-                    public until you publish it. Stages, screening questions and
-                    the hiring team stay on this screen; there is no endpoint
-                    for them yet.
-                  </p>
+                  {isConnected ? (
+                    <p className="text-body-sm text-body">
+                      This saves a real <strong>requisition</strong> — title,
+                      location, type, pay range, department, hiring manager and
+                      its pipeline stages — plus a <strong>draft advert</strong>
+                      . Nothing is public until you publish it. Screening
+                      questions and the note for approvers stay on this screen;
+                      there is no field for them yet.
+                    </p>
+                  ) : (
+                    <p className="text-body-sm text-body">
+                      This saves the job (title, location, type, pay range and
+                      the text below) as a <strong>draft advert</strong>.
+                      Nothing is public until you publish it. Stages, the hiring
+                      team and screening questions all need a connected company
+                      to save; there is nowhere to put them offline.
+                    </p>
+                  )}
                 </div>
 
                 <ReviewBlock

@@ -15,11 +15,15 @@ import {
   Input,
   Modal,
   Money,
+  ProgressMeter,
   Select,
   Skeleton,
   Textarea,
 } from "@/components/ui";
+import { ExportButton } from "@/components/portal/export-button";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
+import { offerLetter } from "@/lib/api/exports";
 import {
   INTERVIEW_KIND_LABEL,
   RECOMMENDATION_LABEL,
@@ -37,6 +41,7 @@ import { useCan } from "@/lib/permissions";
 import {
   useApplicationMutations,
   useCandidateMutations,
+  useInterviewDetail,
   useInterviewMutations,
   useOfferMutations,
   useStages,
@@ -161,6 +166,16 @@ export function RealPipeline({
     null,
   );
   const [scoring, setScoring] = useState<string | null>(null);
+  const [openScorecards, setOpenScorecards] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const toggleScorecards = (interviewId: string) =>
+    setOpenScorecards((prev) => {
+      const next = new Set(prev);
+      if (next.has(interviewId)) next.delete(interviewId);
+      else next.add(interviewId);
+      return next;
+    });
   const [offering, setOffering] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [withdrawingApplication, setWithdrawingApplication] = useState(false);
@@ -318,6 +333,7 @@ export function RealPipeline({
       {application.offer ? (
         <OfferCard
           offer={application.offer}
+          candidateName={application.candidateName}
           canApprove={canApprove}
           canManage={canManage}
           onChanged={onChanged}
@@ -406,6 +422,17 @@ export function RealPipeline({
                 >
                   Submit a scorecard
                 </Button>
+                {iv.scorecards.some((s) => s.submitted) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleScorecards(iv.id)}
+                  >
+                    {openScorecards.has(iv.id)
+                      ? "Hide what was submitted"
+                      : "Show what was submitted"}
+                  </Button>
+                )}
                 {iv.status === "SCHEDULED" && (
                   <>
                     <Button
@@ -470,6 +497,9 @@ export function RealPipeline({
                   </>
                 )}
               </div>
+              {openScorecards.has(iv.id) && (
+                <InterviewScorecards interviewId={iv.id} />
+              )}
             </div>
           ))}
         </CardBody>
@@ -557,16 +587,95 @@ export function RealPipeline({
   );
 }
 
+/**
+ * What a submitted scorecard actually says — ratings, notes, recommendation —
+ * fetched on demand rather than with the application. `ApiInterviewSummary`
+ * (what the application payload already carries) only ever has
+ * `ApiInterviewScorecardRef[]`: an id and whether it is submitted, nothing an
+ * approver could read. The content lives behind its own endpoint
+ * (`GET /recruitment/interviews/:id`), so it is fetched only once somebody
+ * asks to see it rather than once per interview on every page load.
+ *
+ * No interviewer name: `ApiScorecard.interviewerName` is always `null` on
+ * this backend today (see its own doc comment), so this does not invent one.
+ */
+function InterviewScorecards({ interviewId }: { interviewId: string }) {
+  const { interview, loading, error, reload } = useInterviewDetail(interviewId);
+  const submitted = interview?.scorecards.filter((s) => s.submitted) ?? [];
+
+  if (loading) return <Skeleton className="h-16 w-full" />;
+
+  return (
+    <div className="mt-2.5 flex flex-col gap-2.5 border-t border-line pt-2.5">
+      <LoadFailure subject="this scorecard" error={error} onRetry={reload} />
+      {!error && submitted.length === 0 && (
+        <p className="text-body-sm text-muted">Nothing submitted yet.</p>
+      )}
+      {submitted.map((sc, index) => {
+        const avg =
+          sc.ratings.reduce((sum, r) => sum + r.score, 0) /
+          (sc.ratings.length || 1);
+        return (
+          <div key={sc.id} className="rounded-md border border-line p-3">
+            <div className="flex items-center gap-2">
+              <span className="text-body-sm font-medium text-ink">
+                Scorecard {index + 1}
+              </span>
+              {sc.recommendation && (
+                <Badge size="sm">
+                  {RECOMMENDATION_LABEL[sc.recommendation]}
+                </Badge>
+              )}
+              {sc.ratings.length > 0 && (
+                <span className="ml-auto text-meta text-muted">
+                  {avg.toFixed(1)} / 5 average
+                </span>
+              )}
+            </div>
+            {sc.ratings.length > 0 && (
+              <div className="mt-2.5 flex flex-col gap-2">
+                {sc.ratings.map((r) => (
+                  <ProgressMeter
+                    key={r.competency}
+                    value={r.score}
+                    max={5}
+                    label={r.competency}
+                    size="sm"
+                    tone={
+                      r.score >= 4
+                        ? "success"
+                        : r.score >= 3
+                          ? "accent"
+                          : "warning"
+                    }
+                  />
+                ))}
+              </div>
+            )}
+            {sc.notes && (
+              <p className="mt-2.5 border-t border-line pt-2 text-body-sm leading-relaxed text-body">
+                {sc.notes}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------------- offer */
 
 function OfferCard({
   offer,
+  candidateName,
   canApprove,
   canManage,
   onChanged,
   onNotice,
 }: {
   offer: NonNullable<ApiApplicationDetail["offer"]>;
+  candidateName: string;
   canApprove: boolean;
   canManage: boolean;
   onChanged: () => void;
@@ -756,6 +865,24 @@ function OfferCard({
                 Became an employee record.
               </span>
             ))}
+          {/* Approved, not pending: `approvedAt` is never cleared once set, so
+              this stays reachable at SENT, ACCEPTED and DECLINED — unlike the
+              approvals inbox, whose own copy of this button vanishes the
+              moment an offer is marked sent because that screen only ever
+              lists PENDING_APPROVAL offers. This is the one place left where
+              a lost or outdated copy can still be re-downloaded. Same gate
+              `real-approvals.tsx` uses — see `lib/api/exports.ts#offerLetter`. */}
+          {offer.approvedAt && (
+            <ExportButton
+              label="Offer letter"
+              download={() =>
+                offerLetter(
+                  offer.id,
+                  `offer-${candidateName.replace(/\s+/g, "-")}`,
+                )
+              }
+            />
+          )}
         </div>
       </CardBody>
 
