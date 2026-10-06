@@ -202,7 +202,7 @@ function Mine({
               /* Null is not zero. No salary on file is a missing fact about the
                  company's data, not a person who has earned nothing. */
               earned.earnedKobo === null ? (
-                <span className="text-faint">Not known</span>
+                <span className="text-faint">—</span>
               ) : (
                 <Money amount={earned.earnedKobo / 100} decimals />
               )
@@ -367,6 +367,7 @@ function History({ read }: { read: ReturnType<typeof useAdvances> }) {
   if (read.data.length === 0) {
     return (
       <EmptyState
+        icon={<Banknote aria-hidden="true" />}
         title="Nothing drawn yet"
         description="An advance taken here appears with what is still to come off a payslip."
       />

@@ -10,6 +10,7 @@ import {
   Megaphone,
   Plus,
   Search,
+  TriangleAlert,
 } from "lucide-react";
 import {
   Badge,
@@ -32,6 +33,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   formatMoney,
   useToast,
 } from "@/components/ui";
@@ -43,6 +45,7 @@ import {
   careersPath,
   careersUrl,
   naira,
+  requisitionClosedNote,
   type ApiPosting,
   type ApiPostingTally,
   type CreatePostingBody,
@@ -78,7 +81,7 @@ export function PostingsScreen() {
       <>
         <PageHeader
           title="Job adverts"
-          breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+          breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
         />
         <PageBody>
           <Skeleton className="h-40 w-full" />
@@ -93,7 +96,7 @@ export function PostingsScreen() {
       <>
         <PageHeader
           title="Job adverts"
-          breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+          breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
         />
         <PageBody>
           <Card>
@@ -231,7 +234,7 @@ function Adverts() {
     <>
       <PageHeader
         title="Job adverts"
-        breadcrumb={[{ href: "/hiring", label: "Pipeline" }]}
+        breadcrumb={[{ href: "/hiring", label: "Hiring" }]}
         action={
           <>
             <ButtonLink
@@ -278,34 +281,52 @@ function Adverts() {
             value={totals ? String(totals.live) : "—"}
             hint={totals ? `${totals.postings} written in total` : undefined}
           />
-          <Stat
-            label="Applications"
-            value={totals ? String(totals.applications) : "—"}
-          />
-          <Stat
-            label="Waiting to screen"
-            value={totals ? String(totals.waiting) : "—"}
-            trend={
-              totals && totals.waiting > 0
-                ? { direction: "down", label: "Nobody has looked" }
-                : undefined
-            }
-          />
-          <Stat
-            label="Screened in"
-            value={
-              totals
-                ? totals.advanceRate === null
-                  ? "—"
-                  : `${totals.advanceRate}%`
-                : "—"
-            }
-            hint={
-              totals && totals.advanceRate === null
-                ? "Nobody screened yet"
-                : "of everyone screened"
-            }
-          />
+          <Link
+            href="/hiring/postings/applications?status=ALL"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="Applications"
+              value={totals ? String(totals.applications) : "—"}
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
+          <Link
+            href="/hiring/postings/applications?status=RECEIVED"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="Waiting to screen"
+              value={totals ? String(totals.waiting) : "—"}
+              trend={
+                totals && totals.waiting > 0
+                  ? { direction: "down", label: "Nobody has looked" }
+                  : undefined
+              }
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
+          <Link
+            href="/hiring/postings/applications?status=ADVANCED"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="Screened in"
+              value={
+                totals
+                  ? totals.advanceRate === null
+                    ? "—"
+                    : `${totals.advanceRate}%`
+                  : "—"
+              }
+              hint={
+                totals && totals.advanceRate === null
+                  ? "Nobody screened yet"
+                  : "of everyone screened"
+              }
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
         </div>
 
         <Card>
@@ -313,7 +334,16 @@ function Adverts() {
             title="Your adverts"
             description="A draft is private. Publishing puts it on your careers page."
             action={
-              <div className="flex flex-wrap items-center gap-2">
+              /* `flex-col` below `sm`, not just `flex-wrap`: `CardHeader`
+                 wraps this whole block in a `shrink-0` div, whose own
+                 minimum width is its *unwrapped* content size — the
+                 SegmentedControl (241px) and the Input (192px) side by
+                 side, 441px, which is wider than the card at 375px however
+                 much this div's own `flex-wrap` would like to wrap them.
+                 Stacking the two children in a column makes this block's
+                 preferred width the wider of the two (241px) rather than
+                 their sum, which fits. */
+              <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <SegmentedControl
                   label="Filter adverts by status"
                   options={STATUS_FILTERS}
@@ -326,7 +356,7 @@ function Adverts() {
                   placeholder="Find an advert"
                   aria-label="Find an advert"
                   icon={<Search aria-hidden="true" />}
-                  className="w-48"
+                  className="sm:w-48"
                 />
               </div>
             }
@@ -360,20 +390,45 @@ function Adverts() {
               }
             />
           ) : (
-            <TableWrap caption="Every job advert, newest first">
-              <THead>
-                <TH>Role</TH>
-                <TH>Status</TH>
-                <TH align="right">Applications</TH>
-                <TH>Pay</TH>
-                <TH>Closes</TH>
-                <TH>
-                  <span className="sr-only-focusable">Actions</span>
-                </TH>
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap caption="Every job advert, newest first">
+                  <THead>
+                    <TH>Role</TH>
+                    <TH>Status</TH>
+                    <TH align="right">Applications</TH>
+                    <TH>Pay</TH>
+                    <TH>Closes</TH>
+                    <TH>
+                      <span className="sr-only-focusable">Actions</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {rows.map((posting) => (
+                      <AdvertRow
+                        key={posting.id}
+                        posting={posting}
+                        waiting={tallies.get(posting.id)?.waiting ?? 0}
+                        editable={postings.editable}
+                        copied={copied === posting.id}
+                        onCopy={() => void copyLink(posting)}
+                        onEdit={() => setEditing(posting)}
+                        onPublish={() =>
+                          void run(
+                            () => postings.publish(posting.id),
+                            `${posting.title} is live`,
+                          )
+                        }
+                        onClose={() => setClosing(posting)}
+                      />
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
                 {rows.map((posting) => (
-                  <AdvertRow
+                  <AdvertCard
                     key={posting.id}
                     posting={posting}
                     waiting={tallies.get(posting.id)?.waiting ?? 0}
@@ -390,8 +445,8 @@ function Adverts() {
                     onClose={() => setClosing(posting)}
                   />
                 ))}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
 
           {postings.total > postings.postings.length && (
@@ -497,12 +552,24 @@ function AdvertRow({
           <span className="flex flex-wrap items-center gap-2">
             {posting.title}
             {posting.requisitionReference ? (
-              <span className="tabular text-meta font-normal text-muted">
+              <Link
+                href={`/hiring/requisitions/${posting.requisitionId}`}
+                className="tabular text-meta font-normal text-muted hover:text-accent-text hover:underline underline-offset-4"
+              >
                 {posting.requisitionReference}
-              </span>
+              </Link>
             ) : (
               <Badge tone="warning" size="sm">
                 No approved role
+              </Badge>
+            )}
+            {requisitionClosedNote(posting.requisitionStatus) && (
+              <Badge
+                tone="warning"
+                size="sm"
+                icon={<TriangleAlert aria-hidden="true" />}
+              >
+                {requisitionClosedNote(posting.requisitionStatus)}
               </Badge>
             )}
           </span>
@@ -512,13 +579,13 @@ function AdvertRow({
             <span>{EMPLOYMENT_TYPE_LABEL[posting.employmentType]}</span>
             {posting.location && <span>· {posting.location}</span>}
             {isLive && (
-              <Link
+              <TextLink
                 href={careersPath(posting.publicPath)}
-                className="tabular inline-flex items-center gap-1 text-accent-text hover:underline underline-offset-4"
+                className="tabular inline-flex items-center gap-1 font-normal"
               >
                 {careersPath(posting.publicPath)}
                 <ExternalLink aria-hidden="true" className="size-3" />
-              </Link>
+              </TextLink>
             )}
           </span>
         }
@@ -531,16 +598,25 @@ function AdvertRow({
       </TD>
 
       <TD align="right">
-        <span className="tabular text-body-sm text-ink">
-          {posting.applicationCount}
-        </span>
-        {waiting > 0 && (
+        {posting.applicationCount > 0 ? (
           <Link
+            href={`/hiring/postings/applications?posting=${posting.id}&status=ALL`}
+            className="tabular text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
+          >
+            {posting.applicationCount}
+          </Link>
+        ) : (
+          <span className="tabular text-body-sm text-ink">
+            {posting.applicationCount}
+          </span>
+        )}
+        {waiting > 0 && (
+          <TextLink
             href={`/hiring/postings/applications?posting=${posting.id}`}
-            className="mt-0.5 block text-meta text-accent-text hover:underline underline-offset-4"
+            className="mt-0.5 block text-meta font-normal"
           >
             {waiting} waiting
-          </Link>
+          </TextLink>
         )}
       </TD>
 
@@ -613,6 +689,158 @@ function AdvertRow({
   );
 }
 
+/** The mobile card for one advert — the same facts and the same actions as
+ *  `AdvertRow`, laid out as a card rather than six cells. */
+function AdvertCard({
+  posting,
+  waiting,
+  editable,
+  copied,
+  onCopy,
+  onEdit,
+  onPublish,
+  onClose,
+}: {
+  posting: ApiPosting;
+  waiting: number;
+  editable: boolean;
+  copied: boolean;
+  onCopy: () => void;
+  onEdit: () => void;
+  onPublish: () => void;
+  onClose: () => void;
+}) {
+  const isLive = posting.status === "PUBLISHED";
+  const band = salaryBand(posting.salaryMinKobo, posting.salaryMaxKobo);
+
+  return (
+    <li className="flex flex-col gap-2 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+            {posting.title}
+            {posting.requisitionReference ? (
+              <Link
+                href={`/hiring/requisitions/${posting.requisitionId}`}
+                className="tabular text-meta font-normal text-muted hover:text-accent-text hover:underline underline-offset-4"
+              >
+                {posting.requisitionReference}
+              </Link>
+            ) : (
+              <Badge tone="warning" size="sm">
+                No approved role
+              </Badge>
+            )}
+            {requisitionClosedNote(posting.requisitionStatus) && (
+              <Badge
+                tone="warning"
+                size="sm"
+                icon={<TriangleAlert aria-hidden="true" />}
+              >
+                {requisitionClosedNote(posting.requisitionStatus)}
+              </Badge>
+            )}
+          </p>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
+            <span>{EMPLOYMENT_TYPE_LABEL[posting.employmentType]}</span>
+            {posting.location && <span>· {posting.location}</span>}
+          </p>
+          {isLive && (
+            <TextLink
+              href={careersPath(posting.publicPath)}
+              className="tabular mt-0.5 inline-flex items-center gap-1 text-meta font-normal"
+            >
+              {careersPath(posting.publicPath)}
+              <ExternalLink aria-hidden="true" className="size-3" />
+            </TextLink>
+          )}
+        </div>
+        <Badge tone={STATUS_TONE[posting.status]} size="sm" dot>
+          {STATUS_LABEL[posting.status]}
+        </Badge>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+        {posting.applicationCount > 0 ? (
+          <Link
+            href={`/hiring/postings/applications?posting=${posting.id}&status=ALL`}
+            className="tabular font-medium text-accent-text hover:underline underline-offset-4"
+          >
+            {posting.applicationCount} applications
+          </Link>
+        ) : (
+          <span className="tabular">
+            {posting.applicationCount} applications
+          </span>
+        )}
+        {waiting > 0 && (
+          <TextLink
+            href={`/hiring/postings/applications?posting=${posting.id}`}
+            className="tabular"
+          >
+            {waiting} waiting
+          </TextLink>
+        )}
+        <span className="tabular">
+          {posting.closesOn ? `Closes ${posting.closesOn}` : "Open"}
+          {posting.closesOn &&
+            !posting.acceptingApplications &&
+            posting.status === "PUBLISHED" && (
+              <span className="text-warning-text"> · date passed</span>
+            )}
+        </span>
+      </div>
+
+      {band !== null && (
+        <p className="tabular text-body-sm text-body">
+          {band}
+          {!posting.showSalary && (
+            <span className="text-meta text-muted">
+              {" "}
+              · hidden on the advert
+            </span>
+          )}
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-1.5">
+        {isLive && (
+          <Button variant="ghost" size="sm" onClick={onCopy}>
+            {copied ? (
+              <Check aria-hidden="true" className="size-3.5" />
+            ) : (
+              <Copy aria-hidden="true" className="size-3.5" />
+            )}
+            {copied ? "Copied" : "Copy link"}
+          </Button>
+        )}
+        {editable && (
+          <>
+            <Button variant="ghost" size="sm" onClick={onEdit}>
+              Edit
+            </Button>
+            {posting.status === "DRAFT" && (
+              <Button variant="accent" size="sm" onClick={onPublish}>
+                Publish
+              </Button>
+            )}
+            {posting.status === "CLOSED" && (
+              <Button variant="secondary" size="sm" onClick={onPublish}>
+                Publish again
+              </Button>
+            )}
+            {isLive && (
+              <Button variant="secondary" size="sm" onClick={onClose}>
+                Close
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+    </li>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 
 /** Where applications come from. The only data that says which channel works. */
@@ -642,26 +870,44 @@ function SourceTable({
         title="Where applications come from"
         description="Answered by whoever applied. Most people leave it blank."
       />
-      <TableWrap className="rounded-none border-0">
-        <THead>
-          <TH>Heard about it from</TH>
-          <TH align="right">Applications</TH>
-          <TH align="right">Share</TH>
-        </THead>
-        <TBody>
-          {rows.map((row) => (
-            <TR key={row.source}>
-              <TDPrimary title={row.source} />
-              <TD align="right">
-                <span className="tabular">{row.applications}</span>
-              </TD>
-              <TD align="right">
-                <span className="tabular">{row.share}%</span>
-              </TD>
-            </TR>
-          ))}
-        </TBody>
-      </TableWrap>
+      <div className="hidden sm:block">
+        <TableWrap className="rounded-none border-0">
+          <THead>
+            <TH>Heard about it from</TH>
+            <TH align="right">Applications</TH>
+            <TH align="right">Share</TH>
+          </THead>
+          <TBody>
+            {rows.map((row) => (
+              <TR key={row.source}>
+                <TDPrimary title={row.source} />
+                <TD align="right">
+                  <span className="tabular">{row.applications}</span>
+                </TD>
+                <TD align="right">
+                  <span className="tabular">{row.share}%</span>
+                </TD>
+              </TR>
+            ))}
+          </TBody>
+        </TableWrap>
+      </div>
+
+      <ul className="divide-y divide-line sm:hidden">
+        {rows.map((row) => (
+          <li
+            key={row.source}
+            className="flex items-center justify-between gap-3 p-4"
+          >
+            <span className="text-body-sm font-medium text-ink">
+              {row.source}
+            </span>
+            <span className="tabular text-body-sm text-muted">
+              {row.applications} · {row.share}%
+            </span>
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }

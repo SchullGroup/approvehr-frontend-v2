@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Briefcase, CalendarClock, Plus } from "lucide-react";
+import { Briefcase, CalendarClock, Plus, TriangleAlert } from "lucide-react";
 import {
   Badge,
   Button,
@@ -16,6 +16,7 @@ import {
   Modal,
   Money,
   Select,
+  Skeleton,
   Textarea,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
@@ -119,6 +120,17 @@ export function RealRole({
             { term: "Outcome", value: realOutcomeBadge(application) },
           ]}
         />
+        {/* The API writes this automatically — most often "Role filled by
+            <name>." — the instant somebody else's offer is accepted on the
+            same requisition, and until now nothing here rendered it: a
+            recruiter watching the board saw this person flip to Rejected
+            with no visible cause. Same treatment as the seeded `Pipeline`
+            component's identical Callout, which already does this. */}
+        {application.outcome === "REJECTED" && application.rejectionReason && (
+          <Callout tone="danger" title="Rejected">
+            {application.rejectionReason}
+          </Callout>
+        )}
       </CardBody>
     </Card>
   );
@@ -227,26 +239,66 @@ export function RealPipeline({
         <Card>
           <CardHeader title="Move this candidate" />
           <CardBody className="flex flex-wrap items-center gap-2">
-            {stagesState.stages
-              .filter((s) => s.id !== application.stageId)
-              .map((s) => (
-                <Button
-                  key={s.id}
-                  variant="secondary"
-                  size="sm"
-                  loading={busy}
-                  onClick={() => void moveTo(s.id)}
-                >
-                  Move to {s.name}
-                </Button>
-              ))}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setRejecting(true)}
-            >
-              Reject
-            </Button>
+            {/* Loading and error are checked explicitly rather than falling
+                through to an empty `stages` array — that array reads
+                identically whether the fetch is still in flight, failed, or
+                genuinely came back with one stage, and the first two used to
+                render as the third: a candidate page landed on right after
+                an advance (before the stage list has had its first round
+                trip) briefly claimed "there is nowhere else to move them"
+                about a requisition that, once loaded, had several. */}
+            {canManage && stagesState.loading && (
+              <Skeleton className="h-8 w-40" />
+            )}
+            {canManage && !stagesState.loading && stagesState.error && (
+              <p className="w-full text-body-sm text-danger-text">
+                {stagesState.error.message} The stages could not be loaded, so
+                no &ldquo;Move to&rdquo; options are shown here — Reject and
+                Withdraw below still work.
+              </p>
+            )}
+            {canManage &&
+              !stagesState.loading &&
+              !stagesState.error &&
+              stagesState.stages.length > 0 &&
+              stagesState.stages.filter((s) => s.id !== application.stageId)
+                .length === 0 && (
+                <p className="w-full text-body-sm text-muted">
+                  This requisition has only the one stage they are already in,
+                  so there is nowhere else to move them — reject or withdraw
+                  them instead, or add another stage on the requisition.
+                </p>
+              )}
+            {/* `POST /applications/:id/move` and `.../reject` are both gated
+                on `MANAGE_HIRING` server-side, same as withdraw below — an
+                APPROVE_HIRING-only account can reach this screen (the entry
+                gate admits either permission) and was seeing these as live,
+                always-refused buttons before this check existed. */}
+            {canManage &&
+              !stagesState.loading &&
+              !stagesState.error &&
+              stagesState.stages
+                .filter((s) => s.id !== application.stageId)
+                .map((s) => (
+                  <Button
+                    key={s.id}
+                    variant="secondary"
+                    size="sm"
+                    loading={busy}
+                    onClick={() => void moveTo(s.id)}
+                  >
+                    Move to {s.name}
+                  </Button>
+                ))}
+            {canManage && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setRejecting(true)}
+              >
+                Reject
+              </Button>
+            )}
             {/* `POST /applications/:id/withdraw` is gated on `MANAGE_HIRING`
                 server-side — see `OfferCard`'s comment on the same gate for
                 why this is offered rather than left to 403 on the press. */}
@@ -269,6 +321,7 @@ export function RealPipeline({
           canApprove={canApprove}
           canManage={canManage}
           onChanged={onChanged}
+          onNotice={say}
         />
       ) : application.outcome === "IN_PROGRESS" ? (
         <Card>
@@ -327,11 +380,25 @@ export function RealPipeline({
                   {iv.status.replace("_", " ").toLowerCase()}
                 </Badge>
               </div>
+              {/* Completed with nothing submitted is the same fact the
+                  diary's own "Completed, no scorecard yet" card warns about —
+                  this is the one screen where a refused "Move to" click
+                  (the scorecard gate) is actually experienced, so it is the
+                  one screen that most needs to say so beforehand rather than
+                  render identically to a still-scheduled interview. */}
               <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-line pt-2.5">
-                <span className="text-meta text-muted">
-                  {iv.scorecards.filter((s) => s.submitted).length} of{" "}
-                  {iv.scorecards.length || 1} scorecards in
-                </span>
+                {iv.status === "COMPLETED" &&
+                iv.scorecards.filter((s) => s.submitted).length === 0 ? (
+                  <span className="flex items-center gap-1 text-meta text-warning-text">
+                    <TriangleAlert aria-hidden="true" className="size-3.5" />
+                    Completed, no scorecard yet
+                  </span>
+                ) : (
+                  <span className="text-meta text-muted">
+                    {iv.scorecards.filter((s) => s.submitted).length} of{" "}
+                    {iv.scorecards.length || 1} scorecards in
+                  </span>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -376,6 +443,28 @@ export function RealPipeline({
                         onClick={() => setRescheduling(iv)}
                       >
                         Reschedule
+                      </Button>
+                    )}
+                    {/* The one action that models "this interview never
+                        should have happened" — booked by mistake, a
+                        duplicate, or against a role since put on hold. Its
+                        mutation has existed since interviews shipped; nothing
+                        called it, which left "Mark complete" or "No-show" as
+                        the only ways to clear one, both of which misrepresent
+                        what actually happened. `POST .../cancel` is gated on
+                        `MANAGE_HIRING` server-side, same as Reschedule. */}
+                    {canManage && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          void interviews
+                            .cancel(iv.id)
+                            .then(onChanged)
+                            .catch(fail)
+                        }
+                      >
+                        Cancel
                       </Button>
                     )}
                   </>
@@ -475,11 +564,18 @@ function OfferCard({
   canApprove,
   canManage,
   onChanged,
+  onNotice,
 }: {
   offer: NonNullable<ApiApplicationDetail["offer"]>;
   canApprove: boolean;
   canManage: boolean;
   onChanged: () => void;
+  /** Surfaces a fact onto the page's own notice banner — used for accepting,
+   *  which can silently reject every other in-progress candidate on the same
+   *  requisition (the API fills the role and closes the rest of its own
+   *  pipeline in the same transaction) with nothing else on this page ever
+   *  saying so. */
+  onNotice: (tone: "success" | "danger", text: string) => void;
 }) {
   const offers = useOfferMutations();
   const [busy, setBusy] = useState(false);
@@ -487,14 +583,16 @@ function OfferCard({
   const [editing, setEditing] = useState(false);
   const [redoing, setRedoing] = useState(false);
 
-  async function run(action: () => Promise<unknown>) {
+  async function run<T>(action: () => Promise<T>): Promise<T | undefined> {
     setBusy(true);
     setError(null);
     try {
-      await action();
+      const result = await action();
       onChanged();
+      return result;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");
+      return undefined;
     } finally {
       setBusy(false);
     }
@@ -607,7 +705,19 @@ function OfferCard({
                 variant="approve"
                 size="sm"
                 loading={busy}
-                onClick={() => void run(() => offers.accept(offer.id))}
+                onClick={() =>
+                  void run(() => offers.accept(offer.id)).then((result) => {
+                    if (!result || result.rejectedOthers === 0) return;
+                    onNotice(
+                      "success",
+                      `Accepted. ${result.rejectedOthers} other ${
+                        result.rejectedOthers === 1 ? "candidate" : "candidates"
+                      } still in this pipeline ${
+                        result.rejectedOthers === 1 ? "was" : "were"
+                      } automatically rejected — the role is filled.`,
+                    );
+                  })
+                }
               >
                 Record accepted
               </Button>
@@ -633,11 +743,19 @@ function OfferCard({
                 Withdraw
               </Button>
             )}
-          {offer.status === "ACCEPTED" && (
-            <span className="text-meta text-success-text">
-              Became an employee record.
-            </span>
-          )}
+          {offer.status === "ACCEPTED" &&
+            (offer.employeeId ? (
+              <Link
+                href={`/people/${offer.employeeId}`}
+                className="text-meta text-success-text underline underline-offset-2"
+              >
+                Became an employee record.
+              </Link>
+            ) : (
+              <span className="text-meta text-success-text">
+                Became an employee record.
+              </span>
+            ))}
         </div>
       </CardBody>
 

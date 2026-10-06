@@ -127,6 +127,11 @@ type WireRequest = {
   requestedAt: string;
   decidedAt: string | null;
   decidedById: string | null;
+  /** Who actually decided it — never the same as `approverName`, which is only
+   *  who it was routed to. Null until decided, and null on an account with no
+   *  linked employee record. */
+  decidedByName: string | null;
+  decidedByJobTitle: string | null;
   decisionNote: string | null;
 };
 
@@ -179,7 +184,11 @@ type WireType = {
   requiresEvidence: boolean;
   minNoticeDays: number;
   isPaid: boolean;
+  eligibleGender: EligibleGender;
 };
+
+/** Null is everyone — the ordinary case. One of `GENDER_OPTIONS` narrows it. */
+export type EligibleGender = "female" | "male" | "other" | null;
 
 /* ---------------------------------------------------------------- the shapes */
 
@@ -221,6 +230,10 @@ export type LeaveRow = {
   requestedAt: string | null;
   decidedAt: string | null;
   decidedById: string | null;
+  /** Who actually decided it, never `approverName` — see the wire type's own
+   *  comment. Null until decided. */
+  decidedByName: string | null;
+  decidedByJobTitle: string | null;
   decisionNote: string | null;
 };
 
@@ -267,6 +280,7 @@ export type LeaveTypeRow = {
   requiresEvidence: boolean;
   minNoticeDays: number;
   isPaid: boolean;
+  eligibleGender: EligibleGender;
 };
 
 /**
@@ -285,6 +299,7 @@ export type NewLeaveType = {
   requiresEvidence?: boolean;
   minNoticeDays?: number;
   isPaid?: boolean;
+  eligibleGender?: EligibleGender;
 };
 
 /** Every field optional — `PATCH /leave/types/:id` accepts any subset. */
@@ -415,6 +430,8 @@ function toRow(wire: WireRequest): LeaveRow {
     requestedAt: dayOf(wire.requestedAt),
     decidedAt: dayOf(wire.decidedAt),
     decidedById: wire.decidedById,
+    decidedByName: wire.decidedByName,
+    decidedByJobTitle: wire.decidedByJobTitle,
     decisionNote: wire.decisionNote,
   };
 }
@@ -464,6 +481,7 @@ const toType = (wire: WireType): LeaveTypeRow => ({
   requiresEvidence: wire.requiresEvidence,
   minNoticeDays: wire.minNoticeDays,
   isPaid: wire.isPaid,
+  eligibleGender: wire.eligibleGender,
 });
 
 /* ------------------------------------------------------------------- the api */

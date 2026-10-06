@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { Badge } from "./badge";
@@ -32,6 +32,21 @@ export function Tabs({
 }) {
   const baseId = useId();
   const listRef = useRef<HTMLDivElement>(null);
+
+  /* The selected tab can start scrolled out of view — a direct `?tab=`
+     link past whatever fits the strip, most often on a phone with more
+     than three or four tabs. Nothing else brings it into view: the strip
+     scrolls independently of the page (`scroll-x`), and arriving here sets
+     `value` with no scroll of its own, unlike a click. Without this, the
+     panel shown and the tab visibly marked active can be two different
+     ones until somebody happens to scroll the strip themselves.
+     `block: "nearest"` keeps this scoped to the strip's own horizontal
+     scroll rather than moving the page vertically. */
+  useEffect(() => {
+    listRef.current
+      ?.querySelector('[aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [value]);
 
   function onKeyDown(event: React.KeyboardEvent) {
     const currentIndex = items.findIndex((i) => i.id === value);
@@ -182,7 +197,13 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={label}
       className={cn(
-        "inline-flex rounded-md border border-line bg-canvas p-0.5",
+        /* `flex-wrap`, not a plain `inline-flex` row: a control with four or
+           five longer labels (the equipment register's "Nobody has it" /
+           "With somebody" / "Being fixed" / "Lost" is the case that found
+           this) is wider than a 375px card on its own, and nothing upstream
+           of this component can make its own pills wrap for it. A no-op
+           wherever the options already fit on one line. */
+        "inline-flex flex-wrap rounded-md border border-line bg-canvas p-0.5",
         className,
       )}
     >

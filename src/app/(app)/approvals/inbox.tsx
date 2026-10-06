@@ -7,6 +7,8 @@ import {
   BadgeCheck,
   Banknote,
   CalendarCheck,
+  CalendarClock,
+  TrendingUp,
   CalendarDays,
   Check,
   ClipboardList,
@@ -79,6 +81,8 @@ const ICON: Record<ApprovalKind, React.ReactNode> = {
   expense: <Receipt aria-hidden="true" />,
   record_change: <FileText aria-hidden="true" />,
   loan: <ClipboardList aria-hidden="true" />,
+  confirmation: <CalendarClock aria-hidden="true" />,
+  employment_change: <TrendingUp aria-hidden="true" />,
   holiday: <CalendarCheck aria-hidden="true" />,
 };
 
@@ -90,6 +94,14 @@ const TONE: Record<ApprovalKind, BadgeTone> = {
   expense: "neutral",
   record_change: "neutral",
   loan: "warning",
+  /* Warning rather than neutral: a confirmation carries a real deadline, and
+     an overdue one means somebody is working past the end of a probation
+     nobody decided. */
+  confirmation: "warning",
+  /* Warning for the same reason: the effective date is a real deadline, and a
+     promotion approved after it means somebody was paid the old figure for a
+     month they were owed the new one. */
+  employment_change: "warning",
   holiday: "accent",
 };
 

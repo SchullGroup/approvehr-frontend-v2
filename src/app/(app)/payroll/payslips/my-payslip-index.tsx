@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileQuestion } from "lucide-react";
 import {
@@ -17,6 +16,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   rowClick,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -70,43 +70,77 @@ export function MyPayslipIndex() {
             description="A payslip appears here once a payroll you are on has been run."
           />
         ) : (
-          <TableWrap
-            className="rounded-none border-x-0 border-b-0"
-            caption="Your payslips"
-          >
-            <THead>
-              <TH>Month</TH>
-              <TH align="right">Gross</TH>
-              <TH align="right">Net pay</TH>
-              <TH>Status</TH>
-            </THead>
-            <TBody>
+          <>
+            <div className="hidden sm:block">
+              <TableWrap
+                className="rounded-none border-x-0 border-b-0"
+                caption="Your payslips"
+              >
+                <THead>
+                  <TH>Month</TH>
+                  <TH align="right">Gross</TH>
+                  <TH align="right">Net pay</TH>
+                  <TH>Status</TH>
+                </THead>
+                <TBody>
+                  {payslips.map((slip: OwnPayslip) => {
+                    const href = `/payroll/payslips/${slip.id}`;
+                    return (
+                      <TR
+                        key={slip.id}
+                        interactive
+                        onClick={rowClick(() => router.push(href))}
+                      >
+                        <TDPrimary
+                          title={
+                            <TextLink href={href}>
+                              {periodLabel(slip.run.period)}
+                            </TextLink>
+                          }
+                          subtitle={STATUS_LABEL[slip.run.status]}
+                        />
+                        <TD align="right">
+                          <Money amount={naira(slip.grossKobo)} decimals />
+                        </TD>
+                        <TD align="right">
+                          <Money amount={naira(slip.netKobo)} decimals />
+                        </TD>
+                        <TD>
+                          <Badge
+                            tone={
+                              deliveryOf(slip) === "opened" ? "success" : "info"
+                            }
+                            size="sm"
+                            dot
+                          >
+                            {DELIVERY_LABEL[deliveryOf(slip)]}
+                          </Badge>
+                        </TD>
+                      </TR>
+                    );
+                  })}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
               {payslips.map((slip: OwnPayslip) => {
                 const href = `/payroll/payslips/${slip.id}`;
                 return (
-                  <TR
+                  <li
                     key={slip.id}
-                    interactive
                     onClick={rowClick(() => router.push(href))}
+                    className="flex flex-col gap-2 p-4"
                   >
-                    <TDPrimary
-                      title={
-                        <Link
-                          href={href}
-                          className="hover:text-accent-text hover:underline underline-offset-4"
-                        >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <TextLink href={href} className="text-body-sm">
                           {periodLabel(slip.run.period)}
-                        </Link>
-                      }
-                      subtitle={STATUS_LABEL[slip.run.status]}
-                    />
-                    <TD align="right">
-                      <Money amount={naira(slip.grossKobo)} decimals />
-                    </TD>
-                    <TD align="right">
-                      <Money amount={naira(slip.netKobo)} decimals />
-                    </TD>
-                    <TD>
+                        </TextLink>
+                        <p className="mt-0.5 text-meta text-muted">
+                          {STATUS_LABEL[slip.run.status]}
+                        </p>
+                      </div>
                       <Badge
                         tone={
                           deliveryOf(slip) === "opened" ? "success" : "info"
@@ -116,12 +150,24 @@ export function MyPayslipIndex() {
                       >
                         {DELIVERY_LABEL[deliveryOf(slip)]}
                       </Badge>
-                    </TD>
-                  </TR>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">Gross</span>
+                      <span className="tabular text-body-sm text-body">
+                        <Money amount={naira(slip.grossKobo)} decimals />
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">Net pay</span>
+                      <span className="tabular text-body-sm font-medium text-ink">
+                        <Money amount={naira(slip.netKobo)} decimals />
+                      </span>
+                    </div>
+                  </li>
                 );
               })}
-            </TBody>
-          </TableWrap>
+            </ul>
+          </>
         )}
       </Card>
 

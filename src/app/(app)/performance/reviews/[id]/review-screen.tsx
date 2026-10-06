@@ -57,7 +57,7 @@ import { SignOffDialog } from "./sign-off-dialog";
  * |---|---|
  * | The person it is about | the answer they owe: acknowledge it |
  * | The person who wrote it | the form, and finalising it into the mark of record |
- * | Records permission | both of the above, read-only, plus the employee's answer |
+ * | Records permission | both of the above, read-only, plus recording a dispute if the subject does not accept it |
  *
  * Everything else — the mark, the answers, what the mark is made of — is the same
  * document for all three. The incumbent ships `self-appraisal`,
@@ -228,8 +228,11 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     !review.finalised &&
     (review.mine || canSeeCompany);
 
-  /* The subject owes an answer only once the mark is theirs, and only once. */
-  const owesAnswer =
+  /* The subject owes an acknowledgement only once the mark is theirs, and
+     only once. Disputing is no longer something they do here — see the
+     callout below and `assertMayDispute` on the API, which is the actual
+     gate this mirrors. */
+  const owesAcknowledgement =
     isSubject && review.finalised && !review.acknowledged && !review.disputed;
 
   const answered = review.acknowledged || review.disputed;
@@ -303,7 +306,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             </p>
           )}
 
-          {owesAnswer && (
+          {owesAcknowledgement && (
             <Callout
               tone="accent"
               title="This rating is final. It needs your answer"
@@ -317,7 +320,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 <strong>Acknowledging is not agreeing.</strong> It records that
                 you were shown this and nothing more.
               </p>
-              <p className="mt-3 flex flex-wrap gap-2">
+              <p className="mt-3">
                 <Button
                   variant="accent"
                   size="sm"
@@ -788,8 +791,15 @@ function ScorePanel({
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat
             label="Composite score"
+            /* An em dash, not a sentence — the reason lives in `hint`
+               already, and a dash reads as the same kind of thing as the
+               percentage it stands in for. */
             value={
-              score.scoreBp === null ? "No mark" : scoreLabel(score.scoreBp)
+              score.scoreBp === null ? (
+                <span className="text-faint">—</span>
+              ) : (
+                scoreLabel(score.scoreBp)
+              )
             }
             hint={
               score.scoreBp === null
@@ -803,9 +813,11 @@ function ScorePanel({
                mark, and rounding it to one would throw a judgement away. */
             label="Appraisers' mark, on the scale"
             value={
-              score.appraiserMark.ratingBp === null
-                ? "None in yet"
-                : scoreLabel(score.appraiserMark.ratingBp)
+              score.appraiserMark.ratingBp === null ? (
+                <span className="text-faint">—</span>
+              ) : (
+                scoreLabel(score.appraiserMark.ratingBp)
+              )
             }
             hint={
               score.appraiserMark.appraisers <= 1

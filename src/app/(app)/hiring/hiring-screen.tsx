@@ -27,6 +27,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   formatMoney,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -34,6 +35,7 @@ import { SourceBadge } from "@/components/hiring/source-badge";
 import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { usePermissions } from "@/lib/permissions";
 import type { RoleRow } from "@/lib/api/hiring";
+import { requisitionClosedNote } from "@/lib/api/careers";
 import { pipelineSnapshot, useHiringOverview } from "@/lib/store/hiring";
 import { useSession } from "@/lib/store/session";
 import { useInterviews, useOffers } from "@/lib/store/recruitment";
@@ -158,30 +160,56 @@ function Overview() {
                 : `${numbers.adverts - numbers.liveAdverts} draft or closed`
             }
           />
-          <Stat
-            label="People who applied"
-            value={String(numbers.applications)}
-          />
-          <Stat
-            label="Waiting to be screened"
-            value={String(numbers.waiting)}
-            icon={<TriangleAlert aria-hidden="true" />}
-            hint={
-              numbers.waiting > 0 ? "nobody has looked yet" : "queue is clear"
-            }
-          />
-          <Stat
-            label="Screened in"
-            value={String(numbers.advanced)}
-            hint={
-              numbers.advanceRate === null
-                ? "no rate until somebody is screened"
-                : `${numbers.advanceRate}% of everyone screened`
-            }
-          />
+          <Link
+            href="/hiring/postings/applications?status=ALL"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="People who applied"
+              value={String(numbers.applications)}
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
+          <Link
+            href="/hiring/postings/applications?status=RECEIVED"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="Waiting to be screened"
+              value={String(numbers.waiting)}
+              icon={<TriangleAlert aria-hidden="true" />}
+              hint={
+                numbers.waiting > 0 ? "nobody has looked yet" : "queue is clear"
+              }
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
+          <Link
+            href="/hiring/postings/applications?status=ADVANCED"
+            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <Stat
+              label="Screened in"
+              value={String(numbers.advanced)}
+              hint={
+                numbers.advanceRate === null
+                  ? "no rate until somebody is screened"
+                  : `${numbers.advanceRate}% of everyone screened`
+              }
+              className="transition-colors group-hover:border-accent"
+            />
+          </Link>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+        {/* `grid-cols-1` at the base breakpoint, not just implied by having
+            one column below `lg`: with no `grid-template-columns` declared,
+            the single implicit track sizes to `auto` — its content's own
+            width — rather than the container's. The mobile card list below
+            has no TableWrap-style `scroll-x` safety net the way the table it
+            replaces does, so a track sized to content pushed the whole page
+            405px wide at a 375px viewport. `grid-cols-1` gives the track
+            `minmax(0, 1fr)`, which respects the container instead. */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
           <Card>
             <CardHeader
               title="Advertised roles"
@@ -215,20 +243,30 @@ function Overview() {
                 }
               />
             ) : (
-              <TableWrap className="rounded-none border-0">
-                <THead>
-                  <TH>Role</TH>
-                  <TH>Status</TH>
-                  <TH align="right">Applied</TH>
-                  <TH align="right">Waiting</TH>
-                  <TH align="right">Pay range</TH>
-                </THead>
-                <TBody>
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap className="rounded-none border-0">
+                    <THead>
+                      <TH>Role</TH>
+                      <TH>Status</TH>
+                      <TH align="right">Applied</TH>
+                      <TH align="right">Waiting</TH>
+                      <TH align="right">Pay range</TH>
+                    </THead>
+                    <TBody>
+                      {roles.map((role) => (
+                        <RoleTableRow key={role.postingId} role={role} />
+                      ))}
+                    </TBody>
+                  </TableWrap>
+                </div>
+
+                <ul className="divide-y divide-line sm:hidden">
                   {roles.map((role) => (
-                    <RoleTableRow key={role.postingId} role={role} />
+                    <RoleCard key={role.postingId} role={role} />
                   ))}
-                </TBody>
-              </TableWrap>
+                </ul>
+              </>
             )}
           </Card>
 
@@ -307,12 +345,12 @@ function Overview() {
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-body-sm font-medium text-ink">
-                          <Link
+                          <TextLink
                             href={`/hiring/candidates/${card.id}`}
-                            className="after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
+                            className="after:absolute after:inset-0"
                           >
                             {fullName(card.candidate)}
-                          </Link>
+                          </TextLink>
                         </p>
                         <p className="truncate text-meta text-muted">
                           {card.requisition.title}
@@ -388,48 +426,65 @@ const STATUS_TONE = {
  * queue live. An advert with no requisition has nothing to open, so it is plain
  * text and the subtitle says why rather than offering a link into nothing.
  *
- * The two links are in **different cells** on purpose. Wrapping the row in one
- * link and putting another inside it nests anchors, which breaks hydration
+ * Every link on the row is in its **own cell**, on purpose. Wrapping the row in
+ * one link and putting another inside it nests anchors, which breaks hydration
  * silently: the page renders blank and the console says nothing useful.
  */
 function RoleTableRow({ role }: { role: RoleRow }) {
+  const closedNote = requisitionClosedNote(role.requisitionStatus);
   return (
     <TR interactive>
       <TDPrimary
         title={
           role.requisitionId ? (
-            <Link
-              href={`/hiring/requisitions/${role.requisitionId}`}
-              className="hover:text-accent-text hover:underline underline-offset-4"
-            >
+            <TextLink href={`/hiring/requisitions/${role.requisitionId}`}>
               {role.title}
-            </Link>
+            </TextLink>
           ) : (
             role.title
           )
         }
-        subtitle={[
-          role.reference ?? "No approved role behind it",
-          role.location ?? "Location not set",
-          role.employmentTypeLabel,
-        ].join(" · ")}
+        subtitle={
+          <>
+            <span>
+              {[
+                role.reference ?? "No approved role behind it",
+                role.location ?? "Location not set",
+                role.employmentTypeLabel,
+              ].join(" · ")}
+            </span>
+            {closedNote && (
+              <span className="ml-2 inline-flex items-center gap-1 text-warning-text">
+                <TriangleAlert aria-hidden="true" className="size-3.5 inline" />
+                {closedNote}
+              </span>
+            )}
+          </>
+        }
       />
       <TD>
         <Badge tone={STATUS_TONE[role.status]} size="sm" dot>
           {role.statusLabel}
         </Badge>
       </TD>
-      <TD align="right" className="tabular font-medium text-ink">
-        {role.applications}
+      <TD align="right" className="tabular font-medium">
+        {role.applications > 0 ? (
+          <TextLink
+            href={`/hiring/postings/applications?posting=${role.postingId}&status=ALL`}
+          >
+            {role.applications}
+          </TextLink>
+        ) : (
+          <span className="text-ink">{role.applications}</span>
+        )}
       </TD>
       <TD align="right" className="tabular">
         {role.waiting > 0 ? (
-          <Link
+          <TextLink
             href={`/hiring/postings/applications?posting=${role.postingId}`}
-            className="font-medium text-accent-text hover:underline underline-offset-4"
           >
             {role.waiting}
-          </Link>
+          </TextLink>
         ) : (
           <span className="text-muted">0</span>
         )}
@@ -438,6 +493,76 @@ function RoleTableRow({ role }: { role: RoleRow }) {
         {payRange(role.salaryMin, role.salaryMax)}
       </TD>
     </TR>
+  );
+}
+
+/** The mobile card for one advertised role — the same links as
+ *  `RoleTableRow`, in different elements for the same reason: nesting them
+ *  would break hydration silently. */
+function RoleCard({ role }: { role: RoleRow }) {
+  const closedNote = requisitionClosedNote(role.requisitionStatus);
+  return (
+    <li className="flex flex-col gap-2 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {role.requisitionId ? (
+            <TextLink
+              href={`/hiring/requisitions/${role.requisitionId}`}
+              className="text-body-sm"
+            >
+              {role.title}
+            </TextLink>
+          ) : (
+            <p className="text-body-sm font-medium text-ink">{role.title}</p>
+          )}
+          <p className="mt-0.5 text-meta text-muted">
+            {[
+              role.reference ?? "No approved role behind it",
+              role.location ?? "Location not set",
+              role.employmentTypeLabel,
+            ].join(" · ")}
+          </p>
+          {closedNote && (
+            <p className="mt-0.5 flex items-center gap-1 text-meta text-warning-text">
+              <TriangleAlert aria-hidden="true" className="size-3.5" />
+              {closedNote}
+            </p>
+          )}
+        </div>
+        <Badge tone={STATUS_TONE[role.status]} size="sm" dot>
+          {role.statusLabel}
+        </Badge>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+        {role.applications > 0 ? (
+          <TextLink
+            href={`/hiring/postings/applications?posting=${role.postingId}&status=ALL`}
+            className="tabular"
+          >
+            {role.applications} applied
+          </TextLink>
+        ) : (
+          <span className="tabular">
+            <span className="font-medium text-ink">{role.applications}</span>{" "}
+            applied
+          </span>
+        )}
+        {role.waiting > 0 ? (
+          <TextLink
+            href={`/hiring/postings/applications?posting=${role.postingId}`}
+            className="tabular"
+          >
+            {role.waiting} waiting
+          </TextLink>
+        ) : (
+          <span className="tabular">0 waiting</span>
+        )}
+      </div>
+      <p className="tabular text-body-sm text-body">
+        {payRange(role.salaryMin, role.salaryMax)}
+      </p>
+    </li>
   );
 }
 
@@ -456,15 +581,33 @@ function RoleTableRow({ role }: { role: RoleRow }) {
  * component. This is that pattern, applied to the two cards that were missed.
  */
 
-/** Booked interviews, and how many of them nobody has filed a scorecard for. */
+/**
+ * Booked interviews, and how many completed ones nobody has filed a
+ * scorecard for.
+ *
+ * Two separate populations on purpose, and this card used to conflate them:
+ * a **scheduled** interview hasn't happened yet, so `scorecardsSubmitted`
+ * reading 0 on it is the ordinary, expected state — filtering the scheduled
+ * list for that read as an alarming, near-total backlog on every load, while
+ * the diary this card links to (`real-diary.tsx`) has always computed the
+ * genuinely actionable signal — **completed** with nothing filed — from a
+ * different query. Reading "3 have no scorecard yet" here and finding a
+ * different set of interviews (or none) after clicking through was the
+ * result. This now asks the diary's own question.
+ */
 function LiveInterviewsCard() {
-  const { interviews, total, loading, error } = useInterviews({
-    status: "SCHEDULED",
-    pageSize: 100,
-  });
-  const unscored = interviews.filter(
-    (interview) => interview.scorecardsSubmitted === 0,
-  ).length;
+  const scheduled = useInterviews({ status: "SCHEDULED", pageSize: 100 });
+  const completed = useInterviews({ status: "COMPLETED", pageSize: 100 });
+  const { total, loading, error } = scheduled;
+  /* Absent, not zero, when the completed-interviews read itself failed — the
+     scheduled count is still this card's primary fact and worth showing on
+     its own; a wrong "0 have no scorecard yet" would be worse than omitting
+     the sentence. */
+  const unscored = completed.error
+    ? null
+    : completed.interviews.filter(
+        (interview) => interview.scorecardsSubmitted === 0,
+      ).length;
 
   return (
     <Card>
@@ -482,15 +625,20 @@ function LiveInterviewsCard() {
           <p className="text-body-sm text-body">
             <span className="tabular font-medium text-ink">{total}</span>{" "}
             scheduled
-            {unscored > 0 ? (
-              <>
-                , and{" "}
-                <span className="tabular font-medium text-ink">{unscored}</span>{" "}
-                {unscored === 1 ? "has" : "have"} no scorecard yet.
-              </>
-            ) : (
-              ", and every one has a scorecard against it."
-            )}
+            {unscored !== null &&
+              (unscored > 0 ? (
+                <>
+                  .{" "}
+                  <span className="tabular font-medium text-ink">
+                    {unscored}
+                  </span>{" "}
+                  completed{" "}
+                  {unscored === 1 ? "interview has" : "interviews have"} no
+                  scorecard yet.
+                </>
+              ) : (
+                ". Every completed interview has a scorecard against it."
+              ))}
           </p>
         )}
         <ButtonLink href="/hiring/interviews" variant="secondary" size="sm">

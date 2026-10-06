@@ -42,7 +42,7 @@ import { useSession } from "@/lib/store/session";
 import { STAGES, fullName, type StageId } from "@/lib/types";
 
 const BREADCRUMB = [
-  { href: "/hiring", label: "Pipeline" },
+  { href: "/hiring", label: "Hiring" },
   { href: "/hiring/requisitions/new", label: "New requisition" },
 ];
 

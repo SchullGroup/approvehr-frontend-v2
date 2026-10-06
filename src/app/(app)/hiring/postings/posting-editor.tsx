@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link2 } from "lucide-react";
 import {
   Button,
   Field,
   Input,
   Modal,
+  Picker,
   Select,
   Switch,
   Textarea,
@@ -17,11 +18,13 @@ import {
   careersPath,
   kobo,
   naira,
+  requisitionClosedNote,
   type ApiPosting,
   type CreatePostingBody,
   type EmploymentType,
   type UpdatePostingBody,
 } from "@/lib/api/careers";
+import { useRequisitions } from "@/lib/store/recruitment";
 
 /**
  * Write a job advert.
@@ -46,10 +49,16 @@ import {
  * ## The approved role
  *
  * Screening an applicant in needs an approved role to move them onto — the API
- * creates the candidate and the pipeline record against it. **This API has no
- * requisitions endpoint**, so there is no list to pick from and the field takes
- * the id. Without it the advert still publishes and still collects applications;
- * only screening in is blocked, and the queue says so at the point it matters.
+ * creates the candidate and the pipeline record against it. This used to have
+ * no picker ("paste the ID"), on the belief that the API had no requisitions
+ * endpoint to list one from — it does (`recruitmentApi.listRequisitions`,
+ * already used by `/hiring/requisitions`), so this is a `Picker` now, the same
+ * component `EditRequisitionDialog` already uses for its Department field. A
+ * requisition that is filled or cancelled still appears (an advert already
+ * pointing at one needs to show that), just disabled from being newly chosen.
+ * Without any role at all the advert still publishes and still collects
+ * applications; only screening in is blocked, and the queue says so at the
+ * point it matters.
  */
 
 type Draft = {
@@ -183,6 +192,21 @@ export function PostingEditor({
   const problems = check(draft);
   const ready = Object.keys(problems).length === 0;
   const linkIsFixed = posting !== undefined && posting.status !== "DRAFT";
+
+  const requisitions = useRequisitions({ pageSize: 100 });
+  const requisitionOptions = useMemo(
+    () =>
+      requisitions.requisitions.map((r) => {
+        const closedNote = requisitionClosedNote(r.status);
+        return {
+          value: r.id,
+          label: `${r.reference} · ${r.jobTitle}`,
+          hint: closedNote ?? undefined,
+          disabled: closedNote !== null,
+        };
+      }),
+    [requisitions.requisitions],
+  );
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
@@ -373,12 +397,20 @@ export function PostingEditor({
           </Field>
 
           <Field
-            label="Approved role ID"
-            help="Needed to screen anyone in. There is no picker for this yet. Paste the ID."
+            optional
+            label="Approved role"
+            help={
+              requisitions.error
+                ? `${requisitions.error.message} Roles are unavailable.`
+                : "Needed to screen anyone in. A filled or cancelled role can't be newly chosen, but stays visible if this advert already points at one."
+            }
           >
-            <Input
+            <Picker
               value={draft.requisitionId}
-              onChange={(event) => set("requisitionId", event.target.value)}
+              onChange={(value) => set("requisitionId", value)}
+              placeholder="Not linked to a role"
+              loading={requisitions.loading}
+              options={requisitionOptions}
             />
           </Field>
         </div>
