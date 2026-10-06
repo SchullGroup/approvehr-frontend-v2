@@ -36,6 +36,7 @@ import {
 } from "@/lib/api/performance";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { useCan } from "@/lib/permissions";
+import { useHeadedDepartmentIds } from "@/lib/store/departments";
 import { useFeatures } from "@/lib/store/features";
 import { useSession } from "@/lib/store/session";
 import {
@@ -267,9 +268,18 @@ export function WhatNeedsYouTab({
 
   /* My own objectives, split by who the next move belongs to. `mine` scope also
      returns the company's, which nobody owns and nobody sends — hence the owner
-     check rather than a bare approval filter. */
+     check rather than a bare approval filter.
+
+     A department's own objective is its head's to send, though nobody owns it:
+     the head raised it, and HR agrees it. Leaving it out meant a head who filed
+     one saw nothing here, before or after sending it, while HR's queue had it. */
+  const headed = useHeadedDepartmentIds();
   const myObjectives = mineGoals.goals.filter(
-    (goal) => actingId !== null && goal.ownerId === actingId,
+    (goal) =>
+      (actingId !== null && goal.ownerId === actingId) ||
+      (goal.ownerId === null &&
+        goal.departmentId !== null &&
+        headed.has(goal.departmentId)),
   );
   const toSend = myObjectives.filter(
     (goal) => goal.approval === "DRAFT" || goal.approval === "NEEDS_REVISION",
