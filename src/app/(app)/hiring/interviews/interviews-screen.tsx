@@ -20,7 +20,11 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { usePermissions } from "@/lib/permissions";
-import { pipelineSnapshot, useScreeningBacklog } from "@/lib/store/hiring";
+import {
+  countOrDash,
+  pipelineSnapshot,
+  useScreeningBacklog,
+} from "@/lib/store/hiring";
 import { cardById } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
 import { fullName } from "@/lib/types";
@@ -161,12 +165,14 @@ function Diary() {
               >
                 <Stat
                   label="Waiting to be screened"
-                  value={String(backlog.numbers.waiting)}
+                  value={countOrDash(backlog.error, backlog.numbers.waiting)}
                   icon={<TriangleAlert aria-hidden="true" />}
                   hint={
-                    backlog.numbers.waiting > 0
-                      ? "nobody has looked yet"
-                      : "queue is clear"
+                    backlog.error
+                      ? "could not be loaded"
+                      : backlog.numbers.waiting > 0
+                        ? "nobody has looked yet"
+                        : "queue is clear"
                   }
                   className="transition-colors group-hover:border-accent"
                 />
@@ -177,8 +183,12 @@ function Diary() {
               >
                 <Stat
                   label="Screened in"
-                  value={String(backlog.numbers.advanced)}
-                  hint="in a pipeline somewhere"
+                  value={countOrDash(backlog.error, backlog.numbers.advanced)}
+                  hint={
+                    backlog.error
+                      ? "could not be loaded"
+                      : "in a pipeline somewhere"
+                  }
                   className="transition-colors group-hover:border-accent"
                 />
               </Link>
@@ -188,7 +198,10 @@ function Diary() {
               >
                 <Stat
                   label="People who applied"
-                  value={String(backlog.numbers.applications)}
+                  value={countOrDash(
+                    backlog.error,
+                    backlog.numbers.applications,
+                  )}
                   className="transition-colors group-hover:border-accent"
                 />
               </Link>

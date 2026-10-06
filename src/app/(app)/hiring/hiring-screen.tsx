@@ -36,7 +36,12 @@ import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { usePermissions } from "@/lib/permissions";
 import type { RoleRow } from "@/lib/api/hiring";
 import { requisitionClosedNote } from "@/lib/api/careers";
-import { pipelineSnapshot, useHiringOverview } from "@/lib/store/hiring";
+import {
+  countOrDash,
+  pipelineSnapshot,
+  useHiringOverview,
+} from "@/lib/store/hiring";
+import { LoadFailure } from "@/components/portal/load-failure";
 import { useSession } from "@/lib/store/session";
 import { useInterviews, useOffers } from "@/lib/store/recruitment";
 import { fullName } from "@/lib/types";
@@ -138,26 +143,23 @@ function Overview() {
         <div className="flex flex-wrap items-center gap-3">
           <SourceBadge live={live} />
           {loading && <span className="text-meta text-muted">Loading…</span>}
-          {error && (
-            <>
-              <span className="text-body-sm text-danger-text">
-                {error.message}
-              </span>
-              <Button variant="secondary" size="sm" onClick={reload}>
-                Try again
-              </Button>
-            </>
-          )}
         </div>
+        <LoadFailure
+          subject="your hiring overview"
+          error={error}
+          onRetry={reload}
+        />
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Stat
             label="Live adverts"
-            value={String(numbers.liveAdverts)}
+            value={countOrDash(error, numbers.liveAdverts)}
             hint={
-              numbers.adverts === numbers.liveAdverts
-                ? "all of them"
-                : `${numbers.adverts - numbers.liveAdverts} draft or closed`
+              error
+                ? "could not be loaded"
+                : numbers.adverts === numbers.liveAdverts
+                  ? "all of them"
+                  : `${numbers.adverts - numbers.liveAdverts} draft or closed`
             }
           />
           <Link
@@ -166,7 +168,7 @@ function Overview() {
           >
             <Stat
               label="People who applied"
-              value={String(numbers.applications)}
+              value={countOrDash(error, numbers.applications)}
               className="transition-colors group-hover:border-accent"
             />
           </Link>
@@ -176,10 +178,14 @@ function Overview() {
           >
             <Stat
               label="Waiting to be screened"
-              value={String(numbers.waiting)}
+              value={countOrDash(error, numbers.waiting)}
               icon={<TriangleAlert aria-hidden="true" />}
               hint={
-                numbers.waiting > 0 ? "nobody has looked yet" : "queue is clear"
+                error
+                  ? "could not be loaded"
+                  : numbers.waiting > 0
+                    ? "nobody has looked yet"
+                    : "queue is clear"
               }
               className="transition-colors group-hover:border-accent"
             />
@@ -190,11 +196,13 @@ function Overview() {
           >
             <Stat
               label="Screened in"
-              value={String(numbers.advanced)}
+              value={countOrDash(error, numbers.advanced)}
               hint={
-                numbers.advanceRate === null
-                  ? "no rate until somebody is screened"
-                  : `${numbers.advanceRate}% of everyone screened`
+                error
+                  ? "could not be loaded"
+                  : numbers.advanceRate === null
+                    ? "no rate until somebody is screened"
+                    : `${numbers.advanceRate}% of everyone screened`
               }
               className="transition-colors group-hover:border-accent"
             />
@@ -226,7 +234,24 @@ function Overview() {
                 ) : undefined
               }
             />
-            {roles.length === 0 ? (
+            {error ? (
+              /* Not "No adverts yet" — that reads as an invitation to write
+                 one, which dead-ends for anybody this error actually applies
+                 to (an `APPROVE_HIRING`-only account could not open
+                 `/hiring/postings` either). The cause is a failed read, so the
+                 next action is retrying it, not writing an advert. */
+              <EmptyState
+                compact
+                icon={<Megaphone aria-hidden="true" />}
+                title="Could not load your adverts"
+                description={error.message}
+                action={
+                  <Button variant="secondary" size="sm" onClick={reload}>
+                    Try again
+                  </Button>
+                }
+              />
+            ) : roles.length === 0 ? (
               <EmptyState
                 compact
                 icon={<Megaphone aria-hidden="true" />}
