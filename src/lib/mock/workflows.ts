@@ -18,7 +18,8 @@ export type ApprovalKind =
   | "requisition"
   | "expense"
   | "record_change"
-  | "loan";
+  | "loan"
+  | "holiday";
 
 export type ApprovalItem = {
   id: string;
@@ -58,6 +59,7 @@ export const APPROVAL_LABEL: Record<ApprovalKind, string> = {
   expense: "Expense",
   record_change: "Record change",
   loan: "Loan",
+  holiday: "Public holiday",
 };
 
 /**
