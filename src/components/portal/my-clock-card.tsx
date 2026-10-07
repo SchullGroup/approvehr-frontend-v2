@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Clock, LogIn, LogOut, Undo2 } from "lucide-react";
 import {
   Avatar,
@@ -26,6 +27,7 @@ import {
 } from "@/lib/store/attendance";
 import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
+import { shortDate } from "@/lib/today";
 import { DayTimer } from "@/app/(app)/people/attendance/day-timer";
 
 /**
@@ -240,6 +242,28 @@ export function MyClockCard() {
                   : "You have not clocked in today."}
             </p>
 
+            {/* An earlier day still open.
+              ----------------------------
+              The roster is one day, so yesterday's unclosed entry is not in
+              today's answer at all, and "Clock out" below cannot close it —
+              it closes today. This is the only place the person is told.
+              The way through is a correction request, the same door the
+              attendance page already opens for any day that is wrong: what
+              time somebody actually left is theirs to say and HR's to
+              approve, not something this card should invent. */}
+            {roster.earlierOpen && (
+              <p className="mt-2 text-body-sm text-warning-text">
+                You did not clock out on {shortDate(roster.earlierOpen.date)}{" "}
+                (in at {roster.earlierOpen.clockIn}).{" "}
+                <Link
+                  href="/people/attendance"
+                  className="font-medium underline underline-offset-4"
+                >
+                  Ask for a correction
+                </Link>
+              </p>
+            )}
+
             {/* Bold and ahead of the click, not a caption after it: the
               question this answers is "what time do I need to be here",
               and that only matters before somebody has clocked in. Once
@@ -290,6 +314,7 @@ export function MyClockCard() {
               <DayTimer
                 clockIn={myRow.clockIn}
                 serverTime={roster.time}
+                date={roster.date}
                 policy={policy}
                 className="mt-1.5"
               />
