@@ -318,13 +318,17 @@ export function MyAttendanceHistoryPanel() {
  * approval, it is applied through the exact function an HR-typed fix already
  * uses. There is no "clear my clock-in" here on purpose: this form only ever
  * asks what a time should have been, never asks to erase one.
+ *
+ * Exported for `my-clock-card.tsx`, which opens it for an earlier day nobody
+ * clocked out of. Only the three fields it reads are asked for, so a caller
+ * with no history row to hand does not have to invent the rest of one.
  */
-function RequestCorrectionDialog({
+export function RequestCorrectionDialog({
   row,
   onClose,
   onSent,
 }: {
-  row: ApiHistoryRow;
+  row: Pick<ApiHistoryRow, "date" | "clockIn" | "clockOut">;
   onClose: () => void;
   onSent: () => void;
 }) {
