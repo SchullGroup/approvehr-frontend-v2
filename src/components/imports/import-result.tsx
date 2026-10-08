@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Download, RefreshCw, Upload, Users } from "lucide-react";
+import { Download, RefreshCw, Upload, Users } from "lucide-react";
 import {
   Button,
   ButtonLink,
@@ -11,6 +11,7 @@ import {
   CardHeader,
   Modal,
   Stat,
+  SuccessMark,
   TBody,
   TD,
   TH,
@@ -361,12 +362,10 @@ export function ImportOutcome({
           }
         >
           <div className="flex flex-col items-center gap-3 py-2 text-center">
-            <span className="flex size-12 items-center justify-center rounded-full bg-success-soft">
-              <CheckCircle2
-                aria-hidden="true"
-                className="size-6 text-success-text"
-              />
-            </span>
+            {/* The mark and not `SuccessMoment`: the modal's own header is the
+                heading ("12 people imported"), and the moment would say it
+                a second time. */}
+            <SuccessMark size="md" />
             <p className="text-ink">
               {count(result.created)} added and {count(result.updated)} updated
               from {filename}.
