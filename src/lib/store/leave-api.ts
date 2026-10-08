@@ -567,11 +567,18 @@ export type LeaveMutations = {
   create: (
     input: NewLeave,
   ) => Promise<{ request: LeaveRow; warnings: string[] }>;
+  /**
+   * The request as it stands after the decision, or null in demo mode.
+   *
+   * Not always the status that was asked for: with two approval steps, a first
+   * "approve" leaves the request `awaitingHr`. A screen that is about to say
+   * "approved" needs to know which it got, and the API already returns it.
+   */
   decide: (
     id: string,
     decision: "approved" | "declined",
     note?: string,
-  ) => Promise<void>;
+  ) => Promise<LeaveRow | null>;
   reopen: (id: string) => Promise<void>;
   cancel: (id: string) => Promise<void>;
   connected: boolean;
@@ -619,14 +626,15 @@ export function useLeaveMutations(): LeaveMutations {
     async (id: string, decision: "approved" | "declined", note?: string) => {
       if (!isConnected) {
         local.decide(id, decision, note);
-        return;
+        return null;
       }
-      await leaveApi.decide(
+      const decided = await leaveApi.decide(
         id,
         decision === "approved" ? "approve" : "decline",
         note,
       );
       announceApprovalChange();
+      return decided;
     },
     [isConnected, local],
   );

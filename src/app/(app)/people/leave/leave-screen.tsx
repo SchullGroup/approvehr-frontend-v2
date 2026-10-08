@@ -49,6 +49,7 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { daysLabel, type LeaveRow, type LeaveRowStatus } from "@/lib/api/leave";
+import { LeaveDecidedMoment, type LeaveDecision } from "./leave-decided";
 import { useCan } from "@/lib/permissions";
 import {
   useLeaveBalancesFor,
@@ -206,6 +207,8 @@ export function LeaveScreen() {
   const [booking, setBooking] = useState(false);
   const [declining, setDeclining] = useState<LeaveRow | null>(null);
   const [withdrawing, setWithdrawing] = useState<LeaveRow | null>(null);
+  /** The approval just made, said back at the top of the list. */
+  const [decided, setDecided] = useState<LeaveDecision | null>(null);
 
   const detail = useLeaveRequestDetail(openId);
 
@@ -278,6 +281,16 @@ export function LeaveScreen() {
     return entitled === 0 ? null : Math.round((taken / entitled) * 100);
   }, [shown, balances]);
 
+  const reportFailure = (failure: unknown) =>
+    toast.push({
+      title: "That did not work",
+      tone: "danger",
+      detail:
+        failure instanceof ApiError
+          ? failure.message
+          : "Something went wrong. Try again.",
+    });
+
   /** Every write reports its own failure. The API's message is the useful part. */
   const run = async (action: () => Promise<unknown>, success: string) => {
     try {
@@ -285,34 +298,49 @@ export function LeaveScreen() {
       reload();
       toast.push({ title: success, tone: "success" });
     } catch (failure) {
-      toast.push({
-        title: "That did not work",
-        tone: "danger",
-        detail:
-          failure instanceof ApiError
-            ? failure.message
-            : "Something went wrong. Try again.",
-      });
+      reportFailure(failure);
     }
   };
 
-  const approve = (request: LeaveRow) =>
-    run(
-      () => mutations.decide(request.id, "approved"),
-      `${request.employeeName}'s leave approved`,
-    );
+  /**
+   * Approving says what happened, at the top of the list, rather than in a
+   * toast that is gone in six seconds. What happened is read from the API's
+   * answer: a first approval in a two-step workflow leaves the request waiting
+   * on HR, and that is not "approved".
+   */
+  const approve = async (request: LeaveRow) => {
+    try {
+      const result = await mutations.decide(request.id, "approved");
+      reload();
+      setDecided((current) => ({
+        request,
+        stage: result?.status === "awaitingHr" ? "first" : "final",
+        n: (current?.n ?? 0) + 1,
+      }));
+    } catch (failure) {
+      reportFailure(failure);
+    }
+  };
 
-  const sendBack = (request: LeaveRow, note: string) =>
-    run(
+  const sendBack = (request: LeaveRow, note: string) => {
+    setDecided((current) =>
+      current?.request.id === request.id ? null : current,
+    );
+    return run(
       () => mutations.decide(request.id, "declined", note),
       `${request.employeeName}'s request went back to them`,
     );
+  };
 
-  const undo = (request: LeaveRow) =>
-    run(
+  const undo = (request: LeaveRow) => {
+    setDecided((current) =>
+      current?.request.id === request.id ? null : current,
+    );
+    return run(
       () => mutations.reopen(request.id),
       `${request.employeeName}'s request is waiting again`,
     );
+  };
 
   const withdraw = (request: LeaveRow) =>
     run(
@@ -382,6 +410,15 @@ export function LeaveScreen() {
             Leave belongs to a person on the payroll, and this sign-in is not
             linked to one yet. Ask HR to connect them.
           </Callout>
+        )}
+
+        {decided && (
+          <LeaveDecidedMoment
+            key={decided.n}
+            decision={decided}
+            onUndo={() => void undo(decided.request)}
+            onDismiss={() => setDecided(null)}
+          />
         )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -101,6 +101,7 @@ export function SuccessMoment({
   align = "start",
   markSize = "md",
   focusHeading = false,
+  compact = false,
   className,
 }: {
   /** What happened, past tense, about the thing. */
@@ -123,6 +124,16 @@ export function SuccessMoment({
    * focus.
    */
   focusHeading?: boolean;
+  /**
+   * The same moment at the size of a row in a list: the mark beside the words
+   * rather than above them, and a heading at the size of a card title.
+   *
+   * For a decision somebody has just made on a screen they are going to keep
+   * working on — an approval among twenty others — where a page-sized
+   * celebration would push the work away. The writing is held to the same
+   * standard; only the size changes.
+   */
+  compact?: boolean;
   className?: string;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
@@ -131,23 +142,17 @@ export function SuccessMoment({
   }, [focusHeading]);
 
   const Heading = `h${String(headingLevel)}` as "h1" | "h2" | "h3";
-  const centred = align === "center";
+  const centred = align === "center" && !compact;
 
-  return (
-    <div
-      role="status"
-      className={cn(
-        "flex flex-col",
-        centred ? "items-center text-center" : "items-start",
-        className,
-      )}
-    >
-      <SuccessMark size={markSize} />
-
+  const text = (
+    <>
       <Heading
         ref={heading}
         tabIndex={-1}
-        className="ahr-success-line mt-5 text-h3 text-ink outline-none sm:text-h2"
+        className={cn(
+          "ahr-success-line text-ink outline-none",
+          compact ? "text-h4" : "mt-5 text-h3 sm:text-h2",
+        )}
         style={{ animationDelay: "240ms" }}
       >
         {title}
@@ -155,7 +160,10 @@ export function SuccessMoment({
 
       {lead && (
         <p
-          className="ahr-success-line mt-3 max-w-prose text-lead text-body"
+          className={cn(
+            "ahr-success-line max-w-prose text-body",
+            compact ? "mt-1 text-body-md" : "mt-3 text-lead",
+          )}
           style={{ animationDelay: "320ms" }}
         >
           {lead}
@@ -165,7 +173,8 @@ export function SuccessMoment({
       {details && details.length > 0 && (
         <ul
           className={cn(
-            "ahr-success-line mt-6 flex flex-col gap-3",
+            "ahr-success-line flex flex-col",
+            compact ? "mt-3 gap-2" : "mt-6 gap-3",
             centred && "items-start text-left",
           )}
           style={{ animationDelay: "400ms" }}
@@ -193,7 +202,8 @@ export function SuccessMoment({
       {actions && (
         <div
           className={cn(
-            "ahr-success-line mt-8 flex flex-wrap items-center gap-x-5 gap-y-3",
+            "ahr-success-line flex flex-wrap items-center gap-x-5 gap-y-3",
+            compact ? "mt-4" : "mt-8",
             centred && "justify-center",
           )}
           style={{ animationDelay: "480ms" }}
@@ -201,6 +211,29 @@ export function SuccessMoment({
           {actions}
         </div>
       )}
+    </>
+  );
+
+  if (compact) {
+    return (
+      <div role="status" className={cn("flex items-start gap-4", className)}>
+        <SuccessMark size="sm" />
+        <div className="min-w-0 flex-1">{text}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      role="status"
+      className={cn(
+        "flex flex-col",
+        centred ? "items-center text-center" : "items-start",
+        className,
+      )}
+    >
+      <SuccessMark size={markSize} />
+      {text}
     </div>
   );
 }
