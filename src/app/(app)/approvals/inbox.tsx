@@ -155,6 +155,18 @@ export function ApprovalInbox() {
   ) => {
     try {
       const outcome = await queue.decide(item, decision, note);
+      /* A department head's approval of leave is the first of two. It is
+         recorded, HR has it next, and the person who asked is told nothing until
+         HR has decided — so it is not "approved", and the toast must not say so. */
+      if (outcome.halfway) {
+        toast.push({
+          title: `${item.title} is with HR`,
+          tone: "info",
+          detail:
+            "Your approval is recorded. The person is not told until HR has decided.",
+        });
+        return;
+      }
       toast.push({
         title:
           decision === "approved"
@@ -374,17 +386,27 @@ export function ApprovalInbox() {
                     Just decided
                   </p>
                   <ul className="mt-3 flex flex-col gap-2">
-                    {queue.decided.map(({ item, decision }) => (
+                    {queue.decided.map(({ item, decision, halfway }) => (
                       <li
                         key={item.id}
                         className="flex items-center gap-3 text-body-sm"
                       >
                         <Badge
-                          tone={decision === "approved" ? "success" : "neutral"}
+                          tone={
+                            halfway
+                              ? "warning"
+                              : decision === "approved"
+                                ? "success"
+                                : "neutral"
+                          }
                           size="sm"
                           dot
                         >
-                          {decision === "approved" ? "Approved" : "Sent back"}
+                          {halfway
+                            ? "With HR"
+                            : decision === "approved"
+                              ? "Approved"
+                              : "Sent back"}
                         </Badge>
                         <span className="min-w-0 flex-1 truncate text-body">
                           {item.title}

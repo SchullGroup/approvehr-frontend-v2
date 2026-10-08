@@ -39,7 +39,11 @@ export function LeaveDecidedMoment({
   onUndo: () => void;
   onDismiss: () => void;
 }) {
-  const { balances } = useEmployeeLeaveBalances(decision.request.employeeId);
+  /* The year the leave falls in, which is not always this one. */
+  const { balances } = useEmployeeLeaveBalances(
+    decision.request.employeeId,
+    Number(decision.request.from.slice(0, 4)),
+  );
   const surface = useRef<HTMLDivElement>(null);
 
   /* An approval can be made from a drawer, or from a row far down a long list;

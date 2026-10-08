@@ -697,6 +697,12 @@ export type EmployeeBalancesState = {
  */
 export function useEmployeeLeaveBalances(
   employeeId: string | null,
+  /**
+   * The year to read, where it is not this one. A request for January is drawn
+   * from next year's balance, and the API answers for the current year when it
+   * is not asked.
+   */
+  year?: number,
 ): EmployeeBalancesState {
   const { isConnected } = useSession();
   const local = useLeaveBalances();
@@ -712,6 +718,9 @@ export function useEmployeeLeaveBalances(
   } | null>(null);
 
   const active = isConnected && employeeId !== null;
+  /* The year is part of what an answer belongs to, as the employee is. */
+  const key =
+    employeeId === null ? null : `${employeeId}|${String(year ?? "")}`;
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
@@ -725,19 +734,23 @@ export function useEmployeeLeaveBalances(
       try {
         const rows = await leaveApi.balances(
           employeeId,
-          undefined,
+          year,
           controller.signal,
         );
-        if (!cancelled) setFetched({ id: employeeId, rows, error: null });
+        if (!cancelled && key !== null) {
+          setFetched({ id: key, rows, error: null });
+        }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError")
           return;
         if (!cancelled) {
-          setFetched({
-            id: employeeId,
-            rows: [],
-            error: error instanceof ApiError ? error : null,
-          });
+          if (key !== null) {
+            setFetched({
+              id: key,
+              rows: [],
+              error: error instanceof ApiError ? error : null,
+            });
+          }
         }
       }
     })();
@@ -746,7 +759,7 @@ export function useEmployeeLeaveBalances(
       cancelled = true;
       controller.abort();
     };
-  }, [active, employeeId, revalidation]);
+  }, [active, employeeId, year, key, revalidation]);
 
   if (!isConnected) {
     return {
@@ -772,7 +785,7 @@ export function useEmployeeLeaveBalances(
     };
   }
 
-  const matched = fetched !== null && fetched.id === employeeId;
+  const matched = fetched !== null && fetched.id === key;
   return {
     balances: matched ? fetched.rows : [],
     loading: active && !matched,
