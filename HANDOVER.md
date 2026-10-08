@@ -8305,3 +8305,86 @@ In the browser, demo mode: `/surveys` rendering the refusal, console clean.
   breakdown re-introduces exactly the subtraction the threshold prevents, and
   needs the threshold applied **per slice** rather than per survey. Worth doing
   carefully rather than quickly.
+---
+
+# An employee had no way into Exit management, and the fix for it had been written down and not done
+
+A tester opened staging as an employee and reported: _"there is no exit
+management at the employee view, so there is no how I want to test it. Maybe
+you've not pushed it."_ It was pushed. It was never there.
+
+## What was actually wrong
+
+Not a deployment. The same four lines are on `dev`, `staging`, `test`,
+`preprod` and `main`: the sidebar row was `permission: "EDIT_RECORDS"`, so
+anybody without it — every employee, and every line manager — had no row.
+Reproduced on an isolated stack as the seeded Employee, Line manager and HR
+manager before changing anything: 19, 26 and 40 sidebar links, and Exit
+management only in the last.
+
+Worse, the doors that were supposed to make up for it did not work either:
+
+- **The dashboard's "Hand in my notice" tile does not render for an employee.**
+  `quick-actions` is `defaultFor: ["admin", "custom"]`, so the `staff` tier never
+  gets that card unless they add it from the customise drawer. It was added for
+  exactly this reader (`1e9cdcf8`, after earlier QA said the same thing) and has
+  never reached them. **Not changed here** — adding a card to every employee's
+  default dashboard is a layout decision, not a bug fix. It is one word in
+  `catalogue.ts` if it is wanted.
+- **`/profile` → Leaving** is real, and sat at y=1387 on a 900px screen inside a
+  closed `Disclosure`.
+- **The route by URL** answered an employee with "Nobody is leaving" and nothing
+  to press — a claim about the company from somebody who can read one row of it.
+
+## This was already diagnosed
+
+`tests/employee-door.test.tsx` opens with: _"Documents, Equipment and **Exit
+management** were all gated on `EDIT_RECORDS`, so the person the flow exists for
+had no sidebar entry to any of them."_ It then fixed and tested the first two.
+The third was named in the diagnosis and not in the fix. **Read a header like
+that as a checklist and count what the file actually asserts.**
+
+## The fix
+
+- `nav.tsx`: the row has **no permission**. Not a `personalHref`, unlike its two
+  siblings, because there is no separate employee page to point at — the API
+  already narrows `GET /offboarding` by reader (own exit, reports', tasks
+  assigned, headed departments) and the screen is the right place to do the same.
+- `offboarding-screen.tsx`: anybody without `EDIT_RECORDS` gets `Resign` at the
+  top, **open** (`defaultOpen`; closed on `/profile`, where a reader meets it on
+  the way to something else, open here, where they came on purpose). HR does not,
+  and sees the register unchanged. For everybody else the tiles appear only when
+  there is something to count, and the empty state says "No exits to show" about
+  what they can see rather than "Nobody is leaving" about the company.
+- `Resign` takes `onStarted`, which the screen uses to reload the register.
+
+## The bug found by looking at the screenshot
+
+The first version passed a 12-point browser script and was wrong: after sending,
+the card said **"You are leaving"** while the register under it said **"No exits
+to show"**. `Resign` refreshes its own copy of the exit and nothing else on the
+page. Two contradicting claims on one screen, with every assertion green — and
+one of those assertions was itself a false pass, because `getByText("Emeka
+Anyanwu")` matched his name in the top bar. The row is now asserted as a link to
+`/people/offboarding/<id>`, which nothing else on the page can satisfy.
+
+**A browser script whose assertion can be satisfied by chrome proves nothing.**
+Scope the assertion to the thing under test, and look at the picture anyway.
+
+## Verified
+
+`tests/offboarding-screen.test.tsx` is new (8) and `employee-door.test.tsx` gained
+one. Tamper-tested: against the original source 4 fail, for the right reasons;
+the register-reload test was red before `onStarted` existed. `npm run check` exit 0. Walked on an isolated stack (own database, own ports) as Employee, Line manager
+and HR, 13 assertions: employee clicks the sidebar row, sends a notice; the
+manager finds it from the same row marked "Waiting for their manager"; HR sees it
+in the full register with no employee door and "Start an exit" intact.
+
+Full `vitest run`: 3 failures, none from here. `holiday-banner.tsx` (30 Sep)
+breaks `no-clock-derived-today` and `no-raw-date-formatting` on `dev`, `test` and
+`preprod` — `staging` already has a different version of that file — and
+`question-audience` times out under load and passes 7/7 alone.
+
+**Not exercised:** the tester's own staging deployment. Nothing reachable from
+here carries its credentials, so this is verified against `origin/dev`'s frontend
+and `origin/staging`'s backend on a local stack.
