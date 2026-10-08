@@ -235,3 +235,79 @@ describe("dismissing", () => {
     expect(screen.queryByRole("region", { name: "Public holiday" })).toBeNull();
   });
 });
+
+describe("the date line under the headline", () => {
+  const holiday: Holiday = {
+    id: "h-tomorrow",
+    date: TOMORROW,
+    name: "Founder's Day",
+    confirmed: true,
+  };
+
+  it("names the weekday and the whole date", () => {
+    stubHolidays({ 2026: [holiday] });
+    render(<HolidayBanner />);
+    expect(
+      screen.getByText(/Thursday, 20 August 2026 is a public holiday\./),
+    ).toBeInTheDocument();
+  });
+
+  /* A holiday is a calendar day, so the company's zone must not touch it.
+     `formatDate` reads a bare `2026-08-20` as midnight UTC; formatted in New
+     York that is the evening of the 19th, and the banner would announce
+     "Wednesday, 19 August" over a Thursday holiday. The zones here are the
+     ones either side of UTC that the company settings actually offer. */
+  it.each([
+    "America/New_York",
+    "America/Los_Angeles",
+    "Asia/Kolkata",
+    "Australia/Sydney",
+  ])("does not move to another day for a company in %s", (zone) => {
+    mockedTimezone.mockReturnValue(zone);
+    stubHolidays({ 2026: [holiday] });
+    render(<HolidayBanner />);
+    expect(
+      screen.getByText(/Thursday, 20 August 2026 is a public holiday\./),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("connected, 'today' is the company's day and not UTC's", () => {
+  const onTheTwentieth: Holiday = {
+    id: "h-twentieth",
+    date: "2026-08-20",
+    name: "Founder's Day",
+    confirmed: true,
+  };
+
+  beforeEach(() => {
+    /* Only the clock: React's own scheduling must keep running. */
+    vi.useFakeTimers({ toFake: ["Date"] });
+    mockedSession.mockReturnValue({
+      isConnected: true,
+    } as unknown as ReturnType<typeof useSession>);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("calls it today in Lagos while UTC is still on the 19th", () => {
+    /* 23:30 UTC on the 19th is 00:30 on the 20th in Lagos (UTC+1). */
+    vi.setSystemTime(new Date("2026-08-19T23:30:00Z"));
+    mockedTimezone.mockReturnValue("Africa/Lagos");
+    stubHolidays({ 2026: [onTheTwentieth] });
+    render(<HolidayBanner />);
+    expect(screen.getByText("Founder's Day is today")).toBeInTheDocument();
+  });
+
+  it("calls it tomorrow in New York while UTC has already moved on to the 20th", () => {
+    /* 02:00 UTC on the 20th is 22:00 on the 19th in New York (UTC-4 in
+       August) — a viewer reading the UTC day would be told it is today. */
+    vi.setSystemTime(new Date("2026-08-20T02:00:00Z"));
+    mockedTimezone.mockReturnValue("America/New_York");
+    stubHolidays({ 2026: [onTheTwentieth] });
+    render(<HolidayBanner />);
+    expect(screen.getByText("Founder's Day is tomorrow")).toBeInTheDocument();
+  });
+});
