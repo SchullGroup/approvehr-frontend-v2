@@ -23,7 +23,8 @@ import { shortDate } from "@/lib/today";
 import { statusTone } from "./status-tone";
 
 /**
- * An employee starting their own exit, for `/profile`.
+ * An employee starting their own exit, for `/profile` and for Exit management
+ * (where anybody without `EDIT_RECORDS` gets it at the top, open).
  *
  * ## Two states, and only one of them is behind a reveal
  *
@@ -59,7 +60,25 @@ import { statusTone } from "./status-tone";
  * own field rather than appending, and split it back out on the detail page.
  * The two lengths below (200 + 280) exist only to stay inside `reason`'s 500.
  */
-export function Resign() {
+export function Resign({
+  defaultOpen = false,
+  onStarted,
+}: {
+  /**
+   * Called once their notice has gone in. This component refreshes its own copy
+   * of the exit and nothing else on the page, so a screen that also lists exits
+   * has to be told — otherwise the card above says "You are leaving" while the
+   * list below still says there is nothing to show.
+   */
+  onStarted?: () => void;
+  /**
+   * Whether the door starts open. Closed on `/profile`, where a reader meets it
+   * on the way to something else; open on Exit management, where the reader
+   * came on purpose and a second click to reach the one thing the page is for
+   * is a reason to conclude it is not there.
+   */
+  defaultOpen?: boolean;
+}) {
   const mine = useMyExit();
   const [open, setOpen] = useState(false);
 
@@ -129,6 +148,7 @@ export function Resign() {
     <>
       <Disclosure
         className="bg-surface"
+        defaultOpen={defaultOpen}
         title="Leaving"
         hint="Hand in your notice. Nothing is sent until you fill in the form."
         level={3}
@@ -140,7 +160,7 @@ export function Resign() {
           </p>
           <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
             <DoorOpen aria-hidden="true" className="size-3.5" />
-            Hand in my notice
+            Resignation request
           </Button>
         </div>
       </Disclosure>
@@ -156,6 +176,7 @@ export function Resign() {
         onDone={() => {
           setOpen(false);
           mine.reload();
+          onStarted?.();
         }}
       />
     </>
@@ -223,7 +244,7 @@ function ResignDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="Hand in my notice"
+      title="Resignation request"
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>
@@ -234,7 +255,7 @@ function ResignDialog({
             disabled={!ready || busy}
             onClick={() => void submit()}
           >
-            {busy ? "Sending…" : "Hand in my notice"}
+            {busy ? "Sending…" : "Send resignation request"}
           </Button>
         </div>
       }
