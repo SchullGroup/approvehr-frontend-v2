@@ -103,7 +103,7 @@ const ACTIONS: readonly Action[] = [
        "Record an exit" below is HR starting somebody else's; this is
        everybody's own, and it was the door people kept not finding. */
     href: "/profile",
-    label: "Hand in my notice",
+    label: "Resignation request",
     detail: "Your own resignation or retirement",
     icon: <LogOut aria-hidden="true" />,
   },
