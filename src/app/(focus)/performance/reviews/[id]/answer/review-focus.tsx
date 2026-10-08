@@ -80,7 +80,7 @@ export function ReviewFocus({ reviewId }: { reviewId: string }) {
   if (!review) {
     return (
       <div className="mx-auto flex min-h-dvh max-w-md flex-col items-start justify-center gap-4 px-5">
-        <p className="text-body text-ink">
+        <p className="text-body-md text-ink">
           {error?.message ?? "That review is not available to you."}
         </p>
         <ButtonLink href="/performance" variant="accent">
