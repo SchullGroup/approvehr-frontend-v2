@@ -60,8 +60,10 @@ export function LeaveDecidedMoment({
       ref={surface}
       className="relative scroll-mt-24 rounded-lg border border-success-line bg-surface p-5"
     >
+      {/* Right padding clears the close button, which sits over the corner. */}
       <SuccessMoment
         compact
+        className="pr-9"
         title={copy.title}
         lead={copy.lead}
         details={copy.details}
