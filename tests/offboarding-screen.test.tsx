@@ -122,7 +122,7 @@ describe("an employee, who holds nothing", () => {
     );
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Hand in my notice" }),
+      screen.getByRole("button", { name: "Resignation request" }),
     );
     fireEvent.change(screen.getByLabelText(/My last day/), {
       target: { value: "2026-11-30" },
@@ -130,9 +130,9 @@ describe("an employee, who holds nothing", () => {
     fireEvent.change(screen.getByLabelText(/Why I am leaving/), {
       target: { value: "Moving abroad" },
     });
-    const send = screen
-      .getAllByRole("button", { name: "Hand in my notice" })
-      .at(-1)!;
+    const send = screen.getByRole("button", {
+      name: "Send resignation request",
+    });
     await userEvent.click(send);
 
     await waitFor(() => expect(reloadRegister).toHaveBeenCalled());
@@ -143,7 +143,7 @@ describe("an employee, who holds nothing", () => {
 
     /* Open, not behind a second click: this is the page they came to. */
     expect(
-      screen.getByRole("button", { name: "Hand in my notice" }),
+      screen.getByRole("button", { name: "Resignation request" }),
     ).toBeVisible();
   });
 
@@ -186,7 +186,7 @@ describe("an employee, who holds nothing", () => {
     /* `Resign` already renders nothing there, because there is nobody to
        resign. The page must not invent a door for them. */
     expect(
-      screen.queryByRole("button", { name: "Hand in my notice" }),
+      screen.queryByRole("button", { name: "Resignation request" }),
     ).not.toBeInTheDocument();
   });
 });
@@ -214,7 +214,7 @@ describe("HR, who holds EDIT_RECORDS", () => {
     /* HR's own notice is on their Profile like anybody's; a second door above
        the thing they came to administer is noise. */
     expect(
-      screen.queryByRole("button", { name: "Hand in my notice" }),
+      screen.queryByRole("button", { name: "Resignation request" }),
     ).not.toBeInTheDocument();
   });
 });

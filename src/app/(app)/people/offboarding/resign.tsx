@@ -160,7 +160,7 @@ export function Resign({
           </p>
           <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
             <DoorOpen aria-hidden="true" className="size-3.5" />
-            Hand in my notice
+            Resignation request
           </Button>
         </div>
       </Disclosure>
@@ -244,7 +244,7 @@ function ResignDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="Hand in my notice"
+      title="Resignation request"
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>
@@ -255,7 +255,7 @@ function ResignDialog({
             disabled={!ready || busy}
             onClick={() => void submit()}
           >
-            {busy ? "Sending…" : "Hand in my notice"}
+            {busy ? "Sending…" : "Send resignation request"}
           </Button>
         </div>
       }
