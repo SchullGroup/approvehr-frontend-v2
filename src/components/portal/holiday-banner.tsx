@@ -3,8 +3,9 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { PartyPopper, X } from "lucide-react";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { usePublicHolidays } from "@/lib/store/holidays";
+import { formatDate, weekdayIn, todayIn } from "@/lib/time";
 import { TODAY } from "@/lib/today";
 
 /**
@@ -24,6 +25,12 @@ import { TODAY } from "@/lib/today";
  * `TODAY`, so this renders nothing in a canned demo walkthrough until a
  * holiday is added near that date. Real organisations, and any live demo
  * run connected against a seeded org, are unaffected.
+ *
+ * "Today" and "tomorrow" are the organisation's own calendar day
+ * (`todayIn(timeZone)`, `useOrgTimezone()` from `store/session`), not the
+ * viewer's browser clock — the same reason `leave-screen.tsx` reads its
+ * `today` the identical way. A remote colleague in a different zone must
+ * see the same holiday window everyone else at the company does.
  */
 
 function addDays(isoDate: string, days: number): string {
@@ -32,13 +39,17 @@ function addDays(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * A holiday is a calendar day, not a moment, so it is formatted in UTC and
+ * never in the company's zone — the same rule `attendance/history/
+ * day-holiday.tsx` states for the same value. `formatDate` and `weekdayIn`
+ * read a bare `2026-10-01` as midnight UTC, so handing them the company's zone
+ * would print the day before for a company west of UTC (the settings list
+ * offers New York, Chicago and Los Angeles): "Wednesday, 30 September" over a
+ * holiday that is on Thursday the 1st.
+ */
 function longDate(isoDate: string): string {
-  return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString("en-NG", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: "UTC",
-  });
+  return `${weekdayIn(isoDate, "UTC")}, ${formatDate(isoDate, "UTC")}`;
 }
 
 const dismissKey = (holidayId: string) =>
@@ -72,7 +83,8 @@ function useWasDismissed(holidayId: string | undefined): boolean {
 
 export function HolidayBanner() {
   const { isConnected } = useSession();
-  const today = isConnected ? new Date().toISOString().slice(0, 10) : TODAY;
+  const timeZone = useOrgTimezone();
+  const today = isConnected ? todayIn(timeZone) : TODAY;
   const tomorrow = useMemo(() => addDays(today, 1), [today]);
   const currentYear = Number(today.slice(0, 4));
 
