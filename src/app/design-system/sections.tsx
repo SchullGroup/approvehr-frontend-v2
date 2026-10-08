@@ -52,6 +52,7 @@ import {
   Spinner,
   Stat,
   StepIndicator,
+  SuccessMoment,
   Switch,
   TBody,
   TD,
@@ -793,6 +794,23 @@ export function NavigationDemo() {
             },
           ]}
         />
+      </div>
+
+      <div>
+        <p className="mb-2.5 text-meta font-medium text-muted">
+          Success moment
+        </p>
+        <div className="rounded-lg border border-line bg-canvas px-6 py-8">
+          <SuccessMoment
+            title="May 2026 payroll is approved"
+            lead="42 payslips, ₦18,420,000 net. Nobody has been paid yet."
+            details={[
+              "2 loan instalments and 1 expense claim were settled.",
+              "The bank file is ready to download.",
+            ]}
+            actions={<Button variant="accent">Pay them</Button>}
+          />
+        </div>
       </div>
     </div>
   );
