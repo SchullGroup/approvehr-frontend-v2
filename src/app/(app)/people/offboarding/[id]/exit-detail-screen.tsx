@@ -328,9 +328,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
                     disabled={busy}
                     onClick={() => setWithdrawing(true)}
                   >
-                    {mine
-                      ? "I am staying after all"
-                      : `${firstName} is staying`}
+                    Withdraw exit request
                   </Button>
                 )}
               </div>
