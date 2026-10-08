@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CalendarRange,
   CheckCheck,
@@ -151,6 +152,7 @@ export function WhatNeedsYouTab({
    */
   const scored = features.appraisals;
 
+  const router = useRouter();
   const [opened, setOpened] = useState<string | null>(null);
 
   const owed = appraisals.mine.toComplete;
@@ -751,7 +753,9 @@ export function WhatNeedsYouTab({
                     review={review}
                     context="owed"
                     actionLabel="Fill it in"
-                    onOpen={() => setOpened(review.id)}
+                    onOpen={() =>
+                      router.push(`/performance/reviews/${review.id}/answer`)
+                    }
                   />
                 ))}
 
