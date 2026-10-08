@@ -40,8 +40,17 @@ function addDays(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function longDate(isoDate: string, timeZone: string): string {
-  return `${weekdayIn(isoDate, timeZone)}, ${formatDate(isoDate, timeZone)}`;
+/**
+ * A holiday is a calendar day, not a moment, so it is formatted in UTC and
+ * never in the company's zone — the same rule `attendance/history/
+ * day-holiday.tsx` states for the same value. `formatDate` and `weekdayIn`
+ * read a bare `2026-10-01` as midnight UTC, so handing them the company's zone
+ * would print the day before for a company west of UTC (the settings list
+ * offers New York, Chicago and Los Angeles): "Wednesday, 30 September" over a
+ * holiday that is on Thursday the 1st.
+ */
+function longDate(isoDate: string): string {
+  return `${weekdayIn(isoDate, "UTC")}, ${formatDate(isoDate, "UTC")}`;
 }
 
 const dismissKey = (holidayId: string) =>
@@ -128,7 +137,7 @@ export function HolidayBanner() {
           {due.name} is {isToday ? "today" : "tomorrow"}
         </p>
         <p className="mt-0.5 text-meta text-body">
-          {longDate(due.date, timeZone)} is a public holiday.{" "}
+          {longDate(due.date)} is a public holiday.{" "}
           <Link
             href="/people/leave"
             className="underline underline-offset-2 hover:text-ink"
