@@ -167,7 +167,7 @@ const clockServerSnapshot = () => 0;
  * effect refires, the answer replaces the old one when it lands, and the panel
  * never flashes a skeleton over a row it is already showing.
  */
-function useClockGeneration(): number {
+export function useClockGeneration(): number {
   return useSyncExternalStore(
     subscribeClock,
     clockSnapshot,

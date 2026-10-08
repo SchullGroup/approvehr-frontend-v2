@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Clock, LogIn, LogOut, Undo2 } from "lucide-react";
 import {
   Avatar,
@@ -455,6 +456,10 @@ export function MyClockCard() {
  * sent a manager or an administrator to a screen with no way to deal with a
  * day that was already over.
  *
+ * Somebody who holds `EDIT_RECORDS` is the one who would decide the request, so
+ * they are sent to that day on the attendance calendar instead, where HR's own
+ * form changes the record directly.
+ *
  * Mounted only when there is such a day, so `useMyCorrections` costs nothing
  * for everybody else. A request already waiting for HR replaces the button
  * rather than sitting beside it, or the card would keep asking for something
@@ -467,6 +472,7 @@ function EarlierOpenNotice({
 }) {
   const toast = useToast();
   const corrections = useMyCorrections();
+  const canEditRecords = useCan("EDIT_RECORDS");
   const [asking, setAsking] = useState(false);
 
   const asked = corrections.requests.some(
@@ -479,7 +485,14 @@ function EarlierOpenNotice({
       <p className="text-body-sm text-warning-text">
         You did not clock out on {shortDate(earlier.date)} (in at{" "}
         {earlier.clockIn}).{" "}
-        {asked ? (
+        {canEditRecords ? (
+          <Link
+            href={`/people/attendance/history?date=${earlier.date}`}
+            className="font-medium underline underline-offset-4"
+          >
+            Correct it
+          </Link>
+        ) : asked ? (
           "You have asked HR to correct it."
         ) : (
           <button
