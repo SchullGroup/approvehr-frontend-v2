@@ -14,6 +14,9 @@ import { useAppraisals, useRatingScale } from "@/lib/store/performance";
  * manager with six reports has six forms, and finishing one should lead to the
  * next rather than back to a list to find it.
  *
+ * The buttons wait for that list. Showing "Back" first and swapping it for
+ * "Next: …" a moment later moved the thing somebody was about to press.
+ *
  * Every figure here is one the form already held — the number of answers and the
  * mark — and the count of what is left comes from the same list the performance
  * page reads, fetched when this appears.
@@ -70,7 +73,7 @@ export function SentScreen({
         lead={`${answers}${markWords ? ` and an overall mark of ${markWords}` : ""}, for ${review.cycleName}.`}
         details={details}
         actions={
-          next ? (
+          appraisals.loading ? undefined : next ? (
             <>
               <ButtonLink
                 href={`/performance/reviews/${next.id}/answer`}

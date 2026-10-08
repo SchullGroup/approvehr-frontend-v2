@@ -48,7 +48,16 @@ const useStoresReady = () =>
  */
 export function ReviewFocus({ reviewId }: { reviewId: string }) {
   const router = useRouter();
-  const { review, loading, error } = useReview(reviewId);
+  const { review: latest, loading, error } = useReview(reviewId);
+
+  /* The last review that loaded. The store asks again whenever the window comes
+     back into focus, and one failed ask — a busy API, a dropped connection —
+     clears what it holds. Showing the error then would have thrown the form away
+     with the last second of typing in it. So a review that has loaded stays on
+     screen, and the error is for one that never did. */
+  const [held, setHeld] = useState<typeof latest>(null);
+  if (latest && latest !== held) setHeld(latest);
+  const review = latest ?? held;
   const ready = useStoresReady();
 
   /* What was sent, once it has been. Held here rather than in the form so that

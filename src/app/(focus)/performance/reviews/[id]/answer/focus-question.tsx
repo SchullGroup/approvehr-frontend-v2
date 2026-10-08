@@ -3,11 +3,11 @@
 import { useEffect, useRef } from "react";
 import { FileField, RadioCard } from "@/components/ui";
 import type { ApiFormQuestion, ApiRatingScale } from "@/lib/api/performance";
-import { useRatingScale } from "@/lib/store/performance";
 import {
   AttachedEvidence,
   type Draft,
 } from "@/app/(app)/performance/review-parts";
+import { TEXT_LIMIT } from "./focus-logic";
 
 /**
  * The input for one question, big enough to be the only thing on the page.
@@ -167,16 +167,33 @@ export function WriteBox({
     box.current?.focus();
   }, []);
 
+  /* The API refuses more than this, and it refuses the whole save — so a
+     person who had written past it would have had nothing save, and no way to
+     see why. The box stops at the limit, and says how close they are once they
+     are near it. */
+  const nearLimit = value.length >= TEXT_LIMIT - 500;
+
   return (
-    <textarea
-      ref={box}
-      rows={2}
-      value={value}
-      aria-labelledby={labelledBy}
-      placeholder={placeholder}
-      onChange={(event) => onChange(event.target.value)}
-      className="block max-h-[60dvh] min-h-24 w-full resize-none overflow-y-auto border-0 border-b-2 border-line bg-transparent px-0 py-2 text-lead text-ink placeholder:text-muted focus:border-accent focus:outline-none"
-    />
+    <div>
+      <textarea
+        ref={box}
+        rows={2}
+        value={value}
+        maxLength={TEXT_LIMIT}
+        aria-labelledby={labelledBy}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="block max-h-[60dvh] min-h-24 w-full resize-none overflow-y-auto border-0 border-b-2 border-line bg-transparent px-0 py-2 text-lead text-ink placeholder:text-muted focus:border-accent focus:outline-none"
+      />
+      {nearLimit && (
+        <p
+          className={`mt-1.5 text-meta ${value.length >= TEXT_LIMIT ? "font-medium text-danger-text" : "text-muted"}`}
+        >
+          {value.length.toLocaleString("en-GB")} of{" "}
+          {TEXT_LIMIT.toLocaleString("en-GB")} characters
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -185,6 +202,8 @@ export function FocusQuestion({
   held,
   reviewId,
   headingId,
+  scale,
+  editable,
   onChange,
   onPick,
   onBusyChange,
@@ -192,6 +211,10 @@ export function FocusQuestion({
   question: ApiFormQuestion;
   held: Draft;
   reviewId: string;
+  /** Read once by the form and handed down, not asked for again on every page. */
+  scale: ApiRatingScale;
+  /** Whether an attached file can be opened from here. */
+  editable: boolean;
   /** The id of the heading that carries the prompt, for the field's label. */
   headingId: string;
   /** A change that is not a pick: typing, or a file. */
@@ -201,7 +224,6 @@ export function FocusQuestion({
   /** So the page can hold Send while a file is still being read. */
   onBusyChange: (busy: boolean) => void;
 }) {
-  const { scale, editable } = useRatingScale();
   const options = pickOptions(question, scale);
 
   if (options) {

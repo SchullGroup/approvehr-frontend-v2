@@ -24,9 +24,14 @@ import {
   clearLocalDraft,
   readLocalDraft,
   writeLocalDraft,
-  type LocalDraft,
 } from "./draft-storage";
 import { draftForPick, pickOptions, ratingOptions } from "./focus-question";
+import {
+  onRecordOf,
+  savedAnswerStands,
+  sigOf,
+  startIndex,
+} from "./focus-logic";
 import {
   CheckStep,
   IntroStep,
@@ -52,16 +57,23 @@ import {
  * The popup saved when somebody pressed "Save and finish later", and lost
  * everything if they closed it any other way. A page that says it saves as you
  * go has to mean it: answers are sent to the API shortly after they stop
- * changing, on every move between pages, when the tab is hidden, and on close.
- * The overall mark and the closing note have no endpoint of their own — they
- * travel with the send — so those are kept in this browser until it goes
- * (`draft-storage.ts`).
+ * changing, on every move between pages, when the tab is hidden, when the page
+ * is left, and on close. The overall mark and the closing note have no endpoint
+ * of their own — they travel with the send — so those are kept in this browser
+ * until it goes (`draft-storage.ts`).
  *
- * ## Which page it opens on
+ * ## What is on the record is not always what is in the box
  *
- * The first question without an answer, or the overall mark if every question
- * has one — so "come back later" is also "pick up where you left off". A review
- * with nothing in it opens on the introduction.
+ * A saved answer cannot be taken back, only replaced (see `onRecordOf`). So
+ * everything that says "this is what you are sending" reads the record, and a
+ * box somebody has emptied says that the saved answer stands.
+ *
+ * ## Sending is deliberate
+ *
+ * It is the one thing here that cannot be undone, so it is never reached by a
+ * keystroke: Enter and Ctrl/⌘ Enter go *to* the look-over page, and only a press
+ * on the Send button goes past it. Key repeat is ignored everywhere, because a
+ * held key walked straight through that page and sent.
  */
 
 type Step =
@@ -75,36 +87,6 @@ type SaveState = "idle" | "saving" | "saved" | "failed";
 
 /** What the page needs to say about a review that has just gone. */
 export type SentInfo = { answered: number; mark: string | null };
-
-/** A signature of what is in a box, to tell "changed" from "typed and undone". */
-const sigOf = (held: Draft): string =>
-  JSON.stringify([
-    held.text ?? null,
-    held.rating ?? null,
-    held.choice ?? null,
-    held.bool ?? null,
-    held.file
-      ? `${held.file.filename}:${String(held.file.contentBase64.length)}`
-      : null,
-  ]);
-
-function startIndex(review: ApiReviewDetail, local: LocalDraft): number {
-  /* Where they were, if this browser remembers. The last page is
-     questions + intro + mark + note + check, minus one. */
-  const last = review.questions.length + 3;
-  if (local.step > 0) return Math.min(local.step, last);
-
-  /* Otherwise, from what the server holds: the first required question with no
-     answer, or the overall mark if every required one has one. */
-  const hasAnswers = review.questions.some((question) =>
-    filled(question, draftFrom(question)),
-  );
-  if (!hasAnswers && !local.mark && !local.summary) return 0;
-  const open = review.questions.findIndex(
-    (question) => question.required && !filled(question, draftFrom(question)),
-  );
-  return open === -1 ? 1 + review.questions.length : 1 + open;
-}
 
 export function FocusForm({
   review,
@@ -124,7 +106,7 @@ export function FocusForm({
 }) {
   const router = useRouter();
   const { save, send } = useReviewMutations();
-  const { scale } = useRatingScale();
+  const { scale, editable } = useRatingScale();
   const development = useDevelopmentSuggestions();
 
   const steps = useMemo<Step[]>(
@@ -147,6 +129,8 @@ export function FocusForm({
   const [index, setIndex] = useState(start);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [draft, setDraft] = useState<Record<string, Draft>>({});
+  /** What has been saved during this visit, which the review itself does not show until it is read again. */
+  const [savedHeld, setSavedHeld] = useState<Record<string, Draft>>({});
   const [mark, setMark] = useState(local.mark);
   const [summary, setSummary] = useState(local.summary);
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -154,7 +138,8 @@ export function FocusForm({
   const [reading, setReading] = useState(false);
   const [sending, setSending] = useState(false);
   const [nudged, setNudged] = useState(false);
-  const [languageSeen, setLanguageSeen] = useState(false);
+  /** The findings the person has been shown, as a signature — see `languageSeen`. */
+  const [seenFindings, setSeenFindings] = useState<string | null>(null);
   const [workOpen, setWorkOpen] = useState(false);
 
   /** What the server holds for each question, as signatures. */
@@ -163,28 +148,42 @@ export function FocusForm({
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   /** The pending move on after picking an option. */
   const autoMove = useRef<number | null>(null);
+  /** Taken the instant a send starts. State would not do: three clicks in one tick all read it as free. */
+  const sendLock = useRef(false);
 
+  /** What is in the box now. */
   const value = (question: ApiFormQuestion): Draft =>
     draft[question.id] ?? draftFrom(question);
+  /** What was last saved. */
+  const saved = (question: ApiFormQuestion): Draft =>
+    savedHeld[question.id] ?? draftFrom(question);
+  /** What will be on the record. */
+  const onRecord = (question: ApiFormQuestion): Draft =>
+    onRecordOf(question, draft[question.id], saved(question));
 
   const outstanding = review.questions.filter(
-    (question) => question.required && !filled(question, value(question)),
+    (question) => question.required && !filled(question, onRecord(question)),
   );
   const answered = review.questions.filter((question) =>
-    filled(question, value(question)),
+    filled(question, onRecord(question)),
   ).length;
 
   /** Manager and peer forms get the language check; a self-review does not. */
   const coaching = review.kind !== "SELF";
   const languageTexts = coaching
     ? [
-        ...review.questions.map((question) => value(question).text ?? ""),
+        ...review.questions.map((question) => onRecord(question).text ?? ""),
         summary,
       ]
     : [];
   const languageFindings = coaching
     ? findingsAcross(languageTexts, review.subjectName)
     : [];
+  /* Seen means *these* findings. Edit the text and a new one may appear, and
+     "Send anyway" must not wave it through unread. */
+  const findingsSignature = JSON.stringify(languageFindings);
+  const languageSeen =
+    languageFindings.length > 0 && seenFindings === findingsSignature;
 
   const patch = (question: ApiFormQuestion, next: Draft) => {
     setNudged(false);
@@ -204,21 +203,26 @@ export function FocusForm({
   const flush = useCallback(
     (snapshot: Record<string, Draft>): Promise<boolean> => {
       const run = async (): Promise<boolean> => {
-        const changed: { id: string; sig: string; body: AnswerBody }[] = [];
+        const changed: {
+          id: string;
+          sig: string;
+          held: Draft;
+          body: AnswerBody;
+        }[] = [];
         for (const question of review.questions) {
           const held = snapshot[question.id];
           if (!held) continue;
           const sig = sigOf(held);
-          const saved =
+          const known =
             savedSig.current[question.id] ?? sigOf(draftFrom(question));
-          if (sig === saved) continue;
+          if (sig === known) continue;
           const body = answerBodyFor(question, held);
           if (body) {
-            changed.push({ id: question.id, sig, body });
+            changed.push({ id: question.id, sig, held, body });
           } else {
-            /* Nothing to send for an emptied box: emptying is not an
-               instruction to clear an answer, and not remembering it would
-               retry for ever. */
+            /* Nothing to send for an emptied box: the API takes no empty
+               answer, so what was saved stands. Remembered, or it would be
+               looked at again on every save for ever. */
             savedSig.current[question.id] = sig;
           }
         }
@@ -230,6 +234,10 @@ export function FocusForm({
             changed.map((entry) => entry.body),
           );
           for (const entry of changed) savedSig.current[entry.id] = entry.sig;
+          setSavedHeld((current) => ({
+            ...current,
+            ...Object.fromEntries(changed.map((e) => [e.id, e.held])),
+          }));
           setSaveState("saved");
           setFailed(null);
           return true;
@@ -250,20 +258,34 @@ export function FocusForm({
     [review.id, review.questions, save],
   );
 
+  /* The newest draft and saver, for the two places that cannot wait for a
+     render: leaving the page, and the tab going away. */
+  const latest = useRef({ draft, flush });
+  useEffect(() => {
+    latest.current = { draft, flush };
+  });
+
   /* Shortly after typing stops. */
   useEffect(() => {
     const timer = window.setTimeout(() => void flush(draft), 1200);
     return () => window.clearTimeout(timer);
   }, [draft, flush]);
 
-  /* And when the tab is hidden, which is how most people leave. */
+  /* When the tab is hidden, which is how most people leave; when the page is
+     left, by Back or a link, which unmounts this; and when it is closed. */
   useEffect(() => {
+    const now = () => void latest.current.flush(latest.current.draft);
     const onHide = () => {
-      if (document.visibilityState === "hidden") void flush(draft);
+      if (document.visibilityState === "hidden") now();
     };
     document.addEventListener("visibilitychange", onHide);
-    return () => document.removeEventListener("visibilitychange", onHide);
-  }, [draft, flush]);
+    window.addEventListener("pagehide", now);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", now);
+      now();
+    };
+  }, []);
 
   /* The two boxes with nowhere to go before the send, and the page. */
   useEffect(() => {
@@ -310,7 +332,7 @@ export function FocusForm({
   };
 
   const sendIt = async () => {
-    if (sending || reading) return;
+    if (sendLock.current || reading) return;
     if (outstanding.length > 0) {
       /* Walk them to the first one rather than telling them where it is. */
       const first = review.questions.indexOf(outstanding[0] as ApiFormQuestion);
@@ -319,9 +341,10 @@ export function FocusForm({
       return;
     }
     if (coaching && languageFindings.length > 0 && !languageSeen) {
-      setLanguageSeen(true);
+      setSeenFindings(findingsSignature);
       return;
     }
+    sendLock.current = true;
     setFailed(null);
     setSending(true);
     try {
@@ -341,20 +364,25 @@ export function FocusForm({
           : "Something went wrong. Try again.",
       );
     } finally {
+      sendLock.current = false;
       setSending(false);
     }
   };
 
-  const advance = () => {
+  /**
+   * Go on to the next page. From the look-over page it sends — but only when
+   * asked by the button, never by a key (`byKey`).
+   */
+  const advance = (byKey = false) => {
     if (current.kind === "check") {
-      void sendIt();
+      if (!byKey) void sendIt();
       return;
     }
     if (reading) return;
     if (
       current.kind === "question" &&
       current.question.required &&
-      !filled(current.question, value(current.question))
+      !filled(current.question, onRecord(current.question))
     ) {
       setNudged(true);
       return;
@@ -368,10 +396,11 @@ export function FocusForm({
 
   /* The keys. Re-registered every render because it reads the current page, the
      current draft and the current handlers — and costs one listener. Typing in
-     a box is left alone, except for Escape and Ctrl/⌘ Enter. */
+     a box is left alone, except for Escape and Ctrl/⌘ Enter. A held key does
+     nothing after its first press. */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing) return;
+      if (event.defaultPrevented || event.isComposing || event.repeat) return;
       if (event.key === "Escape") {
         if (workOpen) return;
         event.preventDefault();
@@ -380,7 +409,7 @@ export function FocusForm({
       }
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
         event.preventDefault();
-        advance();
+        advance(true);
         return;
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -415,7 +444,7 @@ export function FocusForm({
         /* A focused button or link acts on Enter by itself. */
         if (tag === "BUTTON" || tag === "A") return;
         event.preventDefault();
-        advance();
+        advance(true);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -437,7 +466,7 @@ export function FocusForm({
   const optionalAndEmpty =
     (current.kind === "question" &&
       !current.question.required &&
-      !filled(current.question, value(current.question))) ||
+      !filled(current.question, onRecord(current.question))) ||
     (current.kind === "mark" && !mark) ||
     (current.kind === "summary" && !summary.trim());
 
@@ -520,35 +549,38 @@ export function FocusForm({
         />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        {failed && (
-          <p
-            role="alert"
-            className="mx-auto mt-4 w-full max-w-2xl rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
-          >
-            {failed}
-            {saveState === "failed" && (
-              <>
-                {" "}
-                <button
-                  type="button"
-                  onClick={() => void flush(draft)}
-                  className="cursor-pointer font-medium underline underline-offset-4"
-                >
-                  Try again
-                </button>{" "}
-                <button
-                  type="button"
-                  onClick={() => router.push("/performance")}
-                  className="cursor-pointer font-medium underline underline-offset-4"
-                >
-                  Leave anyway
-                </button>
-              </>
-            )}
-          </p>
-        )}
+      {/* Outside the scrolling middle, so it is on screen however far down the
+          page somebody is. Inside it, a failed send on a long page was
+          invisible: the button just stopped spinning. */}
+      {failed && (
+        <p
+          role="alert"
+          className="mx-auto mt-3 w-full max-w-2xl shrink-0 rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
+        >
+          {failed}
+          {saveState === "failed" && (
+            <>
+              {" "}
+              <button
+                type="button"
+                onClick={() => void flush(draft)}
+                className="cursor-pointer font-medium underline underline-offset-4"
+              >
+                Try again
+              </button>{" "}
+              <button
+                type="button"
+                onClick={() => router.push("/performance")}
+                className="cursor-pointer font-medium underline underline-offset-4"
+              >
+                Leave anyway
+              </button>
+            </>
+          )}
+        </p>
+      )}
 
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {/* Keyed so each page arrives fresh: up from below going on, a plain
             fade coming back. Reduced motion collapses both. */}
         <div
@@ -569,6 +601,13 @@ export function FocusForm({
               position={current.position}
               held={value(current.question)}
               reviewId={review.id}
+              scale={scale}
+              editable={editable}
+              savedStays={savedAnswerStands(
+                current.question,
+                draft[current.question.id],
+                saved(current.question),
+              )}
               nudged={nudged}
               onChange={(next) => patch(current.question, next)}
               onPick={(optionValue) => pick(current.question, optionValue)}
@@ -595,7 +634,7 @@ export function FocusForm({
             <CheckStep
               review={review}
               scale={scale}
-              value={value}
+              onRecord={onRecord}
               mark={mark}
               summary={summary}
               outstanding={outstanding}
@@ -630,7 +669,7 @@ export function FocusForm({
           size="lg"
           loading={sending}
           disabled={reading}
-          onClick={advance}
+          onClick={() => advance()}
         >
           {nextLabel}
         </Button>
@@ -646,6 +685,11 @@ export function FocusForm({
           <SelfEvidence
             periodStart={review.periodStart}
             periodEnd={review.periodEnd}
+            whenNothing={
+              <p className="text-body-sm text-muted">
+                Nothing is logged for this period yet.
+              </p>
+            }
           />
         </Drawer>
       )}

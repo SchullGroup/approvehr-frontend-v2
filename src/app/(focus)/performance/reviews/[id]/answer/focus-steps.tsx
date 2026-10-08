@@ -136,6 +136,9 @@ export function IntroStep({
             {review.dueDate ? ` Due ${dayLabel(review.dueDate)}.` : ""}
           </p>
         )}
+        {review.anonymous && (
+          <p>This is anonymous. Nobody is told who wrote it.</p>
+        )}
         <p className="text-muted">
           {resumed
             ? `You have answered ${String(answered)} of ${String(total)}. They are saved, so pick up where you left off.`
@@ -165,6 +168,9 @@ export function QuestionStep({
   position,
   held,
   reviewId,
+  scale,
+  editable,
+  savedStays,
   nudged,
   onChange,
   onPick,
@@ -174,6 +180,10 @@ export function QuestionStep({
   position: number;
   held: Draft;
   reviewId: string;
+  scale: ApiRatingScale;
+  editable: boolean;
+  /** The box is empty, but an answer saved earlier will stand. */
+  savedStays: boolean;
   /** They tried to go on without answering a required question. */
   nudged: boolean;
   onChange: (next: Draft) => void;
@@ -204,6 +214,8 @@ export function QuestionStep({
           held={held}
           reviewId={reviewId}
           headingId={HEADING}
+          scale={scale}
+          editable={editable}
           onChange={onChange}
           onPick={onPick}
           onBusyChange={onBusyChange}
@@ -216,11 +228,23 @@ export function QuestionStep({
               ? `Press ${continueKeys()} to go on.`
               : ""}
         </p>
-        {nudged && question.required && !filled(question, held) && (
-          <p role="alert" className="text-body-sm font-medium text-danger-text">
-            This one needs an answer before you can go on.
+        {savedStays && (
+          <p className="text-body-sm text-body">
+            The answer you saved stays unless you write a new one. A saved
+            answer cannot be taken back, only replaced.
           </p>
         )}
+        {nudged &&
+          question.required &&
+          !filled(question, held) &&
+          !savedStays && (
+            <p
+              role="alert"
+              className="text-body-sm font-medium text-danger-text"
+            >
+              This one needs an answer before you can go on.
+            </p>
+          )}
       </div>
     </Frame>
   );
@@ -335,7 +359,7 @@ export function SummaryStep({
 export function CheckStep({
   review,
   scale,
-  value,
+  onRecord,
   mark,
   summary,
   outstanding,
@@ -346,7 +370,8 @@ export function CheckStep({
 }: {
   review: ApiReviewDetail;
   scale: ApiRatingScale;
-  value: (question: ApiFormQuestion) => Draft;
+  /** What will be on the record for a question — see `onRecordOf`. */
+  onRecord: (question: ApiFormQuestion) => Draft;
   mark: string;
   summary: string;
   outstanding: ApiFormQuestion[];
@@ -385,11 +410,23 @@ export function CheckStep({
                 onClick={() => onEdit(question)}
                 className="block w-full cursor-pointer rounded-lg border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
               >
-                <ReadAnswer
-                  question={question}
-                  held={value(question)}
-                  reviewId={review.id}
-                />
+                {/* No `reviewId`: with one, an attached file brings its own
+                    "Open" button, and a button inside the row's button is
+                    invalid and jumps the page back to the question when it is
+                    pressed. A file picked in this visit is not on the record
+                    yet, so its name is shown from the draft. */}
+                {question.kind === "FILE" && onRecord(question).file ? (
+                  <div>
+                    <p className="text-meta font-medium text-muted">
+                      {question.prompt}
+                    </p>
+                    <p className="mt-1 text-body-sm leading-relaxed text-ink">
+                      {onRecord(question).file?.filename}
+                    </p>
+                  </div>
+                ) : (
+                  <ReadAnswer question={question} held={onRecord(question)} />
+                )}
                 {missing && (
                   <span className="mt-1.5 block">
                     <Badge tone="danger" size="sm">
