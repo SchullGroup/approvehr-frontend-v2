@@ -1,6 +1,6 @@
 "use client";
 
-import type { Employee } from "@/lib/types";
+import type { DirectoryPerson, Employee } from "@/lib/types";
 import { request, requestPaged, tokens, type Paged } from "./client";
 
 /**
@@ -294,6 +294,26 @@ export type ApiCreateInviteOutcome = {
   skippedEntirely?: string;
 };
 
+/**
+ * What `GET /employees` answers a caller **without** `EDIT_RECORDS`: who
+ * somebody is and where they sit (`serializeLookup` in the API), and the one
+ * pay figure for a caller holding `VIEW_SALARIES`. No staff number, email,
+ * phone, status or payroll readiness — those are HR administration, and are
+ * *absent* here rather than null.
+ *
+ * `departmentId` and `managerId` are optional only because an API that
+ * predates them sends neither; the current one always sends both.
+ */
+export type ApiEmployeeLookup = {
+  id: string;
+  fullName: string;
+  jobTitle: string;
+  department: string | null;
+  departmentId?: string | null;
+  managerId?: string | null;
+  grossMonthlyKobo?: number | null;
+};
+
 export type ApiEmployee = {
   id: string;
   employeeNo: string;
@@ -515,9 +535,24 @@ export type ApiSelfUpdateOutcome = {
   refused: { field: string; reason: string }[];
 };
 
+/**
+ * Whether a row from `GET /employees` is the full directory row or the
+ * lookup row. Every full row carries `status`; a lookup row never does.
+ */
+export function isFullEmployeeRow(
+  row: ApiEmployee | ApiEmployeeLookup,
+): row is ApiEmployee {
+  return "status" in row && typeof row.status === "string";
+}
+
 export const employees = {
+  /**
+   * The directory. **Two shapes, by who is asking**: the full row for a
+   * caller with `EDIT_RECORDS`, `ApiEmployeeLookup` for everybody else. Narrow
+   * with `isFullEmployeeRow` before reading anything that is not on both.
+   */
   list: (params: EmployeeListParams = {}, signal?: AbortSignal) =>
-    requestPaged<ApiEmployee>("/employees", {
+    requestPaged<ApiEmployee | ApiEmployeeLookup>("/employees", {
       query: employeeQuery(params),
       ...(signal ? { signal } : {}),
     }),
@@ -1360,6 +1395,30 @@ export function toEmployee(api: ApiEmployee): Employee {
         }
       : null,
     ...(api.avatarUrl ? { avatarUrl: api.avatarUrl } : {}),
+  };
+}
+
+/**
+ * Either kind of directory row → the part of it everybody may see.
+ *
+ * Names are the API's own `fullName`, never rebuilt from first and last name:
+ * a lookup row has no first or last name, and splitting "Mary Ann Smith" is a
+ * guess about somebody's name made on their behalf.
+ */
+export function toDirectoryPerson(
+  row: ApiEmployee | ApiEmployeeLookup,
+): DirectoryPerson {
+  return {
+    id: row.id,
+    fullName: row.fullName,
+    jobTitle: row.jobTitle,
+    department: row.department,
+    /* Passed through as sent, `undefined` included: an API that does not say
+       is not an API that says "none". See `DirectoryPerson`. */
+    ...(row.departmentId !== undefined
+      ? { departmentId: row.departmentId }
+      : {}),
+    ...(row.managerId !== undefined ? { managerId: row.managerId } : {}),
   };
 }
 
