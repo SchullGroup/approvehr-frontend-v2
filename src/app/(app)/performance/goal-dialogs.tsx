@@ -27,6 +27,7 @@ import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useAppraisals } from "@/lib/store/performance";
 import { useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
+import { objectiveWhoseChoices } from "./goal-facts";
 
 /**
  * Whose work this caller leads — a mirror of the API's `leadsWorkOf`.
@@ -123,19 +124,42 @@ const quarterText = (quarter: string) => {
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The form for a new KPI, and — in `objective` mode — for a new objective.
+ *
+ * Same fields, same save, same rules on the API. The mode changes what the
+ * form calls itself and who it offers: an objective is the company's, a
+ * department's or the maker's own, so it leaves out the list of people a leader
+ * could hand a KPI to. That list is the KPI form's, and the next step from a
+ * new objective ("Give a KPI to people") does it better, in bulk.
+ */
 export function NewKpiDialog({
-  parentId,
-  parentTitle,
+  parentId: parentIdProp,
+  parentTitle: parentTitleProp,
+  mode: modeProp = "kpi",
   open,
   onClose,
   onCreate,
 }: {
   parentId?: string;
   parentTitle?: string;
+  mode?: "kpi" | "objective";
   open: boolean;
   onClose: () => void;
   onCreate: (body: CreateGoalBody) => Promise<void>;
 }) {
+  /* What this dialog is for, kept while it closes. The caller clears its own
+     state the instant it closes this, and an exit animation that read
+     "New KPI" over a form that said "New objective" a moment ago would be the
+     dialog changing its mind on the way out. */
+  const [mode, setMode] = useState(modeProp);
+  if (open && modeProp !== mode) setMode(modeProp);
+  const [parentId, setParentId] = useState(parentIdProp);
+  if (open && parentIdProp !== parentId) setParentId(parentIdProp);
+  const [parentTitle, setParentTitle] = useState(parentTitleProp);
+  if (open && parentTitleProp !== parentTitle) setParentTitle(parentTitleProp);
+  const objective = mode === "objective";
+
   const { employees } = useEmployeeDirectory({ pageSize: 200 });
   const { employeeId } = useSession();
   /* A company KPI has no owner and everybody can read it, which is why the API
@@ -179,12 +203,41 @@ export function NewKpiDialog({
   const quarters = quarterOptions();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [owner, setOwner] = useState<string>("me");
+  /* `null` is "not chosen yet", so the starting answer can follow the
+     departments as they arrive rather than being fixed at mount, before they
+     have loaded. */
+  const [chosenOwner, setChosenOwner] = useState<string | null>(null);
   const [quarter, setQuarter] = useState(quarters[1] ?? quarters[0] ?? "");
   /** Empty means no period, which is a real choice — see the copy below. */
   const [reviewCycleId, setReviewCycleId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  /* A blank form on every open. This dialog stays mounted between uses so its
+     exit can animate, which also means it keeps whatever was typed last time:
+     the second objective somebody makes, or the KPI they add under the one they
+     have just made, would start with the first one's title in it. */
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setTitle("");
+      setDescription("");
+      setChosenOwner(null);
+      setQuarter(quarters[1] ?? quarters[0] ?? "");
+      setReviewCycleId("");
+      setError(null);
+    }
+  }
+
+  /* The objective form's own list of answers; the KPI form builds its own
+     below. See `objectiveWhoseChoices`. */
+  const whose = objectiveWhoseChoices({
+    departments,
+    employeeId,
+    canSetCompanyWide,
+  });
+  const owner = chosenOwner ?? (objective ? whose.fallback : "me");
 
   /**
    * Suggestions, only under a parent.
@@ -227,7 +280,18 @@ export function NewKpiDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title={parentTitle ? `New KPI under "${parentTitle}"` : "New KPI"}
+      title={
+        parentTitle
+          ? `${objective ? "New objective" : "New KPI"} under "${parentTitle}"`
+          : objective
+            ? "New objective"
+            : "New KPI"
+      }
+      description={
+        objective && !parentTitle
+          ? "Once it is made you can add KPIs under it, or give them to people."
+          : undefined
+      }
       size="md"
       footer={
         <>
@@ -237,7 +301,7 @@ export function NewKpiDialog({
             loading={saving}
             onClick={() => void submit()}
           >
-            Create KPI
+            {objective ? "Create objective" : "Create KPI"}
           </Button>
         </>
       }
@@ -286,54 +350,70 @@ export function NewKpiDialog({
           </div>
         )}
 
-        <Field label="Whose KPI is this" required>
+        <Field
+          label={objective ? "Whose objective is this" : "Whose KPI is this"}
+          required
+        >
           <Select
             value={owner}
-            onChange={(event) => setOwner(event.target.value)}
+            onChange={(event) => setChosenOwner(event.target.value)}
           >
-            <option value="me">Mine</option>
-            {canSetCompanyWide && (
-              <option value="company">
-                The whole company (everyone sees it)
-              </option>
-            )}
-            {/* The middle rung. A department's target is nobody's personally,
-                so it lives with "the whole company" rather than among the
-                names — and each one says which department, because "a
-                department" without saying which is half a fact. */}
-            {mine.map((department) => (
-              <option key={department.id} value={`dept:${department.id}`}>
-                {department.name} — the whole department
-              </option>
-            ))}
-            {/* The API's own rule, not a longer list than it will accept,
-                and not a shorter one either. `createGoal` refuses anybody who
-                is not the caller, a direct report, somebody in a department
-                the caller heads, or anybody at all with EDIT_RECORDS.
-
-                This used to read `managerId === employeeId`, which was the
-                rule when the comment was written and is narrower than the one
-                the API now applies — so a department head was not offered
-                their own department. `leadsWorkOf` above is the current rule,
-                shared with the assign dialog so the two cannot drift again.
-
-                `person.id !== employeeId` stays here rather than in the
-                helper: this select has its own "me" option above. */}
-            {employees
-              .filter(
-                (person) =>
-                  person.id !== employeeId &&
-                  leadsWorkOf(person, {
-                    employeeId,
-                    canSetCompanyWide,
-                    headed: headedHere,
-                  }),
-              )
-              .map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.firstName} {person.lastName} · {person.jobTitle}
+            {objective ? (
+              whose.choices.map((choice) => (
+                <option key={choice.value} value={choice.value}>
+                  {choice.label}
                 </option>
-              ))}
+              ))
+            ) : (
+              <>
+                <option value="me">Mine</option>
+                {canSetCompanyWide && (
+                  <option value="company">
+                    The whole company (everyone sees it)
+                  </option>
+                )}
+                {/* The middle rung. A department's target is nobody's
+                    personally, so it lives with "the whole company" rather
+                    than among the names — and each one says which department,
+                    because "a department" without saying which is half a
+                    fact. */}
+                {mine.map((department) => (
+                  <option key={department.id} value={`dept:${department.id}`}>
+                    {department.name} — the whole department
+                  </option>
+                ))}
+                {/* The API's own rule, not a longer list than it will accept,
+                    and not a shorter one either. `createGoal` refuses anybody
+                    who is not the caller, a direct report, somebody in a
+                    department the caller heads, or anybody at all with
+                    EDIT_RECORDS.
+
+                    This used to read `managerId === employeeId`, which was the
+                    rule when the comment was written and is narrower than the
+                    one the API now applies — so a department head was not
+                    offered their own department. `leadsWorkOf` above is the
+                    current rule, shared with the assign dialog so the two
+                    cannot drift again.
+
+                    `person.id !== employeeId` stays here rather than in the
+                    helper: this select has its own "me" option above. */}
+                {employees
+                  .filter(
+                    (person) =>
+                      person.id !== employeeId &&
+                      leadsWorkOf(person, {
+                        employeeId,
+                        canSetCompanyWide,
+                        headed: headedHere,
+                      }),
+                  )
+                  .map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.firstName} {person.lastName} · {person.jobTitle}
+                    </option>
+                  ))}
+              </>
+            )}
           </Select>
         </Field>
 
