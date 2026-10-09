@@ -105,6 +105,12 @@ function BatchDetail({
   );
 }
 
+/** What every importer asked until a surface said otherwise. */
+function useImportDataAccess(): boolean {
+  const { can, isConnected } = useSession();
+  return !isConnected || can("IMPORT_DATA");
+}
+
 /**
  * Bring a spreadsheet in. Any spreadsheet, of anything.
  *
@@ -137,13 +143,15 @@ function BatchDetail({
  * - Offer the failures as a file, because they will be fixed in Excel.
  */
 export function ImportFlow({ surface }: { surface: ImportSurface }) {
-  const { can, isConnected } = useSession();
-  const imp = useImport(surface.dictionary);
+  /* `IMPORT_DATA` unless the surface says otherwise: it exists because one
+     careless upload creates or overwrites hundreds of records, and blast radius
+     is what a permission is for. A surface that touches no pay and whose natural
+     author holds no such permission — objectives — names its own rule, and the
+     API holds the matching line. */
+  const useAccess = surface.useAccess ?? useImportDataAccess;
+  const allowed = useAccess();
+  const imp = useImport(surface.dictionary, allowed);
   const dictionary = surface.dictionary;
-  /* One permission for every import, deliberately: `IMPORT_DATA` exists because
-     one careless upload creates or overwrites hundreds of records, and blast
-     radius is what a permission is for. It is not per-entity. */
-  const allowed = !isConnected || can("IMPORT_DATA");
 
   /* A count on every step, so nobody is ever guessing what is about to happen
      to their data. Each hint is the number that step is about, and before that
@@ -198,8 +206,14 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
           <Card>
             <EmptyState
               icon={<Lock aria-hidden="true" />}
-              title={`You do not have permission to import ${dictionary.noun.many}`}
-              description="An import can create or overwrite hundreds of pay records, so it is kept to specific people. Ask whoever set up your account to add the import permission to your role."
+              title={
+                surface.noAccess?.title ??
+                `You do not have permission to import ${dictionary.noun.many}`
+              }
+              description={
+                surface.noAccess?.description ??
+                "An import can create or overwrite hundreds of pay records, so it is kept to specific people. Ask whoever set up your account to add the import permission to your role."
+              }
             />
           </Card>
         </PageBody>
@@ -549,18 +563,25 @@ function ChooseFile({
                 ))}
               </ul>
             </div>
-            <div>
-              <p className="text-meta font-semibold text-faint">Recommended</p>
-              <ul className="mt-2 flex flex-wrap gap-1.5">
-                {recommended.map((spec) => (
-                  <li key={spec.field}>
-                    <code className="rounded bg-sunken px-1.5 py-0.5 text-meta text-body">
-                      {spec.column}
-                    </code>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {/* Absent for an entity with nothing recommended — objectives has two
+                required columns and everything else optional, and a heading over
+                an empty list reads as something that failed to load. */}
+            {recommended.length > 0 && (
+              <div>
+                <p className="text-meta font-semibold text-faint">
+                  Recommended
+                </p>
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {recommended.map((spec) => (
+                    <li key={spec.field}>
+                      <code className="rounded bg-sunken px-1.5 py-0.5 text-meta text-body">
+                        {spec.column}
+                      </code>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {/* Was three sentences plus a per-entity `keyNote` explaining why
                 the match key is refused rather than generated. Copy that has to
                 explain the design is a sign the design needs no explaining: the
