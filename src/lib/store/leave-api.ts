@@ -92,6 +92,10 @@ function fromSeed(request: LeaveRequest): LeaveRow {
     decidedById: request.decidedById ?? null,
     decidedByName: decider ? fullName(decider) : null,
     decidedByJobTitle: decider?.jobTitle ?? null,
+    /* The demo has one step, so nobody has given a first approval. */
+    firstApprovedAt: null,
+    firstApprovedByName: null,
+    firstApprovedByJobTitle: null,
     decisionNote: request.decisionNote ?? null,
   };
 }
