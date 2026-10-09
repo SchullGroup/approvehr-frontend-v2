@@ -229,7 +229,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
         )}
 
         {exit.status === "CANCELLED" && (
-          <Callout tone="info" title={`${firstName} is staying`}>
+          <Callout tone="info" title="Exit request withdrawn">
             {exit.declinedReason ?? "The exit was cancelled."} Nothing was
             archived and nothing was closed: they are still on the payroll. If
             they change their mind again, start a new one.
@@ -491,7 +491,9 @@ export function ExitDetailScreen({ id }: { id: string }) {
         onWithdraw={async (reason) => {
           const ok = await run(
             () => exitState.withdraw(reason || undefined),
-            mine ? "Your notice has been withdrawn" : `${firstName} is staying`,
+            mine
+              ? "Your exit request has been withdrawn"
+              : `${firstName}'s exit request has been withdrawn`,
           );
           if (ok) setWithdrawing(false);
         }}
@@ -728,7 +730,9 @@ function WithdrawDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title={mine ? "Withdraw my notice" : `Cancel ${firstName}'s exit`}
+      title={
+        mine ? "Withdraw exit request" : `Withdraw ${firstName}'s exit request`
+      }
       description={
         mine
           ? "Your checklist stops and nothing is closed. Your manager and HR will be told."
@@ -744,7 +748,7 @@ function WithdrawDialog({
             disabled={busy}
             onClick={() => void onWithdraw(reason.trim())}
           >
-            {busy ? "Saving…" : mine ? "Withdraw it" : "Cancel the exit"}
+            {busy ? "Saving…" : "Withdraw exit request"}
           </Button>
         </div>
       }

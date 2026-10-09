@@ -150,6 +150,10 @@ describe("an employee, who holds nothing", () => {
     /* The register is told as soon as the notice is recorded, not when the
        confirmation is closed, and the confirmation stays up meanwhile. */
     expect(await screen.findByRole("button", { name: "Done" })).toBeVisible();
+    /* The confirmation names the act the way the button that started it does. */
+    expect(
+      screen.getByRole("heading", { name: "Resignation request sent" }),
+    ).toBeVisible();
   });
 
   it("is offered the way to hand in their notice, already open", () => {
@@ -158,6 +162,11 @@ describe("an employee, who holds nothing", () => {
     /* Open, not behind a second click: this is the page they came to. */
     expect(
       screen.getByRole("button", { name: "Resignation request" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        "Start a resignation request. Nothing is sent until you fill in the form.",
+      ),
     ).toBeVisible();
   });
 
