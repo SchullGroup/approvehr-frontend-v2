@@ -22,6 +22,7 @@ import { Can, useCan } from "@/lib/permissions";
 import { useExits } from "@/lib/store/offboarding";
 import { shortDate } from "@/lib/today";
 import { statusTone } from "./status-tone";
+import { Resign } from "./resign";
 import { StartExitDialog } from "./start-exit";
 
 /**
@@ -105,11 +106,26 @@ export function OffboardingScreen() {
           />
         )}
 
+        {/* The reader's own door, for anybody who is not HR. This route is in
+            everybody's sidebar now, and an employee who opens it came to hand
+            in their notice or to see how theirs is going — the register below
+            is HR's view of the company and, for them, is either empty or a
+            list of one. `Resign` renders their live exit when there is one and
+            the way to start one when there is not, and is open here because
+            this is the page they came to. HR does not get it: they have the
+            register, and their own notice is on their Profile like anybody's. */}
+        {!isHr && <Resign defaultOpen onStarted={exits.reload} />}
+
         {/* Two numbers, not three. "Working through a checklist" would be
             "Leaving" minus "Waiting on a decision", and a tile that restates
             arithmetic already on screen is padding — three of them is most of a
-            phone screen before the actual list. */}
-        {view === "open" && (
+            phone screen before the actual list.
+
+            Only for a reader who can see the whole register, or who has
+            something to count. "Leaving 0" over an employee's own screen is a
+            claim about the company drawn from the one row they are allowed to
+            read, which is the absent-is-not-zero mistake with a smaller sample. */}
+        {view === "open" && (isHr || exits.rows.length > 0) && (
           <div className="grid gap-4 sm:grid-cols-2">
             <Stat
               label="Leaving"
@@ -132,10 +148,32 @@ export function OffboardingScreen() {
             needed, and it lands in this same list the moment they send it. A
             reader looking for that door on this screen alone would not find
             it, which is the whole reason this line exists. */}
-        <p className="text-body-sm text-muted">
-          Staff can also hand in their own notice from their Profile page: it
-          shows up here the same way as one you start for them.
-        </p>
+        {isHr && (
+          <p className="text-body-sm text-muted">
+            Staff hand in their own notice from their Profile page, or from this
+            page when they open it: it shows up here the same way as one you
+            start for them.
+          </p>
+        )}
+
+        {/* The third door. A Departmental Lead can start a resignation or
+            retirement for somebody in their own department, but only from
+            that person's own record — "Start an exit" above needs
+            `EDIT_RECORDS`, which a lead does not necessarily hold, and this
+            screen has no button for the narrower permission because
+            `canRecordExit` in `people/[id]/record.tsx` depends on which
+            department the *specific person on that record* sits in, which
+            this list view has no reason to resolve for everyone in it just to
+            decide whether to show a button. A line is cheaper than a second
+            relationship check, and was the whole gap: a lead who did not
+            already know to look on the person's own page had no way to find
+            this at all. */}
+        <Can permission="START_EXIT_DEPARTMENT">
+          <p className="text-body-sm text-muted">
+            Heading a department also lets you start a resignation or retirement
+            for somebody in it, from their own record page.
+          </p>
+        </Can>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
@@ -175,19 +213,27 @@ export function OffboardingScreen() {
           <Card>
             <EmptyState
               icon={<DoorOpen aria-hidden="true" />}
+              /* "Nobody is leaving" is a statement about the company, and only
+                 somebody who can read the whole register may make it. Anybody
+                 else is looking at their own exit and their reports', so the
+                 honest sentence is about what they can see. */
               title={
                 query.trim()
                   ? "Nobody matches that"
                   : view === "closed"
                     ? "No exits closed yet"
-                    : "Nobody is leaving"
+                    : isHr
+                      ? "Nobody is leaving"
+                      : "No exits to show"
               }
               description={
                 query.trim()
                   ? undefined
                   : view === "closed"
                     ? "Closed exits stay here for the record."
-                    : "When somebody resigns, retires or their contract ends, they show up here with a checklist."
+                    : isHr
+                      ? "When somebody resigns, retires or their contract ends, they show up here with a checklist."
+                      : "Your own exit, and the exits of people who report to you, show up here with a checklist."
               }
               action={
                 isHr && !query.trim() && view !== "closed" ? (

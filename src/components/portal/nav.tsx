@@ -406,13 +406,23 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       permission: "EDIT_RECORDS",
     },
     {
-      /* Was reachable only from a notification. `EDIT_RECORDS` matches the
-         Directory beside it: a leavers list is the directory read backwards,
-         and the screen's own actions are already gated on it. */
+      /* **No permission, and it used to have one.** This row was gated on
+         `EDIT_RECORDS` to match the Directory beside it, which is right for HR
+         and left everybody else with no way in: an employee looking for where to
+         hand in their notice, and a manager looking for their team's exits,
+         found nothing in the sidebar and concluded the feature was missing. The
+         `personalHref` note above records the same failure for Documents and
+         Equipment; this was the third of the three that note names and the only
+         one that was never fixed.
+
+         One route for every reader rather than a `personalHref` to somewhere
+         else, because the screen already narrows by who is asking — the API
+         answers an employee with their own exit and a manager with their
+         reports', and `OffboardingScreen` puts the employee's own door at the
+         top for anybody who does not hold `EDIT_RECORDS`. */
       href: "/people/offboarding",
       label: "Exit management",
       icon: <DoorOpen aria-hidden="true" />,
-      permission: "EDIT_RECORDS",
     },
     {
       /* The HR register — what is on file and what is outstanding. The

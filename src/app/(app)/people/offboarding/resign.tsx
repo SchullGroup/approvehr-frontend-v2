@@ -25,7 +25,8 @@ import { shortDate } from "@/lib/today";
 import { statusTone } from "./status-tone";
 
 /**
- * An employee starting their own exit, for `/profile`.
+ * An employee starting their own exit, for `/profile` and for Exit management
+ * (where anybody without `EDIT_RECORDS` gets it at the top, open).
  *
  * ## Two states, and only one of them is behind a reveal
  *
@@ -61,7 +62,25 @@ import { statusTone } from "./status-tone";
  * own field rather than appending, and split it back out on the detail page.
  * The two lengths below (200 + 280) exist only to stay inside `reason`'s 500.
  */
-export function Resign() {
+export function Resign({
+  defaultOpen = false,
+  onStarted,
+}: {
+  /**
+   * Called once their notice has gone in. This component refreshes its own copy
+   * of the exit and nothing else on the page, so a screen that also lists exits
+   * has to be told — otherwise the card above says "You are leaving" while the
+   * list below still says there is nothing to show.
+   */
+  onStarted?: () => void;
+  /**
+   * Whether the door starts open. Closed on `/profile`, where a reader meets it
+   * on the way to something else; open on Exit management, where the reader
+   * came on purpose and a second click to reach the one thing the page is for
+   * is a reason to conclude it is not there.
+   */
+  defaultOpen?: boolean;
+}) {
   const mine = useMyExit();
   const [open, setOpen] = useState(false);
 
@@ -79,7 +98,14 @@ export function Resign() {
   const dialog = (
     <ResignDialog
       open={open}
-      start={mine.start}
+      start={async (body) => {
+        const exit = await mine.start(body);
+        /* Told now, not when the confirmation is closed: the card behind has
+           already become "You are leaving", and a list under it that still says
+           there is nothing to show is the same two claims on one screen. */
+        onStarted?.();
+        return exit;
+      }}
       onClose={() => setOpen(false)}
       onDone={() => {
         setOpen(false);
@@ -152,6 +178,7 @@ export function Resign() {
     <>
       <Disclosure
         className="bg-surface"
+        defaultOpen={defaultOpen}
         title="Leaving"
         hint="Hand in your notice. Nothing is sent until you fill in the form."
         level={3}
@@ -163,7 +190,7 @@ export function Resign() {
           </p>
           <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
             <DoorOpen aria-hidden="true" className="size-3.5" />
-            Hand in my notice
+            Resignation request
           </Button>
         </div>
       </Disclosure>
@@ -258,7 +285,7 @@ function ResignDialog({
       /* Once it has gone in, every way out means "done": the notice is
          recorded whichever one they use, and the card behind needs to hear. */
       onClose={handedIn ? onDone : onClose}
-      title="Hand in my notice"
+      title="Resignation request"
       footer={
         handedIn ? undefined : (
           <div className="flex justify-end gap-2">
@@ -270,7 +297,7 @@ function ResignDialog({
               disabled={!ready || busy}
               onClick={() => void submit()}
             >
-              {busy ? "Sending…" : "Hand in my notice"}
+              {busy ? "Sending…" : "Send resignation request"}
             </Button>
           </div>
         )
