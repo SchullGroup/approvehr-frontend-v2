@@ -49,9 +49,18 @@ import type { ApiMyTask } from "@/lib/api/performance";
 export function SelfEvidence({
   periodStart,
   periodEnd,
+  whenNothing,
 }: {
   periodStart: string | null;
   periodEnd: string | null;
+  /**
+   * What to show when nothing is logged, instead of nothing.
+   *
+   * The popup form leaves it out on purpose — an empty card above the
+   * questions is noise. A drawer opened on request is different: it is an
+   * answer to a question somebody asked, and a blank one reads as broken.
+   */
+  whenNothing?: React.ReactNode;
 }) {
   const { goals, loading: goalsLoading } = useKpis("mine");
   const { tasks, loading: tasksLoading } = useMyTasks();
@@ -85,7 +94,7 @@ export function SelfEvidence({
 
   const nothingYet =
     !goalsLoading && !tasksLoading && mine.length === 0 && scoped.length === 0;
-  if (nothingYet) return null;
+  if (nothingYet) return whenNothing ? <>{whenNothing}</> : null;
 
   return (
     <Card>

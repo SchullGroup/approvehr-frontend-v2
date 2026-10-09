@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Inbox,
   Hourglass,
+  Orbit,
   TrendingDown,
   Users,
   Wallet,
@@ -204,6 +205,39 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
             urgent
           />
         )}
+      </CardBody>
+    </Card>
+  );
+};
+
+/**
+ * One sentence from the workforce explorer's own priority order — see
+ * `insights/headline.ts` on the API. Renders nothing for `"none"`, the same
+ * choice `NeedsYou` makes: a card saying nothing stands out is furniture,
+ * not information, on the screen with the least room for it.
+ */
+const WorkforceHeadline: WidgetComponent = ({ dashboard }) => {
+  const headline = dashboard.workforceHeadline;
+  if (!headline || headline.rule === "none") return null;
+
+  return (
+    <Card as="article">
+      <CardBody className="flex items-start gap-3">
+        <span className="mt-0.5 shrink-0 rounded-full bg-accent-soft p-2 text-accent-text">
+          <Orbit aria-hidden="true" className="size-4" />
+        </span>
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="text-body-sm font-medium text-ink">
+            {headline.sentence}
+          </p>
+          <Link
+            href="/reports/explore"
+            className="inline-flex w-fit items-center gap-1 text-meta text-accent-text hover:underline"
+          >
+            See it in the explorer
+            <ArrowRight aria-hidden="true" className="size-3" />
+          </Link>
+        </div>
       </CardBody>
     </Card>
   );
@@ -802,6 +836,7 @@ const Noticeboard: WidgetComponent = ({ dashboard }) => (
  */
 export const WIDGET_COMPONENTS: Readonly<Record<string, WidgetComponent>> = {
   "needs-you": NeedsYou,
+  "workforce-headline": WorkforceHeadline,
   "my-queue": MyQueue,
   "stat-headcount": StatHeadcount,
   "stat-approvals": StatApprovals,

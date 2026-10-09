@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -12,16 +13,24 @@ export function Card({
 }: React.HTMLAttributes<HTMLDivElement> & {
   as?: React.ElementType;
 }) {
-  return (
-    <As
-      className={cn(
-        "rounded-lg border border-line bg-surface",
-        "transition-shadow duration-200",
-        className,
-      )}
-      {...props}
-    />
-  );
+  /* `createElement` rather than `<As .../>`: with `As` typed as the fully
+     open `React.ElementType`, JSX's generic-tag resolution intersects props
+     across *every* intrinsic element in scope. `@react-three/fiber` (used
+     by the workforce explorer) globally augments `JSX.IntrinsicElements`
+     with its own elements — `mesh`, `group`, and the rest — which carry no
+     `className`, and the intersection collapsed `className`'s type to
+     `never` project-wide the moment any file imported it. `createElement`
+     takes the same arguments and produces the identical element at
+     runtime, but is typed against `As` directly rather than through JSX's
+     library-managed-attributes machinery, so it never hits that collapse. */
+  return createElement(As, {
+    className: cn(
+      "rounded-lg border border-line bg-surface",
+      "transition-shadow duration-200",
+      className,
+    ),
+    ...props,
+  });
 }
 
 export function CardHeader({

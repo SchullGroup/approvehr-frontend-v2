@@ -24,13 +24,24 @@ type Row = {
   progress: { done: number; total: number; percent: number };
 };
 
+/* What `start` resolves with: the exit the API recorded. The confirmation that
+   follows handing in a notice reads its last day, who was told and the length
+   of the checklist from it, so a bare id would not do. */
+const STARTED = {
+  id: "x1",
+  status: "AWAITING_MANAGER",
+  lastWorkingDay: "2026-11-30",
+  manager: { id: "m1", name: "Adaeze Okonkwo" },
+  progress: { done: 0, total: 5, percent: 0 },
+};
+
 let held: ReadonlySet<string>;
 let rows: Row[];
 let reloadRegister: () => void;
 let mine: {
   available: boolean;
   exit: null;
-  start: () => Promise<string>;
+  start: () => Promise<typeof STARTED>;
   reload: () => void;
 };
 
@@ -102,7 +113,7 @@ beforeEach(() => {
   mine = {
     available: true,
     exit: null,
-    start: () => Promise.resolve("x1"),
+    start: () => Promise.resolve(STARTED),
     reload: () => {},
   };
 });
@@ -136,6 +147,9 @@ describe("an employee, who holds nothing", () => {
     await userEvent.click(send);
 
     await waitFor(() => expect(reloadRegister).toHaveBeenCalled());
+    /* The register is told as soon as the notice is recorded, not when the
+       confirmation is closed, and the confirmation stays up meanwhile. */
+    expect(await screen.findByRole("button", { name: "Done" })).toBeVisible();
   });
 
   it("is offered the way to hand in their notice, already open", () => {

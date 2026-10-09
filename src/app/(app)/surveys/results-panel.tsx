@@ -88,7 +88,7 @@ export function ResultsPanel({
                     {/* Null, never 0. A 0 on a 1-to-5 scale is not a rating
                         anybody gave — it is the absence of one. */}
                     {question.average === null ? (
-                      <span className="text-muted">Nothing recorded</span>
+                      <span className="text-h3 text-faint">—</span>
                     ) : (
                       <>
                         <span className="text-h3 tabular-nums">

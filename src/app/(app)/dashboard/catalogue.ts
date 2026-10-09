@@ -159,6 +159,17 @@ export const WIDGETS: readonly WidgetSpec[] = [
     defaultFor: RUNS_THE_COMPANY,
   },
   {
+    id: "workforce-headline",
+    title: "Workforce headline",
+    blurb:
+      "One sentence worth knowing this cycle — the department most off-track, a quiet task tracker, or someone who has cleared the promotion bar.",
+    group: "attention",
+    span: "full",
+    source: "dashboard",
+    permission: "EDIT_RECORDS",
+    defaultFor: RUNS_THE_COMPANY,
+  },
+  {
     id: "my-queue",
     title: "Waiting on you",
     blurb: "How many decisions are sitting in your own approval queue.",

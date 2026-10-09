@@ -35,6 +35,7 @@ import {
   AppraiserStrip,
   PeriodFraming,
   ReadAnswer,
+  answerBodyFor,
   draftFrom,
   filled,
   ratingOptionsFrom,
@@ -200,30 +201,8 @@ export function ReviewFormModal({
     review.questions.flatMap((question) => {
       const held = draft[question.id];
       if (!held) return [];
-      const body: AnswerBody = { questionId: question.id };
-      if (question.kind === "RATING" && held.rating) {
-        body.ratingValue = Number(held.rating);
-      } else if (question.kind === "CHOICE" && held.choice) {
-        body.choiceValue = held.choice;
-      } else if (question.kind === "BOOLEAN" && held.bool) {
-        body.boolValue = held.bool === "yes";
-      } else if (question.kind === "FILE" && held.file) {
-        /* Only when a file was picked **in this session**. A question whose
-           evidence is already on the record has no `file` in the draft, and
-           re-sending it is not possible — the bytes are behind a download
-           route, not in the browser. So this saves a replacement and leaves
-           an unchanged answer alone, which is what `respond` expects. */
-        body.file = {
-          filename: held.file.filename,
-          contentType: held.file.mimeType,
-          contentBase64: held.file.contentBase64,
-        };
-      } else if (held.text && held.text.trim()) {
-        body.textValue = held.text.trim();
-      } else {
-        return [];
-      }
-      return [body];
+      const body = answerBodyFor(question, held);
+      return body ? [body] : [];
     });
 
   const act = async (kind: "save" | "send") => {

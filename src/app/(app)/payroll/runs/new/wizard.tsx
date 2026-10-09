@@ -84,6 +84,12 @@ import { useCan } from "@/lib/permissions";
 import { useOvertimePolicy } from "@/lib/store/overtime";
 import { SheetPanel } from "./sheet-panel";
 import { PayPanel, WalletStrip } from "./pay-panel";
+import {
+  ApprovedMoment,
+  stillUnpaid,
+  type ApprovedRunFacts,
+} from "./approved-moment";
+import type { RecordedPayment } from "@/components/payroll/record-paid-dialog";
 import { BankRegisterCard } from "./bank-register-card";
 import { LinesDialog } from "./lines-dialog";
 import type { SheetRowSource } from "@/lib/payroll/adjustment-sheet";
@@ -341,6 +347,20 @@ export function PayrollRunWizard() {
    * them press it until they gave up.
    */
   const [batchProblem, setBatchProblem] = useState<string | null>(null);
+  /**
+   * What the person has just done on this step, kept here so it outlives the
+   * re-read.
+   *
+   * Approving and recording a payment both re-read the run, and `usePayrollRun`
+   * hands back no run while it does — this whole step unmounts and comes back.
+   * Anything held by `PayPanel` or the moment itself would be gone before it
+   * could be read, which is why these live on the one component that does not
+   * unmount. Neither survives leaving the page, on purpose: they are the
+   * answer to a click, not part of the run's record.
+   */
+  const [approvedNow, setApprovedNow] = useState<ApprovedRunFacts | null>(null);
+  const [recordedNow, setRecordedNow] = useState<RecordedPayment | null>(null);
+  const payPanel = useRef<HTMLDivElement>(null);
   const [confirming, setConfirming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -712,17 +732,24 @@ export function PayrollRunWizard() {
         subjectId: runId,
       });
       setConfirming(false);
-      toast.push({
-        title: `${periodLabel(period)} approved`,
-        tone: "success",
-        detail:
-          result.settled.loans +
-            result.settled.claims +
-            result.settled.overtime >
-          0
-            ? `${result.settled.loans} loan instalment${result.settled.loans === 1 ? "" : "s"} and ${result.settled.claims} expense claim${result.settled.claims === 1 ? "" : "s"} settled.`
-            : "Nothing else needed settling.",
-      });
+
+      /* Said on the page, in place, and not as a toast.
+         -------------------------------------------------------------------
+         A toast was gone in a few seconds, over a page that did not change,
+         for the one act in this product that cannot be undone. The moment
+         below carries the same facts — the figure, what was settled — and
+         stays until the reader leaves. It is taken from this run's own
+         figures, which approving has just frozen, so nothing needs asking
+         again. */
+      if (run) {
+        setApprovedNow({
+          runId,
+          period: run.period,
+          netKobo: run.netKobo,
+          employeeCount: run.employeeCount,
+          settled: result.settled,
+        });
+      }
 
       /* Stay here.
          -------------------------------------------------------------------
@@ -1185,6 +1212,28 @@ export function PayrollRunWizard() {
       {stepper.index === 3 && run && (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
           <div className="flex flex-col gap-5">
+            {/* The answer to the click comes first, and only while it is
+                still true that nobody has been paid. Recording a payment
+                ends it: the pay card below then says so in its own moment. */}
+            {settled &&
+              approvedNow?.runId === run.id &&
+              stillUnpaid(run.batch) && (
+                <ApprovedMoment
+                  facts={approvedNow}
+                  batch={run.batch}
+                  onChoosePayment={() => {
+                    /* The card itself takes focus, not its first button.
+                       That button is the one that moves money, and a keyboard
+                       reader who presses Enter twice on "Choose how to pay"
+                       must not land on it. Tab goes from here to it. */
+                    const card = payPanel.current;
+                    if (!card) return;
+                    card.scrollIntoView({ block: "start" });
+                    card.focus({ preventScroll: true });
+                  }}
+                />
+              )}
+
             {/* Paying leads once there is anything to pay.
                 ---------------------------------------------------------
                 An approved payroll's next act is paying it, and this used to
@@ -1193,11 +1242,19 @@ export function PayrollRunWizard() {
                 reads *before* deciding, and after the decision the question is
                 only "how does the money leave". */}
             {settled && (
-              <PayPanel
-                run={run}
-                problem={batchProblem}
-                onChanged={detail.reload}
-              />
+              <div
+                ref={payPanel}
+                tabIndex={-1}
+                className="scroll-mt-24 outline-none"
+              >
+                <PayPanel
+                  run={run}
+                  problem={batchProblem}
+                  onChanged={detail.reload}
+                  justRecorded={recordedNow}
+                  onRecorded={setRecordedNow}
+                />
+              </div>
             )}
 
             {/* Before the decision: the position, stated in advance.

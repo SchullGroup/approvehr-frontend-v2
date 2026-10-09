@@ -39,7 +39,6 @@ import {
   useSignOff,
   useSubjectSelfReview,
 } from "@/lib/store/performance";
-import { ReviewFormModal } from "../../review-form";
 import {
   AppraiserStrip,
   PeriodFraming,
@@ -75,12 +74,12 @@ import { SignOffDialog } from "./sign-off-dialog";
  * is a person nothing counted for. Printing a zero for either is a claim about
  * somebody that is not true.
  *
- * ## The form is read here and answered in the modal
+ * ## The form is read here and answered on its own page
  *
- * This page is the record. Answering is one implementation, in
- * `ReviewFormModal`, and this opens it rather than growing a second one — a
- * read-only copy of a form drifts until it renders a question the form has
- * stopped asking.
+ * This page is the record. Answering is one implementation — the full-page,
+ * one-question-at-a-time form at `/performance/reviews/[id]/answer` — and this
+ * links to it rather than growing a second one: a read-only copy of a form
+ * drifts until it renders a question the form has stopped asking.
  */
 /**
  * How much of this form is still to do, in a sentence whose noun is true.
@@ -140,7 +139,6 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const signOff = useSignOff();
   const toast = useToast();
 
-  const [answering, setAnswering] = useState(false);
   const [signingOff, setSigningOff] = useState(false);
   const [finalising, setFinalising] = useState(false);
 
@@ -486,13 +484,13 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               {...(review.mine && !review.submitted
                 ? {
                     action: (
-                      <Button
+                      <ButtonLink
+                        href={`/performance/reviews/${review.id}/answer`}
                         variant="accent"
                         size="sm"
-                        onClick={() => setAnswering(true)}
                       >
                         Fill it in
-                      </Button>
+                      </ButtonLink>
                     ),
                   }
                 : {})}
@@ -534,18 +532,6 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           />
         </div>
       </PageBody>
-
-      {/* Mounted whichever way `answering` is going, so `Modal` can animate
-          its own close off a real `open` — origin/staging's change, kept.
-          `useReview` tolerates a null id, and this screen always has a
-          review, so the id is passed unconditionally exactly as staging
-          passed it. */}
-      <ReviewFormModal
-        reviewId={review.id}
-        open={answering}
-        onClose={() => setAnswering(false)}
-        onDone={reload}
-      />
 
       {signingOff && (
         <SignOffDialog
@@ -791,8 +777,15 @@ function ScorePanel({
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat
             label="Composite score"
+            /* An em dash, not a sentence — the reason lives in `hint`
+               already, and a dash reads as the same kind of thing as the
+               percentage it stands in for. */
             value={
-              score.scoreBp === null ? "No mark" : scoreLabel(score.scoreBp)
+              score.scoreBp === null ? (
+                <span className="text-faint">—</span>
+              ) : (
+                scoreLabel(score.scoreBp)
+              )
             }
             hint={
               score.scoreBp === null
@@ -806,9 +799,11 @@ function ScorePanel({
                mark, and rounding it to one would throw a judgement away. */
             label="Appraisers' mark, on the scale"
             value={
-              score.appraiserMark.ratingBp === null
-                ? "None in yet"
-                : scoreLabel(score.appraiserMark.ratingBp)
+              score.appraiserMark.ratingBp === null ? (
+                <span className="text-faint">—</span>
+              ) : (
+                scoreLabel(score.appraiserMark.ratingBp)
+              )
             }
             hint={
               score.appraiserMark.appraisers <= 1
