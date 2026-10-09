@@ -47,10 +47,10 @@ import {
   REPAYMENT_STATUS_LABEL,
   useLoan,
   useLoanActions,
+  useLoanToday,
 } from "@/lib/store/loans";
 import { usePermissions } from "@/lib/permissions";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { TODAY } from "@/lib/today";
 import { ApprovedLoanCard } from "../approved-loan-card";
 import {
   CounterOfferModal,
@@ -118,6 +118,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
   const { approve } = useLoanActions();
   const toast = useToast();
   const timeZone = useOrgTimezone();
+  const today = useLoanToday();
 
   const [approving, setApproving] = useState(false);
   /* The approval just made on this page, kept at the top of it until the next
@@ -184,7 +185,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
         principalKobo: loan.principalKobo,
         termMonths: loan.termMonths,
         interestRate: loan.interestRate,
-        startPeriod: loan.startPeriod ?? addMonths(TODAY, 1),
+        startPeriod: loan.startPeriod ?? addMonths(today, 1),
       })
     : null;
 
@@ -313,7 +314,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
                   value: loan.startPeriod
                     ? monthLabel(loan.startPeriod)
                     : proposed
-                      ? `${monthLabel(proposed.lines[0]?.dueDate ?? TODAY)} if approved now`
+                      ? `${monthLabel(proposed.lines[0]?.dueDate ?? today)} if approved now`
                       : "Not set",
                 },
                 {
@@ -669,7 +670,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
               Nothing is deducted until somebody approves this. Approving
               creates these {proposed.lines.length} instalments and payroll
               starts taking them in{" "}
-              {monthLabel(proposed.lines[0]?.dueDate ?? TODAY)}.
+              {monthLabel(proposed.lines[0]?.dueDate ?? today)}.
             </p>
             <div className="hidden sm:block">
               <TableWrap caption="The schedule this loan would create if it were approved">

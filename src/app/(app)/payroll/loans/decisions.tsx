@@ -21,8 +21,7 @@ import {
   type ApiRepayment,
 } from "@/lib/api/loans";
 import { addMonths, monthLabel, priceLoan } from "@/lib/loans/schedule";
-import { useLoanActions } from "@/lib/store/loans";
-import { TODAY } from "@/lib/today";
+import { useLoanActions, useLoanToday } from "@/lib/store/loans";
 
 /**
  * The dialogs behind the four decisions that need more than one click.
@@ -205,6 +204,7 @@ export function CounterOfferModal({
   onDone?: (approved: ApiLoanDetail) => void;
 }) {
   const { approve } = useLoanActions();
+  const today = useLoanToday();
   const { failure, clear, capture } = useFailure();
   /* Seeded from what was applied for, because a counter-offer is an edit to it. */
   const [amount, setAmount] = useState(String(naira(loan.principalKobo)));
@@ -214,7 +214,7 @@ export function CounterOfferModal({
 
   const principal = Number(amount.replace(/[^0-9.]/g, ""));
   const months = Number(term.replace(/[^0-9]/g, ""));
-  const startPeriod = addMonths(TODAY, Number(startsIn));
+  const startPeriod = addMonths(today, Number(startsIn));
   const priced =
     principal > 0 && months > 0
       ? priceLoan({
@@ -302,9 +302,9 @@ export function CounterOfferModal({
               setStartsIn(event.target.value as "0" | "1" | "2")
             }
           >
-            <option value="0">{monthLabel(addMonths(TODAY, 0))}</option>
-            <option value="1">{monthLabel(addMonths(TODAY, 1))}</option>
-            <option value="2">{monthLabel(addMonths(TODAY, 2))}</option>
+            <option value="0">{monthLabel(addMonths(today, 0))}</option>
+            <option value="1">{monthLabel(addMonths(today, 1))}</option>
+            <option value="2">{monthLabel(addMonths(today, 2))}</option>
           </Select>
         </Field>
 

@@ -19,11 +19,10 @@ import {
 import { ApiError } from "@/lib/api/client";
 import { kobo, naira, type ApiLoanDetail } from "@/lib/api/loans";
 import { addMonths, monthLabel, priceLoan } from "@/lib/loans/schedule";
-import { useLoanActions } from "@/lib/store/loans";
+import { useLoanActions, useLoanToday } from "@/lib/store/loans";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { usePayPreview } from "@/lib/store/pay-components";
 import { useSession } from "@/lib/store/session";
-import { TODAY } from "@/lib/today";
 import { loanRequestedCopy, type MomentCopy } from "./loan-moments-copy";
 
 /**
@@ -100,6 +99,7 @@ function comfortableTerm(
   interestRate: number,
   netKobo: number,
   from: number,
+  startPeriod: string,
 ): number | null {
   const ceiling = Math.round(netKobo / 3);
   if (ceiling <= 0) return null;
@@ -108,7 +108,7 @@ function comfortableTerm(
       principalKobo,
       termMonths: term,
       interestRate,
-      startPeriod: TODAY,
+      startPeriod,
     });
     if (priced && priced.instalmentKobo <= ceiling) return term;
   }
@@ -180,6 +180,7 @@ export function ApplyLoanModal({
 }) {
   const { employeeId: selfId } = useSession();
   const { apply } = useLoanActions();
+  const today = useLoanToday();
 
   const fixedId = forEmployeeId ?? selfId ?? null;
   const [target, setTarget] = useState<string>(fixedId ?? "");
@@ -237,7 +238,7 @@ export function ApplyLoanModal({
   const principal = parseNaira(amount);
   const months = parseWhole(term);
   const interestRate = charging ? (parseNaira(rate) ?? 0) / 100 : 0;
-  const startPeriod = addMonths(TODAY, Number(startsIn));
+  const startPeriod = addMonths(today, Number(startsIn));
 
   const priced = useMemo(
     () =>
@@ -286,6 +287,7 @@ export function ApplyLoanModal({
           interestRate,
           effect.netBeforeKobo,
           months ?? 1,
+          startPeriod,
         )
       : null;
 
@@ -576,11 +578,11 @@ export function ApplyLoanModal({
                   }
                 >
                   <option value="0">
-                    {monthLabel(addMonths(TODAY, 0))} (this month&rsquo;s
+                    {monthLabel(addMonths(today, 0))} (this month&rsquo;s
                     payroll)
                   </option>
-                  <option value="1">{monthLabel(addMonths(TODAY, 1))}</option>
-                  <option value="2">{monthLabel(addMonths(TODAY, 2))}</option>
+                  <option value="1">{monthLabel(addMonths(today, 1))}</option>
+                  <option value="2">{monthLabel(addMonths(today, 2))}</option>
                 </Select>
               </Field>
 
