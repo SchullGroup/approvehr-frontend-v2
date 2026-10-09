@@ -216,7 +216,9 @@ export function ReviewTasksTab() {
                         <TR key={task.id}>
                           <TDPrimary title={task.employeeName} />
                           <TD>{task.goalTitle}</TD>
-                          <TD className="max-w-xs">{task.description}</TD>
+                          <TD className="max-w-xs">
+                            <LinkedText>{task.description}</LinkedText>
+                          </TD>
                           <TD align="right">
                             <GradeActions
                               task={task}
