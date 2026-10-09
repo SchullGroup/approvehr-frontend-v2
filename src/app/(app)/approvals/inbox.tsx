@@ -427,7 +427,9 @@ export function ApprovalInbox() {
                             ? "With HR"
                             : decision === "approved"
                               ? "Approved"
-                              : "Sent back"}
+                              : item.kind === "holiday"
+                                ? "Declined"
+                                : "Sent back"}
                         </Badge>
                         <span className="min-w-0 flex-1 truncate text-body">
                           {item.title}
