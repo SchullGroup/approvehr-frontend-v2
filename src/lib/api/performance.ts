@@ -1308,6 +1308,14 @@ export type ApiRevisionRequest = {
   requestedAt: string;
 };
 
+/**
+ * How a reviewer marked a task. `REJECTED` is "not accepted as work against
+ * this objective" — it counts as not done, and the API will not take it
+ * without a reason.
+ */
+export type ApiTaskGrade =
+  "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED" | "REJECTED";
+
 /** One task logged against an objective, within one open week. */
 export type ApiTask = {
   id: string;
@@ -1316,7 +1324,9 @@ export type ApiTask = {
   keyResultId: string | null;
   employeeId: string;
   description: string;
-  grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED" | null;
+  grade: ApiTaskGrade | null;
+  /** The reviewer's comment on that grade, for the employee to read. */
+  gradeNote: string | null;
   gradedById: string | null;
   gradedAt: string | null;
   createdAt: string;
@@ -1335,7 +1345,9 @@ export type ApiMyTask = {
   goalTitle: string;
   keyResultId: string | null;
   description: string;
-  grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED" | null;
+  grade: ApiTaskGrade | null;
+  /** The reviewer's comment on that grade, if they left one. */
+  gradeNote: string | null;
   gradedAt: string | null;
   weekStart: string;
   weekEnd: string;
@@ -1363,6 +1375,11 @@ export type ApiTaskForGrading = {
   goalTitle: string;
   description: string;
   createdAt: string;
+  /**
+   * Its week has ended, so it can no longer be graded. Optional because an API
+   * that predates the field simply leaves it out, and absent means open.
+   */
+  weekClosed?: boolean;
 };
 
 /* -------------------------------------------------------------------- bodies */
@@ -2508,14 +2525,14 @@ export const performanceApi = {
       body: { goalId, ...body },
     }),
 
-  /** Their manager, or `EDIT_RECORDS`. */
-  gradeTask: (
-    id: string,
-    grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED",
-  ) =>
+  /**
+   * Their manager, the head of their department, or `EDIT_RECORDS`. The
+   * comment is required for `PARTIALLY_COMPLETED` and `REJECTED`.
+   */
+  gradeTask: (id: string, grade: ApiTaskGrade, note?: string) =>
     request<ApiTask>(`/performance/tasks/${id}/grade`, {
       method: "PATCH",
-      body: { grade },
+      body: note ? { grade, note } : { grade },
     }),
 
   /* ---------------------------------------------------------------- reviews */
