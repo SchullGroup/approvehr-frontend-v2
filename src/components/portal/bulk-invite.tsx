@@ -4,7 +4,10 @@ import { useState } from "react";
 import { KeyRound } from "lucide-react";
 import { Button, useToast, type ButtonVariant } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import { employees as employeesApi } from "@/lib/api/endpoints";
+import {
+  employees as employeesApi,
+  isFullEmployeeRow,
+} from "@/lib/api/endpoints";
 import { invitesApi, type BulkInviteResult } from "@/lib/api/invites";
 import { permissionsApi } from "@/lib/api/permissions";
 import { useCan } from "@/lib/permissions";
@@ -95,6 +98,7 @@ export function BulkInviteButton({
       ]);
       setCandidates(
         directory.data
+          .filter(isFullEmployeeRow)
           .filter((person) => !person.canLogin)
           .map((person) => ({
             employeeId: person.id,

@@ -1,4 +1,5 @@
 import type { ApiGoal } from "@/lib/api/performance";
+import type { DirectoryPerson } from "@/lib/types";
 
 /**
  * What is true of one objective, for the person looking at it.
@@ -117,4 +118,70 @@ export function objectiveWhoseChoices(input: {
         ? "company"
         : "me",
   };
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The reach of whoever is looking: what decides whose work they lead.
+ *
+ * `headedDepartmentIds` is `useHeadedDepartmentIds()`; `headedDepartmentNames`
+ * is the same departments by name, for a person whose row carries a department
+ * name and no id (see `DirectoryPerson`).
+ */
+export type LeadReach = {
+  employeeId: string | null;
+  /** `EDIT_RECORDS`: HR leads everybody, as far as the API is concerned. */
+  leadsEveryone: boolean;
+  headedDepartmentIds: ReadonlySet<string>;
+  headedDepartmentNames: ReadonlySet<string>;
+};
+
+/**
+ * Whether this caller may set goals for this person — a mirror of the API's
+ * `leadsWorkOf` (`reviewableTeamOf` + `ledTeamOf` in the performance service).
+ *
+ * The API's rule: everybody with `EDIT_RECORDS`; otherwise the caller's direct
+ * reports (`managerId` is the caller) and everybody in a department the caller
+ * **heads** — the department itself, not the ones beneath it. This asks the
+ * same three questions of a row any signed-in person can read, so the dialogs
+ * offer a department head the people they lead without needing the full
+ * directory row that only HR is sent.
+ *
+ * Absent is unknown, never "no", for the two ids: a source that does not carry
+ * `departmentId` is matched on the department's name instead, and one that
+ * carries no `managerId` simply cannot say who somebody's manager is (so that
+ * person is not offered as a direct report; the API remains the authority and
+ * would refuse a guess either way).
+ *
+ * Self is `true`: `createGoal` and `assignGoal` both let somebody set their
+ * own. A call site that wants "somebody else" says so itself, because only it
+ * knows whether it offers a separate "me" option.
+ */
+export function leadsWorkOf(
+  person: DirectoryPerson,
+  reach: LeadReach,
+): boolean {
+  if (reach.leadsEveryone) return true;
+  if (reach.employeeId === null) return false;
+  if (person.id === reach.employeeId) return true;
+  if (person.managerId === reach.employeeId) return true;
+  if (person.departmentId !== undefined) {
+    return (
+      person.departmentId !== null &&
+      reach.headedDepartmentIds.has(person.departmentId)
+    );
+  }
+  return (
+    person.department !== null &&
+    reach.headedDepartmentNames.has(person.department)
+  );
+}
+
+/** `leadsWorkOf` over a list, in the list's own order. */
+export function peopleILead(
+  people: readonly DirectoryPerson[],
+  reach: LeadReach,
+): DirectoryPerson[] {
+  return people.filter((person) => leadsWorkOf(person, reach));
 }

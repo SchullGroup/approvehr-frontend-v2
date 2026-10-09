@@ -40,9 +40,15 @@ vi.mock("@/lib/store/session", async (importOriginal) => ({
 }));
 vi.mock("@/lib/store/departments", () => ({
   useDepartments: () => ({ flat: state.departments }),
+  useHeadedDepartmentIds: () =>
+    new Set(
+      state.departments
+        .filter((department) => department.headId === state.employeeId)
+        .map((department) => department.id),
+    ),
 }));
 vi.mock("@/lib/store/employees-api", () => ({
-  useEmployeeDirectory: () => ({ employees: [] }),
+  useEmployeeDirectory: () => ({ employees: [], people: [] }),
 }));
 vi.mock("@/lib/store/performance", () => ({
   useAppraisals: () => ({ cycles: [] }),
