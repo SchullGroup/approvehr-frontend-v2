@@ -38,12 +38,13 @@ import type { ApiMyTask } from "@/lib/api/performance";
  * ## Absent is not zero
  *
  * Nobody with no logged tasks has a 0% completion rate — they have no rate.
- * The three graded outcomes are counted separately from work that is logged
- * and **not yet graded**, because "not completed" and "nobody has looked at it
+ * The graded outcomes are counted separately from work that is logged and
+ * **not yet graded**, because "not completed" and "nobody has looked at it
  * yet" are opposite facts and folding the second into the first understates
  * somebody's period in the direction that costs them. Same reason the rate is
  * taken over graded tasks and says so: a denominator that includes ungraded
- * work reports a fall in performance that is really a manager's backlog.
+ * work reports a fall in performance that is really a manager's backlog. A
+ * rejected task is graded, and counts as not done.
  */
 export function SelfEvidence({
   periodStart,
@@ -73,6 +74,9 @@ export function SelfEvidence({
   const notCompleted = scoped.filter(
     (task) => task.grade === "NOT_COMPLETED",
   ).length;
+  /* Rejected is graded, and counts as not done: it is in `graded`, so it sits
+     in the denominator of the rate below and never in the numerator. */
+  const rejected = scoped.filter((task) => task.grade === "REJECTED").length;
   const ungraded = scoped.length - graded.length;
 
   /* Null, not 0, with nothing graded to take it over. */
@@ -130,6 +134,13 @@ export function SelfEvidence({
                     value={notCompleted}
                     tone="text-danger-text"
                   />
+                  {rejected > 0 && (
+                    <Line
+                      label="Rejected"
+                      value={rejected}
+                      tone="text-danger-text"
+                    />
+                  )}
                 </>
               )}
               {/* Its own line, never folded into "not completed". */}

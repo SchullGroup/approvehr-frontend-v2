@@ -121,6 +121,7 @@ const EXTRA_KEYS = [
   "parentsLinked",
   "headsSet",
   "invited",
+  "measuresAdded",
 ] as const satisfies readonly (keyof ApiApplyExtras)[];
 
 export type LoadedFile = {
@@ -407,12 +408,14 @@ const messageOf = (error: unknown): string =>
 
 /* --------------------------------------------------------------------- hook */
 
-export function useImport(dictionary: Dictionary<string>) {
+export function useImport(dictionary: Dictionary<string>, allowed?: boolean) {
   const { isConnected, can } = useSession();
   const timeZone = useOrgTimezone();
   /**
    * The same gate `components/imports/import-flow.tsx` already applies to the
-   * screen — `IMPORT_DATA`, and the whole router is behind it.
+   * screen — `IMPORT_DATA` unless the screen passes its own rule (`allowed`),
+   * which an objectives upload does: a department head holds no such permission
+   * and the API lets them in for that one entity.
    *
    * The screen was refusing correctly and this hook asked anyway. The failure
    * was already swallowed below ("the compiled-in copy covers it"), so nothing
@@ -421,7 +424,7 @@ export function useImport(dictionary: Dictionary<string>) {
    * sentence "you cannot import". A refusal that fires a doomed request is a
    * refusal that has not been believed.
    */
-  const mayImport = !isConnected || can("IMPORT_DATA");
+  const mayImport = allowed ?? (!isConnected || can("IMPORT_DATA"));
 
   const [file, setFile] = useState<LoadedFile | null>(null);
   const [mapping, setMapping] = useState<Mapping>({});
@@ -1259,14 +1262,19 @@ export function useImport(dictionary: Dictionary<string>) {
  * because the panel this feeds does not exist until there is something in it.
  */
 export function useImportHistory(kind: string, limit = 5) {
-  const { isConnected } = useSession();
+  const { isConnected, can } = useSession();
   const [rows, setRows] = useState<ApiImportBatch[]>([]);
+  /* The batch history is `IMPORT_DATA` on the API for everybody, whichever
+     entity's screen is asking: it is a record of who changed what, and the
+     objectives upload is open to people who hold no such permission. Asking
+     anyway would fire a request that can only come back 403. */
+  const mayRead = isConnected && can("IMPORT_DATA");
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
   useEffect(() => {
-    if (!isConnected) return;
+    if (!mayRead) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -1288,7 +1296,7 @@ export function useImportHistory(kind: string, limit = 5) {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, kind, limit, revalidation]);
+  }, [mayRead, kind, limit, revalidation]);
 
   /**
    * A past batch's own row report, fetched on demand rather than carried in
@@ -1306,7 +1314,7 @@ export function useImportHistory(kind: string, limit = 5) {
 
   /* Derived rather than cleared, so signing out of a connected session cannot
      leave somebody else's import history on the screen. */
-  return { rows: isConnected ? rows : [], getDetail };
+  return { rows: mayRead ? rows : [], getDetail };
 }
 
 /**
