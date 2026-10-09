@@ -642,6 +642,33 @@ type GradeBody = {
   maxGrossKobo: number;
 };
 
+type GradeFields = {
+  code: string;
+  name: string;
+  min: string;
+  max: string;
+  /* Empty means "halfway", which is what the line under the inputs shows. Kept
+     as a string so an edit that clears it falls back to the default rather than
+     to zero. */
+  mid: string;
+  level: string;
+};
+
+/** What the form holds when it opens: the grade's own values, or a blank form. */
+function fieldsFor(
+  grade: ApiGrade | undefined,
+  nextLevel: number,
+): GradeFields {
+  return {
+    code: grade?.code ?? "",
+    name: grade?.name ?? "",
+    min: grade ? String(naira(grade.minGrossKobo)) : "",
+    max: grade ? String(naira(grade.maxGrossKobo)) : "",
+    mid: grade ? String(naira(grade.midGrossKobo)) : "",
+    level: String(grade?.level ?? nextLevel),
+  };
+}
+
 /**
  * Add or edit a grade.
  *
@@ -654,7 +681,7 @@ type GradeBody = {
 function GradeDialog({
   open,
   mode,
-  grade,
+  grade: gradeProp,
   nextLevel,
   onClose,
   onSubmit,
@@ -666,23 +693,34 @@ function GradeDialog({
   onClose: () => void;
   onSubmit: (body: GradeBody) => Promise<void>;
 }) {
-  const [code, setCode] = useState(grade?.code ?? "");
-  const [name, setName] = useState(grade?.name ?? "");
-  const [min, setMin] = useState(
-    grade ? String(naira(grade.minGrossKobo)) : "",
-  );
-  const [max, setMax] = useState(
-    grade ? String(naira(grade.maxGrossKobo)) : "",
-  );
-  /* Empty means "halfway", which is what the line under the inputs shows. Kept
-     as a string so an edit that clears it falls back to the default rather than
-     to zero. */
-  const [mid, setMid] = useState(
-    grade ? String(naira(grade.midGrossKobo)) : "",
-  );
-  const [level, setLevel] = useState(String(grade?.level ?? nextLevel));
+  /* Remembers the last real grade: the parent clears its prop the instant it
+     closes this, but the modal stays mounted for its exit animation and the
+     title must not go blank while it fades. */
+  const [grade, setGrade] = useState(gradeProp);
+  if (gradeProp && gradeProp !== grade) setGrade(gradeProp);
+
+  const [fields, setFields] = useState(() => fieldsFor(gradeProp, nextLevel));
   const [advanced, setAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  /* Re-seeds the form on every genuine open, not just the first mount. This
+     dialog stays mounted between uses, so the initial state above would
+     otherwise be whatever it was the first time — empty for an edit, since
+     nothing was being edited yet — and an add dialog would reopen holding the
+     last thing typed into it, and the level it was first given. */
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setFields(fieldsFor(gradeProp, nextLevel));
+      setAdvanced(false);
+    }
+  }
+
+  const set = <K extends keyof GradeFields>(field: K, value: GradeFields[K]) =>
+    setFields((current) => ({ ...current, [field]: value }));
+
+  const { code, name, min, max, mid, level } = fields;
 
   const minValue = parseAmount(min);
   const maxValue = parseAmount(max);
@@ -765,20 +803,14 @@ function GradeDialog({
               value={code}
               autoFocus={mode === "create"}
               placeholder="G3"
-              onChange={(e) => {
-                const value = e.target.value;
-                setCode(value.toUpperCase());
-              }}
+              onChange={(e) => set("code", e.target.value.toUpperCase())}
             />
           </Field>
           <Field label="Name" required>
             <Input
               value={name}
               placeholder="Lead"
-              onChange={(e) => {
-                const value = e.target.value;
-                setName(value);
-              }}
+              onChange={(e) => set("name", e.target.value)}
             />
           </Field>
         </div>
@@ -792,10 +824,7 @@ function GradeDialog({
               step={1000}
               value={min}
               placeholder="1300000"
-              onChange={(e) => {
-                const value = e.target.value;
-                setMin(value);
-              }}
+              onChange={(e) => set("min", e.target.value)}
             />
           </Field>
           <Field
@@ -811,10 +840,7 @@ function GradeDialog({
               step={1000}
               value={max}
               placeholder="1900000"
-              onChange={(e) => {
-                const value = e.target.value;
-                setMax(value);
-              }}
+              onChange={(e) => set("max", e.target.value)}
             />
           </Field>
         </div>
@@ -847,10 +873,7 @@ function GradeDialog({
                 min={1}
                 step={1}
                 value={level}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setLevel(value);
-                }}
+                onChange={(e) => set("level", e.target.value)}
               />
             </Field>
             <Field
@@ -863,10 +886,7 @@ function GradeDialog({
                 min={0}
                 step={1000}
                 value={mid}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setMid(value);
-                }}
+                onChange={(e) => set("mid", e.target.value)}
               />
             </Field>
           </div>
