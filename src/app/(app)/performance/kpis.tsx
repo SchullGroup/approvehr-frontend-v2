@@ -9,12 +9,14 @@ import {
   Target,
   TrendingDown,
   TrendingUp,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Avatar,
   Badge,
   Button,
+  ButtonLink,
   Card,
   CardBody,
   CardHeader,
@@ -71,6 +73,7 @@ import {
   StopKpiDialog,
 } from "./goal-dialogs";
 import { TaskLogPanel } from "./task-log";
+import { useCanUploadObjectives } from "./kpis/import/access";
 
 /**
  * The KPI cascade.
@@ -150,6 +153,7 @@ export function KpisTab({
   const kpis = useKpis(scope);
   const mutations = useKpiMutations();
   const objectives = useObjectiveMutations();
+  const canUpload = useCanUploadObjectives();
   const toast = useToast();
   const { actingId } = useSession();
 
@@ -454,6 +458,16 @@ export function KpisTab({
             <Badge tone="warning" size="sm">
               Demo · numbers stay in this browser
             </Badge>
+          )}
+          {mutations.editable && canUpload && (
+            <ButtonLink
+              variant="secondary"
+              size="sm"
+              href="/performance/kpis/import"
+            >
+              <Upload aria-hidden="true" className="size-4" />
+              Upload objectives
+            </ButtonLink>
           )}
           {mutations.editable && (
             <Button
