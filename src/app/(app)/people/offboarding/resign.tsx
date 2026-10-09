@@ -180,7 +180,7 @@ export function Resign({
         className="bg-surface"
         defaultOpen={defaultOpen}
         title="Leaving"
-        hint="Hand in your notice. Nothing is sent until you fill in the form."
+        hint="Start a resignation request. Nothing is sent until you fill in the form."
         level={3}
       >
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -311,7 +311,7 @@ function ResignDialog({
           /* The button that was just pressed has left with the footer, so
              focus goes to what replaced it. */
           focusHeading
-          title="Your notice has been handed in"
+          title="Resignation request sent"
           lead={`Your last working day is ${longDate(handedIn.lastWorkingDay)}.`}
           details={noticeDetails(handedIn)}
           actions={
