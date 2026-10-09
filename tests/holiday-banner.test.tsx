@@ -37,6 +37,7 @@ function calendarOf(holidays: Holiday[]): HolidayCalendarState {
   return {
     holidays,
     awaitingProclamation: holidays.filter((h) => !h.confirmed).length,
+    suggested: 0,
     year: 2026,
     loading: false,
     error: null,
