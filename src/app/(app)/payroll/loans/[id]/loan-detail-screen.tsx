@@ -51,6 +51,7 @@ import {
 import { usePermissions } from "@/lib/permissions";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
+import { ApprovedLoanCard } from "../approved-loan-card";
 import {
   CounterOfferModal,
   DeclineLoanModal,
@@ -119,6 +120,14 @@ export function LoanDetailScreen({ id }: { id: string }) {
   const timeZone = useOrgTimezone();
 
   const [approving, setApproving] = useState(false);
+  /* The approval just made on this page, kept at the top of it until the next
+     decision or until it is closed. `askedFor` is set when the approver changed
+     the terms, so the card can say what was applied for. */
+  const [approvedHere, setApprovedHere] = useState<{
+    loan: ApiLoanDetail;
+    askedFor?: { principalKobo: number; termMonths: number };
+    n: number;
+  } | null>(null);
   const [countering, setCountering] = useState<ApiLoanDetail | null>(null);
   const [declining, setDeclining] = useState<ApiLoanDetail | null>(null);
   const [paying, setPaying] = useState<ApiRepayment | null>(null);
@@ -184,15 +193,11 @@ export function LoanDetailScreen({ id }: { id: string }) {
     setApproving(true);
     try {
       const approved = await approve(loan.id);
-      toast.push({
-        title: "Approved",
-        tone: "success",
-        detail: approved.startPeriod
-          ? `${money(approved.monthlyRepaymentKobo)} a month, first deduction ${monthLabel(
-              approved.startPeriod,
-            )}.`
-          : undefined,
-      });
+      /* No toast: the card at the top of the page says what was approved. */
+      setApprovedHere((current) => ({
+        loan: approved,
+        n: (current?.n ?? 0) + 1,
+      }));
     } catch (failure) {
       toast.push({
         title: "Could not approve it",
@@ -263,6 +268,18 @@ export function LoanDetailScreen({ id }: { id: string }) {
       />
 
       <PageBody className="flex flex-col gap-6">
+        {approvedHere && (
+          <ApprovedLoanCard
+            key={approvedHere.n}
+            loan={approvedHere.loan}
+            {...(approvedHere.askedFor
+              ? { askedFor: approvedHere.askedFor }
+              : {})}
+            linkToLoan={false}
+            onDismiss={() => setApprovedHere(null)}
+          />
+        )}
+
         {/* What was asked for, and by whom. The reason is the whole case. */}
         <Card>
           <CardHeader
@@ -735,6 +752,16 @@ export function LoanDetailScreen({ id }: { id: string }) {
         <CounterOfferModal
           loan={countering}
           onClose={() => setCountering(null)}
+          onDone={(approved) =>
+            setApprovedHere((current) => ({
+              loan: approved,
+              askedFor: {
+                principalKobo: countering.principalKobo,
+                termMonths: countering.termMonths,
+              },
+              n: (current?.n ?? 0) + 1,
+            }))
+          }
         />
       )}
       {declining && (

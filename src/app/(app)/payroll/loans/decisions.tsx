@@ -197,10 +197,14 @@ export function CounterOfferModal({
 }: {
   loan: ApiLoanDetail;
   onClose: () => void;
-  onDone?: () => void;
+  /**
+   * Told the loan as approved, so the caller can say what was approved. The
+   * modal does not announce it: its toast named the figure and was gone in six
+   * seconds, and the caller's card at the top of the page stays.
+   */
+  onDone?: (approved: ApiLoanDetail) => void;
 }) {
   const { approve } = useLoanActions();
-  const toast = useToast();
   const { failure, clear, capture } = useFailure();
   /* Seeded from what was applied for, because a counter-offer is an edit to it. */
   const [amount, setAmount] = useState(String(naira(loan.principalKobo)));
@@ -226,17 +230,12 @@ export function CounterOfferModal({
     setSaving(true);
     clear();
     try {
-      await approve(loan.id, {
+      const approved = await approve(loan.id, {
         principalKobo: priced.principalKobo,
         termMonths: months,
         startPeriod,
       });
-      toast.push({
-        title: `Approved ${money(priced.principalKobo)} over ${months} months`,
-        tone: "success",
-        detail: `${money(priced.instalmentKobo)} comes out from ${monthLabel(startPeriod)}.`,
-      });
-      onDone?.();
+      onDone?.(approved);
       onClose();
     } catch (error) {
       capture(error);
