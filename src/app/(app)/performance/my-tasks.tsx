@@ -250,7 +250,7 @@ export function MyTasksPanel() {
                             <span className="font-medium text-ink">
                               Comment:
                             </span>{" "}
-                            {task.gradeNote}
+                            <LinkedText>{task.gradeNote}</LinkedText>
                           </span>
                         )}
                       </div>
