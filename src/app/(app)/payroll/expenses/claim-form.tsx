@@ -8,6 +8,7 @@ import {
   Input,
   Modal,
   Select,
+  SuccessMoment,
   Textarea,
   formatMoney,
 } from "@/components/ui";
@@ -21,6 +22,7 @@ import {
   type SubmitClaimInput,
 } from "@/lib/store/reimbursements";
 import { useOrgTimezone } from "@/lib/store/session";
+import { claimSentCopy, type MomentCopy } from "./expense-moments-copy";
 
 /**
  * The claim form. Four questions and a receipt reference.
@@ -40,6 +42,17 @@ import { useOrgTimezone } from "@/lib/store/session";
  *
  * The API checks both again, of course — a browser check is not enforcement.
  * This is about not making a person guess.
+ *
+ * ## Sending it ends in a statement, not a toast
+ *
+ * A claim sent for approval is the one thing here somebody will wonder about
+ * afterwards — did it go, for how much, what now — and the toast that used to
+ * answer ("Sent for approval") named none of it and was gone in six seconds. The
+ * dialog stays and turns into what was sent: the figure, the kind, the day, and
+ * what is and is not true yet. What it says comes from what was sent, so it is
+ * captured at the moment of sending and not read back from the fields, which
+ * "Add another" clears. Editing a claim is routine and stays a toast, said by
+ * the caller.
  *
  * ## The receipt field is honest about what it is
  *
@@ -103,6 +116,9 @@ export function ClaimForm({
   );
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  /* What was just sent. While it is set the dialog shows it in place of the
+     form. */
+  const [sent, setSent] = useState<MomentCopy | null>(null);
   const [fieldError, setFieldError] = useState<{
     field: string;
     message: string;
@@ -186,6 +202,7 @@ export function ClaimForm({
           description: description.trim(),
           receiptKey: reference === "" ? null : reference,
         });
+        onClose();
       } else {
         await onSubmit({
           typeId: type.id,
@@ -197,8 +214,19 @@ export function ClaimForm({
             ? { employeeId: forWhom }
             : {}),
         });
+        const filedFor =
+          forWhom && forWhom !== myEmployeeId
+            ? colleagues.find((person) => person.id === forWhom)
+            : undefined;
+        setSent(
+          claimSentCopy({
+            amount,
+            type: type.name,
+            incurredOn,
+            forName: filedFor?.name ?? null,
+          }),
+        );
       }
-      onClose();
     } catch (error) {
       const breach = policyBreach(error);
       if (breach?.limit === "capAmount") {
@@ -229,181 +257,225 @@ export function ClaimForm({
     }
   }
 
+  /* A clean form for the next one. The person being claimed for stays, since a
+     second claim for the same colleague is the likely one; everything else
+     belonged to the claim that was just sent. */
+  function addAnother() {
+    setSent(null);
+    setTypeId("");
+    setAmountText("");
+    setIncurredOn(today(timeZone));
+    setDescription("");
+    setReceiptKey("");
+    setFailure(null);
+    setFieldError(null);
+  }
+
   return (
     <Modal
       open={open}
       onClose={onClose}
       title={editing ? "Edit this claim" : "Claim an expense"}
       description={
-        editing
-          ? "You can change it while it is still waiting for a decision."
-          : "Money you spent for work, and want back."
+        sent
+          ? undefined
+          : editing
+            ? "You can change it while it is still waiting for a decision."
+            : "Money you spent for work, and want back."
       }
       footer={
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          {blocker && (
-            <p className="mr-auto text-body-sm text-warning-text">{blocker}</p>
-          )}
-          <Button variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            variant="accent"
-            loading={busy}
-            disabled={busy || blocker !== null}
-            onClick={() => void send()}
-          >
-            {editing ? "Save changes" : "Send for approval"}
-          </Button>
-        </div>
+        sent ? undefined : (
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {blocker && (
+              <p className="mr-auto text-body-sm text-warning-text">
+                {blocker}
+              </p>
+            )}
+            <Button variant="secondary" onClick={onClose} disabled={busy}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              loading={busy}
+              disabled={busy || blocker !== null}
+              onClick={() => void send()}
+            >
+              {editing ? "Save changes" : "Send for approval"}
+            </Button>
+          </div>
+        )
       }
     >
-      <div className="flex flex-col gap-4">
-        {failure && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2.5 text-body-sm text-danger-text">
-            {failure}
-          </p>
-        )}
+      {sent ? (
+        <SuccessMoment
+          /* Under the dialog's own `h2`, not beside it. */
+          headingLevel={3}
+          align="center"
+          /* The button that was just pressed has left with the footer, so
+             focus goes to what replaced it. */
+          focusHeading
+          title={sent.title}
+          lead={sent.lead}
+          details={sent.details}
+          actions={
+            <>
+              <Button variant="accent" onClick={onClose}>
+                Done
+              </Button>
+              <Button variant="ghost" onClick={addAnother}>
+                Add another
+              </Button>
+            </>
+          }
+        />
+      ) : (
+        <div className="flex flex-col gap-4">
+          {failure && (
+            <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2.5 text-body-sm text-danger-text">
+              {failure}
+            </p>
+          )}
 
-        {!editing && colleagues.length > 0 && (
-          <Field
-            label="Who is claiming"
-            help="Yourself by default. Filing for somebody else is an HR action and is recorded as one."
-          >
-            <Select
-              value={forWhom}
-              onChange={(e) => setForWhom(e.target.value)}
+          {!editing && colleagues.length > 0 && (
+            <Field
+              label="Who is claiming"
+              help="Yourself by default. Filing for somebody else is an HR action and is recorded as one."
             >
-              {colleagues.map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.id === myEmployeeId
-                    ? `${person.name} (you)`
-                    : person.name}
+              <Select
+                value={forWhom}
+                onChange={(e) => setForWhom(e.target.value)}
+              >
+                {colleagues.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.id === myEmployeeId
+                      ? `${person.name} (you)`
+                      : person.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+
+          <Field label="What was it for" required>
+            <Select
+              value={typeId}
+              placeholder="Choose one"
+              onChange={(e) => {
+                setTypeId(e.target.value);
+                setFieldError(null);
+              }}
+            >
+              {options.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
                 </option>
               ))}
             </Select>
           </Field>
-        )}
 
-        <Field label="What was it for" required>
-          <Select
-            value={typeId}
-            placeholder="Choose one"
-            onChange={(e) => {
-              setTypeId(e.target.value);
-              setFieldError(null);
-            }}
-          >
-            {options.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        {/* No badge stating a receipt is or is not needed, or what the cap
+          {/* No badge stating a receipt is or is not needed, or what the cap
             is — a category with no rule set has neither yet, and a badge
             reading "No cap" or "No receipt needed" would read as a decision
             somebody made rather than the absence of one. The amount field's
             own cap note (below) and the receipt field's own asterisk still
             say the real rule the moment the company sets one. */}
-        {type?.description && (
-          <p className="-mt-2 text-body-sm text-muted">{type.description}</p>
-        )}
+          {type?.description && (
+            <p className="-mt-2 text-body-sm text-muted">{type.description}</p>
+          )}
 
-        <Field
-          label="What the money went on"
-          required
-          help="One line. Whoever approves it reads this and nothing else."
-        >
-          <Textarea
-            rows={2}
-            value={description}
-            maxLength={300}
-            placeholder="Diesel for the office generator during the outage"
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </Field>
+          <Field
+            label="What the money went on"
+            required
+            help="One line. Whoever approves it reads this and nothing else."
+          >
+            <Textarea
+              rows={2}
+              value={description}
+              maxLength={300}
+              placeholder="Diesel for the office generator during the outage"
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </Field>
 
-        <Field
-          label="How much, in naira"
-          required
-          {...(fieldError?.field === "amount"
-            ? { error: fieldError.message }
-            : overCap && type
+          <Field
+            label="How much, in naira"
+            required
+            {...(fieldError?.field === "amount"
+              ? { error: fieldError.message }
+              : overCap && type
+                ? {
+                    error: `${type.name} is capped at ${money(type.cap ?? 0)} a claim. Split this into two, or ask for the cap to be raised.`,
+                  }
+                : {})}
+          >
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <Input
+                className="w-40"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="0.00"
+                value={amountText}
+                onChange={(e) => {
+                  setAmountText(e.target.value);
+                  setFieldError(null);
+                }}
+              />
+              {capNote && (
+                <span
+                  className={
+                    capNote.tone === "danger"
+                      ? "text-body-sm font-medium text-danger-text"
+                      : "text-body-sm text-muted"
+                  }
+                >
+                  {capNote.text}
+                </span>
+              )}
+            </div>
+          </Field>
+
+          <Field
+            label="When the money went out"
+            required
+            help="The day you spent it, not today."
+            {...(futureDated
               ? {
-                  error: `${type.name} is capped at ${money(type.cap ?? 0)} a claim. Split this into two, or ask for the cap to be raised.`,
+                  error:
+                    "That date is in the future. Claim it once the money has gone out.",
                 }
               : {})}
-        >
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          >
             <Input
-              className="w-40"
-              inputMode="decimal"
+              type="date"
+              className="w-48"
+              max={today(timeZone)}
+              value={incurredOn}
+              onChange={(e) => setIncurredOn(e.target.value)}
+            />
+          </Field>
+
+          <Field
+            label="Receipt reference"
+            required={type?.requiresReceipt === true}
+            help="Attachments are not turned on yet, so there is nothing to upload to. Type where the receipt is: the file name, the folder, or the number printed on it."
+            {...(fieldError?.field === "receipt"
+              ? { error: fieldError.message }
+              : {})}
+          >
+            <Input
+              icon={<Paperclip aria-hidden="true" />}
+              value={receiptKey}
+              maxLength={512}
               autoComplete="off"
-              placeholder="0.00"
-              value={amountText}
+              placeholder="Total filling station, 12 Aug, no. 0912"
               onChange={(e) => {
-                setAmountText(e.target.value);
+                setReceiptKey(e.target.value);
                 setFieldError(null);
               }}
             />
-            {capNote && (
-              <span
-                className={
-                  capNote.tone === "danger"
-                    ? "text-body-sm font-medium text-danger-text"
-                    : "text-body-sm text-muted"
-                }
-              >
-                {capNote.text}
-              </span>
-            )}
-          </div>
-        </Field>
-
-        <Field
-          label="When the money went out"
-          required
-          help="The day you spent it, not today."
-          {...(futureDated
-            ? {
-                error:
-                  "That date is in the future. Claim it once the money has gone out.",
-              }
-            : {})}
-        >
-          <Input
-            type="date"
-            className="w-48"
-            max={today(timeZone)}
-            value={incurredOn}
-            onChange={(e) => setIncurredOn(e.target.value)}
-          />
-        </Field>
-
-        <Field
-          label="Receipt reference"
-          required={type?.requiresReceipt === true}
-          help="Attachments are not turned on yet, so there is nothing to upload to. Type where the receipt is: the file name, the folder, or the number printed on it."
-          {...(fieldError?.field === "receipt"
-            ? { error: fieldError.message }
-            : {})}
-        >
-          <Input
-            icon={<Paperclip aria-hidden="true" />}
-            value={receiptKey}
-            maxLength={512}
-            autoComplete="off"
-            placeholder="Total filling station, 12 Aug, no. 0912"
-            onChange={(e) => {
-              setReceiptKey(e.target.value);
-              setFieldError(null);
-            }}
-          />
-        </Field>
-      </div>
+          </Field>
+        </div>
+      )}
     </Modal>
   );
 }
