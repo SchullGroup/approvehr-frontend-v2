@@ -11,7 +11,6 @@ import {
   CardFooter,
   CardHeader,
   Callout,
-  ConfirmDialog,
   Disclosure,
   EmptyState,
   Spinner,
@@ -45,6 +44,7 @@ import {
   ReadAnswer,
   draftFrom,
 } from "../../review-parts";
+import { FinaliseDialog } from "./finalise-dialog";
 import { SignOffDialog } from "./sign-off-dialog";
 
 /**
@@ -128,7 +128,15 @@ function unansweredLine(review: {
 }
 
 export function ReviewScreen({ reviewId }: { reviewId: string }) {
-  const { review, loading, error, reload } = useReview(reviewId);
+  const { review: fresh, loading, error, reload } = useReview(reviewId);
+  /* The last appraisal that loaded, shown while the next one is on its way.
+     `reload` empties the answer until the new one lands, which blanked the whole
+     page to a spinner — and took the dialog that had just recorded something
+     with it. Only while it is loading: an answer that failed is not papered
+     over with a stale one. */
+  const [kept, setKept] = useState<ApiReviewDetail | null>(null);
+  if (fresh && fresh !== kept) setKept(fresh);
+  const review = fresh ?? (loading && kept?.id === reviewId ? kept : null);
   /* The company's own words. A record of a mark is the last place that should
      be quoting a scale the company renamed — it is the screen somebody reads
      when they are being told what they were marked. */
@@ -160,7 +168,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
       (isSubject || review.mine || canSeeCompany),
   );
 
-  if (loading) {
+  if (loading && !review) {
     return (
       <>
         <PageHeader
@@ -200,13 +208,18 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     );
   }
 
-  const run = async (action: () => Promise<unknown>, success: string) => {
+  /* One write, and no announcement: acknowledging and finalising each turn
+     their own dialog into the statement of what was recorded, so a toast on top
+     of it would say it twice. A failure is still a toast, and leaves the dialog
+     on its question. */
+  const settle = async <T,>(
+    action: () => Promise<T>,
+  ): Promise<{ ok: true; value: T } | { ok: false }> => {
     try {
-      await action();
-      toast.push({ title: success, tone: "success" });
+      const value = await action();
       reload();
       score.reload();
-      return true;
+      return { ok: true, value };
     } catch (caught) {
       toast.push({
         title: "That did not work",
@@ -216,7 +229,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             ? caught.message
             : "Something went wrong. Try again.",
       });
-      return false;
+      return { ok: false };
     }
   };
 
@@ -536,13 +549,17 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
       {signingOff && (
         <SignOffDialog
           review={review}
+          ratingLabel={
+            review.rating === null ? null : ratingWords(review.rating)
+          }
           onClose={() => setSigningOff(false)}
           onConfirm={async (comment) => {
-            const ok = await run(
-              () => signOff.acknowledge(review, comment),
-              "Acknowledgement recorded",
+            const outcome = await settle(() =>
+              signOff.acknowledge(review, comment),
             );
-            if (ok) setSigningOff(false);
+            return outcome.ok
+              ? { at: outcome.value?.acknowledgedAt ?? null }
+              : null;
           }}
         />
       )}
@@ -552,11 +569,10 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
         review={review}
         onClose={() => setFinalising(false)}
         onConfirm={async () => {
-          const ok = await run(
-            () => signOff.finalise(review.id),
-            `${review.subjectName} has been told their rating`,
-          );
-          if (ok) setFinalising(false);
+          const outcome = await settle(() => signOff.finalise(review.id));
+          return outcome.ok
+            ? { subjectNotified: outcome.value.subjectNotified }
+            : null;
         }}
       />
     </>
@@ -565,14 +581,6 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
 
 /* -------------------------------------------------------------------------- */
 
-/**
- * Finalising, behind a confirmation that names what it does.
- *
- * The same shape as approving a payroll run, and for the same reason: after it,
- * what the person is told is fixed. The confirmation names the person and the
- * mark rather than asking "are you sure" — an irreversible act with a generic
- * dialog in front of it is an irreversible act nobody read.
- */
 /**
  * The employee's own account of the period, beside the appraiser's form.
  *
@@ -671,46 +679,6 @@ function TheirOwnAccount({
         </CardBody>
       )}
     </Card>
-  );
-}
-
-function FinaliseDialog({
-  open,
-  review,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  review: ApiReviewDetail;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  /* Its own read of the same cached scale rather than a prop. This dialog
-     quotes the mark somebody is about to make final, and quoting it in the
-     default words while the screen behind it uses the company's would be the
-     picker-versus-record split all over again, inside one screen. */
-  const { scale } = useRatingScale();
-  const ratingWords = ratingWordsFrom(scale.levels);
-
-  return (
-    <ConfirmDialog
-      open={open}
-      onClose={onClose}
-      onConfirm={onConfirm}
-      title={`Make this ${review.subjectName}'s rating?`}
-      confirmLabel="Make this the rating"
-      tone="primary"
-      body={
-        <span>
-          {review.subjectName} will be told, and will be asked to acknowledge
-          it.{" "}
-          {review.rating === null
-            ? "This form carries no overall mark, so what they read is the answers."
-            : `The mark of record becomes "${ratingWords(review.rating)}".`}{" "}
-          It cannot be re-marked afterwards.
-        </span>
-      }
-    />
   );
 }
 
