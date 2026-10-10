@@ -1,6 +1,7 @@
 "use client";
 
 import { request, requestStream } from "@/lib/api/client";
+import type { ApiProposedAction } from "@/lib/api/ai";
 
 /**
  * `/api/v1/ai2` — read-only Q&A, one provider. `askAi2Stream` runs the same
@@ -33,6 +34,11 @@ export type Ai2Event =
   | { type: "lookup"; round: number; index: number; entity?: string }
   | { type: "lookup_done"; round: number; index: number; refused: boolean }
   | { type: "answer"; text: string }
+  /**
+   * A change to confirm; ends the turn. Nothing is written — the press that
+   * writes is `runAssistantAction` in `api/ai.ts`, posting `args` back verbatim.
+   */
+  | ({ type: "proposed" } & ApiProposedAction)
   | {
       type: "usage";
       promptTokens: number;

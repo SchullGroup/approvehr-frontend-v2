@@ -7,35 +7,19 @@ import type { ApiSuggestion } from "@/lib/api/ai";
 import { useAssistantAvailable, type SuggestState } from "@/lib/store/ai";
 
 /**
- * One suggestion panel, used by all three call sites.
+ * Shared AI suggestion panel, used by all three call sites (objectives,
+ * progress notes, development areas) so the rules below hold identically
+ * everywhere.
  *
- * Objectives under a goal, a progress note from a headline, development areas
- * behind a low score — three different asks and **one** component, because the
- * rules below have to hold identically in all three and three copies would
- * drift until one of them stopped saying where a sentence came from.
+ * - Nothing is applied automatically: `onUse` fires only on click, into an
+ *   editable field, never straight to save.
+ * - Always shows what it was grounded in (`groundedIn`), so a suggestion is
+ *   never presented with no basis.
+ * - With no assistant available, the button is absent, not disabled.
+ * - A refusal is shown in the API's own words, unparaphrased.
  *
- * ## The four rules, each visible on screen
- *
- * 1. **Nothing is applied on arrival.** A suggestion is a button somebody
- *    presses. `onUse` fires only from a click, and what it hands back goes into
- *    an editable field — never straight into a save. A panel that filled the
- *    form as it loaded would be submitting generated text under somebody's name
- *    by default, and at an appraisal that is a fabricated record.
- * 2. **It always says what it was based on.** `groundedIn.summary` is on the
- *    header and the exact facts are one reveal away, verbatim. A suggestion
- *    with nothing behind it is a guess wearing the product's authority.
- * 3. **Absent, not disabled.** With no assistant the button is not rendered at
- *    all — same rule as the nav and the dashboard tiles. A control that is
- *    always refused teaches people the product is broken.
- * 4. **A refusal is shown in the API's own words.** Whether a goal is frozen or
- *    nobody has been scored, the server wrote the sentence and it knows which
- *    fact is missing. Nothing here paraphrases it.
- *
- * ## Why the reveal is closed and the refusal is not
- *
- * `PARITY.md` Rule 5: a reveal may hide a detail and must never hide a blocker.
- * The facts list is a detail — most people will trust the one-line summary —
- * and a refusal is the thing somebody has to act on, so it renders open.
+ * The facts list is behind a reveal (a detail); a refusal is not (a blocker
+ * somebody must act on) — see `PARITY.md` Rule 5.
  */
 
 export function SuggestButton({
@@ -51,9 +35,8 @@ export function SuggestButton({
 }) {
   const { available, loading: checking } = useAssistantAvailable();
 
-  /* Absent while we do not yet know, and absent when the answer is no. A button
-     that appears a moment after the form has already been typed into moves the
-     layout under somebody mid-sentence. */
+  /* Absent while unknown and absent when unavailable — never appears late and
+     shifts the layout under someone mid-edit. */
   if (checking || !available) return null;
 
   return (
@@ -72,13 +55,6 @@ export function SuggestButton({
 
 /**
  * The result: a list to choose from, a refusal, or nothing yet.
- *
- * `renderTitle` exists because the three kinds read differently — an objective's
- * title is the objective, a development area's title is the competency it is
- * about, and a progress note has no title worth repeating because it is the
- * headline the person already typed. Passing a renderer rather than branching on
- * a `kind` keeps this file ignorant of what it is suggesting, which is what lets
- * a fourth call site arrive without editing it.
  */
 export function SuggestionPanel({
   state,
@@ -104,9 +80,7 @@ export function SuggestionPanel({
     );
   }
 
-  /* A refusal about the request — a frozen goal, an unscored employee. The
-     API's sentence, unchanged, and open rather than behind a reveal because it
-     is the thing somebody has to act on. */
+  /* A refusal about the request (e.g. a frozen goal) — the API's own sentence. */
   if (state.error) {
     return (
       <Callout tone="warning" title="No suggestion this time">
@@ -117,9 +91,8 @@ export function SuggestionPanel({
 
   if (!state.outcome) return null;
 
-  /* A refusal about the *assistant*, which is a different fact from the one
-     above and is nobody on this screen's to fix. Neutral rather than a warning:
-     the form works perfectly well without it. */
+  /* A refusal about the assistant itself, not the request — neutral tone since
+     the form works fine without it. */
   if (!state.outcome.available) {
     return (
       <Callout tone="neutral" title="Suggestions are unavailable">
@@ -206,15 +179,10 @@ export function SuggestionPanel({
 /**
  * An objective's measures, where the suggestion carried them.
  *
- * Read defensively rather than typed on the wire: `fields` is deliberately
- * loose (`Record<string, unknown>`) so a new kind of suggestion needs no change
- * to the API wrapper, and narrowing it is the one caller's job. A malformed
- * element renders nothing rather than throwing — a suggestion is not worth a
- * blank screen.
- *
- * **No target figures.** The API's prompt forbids the model putting numbers on
- * a suggested measure and this renders none, because a target somebody did not
- * choose is exactly the invented figure this whole module refuses to produce.
+ * `fields` is loosely typed (`Record<string, unknown>`) and read defensively
+ * here rather than on the wire, so a malformed element renders nothing instead
+ * of throwing. Deliberately renders no target figures — the API's prompt
+ * forbids the model inventing them, and this component must not either.
  */
 function Measures({ suggestion }: { suggestion: ApiSuggestion }) {
   const raw = suggestion.fields?.["measures"];
