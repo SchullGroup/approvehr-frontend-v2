@@ -39,9 +39,12 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
  * 2. **Screening somebody in needs a requisition.** `advance` creates the
  *    `Candidate` and the pipeline `Application` in one transaction, and there has
  *    to be a requisition for them to land on — either linked to the advert or
- *    named in the request. There is **no requisitions endpoint in this API**, so
- *    nothing here can offer a picker; `AdvanceBody.requisitionId` is the seam,
- *    and the screens ask for it at the moment it is needed rather than failing.
+ *    named in the request. `AdvanceBody.requisitionId` is the seam: the screens
+ *    ask for it at the moment it is needed rather than failing. A requisition
+ *    picker now exists (`recruitmentApi.listRequisitions`, in the sibling
+ *    `recruitment.ts`) — `posting-editor.tsx` and `applications-screen.tsx`'s
+ *    `AdvanceDialog` both use it — this module just has no reason to import
+ *    from `recruitment.ts` itself.
  */
 
 /* ------------------------------------------------------------------- shapes */
@@ -76,6 +79,31 @@ export const EMPLOYMENT_TYPE_LABEL: Record<EmploymentType, string> = {
 
 export type RequisitionStatus =
   "DRAFT" | "PENDING_APPROVAL" | "OPEN" | "ON_HOLD" | "FILLED" | "CANCELLED";
+
+/**
+ * Why a requisition-linked advert cannot take a fresh screen-in right now, or
+ * `null` when it still can (including having no requisition at all — that is
+ * a different, separately-flagged fact).
+ *
+ * This is the **one** place this condition is computed. `advance()` on the API
+ * refuses a FILLED or CANCELLED requisition outright (`careers/service.ts`),
+ * and three screens — the roles overview, the job adverts list, and the
+ * applications queue — each used to re-derive their own, narrower version of
+ * "is this usable" that checked only whether a requisition was attached at
+ * all, so none of them warned about this specific, common case: accepting an
+ * offer sets a requisition to FILLED automatically, which means every other
+ * still-published advert pointing at it silently becomes a trap the moment a
+ * hire completes. Sharing this function is what stops the three screens
+ * drifting back into three different answers to the same question.
+ */
+export function requisitionClosedNote(
+  status: RequisitionStatus | null,
+): string | null {
+  if (status === "FILLED") return "Role filled — cannot take a new candidate";
+  if (status === "CANCELLED")
+    return "Role cancelled — cannot take a new candidate";
+  return null;
+}
 
 /** An advert, as every internal list returns it. */
 export type ApiPosting = {

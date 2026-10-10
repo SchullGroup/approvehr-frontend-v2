@@ -25,9 +25,14 @@ import { salesScriptAssistantName, scriptedFallback } from "@/lib/sales-script";
 
 /**
  * Suggestions, as three hooks and one gate. Nothing here writes — a
- * suggestion lands in a form field and the existing store for that thing
- * saves it. No persistence, no demo branch: a canned suggestion would be
- * fabricated, so offline `available` is false everywhere, same as no key set.
+ * suggestion lands in a form field and the ordinary store for that thing
+ * saves it (`store/performance.ts#useObjectiveMutations` etc). If you find
+ * yourself adding a `saveSuggestion` here, call the existing mutation with
+ * the edited text instead.
+ *
+ * No `createPersistedState`, no demo branch. A canned suggestion is a
+ * fabricated one — offline, `available` is false everywhere, same as with no
+ * key set.
  */
 
 /** Matches `NO_ASSISTANT_REASON` on the API. */

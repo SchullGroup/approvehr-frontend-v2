@@ -70,7 +70,17 @@ export function ExitDetailScreen({ id }: { id: string }) {
   const toast = useToast();
 
   const isHr = useCan("EDIT_RECORDS");
-  const canApproveAsManager = useCan("APPROVE_LEAVE_ALL");
+  /* Company-wide, or the narrower door: `APPROVE_LEAVE` plus actually being
+     this person's own manager — the API checks the identical pair (see
+     `mayReleaseAsManager` in offboarding/service.ts) and this mirrors it
+     rather than gating only on the blanket permission, which used to leave an
+     ordinary line manager reading "Femi Lead has to release them" about
+     themselves with no button to press. */
+  const holdsApproveLeaveAll = useCan("APPROVE_LEAVE_ALL");
+  const holdsApproveLeave = useCan("APPROVE_LEAVE");
+  const canApproveAsManager =
+    holdsApproveLeaveAll ||
+    (holdsApproveLeave && exit?.manager?.id === employeeId);
 
   const [closing, setClosing] = useState(false);
   const [declining, setDeclining] = useState(false);
@@ -219,7 +229,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
         )}
 
         {exit.status === "CANCELLED" && (
-          <Callout tone="info" title={`${firstName} is staying`}>
+          <Callout tone="info" title="Exit request withdrawn">
             {exit.declinedReason ?? "The exit was cancelled."} Nothing was
             archived and nothing was closed: they are still on the payroll. If
             they change their mind again, start a new one.
@@ -318,9 +328,7 @@ export function ExitDetailScreen({ id }: { id: string }) {
                     disabled={busy}
                     onClick={() => setWithdrawing(true)}
                   >
-                    {mine
-                      ? "I am staying after all"
-                      : `${firstName} is staying`}
+                    Withdraw exit request
                   </Button>
                 )}
               </div>
@@ -483,7 +491,9 @@ export function ExitDetailScreen({ id }: { id: string }) {
         onWithdraw={async (reason) => {
           const ok = await run(
             () => exitState.withdraw(reason || undefined),
-            mine ? "Your notice has been withdrawn" : `${firstName} is staying`,
+            mine
+              ? "Your exit request has been withdrawn"
+              : `${firstName}'s exit request has been withdrawn`,
           );
           if (ok) setWithdrawing(false);
         }}
@@ -720,7 +730,9 @@ function WithdrawDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title={mine ? "Withdraw my notice" : `Cancel ${firstName}'s exit`}
+      title={
+        mine ? "Withdraw exit request" : `Withdraw ${firstName}'s exit request`
+      }
       description={
         mine
           ? "Your checklist stops and nothing is closed. Your manager and HR will be told."
@@ -736,7 +748,7 @@ function WithdrawDialog({
             disabled={busy}
             onClick={() => void onWithdraw(reason.trim())}
           >
-            {busy ? "Saving…" : mine ? "Withdraw it" : "Cancel the exit"}
+            {busy ? "Saving…" : "Withdraw exit request"}
           </Button>
         </div>
       }

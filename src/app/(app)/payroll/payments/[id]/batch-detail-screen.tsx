@@ -2,7 +2,6 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
-import Link from "next/link";
 import { Banknote, Landmark, TriangleAlert } from "lucide-react";
 import {
   Badge,
@@ -21,11 +20,15 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { naira } from "@/lib/api/payments";
+import { formatKobo } from "@/lib/api/payroll";
+import { PaymentRecordedMoment } from "@/components/payroll/payment-recorded";
+import type { RecordedPayment } from "@/components/payroll/record-paid-dialog";
 import { usePermissions } from "@/lib/permissions";
 import {
   BATCH_STATUS,
@@ -73,6 +76,10 @@ export function BatchDetailScreen({ id }: { id: string }) {
 
   const [busy, setBusy] = useState(false);
   const [rechecking, setRechecking] = useState(false);
+  /* Held here and not in `ReleasePanel`: recording a payment re-reads the batch
+     and this screen shows a spinner while it does, which unmounts the panel
+     and everything it remembered. This component is the one that stays. */
+  const [recorded, setRecorded] = useState<RecordedPayment | null>(null);
 
   if (permissionsLoading || loading) {
     return (
@@ -146,11 +153,14 @@ export function BatchDetailScreen({ id }: { id: string }) {
   const current = batch;
 
   /** Every action reports its own outcome — the API's messages are the useful part. */
-  async function run(action: () => Promise<unknown>, success?: string) {
+  async function run(
+    action: () => Promise<unknown>,
+    success?: { title: string; detail?: string },
+  ) {
     setBusy(true);
     try {
       await action();
-      if (success) toast.push({ title: success, tone: "success" });
+      if (success) toast.push({ ...success, tone: "success" });
     } catch (caught) {
       toast.push({
         title: "That did not happen",
@@ -249,13 +259,13 @@ export function BatchDetailScreen({ id }: { id: string }) {
                   <span className="tabular text-body-sm text-muted">
                     {batch.sourceAccountMasked}
                   </span>
-                  <Link
+                  <TextLink
                     href="/settings/bank-accounts"
-                    className="mt-0.5 flex items-center gap-1.5 text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
+                    className="mt-0.5 flex items-center gap-1.5 text-body-sm"
                   >
                     <Landmark aria-hidden="true" className="size-3.5" />
                     Change account
-                  </Link>
+                  </TextLink>
                 </span>
               }
             />
@@ -283,24 +293,51 @@ export function BatchDetailScreen({ id }: { id: string }) {
           }}
         />
 
-        <ReleasePanel
-          batch={batch}
-          providerConnected={providerConnected}
-          providerKnown={summary.summary !== null}
-          canApprove={can("APPROVE_PAYROLL")}
-          busy={busy}
-          onApprove={() =>
-            run(() => actions.approve(batch.id), `${batch.reference} approved`)
-          }
-          onRelease={() => run(() => actions.release(batch.id))}
-          onCancel={(reason) =>
-            run(
-              () => actions.cancel(batch.id, reason),
-              `${batch.reference} stopped`,
-            )
-          }
-          onDownload={download}
-        />
+        {/* Said once, where the panel was, to the person who just recorded it.
+            Opening this batch later shows the panel as it always did, with the
+            status the record left behind. */}
+        {recorded && recorded.batchId === batch.id ? (
+          <PaymentRecordedMoment
+            recorded={recorded}
+            actions={
+              <>
+                <ButtonLink variant="accent" href="/payroll/payments">
+                  Back to payments
+                </ButtonLink>
+                <ButtonLink variant="ghost" href="/payroll">
+                  Back to payroll
+                </ButtonLink>
+              </>
+            }
+          />
+        ) : (
+          <ReleasePanel
+            batch={batch}
+            providerConnected={providerConnected}
+            providerKnown={summary.summary !== null}
+            canApprove={can("APPROVE_PAYROLL")}
+            busy={busy}
+            onApprove={() =>
+              run(() => actions.approve(batch.id), {
+                title: `${batch.reference} approved`,
+                detail: `${formatKobo(batch.computedTotalKobo)} to ${people(batch.itemCount)}. Nothing has left the account: the payment file is the next step.`,
+              })
+            }
+            onRelease={() =>
+              run(() => actions.release(batch.id), {
+                title: `${formatKobo(batch.computedTotalKobo)} released to ${people(batch.itemCount)}`,
+                detail: `${batch.reference} is with the payment provider. Payment history has what each person was sent and what came back.`,
+              })
+            }
+            onCancel={(reason) =>
+              run(() => actions.cancel(batch.id, reason), {
+                title: `${batch.reference} stopped`,
+              })
+            }
+            onDownload={download}
+            onRecorded={setRecorded}
+          />
+        )}
 
         <Card>
           <CardHeader
@@ -308,31 +345,103 @@ export function BatchDetailScreen({ id }: { id: string }) {
             title="Who is being paid"
             description="Bank details as they were when this batch was built."
           />
-          <TableWrap
-            className="rounded-none border-0"
-            caption={`The ${batch.itemCount} people in ${batch.reference}`}
-          >
-            <THead>
-              <TH>Name</TH>
-              <TH>Bank</TH>
-              <TH>Account</TH>
-              <TH align="right">Amount</TH>
-              <TH>Payment</TH>
-            </THead>
-            <TBody>
-              {batch.instructions.map((row) => (
-                <TR key={row.id}>
-                  <TDPrimary
-                    title={
-                      <Link
-                        href={`/people/${row.employeeId}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
-                      >
-                        {row.payeeName}
-                      </Link>
-                    }
-                  />
-                  <TD>
+          <div className="hidden sm:block">
+            <TableWrap
+              className="rounded-none border-0"
+              caption={`The ${batch.itemCount} people in ${batch.reference}`}
+            >
+              <THead>
+                <TH>Name</TH>
+                <TH>Bank</TH>
+                <TH>Account</TH>
+                <TH align="right">Amount</TH>
+                <TH>Payment</TH>
+              </THead>
+              <TBody>
+                {batch.instructions.map((row) => (
+                  <TR key={row.id}>
+                    <TDPrimary
+                      title={
+                        <TextLink href={`/people/${row.employeeId}`}>
+                          {row.payeeName}
+                        </TextLink>
+                      }
+                    />
+                    <TD>
+                      {row.bankName.trim().length > 0 ? (
+                        row.bankName
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-danger-text">
+                          <TriangleAlert
+                            aria-hidden="true"
+                            className="size-3.5"
+                          />
+                          No bank on file
+                        </span>
+                      )}
+                    </TD>
+                    <TD className="tabular">
+                      {row.accountNumberOk ? (
+                        row.accountNumberMasked
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-danger-text">
+                          <TriangleAlert
+                            aria-hidden="true"
+                            className="size-3.5"
+                          />
+                          {row.accountNumberMasked === ""
+                            ? "None on file"
+                            : `${row.accountNumberMasked} (not ten digits)`}
+                        </span>
+                      )}
+                    </TD>
+                    <TD align="right" className="tabular font-medium text-ink">
+                      <Money amount={naira(row.amountKobo)} decimals />
+                    </TD>
+                    <TD>
+                      <InstructionState
+                        status={row.status}
+                        failureReason={row.failureReason}
+                        employeeId={row.employeeId}
+                      />
+                    </TD>
+                  </TR>
+                ))}
+                <TR className="bg-canvas">
+                  <TDPrimary title="Total" />
+                  <TD />
+                  <TD className="tabular text-body-sm text-muted">
+                    {people(batch.instructions.length)}
+                  </TD>
+                  <TD align="right" className="tabular font-semibold text-ink">
+                    <Money
+                      amount={naira(batch.check.instructionTotalKobo)}
+                      decimals
+                    />
+                  </TD>
+                  <TD />
+                </TR>
+              </TBody>
+            </TableWrap>
+          </div>
+
+          <ul className="divide-y divide-line sm:hidden">
+            {batch.instructions.map((row) => (
+              <li key={row.id} className="flex flex-col gap-2 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <TextLink
+                    href={`/people/${row.employeeId}`}
+                    className="min-w-0 text-body-sm"
+                  >
+                    {row.payeeName}
+                  </TextLink>
+                  <span className="tabular shrink-0 text-body-sm font-medium text-ink">
+                    <Money amount={naira(row.amountKobo)} decimals />
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-1 text-body-sm text-muted">
+                  <span>
                     {row.bankName.trim().length > 0 ? (
                       row.bankName
                     ) : (
@@ -344,8 +453,8 @@ export function BatchDetailScreen({ id }: { id: string }) {
                         No bank on file
                       </span>
                     )}
-                  </TD>
-                  <TD className="tabular">
+                  </span>
+                  <span className="tabular">
                     {row.accountNumberOk ? (
                       row.accountNumberMasked
                     ) : (
@@ -359,35 +468,31 @@ export function BatchDetailScreen({ id }: { id: string }) {
                           : `${row.accountNumberMasked} (not ten digits)`}
                       </span>
                     )}
-                  </TD>
-                  <TD align="right" className="tabular font-medium text-ink">
-                    <Money amount={naira(row.amountKobo)} decimals />
-                  </TD>
-                  <TD>
-                    <InstructionState
-                      status={row.status}
-                      failureReason={row.failureReason}
-                      employeeId={row.employeeId}
-                    />
-                  </TD>
-                </TR>
-              ))}
-              <TR className="bg-canvas">
-                <TDPrimary title="Total" />
-                <TD />
-                <TD className="tabular text-body-sm text-muted">
-                  {people(batch.instructions.length)}
-                </TD>
-                <TD align="right" className="tabular font-semibold text-ink">
-                  <Money
-                    amount={naira(batch.check.instructionTotalKobo)}
-                    decimals
-                  />
-                </TD>
-                <TD />
-              </TR>
-            </TBody>
-          </TableWrap>
+                  </span>
+                </div>
+
+                <InstructionState
+                  status={row.status}
+                  failureReason={row.failureReason}
+                  employeeId={row.employeeId}
+                />
+              </li>
+            ))}
+            <li className="flex items-center justify-between gap-3 bg-canvas p-4">
+              <span className="text-body-sm font-medium text-ink">
+                Total{" "}
+                <span className="font-normal text-muted">
+                  · {people(batch.instructions.length)}
+                </span>
+              </span>
+              <span className="tabular text-body-sm font-semibold text-ink">
+                <Money
+                  amount={naira(batch.check.instructionTotalKobo)}
+                  decimals
+                />
+              </span>
+            </li>
+          </ul>
         </Card>
 
         <Card>
@@ -500,12 +605,12 @@ function InstructionState({
               exclusions work; this is the same fix, on the screen where the
               money actually failed rather than where it was predicted to. */}
           {employeeId && (
-            <Link
+            <TextLink
               href={`/people/${employeeId}?tab=pay&field=bankAccount`}
-              className="text-meta font-medium text-accent-text underline-offset-2 hover:underline"
+              className="text-meta"
             >
               Check their bank details
-            </Link>
+            </TextLink>
           )}
         </span>
       )}

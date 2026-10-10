@@ -6,16 +6,11 @@ import { Clock, MoreHorizontal, Timer, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
-  Button,
   ButtonLink,
   Card,
   CardBody,
   CardHeader,
   Checkbox,
-  Field,
-  Input,
-  Modal,
-  Select,
   SegmentedControl,
   Skeleton,
   Stat,
@@ -26,33 +21,36 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   formatMoney,
-  useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { ApiError } from "@/lib/api/client";
-import { type ApiRosterRow, type ApiWorkLocation } from "@/lib/api/attendance";
-import { addDays, hoursLabel, timesLabel } from "@/lib/api/shifts";
+import { type ApiRosterRow } from "@/lib/api/attendance";
+import {
+  addDays,
+  hoursLabel,
+  timesLabel,
+  type ApiRotaCell,
+} from "@/lib/api/shifts";
 import { useCan, useIsManager } from "@/lib/permissions";
 import { attendanceCsv } from "@/lib/api/exports";
 import { ExportButton } from "@/components/portal/export-button";
 import {
   STATUS_LABEL,
   STATUS_TONE,
-  useAttendanceMutations,
   useAttendanceRoster,
   useAttendanceTimesheet,
   useRotaContext,
-  useWorkLocations,
   type RosterState,
   type TimesheetState,
 } from "@/lib/store/attendance";
 import { useSession } from "@/lib/store/session";
 import { shortDate } from "@/lib/today";
-import { AttendanceCapabilityBar } from "./capability-bar";
+import { AttendanceSettingsButton } from "./capability-bar";
+import { CorrectionDialog } from "./correction-dialog";
 import { MyAttendanceHistoryPanel } from "./my-attendance-history";
 
 /**
@@ -113,7 +111,6 @@ type View = "today" | "timesheet";
  * itself scopes them to.
  */
 export function AttendanceScreen() {
-  const locations = useWorkLocations();
   const session = useSession();
   /* Two separate hook calls, never short-circuited into one expression — a
      conditional `||` would skip `useCan` on whichever render `useIsManager`
@@ -178,15 +175,7 @@ export function AttendanceScreen() {
                   two copies drift until one stops defaulting to the right role
                   or stops filtering out people who already have an account. */}
               <BulkInviteButton />
-              {canImport && (
-                <ButtonLink
-                  href="/people/attendance/import"
-                  variant="secondary"
-                  size="sm"
-                >
-                  Import attendance
-                </ButtonLink>
-              )}
+              <AttendanceSettingsButton />
               {/* The view toggle chooses between two company-wide reads, so
                   it has no reason to exist for somebody who cannot see
                   either of them. */}
@@ -200,6 +189,15 @@ export function AttendanceScreen() {
                     { value: "timesheet", label: "Timesheet" },
                   ]}
                 />
+              )}
+              {canImport && (
+                <ButtonLink
+                  href="/people/attendance/import"
+                  variant="secondary"
+                  size="sm"
+                >
+                  Import attendance
+                </ButtonLink>
               )}
             </div>
           ) : undefined
@@ -215,17 +213,13 @@ export function AttendanceScreen() {
               <LoadFailure subject="today's roster" error={roster.error} />
             )}
 
-            {/* Closed by default and cheap to skip past — the module's settings,
-                reachable without a trip to `/settings/*`. See `capability-bar.tsx`
-                for why it sits here rather than being repeated on every screen
-                that shares one of its switches. */}
-            <AttendanceCapabilityBar />
-
             {/* Own clock-in. Deliberately the first *open* thing on the page: the
                 person looking at this screen most often is looking for this
                 control. Shared with `/dashboard` — see
                 `components/portal/my-clock-card.tsx` for why this used to be
-                inline here and no longer is. */}
+                inline here and no longer is. Its own settings are reachable
+                from `AttendanceSettingsButton` in the header rather than a
+                second bar repeated inline here. */}
             <MyClockCard />
 
             {/* Everybody clocks in above. Everybody else's day is a different
@@ -270,7 +264,6 @@ export function AttendanceScreen() {
           key={correcting.employeeId}
           row={correcting}
           date={roster.date}
-          locations={locations.locations}
           onClose={() => setCorrecting(null)}
         />
       )}
@@ -493,123 +486,187 @@ function TodayView({
 
       <Card>
         <CardHeader title={`Roster · ${shortDate(roster.date)}`} />
-        <TableWrap className="rounded-none border-0">
-          <THead>
-            <TH>Employee</TH>
-            <TH>Status</TH>
-            <TH>In</TH>
-            <TH>Out</TH>
-            <TH align="right">Actions</TH>
-          </THead>
-          <TBody>
-            {roster.rows.map((row) => {
-              const shift = rota.shiftOn(row.employeeId, roster.date);
-              const off = offToday(row);
-              return (
-                <TR key={row.employeeId} interactive>
-                  <TDPrimary
-                    title={
-                      <Link
-                        href={`/people/${row.employeeId}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
-                      >
-                        {row.employeeName}
-                      </Link>
-                    }
-                    subtitle={row.jobTitle}
-                  />
-                  <TD>
+        {/* Status alone can carry five optional lines — late, leave, an
+            anomaly, the rota, a correction — on top of the name, times and
+            actions. Five columns of that is unreadable under 375px, so below
+            `sm` this becomes a card per person instead. `RosterStatusDetails`
+            is the one copy of what those lines say, read by both. */}
+        <div className="hidden sm:block">
+          <TableWrap className="rounded-none border-0">
+            <THead>
+              <TH>Employee</TH>
+              <TH>Status</TH>
+              <TH>In</TH>
+              <TH>Out</TH>
+              <TH align="right">Actions</TH>
+            </THead>
+            <TBody>
+              {roster.rows.map((row) => {
+                const shift = rota.shiftOn(row.employeeId, roster.date);
+                const off = offToday(row);
+                return (
+                  <TR key={row.employeeId} interactive>
+                    <TDPrimary
+                      title={
+                        <TextLink href={`/people/${row.employeeId}`}>
+                          {row.employeeName}
+                        </TextLink>
+                      }
+                      subtitle={row.jobTitle}
+                    />
+                    <TD>
+                      <Badge tone={STATUS_TONE[row.status]} size="sm" dot>
+                        {STATUS_LABEL[row.status]}
+                      </Badge>
+                      <RosterStatusDetails row={row} shift={shift} off={off} />
+                    </TD>
+                    <TD className="tabular">{row.clockIn ?? "—"}</TD>
+                    <TD className="tabular text-muted">
+                      {row.clockOut ? (
+                        row.clockOut
+                      ) : row.clockIn ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          {/* A fact about this row — clocked in, nothing clocked
+                              out against it yet — not a page-refresh countdown
+                              this screen does not run. True whether or not
+                              anybody reloads. Ping ring matches `ThinkingState`;
+                              the solid dot matches `Badge`'s own status dot. */}
+                          <span
+                            aria-hidden="true"
+                            className="relative flex size-3 shrink-0 items-center justify-center"
+                          >
+                            <span className="absolute inline-flex size-3 rounded-full bg-success/40 motion-safe:animate-ping" />
+                            <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+                          </span>
+                          still in
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TD>
+                    <TD align="right">
+                      <RowActions
+                        row={row}
+                        off={off}
+                        canCorrect={canCorrect}
+                        onCorrect={onCorrect}
+                      />
+                    </TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </TableWrap>
+        </div>
+
+        <ul className="divide-y divide-line sm:hidden">
+          {roster.rows.map((row) => {
+            const shift = rota.shiftOn(row.employeeId, roster.date);
+            const off = offToday(row);
+            return (
+              <li key={row.employeeId} className="flex flex-col gap-2 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <TextLink href={`/people/${row.employeeId}`}>
+                      {row.employeeName}
+                    </TextLink>
+                    {row.jobTitle && (
+                      <p className="mt-0.5 text-body-sm text-muted">
+                        {row.jobTitle}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
                     <Badge tone={STATUS_TONE[row.status]} size="sm" dot>
                       {STATUS_LABEL[row.status]}
                     </Badge>
-                    {row.lateByMinutes > 0 && (
-                      <span className="mt-0.5 block text-meta text-warning-text">
-                        {row.lateByMinutes > 60
-                          ? hoursLabel(row.lateByMinutes)
-                          : `${row.lateByMinutes} min`}{" "}
-                        late
-                      </span>
-                    )}
-                    {row.leave && (
-                      <span className="mt-0.5 block text-meta text-faint">
-                        {row.leave.type}, to {row.leave.endDate}
-                      </span>
-                    )}
-                    {row.anomaly && (
-                      <span className="mt-0.5 block text-meta font-medium text-warning-text">
-                        {row.anomaly}
-                      </span>
-                    )}
-                    {/* The rota, where there is one. A day off on a rota is a
-                        rest day whatever the office calendar says, so saying so
-                        here is what keeps this row and the payslip agreeing —
-                        and a rest day somebody worked anyway is money owed, on
-                        a surface this screen does not own. */}
-                    {shift ? (
-                      <span className="mt-0.5 block text-meta text-faint">
-                        On the rota: {shift.shiftName}, {timesLabel(shift)}
-                      </span>
-                    ) : off ? (
-                      row.clockIn ? (
-                        <span className="mt-0.5 block text-meta text-muted">
-                          Worked a rest day on their rota,{" "}
-                          <Link
-                            href="/people/overtime"
-                            className="font-medium text-accent-text underline underline-offset-4"
-                          >
-                            check overtime
-                          </Link>
-                        </span>
-                      ) : (
-                        <span className="mt-0.5 block text-meta text-muted">
-                          Rest day on their rota: no pay is held back
-                        </span>
-                      )
-                    ) : null}
-                    {row.correctionNote && (
-                      <span className="mt-0.5 block text-meta text-faint">
-                        Corrected: {row.correctionNote}
-                      </span>
-                    )}
-                  </TD>
-                  <TD className="tabular">{row.clockIn ?? "—"}</TD>
-                  <TD className="tabular text-muted">
-                    {row.clockOut ? (
-                      row.clockOut
-                    ) : row.clockIn ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        {/* A fact about this row — clocked in, nothing clocked
-                            out against it yet — not a page-refresh countdown
-                            this screen does not run. True whether or not
-                            anybody reloads. Ping ring matches `ThinkingState`;
-                            the solid dot matches `Badge`'s own status dot. */}
-                        <span
-                          aria-hidden="true"
-                          className="relative flex size-3 shrink-0 items-center justify-center"
-                        >
-                          <span className="absolute inline-flex size-3 rounded-full bg-success/40 motion-safe:animate-ping" />
-                          <span className="relative inline-flex size-1.5 rounded-full bg-success" />
-                        </span>
-                        still in
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </TD>
-                  <TD align="right">
                     <RowActions
                       row={row}
                       off={off}
                       canCorrect={canCorrect}
                       onCorrect={onCorrect}
                     />
-                  </TD>
-                </TR>
-              );
-            })}
-          </TBody>
-        </TableWrap>
+                  </div>
+                </div>
+
+                <RosterStatusDetails row={row} shift={shift} off={off} />
+
+                <div className="flex items-center gap-4 text-body-sm tabular text-muted">
+                  <span>In {row.clockIn ?? "—"}</span>
+                  <span>
+                    Out {row.clockOut ?? (row.clockIn ? "still in" : "—")}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </Card>
+    </>
+  );
+}
+
+/**
+ * The optional lines under a roster status — late, leave, an anomaly, the
+ * rota, a correction. One copy read by both the desktop cell and the mobile
+ * card, so a sixth line added here reaches both without being written twice.
+ */
+function RosterStatusDetails({
+  row,
+  shift,
+  off,
+}: {
+  row: ApiRosterRow;
+  shift: ApiRotaCell | null;
+  off: boolean;
+}) {
+  return (
+    <>
+      {row.lateByMinutes > 0 && (
+        <span className="mt-0.5 block text-meta text-warning-text">
+          {row.lateByMinutes > 60
+            ? hoursLabel(row.lateByMinutes)
+            : `${row.lateByMinutes} min`}{" "}
+          late
+        </span>
+      )}
+      {row.leave && (
+        <span className="mt-0.5 block text-meta text-faint">
+          {row.leave.type}, to {row.leave.endDate}
+        </span>
+      )}
+      {row.anomaly && (
+        <span className="mt-0.5 block text-meta font-medium text-warning-text">
+          {row.anomaly}
+        </span>
+      )}
+      {/* The rota, where there is one. A day off on a rota is a rest day
+          whatever the office calendar says, so saying so here is what keeps
+          this row and the payslip agreeing — and a rest day somebody worked
+          anyway is money owed, on a surface this screen does not own. */}
+      {shift ? (
+        <span className="mt-0.5 block text-meta text-faint">
+          On the rota: {shift.shiftName}, {timesLabel(shift)}
+        </span>
+      ) : off ? (
+        row.clockIn ? (
+          <span className="mt-0.5 block text-meta text-muted">
+            Worked a rest day on their rota,{" "}
+            <TextLink href="/people/overtime" className="underline">
+              check overtime
+            </TextLink>
+          </span>
+        ) : (
+          <span className="mt-0.5 block text-meta text-muted">
+            Rest day on their rota: no pay is held back
+          </span>
+        )
+      ) : null}
+      {row.correctionNote && (
+        <span className="mt-0.5 block text-meta text-faint">
+          Corrected: {row.correctionNote}
+        </span>
+      )}
     </>
   );
 }
@@ -781,12 +838,9 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                 <TR key={row.employeeId} interactive>
                   <TDPrimary
                     title={
-                      <Link
-                        href={`/people/${row.employeeId}`}
-                        className="hover:text-accent-text hover:underline underline-offset-4"
-                      >
+                      <TextLink href={`/people/${row.employeeId}`}>
                         {row.employeeName}
-                      </Link>
+                      </TextLink>
                     }
                     subtitle={
                       onRota
@@ -851,12 +905,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                     {rota.loading ? (
                       <Skeleton className="ml-auto h-4 w-20" />
                     ) : onRota ? (
-                      <Link
-                        href="/people/shifts"
-                        className="text-body-sm font-medium text-accent-text underline underline-offset-4"
-                      >
-                        From their rota
-                      </Link>
+                      <TextLink href="/people/shifts">From their rota</TextLink>
                     ) : (row.proration.amount ?? 0) > 0 ? (
                       <span className="inline-flex flex-col items-end">
                         <span className="inline-flex items-center gap-1.5 font-medium text-danger-text">
@@ -883,164 +932,5 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
         </TBody>
       </TableWrap>
     </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/**
- * An HR correction.
- *
- * The note is required rather than optional. Payroll pays against this number,
- * so a change without a stated reason is exactly the kind of thing an auditor
- * asks about and nobody can answer.
- *
- * The location select starts on "leave it as it is" rather than on a default,
- * because a roster row carries a location *name* and not its id — so preselecting
- * anything would quietly move somebody's site the next time HR fixed a time.
- * Omitting the field leaves the stored value alone.
- */
-function CorrectionDialog({
-  row,
-  date,
-  locations,
-  onClose,
-}: {
-  row: ApiRosterRow;
-  date: string;
-  locations: ApiWorkLocation[];
-  onClose: () => void;
-}) {
-  const { correct } = useAttendanceMutations();
-  const toast = useToast();
-
-  const [clockIn, setClockIn] = useState(row.clockIn ?? "");
-  const [clockOut, setClockOut] = useState(row.clockOut ?? "");
-  const [locationId, setLocationId] = useState("");
-  const [note, setNote] = useState("");
-  const [touched, setTouched] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  async function save() {
-    setTouched(true);
-    if (!note.trim()) return;
-    setSaving(true);
-    try {
-      await correct(
-        row.employeeId,
-        date,
-        {
-          clockIn: clockIn || null,
-          clockOut: clockOut || null,
-          ...(locationId ? { locationId } : {}),
-        },
-        note,
-      );
-      toast.push({
-        title: `${row.employeeName}'s record corrected`,
-        tone: "success",
-        detail: "The change and your reason are both on the record.",
-      });
-      /* `correct` announces, so every attendance read on this screen refetches
-         itself. All this has left to do is shut the dialog. */
-      onClose();
-    } catch (error) {
-      toast.push({
-        title: "The correction was refused",
-        tone: "danger",
-        detail:
-          error instanceof ApiError
-            ? error.message
-            : "Something went wrong. Try again.",
-      });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={`Correct ${row.employeeName}'s day`}
-      description={`${shortDate(date)}. The reason is kept with the change.`}
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="accent"
-            disabled={saving}
-            onClick={() => void save()}
-          >
-            Save correction
-          </Button>
-        </div>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Clocked in" help="Leave empty to record an absence.">
-            <Input
-              type="time"
-              value={clockIn}
-              onChange={(e) => {
-                const v = e.target.value;
-                setClockIn(v);
-              }}
-            />
-          </Field>
-          <Field label="Clocked out">
-            <Input
-              type="time"
-              value={clockOut}
-              onChange={(e) => {
-                const v = e.target.value;
-                setClockOut(v);
-              }}
-            />
-          </Field>
-        </div>
-
-        <Field label="Where">
-          <Select
-            value={locationId}
-            onChange={(e) => {
-              const v = e.target.value;
-              setLocationId(v);
-            }}
-          >
-            <option value="">
-              {row.workLocation
-                ? `Leave as ${row.workLocation}`
-                : "Leave as it is"}
-            </option>
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-                {location.addressLine ? ` — ${location.addressLine}` : ""}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        <Field
-          label="Reason for the change"
-          required
-          error={touched && !note.trim() ? "A reason is required." : undefined}
-          help="Payroll pays against this record."
-        >
-          <Input
-            value={note}
-            placeholder="Forgot to clock out; confirmed with their manager"
-            onChange={(e) => {
-              const v = e.target.value;
-              setNote(v);
-            }}
-          />
-        </Field>
-      </div>
-    </Modal>
   );
 }

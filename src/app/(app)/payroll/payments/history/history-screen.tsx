@@ -2,7 +2,6 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Banknote, History, Receipt } from "lucide-react";
 import {
   Badge,
@@ -25,6 +24,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   type PickerOption,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -341,43 +341,130 @@ export function PaymentHistoryScreen() {
             />
           ) : (
             <>
-              <TableWrap
-                className="rounded-none border-0"
-                caption="Payments, newest first"
-              >
-                <THead>
-                  <TH>Person</TH>
-                  <TH>Pay month</TH>
-                  <TH align="right">Net paid</TH>
-                  <TH>Payment</TH>
-                  <TH>Batch</TH>
-                </THead>
-                <TBody>
-                  {history.rows.map((row) => {
-                    const outcome = paymentOutcome(row);
-                    return (
-                      <TR key={row.id}>
-                        <TDPrimary
-                          title={
-                            /* A payee with no employee record is a real state —
-                               `employeeId` is nullable — and a link to
-                               `/people/null` is worse than plain text. */
-                            row.employeeId ? (
-                              <Link
-                                href={`/people/${row.employeeId}`}
-                                className="hover:text-accent-text hover:underline underline-offset-4"
-                              >
-                                {row.payeeName}
-                              </Link>
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-none border-0"
+                  caption="Payments, newest first"
+                >
+                  <THead>
+                    <TH>Person</TH>
+                    <TH>Pay month</TH>
+                    <TH align="right">Net paid</TH>
+                    <TH>Payment</TH>
+                    <TH>Batch</TH>
+                  </THead>
+                  <TBody>
+                    {history.rows.map((row) => {
+                      const outcome = paymentOutcome(row);
+                      return (
+                        <TR key={row.id}>
+                          <TDPrimary
+                            title={
+                              /* A payee with no employee record is a real
+                                 state — `employeeId` is nullable — and a
+                                 link to `/people/null` is worse than plain
+                                 text. */
+                              row.employeeId ? (
+                                <TextLink href={`/people/${row.employeeId}`}>
+                                  {row.payeeName}
+                                </TextLink>
+                              ) : (
+                                row.payeeName
+                              )
+                            }
+                            subtitle={
+                              row.employeeId ? undefined : "Not on the payroll"
+                            }
+                          />
+                          <TD>
+                            {row.period ? (
+                              monthLabel(`${row.period}-01`)
                             ) : (
-                              row.payeeName
-                            )
-                          }
-                          subtitle={
-                            row.employeeId ? undefined : "Not on the payroll"
-                          }
-                        />
-                        <TD>
+                              <span className="text-muted">
+                                No pay month
+                                <span className="mt-0.5 block text-meta">
+                                  Raised {longDate(row.raisedAt.slice(0, 10))}
+                                </span>
+                              </span>
+                            )}
+                          </TD>
+                          <TD
+                            align="right"
+                            className="tabular font-medium text-ink"
+                          >
+                            <Money amount={naira(row.amountKobo)} decimals />
+                          </TD>
+                          <TD>
+                            <Badge tone={outcome.tone} size="sm" dot>
+                              {outcome.label}
+                            </Badge>
+                            {/* Only where the reason is about this one
+                                payment. The general explanation is the
+                                callout above; a sentence under fifty badges
+                                is noise. */}
+                            {row.failureReason && (
+                              <span className="mt-1 block text-meta text-danger-text">
+                                {row.failureReason}
+                              </span>
+                            )}
+                          </TD>
+                          <TD>
+                            <TextLink
+                              href={`/payroll/payments/${row.batchId}`}
+                              className="text-body-sm font-normal"
+                            >
+                              {row.batchReference}
+                            </TextLink>
+                            {row.payDate && (
+                              <span className="mt-0.5 block text-meta text-muted">
+                                Due {longDate(row.payDate)}
+                              </span>
+                            )}
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
+                {history.rows.map((row) => {
+                  const outcome = paymentOutcome(row);
+                  return (
+                    <li key={row.id} className="flex flex-col gap-2 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          {row.employeeId ? (
+                            <TextLink
+                              href={`/people/${row.employeeId}`}
+                              className="text-body-sm"
+                            >
+                              {row.payeeName}
+                            </TextLink>
+                          ) : (
+                            <p className="text-body-sm font-medium text-ink">
+                              {row.payeeName}
+                            </p>
+                          )}
+                          {!row.employeeId && (
+                            <p className="mt-0.5 text-meta text-muted">
+                              Not on the payroll
+                            </p>
+                          )}
+                        </div>
+                        <Badge tone={outcome.tone} size="sm" dot>
+                          {outcome.label}
+                        </Badge>
+                      </div>
+                      {row.failureReason && (
+                        <p className="text-meta text-danger-text">
+                          {row.failureReason}
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">
                           {row.period ? (
                             monthLabel(`${row.period}-01`)
                           ) : (
@@ -388,44 +475,26 @@ export function PaymentHistoryScreen() {
                               </span>
                             </span>
                           )}
-                        </TD>
-                        <TD
-                          align="right"
-                          className="tabular font-medium text-ink"
-                        >
+                        </span>
+                        <span className="tabular text-body-sm font-medium text-ink">
                           <Money amount={naira(row.amountKobo)} decimals />
-                        </TD>
-                        <TD>
-                          <Badge tone={outcome.tone} size="sm" dot>
-                            {outcome.label}
-                          </Badge>
-                          {/* Only where the reason is about this one payment.
-                              The general explanation is the callout above; a
-                              sentence under fifty badges is noise. */}
-                          {row.failureReason && (
-                            <span className="mt-1 block text-meta text-danger-text">
-                              {row.failureReason}
-                            </span>
-                          )}
-                        </TD>
-                        <TD>
-                          <Link
-                            href={`/payroll/payments/${row.batchId}`}
-                            className="text-body-sm text-accent-text hover:underline underline-offset-4"
-                          >
-                            {row.batchReference}
-                          </Link>
-                          {row.payDate && (
-                            <span className="mt-0.5 block text-meta text-muted">
-                              Due {longDate(row.payDate)}
-                            </span>
-                          )}
-                        </TD>
-                      </TR>
-                    );
-                  })}
-                </TBody>
-              </TableWrap>
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-body-sm">
+                        <TextLink href={`/payroll/payments/${row.batchId}`}>
+                          {row.batchReference}
+                        </TextLink>
+                        {row.payDate && (
+                          <span className="tabular text-meta text-muted">
+                            Due {longDate(row.payDate)}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
 
               {history.total > history.pageSize && (
                 <CardBody className="flex flex-wrap items-center justify-between gap-3">
@@ -459,12 +528,9 @@ export function PaymentHistoryScreen() {
           <span>
             This is money. For what somebody earned and what was deducted, open
             their{" "}
-            <Link
-              href="/payroll/payslips"
-              className="text-accent-text hover:underline underline-offset-4"
-            >
+            <TextLink href="/payroll/payslips" className="font-normal">
               payslip
-            </Link>
+            </TextLink>
             .
           </span>
         </p>

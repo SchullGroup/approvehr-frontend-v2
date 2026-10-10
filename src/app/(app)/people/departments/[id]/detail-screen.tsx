@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Building2, Users } from "lucide-react";
 
 import {
@@ -19,6 +18,7 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useDepartment } from "@/lib/store/departments";
@@ -70,12 +70,9 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
             title="That unit is not here"
             description="It may have been archived, or the link may be out of date. The structure screen lists everything that is there."
             action={
-              <Link
-                href="/people/departments"
-                className="text-body-sm font-medium text-accent-text underline underline-offset-4"
-              >
+              <TextLink href="/people/departments" className="text-body-sm">
                 Back to the structure
-              </Link>
+              </TextLink>
             }
           />
         </PageBody>
@@ -178,40 +175,69 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
                 title="Nobody is in this unit yet"
                 description="Assign people to it from the structure screen."
                 action={
-                  <Link
-                    href="/people/departments"
-                    className="text-body-sm font-medium text-accent-text underline underline-offset-4"
-                  >
+                  <TextLink href="/people/departments" className="text-body-sm">
                     Assign people
-                  </Link>
+                  </TextLink>
                 }
               />
             </CardBody>
           ) : (
-            <TableWrap
-              className="rounded-none border-0"
-              caption="People in this unit"
-            >
-              <THead>
-                <TH>Name</TH>
-                <TH>Job title</TH>
-                <TH align="right">Monthly</TH>
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-none border-0"
+                  caption="People in this unit"
+                >
+                  <THead>
+                    <TH>Name</TH>
+                    <TH>Job title</TH>
+                    <TH align="right">Monthly</TH>
+                  </THead>
+                  <TBody>
+                    {people.map((person) => (
+                      <TR key={person.id}>
+                        <TDPrimary
+                          title={
+                            <TextLink href={`/people/${person.id}`}>
+                              {person.name}
+                            </TextLink>
+                          }
+                        />
+                        <TD>{person.jobTitle}</TD>
+                        <TD align="right">
+                          <Money
+                            amount={
+                              person.grossMonthlyKobo === null
+                                ? null
+                                : person.grossMonthlyKobo / 100
+                            }
+                            size="sm"
+                          />
+                        </TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
                 {people.map((person) => (
-                  <TR key={person.id}>
-                    <TDPrimary
-                      title={
-                        <Link
-                          href={`/people/${person.id}`}
-                          className="hover:underline"
-                        >
-                          {person.name}
-                        </Link>
-                      }
-                    />
-                    <TD>{person.jobTitle}</TD>
-                    <TD align="right">
+                  <li
+                    key={person.id}
+                    className="flex items-center justify-between gap-3 p-4"
+                  >
+                    <div className="min-w-0">
+                      <TextLink
+                        href={`/people/${person.id}`}
+                        className="text-body-sm"
+                      >
+                        {person.name}
+                      </TextLink>
+                      <p className="mt-0.5 text-meta text-muted">
+                        {person.jobTitle}
+                      </p>
+                    </div>
+                    <span className="tabular shrink-0 text-body-sm text-body">
                       <Money
                         amount={
                           person.grossMonthlyKobo === null
@@ -220,11 +246,11 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
                         }
                         size="sm"
                       />
-                    </TD>
-                  </TR>
+                    </span>
+                  </li>
                 ))}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
         </Card>
 

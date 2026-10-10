@@ -24,9 +24,11 @@ import { useCan } from "@/lib/permissions";
 import { useAssistantAvailable } from "@/lib/store/ai";
 
 /**
- * The assistant: what it does, whether it is on, and how to switch it on.
- * No form here — the credential is an environment variable read at boot, so
- * a field here could only look like it saves a key and doesn't.
+ * The assistant: what it does, whether it is on, and how it is switched on.
+ * No form here — the credential is an environment variable read at boot, so a
+ * field here could only look like it saves a key and not. This page exists so
+ * the feature is discoverable at all: other screens render `null` when no
+ * assistant is wired, which left nowhere saying it existed.
  */
 
 /** Everywhere it appears, and what each one is built from. */

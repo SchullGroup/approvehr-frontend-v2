@@ -70,10 +70,14 @@ export const ai2Usage = (signal?: AbortSignal): Promise<Ai2Usage> =>
   request<Ai2Usage>("/ai2/usage", { ...(signal ? { signal } : {}) });
 
 /**
- * Ask and watch the turn happen; resolves when the stream ends, with
- * everything (including a failed turn's reason) reported through `onEvent`.
- * A throw means the request never started — once the body opens, nothing
- * throws. SSE over POST, since `EventSource` can't carry a bearer token or body.
+ * Ask, and watch the turn happen. Resolves when the stream ends; everything is
+ * reported through `onEvent`, including a failed turn's reason.
+ *
+ * A throw means the request never started. Once the body is open, nothing
+ * throws.
+ *
+ * SSE over POST rather than `EventSource`, which cannot carry a bearer token
+ * or take a body.
  */
 export async function askAi2Stream(
   messages: Ai2Message[],

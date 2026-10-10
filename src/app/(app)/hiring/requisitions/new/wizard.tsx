@@ -17,6 +17,7 @@ import {
   IconButton,
   Input,
   Money,
+  Picker,
   RadioCard,
   Select,
   Skeleton,
@@ -36,11 +37,12 @@ import {
   useStageMutations,
 } from "@/lib/store/recruitment";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { useDepartments } from "@/lib/store/departments";
 import { useSession } from "@/lib/store/session";
 import { STAGES, fullName, type StageId } from "@/lib/types";
 
 const BREADCRUMB = [
-  { href: "/hiring", label: "Pipeline" },
+  { href: "/hiring", label: "Hiring" },
   { href: "/hiring/requisitions/new", label: "New requisition" },
 ];
 
@@ -56,6 +58,10 @@ const BREADCRUMB = [
 
 type Draft = {
   title: string;
+  departmentId: string;
+  /** The department's name, kept in sync with `departmentId` — see `setDepartment`
+   *  below. This is what the advert copy sentences actually read, since they are
+   *  words for a candidate rather than a foreign key. */
   department: string;
   location: string;
   employmentType: "full_time" | "contract" | "internship";
@@ -75,6 +81,7 @@ type Draft = {
 
 const EMPTY: Draft = {
   title: "",
+  departmentId: "",
   department: "",
   location: "",
   employmentType: "full_time",
@@ -96,7 +103,7 @@ const EMPTY: Draft = {
   ],
   screeningQuestions: [],
   hiringManagerId: "",
-  recruiterId: "p-06",
+  recruiterId: "",
   notes: "",
 };
 
@@ -219,18 +226,28 @@ function Wizard() {
   const requisitions = useRequisitionMutations();
   const stages = useStageMutations();
   const directory = useEmployeeDirectory({ pageSize: 200 });
+  const departments = useDepartments();
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [busy, setBusy] = useState(false);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
+  /* `departmentId` is what gets sent to the API; `department` is the name the
+     advert copy sentences read. Kept in sync here rather than re-derived at
+     every call site, so the four places that already thread `department`
+     through as a plain string need no change. */
+  const setDepartment = (id: string) => {
+    const name = departments.flat.find((d) => d.id === id)?.name ?? "";
+    setDraft((d) => ({ ...d, departmentId: id, department: name }));
+  };
+
   const min = Number(draft.salaryMin.replace(/\D/g, "")) || 0;
   const max = Number(draft.salaryMax.replace(/\D/g, "")) || 0;
   const bandInvalid = min > 0 && max > 0 && min > max;
 
   const complete = {
-    role: Boolean(draft.title && draft.department && draft.location),
+    role: Boolean(draft.title && draft.departmentId && draft.location),
     pay: min > 0 && max > 0 && !bandInvalid,
     process: draft.activeStages.length >= 2,
     team: Boolean(draft.hiringManagerId && draft.recruiterId),
@@ -293,6 +310,7 @@ function Wizard() {
           ...(min > 0 ? { bandMinKobo: kobo(min) } : {}),
           ...(max > 0 ? { bandMaxKobo: kobo(max) } : {}),
           description,
+          ...(draft.departmentId ? { departmentId: draft.departmentId } : {}),
           ...(draft.hiringManagerId
             ? { hiringManagerId: draft.hiringManagerId }
             : {}),
@@ -379,25 +397,25 @@ function Wizard() {
                 </Field>
 
                 <div className="grid gap-5 sm:grid-cols-2">
-                  <Field label="Department" required>
-                    <Select
-                      value={draft.department}
-                      onChange={(e) => set("department", e.currentTarget.value)}
+                  <Field
+                    label="Department"
+                    required
+                    {...(departments.error
+                      ? {
+                          help: `${departments.error.message} Departments are unavailable.`,
+                        }
+                      : {})}
+                  >
+                    <Picker
+                      value={draft.departmentId}
+                      onChange={setDepartment}
                       placeholder="Select a department"
-                    >
-                      {[
-                        "Engineering",
-                        "Finance",
-                        "Product",
-                        "Operations",
-                        "People",
-                        "Sales",
-                      ].map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </Select>
+                      loading={departments.loading}
+                      options={departments.flat.map((d) => ({
+                        value: d.id,
+                        label: d.name,
+                      }))}
+                    />
                   </Field>
 
                   <Field label="Location" required>
@@ -702,6 +720,7 @@ function Wizard() {
                   <Select
                     value={draft.recruiterId}
                     onChange={(e) => set("recruiterId", e.currentTarget.value)}
+                    placeholder="Select a recruiter"
                   >
                     {directory.employees.map((e) => (
                       <option key={e.id} value={e.id}>
@@ -729,13 +748,24 @@ function Wizard() {
               <div className="flex flex-col gap-5">
                 <div className="flex flex-col gap-2">
                   <SourceBadge live={adverts.editable} />
-                  <p className="text-body-sm text-body">
-                    This saves the job (title, location, type, pay range and the
-                    text below) as a<strong>draft advert</strong>. Nothing is
-                    public until you publish it. Stages, screening questions and
-                    the hiring team stay on this screen; there is no endpoint
-                    for them yet.
-                  </p>
+                  {isConnected ? (
+                    <p className="text-body-sm text-body">
+                      This saves a real <strong>requisition</strong> — title,
+                      location, type, pay range, department, hiring manager and
+                      its pipeline stages — plus a <strong>draft advert</strong>
+                      . Nothing is public until you publish it. Screening
+                      questions and the note for approvers stay on this screen;
+                      there is no field for them yet.
+                    </p>
+                  ) : (
+                    <p className="text-body-sm text-body">
+                      This saves the job (title, location, type, pay range and
+                      the text below) as a <strong>draft advert</strong>.
+                      Nothing is public until you publish it. Stages, the hiring
+                      team and screening questions all need a connected company
+                      to save; there is nowhere to put them offline.
+                    </p>
+                  )}
                 </div>
 
                 <ReviewBlock

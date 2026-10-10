@@ -258,8 +258,10 @@ function Turn({
         </p>
       )}
 
-      {/* No step list or cost shown here — those belong beside the orb while
-          it's live and on the usage gauge, not under a finished answer. */}
+      {/* What it read is narrated while it reads, beside the orb, and what the
+          turn cost is the gauge's job — neither belongs under a finished
+          answer, where they push the answer up the card and say nothing
+          anybody acts on. */}
 
       {turn.proposed && (
         <Proposal

@@ -127,6 +127,17 @@ type WireRequest = {
   requestedAt: string;
   decidedAt: string | null;
   decidedById: string | null;
+  /** Who actually decided it — never the same as `approverName`, which is only
+   *  who it was routed to. Null until decided, and null on an account with no
+   *  linked employee record. */
+  decidedByName: string | null;
+  decidedByJobTitle: string | null;
+  /** The department head's yes in a two-step workflow, which is not a decision:
+   *  `decidedAt`/`decidedByName` stay null until HR has decided. Optional
+   *  because an API that predates two-step approval does not send them. */
+  firstApprovedAt?: string | null;
+  firstApprovedByName?: string | null;
+  firstApprovedByJobTitle?: string | null;
   decisionNote: string | null;
 };
 
@@ -179,7 +190,11 @@ type WireType = {
   requiresEvidence: boolean;
   minNoticeDays: number;
   isPaid: boolean;
+  eligibleGender: EligibleGender;
 };
+
+/** Null is everyone — the ordinary case. One of `GENDER_OPTIONS` narrows it. */
+export type EligibleGender = "female" | "male" | "other" | null;
 
 /* ---------------------------------------------------------------- the shapes */
 
@@ -221,6 +236,16 @@ export type LeaveRow = {
   requestedAt: string | null;
   decidedAt: string | null;
   decidedById: string | null;
+  /** Who actually decided it, never `approverName` — see the wire type's own
+   *  comment. Null until decided. */
+  decidedByName: string | null;
+  decidedByJobTitle: string | null;
+  /** Who gave the first approval of a two-step request, and the day. Null when
+   *  nobody has, which is every request in demo mode. Not a decision: those
+   *  stay null until HR has decided. */
+  firstApprovedAt: string | null;
+  firstApprovedByName: string | null;
+  firstApprovedByJobTitle: string | null;
   decisionNote: string | null;
 };
 
@@ -267,6 +292,7 @@ export type LeaveTypeRow = {
   requiresEvidence: boolean;
   minNoticeDays: number;
   isPaid: boolean;
+  eligibleGender: EligibleGender;
 };
 
 /**
@@ -285,6 +311,7 @@ export type NewLeaveType = {
   requiresEvidence?: boolean;
   minNoticeDays?: number;
   isPaid?: boolean;
+  eligibleGender?: EligibleGender;
 };
 
 /** Every field optional — `PATCH /leave/types/:id` accepts any subset. */
@@ -415,6 +442,11 @@ function toRow(wire: WireRequest): LeaveRow {
     requestedAt: dayOf(wire.requestedAt),
     decidedAt: dayOf(wire.decidedAt),
     decidedById: wire.decidedById,
+    decidedByName: wire.decidedByName,
+    decidedByJobTitle: wire.decidedByJobTitle,
+    firstApprovedAt: dayOf(wire.firstApprovedAt ?? null),
+    firstApprovedByName: wire.firstApprovedByName ?? null,
+    firstApprovedByJobTitle: wire.firstApprovedByJobTitle ?? null,
     decisionNote: wire.decisionNote,
   };
 }
@@ -464,6 +496,7 @@ const toType = (wire: WireType): LeaveTypeRow => ({
   requiresEvidence: wire.requiresEvidence,
   minNoticeDays: wire.minNoticeDays,
   isPaid: wire.isPaid,
+  eligibleGender: wire.eligibleGender,
 });
 
 /* ------------------------------------------------------------------- the api */

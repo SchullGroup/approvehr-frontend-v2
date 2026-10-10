@@ -4,26 +4,12 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Badge, Button, LinkedText, Select, Textarea } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import type { ApiKeyResult, ApiTask } from "@/lib/api/performance";
+import type { ApiKeyResult } from "@/lib/api/performance";
+import {
+  TASK_GRADE_LABEL,
+  TASK_GRADE_TONE,
+} from "@/lib/performance/task-grade";
 import { useGoalTasks, useTaskActions } from "@/lib/store/performance";
-
-const GRADE_LABEL: Record<NonNullable<ApiTask["grade"]> | "UNGRADED", string> =
-  {
-    COMPLETED: "Done",
-    PARTIALLY_COMPLETED: "Partly done",
-    NOT_COMPLETED: "Not done",
-    UNGRADED: "Not graded yet",
-  };
-
-const GRADE_TONE: Record<
-  NonNullable<ApiTask["grade"]> | "UNGRADED",
-  "success" | "warning" | "danger" | "neutral"
-> = {
-  COMPLETED: "success",
-  PARTIALLY_COMPLETED: "warning",
-  NOT_COMPLETED: "danger",
-  UNGRADED: "neutral",
-};
 
 /**
  * What was actually done toward one objective, week by week.
@@ -156,18 +142,30 @@ export function TaskLogPanel({
       {tasks.length > 0 && (
         <ul className="mt-2 flex flex-col gap-1.5">
           {tasks.slice(0, 5).map((task) => {
-            const key = task.grade ?? "UNGRADED";
             return (
               <li
                 key={task.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line px-3 py-2"
+                className="rounded-md border border-line px-3 py-2"
               >
-                <span className="min-w-0 text-body-sm text-body">
-                  <LinkedText>{task.description}</LinkedText>
-                </span>
-                <Badge tone={GRADE_TONE[key]} size="sm">
-                  {GRADE_LABEL[key]}
-                </Badge>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="min-w-0 text-body-sm text-body">
+                    <LinkedText>{task.description}</LinkedText>
+                  </span>
+                  <Badge
+                    tone={task.grade ? TASK_GRADE_TONE[task.grade] : "neutral"}
+                    size="sm"
+                  >
+                    {task.grade
+                      ? TASK_GRADE_LABEL[task.grade]
+                      : "Not graded yet"}
+                  </Badge>
+                </div>
+                {task.gradeNote && (
+                  <p className="mt-1 text-meta text-body">
+                    <span className="font-medium text-ink">Comment:</span>{" "}
+                    <LinkedText>{task.gradeNote}</LinkedText>
+                  </p>
+                )}
               </li>
             );
           })}

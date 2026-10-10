@@ -86,7 +86,9 @@ import { todayIn } from "@/lib/time";
  * `SIGNATURE_KIND` stays wherever a signature is explained.
  */
 
-const TONE: Record<
+/** Also used by `people/documents/employee-file.tsx`, so a signature's status
+    badge cannot read one colour on that drawer and another here. */
+export const TONE: Record<
   ApiSignatureStatus,
   "warning" | "success" | "danger" | "neutral"
 > = {
@@ -107,8 +109,14 @@ const TONE: Record<
  * it against a timestamp makes a document due today read as overdue from one
  * minute past midnight, and the reader is looking at a calendar rather than a
  * clock.
+ *
+ * Exported for the same reason `TONE` is — `employee-file.tsx`'s signature
+ * rows show the same overdue badge this screen does.
  */
-function overdueBy(record: ApiSignature, timeZone: string): number | null {
+export function overdueBy(
+  record: ApiSignature,
+  timeZone: string,
+): number | null {
   if (record.status !== "PENDING" || !record.dueDate) return null;
   const due = Date.parse(`${record.dueDate}T00:00:00Z`);
   if (Number.isNaN(due)) return null;
@@ -143,14 +151,8 @@ export function SignaturesScreen() {
            document is in front of them and that nobody can sign it for them. */
         description={
           canManage
-            ? "Send a document to a member of staff and record that they adopted it — a contract, an offer letter, a policy. Only the person it was sent to can sign it: not their manager, and not you."
-            : "Documents somebody has asked you to read and adopt as signed. Only you can sign the ones addressed to you, and what you sign is kept exactly as you saw it."
-        }
-        meta={
-          <span className="inline-flex items-center gap-1 text-meta text-faint">
-            <ShieldCheck aria-hidden="true" className="size-3.5" />
-            Each one names the exact document by its fingerprint
-          </span>
+            ? "Send a document to someone and record that they signed it. Nobody else can sign in their place, not even their manager."
+            : "A document somebody sent you to read and sign. Nobody else can sign it for you, not even your manager."
         }
         action={
           /* Absent without the permission rather than present and refusing —
@@ -198,24 +200,32 @@ export function SignaturesScreen() {
         ) : read.loading || !read.data ? (
           <Spinner label="Loading" />
         ) : read.data.length === 0 ? (
-          <EmptyState
-            title={
-              tab === "mine"
-                ? "Nothing is waiting on your signature"
-                : "Nothing has been sent for signature yet"
-            }
-            description={
-              tab === "mine"
-                ? "When somebody sends you a document to sign, it appears here — and nobody else can sign it for you."
-                : canManage
-                  ? /* Points at the control rather than describing the
-                       capability. The old copy said a contract "can be sent",
-                       which was true and was not actionable, on a screen that
-                       until now had no way to send one. */
-                    "Use “Send for signature” above to put a contract, offer letter or policy in front of somebody."
-                  : "Documents you send or are asked to sign will be listed here."
-            }
-          />
+          /* Bare `EmptyState` has no edges of its own — see `feedback.tsx`.
+             `approvals/inbox.tsx` wraps every empty state in a `Card` for
+             exactly that reason; this one hadn't been. */
+          <Card>
+            <EmptyState
+              icon={<FileSignature aria-hidden="true" />}
+              title={
+                tab === "mine"
+                  ? "Nothing is waiting on your signature"
+                  : "Nothing has been sent for signature yet"
+              }
+              description={
+                tab === "mine"
+                  ? /* The header already says nobody else can sign for you —
+                       no need to say it twice on an empty screen. */
+                    "It appears here the moment somebody sends you one to sign."
+                  : canManage
+                    ? /* Points at the control rather than describing the
+                         capability. The old copy said a contract "can be
+                         sent", which was true and was not actionable, on a
+                         screen that until now had no way to send one. */
+                      "Use “Send for signature” above to put a contract, offer letter or policy in front of somebody."
+                    : "Documents you send or are asked to sign will be listed here."
+              }
+            />
+          </Card>
         ) : (
           <div className="flex flex-col gap-4">
             {read.data.map((record) => (

@@ -5,9 +5,14 @@ import { request } from "@/lib/api/client";
 /**
  * Suggestions — `/api/v1/ai`. Typed wrappers only, no React, no state.
  *
- * A suggestion only fills a form field for someone to edit and submit — there
- * is no `acceptSuggestion`, and nothing auto-applies. With no assistant wired,
- * the API answers `available: false` with a reason, never an empty array.
+ * A suggestion is never saved by these calls — every function is a read that
+ * fills a form field somebody then edits and submits normally. There is no
+ * `acceptSuggestion`, and no screen may auto-apply a suggestion.
+ *
+ * With no assistant wired the API answers 200 with `available: false` and a
+ * reason, never `suggestions: []` — an empty array would claim it had no
+ * ideas rather than that it was never asked. `groundedIn` comes back on both
+ * arms of `ApiSuggestOutcome`.
  */
 
 /** What the assistant was given. Rendered to the reader, never paraphrased. */
@@ -60,8 +65,9 @@ export const suggestTaskSummary = (body: {
   });
 
 /**
- * Development areas behind a low competency score — built only from
- * competencies below target, never the composite mark. Appraiser only.
+ * Development areas behind a low competency score. Built only from
+ * competencies scored below target, never the composite mark or written
+ * comments. For the appraiser only — the employee never receives it.
  */
 export const suggestDevelopment = (body: {
   employeeId: string;
@@ -73,9 +79,10 @@ export const suggestDevelopment = (body: {
   });
 
 /**
- * A whole appraisal period, drafted from a paragraph. Two calls so the wizard
- * can keep whichever half arrives; `text` travels as data, never an
- * instruction. Both need `MANAGE_SETTINGS` and neither writes anything.
+ * A whole appraisal period, drafted from a paragraph. Two calls, matching the
+ * API, so the wizard can keep whichever half arrives. `text` travels as a
+ * fact, never an instruction. Both need `MANAGE_SETTINGS`, since both end in
+ * `POST /performance/cycles`. Neither writes anything.
  */
 export const draftPeriodGoals = (body: {
   text: string;
@@ -161,8 +168,9 @@ export type ApiChatReply = {
 };
 
 /**
- * Sending lives in `api/ai2.ts` and streams. `ApiChatReply` stays here too —
- * it's also what the scripted sales build answers in, which has no stream.
+ * Sending a turn lives in `api/ai2.ts` and streams. `ApiChatMessage` and
+ * `ApiChatReply` stay: `ApiChatReply` is also what the scripted sales build
+ * answers in, which has no stream.
  */
 
 /** `permission`: one this account may not hold. `service`: nothing is wired to perform it. */

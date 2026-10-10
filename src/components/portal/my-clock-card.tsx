@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Clock, LogIn, LogOut, Undo2 } from "lucide-react";
 import {
   Avatar,
@@ -22,11 +23,14 @@ import {
   useAttendanceMutations,
   useAttendanceRoster,
   useLastClockLocation,
+  useMyCorrections,
   useWorkLocations,
 } from "@/lib/store/attendance";
 import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
+import { shortDate } from "@/lib/today";
 import { DayTimer } from "@/app/(app)/people/attendance/day-timer";
+import { RequestCorrectionDialog } from "@/app/(app)/people/attendance/my-attendance-history";
 
 /**
  * Somebody's own clock-in, extracted so `/dashboard` and `/people/attendance`
@@ -240,6 +244,18 @@ export function MyClockCard() {
                   : "You have not clocked in today."}
             </p>
 
+            {/* An earlier day still open.
+              ----------------------------
+              The roster is one day, so yesterday's unclosed entry is not in
+              today's answer at all, and "Clock out" below cannot close it —
+              it closes today. This is the only place the person is told.
+              The way through is a correction request: what time somebody
+              actually left is theirs to say and HR's to approve, not
+              something this card should invent. */}
+            {roster.earlierOpen && (
+              <EarlierOpenNotice earlier={roster.earlierOpen} />
+            )}
+
             {/* Bold and ahead of the click, not a caption after it: the
               question this answers is "what time do I need to be here",
               and that only matters before somebody has clocked in. Once
@@ -290,6 +306,7 @@ export function MyClockCard() {
               <DayTimer
                 clockIn={myRow.clockIn}
                 serverTime={roster.time}
+                date={roster.date}
                 policy={policy}
                 className="mt-1.5"
               />
@@ -426,5 +443,83 @@ export function MyClockCard() {
         )}
       </CardBody>
     </Card>
+  );
+}
+
+/**
+ * An earlier day nobody clocked out of, and the way to put it right from here.
+ *
+ * The request form is the attendance page's own `RequestCorrectionDialog`,
+ * opened in place rather than linked to. That page offers the form only to
+ * somebody who cannot read the company roster (`MyAttendanceHistoryPanel`),
+ * and HR's own correction dialog there edits today's row alone — so a link
+ * sent a manager or an administrator to a screen with no way to deal with a
+ * day that was already over.
+ *
+ * Somebody who holds `EDIT_RECORDS` is the one who would decide the request, so
+ * they are sent to that day on the attendance calendar instead, where HR's own
+ * form changes the record directly.
+ *
+ * Mounted only when there is such a day, so `useMyCorrections` costs nothing
+ * for everybody else. A request already waiting for HR replaces the button
+ * rather than sitting beside it, or the card would keep asking for something
+ * that has been asked for.
+ */
+function EarlierOpenNotice({
+  earlier,
+}: {
+  earlier: { date: string; clockIn: string };
+}) {
+  const toast = useToast();
+  const corrections = useMyCorrections();
+  const canEditRecords = useCan("EDIT_RECORDS");
+  const [asking, setAsking] = useState(false);
+
+  const asked = corrections.requests.some(
+    (request) =>
+      request.workDate === earlier.date && request.status === "PENDING",
+  );
+
+  return (
+    <div className="mt-2">
+      <p className="text-body-sm text-warning-text">
+        You did not clock out on {shortDate(earlier.date)} (in at{" "}
+        {earlier.clockIn}).{" "}
+        {canEditRecords ? (
+          <Link
+            href={`/people/attendance/history?date=${earlier.date}`}
+            className="font-medium underline underline-offset-4"
+          >
+            Correct it
+          </Link>
+        ) : asked ? (
+          "You have asked HR to correct it."
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAsking(true)}
+            className="cursor-pointer font-medium underline underline-offset-4"
+          >
+            Ask for a correction
+          </button>
+        )}
+      </p>
+
+      {asking && (
+        <RequestCorrectionDialog
+          row={{ date: earlier.date, clockIn: earlier.clockIn, clockOut: null }}
+          onClose={() => setAsking(false)}
+          onSent={() => {
+            setAsking(false);
+            corrections.reload();
+            toast.push({
+              title: "Sent to HR",
+              tone: "success",
+              detail: "Nothing changes until they decide.",
+            });
+          }}
+        />
+      )}
+    </div>
   );
 }

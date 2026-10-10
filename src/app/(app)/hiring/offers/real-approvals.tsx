@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ThumbsDown } from "lucide-react";
+import { Check, TriangleAlert } from "lucide-react";
 import {
   Badge,
   Button,
@@ -44,6 +44,7 @@ export function RealApprovals() {
     return (
       <Card>
         <EmptyState
+          icon={<TriangleAlert aria-hidden="true" />}
           title="Could not load offers"
           description={error.message}
           action={
@@ -139,7 +140,16 @@ function RealOfferCard({
             {application.candidateName}
           </TextLink>
         }
-        description={`${application.requisitionJobTitle} · ${application.requisitionReference}`}
+        description={
+          <>
+            {application.requisitionJobTitle} ·{" "}
+            <TextLink
+              href={`/hiring/requisitions/${application.requisitionId}`}
+            >
+              {application.requisitionReference}
+            </TextLink>
+          </>
+        }
         action={
           <Badge tone="warning" dot>
             {offer.approvedAt
@@ -186,10 +196,21 @@ function RealOfferCard({
             <Button
               variant="accent"
               loading={busy}
-              onClick={() => void run(() => mutations.send(offer.id), "Sent")}
+              onClick={() =>
+                void run(() => mutations.send(offer.id), "Marked as sent")
+              }
             >
-              Send offer
+              Mark as sent
             </Button>
+          )}
+          {/* Same sentence as the candidate page's `OfferCard` for this
+              exact state — an approver-only viewer holds `canApprove` but
+              not `canManage`, so neither button above renders and the card
+              otherwise says nothing about where the offer stands. */}
+          {offer.approvedAt && !canManage && (
+            <span className="text-meta text-muted">
+              Approved. Waiting to be sent.
+            </span>
           )}
           {/* Only once approved, which is the API's own gate — see
               `lib/api/exports.ts#offerLetter`. Rendering it earlier would be a
@@ -205,21 +226,29 @@ function RealOfferCard({
               }
             />
           )}
-          {/* `canManage`, not `canApprove`: `POST /offers/:id/decline` is gated
-              on `MANAGE_HIRING`. Without this the screen offered Decline to
-              somebody holding only `APPROVE_HIRING` — who can read this page
-              and would get a 403 on the press. If declining should be an
-              approver's act, that is a change to the route, not to this line. */}
+          {/* `mutations.withdraw`, not `mutations.decline` — every card this
+              screen ever shows is PENDING_APPROVAL (see the `useOffers`
+              query above), and `POST /offers/:id/decline` refuses with a 409
+              unless the offer is SENT: "This offer is pending approval, so
+              there is no response to record." Decline models the candidate
+              answering no, which cannot yet have happened. Withdraw is the
+              correct act for pulling an offer back before it is even sent —
+              the candidate page's own OfferCard already uses it for this
+              exact state; this screen was calling the wrong one and every
+              press here refused.
+              `canManage`, not `canApprove`: `POST /offers/:id/withdraw` is
+              gated on `MANAGE_HIRING`. Without this the screen offered the
+              button to somebody holding only `APPROVE_HIRING` — who can read
+              this page and would get a 403 on the press. */}
           {!offer.approvedAt && canManage && (
             <Button
-              variant="secondary"
+              variant="ghost"
               loading={busy}
               onClick={() =>
-                void run(() => mutations.decline(offer.id), "Declined")
+                void run(() => mutations.withdraw(offer.id), "Withdrawn")
               }
             >
-              <ThumbsDown aria-hidden="true" className="size-4" />
-              Decline
+              Withdraw
             </Button>
           )}
           <TextLink
@@ -229,6 +258,17 @@ function RealOfferCard({
             Read the full record
           </TextLink>
         </div>
+        {/* `sendOffer` only flips the offer's status and stamps `sentAt` — it
+            sends no email and contacts the candidate in no way. "Mark as
+            sent" says that in the button; this says it again in a full
+            sentence, next to the one control on this card that actually
+            produces something to send. */}
+        {offer.approvedAt && canManage && (
+          <p className="text-body-sm text-muted">
+            Nothing is emailed. Download the offer letter and send it yourself —
+            this only marks the offer as sent in our records.
+          </p>
+        )}
       </CardBody>
     </Card>
   );

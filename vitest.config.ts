@@ -63,6 +63,29 @@ export default defineConfig({
        worktree — the two directories that have made a gate report errors in
        files nobody wrote, twice. */
     exclude: ["node_modules", ".next", ".next-*", ".claude"],
+    /**
+     * Five seconds is vitest's default and the wrong budget for this suite.
+     *
+     * These are jsdom component tests. The first test in a file pays for
+     * loading a large module graph, and `userEvent.type` re-renders a whole
+     * dialog on every keystroke. Measured on a 16-core machine: the slowest
+     * tests take 1 to 2 s on their own, and 4.4 s in an ordinary parallel run
+     * for the worst of them (the 23-keystroke one in `question-audience`). With
+     * three suites running at once — which is what a second terminal, an e2e
+     * run or a build looks like — that one takes 12 to 15 s and several others
+     * take 6 to 11 s. Against the five-second default, eleven to sixteen tests
+     * failed at that load, and not one of them was wrong: every one passed
+     * alone, and every failure was a timeout rather than an assertion. The two
+     * source scans read about six hundred files each and sit on the same curve.
+     *
+     * A suite that goes red for nothing teaches people to re-run past red,
+     * which is how a real defect gets through — the lesson this repo's handover
+     * records for its backend suite. 30 s is about twice the worst figure
+     * above. It costs nothing while a test is healthy, and a test that really
+     * hangs still fails, a little later and in its own file, since the others
+     * keep running.
+     */
+    testTimeout: 30_000,
   },
   resolve: {
     alias: {

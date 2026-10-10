@@ -47,10 +47,11 @@ import {
   REPAYMENT_STATUS_LABEL,
   useLoan,
   useLoanActions,
+  useLoanToday,
 } from "@/lib/store/loans";
 import { usePermissions } from "@/lib/permissions";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { TODAY } from "@/lib/today";
+import { ApprovedLoanCard } from "../approved-loan-card";
 import {
   CounterOfferModal,
   DeclineLoanModal,
@@ -117,8 +118,17 @@ export function LoanDetailScreen({ id }: { id: string }) {
   const { approve } = useLoanActions();
   const toast = useToast();
   const timeZone = useOrgTimezone();
+  const today = useLoanToday();
 
   const [approving, setApproving] = useState(false);
+  /* The approval just made on this page, kept at the top of it until the next
+     decision or until it is closed. `askedFor` is set when the approver changed
+     the terms, so the card can say what was applied for. */
+  const [approvedHere, setApprovedHere] = useState<{
+    loan: ApiLoanDetail;
+    askedFor?: { principalKobo: number; termMonths: number };
+    n: number;
+  } | null>(null);
   const [countering, setCountering] = useState<ApiLoanDetail | null>(null);
   const [declining, setDeclining] = useState<ApiLoanDetail | null>(null);
   const [paying, setPaying] = useState<ApiRepayment | null>(null);
@@ -175,7 +185,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
         principalKobo: loan.principalKobo,
         termMonths: loan.termMonths,
         interestRate: loan.interestRate,
-        startPeriod: loan.startPeriod ?? addMonths(TODAY, 1),
+        startPeriod: loan.startPeriod ?? addMonths(today, 1),
       })
     : null;
 
@@ -184,15 +194,11 @@ export function LoanDetailScreen({ id }: { id: string }) {
     setApproving(true);
     try {
       const approved = await approve(loan.id);
-      toast.push({
-        title: "Approved",
-        tone: "success",
-        detail: approved.startPeriod
-          ? `${money(approved.monthlyRepaymentKobo)} a month, first deduction ${monthLabel(
-              approved.startPeriod,
-            )}.`
-          : undefined,
-      });
+      /* No toast: the card at the top of the page says what was approved. */
+      setApprovedHere((current) => ({
+        loan: approved,
+        n: (current?.n ?? 0) + 1,
+      }));
     } catch (failure) {
       toast.push({
         title: "Could not approve it",
@@ -263,6 +269,18 @@ export function LoanDetailScreen({ id }: { id: string }) {
       />
 
       <PageBody className="flex flex-col gap-6">
+        {approvedHere && (
+          <ApprovedLoanCard
+            key={approvedHere.n}
+            loan={approvedHere.loan}
+            {...(approvedHere.askedFor
+              ? { askedFor: approvedHere.askedFor }
+              : {})}
+            linkToLoan={false}
+            onDismiss={() => setApprovedHere(null)}
+          />
+        )}
+
         {/* What was asked for, and by whom. The reason is the whole case. */}
         <Card>
           <CardHeader
@@ -296,7 +314,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
                   value: loan.startPeriod
                     ? monthLabel(loan.startPeriod)
                     : proposed
-                      ? `${monthLabel(proposed.lines[0]?.dueDate ?? TODAY)} if approved now`
+                      ? `${monthLabel(proposed.lines[0]?.dueDate ?? today)} if approved now`
                       : "Not set",
                 },
                 {
@@ -423,125 +441,225 @@ export function LoanDetailScreen({ id }: { id: string }) {
         {loan.schedule.length > 0 ? (
           <div className="flex flex-col gap-3">
             <h2 className="font-semibold text-ink">The repayment schedule</h2>
-            <TableWrap caption="Every instalment, what was taken and what is still owed">
-              <THead>
-                <TH>Instalment</TH>
-                <TH>Due</TH>
-                <TH align="right">Amount</TH>
-                <TH align="right">Paid</TH>
-                <TH>Status</TH>
-                {(canRecord || canDecide) && loan.status === "ACTIVE" && (
-                  <TH>
-                    <span className="sr-only">Record</span>
-                  </TH>
-                )}
-              </THead>
-              <TBody>
-                {loan.schedule.map((row) => {
-                  const columns =
-                    (canRecord || canDecide) && loan.status === "ACTIVE"
-                      ? 6
-                      : 5;
-                  const open =
-                    row.status === "SCHEDULED" || row.status === "PARTIAL";
-                  return (
-                    /* The fragment is the list item, so the key belongs on it —
-                       a partial or waived instalment renders two rows. */
-                    <Fragment key={row.id}>
-                      <TR>
-                        <TDPrimary
-                          title={`${row.sequence} of ${loan.progress.instalmentsTotal}`}
-                          {...(row.payslipId
-                            ? { subtitle: "taken by payroll" }
-                            : row.paidAt && row.status !== "SCHEDULED"
-                              ? { subtitle: "paid outside payroll" }
-                              : {})}
-                        />
-                        <TD>{shortMonthLabel(row.dueDate)}</TD>
-                        <TD align="right">
-                          <Money amount={naira(row.amountKobo)} decimals />
-                        </TD>
-                        <TD align="right">
-                          {row.paidAmountKobo === 0 ? (
-                            <span className="text-muted">—</span>
-                          ) : (
-                            <Money
-                              amount={naira(row.paidAmountKobo)}
-                              decimals
-                            />
-                          )}
-                        </TD>
-                        <TD>
-                          <Badge tone={ROW_TONE[row.status]} size="sm" dot>
-                            {REPAYMENT_STATUS_LABEL[row.status]}
-                          </Badge>
-                        </TD>
-                        {columns === 6 && (
+            <div className="hidden sm:block">
+              <TableWrap caption="Every instalment, what was taken and what is still owed">
+                <THead>
+                  <TH>Instalment</TH>
+                  <TH>Due</TH>
+                  <TH align="right">Amount</TH>
+                  <TH align="right">Paid</TH>
+                  <TH>Status</TH>
+                  {(canRecord || canDecide) && loan.status === "ACTIVE" && (
+                    <TH>
+                      <span className="sr-only">Record</span>
+                    </TH>
+                  )}
+                </THead>
+                <TBody>
+                  {loan.schedule.map((row) => {
+                    const columns =
+                      (canRecord || canDecide) && loan.status === "ACTIVE"
+                        ? 6
+                        : 5;
+                    const open =
+                      row.status === "SCHEDULED" || row.status === "PARTIAL";
+                    return (
+                      /* The fragment is the list item, so the key belongs on
+                         it — a partial or waived instalment renders two
+                         rows. */
+                      <Fragment key={row.id}>
+                        <TR>
+                          <TDPrimary
+                            title={`${row.sequence} of ${loan.progress.instalmentsTotal}`}
+                            {...(row.payslipId
+                              ? { subtitle: "taken by payroll" }
+                              : row.paidAt && row.status !== "SCHEDULED"
+                                ? { subtitle: "paid outside payroll" }
+                                : {})}
+                          />
+                          <TD>{shortMonthLabel(row.dueDate)}</TD>
                           <TD align="right">
-                            {open && (
-                              <div className="flex justify-end gap-1.5">
-                                {canRecord && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setPaying(row)}
-                                  >
-                                    Record a payment
-                                  </Button>
-                                )}
-                                {canDecide && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setWaiving(row)}
-                                  >
-                                    Write off
-                                  </Button>
-                                )}
-                              </div>
+                            <Money amount={naira(row.amountKobo)} decimals />
+                          </TD>
+                          <TD align="right">
+                            {row.paidAmountKobo === 0 ? (
+                              <span className="text-muted">—</span>
+                            ) : (
+                              <Money
+                                amount={naira(row.paidAmountKobo)}
+                                decimals
+                              />
                             )}
                           </TD>
+                          <TD>
+                            <Badge tone={ROW_TONE[row.status]} size="sm" dot>
+                              {REPAYMENT_STATUS_LABEL[row.status]}
+                            </Badge>
+                          </TD>
+                          {columns === 6 && (
+                            <TD align="right">
+                              {open && (
+                                <div className="flex justify-end gap-1.5">
+                                  {canRecord && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setPaying(row)}
+                                    >
+                                      Record a payment
+                                    </Button>
+                                  )}
+                                  {canDecide && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setWaiving(row)}
+                                    >
+                                      Write off
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </TD>
+                          )}
+                        </TR>
+
+                        {/* The one sentence this screen exists for. A row
+                            that says "part paid" and nothing else is a row
+                            somebody has to ring payroll about. */}
+                        {row.status === "PARTIAL" && (
+                          <TR className="bg-canvas">
+                            <TD
+                              colSpan={columns}
+                              className="text-body-sm text-body"
+                            >
+                              {money(row.paidAmountKobo)} of{" "}
+                              {money(row.amountKobo)} came out in{" "}
+                              {monthLabel(row.dueDate)}. That month&rsquo;s pay
+                              could not carry the rest. The remaining{" "}
+                              <strong className="font-semibold text-ink">
+                                {money(row.remainingKobo)}
+                              </strong>{" "}
+                              carries to the next payroll and is taken before
+                              that month&rsquo;s own instalment.
+                            </TD>
+                          </TR>
                         )}
-                      </TR>
 
-                      {/* The one sentence this screen exists for. A row that
-                          says "part paid" and nothing else is a row somebody
-                          has to ring payroll about. */}
-                      {row.status === "PARTIAL" && (
-                        <TR className="bg-canvas">
-                          <TD
-                            colSpan={columns}
-                            className="text-body-sm text-body"
-                          >
-                            {money(row.paidAmountKobo)} of{" "}
-                            {money(row.amountKobo)} came out in{" "}
-                            {monthLabel(row.dueDate)}. That month&rsquo;s pay
-                            could not carry the rest. The remaining{" "}
-                            <strong className="font-semibold text-ink">
-                              {money(row.remainingKobo)}
-                            </strong>{" "}
-                            carries to the next payroll and is taken before that
-                            month&rsquo;s own instalment.
-                          </TD>
-                        </TR>
-                      )}
+                        {row.status === "WAIVED" && (
+                          <TR className="bg-canvas">
+                            <TD
+                              colSpan={columns}
+                              className="text-body-sm text-body"
+                            >
+                              Written off, so nothing more is owed on it.
+                              {row.note ? ` ${row.note}` : ""}
+                            </TD>
+                          </TR>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </TBody>
+              </TableWrap>
+            </div>
 
-                      {row.status === "WAIVED" && (
-                        <TR className="bg-canvas">
-                          <TD
-                            colSpan={columns}
-                            className="text-body-sm text-body"
-                          >
-                            Written off, so nothing more is owed on it.
-                            {row.note ? ` ${row.note}` : ""}
-                          </TD>
-                        </TR>
+            <ul className="divide-y divide-line sm:hidden">
+              {loan.schedule.map((row) => {
+                const open =
+                  row.status === "SCHEDULED" || row.status === "PARTIAL";
+                return (
+                  <li key={row.id} className="flex flex-col gap-2 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-body-sm font-medium text-ink">
+                          {row.sequence} of {loan.progress.instalmentsTotal}
+                        </p>
+                        {(row.payslipId ||
+                          (row.paidAt && row.status !== "SCHEDULED")) && (
+                          <p className="mt-0.5 text-meta text-muted">
+                            {row.payslipId
+                              ? "taken by payroll"
+                              : "paid outside payroll"}
+                          </p>
+                        )}
+                      </div>
+                      <Badge tone={ROW_TONE[row.status]} size="sm" dot>
+                        {REPAYMENT_STATUS_LABEL[row.status]}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">Due</span>
+                      <span className="tabular text-body-sm text-body">
+                        {shortMonthLabel(row.dueDate)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">Amount</span>
+                      <span className="tabular text-body-sm text-body">
+                        <Money amount={naira(row.amountKobo)} decimals />
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">Paid</span>
+                      <span className="tabular text-body-sm font-medium text-ink">
+                        {row.paidAmountKobo === 0 ? (
+                          "—"
+                        ) : (
+                          <Money amount={naira(row.paidAmountKobo)} decimals />
+                        )}
+                      </span>
+                    </div>
+
+                    {row.status === "PARTIAL" && (
+                      <p className="rounded-md bg-canvas p-2.5 text-meta leading-relaxed text-body">
+                        {money(row.paidAmountKobo)} of {money(row.amountKobo)}{" "}
+                        came out in {monthLabel(row.dueDate)}. That
+                        month&rsquo;s pay could not carry the rest. The
+                        remaining{" "}
+                        <strong className="font-semibold text-ink">
+                          {money(row.remainingKobo)}
+                        </strong>{" "}
+                        carries to the next payroll and is taken before that
+                        month&rsquo;s own instalment.
+                      </p>
+                    )}
+                    {row.status === "WAIVED" && (
+                      <p className="rounded-md bg-canvas p-2.5 text-meta leading-relaxed text-body">
+                        Written off, so nothing more is owed on it.
+                        {row.note ? ` ${row.note}` : ""}
+                      </p>
+                    )}
+
+                    {open &&
+                      (canRecord || canDecide) &&
+                      loan.status === "ACTIVE" && (
+                        <div className="flex gap-1.5">
+                          {canRecord && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setPaying(row)}
+                            >
+                              Record a payment
+                            </Button>
+                          )}
+                          {canDecide && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setWaiving(row)}
+                            >
+                              Write off
+                            </Button>
+                          )}
+                        </div>
                       )}
-                    </Fragment>
-                  );
-                })}
-              </TBody>
-            </TableWrap>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         ) : proposed ? (
           <div className="flex flex-col gap-3">
@@ -552,32 +670,59 @@ export function LoanDetailScreen({ id }: { id: string }) {
               Nothing is deducted until somebody approves this. Approving
               creates these {proposed.lines.length} instalments and payroll
               starts taking them in{" "}
-              {monthLabel(proposed.lines[0]?.dueDate ?? TODAY)}.
+              {monthLabel(proposed.lines[0]?.dueDate ?? today)}.
             </p>
-            <TableWrap caption="The schedule this loan would create if it were approved">
-              <THead>
-                <TH>Instalment</TH>
-                <TH>Due</TH>
-                <TH align="right">Amount</TH>
-              </THead>
-              <TBody>
-                {proposed.lines.map((line) => (
-                  <TR key={line.sequence}>
-                    <TDPrimary
-                      title={`${line.sequence} of ${proposed.lines.length}`}
-                      {...(line.sequence === proposed.lines.length &&
-                      proposed.finalInstalmentKobo !== proposed.instalmentKobo
-                        ? { subtitle: "the balancing figure" }
-                        : {})}
-                    />
-                    <TD>{shortMonthLabel(line.dueDate)}</TD>
-                    <TD align="right">
+            <div className="hidden sm:block">
+              <TableWrap caption="The schedule this loan would create if it were approved">
+                <THead>
+                  <TH>Instalment</TH>
+                  <TH>Due</TH>
+                  <TH align="right">Amount</TH>
+                </THead>
+                <TBody>
+                  {proposed.lines.map((line) => (
+                    <TR key={line.sequence}>
+                      <TDPrimary
+                        title={`${line.sequence} of ${proposed.lines.length}`}
+                        {...(line.sequence === proposed.lines.length &&
+                        proposed.finalInstalmentKobo !== proposed.instalmentKobo
+                          ? { subtitle: "the balancing figure" }
+                          : {})}
+                      />
+                      <TD>{shortMonthLabel(line.dueDate)}</TD>
+                      <TD align="right">
+                        <Money amount={naira(line.amountKobo)} decimals />
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
+              {proposed.lines.map((line) => (
+                <li key={line.sequence} className="flex flex-col gap-1 p-4">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-body-sm font-medium text-ink">
+                      {line.sequence} of {proposed.lines.length}
+                    </span>
+                    <span className="tabular text-body-sm text-body">
                       <Money amount={naira(line.amountKobo)} decimals />
-                    </TD>
-                  </TR>
-                ))}
-              </TBody>
-            </TableWrap>
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-meta text-muted">
+                    <span className="tabular">
+                      {shortMonthLabel(line.dueDate)}
+                    </span>
+                    {line.sequence === proposed.lines.length &&
+                      proposed.finalInstalmentKobo !==
+                        proposed.instalmentKobo && (
+                        <span>the balancing figure</span>
+                      )}
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
 
@@ -608,6 +753,16 @@ export function LoanDetailScreen({ id }: { id: string }) {
         <CounterOfferModal
           loan={countering}
           onClose={() => setCountering(null)}
+          onDone={(approved) =>
+            setApprovedHere((current) => ({
+              loan: approved,
+              askedFor: {
+                principalKobo: countering.principalKobo,
+                termMonths: countering.termMonths,
+              },
+              n: (current?.n ?? 0) + 1,
+            }))
+          }
         />
       )}
       {declining && (

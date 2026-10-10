@@ -1,11 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { missingForPayroll, type Employee } from "@/lib/types";
+import {
+  directoryPersonOf,
+  missingForPayroll,
+  type DirectoryPerson,
+  type Employee,
+} from "@/lib/types";
 import { isUuid } from "@/lib/api/audit";
 import { ApiError } from "@/lib/api/client";
 import {
   employees as api,
+  isFullEmployeeRow,
+  toDirectoryPerson,
   toEmployee,
   toKobo,
   type ApiEmployee,
@@ -45,7 +52,28 @@ import { todayIn } from "@/lib/time";
  */
 
 export type DirectoryState = {
+  /**
+   * The **full** records — what a caller with `EDIT_RECORDS` is sent.
+   *
+   * Empty, not partial, when the API answered with lookup rows (see
+   * `lookupOnly`): an `Employee` with no status or email in it would be one
+   * made up to fit the type, and every screen reading those fields would be
+   * trusting an invention. A screen that needs only names and where people
+   * sit reads `people` instead and works for everybody.
+   */
   employees: Employee[];
+  /**
+   * Everybody in the answer, as far as **any** signed-in person may see them:
+   * name, title, department, manager. Full rows project down to it, so this is
+   * the one list that is complete in every mode and for every caller.
+   */
+  people: DirectoryPerson[];
+  /**
+   * True when the API answered with lookup rows — the caller has no
+   * `EDIT_RECORDS` — so `employees` is empty because the rows it would be
+   * built from were never sent, not because nobody is there.
+   */
+  lookupOnly: boolean;
   total: number;
   loading: boolean;
   error: ApiError | null;
@@ -69,6 +97,8 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
 
   const [state, setState] = useState<DirectoryState>({
     employees: [],
+    people: [],
+    lookupOnly: false,
     total: 0,
     loading: isConnected,
     error: null,
@@ -96,14 +126,20 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
         controller.signal,
       );
       if (ticket !== latest.current) return;
+      /* A caller without `EDIT_RECORDS` is sent lookup rows, which have no
+         status to lower-case — this used to throw here, be swallowed below,
+         and leave every list this hook feeds empty for them. */
+      const full = page.data.filter(isFullEmployeeRow);
       setState({
-        employees: page.data.map(toEmployee),
+        employees: full.map(toEmployee),
+        people: page.data.map(toDirectoryPerson),
+        lookupOnly: full.length < page.data.length,
         total: page.meta.total,
         loading: false,
         error: null,
         connected: true,
         archivedIds: new Set(
-          page.data.filter((row) => row.archived).map((row) => row.id),
+          full.filter((row) => row.archived).map((row) => row.id),
         ),
       });
     } catch (error) {
@@ -141,8 +177,11 @@ export function useEmployeeDirectory(params: EmployeeListParams = {}) {
     const sorted = sortLocally(rows, parsed);
     const size = parsed.pageSize ?? 25;
     const start = ((parsed.page ?? 1) - 1) * size;
+    const pageRows = sorted.slice(start, start + size);
     return {
-      employees: sorted.slice(start, start + size),
+      employees: pageRows,
+      people: pageRows.map(directoryPersonOf),
+      lookupOnly: false,
       total: sorted.length,
       loading: false,
       error: null,

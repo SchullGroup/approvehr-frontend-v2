@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { CheckCheck, Inbox, Target } from "lucide-react";
 import {
   Avatar,
@@ -14,6 +13,7 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -31,7 +31,9 @@ import {
   useObjectiveMutations,
 } from "@/lib/store/performance";
 import { ApprovalReasonDialog, type ApprovalAct } from "../approval-dialogs";
+import { refusedSaid, sentBackSaid, type Said } from "../objective-copy";
 import { StartPeriodButton } from "../start-period";
+import { AgreedMoment, type Agreement } from "./agreed-moment";
 
 /**
  * Objectives waiting to be agreed.
@@ -82,10 +84,24 @@ export function ApprovalsScreen() {
     act: ApprovalAct;
   } | null>(null);
 
-  const run = async (action: () => Promise<unknown>, success: string) => {
+  /* The decision just made, shown above the queue until the next one or until
+     it is closed. Only an agreement has one: it is the act that fixes a target.
+     Sending back and refusing say what happened in a toast, which is the right
+     size for a decision that leaves the objective with somebody else to act on. */
+  const [agreed, setAgreed] = useState<Agreement | null>(null);
+
+  /* One write, one announcement. `said` is the toast for the decision, or null
+     when the caller shows something better; a failure is always a toast. */
+  const run = async (action: () => Promise<unknown>, said: Said | null) => {
     try {
       await action();
-      toast.push({ title: success, tone: "success" });
+      if (said) {
+        toast.push({
+          title: said.title,
+          tone: said.tone ?? "success",
+          ...(said.detail ? { detail: said.detail } : {}),
+        });
+      }
       approvals.reload();
       return true;
     } catch (error) {
@@ -116,12 +132,9 @@ export function ApprovalsScreen() {
             title="Appraisals are switched off"
             description="Agreeing objectives before the period they cover is part of the appraisal module. Turn it on and this queue fills itself."
             action={
-              <Link
-                href="/settings/features"
-                className="text-body-sm font-medium text-accent-text underline-offset-2 hover:underline"
-              >
+              <TextLink href="/settings/features" className="text-body-sm">
                 Open feature settings
-              </Link>
+              </TextLink>
             }
           />
         </PageBody>
@@ -186,6 +199,14 @@ export function ApprovalsScreen() {
                 hint="An objective with no measure is scored on a stated figure"
               />
             </div>
+          )}
+
+          {agreed && (
+            <AgreedMoment
+              key={agreed.n}
+              agreement={agreed}
+              onDismiss={() => setAgreed(null)}
+            />
           )}
 
           <Card>
@@ -254,11 +275,15 @@ export function ApprovalsScreen() {
         }
         onConfirm={async () => {
           if (!agreeing) return;
-          const ok = await run(
-            () => objectives.agree(agreeing.id),
-            `"${agreeing.title}" agreed`,
-          );
-          if (ok) setAgreeing(null);
+          /* No toast: the moment above the queue is the announcement. */
+          const ok = await run(() => objectives.agree(agreeing.id), null);
+          if (ok) {
+            setAgreed((previous) => ({
+              goal: agreeing,
+              n: (previous?.n ?? 0) + 1,
+            }));
+            setAgreeing(null);
+          }
         }}
       />
 
@@ -275,11 +300,14 @@ export function ApprovalsScreen() {
               act === "send_back"
                 ? objectives.sendBack(goal.id, reason)
                 : objectives.reject(goal.id, reason),
-            act === "send_back"
-              ? `"${goal.title}" sent back`
-              : `"${goal.title}" refused`,
+            act === "send_back" ? sentBackSaid(goal) : refusedSaid(goal),
           );
-          if (ok) setReasonFor(null);
+          if (ok) {
+            /* A different decision now: an agreement above the queue would be
+               the previous one, left standing beside this one's toast. */
+            setAgreed(null);
+            setReasonFor(null);
+          }
         }}
       />
     </>

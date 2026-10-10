@@ -205,10 +205,17 @@ export type ApiGoal = {
 /**
  * `POST /goals/:id/submit`.
  *
- * `sentTo` is **null when the owner has no manager** — somebody had to be told
- * and nobody was, which is a fact the screen has to say rather than swallow.
+ * `sentTo` is who it was addressed to, as **employee ids**: the owner's line
+ * manager, or else their department head, or else everybody who can edit
+ * records — less the person sending. It used to be typed as a nullable string,
+ * which the API has never sent, and nothing read it.
+ *
+ * **Empty is a real answer**: nobody else was asked to agree it. It is not who
+ * it *reached* — each is notified and the API does not report whether the
+ * notification landed — so a screen may count them and may not say they were
+ * told.
  */
-export type ApiObjectiveSubmitted = ApiGoal & { sentTo: string | null };
+export type ApiObjectiveSubmitted = ApiGoal & { sentTo: string[] };
 
 /** `POST /goals/:id/agree`. `note` is the API's one sentence about the freeze. */
 export type ApiObjectiveAgreed = ApiGoal & { agreed: true; note: string };
@@ -1308,6 +1315,14 @@ export type ApiRevisionRequest = {
   requestedAt: string;
 };
 
+/**
+ * How a reviewer marked a task. `REJECTED` is "not accepted as work against
+ * this objective" — it counts as not done, and the API will not take it
+ * without a reason.
+ */
+export type ApiTaskGrade =
+  "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED" | "REJECTED";
+
 /** One task logged against an objective, within one open week. */
 export type ApiTask = {
   id: string;
@@ -1316,7 +1331,9 @@ export type ApiTask = {
   keyResultId: string | null;
   employeeId: string;
   description: string;
-  grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED" | null;
+  grade: ApiTaskGrade | null;
+  /** The reviewer's comment on that grade, for the employee to read. */
+  gradeNote: string | null;
   gradedById: string | null;
   gradedAt: string | null;
   createdAt: string;
@@ -1335,7 +1352,9 @@ export type ApiMyTask = {
   goalTitle: string;
   keyResultId: string | null;
   description: string;
-  grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED" | null;
+  grade: ApiTaskGrade | null;
+  /** The reviewer's comment on that grade, if they left one. */
+  gradeNote: string | null;
   gradedAt: string | null;
   weekStart: string;
   weekEnd: string;
@@ -1363,6 +1382,11 @@ export type ApiTaskForGrading = {
   goalTitle: string;
   description: string;
   createdAt: string;
+  /**
+   * Its week has ended, so it can no longer be graded. Optional because an API
+   * that predates the field simply leaves it out, and absent means open.
+   */
+  weekClosed?: boolean;
 };
 
 /* -------------------------------------------------------------------- bodies */
@@ -1563,6 +1587,38 @@ const signalOf = (signal?: AbortSignal) => (signal ? { signal } : {});
 
 export type ApiPotentialLevel = "LOW" | "MEDIUM" | "HIGH";
 export type ApiPerformanceAxis = "BELOW" | "MEETS" | "EXCEEDS";
+
+export type ApiDepartmentTaskIntensity = {
+  departmentName: string;
+  /** Everybody this cycle asked who is in this department. */
+  total: number;
+  /** Of `total`, how many have at least one graded task this cycle. */
+  logging: number;
+  /** `total - logging` — asked, but nothing graded yet all cycle. */
+  silent: number;
+  /** Average completion rate among `logging`. Null, never 0, when `logging` is 0. */
+  avgRate: number | null;
+};
+
+export type ApiPromotionReadyPerson = {
+  employeeId: string;
+  employeeName: string;
+  jobTitle: string;
+  departmentName: string;
+  /** The two consecutive cycles they held the top band in, oldest first. */
+  cycles: [string, string];
+  /** Always equal to `competenciesExpected` — a partial match is not in this
+      list at all. See the API's own header for why. */
+  competenciesMet: number;
+  competenciesExpected: number;
+};
+
+export type ApiDepartmentPromotionReadiness = {
+  departmentName: string;
+  /** Empty, not absent, when the department was checked and nobody in it
+      qualifies this cycle. */
+  people: ApiPromotionReadyPerson[];
+};
 
 export type ApiNineBoxPerson = {
   employeeId: string;
@@ -2227,6 +2283,31 @@ export const performanceApi = {
       signalOf(signal),
     ),
 
+  /**
+   * Task-logging intensity by department, for one cycle.
+   *
+   * `EDIT_RECORDS`, like the register and the nine-box beside it — the same
+   * reasoning: a department rollup of who is and is not logging is only
+   * honest seen whole.
+   */
+  taskIntensity: (cycleId: string, signal?: AbortSignal) =>
+    request<ApiDepartmentTaskIntensity[]>(
+      `/performance/cycles/${cycleId}/task-intensity`,
+      signalOf(signal),
+    ),
+
+  /**
+   * Promotion-readiness by department, for one cycle.
+   *
+   * `EDIT_RECORDS`, like every other aggregate on this cycle — the register,
+   * the nine-box, and task intensity beside it.
+   */
+  promotionReadiness: (cycleId: string, signal?: AbortSignal) =>
+    request<ApiDepartmentPromotionReadiness[]>(
+      `/performance/cycles/${cycleId}/promotion-readiness`,
+      signalOf(signal),
+    ),
+
   /** Record or move somebody's potential. The reason is required — see above. */
   setPotential: (
     cycleId: string,
@@ -2451,14 +2532,14 @@ export const performanceApi = {
       body: { goalId, ...body },
     }),
 
-  /** Their manager, or `EDIT_RECORDS`. */
-  gradeTask: (
-    id: string,
-    grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED",
-  ) =>
+  /**
+   * Their manager, the head of their department, or `EDIT_RECORDS`. The
+   * comment is required for `PARTIALLY_COMPLETED` and `REJECTED`.
+   */
+  gradeTask: (id: string, grade: ApiTaskGrade, note?: string) =>
     request<ApiTask>(`/performance/tasks/${id}/grade`, {
       method: "PATCH",
-      body: { grade },
+      body: note ? { grade, note } : { grade },
     }),
 
   /* ---------------------------------------------------------------- reviews */

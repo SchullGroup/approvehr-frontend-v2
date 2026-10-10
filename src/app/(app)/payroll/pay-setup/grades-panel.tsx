@@ -265,20 +265,45 @@ export function GradesPanel() {
               }
             />
           ) : (
-            <TableWrap caption="Salary grades, ordered by level">
-              <THead>
-                <TH className="w-16">Level</TH>
-                <TH>Grade</TH>
-                <TH>Band a month</TH>
-                <TH align="right">People</TH>
-                <TH align="right">Monthly cost</TH>
-                <TH>
-                  <span className="sr-only-focusable">Actions</span>
-                </TH>
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap caption="Salary grades, ordered by level">
+                  <THead>
+                    <TH className="w-16">Level</TH>
+                    <TH>Grade</TH>
+                    <TH>Band a month</TH>
+                    <TH align="right">People</TH>
+                    <TH align="right">Monthly cost</TH>
+                    <TH>
+                      <span className="sr-only-focusable">Actions</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {grades.rows.map((row) => (
+                      <GradeRow
+                        key={row.id}
+                        row={row}
+                        editable={grades.editable}
+                        canApply={increase.canApply}
+                        onView={() => setViewing(row)}
+                        onRaise={() => setRaising(row)}
+                        onEdit={() => setEditing(row)}
+                        onArchive={() => setArchiving(row)}
+                        onRestore={() =>
+                          void run(
+                            () => grades.restore(row.id),
+                            `${row.code} is back on the ladder`,
+                          )
+                        }
+                      />
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
                 {grades.rows.map((row) => (
-                  <GradeRow
+                  <GradeCard
                     key={row.id}
                     row={row}
                     editable={grades.editable}
@@ -295,8 +320,8 @@ export function GradesPanel() {
                     }
                   />
                 ))}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
         </CardBody>
       </Card>
@@ -488,6 +513,124 @@ function GradeRow({
   );
 }
 
+/** The mobile card for one grade — the same facts and actions as `GradeRow`. */
+function GradeCard({
+  row,
+  editable,
+  canApply,
+  onView,
+  onRaise,
+  onEdit,
+  onArchive,
+  onRestore,
+}: {
+  row: ApiGrade;
+  editable: boolean;
+  canApply: boolean;
+  onView: () => void;
+  onRaise: () => void;
+  onEdit: () => void;
+  onArchive: () => void;
+  onRestore: () => void;
+}) {
+  return (
+    <li className={cn("flex flex-col gap-2 p-4", row.archived && "opacity-60")}>
+      <div className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+        <span className="tabular text-meta text-muted">L{row.level}</span>
+        <span className="tabular">{row.code}</span>
+        <span className="font-normal text-body">{row.name}</span>
+        {row.archived && (
+          <Badge tone="neutral" size="sm">
+            Archived
+          </Badge>
+        )}
+      </div>
+      {row.outsideBand > 0 && (
+        <button
+          type="button"
+          onClick={onView}
+          className="self-start rounded text-meta font-medium text-warning-text hover:underline underline-offset-4"
+        >
+          {row.outsideBand === 1
+            ? "1 person outside this band"
+            : `${row.outsideBand} people outside this band`}
+        </button>
+      )}
+
+      <div className="text-body-sm text-ink">
+        <span className="tabular">
+          <Money amount={naira(row.minGrossKobo)} decimals /> —{" "}
+          <Money amount={naira(row.maxGrossKobo)} decimals />
+        </span>
+        <span className="mt-0.5 block text-meta text-muted">
+          Mid-point <Money amount={naira(row.midGrossKobo)} decimals />
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-body-sm text-muted">People</span>
+        {row.employees === 0 ? (
+          <span className="text-body-sm text-faint">Nobody yet</span>
+        ) : (
+          <button
+            type="button"
+            onClick={onView}
+            className="tabular text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
+          >
+            {row.employees}
+          </button>
+        )}
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-body-sm text-muted">Monthly cost</span>
+        <span className="tabular text-body-sm text-ink">
+          <Money amount={naira(row.monthlyPayrollKobo)} decimals />
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {row.archived ? (
+          editable && (
+            <Button variant="secondary" size="sm" onClick={onRestore}>
+              <RotateCcw aria-hidden="true" className="size-3.5" />
+              Restore
+            </Button>
+          )
+        ) : (
+          <>
+            {row.employees > 0 && canApply && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onRaise}
+                aria-label={`Give everyone on ${row.code} a rise`}
+              >
+                <TrendingUp aria-hidden="true" className="size-3.5" />
+                Give a rise
+              </Button>
+            )}
+            {editable && (
+              <>
+                <Button variant="ghost" size="sm" onClick={onEdit}>
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onArchive}
+                  aria-label={`Archive ${row.code}`}
+                >
+                  <Trash2 aria-hidden="true" className="size-3.5" />
+                </Button>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </li>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 
 type GradeBody = {
@@ -498,6 +641,33 @@ type GradeBody = {
   midGrossKobo: number;
   maxGrossKobo: number;
 };
+
+type GradeFields = {
+  code: string;
+  name: string;
+  min: string;
+  max: string;
+  /* Empty means "halfway", which is what the line under the inputs shows. Kept
+     as a string so an edit that clears it falls back to the default rather than
+     to zero. */
+  mid: string;
+  level: string;
+};
+
+/** What the form holds when it opens: the grade's own values, or a blank form. */
+function fieldsFor(
+  grade: ApiGrade | undefined,
+  nextLevel: number,
+): GradeFields {
+  return {
+    code: grade?.code ?? "",
+    name: grade?.name ?? "",
+    min: grade ? String(naira(grade.minGrossKobo)) : "",
+    max: grade ? String(naira(grade.maxGrossKobo)) : "",
+    mid: grade ? String(naira(grade.midGrossKobo)) : "",
+    level: String(grade?.level ?? nextLevel),
+  };
+}
 
 /**
  * Add or edit a grade.
@@ -511,7 +681,7 @@ type GradeBody = {
 function GradeDialog({
   open,
   mode,
-  grade,
+  grade: gradeProp,
   nextLevel,
   onClose,
   onSubmit,
@@ -523,23 +693,34 @@ function GradeDialog({
   onClose: () => void;
   onSubmit: (body: GradeBody) => Promise<void>;
 }) {
-  const [code, setCode] = useState(grade?.code ?? "");
-  const [name, setName] = useState(grade?.name ?? "");
-  const [min, setMin] = useState(
-    grade ? String(naira(grade.minGrossKobo)) : "",
-  );
-  const [max, setMax] = useState(
-    grade ? String(naira(grade.maxGrossKobo)) : "",
-  );
-  /* Empty means "halfway", which is what the line under the inputs shows. Kept
-     as a string so an edit that clears it falls back to the default rather than
-     to zero. */
-  const [mid, setMid] = useState(
-    grade ? String(naira(grade.midGrossKobo)) : "",
-  );
-  const [level, setLevel] = useState(String(grade?.level ?? nextLevel));
+  /* Remembers the last real grade: the parent clears its prop the instant it
+     closes this, but the modal stays mounted for its exit animation and the
+     title must not go blank while it fades. */
+  const [grade, setGrade] = useState(gradeProp);
+  if (gradeProp && gradeProp !== grade) setGrade(gradeProp);
+
+  const [fields, setFields] = useState(() => fieldsFor(gradeProp, nextLevel));
   const [advanced, setAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  /* Re-seeds the form on every genuine open, not just the first mount. This
+     dialog stays mounted between uses, so the initial state above would
+     otherwise be whatever it was the first time — empty for an edit, since
+     nothing was being edited yet — and an add dialog would reopen holding the
+     last thing typed into it, and the level it was first given. */
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setFields(fieldsFor(gradeProp, nextLevel));
+      setAdvanced(false);
+    }
+  }
+
+  const set = <K extends keyof GradeFields>(field: K, value: GradeFields[K]) =>
+    setFields((current) => ({ ...current, [field]: value }));
+
+  const { code, name, min, max, mid, level } = fields;
 
   const minValue = parseAmount(min);
   const maxValue = parseAmount(max);
@@ -622,20 +803,14 @@ function GradeDialog({
               value={code}
               autoFocus={mode === "create"}
               placeholder="G3"
-              onChange={(e) => {
-                const value = e.target.value;
-                setCode(value.toUpperCase());
-              }}
+              onChange={(e) => set("code", e.target.value.toUpperCase())}
             />
           </Field>
           <Field label="Name" required>
             <Input
               value={name}
               placeholder="Lead"
-              onChange={(e) => {
-                const value = e.target.value;
-                setName(value);
-              }}
+              onChange={(e) => set("name", e.target.value)}
             />
           </Field>
         </div>
@@ -649,10 +824,7 @@ function GradeDialog({
               step={1000}
               value={min}
               placeholder="1300000"
-              onChange={(e) => {
-                const value = e.target.value;
-                setMin(value);
-              }}
+              onChange={(e) => set("min", e.target.value)}
             />
           </Field>
           <Field
@@ -668,10 +840,7 @@ function GradeDialog({
               step={1000}
               value={max}
               placeholder="1900000"
-              onChange={(e) => {
-                const value = e.target.value;
-                setMax(value);
-              }}
+              onChange={(e) => set("max", e.target.value)}
             />
           </Field>
         </div>
@@ -704,10 +873,7 @@ function GradeDialog({
                 min={1}
                 step={1}
                 value={level}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setLevel(value);
-                }}
+                onChange={(e) => set("level", e.target.value)}
               />
             </Field>
             <Field
@@ -720,10 +886,7 @@ function GradeDialog({
                 min={0}
                 step={1000}
                 value={mid}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setMid(value);
-                }}
+                onChange={(e) => set("mid", e.target.value)}
               />
             </Field>
           </div>

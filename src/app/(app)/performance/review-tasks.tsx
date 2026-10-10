@@ -19,8 +19,11 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
+import type { ApiTaskForGrading, ApiTaskGrade } from "@/lib/api/performance";
 import { dayOf } from "@/lib/api/performance";
+import { cn } from "@/lib/cn";
 import { useTaskActions, useTasksForGrading } from "@/lib/store/performance";
+import { TaskGradeDialog, type GradeRequest } from "./task-grade-dialog";
 
 /**
  * What still needs a grade.
@@ -44,12 +47,24 @@ import { useTaskActions, useTasksForGrading } from "@/lib/store/performance";
  * against one specific objective, and the objective is where that context
  * already lives. This tab is the other half: what somebody logged, waiting
  * for a manager to say whether it happened.
+ *
+ * ## Four marks, and a comment
+ *
+ * Not done, Partly done, Reject, Done. Done and Not done are one click.
+ * Partly done and Reject ask for a reason first, because a bare mark gives
+ * the employee nothing to act on. "Grade with a comment" is the quiet way to
+ * leave a comment on Done or Not done too. A task whose week has closed has no
+ * buttons at all: the API would refuse it, so the row says so instead.
  */
 export function ReviewTasksTab() {
   const { tasks, loading, error, reload } = useTasksForGrading();
   const actions = useTaskActions();
   const toast = useToast();
   const [grading, setGrading] = useState<string | null>(null);
+  /* What the comment dialog is about, and whether it is showing. Separate, so
+     clearing the request does not unmount the dialog before it can leave. */
+  const [request, setRequest] = useState<GradeRequest | null>(null);
+  const [asking, setAsking] = useState(false);
 
   /**
    * Tasks by the day they were logged, oldest day first.
@@ -89,15 +104,20 @@ export function ReviewTasksTab() {
     return [...byDay.values()].sort((a, b) => a.at - b.at);
   }, [tasks]);
 
-  const grade = async (
-    id: string,
-    value: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED",
-  ) => {
+  const save = async (id: string, value: ApiTaskGrade, note?: string) => {
+    await actions.gradeTask(id, value, note);
+    toast.push({
+      title: value === "REJECTED" ? "Rejected" : "Graded",
+      tone: "success",
+    });
+    reload();
+  };
+
+  /** Done and Not done: no reason needed, so one click. */
+  const grade = async (id: string, value: ApiTaskGrade) => {
     setGrading(id);
     try {
-      await actions.gradeTask(id, value);
-      toast.push({ title: "Graded", tone: "success" });
-      reload();
+      await save(id, value);
     } catch (err) {
       toast.push({
         title: "Could not grade that",
@@ -107,6 +127,11 @@ export function ReviewTasksTab() {
     } finally {
       setGrading(null);
     }
+  };
+
+  const ask = (task: ApiTaskForGrading, value: ApiTaskGrade | null) => {
+    setRequest({ task, grade: value });
+    setAsking(true);
   };
 
   /* Nothing waiting and nothing loading is not a state worth a card — see
@@ -153,82 +178,220 @@ export function ReviewTasksTab() {
             Loading
           </CardBody>
         ) : (
-          <TableWrap>
-            <THead>
-              <TH>Person</TH>
-              <TH>Objective</TH>
-              <TH>What they logged</TH>
-              <TH align="right">Grade</TH>
-            </THead>
-            <TBody>
-              {grouped.map((group) => (
-                <Fragment key={group.day}>
-                  {/* The day is a heading rather than a column.
-                      ---------------------------------------------------
-                      It was a cell on every row, which put the one thing
-                      that orders this queue — how long somebody has been
-                      waiting for a grade — in the fourth column, repeated,
-                      where a reader had to compare fifteen dates to find the
-                      oldest. Oldest group first, because a task logged nine
-                      days ago is the one that has been ignored. */}
-                  <TR>
-                    <TD
-                      colSpan={4}
-                      className="bg-sunken py-2 text-meta font-semibold text-muted"
-                    >
-                      Logged {group.day}
-                      <span className="ml-2 font-normal">
-                        {group.tasks.length === 1
-                          ? "1 task"
-                          : `${group.tasks.length} tasks`}
-                      </span>
-                    </TD>
-                  </TR>
-                  {group.tasks.map((task) => (
-                    <TR key={task.id}>
-                      <TDPrimary title={task.employeeName} />
-                      <TD>{task.goalTitle}</TD>
-                      <TD className="max-w-xs">
-                        <LinkedText>{task.description}</LinkedText>
-                      </TD>
-                      <TD align="right">
-                        <div className="flex justify-end gap-1.5">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            loading={grading === task.id}
-                            onClick={() => void grade(task.id, "NOT_COMPLETED")}
-                          >
-                            Not done
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            loading={grading === task.id}
-                            onClick={() =>
-                              void grade(task.id, "PARTIALLY_COMPLETED")
-                            }
-                          >
-                            Partly
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="accent"
-                            loading={grading === task.id}
-                            onClick={() => void grade(task.id, "COMPLETED")}
-                          >
-                            Done
-                          </Button>
-                        </div>
-                      </TD>
-                    </TR>
+          <>
+            <div className="hidden sm:block">
+              <TableWrap>
+                <THead>
+                  <TH>Person</TH>
+                  <TH>Objective</TH>
+                  <TH>What they logged</TH>
+                  <TH align="right">Grade</TH>
+                </THead>
+                <TBody>
+                  {grouped.map((group) => (
+                    <Fragment key={group.day}>
+                      {/* The day is a heading rather than a column.
+                          -----------------------------------------------
+                          It was a cell on every row, which put the one
+                          thing that orders this queue — how long somebody
+                          has been waiting for a grade — in the fourth
+                          column, repeated, where a reader had to compare
+                          fifteen dates to find the oldest. Oldest group
+                          first, because a task logged nine days ago is the
+                          one that has been ignored. */}
+                      <TR>
+                        <TD
+                          colSpan={4}
+                          className="bg-sunken py-2 text-meta font-semibold text-muted"
+                        >
+                          Logged {group.day}
+                          <span className="ml-2 font-normal">
+                            {group.tasks.length === 1
+                              ? "1 task"
+                              : `${group.tasks.length} tasks`}
+                          </span>
+                        </TD>
+                      </TR>
+                      {group.tasks.map((task) => (
+                        <TR key={task.id}>
+                          <TDPrimary title={task.employeeName} />
+                          <TD>{task.goalTitle}</TD>
+                          <TD className="max-w-xs">
+                            <LinkedText>{task.description}</LinkedText>
+                          </TD>
+                          <TD align="right">
+                            <GradeActions
+                              task={task}
+                              busy={grading === task.id}
+                              align="end"
+                              onGrade={(value) => void grade(task.id, value)}
+                              onAsk={(value) => ask(task, value)}
+                            />
+                          </TD>
+                        </TR>
+                      ))}
+                    </Fragment>
                   ))}
-                </Fragment>
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <div className="flex flex-col gap-4 sm:hidden">
+              {grouped.map((group) => (
+                <div key={group.day}>
+                  <p className="mb-2 px-1 text-meta font-semibold text-muted">
+                    Logged {group.day}
+                    <span className="ml-2 font-normal">
+                      {group.tasks.length === 1
+                        ? "1 task"
+                        : `${group.tasks.length} tasks`}
+                    </span>
+                  </p>
+                  <ul className="divide-y divide-line">
+                    {group.tasks.map((task) => (
+                      <li key={task.id} className="flex flex-col gap-2 p-4">
+                        <div>
+                          <p className="text-body-sm font-medium text-ink">
+                            {task.employeeName}
+                          </p>
+                          <p className="mt-0.5 text-meta text-muted">
+                            {task.goalTitle}
+                          </p>
+                        </div>
+                        <p className="text-body-sm text-body">
+                          <LinkedText>{task.description}</LinkedText>
+                        </p>
+                        <GradeActions
+                          task={task}
+                          busy={grading === task.id}
+                          align="start"
+                          onGrade={(value) => void grade(task.id, value)}
+                          onAsk={(value) => ask(task, value)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ))}
-            </TBody>
-          </TableWrap>
+            </div>
+          </>
         )}
       </Card>
+
+      <TaskGradeDialog
+        request={request}
+        open={asking}
+        onClose={() => {
+          setAsking(false);
+          setRequest(null);
+        }}
+        onConfirm={async (value, note) => {
+          if (!request) return;
+          await save(request.task.id, value, note);
+          setAsking(false);
+          setRequest(null);
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * The marks on one row.
+ *
+ * Not done · Partly done · Reject · Done — in that order, the worst to the
+ * best, with Done the one filled button. Reject is a ghost button in the
+ * danger colour: it is the one mark that is a refusal rather than a score, so
+ * it should not sit beside Done looking like its equal.
+ *
+ * Partly done and Reject do not grade at once; they hand the row to the
+ * comment dialog. "Grade with a comment" is the same dialog with a grade to
+ * pick, for leaving a note on Done or Not done.
+ *
+ * A closed week has none of this. `gradeTask` would answer 409, so the row
+ * says "Week closed" instead of offering marks that bounce.
+ */
+function GradeActions({
+  task,
+  busy,
+  align,
+  onGrade,
+  onAsk,
+}: {
+  task: ApiTaskForGrading;
+  busy: boolean;
+  align: "start" | "end";
+  onGrade: (grade: ApiTaskGrade) => void;
+  onAsk: (grade: ApiTaskGrade | null) => void;
+}) {
+  if (task.weekClosed) {
+    return (
+      <span
+        className={cn(
+          "text-meta text-muted",
+          align === "end" && "block text-right",
+        )}
+      >
+        Week closed
+      </span>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-1.5",
+        align === "end" ? "items-end" : "items-start",
+      )}
+    >
+      <div
+        className={cn(
+          "flex flex-wrap gap-1.5",
+          align === "end" && "justify-end",
+        )}
+      >
+        <Button
+          size="sm"
+          variant="ghost"
+          loading={busy}
+          onClick={() => onGrade("NOT_COMPLETED")}
+        >
+          Not done
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          loading={busy}
+          onClick={() => onAsk("PARTIALLY_COMPLETED")}
+        >
+          Partly done
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          loading={busy}
+          className="text-danger-text hover:bg-danger-soft hover:text-danger-text"
+          onClick={() => onAsk("REJECTED")}
+        >
+          Reject
+        </Button>
+        <Button
+          size="sm"
+          variant="accent"
+          loading={busy}
+          onClick={() => onGrade("COMPLETED")}
+        >
+          Done
+        </Button>
+      </div>
+      <button
+        type="button"
+        disabled={busy}
+        className="rounded text-meta text-muted underline decoration-dotted underline-offset-2 hover:text-accent-text hover:decoration-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text disabled:opacity-50"
+        onClick={() => onAsk(null)}
+      >
+        Grade with a comment
+      </button>
     </div>
   );
 }
