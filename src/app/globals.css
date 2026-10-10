@@ -1106,8 +1106,8 @@
 /* --------------------------------------------------------------------------
    The assistant's presence. One brand-coloured orb, reused wherever the chat
    needs to say "something is happening" without inventing a step that is not
-   real. `/ai/chat` is one round trip per turn, not a named pipeline with
-   stages to report — so the honest version of progress is a calm, alive
+   real. An ai2 turn is one stream, not a named pipeline with stages to
+   report — so the honest version of progress is a calm, alive
    presence rather than a fake checklist. See `components/portal/assistant-orb`.
 
    Three phases, one shape:
