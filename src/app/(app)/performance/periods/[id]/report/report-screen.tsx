@@ -272,10 +272,13 @@ function Headline({ report }: { report: ApiCycleReport }) {
       />
       <Stat
         label="Average mark"
+        /* An em dash, not a sentence — the hint already says why. */
         value={
-          distribution.meanBp === null
-            ? "No marks yet"
-            : scoreLabel(distribution.meanBp)
+          distribution.meanBp === null ? (
+            <span className="text-faint">—</span>
+          ) : (
+            scoreLabel(distribution.meanBp)
+          )
         }
         hint={
           distribution.meanBp === null

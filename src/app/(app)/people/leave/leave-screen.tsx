@@ -1,7 +1,7 @@
 "use client";
 
 import { sourceNote } from "@/lib/demo";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Ban,
@@ -49,6 +49,12 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { daysLabel, type LeaveRow, type LeaveRowStatus } from "@/lib/api/leave";
+import { LeaveDecidedMoment, type LeaveDecision } from "./leave-decided";
+import {
+  leaveRowActions,
+  waitingOnDecision,
+  type LeaveRowActions,
+} from "./leave-actions";
 import { useCan } from "@/lib/permissions";
 import {
   useLeaveBalancesFor,
@@ -206,6 +212,8 @@ export function LeaveScreen() {
   const [booking, setBooking] = useState(false);
   const [declining, setDeclining] = useState<LeaveRow | null>(null);
   const [withdrawing, setWithdrawing] = useState<LeaveRow | null>(null);
+  /** The approval just made, said back at the top of the list. */
+  const [decided, setDecided] = useState<LeaveDecision | null>(null);
 
   const detail = useLeaveRequestDetail(openId);
 
@@ -217,8 +225,6 @@ export function LeaveScreen() {
   /* From `today`, not `new Date()`: demo mode runs on `TODAY`, and the real clock
      would open the calendar on a year the seed has nothing in. */
   const calendarYear = Number(today.slice(0, 4));
-
-  const pending = requests.filter((r) => r.status === "pending");
 
   const monthAhead = useMemo(() => {
     const edge = new Date(`${today}T00:00:00.000Z`);
@@ -233,17 +239,14 @@ export function LeaveScreen() {
     .filter((r) => r.status === "approved")
     .reduce((sum, r) => sum + r.days, 0);
 
-  const oldestPending = pending.reduce<number | null>((oldest, r) => {
-    if (!r.requestedAt) return oldest;
-    const days = Math.max(
-      0,
-      Math.round(
-        (new Date(today).getTime() - new Date(r.requestedAt).getTime()) /
-          86_400_000,
-      ),
-    );
-    return oldest === null || days > oldest ? days : oldest;
-  }, null);
+  /* Waiting on *them*, which for somebody who decides is both steps: a
+     request with HR is as much theirs to do as a fresh one. Everybody else sees
+     only their own requests and the figure is the one it always was.
+
+     Below `monthAhead` rather than beside it: with this call first, the React
+     Compiler reports `today` as possibly modified and gives up on that memo,
+     which `npm run lint` fails on. */
+  const waiting = waitingOnDecision(requests, canDecide, today);
 
   /* The people this screen is actually showing, so the balances card is about
      them rather than about whoever happens to be first in the directory. */
@@ -278,6 +281,16 @@ export function LeaveScreen() {
     return entitled === 0 ? null : Math.round((taken / entitled) * 100);
   }, [shown, balances]);
 
+  const reportFailure = (failure: unknown) =>
+    toast.push({
+      title: "That did not work",
+      tone: "danger",
+      detail:
+        failure instanceof ApiError
+          ? failure.message
+          : "Something went wrong. Try again.",
+    });
+
   /** Every write reports its own failure. The API's message is the useful part. */
   const run = async (action: () => Promise<unknown>, success: string) => {
     try {
@@ -285,34 +298,49 @@ export function LeaveScreen() {
       reload();
       toast.push({ title: success, tone: "success" });
     } catch (failure) {
-      toast.push({
-        title: "That did not work",
-        tone: "danger",
-        detail:
-          failure instanceof ApiError
-            ? failure.message
-            : "Something went wrong. Try again.",
-      });
+      reportFailure(failure);
     }
   };
 
-  const approve = (request: LeaveRow) =>
-    run(
-      () => mutations.decide(request.id, "approved"),
-      `${request.employeeName}'s leave approved`,
-    );
+  /**
+   * Approving says what happened, at the top of the list, rather than in a
+   * toast that is gone in six seconds. What happened is read from the API's
+   * answer: a first approval in a two-step workflow leaves the request waiting
+   * on HR, and that is not "approved".
+   */
+  const approve = async (request: LeaveRow) => {
+    try {
+      const result = await mutations.decide(request.id, "approved");
+      reload();
+      setDecided((current) => ({
+        request,
+        stage: result?.status === "awaitingHr" ? "first" : "final",
+        n: (current?.n ?? 0) + 1,
+      }));
+    } catch (failure) {
+      reportFailure(failure);
+    }
+  };
 
-  const sendBack = (request: LeaveRow, note: string) =>
-    run(
+  const sendBack = (request: LeaveRow, note: string) => {
+    setDecided((current) =>
+      current?.request.id === request.id ? null : current,
+    );
+    return run(
       () => mutations.decide(request.id, "declined", note),
       `${request.employeeName}'s request went back to them`,
     );
+  };
 
-  const undo = (request: LeaveRow) =>
-    run(
+  const undo = (request: LeaveRow) => {
+    setDecided((current) =>
+      current?.request.id === request.id ? null : current,
+    );
+    return run(
       () => mutations.reopen(request.id),
       `${request.employeeName}'s request is waiting again`,
     );
+  };
 
   const withdraw = (request: LeaveRow) =>
     run(
@@ -345,6 +373,14 @@ export function LeaveScreen() {
     (request.status === "pending" ||
       request.status === "awaitingHr" ||
       request.status === "approved");
+
+  /** What the row offers this reader. See `leave-actions.ts` for the rule. */
+  const actionsFor = (request: LeaveRow): LeaveRowActions =>
+    leaveRowActions({
+      status: request.status,
+      canDecide,
+      isOwn: employeeId !== null && request.employeeId === employeeId,
+    });
 
   return (
     <>
@@ -384,13 +420,22 @@ export function LeaveScreen() {
           </Callout>
         )}
 
+        {decided && (
+          <LeaveDecidedMoment
+            key={decided.n}
+            decision={decided}
+            onUndo={() => void undo(decided.request)}
+            onDismiss={() => setDecided(null)}
+          />
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Stat
             label="Waiting on a decision"
-            value={String(pending.length)}
+            value={String(waiting.count)}
             hint={
-              oldestPending !== null
-                ? `oldest ${daysLabel(oldestPending)}`
+              waiting.oldestDays !== null
+                ? `oldest ${daysLabel(waiting.oldestDays)}`
                 : undefined
             }
           />
@@ -559,42 +604,17 @@ export function LeaveScreen() {
                           )}
                         </TD>
                         <TD align="right">
-                          {!canDecide ? (
-                            <span className="text-meta text-faint">—</span>
-                          ) : r.status === "pending" ? (
-                            <div className="flex justify-end gap-1.5">
-                              <Button
-                                variant="approve"
-                                size="sm"
-                                onClick={() => void approve(r)}
-                                aria-label={`Approve ${r.employeeName}'s leave`}
-                              >
-                                <Check
-                                  aria-hidden="true"
-                                  className="size-3.5"
-                                />
-                                Approve
-                              </Button>
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => setDeclining(r)}
-                                aria-label={`Send back ${r.employeeName}'s request`}
-                              >
-                                <X aria-hidden="true" className="size-3.5" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => void undo(r)}
-                              aria-label={`Undo the decision on ${r.employeeName}'s request`}
-                            >
-                              <Undo2 aria-hidden="true" className="size-3.5" />
-                              Undo
-                            </Button>
-                          )}
+                          <RowActions
+                            request={r}
+                            actions={actionsFor(r)}
+                            onApprove={approve}
+                            onSendBack={setDeclining}
+                            onUndo={undo}
+                            className="justify-end"
+                            empty={
+                              <span className="text-meta text-faint">—</span>
+                            }
+                          />
                         </TD>
                         <TD align="right">
                           <IconButton
@@ -658,38 +678,13 @@ export function LeaveScreen() {
                           </span>
                         )}
                       </div>
-                      {canDecide &&
-                        (r.status === "pending" ? (
-                          <div className="flex gap-1.5">
-                            <Button
-                              variant="approve"
-                              size="sm"
-                              onClick={() => void approve(r)}
-                              aria-label={`Approve ${r.employeeName}'s leave`}
-                            >
-                              <Check aria-hidden="true" className="size-3.5" />
-                              Approve
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => setDeclining(r)}
-                              aria-label={`Send back ${r.employeeName}'s request`}
-                            >
-                              <X aria-hidden="true" className="size-3.5" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => void undo(r)}
-                            aria-label={`Undo the decision on ${r.employeeName}'s request`}
-                          >
-                            <Undo2 aria-hidden="true" className="size-3.5" />
-                            Undo
-                          </Button>
-                        ))}
+                      <RowActions
+                        request={r}
+                        actions={actionsFor(r)}
+                        onApprove={approve}
+                        onSendBack={setDeclining}
+                        onUndo={undo}
+                      />
                     </div>
                   </li>
                 ))}
@@ -827,7 +822,7 @@ export function LeaveScreen() {
         onClose={() => setOpenId(null)}
         loading={detail.loading}
         detail={detail.detail}
-        canDecide={canDecide}
+        actionsFor={actionsFor}
         canWithdraw={canWithdraw}
         onApprove={approve}
         onSendBack={setDeclining}
@@ -897,6 +892,77 @@ export function LeaveScreen() {
 /* -------------------------------------------------------------------------- */
 
 /**
+ * The decision cell of a row, in the table and in the narrow list.
+ *
+ * One component for both so the two cannot disagree about what a row offers —
+ * each used to restate the same `pending ? … : Undo` test, and both missed
+ * `awaitingHr`. What each reader gets is `leaveRowActions`.
+ */
+function RowActions({
+  request,
+  actions,
+  onApprove,
+  onSendBack,
+  onUndo,
+  className,
+  empty,
+}: {
+  request: LeaveRow;
+  actions: LeaveRowActions;
+  onApprove: (request: LeaveRow) => Promise<void>;
+  onSendBack: (request: LeaveRow) => void;
+  onUndo: (request: LeaveRow) => Promise<unknown>;
+  className?: string;
+  /** What to show when there is nothing to offer. The table keeps a dash. */
+  empty?: ReactNode;
+}) {
+  if (actions === "decide") {
+    return (
+      <div className={cn("flex gap-1.5", className)}>
+        <Button
+          variant="approve"
+          size="sm"
+          onClick={() => void onApprove(request)}
+          aria-label={`Approve ${request.employeeName}'s leave`}
+        >
+          <Check aria-hidden="true" className="size-3.5" />
+          Approve
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => onSendBack(request)}
+          aria-label={`Send back ${request.employeeName}'s request`}
+        >
+          <X aria-hidden="true" className="size-3.5" />
+        </Button>
+      </div>
+    );
+  }
+  if (actions === "undo") {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => void onUndo(request)}
+        aria-label={`Undo the decision on ${request.employeeName}'s request`}
+      >
+        <Undo2 aria-hidden="true" className="size-3.5" />
+        Undo
+      </Button>
+    );
+  }
+  if (actions === "somebodyElse") {
+    return (
+      <span className="text-meta whitespace-nowrap text-faint">
+        Somebody else decides
+      </span>
+    );
+  }
+  return <>{empty}</>;
+}
+
+/**
  * One request, with the two things a decision actually turns on.
  *
  * The balance, and who else is off. Connected they come from the API, which can
@@ -908,7 +974,7 @@ function RequestPanel({
   onClose,
   loading,
   detail,
-  canDecide,
+  actionsFor,
   canWithdraw,
   onApprove,
   onSendBack,
@@ -919,7 +985,7 @@ function RequestPanel({
   onClose: () => void;
   loading: boolean;
   detail: ReturnType<typeof useLeaveRequestDetail>["detail"];
-  canDecide: boolean;
+  actionsFor: (request: LeaveRow) => LeaveRowActions;
   canWithdraw: (request: LeaveRow) => boolean;
   onApprove: (request: LeaveRow) => void;
   onSendBack: (request: LeaveRow) => void;
@@ -932,7 +998,7 @@ function RequestPanel({
      at their own waiting request may approve it or take it back, and those are
      different acts with different records. The footer renders whichever apply
      and is absent when neither does, rather than rendering an empty bar. */
-  const decidable = request !== undefined && canDecide;
+  const actions = request ? actionsFor(request) : "none";
   const withdrawable = request !== undefined && canWithdraw(request);
 
   return (
@@ -957,61 +1023,72 @@ function RequestPanel({
          `flex flex-wrap justify-end gap-2` div restated all three and quietly
          overrode the gap. */
       footer={
-        request && (decidable || withdrawable) ? (
+        request && (actions !== "none" || withdrawable) ? (
           <>
-            {/* The requester's own door, first in the source and so first in
-                the wrapping row — it is the only control on this panel for the
-                person who filed the leave, and on their own screen it should
-                not sit behind two they cannot use. */}
+            {/* The reader's own open request: no button, because the API
+                refuses one, and a line that says so instead of a gap. First
+                in the source so `mr-auto` keeps it at the left and the
+                requester's own door at the right. */}
+            {actions === "somebodyElse" && (
+              <span className="mr-auto text-meta text-muted">
+                Somebody else decides
+              </span>
+            )}
+            {/* The requester's own door, first among the buttons and so first
+                in the wrapping row — it is the only control on this panel for
+                the person who filed the leave, and on their own screen it
+                should not sit behind two they cannot use. */}
             {withdrawable && (
               <Button variant="ghost" onClick={() => onWithdraw(request)}>
                 <Ban aria-hidden="true" className="size-3.5" />
                 Withdraw request
               </Button>
             )}
-            {decidable &&
-              (request.status === "pending" ? (
-                <>
-                  {/*
-                   * `ghost`, not `secondary`.
-                   *
-                   * Measured on this panel: "Send back" as `secondary` is ink at
-                   * 17.1:1 inside a 4.3:1 border, while "Approve" as `approve` is
-                   * success-text at 5.4:1 on a soft tint. The rejecting option was
-                   * more prominent than the approving one, and the two read as equal
-                   * weight — on a decision with no confirmation step behind it.
-                   *
-                   * Green stays on Approve, which is the product owner's decision.
-                   * This demotes the partner instead, which restores the hierarchy
-                   * without touching the palette or the contrast budget.
-                   */}
-                  <Button variant="ghost" onClick={() => onSendBack(request)}>
-                    <X aria-hidden="true" className="size-3.5" />
-                    Send back
-                  </Button>
-                  <Button
-                    variant="approve"
-                    onClick={() => {
-                      onApprove(request);
-                      onClose();
-                    }}
-                  >
-                    <Check aria-hidden="true" className="size-3.5" />
-                    Approve
-                  </Button>
-                </>
-              ) : (
+            {/* `awaitingHr` is decided exactly like `pending` — see
+                `leave-actions.ts`. Undo is only for what is already decided. */}
+            {actions === "decide" && (
+              <>
+                {/*
+                 * `ghost`, not `secondary`.
+                 *
+                 * Measured on this panel: "Send back" as `secondary` is ink at
+                 * 17.1:1 inside a 4.3:1 border, while "Approve" as `approve` is
+                 * success-text at 5.4:1 on a soft tint. The rejecting option was
+                 * more prominent than the approving one, and the two read as equal
+                 * weight — on a decision with no confirmation step behind it.
+                 *
+                 * Green stays on Approve, which is the product owner's decision.
+                 * This demotes the partner instead, which restores the hierarchy
+                 * without touching the palette or the contrast budget.
+                 */}
+                <Button variant="ghost" onClick={() => onSendBack(request)}>
+                  <X aria-hidden="true" className="size-3.5" />
+                  Send back
+                </Button>
                 <Button
-                  variant="ghost"
+                  variant="approve"
                   onClick={() => {
-                    onUndo(request);
+                    onApprove(request);
                     onClose();
                   }}
                 >
-                  <Undo2 aria-hidden="true" className="size-3.5" />
-                  Undo the decision
+                  <Check aria-hidden="true" className="size-3.5" />
+                  Approve
                 </Button>
-              ))}
+              </>
+            )}
+            {actions === "undo" && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  onUndo(request);
+                  onClose();
+                }}
+              >
+                <Undo2 aria-hidden="true" className="size-3.5" />
+                Undo the decision
+              </Button>
+            )}
           </>
         ) : undefined
       }
@@ -1043,6 +1120,16 @@ function RequestPanel({
                   ? `${request.decidedByName}${request.decidedByJobTitle ? `, ${request.decidedByJobTitle}` : ""}`
                   : (request.approverName ?? "Not routed"),
               },
+              /* Only when the API says so. A request with HR has had one yes
+                 already, and HR deciding it should be able to see whose. */
+              ...(request.firstApprovedByName
+                ? [
+                    {
+                      term: "Approved first by",
+                      value: `${request.firstApprovedByName}${request.firstApprovedByJobTitle ? `, ${request.firstApprovedByJobTitle}` : ""}${request.firstApprovedAt ? ` · ${shortDate(request.firstApprovedAt)}` : ""}`,
+                    },
+                  ]
+                : []),
               { term: "Reason given", value: request.reason ?? "None given" },
               {
                 term: "Decision note",

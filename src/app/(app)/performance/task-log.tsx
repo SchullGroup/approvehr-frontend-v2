@@ -163,7 +163,7 @@ export function TaskLogPanel({
                 {task.gradeNote && (
                   <p className="mt-1 text-meta text-body">
                     <span className="font-medium text-ink">Comment:</span>{" "}
-                    {task.gradeNote}
+                    <LinkedText>{task.gradeNote}</LinkedText>
                   </p>
                 )}
               </li>

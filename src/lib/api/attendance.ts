@@ -384,6 +384,19 @@ export type ApiRoster = {
    * refuse to render a wall of absences it has been told not to believe.
    */
   tracked: boolean;
+  /**
+   * The caller's most recent day **before** this one with a clock-in and no
+   * clock-out, or `null`.
+   *
+   * The roster is one day, so an unclosed day drops off it at midnight and the
+   * card would otherwise say only "you have not clocked in today". This is how
+   * somebody finds out yesterday is still open. Only ever set for a roster of
+   * today, and only about the caller.
+   *
+   * Optional, not just nullable: an API that predates it does not send the key
+   * at all, and a screen has to read that as "nothing to say".
+   */
+  earlierOpen?: { date: string; clockIn: string } | null;
 };
 
 /**

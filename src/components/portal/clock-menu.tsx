@@ -225,6 +225,7 @@ function ClockPanel({
           <DayTimer
             clockIn={myRow.clockIn}
             serverTime={roster.time}
+            date={roster.date}
             policy={policy}
             className="mt-1.5"
           />

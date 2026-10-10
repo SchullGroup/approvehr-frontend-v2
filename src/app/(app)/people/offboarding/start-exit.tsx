@@ -14,6 +14,7 @@ import {
 import { ApiError } from "@/lib/api/client";
 import {
   EXIT_KINDS,
+  type ApiExit,
   NON_HR_EXIT_KINDS,
   type ExitKind,
 } from "@/lib/api/offboarding";
@@ -111,15 +112,25 @@ export function StartExitDialog({
     setBusy(true);
     setError(null);
     try {
-      const id = await start({
+      const started = await start({
         employeeId,
         kind,
         reason: reason.trim(),
         lastWorkingDay,
       });
-      toast.push({ title: "Exit started", tone: "success" });
-      onStarted(id);
-      router.push(`/people/offboarding/${id}`);
+      /* A toast and not a moment, deliberately. The page this lands on already
+         says what is next — "{manager} has to release them", or "HR has to
+         approve this next" — in its own words and in the place somebody acts
+         on it, so a second screen here would only say it twice. What the page
+         cannot say is that the exit now exists, for whom, and how big the
+         checklist behind it is. */
+      toast.push({
+        title: `Exit started for ${started.employee.name}`,
+        tone: "success",
+        detail: startedDetail(started),
+      });
+      onStarted(started.id);
+      router.push(`/people/offboarding/${started.id}`);
     } catch (caught) {
       setError(
         caught instanceof ApiError
@@ -214,6 +225,25 @@ export function StartExitDialog({
       </div>
     </Modal>
   );
+}
+
+/**
+ * Who has to act next, and how long the checklist is.
+ *
+ * The first sentence is the exit page's own wording for the same state, so the
+ * toast and the page cannot disagree about whose turn it is. With a manager on
+ * the record it is theirs, then HR's; with none it goes straight to HR — the
+ * API decides which, and `status` is its answer.
+ */
+function startedDetail(exit: ApiExit): string {
+  const first = exit.employee.name.split(" ")[0] ?? exit.employee.name;
+  const next =
+    exit.status === "AWAITING_MANAGER"
+      ? `${exit.manager?.name ?? "Their manager"} has to release ${first}, then HR approves.`
+      : "HR has to approve it.";
+  const items = exit.progress.total;
+  if (items === 0) return next;
+  return `${next} ${items} ${items === 1 ? "item is" : "items are"} on the checklist.`;
 }
 
 /**

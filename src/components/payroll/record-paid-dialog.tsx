@@ -7,6 +7,36 @@ import { formatKobo } from "@/lib/api/payroll";
 import { usePaymentActions } from "@/lib/store/payments";
 
 /**
+ * What was just recorded, handed back so the screen can say so.
+ *
+ * Both callers used to receive a one-line string and throw it away, which left
+ * the dialog closing on nothing: the person had typed a date and maybe a bank
+ * reference and was never told those had been taken. This carries the pieces
+ * instead of a sentence, so the wording lives once in `payment-recorded.tsx`
+ * and not once per caller.
+ */
+export type RecordedPayment = {
+  batchId: string;
+  /** The batch's own reference, as the API returned it. */
+  reference: string;
+  totalKobo: number;
+  /**
+   * How many payments this press moved to paid.
+   *
+   * Zero means every one was already recorded and nothing changed — the
+   * ordinary second press — which a screen must not describe as a fresh
+   * recording.
+   */
+  settled: number;
+  /** "9 people", exactly as the dialog described them above the form. */
+  people: string;
+  /** The date typed, `YYYY-MM-DD`. Null when it was left blank, meaning today. */
+  paidOn: string | null;
+  /** The bank's own reference, when one was typed. */
+  bankReference: string | null;
+};
+
+/**
  * One copy, because two surfaces need it.
  *
  * A person reaches "the bank paid this" from two places — the run they took
@@ -54,7 +84,7 @@ export function RecordPaidDialog({
   amountKobo: number;
   people: string;
   onClose: () => void;
-  onRecorded: (summary: string) => void;
+  onRecorded: (recorded: RecordedPayment) => void;
 }) {
   const actions = usePaymentActions();
   const [paidOn, setPaidOn] = useState("");
@@ -70,9 +100,15 @@ export function RecordPaidDialog({
         ...(paidOn ? { paidOn } : {}),
         ...(bankRef.trim() ? { reference: bankRef.trim() } : {}),
       });
-      onRecorded(
-        `${formatKobo(result.totalKobo)} recorded as paid against ${result.reference}.`,
-      );
+      onRecorded({
+        batchId,
+        reference: result.reference,
+        totalKobo: result.totalKobo,
+        settled: result.settled,
+        people,
+        paidOn: paidOn || null,
+        bankReference: bankRef.trim() || null,
+      });
     } catch (error) {
       setFailed(
         error instanceof ApiError

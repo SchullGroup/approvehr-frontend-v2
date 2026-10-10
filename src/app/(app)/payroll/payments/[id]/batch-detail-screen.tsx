@@ -26,6 +26,9 @@ import {
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { naira } from "@/lib/api/payments";
+import { formatKobo } from "@/lib/api/payroll";
+import { PaymentRecordedMoment } from "@/components/payroll/payment-recorded";
+import type { RecordedPayment } from "@/components/payroll/record-paid-dialog";
 import { usePermissions } from "@/lib/permissions";
 import {
   BATCH_STATUS,
@@ -73,6 +76,10 @@ export function BatchDetailScreen({ id }: { id: string }) {
 
   const [busy, setBusy] = useState(false);
   const [rechecking, setRechecking] = useState(false);
+  /* Held here and not in `ReleasePanel`: recording a payment re-reads the batch
+     and this screen shows a spinner while it does, which unmounts the panel
+     and everything it remembered. This component is the one that stays. */
+  const [recorded, setRecorded] = useState<RecordedPayment | null>(null);
 
   if (permissionsLoading || loading) {
     return (
@@ -146,11 +153,14 @@ export function BatchDetailScreen({ id }: { id: string }) {
   const current = batch;
 
   /** Every action reports its own outcome — the API's messages are the useful part. */
-  async function run(action: () => Promise<unknown>, success?: string) {
+  async function run(
+    action: () => Promise<unknown>,
+    success?: { title: string; detail?: string },
+  ) {
     setBusy(true);
     try {
       await action();
-      if (success) toast.push({ title: success, tone: "success" });
+      if (success) toast.push({ ...success, tone: "success" });
     } catch (caught) {
       toast.push({
         title: "That did not happen",
@@ -283,24 +293,51 @@ export function BatchDetailScreen({ id }: { id: string }) {
           }}
         />
 
-        <ReleasePanel
-          batch={batch}
-          providerConnected={providerConnected}
-          providerKnown={summary.summary !== null}
-          canApprove={can("APPROVE_PAYROLL")}
-          busy={busy}
-          onApprove={() =>
-            run(() => actions.approve(batch.id), `${batch.reference} approved`)
-          }
-          onRelease={() => run(() => actions.release(batch.id))}
-          onCancel={(reason) =>
-            run(
-              () => actions.cancel(batch.id, reason),
-              `${batch.reference} stopped`,
-            )
-          }
-          onDownload={download}
-        />
+        {/* Said once, where the panel was, to the person who just recorded it.
+            Opening this batch later shows the panel as it always did, with the
+            status the record left behind. */}
+        {recorded && recorded.batchId === batch.id ? (
+          <PaymentRecordedMoment
+            recorded={recorded}
+            actions={
+              <>
+                <ButtonLink variant="accent" href="/payroll/payments">
+                  Back to payments
+                </ButtonLink>
+                <ButtonLink variant="ghost" href="/payroll">
+                  Back to payroll
+                </ButtonLink>
+              </>
+            }
+          />
+        ) : (
+          <ReleasePanel
+            batch={batch}
+            providerConnected={providerConnected}
+            providerKnown={summary.summary !== null}
+            canApprove={can("APPROVE_PAYROLL")}
+            busy={busy}
+            onApprove={() =>
+              run(() => actions.approve(batch.id), {
+                title: `${batch.reference} approved`,
+                detail: `${formatKobo(batch.computedTotalKobo)} to ${people(batch.itemCount)}. Nothing has left the account: the payment file is the next step.`,
+              })
+            }
+            onRelease={() =>
+              run(() => actions.release(batch.id), {
+                title: `${formatKobo(batch.computedTotalKobo)} released to ${people(batch.itemCount)}`,
+                detail: `${batch.reference} is with the payment provider. Payment history has what each person was sent and what came back.`,
+              })
+            }
+            onCancel={(reason) =>
+              run(() => actions.cancel(batch.id, reason), {
+                title: `${batch.reference} stopped`,
+              })
+            }
+            onDownload={download}
+            onRecorded={setRecorded}
+          />
+        )}
 
         <Card>
           <CardHeader

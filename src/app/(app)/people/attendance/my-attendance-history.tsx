@@ -108,53 +108,57 @@ export function MyAttendanceHistoryPanel() {
       <CardHeader
         title="Your day-by-day record"
         description="The last 30 days by default. Narrow it to a range or a status below."
-      />
-      <CardBody className="flex flex-col gap-4">
-        <FilterBar
-          applied={applied}
-          onClearAll={() => {
-            setFrom("");
-            setTo("");
-            setStatus("");
-          }}
-          count={history.rows.length}
-          noun={["day", "days"]}
-        >
-          <Field label="From">
-            <Input
-              type="date"
-              value={from}
-              max={to || undefined}
-              onChange={(event) => setFrom(event.target.value)}
-            />
-          </Field>
-          <Field label="To">
-            <Input
-              type="date"
-              value={to}
-              min={from || undefined}
-              onChange={(event) => setTo(event.target.value)}
-            />
-          </Field>
-          <Field label="Status">
-            <Select
-              value={status}
-              placeholder="Any status"
-              onChange={(event) =>
-                setStatus(event.target.value as HistoryStatusFilter | "")
-              }
-            >
-              {(Object.keys(HISTORY_STATUS_LABEL) as HistoryStatusFilter[]).map(
-                (value) => (
+        /* On the header's own line rather than its own row below — the
+           collapsed state is just a button and a count, and giving it a
+           full row under the title left that row empty space for nothing. */
+        action={
+          <FilterBar
+            applied={applied}
+            onClearAll={() => {
+              setFrom("");
+              setTo("");
+              setStatus("");
+            }}
+            count={history.rows.length}
+            noun={["day", "days"]}
+          >
+            <Field label="From">
+              <Input
+                type="date"
+                value={from}
+                max={to || undefined}
+                onChange={(event) => setFrom(event.target.value)}
+              />
+            </Field>
+            <Field label="To">
+              <Input
+                type="date"
+                value={to}
+                min={from || undefined}
+                onChange={(event) => setTo(event.target.value)}
+              />
+            </Field>
+            <Field label="Status">
+              <Select
+                value={status}
+                placeholder="Any status"
+                onChange={(event) =>
+                  setStatus(event.target.value as HistoryStatusFilter | "")
+                }
+              >
+                {(
+                  Object.keys(HISTORY_STATUS_LABEL) as HistoryStatusFilter[]
+                ).map((value) => (
                   <option key={value} value={value}>
                     {HISTORY_STATUS_LABEL[value]}
                   </option>
-                ),
-              )}
-            </Select>
-          </Field>
-        </FilterBar>
-
+                ))}
+              </Select>
+            </Field>
+          </FilterBar>
+        }
+      />
+      <CardBody className="flex flex-col gap-4">
         {history.error && (
           <LoadFailure
             subject="your attendance history"
@@ -314,13 +318,17 @@ export function MyAttendanceHistoryPanel() {
  * approval, it is applied through the exact function an HR-typed fix already
  * uses. There is no "clear my clock-in" here on purpose: this form only ever
  * asks what a time should have been, never asks to erase one.
+ *
+ * Exported for `my-clock-card.tsx`, which opens it for an earlier day nobody
+ * clocked out of. Only the three fields it reads are asked for, so a caller
+ * with no history row to hand does not have to invent the rest of one.
  */
-function RequestCorrectionDialog({
+export function RequestCorrectionDialog({
   row,
   onClose,
   onSent,
 }: {
-  row: ApiHistoryRow;
+  row: Pick<ApiHistoryRow, "date" | "clockIn" | "clockOut">;
   onClose: () => void;
   onSent: () => void;
 }) {

@@ -12,13 +12,14 @@ import { TODAY } from "@/lib/today";
  * "There is a public holiday coming" — the banner side of the reminder
  * `leave/holiday-reminder.ts` emails out on the API.
  *
- * Same shape as `InstallPrompt`: a sticky strip inside `<main>`, own dismiss
- * button, closed state remembered in `localStorage` rather than a session
- * `useState` — a holiday notice that returns every sign-in for the next two
- * days would be the irritation `install-prompt.tsx`'s own header warns
- * about. Keyed **per holiday id**, not one blanket flag, so dismissing this
- * one does not silently suppress the next one — no expiry logic needed
- * either, since a new id simply starts undismissed.
+ * Same shape as `InstallPrompt`: a strip inside `shell.tsx`'s shared sticky
+ * banner wrapper, own dismiss button, closed state remembered in
+ * `localStorage` rather than a session `useState` — a holiday notice that
+ * returns every sign-in for the next two days would be the irritation
+ * `install-prompt.tsx`'s own header warns about. Keyed **per holiday id**,
+ * not one blanket flag, so dismissing this one does not silently suppress
+ * the next one — no expiry logic needed either, since a new id simply
+ * starts undismissed.
  *
  * Known gap, deliberately not papered over here: the demo seed
  * (`lib/mock/workflows.ts#PUBLIC_HOLIDAYS`) has nothing near the frozen
@@ -123,7 +124,7 @@ export function HolidayBanner() {
 
   return (
     <div
-      className="sticky top-14 z-20 flex items-start gap-3 border-b border-line bg-accent-soft px-5 py-3"
+      className="flex items-start gap-3 border-b border-line bg-accent-soft px-5 py-3"
       role="region"
       aria-label="Public holiday"
     >

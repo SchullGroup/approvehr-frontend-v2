@@ -132,6 +132,12 @@ type WireRequest = {
    *  linked employee record. */
   decidedByName: string | null;
   decidedByJobTitle: string | null;
+  /** The department head's yes in a two-step workflow, which is not a decision:
+   *  `decidedAt`/`decidedByName` stay null until HR has decided. Optional
+   *  because an API that predates two-step approval does not send them. */
+  firstApprovedAt?: string | null;
+  firstApprovedByName?: string | null;
+  firstApprovedByJobTitle?: string | null;
   decisionNote: string | null;
 };
 
@@ -171,6 +177,7 @@ type WireHoliday = {
 type WireHolidayList = {
   holidays: WireHoliday[];
   awaitingProclamation: number;
+  suggestedAwaitingDecision?: number;
 };
 
 type WireType = {
@@ -233,6 +240,12 @@ export type LeaveRow = {
    *  comment. Null until decided. */
   decidedByName: string | null;
   decidedByJobTitle: string | null;
+  /** Who gave the first approval of a two-step request, and the day. Null when
+   *  nobody has, which is every request in demo mode. Not a decision: those
+   *  stay null until HR has decided. */
+  firstApprovedAt: string | null;
+  firstApprovedByName: string | null;
+  firstApprovedByJobTitle: string | null;
   decisionNote: string | null;
 };
 
@@ -333,6 +346,8 @@ export type PublicHolidayRow = {
 export type HolidayCalendar = {
   holidays: PublicHolidayRow[];
   awaitingProclamation: number;
+  /** Suggested holidays waiting in the approvals inbox; not in `holidays`. */
+  suggestedAwaitingDecision: number;
 };
 
 export type NewHolidayInput = {
@@ -429,6 +444,9 @@ function toRow(wire: WireRequest): LeaveRow {
     decidedById: wire.decidedById,
     decidedByName: wire.decidedByName,
     decidedByJobTitle: wire.decidedByJobTitle,
+    firstApprovedAt: dayOf(wire.firstApprovedAt ?? null),
+    firstApprovedByName: wire.firstApprovedByName ?? null,
+    firstApprovedByJobTitle: wire.firstApprovedByJobTitle ?? null,
     decisionNote: wire.decisionNote,
   };
 }
@@ -631,6 +649,7 @@ export const leaveApi = {
     return {
       holidays: wire.holidays.map(toHoliday),
       awaitingProclamation: wire.awaitingProclamation,
+      suggestedAwaitingDecision: wire.suggestedAwaitingDecision ?? 0,
     };
   },
 

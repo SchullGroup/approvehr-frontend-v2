@@ -918,6 +918,26 @@ const BASIS_OPTIONS: { value: PayComponentBasis; label: string }[] = [
   { value: "PERCENT_OF_BASIC", label: "% of basic" },
 ];
 
+/** What the form holds when it opens: the component's own values, or a blank form. */
+function draftFor(component: ApiPayComponent | null): Draft {
+  return {
+    name: component?.name ?? "",
+    basis: component?.basis ?? "FIXED",
+    amount:
+      component?.defaultAmountKobo != null
+        ? String(naira(component.defaultAmountKobo))
+        : "",
+    rate:
+      component?.defaultRate != null
+        ? String(ratePercent(component.defaultRate))
+        : "",
+    taxable: component?.taxable ?? true,
+    pensionable: component?.pensionable ?? false,
+    preTax: component?.preTax ?? false,
+    applyMode: component?.applyMode ?? "OPTIONAL",
+  };
+}
+
 /**
  * Define or edit one component.
  *
@@ -933,7 +953,7 @@ const BASIS_OPTIONS: { value: PayComponentBasis; label: string }[] = [
 function ComponentDialog({
   open,
   kind,
-  component,
+  component: componentProp,
   rates,
   onClose,
   onCreate,
@@ -947,24 +967,28 @@ function ComponentDialog({
   onCreate: (body: CreatePayComponentBody) => Promise<void>;
   onUpdate: (id: string, body: UpdatePayComponentBody) => Promise<void>;
 }) {
+  /* One dialog serves both Add and Edit, so this follows the prop while open —
+     a component to edit, or null to add — and holds the last one once closed.
+     The parent clears the prop the instant it closes this, but the modal stays
+     mounted for its exit animation and the title and button must not flip to
+     "Add" while it fades. */
+  const [component, setComponent] = useState(componentProp);
+  if (open && componentProp !== component) setComponent(componentProp);
   const editing = component !== null;
-  const [draft, setDraft] = useState<Draft>({
-    name: component?.name ?? "",
-    basis: component?.basis ?? "FIXED",
-    amount:
-      component?.defaultAmountKobo != null
-        ? String(naira(component.defaultAmountKobo))
-        : "",
-    rate:
-      component?.defaultRate != null
-        ? String(ratePercent(component.defaultRate))
-        : "",
-    taxable: component?.taxable ?? true,
-    pensionable: component?.pensionable ?? false,
-    preTax: component?.preTax ?? false,
-    applyMode: component?.applyMode ?? "OPTIONAL",
-  });
+
+  const [draft, setDraft] = useState(() => draftFor(componentProp));
   const [saving, setSaving] = useState(false);
+
+  /* Re-seeds the draft on every genuine open, not just the first mount. This
+     dialog stays mounted between uses, so the initial state above would
+     otherwise be whatever it was the first time — empty for an edit, since
+     nothing was being edited yet — and an add would reopen holding the last
+     thing typed into it. */
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setDraft(draftFor(componentProp));
+  }
 
   const set = <K extends keyof Draft>(field: K, value: Draft[K]) =>
     setDraft((current) => ({ ...current, [field]: value }));

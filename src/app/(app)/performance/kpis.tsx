@@ -67,6 +67,17 @@ import {
 import { ApprovalReasonDialog } from "./approval-dialogs";
 import { goalFacts } from "./goal-facts";
 import {
+  kpiAddedSaid,
+  kpisAssignedSaid,
+  markedDoneSaid,
+  measureAddedSaid,
+  objectiveCreatedSaid,
+  reopenedSaid,
+  sharedSaid,
+  type Said,
+} from "./objective-copy";
+import { SendForAgreementDialog } from "./send-for-agreement";
+import {
   AddMeasureDialog,
   AssignKpiDialog,
   NewKpiDialog,
@@ -223,13 +234,40 @@ export function KpisTab({
      claims nothing was saved, because on a POST that is a claim this side
      cannot make. */
   const action = useAction();
-  const run = async (act: () => Promise<unknown>, success: string) =>
-    (await action.run(act, { success, onDone: kpis.reload })).ok;
+  /**
+   * A write whose toast is built from what it returned.
+   *
+   * A fixed title cannot say which objective, for whom or in what state, and
+   * those are in the answer. The failure is still `action`'s: a toast naming
+   * what the server said.
+   */
+  const announced = async <T,>(
+    act: () => Promise<T>,
+    said: (value: T) => Said,
+    subject?: string,
+  ) => {
+    const outcome = await action.run(act, {
+      ...(subject ? { subject } : {}),
+      onDone: kpis.reload,
+    });
+    if (outcome.ok) {
+      const toSay = said(outcome.value);
+      toast.push({
+        title: toSay.title,
+        tone: toSay.tone ?? "success",
+        ...(toSay.detail ? { detail: toSay.detail } : {}),
+      });
+    }
+    return outcome;
+  };
 
   /* Written once because the cards and the just-made objective's detail both
      hand them to `GoalDetailModal`. */
   const shareGoal = (goal: ApiGoal) =>
-    void run(() => mutations.shareGoal(goal.id), `"${goal.title}" shared`);
+    void announced(
+      () => mutations.shareGoal(goal.id),
+      (result) => sharedSaid(goal.title, result.shared),
+    );
   const recordMeasure = async (
     measureId: string,
     value: string,
@@ -492,7 +530,17 @@ export function KpisTab({
         <Stat label="KPIs being tracked" value={String(tracked.length)} />
         <Stat
           label="Average progress"
-          value={average === null ? "Nothing tracked yet" : `${average}%`}
+          /* An em dash, not a sentence — see `Stat`'s other callers
+             (`advances-screen.tsx`, `payments/history-screen.tsx`): nothing
+             tracked is a dash, same size as every other Stat value, not a
+             phrase that reads as a different kind of thing in the same row. */
+          value={
+            average === null ? (
+              <span className="text-faint">—</span>
+            ) : (
+              `${average}%`
+            )
+          }
           {...(average === null
             ? {}
             : {
@@ -513,9 +561,11 @@ export function KpisTab({
           label="Measures at target"
           /* "0 of 0" is a measurement of a set nobody has created. */
           value={
-            measures.length === 0
-              ? "None set yet"
-              : `${hit} of ${measures.length}`
+            measures.length === 0 ? (
+              <span className="text-faint">—</span>
+            ) : (
+              `${hit} of ${measures.length}`
+            )
           }
         />
       </div>
@@ -766,11 +816,14 @@ export function KpisTab({
         onClose={() => setCreating(null)}
         onCreate={async (body) => {
           const objective = creating?.objective === true;
-          const outcome = await action.run(() => mutations.createGoal(body), {
-            success: objective ? "Objective created" : "KPI added",
-            subject: objective ? "the objective" : "the KPI",
-            onDone: kpis.reload,
-          });
+          const outcome = await announced(
+            () => mutations.createGoal(body),
+            (goal) =>
+              objective
+                ? objectiveCreatedSaid(goal, actingId)
+                : kpiAddedSaid(goal, actingId),
+            objective ? "the objective" : "the KPI",
+          );
           if (!outcome.ok) return;
           setCreating(null);
           /* An objective on its own is not much — what comes next is putting
@@ -819,22 +872,20 @@ export function KpisTab({
         onClose={() => setAssigning(null)}
         onAssign={async (parentId, body) => {
           const result = await mutations.assignObjective(parentId, body);
-          /* The count, not the intent. Somebody who picked eight and saw six
+          /* Who got one, not how many. Somebody who picked eight and saw six
              appear is owed the two names rather than a tick — and "already
              had it" is a perfectly good outcome, so it is not an error. */
+          const said = kpisAssignedSaid({
+            owners: result.created.flatMap((kpi) =>
+              kpi.ownerName ? [kpi.ownerName] : [],
+            ),
+            alreadyHad: result.alreadyHad.map((one) => one.name),
+            parentTitle: assigning?.title ?? null,
+          });
           toast.push({
-            title:
-              result.created.length === 1
-                ? "1 KPI assigned"
-                : `${result.created.length} KPIs assigned`,
-            tone: "success",
-            ...(result.alreadyHad.length > 0
-              ? {
-                  detail: `${result.alreadyHad
-                    .map((one) => one.name)
-                    .join(", ")} already had it.`,
-                }
-              : {}),
+            title: said.title,
+            tone: said.tone ?? "success",
+            ...(said.detail ? { detail: said.detail } : {}),
           });
           kpis.reload();
           setAssigning(null);
@@ -848,11 +899,11 @@ export function KpisTab({
         onClose={() => setAddingTo(null)}
         onAdd={async (body) => {
           if (!addingTo) return;
-          const ok = await run(
+          const outcome = await announced(
             () => mutations.addKeyResult(addingTo.id, body),
-            "Measure added",
+            (measure) => measureAddedSaid(measure, addingTo.title),
           );
-          if (ok) setAddingTo(null);
+          if (outcome.ok) setAddingTo(null);
         }}
       />
 
@@ -862,7 +913,7 @@ export function KpisTab({
         onClose={() => setStopping(null)}
         onStop={async (reason) => {
           if (!stopping) return;
-          /* `action.run` rather than the `run` wrapper, for `notice`: the
+          /* `action.run` rather than `announced`, for `notice`: the
              API returns a sentence saying what it could not do —
              "Recorded as off track. Goal status has no separate cancelled
              yet." — and nothing was showing it. So the card afterwards read
@@ -890,62 +941,26 @@ export function KpisTab({
         onClose={() => setReopening(null)}
         onConfirm={async (reason) => {
           if (!reopening) return;
-          const ok = await run(
+          const outcome = await announced(
             () => objectives.revise(reopening.id, reason),
-            `"${reopening.title}" reopened: it has to be agreed again`,
+            () => reopenedSaid(reopening.title),
           );
-          if (ok) setReopening(null);
+          if (outcome.ok) setReopening(null);
         }}
       />
 
-      <ConfirmDialog
-        open={sending !== null}
+      <SendForAgreementDialog
+        goal={sending}
+        viewerId={actingId}
         onClose={() => setSending(null)}
-        title={`Send "${sending?.title ?? ""}" to be agreed?`}
-        confirmLabel="Send it"
-        tone="primary"
-        onConfirm={async () => {
-          if (!sending) return;
-          const ok = await run(
-            () => objectives.submit(sending.id),
-            `"${sending.title}" sent to be agreed`,
-          );
-          if (ok) setSending(null);
+        send={async (goal) => {
+          /* Silent on success: the dialog turns into the announcement, or into
+             a warning when nobody else was asked to agree it. */
+          const outcome = await action.run(() => objectives.submit(goal.id), {
+            onDone: kpis.reload,
+          });
+          return outcome.ok ? { value: outcome.value } : null;
         }}
-        body={
-          /* What is worth confirming is not the sending — that can be sent
-             back. It is what agreement does, because the next press is
-             somebody else's and there is no dialog in front of that one: the
-             target freezes and a measure can no longer be added at all.
-             Anybody who still means to add one has to know before this click
-             rather than after theirs. */
-          <>
-            <p>
-              {sending?.ownerName
-                ? `It goes to whoever agrees ${sending.ownerName}'s objectives — their manager, or somebody who can edit records. Nobody agrees their own.`
-                : "It goes to somebody who can agree it. Nobody agrees their own."}
-            </p>
-            <p className="mt-2">
-              Once it is agreed the target is fixed: the title, the period and
-              every measure&rsquo;s target stop moving, and no new measure can
-              be added. Progress still moves. Changing what was asked for after
-              that takes a recorded revision.
-            </p>
-            {sending !== null && sending.keyResults.length === 0 && (
-              <p className="mt-2 text-warning-text">
-                It has no measure on it, so it will be scored on a figure
-                somebody states by hand. Add one first if it should be measured.
-              </p>
-            )}
-            {sending !== null && sending.reviewCycleId === null && (
-              <p className="mt-2 text-warning-text">
-                It is not in an appraisal period, so agreeing it counts towards
-                nobody&rsquo;s mark — and the period is one of the fields that
-                freezes, so it cannot be added afterwards.
-              </p>
-            )}
-          </>
-        }
       />
 
       <ConfirmDialog
@@ -956,11 +971,21 @@ export function KpisTab({
         tone="primary"
         onConfirm={async () => {
           if (!completing) return;
-          const ok = await run(
+          const outcome = await announced(
             () => mutations.completeGoal(completing.id),
-            `"${completing.title}" marked done`,
+            (result) =>
+              markedDoneSaid({
+                title: completing.title,
+                measures: completing.keyResults.length,
+                /* The API's own count, and this card's when an older one does
+                   not send it. */
+                shortOfTarget:
+                  typeof result.measuresShortOfTarget === "number"
+                    ? result.measuresShortOfTarget
+                    : completing.keyResults.filter((m) => !m.met).length,
+              }),
           );
-          if (ok) setCompleting(null);
+          if (outcome.ok) setCompleting(null);
         }}
         body={
           completing && completing.keyResults.some((measure) => !measure.met)

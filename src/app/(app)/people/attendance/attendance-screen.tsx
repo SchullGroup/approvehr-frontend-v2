@@ -6,16 +6,11 @@ import { Clock, MoreHorizontal, Timer, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
-  Button,
   ButtonLink,
   Card,
   CardBody,
   CardHeader,
   Checkbox,
-  Field,
-  Input,
-  Modal,
-  Select,
   SegmentedControl,
   Skeleton,
   Stat,
@@ -28,14 +23,12 @@ import {
   TableWrap,
   TextLink,
   formatMoney,
-  useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { ApiError } from "@/lib/api/client";
-import { type ApiRosterRow, type ApiWorkLocation } from "@/lib/api/attendance";
+import { type ApiRosterRow } from "@/lib/api/attendance";
 import {
   addDays,
   hoursLabel,
@@ -48,17 +41,16 @@ import { ExportButton } from "@/components/portal/export-button";
 import {
   STATUS_LABEL,
   STATUS_TONE,
-  useAttendanceMutations,
   useAttendanceRoster,
   useAttendanceTimesheet,
   useRotaContext,
-  useWorkLocations,
   type RosterState,
   type TimesheetState,
 } from "@/lib/store/attendance";
 import { useSession } from "@/lib/store/session";
 import { shortDate } from "@/lib/today";
 import { AttendanceSettingsButton } from "./capability-bar";
+import { CorrectionDialog } from "./correction-dialog";
 import { MyAttendanceHistoryPanel } from "./my-attendance-history";
 
 /**
@@ -119,7 +111,6 @@ type View = "today" | "timesheet";
  * itself scopes them to.
  */
 export function AttendanceScreen() {
-  const locations = useWorkLocations();
   const session = useSession();
   /* Two separate hook calls, never short-circuited into one expression — a
      conditional `||` would skip `useCan` on whichever render `useIsManager`
@@ -273,7 +264,6 @@ export function AttendanceScreen() {
           key={correcting.employeeId}
           row={correcting}
           date={roster.date}
-          locations={locations.locations}
           onClose={() => setCorrecting(null)}
         />
       )}
@@ -942,164 +932,5 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
         </TBody>
       </TableWrap>
     </Card>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/**
- * An HR correction.
- *
- * The note is required rather than optional. Payroll pays against this number,
- * so a change without a stated reason is exactly the kind of thing an auditor
- * asks about and nobody can answer.
- *
- * The location select starts on "leave it as it is" rather than on a default,
- * because a roster row carries a location *name* and not its id — so preselecting
- * anything would quietly move somebody's site the next time HR fixed a time.
- * Omitting the field leaves the stored value alone.
- */
-function CorrectionDialog({
-  row,
-  date,
-  locations,
-  onClose,
-}: {
-  row: ApiRosterRow;
-  date: string;
-  locations: ApiWorkLocation[];
-  onClose: () => void;
-}) {
-  const { correct } = useAttendanceMutations();
-  const toast = useToast();
-
-  const [clockIn, setClockIn] = useState(row.clockIn ?? "");
-  const [clockOut, setClockOut] = useState(row.clockOut ?? "");
-  const [locationId, setLocationId] = useState("");
-  const [note, setNote] = useState("");
-  const [touched, setTouched] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  async function save() {
-    setTouched(true);
-    if (!note.trim()) return;
-    setSaving(true);
-    try {
-      await correct(
-        row.employeeId,
-        date,
-        {
-          clockIn: clockIn || null,
-          clockOut: clockOut || null,
-          ...(locationId ? { locationId } : {}),
-        },
-        note,
-      );
-      toast.push({
-        title: `${row.employeeName}'s record corrected`,
-        tone: "success",
-        detail: "The change and your reason are both on the record.",
-      });
-      /* `correct` announces, so every attendance read on this screen refetches
-         itself. All this has left to do is shut the dialog. */
-      onClose();
-    } catch (error) {
-      toast.push({
-        title: "The correction was refused",
-        tone: "danger",
-        detail:
-          error instanceof ApiError
-            ? error.message
-            : "Something went wrong. Try again.",
-      });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={`Correct ${row.employeeName}'s day`}
-      description={`${shortDate(date)}. The reason is kept with the change.`}
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="accent"
-            disabled={saving}
-            onClick={() => void save()}
-          >
-            Save correction
-          </Button>
-        </div>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Clocked in" help="Leave empty to record an absence.">
-            <Input
-              type="time"
-              value={clockIn}
-              onChange={(e) => {
-                const v = e.target.value;
-                setClockIn(v);
-              }}
-            />
-          </Field>
-          <Field label="Clocked out">
-            <Input
-              type="time"
-              value={clockOut}
-              onChange={(e) => {
-                const v = e.target.value;
-                setClockOut(v);
-              }}
-            />
-          </Field>
-        </div>
-
-        <Field label="Where">
-          <Select
-            value={locationId}
-            onChange={(e) => {
-              const v = e.target.value;
-              setLocationId(v);
-            }}
-          >
-            <option value="">
-              {row.workLocation
-                ? `Leave as ${row.workLocation}`
-                : "Leave as it is"}
-            </option>
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-                {location.addressLine ? ` — ${location.addressLine}` : ""}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        <Field
-          label="Reason for the change"
-          required
-          error={touched && !note.trim() ? "A reason is required." : undefined}
-          help="Payroll pays against this record."
-        >
-          <Input
-            value={note}
-            placeholder="Forgot to clock out; confirmed with their manager"
-            onChange={(e) => {
-              const v = e.target.value;
-              setNote(v);
-            }}
-          />
-        </Field>
-      </div>
-    </Modal>
   );
 }

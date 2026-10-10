@@ -26,7 +26,11 @@ export type ApprovalKind =
   /* One kind for all four of promotion, transfer, regrade and pay change:
      one table, one approval path, one queue row. See the API's
      `EmploymentChangeKind` for why they are not four. */
-  | "employment_change";
+  | "employment_change"
+  /* A public holiday the API suggested, or an announcement it read. Like a
+     confirmation, nobody requested it: the sweep raises it and somebody with
+     the settings permission decides. */
+  | "holiday";
 
 export type ApprovalItem = {
   id: string;
@@ -68,6 +72,7 @@ export const APPROVAL_LABEL: Record<ApprovalKind, string> = {
   expense: "Expense",
   record_change: "Record change",
   loan: "Loan",
+  holiday: "Public holiday",
 };
 
 /**

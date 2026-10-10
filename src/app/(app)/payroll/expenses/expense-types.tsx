@@ -370,9 +370,28 @@ export function ExpenseTypes({
 
 /* -------------------------------------------------------------------------- */
 
+type TypeDraft = {
+  name: string;
+  description: string;
+  requiresReceipt: boolean;
+  /** Naira, as typed. Empty means no cap. */
+  capText: string;
+};
+
+/** What the form holds when it opens: the type's own values, or a blank form. */
+function draftFor(type: ExpenseType | undefined): TypeDraft {
+  return {
+    name: type?.name ?? "",
+    description: type?.description ?? "",
+    requiresReceipt: type?.requiresReceipt ?? true,
+    capText:
+      type?.cap === null || type?.cap === undefined ? "" : type.cap.toFixed(2),
+  };
+}
+
 function TypeDialog({
   open,
-  type,
+  type: typeProp,
   onClose,
   onSave,
 }: {
@@ -381,16 +400,30 @@ function TypeDialog({
   onClose: () => void;
   onSave: (input: CreateTypeInput) => Promise<void>;
 }) {
-  const [name, setName] = useState(type?.name ?? "");
-  const [description, setDescription] = useState(type?.description ?? "");
-  const [requiresReceipt, setRequiresReceipt] = useState(
-    type?.requiresReceipt ?? true,
-  );
-  const [capText, setCapText] = useState(
-    type?.cap === null || type?.cap === undefined ? "" : type.cap.toFixed(2),
-  );
+  /* Remembers the last real type: the parent clears its prop the instant it
+     closes this, but the modal stays mounted for its exit animation and the
+     title and button must not flip to "Add" while it fades. */
+  const [type, setType] = useState(typeProp);
+  if (typeProp && typeProp !== type) setType(typeProp);
+
+  const [draft, setDraft] = useState(() => draftFor(typeProp));
   const [busy, setBusy] = useState(false);
 
+  /* Re-seeds the draft on every genuine open, not just the first mount. This
+     dialog stays mounted between uses, so the initial state above would
+     otherwise be whatever it was the first time — empty for an edit, since
+     nothing was being edited yet — and an add dialog would reopen holding the
+     last thing typed into it. */
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setDraft(draftFor(typeProp));
+  }
+
+  const set = <K extends keyof TypeDraft>(field: K, value: TypeDraft[K]) =>
+    setDraft((current) => ({ ...current, [field]: value }));
+
+  const { name, description, requiresReceipt, capText } = draft;
   const cap = capText.trim() === "" ? null : parseAmount(capText);
   const capBroken = capText.trim() !== "" && cap === null;
   const blocked = name.trim().length < 2 || capBroken;
@@ -434,7 +467,7 @@ function TypeDialog({
             value={name}
             maxLength={60}
             placeholder="Transport"
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => set("name", e.target.value)}
           />
         </Field>
 
@@ -446,7 +479,7 @@ function TypeDialog({
             value={description}
             maxLength={300}
             placeholder="Buses, keke and ride-hailing for work trips around town"
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => set("description", e.target.value)}
           />
         </Field>
 
@@ -463,7 +496,7 @@ function TypeDialog({
             autoComplete="off"
             placeholder="No cap"
             value={capText}
-            onChange={(e) => setCapText(e.target.value)}
+            onChange={(e) => set("capText", e.target.value)}
           />
         </Field>
 
@@ -471,7 +504,7 @@ function TypeDialog({
           label="A receipt is needed"
           description="Turn this off for things that produce no paper: a keke fare, a recharge card."
           checked={requiresReceipt}
-          onChange={(e) => setRequiresReceipt(e.target.checked)}
+          onChange={(e) => set("requiresReceipt", e.target.checked)}
         />
       </div>
     </Modal>
