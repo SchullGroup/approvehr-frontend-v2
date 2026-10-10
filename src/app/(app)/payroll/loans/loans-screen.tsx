@@ -35,7 +35,6 @@ import {
   type LoanListParams,
   type LoanStatus,
 } from "@/lib/api/loans";
-import { monthLabel } from "@/lib/loans/schedule";
 import {
   LOAN_STATUS_LABEL,
   finishesLabel,
@@ -47,6 +46,7 @@ import { usePermissions } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import { shortDate } from "@/lib/today";
 import { ApplyLoanModal } from "./apply-loan";
+import { ApprovedLoanCard } from "./approved-loan-card";
 import { DeclineLoanModal } from "./decisions";
 
 /**
@@ -115,6 +115,12 @@ export function LoansScreen() {
   const [applying, setApplying] = useState(false);
   const [declining, setDeclining] = useState<ApiLoan | null>(null);
   const [deciding, setDeciding] = useState<string | null>(null);
+  /* The loan just approved, kept above the list until the next decision
+     replaces it or it is closed. `n` makes each approval a new moment. */
+  const [approvedLoan, setApprovedLoan] = useState<{
+    loan: ApiLoan;
+    n: number;
+  } | null>(null);
 
   /**
    * Which endpoint answers.
@@ -184,15 +190,11 @@ export function LoansScreen() {
     setDeciding(loan.id);
     try {
       const approved = await approve(loan.id);
-      toast.push({
-        title: `Approved ${loan.employeeName}'s loan`,
-        tone: "success",
-        detail: approved.startPeriod
-          ? `${formatMoney(naira(approved.monthlyRepaymentKobo), "NGN", {
-              decimals: true,
-            })} a month, first deduction ${monthLabel(approved.startPeriod)}.`
-          : undefined,
-      });
+      /* No toast: the card above the list says what was approved. */
+      setApprovedLoan((current) => ({
+        loan: approved,
+        n: (current?.n ?? 0) + 1,
+      }));
     } catch (error) {
       toast.push({
         title: "Could not approve it",
@@ -239,6 +241,8 @@ export function LoansScreen() {
               items={tabs}
               value={filter}
               onChange={(id) => {
+                /* An approval belongs to the list it was made from. */
+                setApprovedLoan(null);
                 setFilter(id as Filter);
                 setPage(1);
               }}
@@ -305,6 +309,14 @@ export function LoansScreen() {
               }
             />
           </div>
+        )}
+
+        {approvedLoan && (
+          <ApprovedLoanCard
+            key={approvedLoan.n}
+            loan={approvedLoan.loan}
+            onDismiss={() => setApprovedLoan(null)}
+          />
         )}
 
         {list.loading && list.loans.length === 0 ? (

@@ -3,6 +3,23 @@
 import { useState } from "react";
 import { Button, Field, Modal, Textarea } from "@/components/ui";
 
+const COPY = {
+  requester: {
+    title: "Send it back",
+    description: (what: string) =>
+      `${what} goes back to them. They see what you write here.`,
+    placeholder: "Two people are already off that week. Can you move it?",
+    missing: "Write a line so they know what to change.",
+  },
+  record: {
+    title: "Decline",
+    description: (what: string) =>
+      `Declining “${what}”. What you write here is kept with the decision.`,
+    placeholder: "We stay open on Workers' Day and pay the holiday rate.",
+    missing: "Write a line so whoever looks at this later knows why.",
+  },
+} as const;
+
 /**
  * Ask why, before sending something back.
  *
@@ -19,15 +36,19 @@ import { Button, Field, Modal, Textarea } from "@/components/ui";
 export function DeclineDialog({
   open,
   what,
+  reader = "requester",
   onClose,
   onConfirm,
 }: {
   open: boolean;
   /** What is going back, named in the sentence the approver reads. */
   what: string;
+  /** `record` when nobody raised the row, so the note is kept rather than sent. */
+  reader?: "requester" | "record";
   onClose: () => void;
   onConfirm: (note: string) => Promise<void> | void;
 }) {
+  const copy = COPY[reader];
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +62,7 @@ export function DeclineDialog({
   async function confirm() {
     const reason = note.trim();
     if (reason.length === 0) {
-      setError("Write a line so they know what to change.");
+      setError(copy.missing);
       return;
     }
     setBusy(true);
@@ -63,8 +84,8 @@ export function DeclineDialog({
     <Modal
       open={open}
       onClose={close}
-      title="Send it back"
-      description={`${what} goes back to them. They see what you write here.`}
+      title={copy.title}
+      description={copy.description(what)}
       size="sm"
       footer={
         <div className="flex justify-end gap-2">
@@ -76,7 +97,7 @@ export function DeclineDialog({
             onClick={() => void confirm()}
             loading={busy}
           >
-            Send it back
+            {copy.title}
           </Button>
         </div>
       }
@@ -85,7 +106,7 @@ export function DeclineDialog({
         <Textarea
           rows={3}
           value={note}
-          placeholder="Two people are already off that week. Can you move it?"
+          placeholder={copy.placeholder}
           onChange={(e) => {
             const next = e.target.value;
             setNote(next);

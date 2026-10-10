@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Field, Modal, Textarea } from "@/components/ui";
+import { Button, Field, Modal, SuccessMoment, Textarea } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { ApiReview } from "@/lib/api/performance";
+import { todayIn } from "@/lib/time";
+import { useOrgTimezone } from "@/lib/store/session";
+import { acknowledgedCopy, type SignOffCopy } from "./sign-off-copy";
 
 /**
  * Answering a rating — one act the subject does for themselves, one HR does
@@ -39,26 +42,55 @@ import type { ApiReview } from "@/lib/api/performance";
  * The comment stays optional. Somebody with nothing to add should not have to
  * invent something to get past a form, and with disputing gone there is no
  * longer a second act whose comment was compulsory.
+ *
+ * ## It says what it recorded before it closes
+ *
+ * This used to close on success with a toast reading "Acknowledgement
+ * recorded" — for the one answer a person gives about their own rating, which
+ * is stored with the date and cannot be given twice. The dialog now stays and
+ * turns into a statement of what was recorded, the way the resignation dialog
+ * does, and closes on "Done". The caller must not toast a success of its own.
  */
 export function SignOffDialog({
   review,
+  ratingLabel,
   onClose,
   onConfirm,
 }: {
   review: ApiReview;
+  /** The mark in the company's own words, or null when the form gave none. */
+  ratingLabel: string | null;
   onClose: () => void;
-  onConfirm: (comment?: string) => Promise<void>;
+  /**
+   * Records it. Resolves to the API's timestamp for it — null in demo mode,
+   * where there is none — or to `null` when it failed and the caller has said so
+   * in a toast.
+   */
+  onConfirm: (comment?: string) => Promise<{ at: string | null } | null>;
 }) {
+  const timeZone = useOrgTimezone();
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  /* What it said. While it is set the dialog shows it in place of the form. */
+  const [recorded, setRecorded] = useState<SignOffCopy | null>(null);
 
   const submit = async () => {
     setBusy(true);
     setFailed(null);
     try {
       const trimmed = comment.trim();
-      await onConfirm(trimmed.length > 0 ? trimmed : undefined);
+      const outcome = await onConfirm(trimmed.length > 0 ? trimmed : undefined);
+      if (outcome) {
+        setRecorded(
+          acknowledgedCopy({
+            cycleName: review.cycleName,
+            ratingLabel,
+            day: outcome.at ? outcome.at.slice(0, 10) : todayIn(timeZone),
+            commented: trimmed.length > 0,
+          }),
+        );
+      }
     } catch (error) {
       setFailed(
         error instanceof ApiError
@@ -75,49 +107,74 @@ export function SignOffDialog({
       open
       onClose={onClose}
       title="Acknowledge this rating"
-      description={`A record that you were shown your rating for ${review.cycleName}.`}
+      description={
+        recorded
+          ? undefined
+          : `A record that you were shown your rating for ${review.cycleName}.`
+      }
       size="sm"
       footer={
-        <>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button
-            variant="approve"
-            loading={busy}
-            onClick={() => void submit()}
-          >
-            I have seen this
-          </Button>
-        </>
+        recorded ? undefined : (
+          <>
+            <Button onClick={onClose}>Cancel</Button>
+            <Button
+              variant="approve"
+              loading={busy}
+              onClick={() => void submit()}
+            >
+              I have seen this
+            </Button>
+          </>
+        )
       }
     >
-      <div className="flex flex-col gap-4">
-        <p className="text-body-sm leading-relaxed text-body">
-          This records that you have seen this rating and when. It is not a
-          record that you agree with it, and nothing here says it is.
-        </p>
-
-        <Field
-          label="Anything to add"
-          help="Optional. Leave it blank if you have nothing to add."
-        >
-          <Textarea
-            rows={5}
-            value={comment}
-            onChange={(event) => setComment(event.target.value)}
-          />
-        </Field>
-
-        <p className="text-body-sm text-muted">You can do this once.</p>
-
-        {failed && (
-          <p
-            role="status"
-            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
-          >
-            {failed}
+      {recorded ? (
+        <SuccessMoment
+          /* Under the dialog's own `h2`, not beside it. */
+          headingLevel={3}
+          align="center"
+          /* The button that was just pressed has left with the footer, so
+             focus goes to what replaced it. */
+          focusHeading
+          title={recorded.title}
+          lead={recorded.lead}
+          details={recorded.details}
+          actions={
+            <Button variant="accent" onClick={onClose}>
+              Done
+            </Button>
+          }
+        />
+      ) : (
+        <div className="flex flex-col gap-4">
+          <p className="text-body-sm leading-relaxed text-body">
+            This records that you have seen this rating and when. It is not a
+            record that you agree with it, and nothing here says it is.
           </p>
-        )}
-      </div>
+
+          <Field
+            label="Anything to add"
+            help="Optional. Leave it blank if you have nothing to add."
+          >
+            <Textarea
+              rows={5}
+              value={comment}
+              onChange={(event) => setComment(event.target.value)}
+            />
+          </Field>
+
+          <p className="text-body-sm text-muted">You can do this once.</p>
+
+          {failed && (
+            <p
+              role="status"
+              className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
+            >
+              {failed}
+            </p>
+          )}
+        </div>
+      )}
     </Modal>
   );
 }

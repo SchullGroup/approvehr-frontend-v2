@@ -17,9 +17,11 @@ import {
   Money,
   Spinner,
   Stat,
+  SuccessMoment,
   Textarea,
   useToast,
 } from "@/components/ui";
+import { DecidedCard } from "@/components/payroll/decided-card";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
@@ -35,6 +37,13 @@ import {
   useMyAdvance,
 } from "@/lib/store/advances";
 import { useCan } from "@/lib/permissions";
+import {
+  advanceApprovedCopy,
+  advanceDeclinedToast,
+  advanceRequestedCopy,
+  policySavedToast,
+  type MomentCopy,
+} from "./advance-moments-copy";
 
 /**
  * Earned wage access: drawing pay you have already earned.
@@ -83,6 +92,13 @@ export function AdvancesScreen() {
   const policy = useAdvancePolicy();
   const [asking, setAsking] = useState(false);
   const [policyOpen, setPolicyOpen] = useState(false);
+  /* The advance just approved, kept above the queue until the next decision
+     replaces it or it is closed. It lives here and not in `Waiting`, which
+     returns nothing while the queue reloads and would take the card with it. */
+  const [approved, setApproved] = useState<{
+    advance: ApiAdvance;
+    n: number;
+  } | null>(null);
 
   const reloadAll = () => {
     mine.reload();
@@ -120,7 +136,25 @@ export function AdvancesScreen() {
         ) : (
           <div className="flex flex-col gap-6">
             <Mine read={mine} onAsk={() => setAsking(true)} />
-            {canDecide && <Waiting read={waiting} onChanged={reloadAll} />}
+            {canDecide && approved && (
+              <DecidedCard
+                key={approved.n}
+                {...advanceApprovedCopy(approved.advance)}
+                onDismiss={() => setApproved(null)}
+              />
+            )}
+            {canDecide && (
+              <Waiting
+                read={waiting}
+                onChanged={reloadAll}
+                onApproved={(advance) =>
+                  setApproved((current) => ({
+                    advance,
+                    n: (current?.n ?? 0) + 1,
+                  }))
+                }
+              />
+            )}
             <History read={all} />
           </div>
         )}
@@ -264,9 +298,12 @@ function Mine({
 function Waiting({
   read,
   onChanged,
+  onApproved,
 }: {
   read: ReturnType<typeof useAdvances>;
   onChanged: () => void;
+  /** Told the advance as approved, so the screen can say what was approved. */
+  onApproved: (advance: ApiAdvance) => void;
 }) {
   const mutations = useAdvanceMutations();
   const toast = useToast();
@@ -282,11 +319,12 @@ function Waiting({
     );
   }
 
-  const run = async (work: () => Promise<unknown>, done: string) => {
+  /* No toast on success: the card above this one says what was approved. */
+  const approve = async (advance: ApiAdvance) => {
     setBusy(true);
     try {
-      await work();
-      toast.push({ tone: "success", title: done });
+      const approved = await mutations.approve(advance.id);
+      onApproved(approved);
       onChanged();
     } catch (error) {
       toast.push({
@@ -328,9 +366,7 @@ function Waiting({
               variant="approve"
               size="sm"
               loading={busy}
-              onClick={() =>
-                void run(() => mutations.approve(advance.id), "Approved")
-              }
+              onClick={() => void approve(advance)}
             >
               Approve
             </Button>
@@ -448,6 +484,21 @@ function History({ read }: { read: ReturnType<typeof useAdvances> }) {
   );
 }
 
+/**
+ * Asking for pay early.
+ *
+ * ## It says what it sent before it closes
+ *
+ * This used to toast "Asked for" — a fragment — and shut. The dialog stays now
+ * and turns into a statement of what was asked and what has to happen next,
+ * which is the thing somebody about to rely on this money wants to read. The
+ * figures come from the advance the API answered with.
+ *
+ * The screen is told only when the dialog is closed (`onDone`), not when the
+ * request lands: telling it reloads what is behind the dialog, and `AskDialog`
+ * is mounted only while that data is present, so doing it early would take the
+ * statement away the moment it appeared.
+ */
 function AskDialog({
   availableKobo,
   minKobo,
@@ -464,92 +515,127 @@ function AskDialog({
   onDone: () => void;
 }) {
   const mutations = useAdvanceMutations();
-  const toast = useToast();
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  /* What was just asked for. While it is set the dialog shows it in place of
+     the form. */
+  const [sent, setSent] = useState<MomentCopy | null>(null);
+
+  /* Opening it again after a request went in starts a clean form, because the
+     old answer belongs to a request that exists now. */
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open && sent) {
+      setSent(null);
+      setAmount("");
+    }
+  }
 
   const kobo = Math.round((Number(amount.replace(/,/g, "")) || 0) * 100);
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      /* Once it has gone in, every way out means "done": the request exists
+         whichever one they use, and the screen behind needs to hear. */
+      onClose={sent ? onDone : onClose}
       title="Draw pay early"
-      description="It comes off your next payslip."
+      description={sent ? undefined : "It comes off your next payslip."}
       footer={
-        <div className="flex items-center gap-2">
-          <Button
-            variant="accent"
-            loading={busy}
-            disabled={kobo <= 0}
-            onClick={() => {
-              void (async () => {
-                setBusy(true);
-                setFailure(null);
-                try {
-                  await mutations.request(kobo);
-                  toast.push({ tone: "success", title: "Asked for" });
-                  onDone();
-                } catch (error) {
-                  setFailure(
-                    error instanceof ApiError
-                      ? error.message
-                      : "Something went wrong. Try again.",
-                  );
-                } finally {
-                  setBusy(false);
-                }
-              })();
-            }}
-          >
-            Ask for it
-          </Button>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-        </div>
+        sent ? undefined : (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="accent"
+              loading={busy}
+              disabled={kobo <= 0}
+              onClick={() => {
+                void (async () => {
+                  setBusy(true);
+                  setFailure(null);
+                  try {
+                    const advance = await mutations.request(kobo);
+                    setSent(advanceRequestedCopy(advance));
+                  } catch (error) {
+                    setFailure(
+                      error instanceof ApiError
+                        ? error.message
+                        : "Something went wrong. Try again.",
+                    );
+                  } finally {
+                    setBusy(false);
+                  }
+                })();
+              }}
+            >
+              Ask for it
+            </Button>
+            <Button variant="ghost" onClick={onClose} disabled={busy}>
+              Cancel
+            </Button>
+          </div>
+        )
       }
     >
-      <div className="flex flex-col gap-4">
-        <Field
-          label="How much"
-          help={`Between ${(minKobo / 100).toLocaleString("en-NG")} and ${(availableKobo / 100).toLocaleString("en-NG")} naira.`}
-        >
-          <Input
-            inputMode="decimal"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            placeholder={String(Math.floor(availableKobo / 100))}
-          />
-        </Field>
-
-        {kobo > 0 && (
-          <p className="text-body-sm text-body">
-            Your next payslip will be{" "}
-            <Money amount={(kobo + feeKobo) / 100} decimals /> lighter
-            {feeKobo > 0 ? " — that includes the fee." : "."}
-          </p>
-        )}
-
-        {/* Only when there is one. A fee of zero needs no sentence. */}
-        {feeKobo > 0 && (
-          <Callout
-            tone="warning"
-            title="There is a fee on this"
-            icon={<TriangleAlert aria-hidden="true" />}
+      {sent ? (
+        <SuccessMoment
+          /* Under the dialog's own `h2`, not beside it. */
+          headingLevel={3}
+          align="center"
+          /* The button that was just pressed has left with the footer, so
+             focus goes to what replaced it. */
+          focusHeading
+          title={sent.title}
+          lead={sent.lead}
+          details={sent.details}
+          actions={
+            <Button variant="accent" onClick={onDone}>
+              Done
+            </Button>
+          }
+        />
+      ) : (
+        <div className="flex flex-col gap-4">
+          <Field
+            label="How much"
+            help={`Between ${(minKobo / 100).toLocaleString("en-NG")} and ${(availableKobo / 100).toLocaleString("en-NG")} naira.`}
           >
-            <Money amount={feeKobo / 100} decimals /> is added to what comes off
-            your payslip.
-          </Callout>
-        )}
+            <Input
+              inputMode="decimal"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder={String(Math.floor(availableKobo / 100))}
+            />
+          </Field>
 
-        {failure && (
-          <Callout tone="danger" title="That was refused">
-            {failure}
-          </Callout>
-        )}
-      </div>
+          {kobo > 0 && (
+            <p className="text-body-sm text-body">
+              Your next payslip will be{" "}
+              <Money amount={(kobo + feeKobo) / 100} decimals /> lighter
+              {feeKobo > 0 ? " — that includes the fee." : "."}
+            </p>
+          )}
+
+          {/* Only when there is one. A fee of zero needs no sentence. */}
+          {feeKobo > 0 && (
+            <Callout
+              tone="warning"
+              title="There is a fee on this"
+              icon={<TriangleAlert aria-hidden="true" />}
+            >
+              <Money amount={feeKobo / 100} decimals /> is added to what comes
+              off your payslip.
+            </Callout>
+          )}
+
+          {failure && (
+            <Callout tone="danger" title="That was refused">
+              {failure}
+            </Callout>
+          )}
+        </div>
+      )}
     </Modal>
   );
 }
@@ -591,7 +677,10 @@ function DeclineDialog({
                 setFailure(null);
                 try {
                   await mutations.decline(advance.id, reason);
-                  toast.push({ tone: "success", title: "Declined" });
+                  toast.push({
+                    tone: "success",
+                    ...advanceDeclinedToast(advance),
+                  });
                   onDone();
                 } catch (error) {
                   setFailure(
@@ -694,7 +783,15 @@ function PolicyDialog({
                     minAmountKobo: Math.round(Number(state.min) * 100),
                     feeKobo: Math.round(Number(state.fee) * 100),
                   });
-                  toast.push({ tone: "success", title: "Saved" });
+                  toast.push({
+                    tone: "success",
+                    ...policySavedToast({
+                      enabled: state.enabled,
+                      maxPercent: Number(state.percent),
+                      minNaira: Number(state.min),
+                      feeNaira: Number(state.fee),
+                    }),
+                  });
                   onDone();
                 } catch (error) {
                   setFailure(

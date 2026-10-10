@@ -164,9 +164,9 @@ export function MyExpenses({ className }: { className?: string }) {
           types={types.types}
           claim={editing ?? undefined}
           myEmployeeId={mine.myEmployeeId}
+          /* No toast: the form says what was sent, in the dialog, itself. */
           onSubmit={async (input) => {
             await mine.submit(input);
-            toast.push({ title: "Sent for approval", tone: "success" });
           }}
           onEdit={async (id, input) => {
             await mine.edit(id, input);

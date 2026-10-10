@@ -205,10 +205,17 @@ export type ApiGoal = {
 /**
  * `POST /goals/:id/submit`.
  *
- * `sentTo` is **null when the owner has no manager** — somebody had to be told
- * and nobody was, which is a fact the screen has to say rather than swallow.
+ * `sentTo` is who it was addressed to, as **employee ids**: the owner's line
+ * manager, or else their department head, or else everybody who can edit
+ * records — less the person sending. It used to be typed as a nullable string,
+ * which the API has never sent, and nothing read it.
+ *
+ * **Empty is a real answer**: nobody else was asked to agree it. It is not who
+ * it *reached* — each is notified and the API does not report whether the
+ * notification landed — so a screen may count them and may not say they were
+ * told.
  */
-export type ApiObjectiveSubmitted = ApiGoal & { sentTo: string | null };
+export type ApiObjectiveSubmitted = ApiGoal & { sentTo: string[] };
 
 /** `POST /goals/:id/agree`. `note` is the API's one sentence about the freeze. */
 export type ApiObjectiveAgreed = ApiGoal & { agreed: true; note: string };
