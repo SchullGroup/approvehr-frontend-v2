@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/cn";
 import {
   Badge,
+  Button,
   ButtonLink,
   Callout,
   Card,
@@ -58,6 +59,7 @@ import { useAttendanceMonth } from "@/lib/store/attendance-history";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { TODAY, shortDate } from "@/lib/today";
 import { todayIn } from "@/lib/time";
+import { CorrectionDialog } from "../correction-dialog";
 import { DayHoliday } from "./day-holiday";
 import { CalendarLegend, MonthCalendar } from "./month-calendar";
 
@@ -136,8 +138,29 @@ type HistoryTab = "calendar" | "timesheet";
  * `useIsManager()` (their own reports) or `EDIT_RECORDS` (the company's)
  * decides it, matching `attendance-screen.tsx`'s roster gate exactly, so a
  * manager who can already see today's roster there can see it here too.
+ *
+ * ## Putting a past day right
+ *
+ * `EDIT_RECORDS` alone gets a button on each row of the selected day, opening
+ * the same `CorrectionDialog` the roster uses for today — and `EDIT_RECORDS`
+ * alone, not the wider "can see this screen" gate above: the API's
+ * `PATCH /attendance/entries/:employeeId/:date` refuses a manager, and a button
+ * that only discovers it on Save is worse than none. The control is absent for
+ * everybody else rather than disabled.
+ *
+ * Only on a day that has happened. The calendar already will not select a future
+ * cell, and `canCorrect` says the same again so a `?date=` cannot argue with it.
+ * A day with no entry for somebody lists them anyway (`ABSENT`), and the same
+ * form records one: the API creates the entry when there is none.
+ *
+ * `initialDate` is the `?date=` the page was opened with, for a notice about
+ * one particular day to link to.
  */
-export function HistoryScreen() {
+export function HistoryScreen({
+  initialDate = null,
+}: {
+  initialDate?: string | null;
+}) {
   const { isConnected } = useSession();
   const timeZone = useOrgTimezone();
   /* Two separate hook calls, never short-circuited into one expression — see
@@ -154,9 +177,14 @@ export function HistoryScreen() {
      for refusing a future day is `month.today`, which is the server's. */
   const today = isConnected ? todayIn(timeZone) : TODAY;
 
-  const [selected, setSelected] = useState(today);
-  const [month, setMonth] = useState(today.slice(0, 7));
+  /* A requested day in the future is not a day anybody can look at, so it is
+     today instead of an empty cell. */
+  const opening =
+    initialDate !== null && initialDate <= today ? initialDate : today;
+  const [selected, setSelected] = useState(opening);
+  const [month, setMonth] = useState(opening.slice(0, 7));
   const [tab, setTab] = useState<HistoryTab>("calendar");
+  const [correcting, setCorrecting] = useState<ApiRosterRow | null>(null);
 
   const summary = useAttendanceMonth(month);
   const roster = useAttendanceRoster(selected);
@@ -168,6 +196,9 @@ export function HistoryScreen() {
   const sheet = useAttendanceTimesheet(TIMESHEET_DAYS);
 
   const day = summary.days.find((row) => row.date === selected) ?? null;
+  /* EDIT_RECORDS and a day that has happened. `summary.today` is the server's,
+     which is the one that says what "has happened" means for this company. */
+  const canCorrect = canEditRecords && day !== null && !day.future;
 
   /**
    * Clock-ins per working day, and how many days nothing is known about.
@@ -366,11 +397,25 @@ export function HistoryScreen() {
                 day={day}
                 source={summary.source}
                 firstRecordedDate={summary.firstRecordedDate}
+                onCorrect={canCorrect ? setCorrecting : null}
               />
             )}
           </>
         )}
       </PageBody>
+
+      {/* Keyed by day and person, so opening another remounts with fresh
+          state. Nothing to refresh afterwards: `correct` announces, and the
+          roster and the month both listen. */}
+      {canCorrect && correcting && (
+        <CorrectionDialog
+          key={`${selected}|${correcting.employeeId}`}
+          row={correcting}
+          date={selected}
+          pastDay={selected < summary.today}
+          onClose={() => setCorrecting(null)}
+        />
+      )}
     </>
   );
 }
@@ -458,11 +503,14 @@ function DayTable({
   day,
   source,
   firstRecordedDate,
+  onCorrect,
 }: {
   roster: RosterState;
   day: ApiAttendanceDay | null;
   source: "api" | "demo";
   firstRecordedDate: string | null;
+  /** Null for anybody who cannot correct a record, and for a future day. */
+  onCorrect: ((row: ApiRosterRow) => void) | null;
 }) {
   /* A four-week window around the day, not the day itself. A rota row only
      exists for a day somebody is *on*, so a one-day window cannot tell "off
@@ -624,6 +672,9 @@ function DayTable({
                     in {row.clockIn}
                     {row.clockOut ? `, out ${row.clockOut}` : ""}
                   </span>
+                  {onCorrect && (
+                    <CorrectButton row={row} onCorrect={onCorrect} />
+                  )}
                 </li>
               ))}
             </ul>
@@ -668,6 +719,7 @@ function DayTable({
             <TH>In</TH>
             <TH>Out</TH>
             <TH>Where</TH>
+            {onCorrect && <TH align="right">Actions</TH>}
           </THead>
           <TBody>
             {roster.rows.map((row) => {
@@ -740,6 +792,11 @@ function DayTable({
                       <span className={cn("text-faint")}>—</span>
                     )}
                   </TD>
+                  {onCorrect && (
+                    <TD align="right">
+                      <CorrectButton row={row} onCorrect={onCorrect} />
+                    </TD>
+                  )}
                 </TR>
               );
             })}
@@ -813,11 +870,50 @@ function DayTable({
                   </span>
                 )}
               </div>
+              {onCorrect && (
+                <CorrectButton
+                  row={row}
+                  onCorrect={onCorrect}
+                  className="self-start"
+                />
+              )}
             </li>
           );
         })}
       </ul>
     </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One row's way into the correction form.
+ *
+ * "Record" for somebody with no times on the day and "Correct" for somebody who
+ * has some — the form says the same, and a no-show being asked to be "corrected"
+ * reads as if the system had something to take back.
+ */
+function CorrectButton({
+  row,
+  onCorrect,
+  className,
+}: {
+  row: ApiRosterRow;
+  onCorrect: (row: ApiRosterRow) => void;
+  className?: string;
+}) {
+  const label = row.clockIn || row.clockOut ? "Correct" : "Record";
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className={className}
+      aria-label={`${label} ${row.employeeName}'s day`}
+      onClick={() => onCorrect(row)}
+    >
+      {label}
+    </Button>
   );
 }
 

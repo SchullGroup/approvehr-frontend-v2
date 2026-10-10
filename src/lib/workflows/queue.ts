@@ -201,6 +201,7 @@ const HREF: Record<ApprovalKind, string> = {
   confirmation: "/people/probation",
   employment_change: "/people/changes",
   loan: "/payroll/loans",
+  holiday: "/settings/leave",
 };
 
 /** A seed or derived row, in the shape the screen renders. */

@@ -151,8 +151,8 @@ export function SignaturesScreen() {
            document is in front of them and that nobody can sign it for them. */
         description={
           canManage
-            ? "Send a document to a member of staff and record that they adopted it — a contract, an offer letter, a policy. Only the person it was sent to can sign it: not their manager, and not you."
-            : "Documents somebody has asked you to read and adopt as signed. Only you can sign the ones addressed to you, and what you sign is kept exactly as you saw it."
+            ? "Send a document to someone and record that they signed it. Nobody else can sign in their place, not even their manager."
+            : "A document somebody sent you to read and sign. Nobody else can sign it for you, not even your manager."
         }
         action={
           /* Absent without the permission rather than present and refusing —
@@ -200,25 +200,32 @@ export function SignaturesScreen() {
         ) : read.loading || !read.data ? (
           <Spinner label="Loading" />
         ) : read.data.length === 0 ? (
-          <EmptyState
-            icon={<FileSignature aria-hidden="true" />}
-            title={
-              tab === "mine"
-                ? "Nothing is waiting on your signature"
-                : "Nothing has been sent for signature yet"
-            }
-            description={
-              tab === "mine"
-                ? "When somebody sends you a document to sign, it appears here, and nobody else can sign it for you."
-                : canManage
-                  ? /* Points at the control rather than describing the
-                       capability. The old copy said a contract "can be sent",
-                       which was true and was not actionable, on a screen that
-                       until now had no way to send one. */
-                    "Use “Send for signature” above to put a contract, offer letter or policy in front of somebody."
-                  : "Documents you send or are asked to sign will be listed here."
-            }
-          />
+          /* Bare `EmptyState` has no edges of its own — see `feedback.tsx`.
+             `approvals/inbox.tsx` wraps every empty state in a `Card` for
+             exactly that reason; this one hadn't been. */
+          <Card>
+            <EmptyState
+              icon={<FileSignature aria-hidden="true" />}
+              title={
+                tab === "mine"
+                  ? "Nothing is waiting on your signature"
+                  : "Nothing has been sent for signature yet"
+              }
+              description={
+                tab === "mine"
+                  ? /* The header already says nobody else can sign for you —
+                       no need to say it twice on an empty screen. */
+                    "It appears here the moment somebody sends you one to sign."
+                  : canManage
+                    ? /* Points at the control rather than describing the
+                         capability. The old copy said a contract "can be
+                         sent", which was true and was not actionable, on a
+                         screen that until now had no way to send one. */
+                      "Use “Send for signature” above to put a contract, offer letter or policy in front of somebody."
+                    : "Documents you send or are asked to sign will be listed here."
+              }
+            />
+          </Card>
         ) : (
           <div className="flex flex-col gap-4">
             {read.data.map((record) => (

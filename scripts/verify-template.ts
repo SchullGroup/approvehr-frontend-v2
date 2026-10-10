@@ -48,6 +48,7 @@ import {
 } from "../src/lib/imports/template-file";
 import { EMPLOYEES } from "../src/lib/imports/employees";
 import { ATTENDANCE_COLUMNS } from "../src/lib/imports/attendance";
+import { OBJECTIVE_COLUMNS } from "../src/lib/imports/objectives";
 import {
   columnIndex,
   columnName,
@@ -467,6 +468,12 @@ async function main(): Promise<void> {
     "attendance.ts",
     "ATTENDANCE_COLUMNS",
     ATTENDANCE_COLUMNS,
+  );
+  gateMirror(
+    "objectives",
+    "objectives.ts",
+    "OBJECTIVE_COLUMNS",
+    OBJECTIVE_COLUMNS,
   );
 
   /* --- Report --------------------------------------------------------- */

@@ -117,6 +117,8 @@ export type HolidayCalendarState = {
    * the answer arrives makes it a false one.
    */
   awaitingProclamation: number | null;
+  /** Suggested holidays waiting in the inbox; `null` until known, 0 in the demo. */
+  suggested: number | null;
   year: number;
   loading: boolean;
   error: ApiError | null;
@@ -170,7 +172,11 @@ const holidayYears = createSharedResource<HolidayOutcome>(
       if (error instanceof DOMException && error.name === "AbortError")
         throw error;
       return {
-        calendar: { holidays: NO_HOLIDAYS, awaitingProclamation: 0 },
+        calendar: {
+          holidays: NO_HOLIDAYS,
+          awaitingProclamation: 0,
+          suggestedAwaitingDecision: 0,
+        },
         error: error instanceof ApiError ? error : null,
       };
     }
@@ -222,6 +228,7 @@ export function usePublicHolidays(year: number): HolidayCalendarState {
     return {
       holidays: rows,
       awaitingProclamation: rows.filter((holiday) => !holiday.confirmed).length,
+      suggestedAwaitingDecision: 0,
     };
   }, [demo, year]);
 
@@ -229,6 +236,7 @@ export function usePublicHolidays(year: number): HolidayCalendarState {
     return {
       holidays: demoCalendar.holidays,
       awaitingProclamation: demoCalendar.awaitingProclamation,
+      suggested: 0,
       year,
       loading: false,
       error: null,
@@ -244,6 +252,7 @@ export function usePublicHolidays(year: number): HolidayCalendarState {
     awaitingProclamation: outcome
       ? outcome.calendar.awaitingProclamation
       : null,
+    suggested: outcome ? outcome.calendar.suggestedAwaitingDecision : null,
     year,
     loading: outcome === null,
     error: outcome ? outcome.error : null,

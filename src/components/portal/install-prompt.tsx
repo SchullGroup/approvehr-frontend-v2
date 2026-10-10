@@ -195,7 +195,7 @@ export function InstallPrompt() {
 
   return (
     <div
-      className="sticky top-14 z-20 flex items-start gap-3 border-b border-line bg-accent-soft px-5 py-3"
+      className="flex items-start gap-3 border-b border-line bg-accent-soft px-5 py-3"
       /* A suggestion, not an alert. Announced when a screen reader gets to it
          rather than interrupting whatever it is reading. */
       role="region"

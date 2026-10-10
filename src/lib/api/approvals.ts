@@ -80,7 +80,8 @@ type WireKind =
   | "RECORD_CHANGE"
   | "LOAN"
   | "CONFIRMATION"
-  | "EMPLOYMENT_CHANGE";
+  | "EMPLOYMENT_CHANGE"
+  | "HOLIDAY";
 
 type WireStatus = "PENDING" | "APPROVED" | "DECLINED" | "WITHDRAWN";
 
@@ -183,6 +184,7 @@ const KIND: Record<WireKind, ApprovalKind> = {
   LOAN: "loan",
   CONFIRMATION: "confirmation",
   EMPLOYMENT_CHANGE: "employment_change",
+  HOLIDAY: "holiday",
 };
 
 /** `PAYROLL_RUN` → `Payroll run`. Only used for a kind we have no word for. */
@@ -230,6 +232,7 @@ const LABEL: Record<ApprovalKind, string> = {
   loan: "Loan",
   confirmation: "Confirmation",
   employment_change: "Promotion or transfer",
+  holiday: "Public holiday",
 };
 
 function toSummary(wire: WireSummary): ApprovalSummary {
@@ -290,6 +293,12 @@ export const approvalsApi = {
   ): Promise<{
     row: ApprovalRow | null;
     subjectMoved: boolean;
+    /**
+     * The status of the thing decided, as the module that owns it says — for a
+     * leave request, `AWAITING_HR` after a department head's approval, which is
+     * not an approval yet. Absent when the module sent nothing readable.
+     */
+    subjectStatus?: string;
     note?: string;
   }> => {
     const result = await request<{
@@ -300,9 +309,13 @@ export const approvalsApi = {
       method: "POST",
       body: { decision, ...(note ? { note } : {}) },
     });
+    const subject = result.subject as { status?: unknown } | null | undefined;
     return {
       row: result.approval ? toRow(result.approval) : null,
       subjectMoved: result.subject !== null && result.subject !== undefined,
+      ...(typeof subject?.status === "string"
+        ? { subjectStatus: subject.status }
+        : {}),
       ...(result.note ? { note: result.note } : {}),
     };
   },

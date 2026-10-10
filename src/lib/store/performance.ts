@@ -47,6 +47,7 @@ import {
   type ApiScoringWeights,
   type ApiScoringWeightsSaved,
   type ApiTask,
+  type ApiTaskGrade,
   type ApiTaskForGrading,
   type ApiMyTask,
   type ScoreBand,
@@ -3359,12 +3360,9 @@ export function useTaskActions() {
       [isConnected],
     ),
     gradeTask: useCallback(
-      async (
-        id: string,
-        grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED",
-      ) => {
+      async (id: string, grade: ApiTaskGrade, note?: string) => {
         if (!isConnected) offline(TASK_OFFLINE);
-        return performanceApi.gradeTask(id, grade);
+        return performanceApi.gradeTask(id, grade, note);
       },
       [isConnected],
     ),

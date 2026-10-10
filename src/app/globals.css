@@ -812,6 +812,65 @@
 }
 
 /* --------------------------------------------------------------------------
+   A finished flow (components/ui/success.tsx). The mark pops in, the check
+   draws itself, one ring opens out and fades, and the lines of text rise in
+   behind it. Then nothing moves. Delays for the text are set inline so each
+   line can be staggered without a class per step.
+   -------------------------------------------------------------------------- */
+@keyframes ahr-success-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ahr-success-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Hidden until it starts, so the ring does not sit round the mark during the
+   delay before it opens. */
+@keyframes ahr-success-ring {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  20% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+
+.ahr-success-mark {
+  animation: ahr-success-pop 0.38s var(--ease-out-soft) both;
+}
+
+.ahr-success-check {
+  stroke-dasharray: 1;
+  animation: ahr-success-draw 0.45s var(--ease-out-soft) 0.16s both;
+}
+
+.ahr-success-ring {
+  animation: ahr-success-ring 0.9s var(--ease-out-soft) 0.3s both;
+}
+
+.ahr-success-line {
+  animation: ahr-rise 0.5s var(--ease-out-soft) both;
+}
+
+/* --------------------------------------------------------------------------
    Marketing motion. Scroll reveals are driven by an IntersectionObserver that
    flips data-reveal from "idle" to "in"; the transition lives here so a single
    media query below can switch the whole site to static.
@@ -909,6 +968,20 @@
   .animate-slide-to-right,
   .animate-slide-to-left {
     animation: ahr-fade-out 0.12s var(--ease-in-soft) both !important;
+  }
+
+  /* A finished flow arrives complete. The blanket rule above zeroes the
+     durations but not the delays, so without this the check would stay hidden
+     for a fifth of a second and the lines would trail in behind it. The ring
+     is only motion, so it goes. */
+  .ahr-success-mark,
+  .ahr-success-check,
+  .ahr-success-line {
+    animation-delay: 0s !important;
+  }
+
+  .ahr-success-ring {
+    display: none;
   }
 }
 
@@ -1033,8 +1106,8 @@
 /* --------------------------------------------------------------------------
    The assistant's presence. One brand-coloured orb, reused wherever the chat
    needs to say "something is happening" without inventing a step that is not
-   real. `/ai/chat` is one round trip per turn, not a named pipeline with
-   stages to report — so the honest version of progress is a calm, alive
+   real. An ai2 turn is one stream, not a named pipeline with stages to
+   report — so the honest version of progress is a calm, alive
    presence rather than a fake checklist. See `components/portal/assistant-orb`.
 
    Three phases, one shape:

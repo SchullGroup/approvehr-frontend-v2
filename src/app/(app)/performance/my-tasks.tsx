@@ -20,23 +20,12 @@ import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { ApiError } from "@/lib/api/client";
 import type { ApiGoal, ApiMyTask } from "@/lib/api/performance";
 import { dayOf } from "@/lib/api/performance";
+import {
+  TASK_GRADE_LABEL,
+  TASK_GRADE_TONE,
+} from "@/lib/performance/task-grade";
 import { useKpis, useMyTasks, useTaskActions } from "@/lib/store/performance";
 import { useSession } from "@/lib/store/session";
-
-const GRADE_LABEL: Record<NonNullable<ApiMyTask["grade"]>, string> = {
-  COMPLETED: "Done",
-  PARTIALLY_COMPLETED: "Partly done",
-  NOT_COMPLETED: "Not done",
-};
-
-const GRADE_TONE: Record<
-  NonNullable<ApiMyTask["grade"]>,
-  "success" | "warning" | "danger"
-> = {
-  COMPLETED: "success",
-  PARTIALLY_COMPLETED: "warning",
-  NOT_COMPLETED: "danger",
-};
 
 /**
  * Where somebody logs what they did, and reads what came back.
@@ -60,6 +49,10 @@ const GRADE_TONE: Record<
  * manager has not looked at yet is not a week of nothing, which is the same
  * distinction `taskCompletionRate` makes on the API when it refuses to score
  * an ungraded task as a zero.
+ *
+ * A grade may come back with a comment, shown under the task. A rejected task
+ * counts as not done, and its comment says why — the way to put it right is to
+ * log a corrected task this week.
  */
 export function MyTasksPanel() {
   const { actingId } = useSession();
@@ -252,14 +245,22 @@ export function MyTasksPanel() {
                         <span className="text-meta text-muted">
                           {task.goalTitle}
                         </span>
+                        {task.gradeNote && (
+                          <span className="mt-1 text-body-sm text-body">
+                            <span className="font-medium text-ink">
+                              Comment:
+                            </span>{" "}
+                            <LinkedText>{task.gradeNote}</LinkedText>
+                          </span>
+                        )}
                       </div>
                       {task.grade === null ? (
                         <span className="text-meta text-muted">
                           Waiting on a grade
                         </span>
                       ) : (
-                        <Badge tone={GRADE_TONE[task.grade]}>
-                          {GRADE_LABEL[task.grade]}
+                        <Badge tone={TASK_GRADE_TONE[task.grade]}>
+                          {TASK_GRADE_LABEL[task.grade]}
                         </Badge>
                       )}
                     </li>
