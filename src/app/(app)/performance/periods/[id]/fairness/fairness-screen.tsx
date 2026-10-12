@@ -452,8 +452,8 @@ function Managers({ data }: { data: ApiFairness }) {
         {hidden.managers > 0 && (
           <div className="border-t border-line px-5 py-3 text-body-sm text-muted">
             {hidden.managers} {hidden.managers === 1 ? "manager" : "managers"}{" "}
-            who rated fewer than {data.managers.rules.minRated} people aren’t
-            shown
+            who rated fewer than {data.managers.rules.minRated} people{" "}
+            {hidden.managers === 1 ? "isn’t" : "aren’t"} shown
           </div>
         )}
       </Card>
