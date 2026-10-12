@@ -34,6 +34,8 @@ import { performanceApi } from "@/lib/api/performance";
 import {
   PROVIDER_NAME,
   workTrackersApi,
+  type ApiGoalMappingRule,
+  type ApiSyncRun,
   type ApiTrackerIdentity,
   type ApiWorkTrackerConnectionDetail,
   type GoalRuleMatch,
@@ -46,6 +48,7 @@ import { useOrgTimezone, useSession } from "@/lib/store/session";
 import {
   useRemoteProjects,
   useWorkTrackerConnection,
+  type ListRead,
 } from "@/lib/store/work-trackers";
 import { formatDateTimeShort } from "@/lib/time";
 import { useAction } from "@/lib/use-action";
@@ -197,7 +200,9 @@ export function ConnectionScreen({ id }: { id: string }) {
     );
   }
 
-  const unmatched = state.identities.filter(
+  /* A count belongs on a tab only once its list has answered: a failed or
+     pending read is not a count of zero. */
+  const unmatched = state.identities.items?.filter(
     (i) => !i.employeeId && !i.ignored,
   ).length;
 
@@ -221,7 +226,11 @@ export function ConnectionScreen({ id }: { id: string }) {
               label: "People",
               ...(unmatched ? { count: unmatched } : {}),
             },
-            { id: "rules", label: "Objectives", count: state.rules.length },
+            {
+              id: "rules",
+              label: "Objectives",
+              ...(state.rules.items ? { count: state.rules.items.length } : {}),
+            },
             { id: "history", label: "Sync history" },
           ]}
           value={tab}
@@ -485,7 +494,7 @@ function PeoplePanel({
 }: {
   connectionId: string;
   terms: Terms;
-  identities: ApiTrackerIdentity[];
+  identities: ListRead<ApiTrackerIdentity>;
   onChanged: () => void;
 }) {
   const directory = useEmployeeDirectory({ pageSize: 200 });
@@ -502,7 +511,7 @@ function PeoplePanel({
   );
 
   /* Unmatched first: they are the ones to act on. */
-  const sorted = [...identities].sort(
+  const sorted = [...(identities.items ?? [])].sort(
     (a, b) =>
       Number(Boolean(a.employeeId) || a.ignored) -
       Number(Boolean(b.employeeId) || b.ignored),
@@ -533,7 +542,15 @@ function PeoplePanel({
         }
       />
       <CardBody>
-        {sorted.length === 0 ? (
+        {identities.error ? (
+          <LoadFailure
+            subject="the people in this tool"
+            error={identities.error}
+            onRetry={identities.reload}
+          />
+        ) : identities.items === null ? (
+          <Skeleton className="h-32 w-full" />
+        ) : sorted.length === 0 ? (
           <EmptyState
             compact
             title="Nobody yet"
@@ -607,7 +624,7 @@ function RulesPanel({
   onChanged,
 }: {
   connection: ApiWorkTrackerConnectionDetail;
-  rules: ReturnType<typeof useWorkTrackerConnection>["rules"];
+  rules: ListRead<ApiGoalMappingRule>;
   onChanged: () => void;
 }) {
   const { isConnected } = useSession();
@@ -660,7 +677,17 @@ function RulesPanel({
         description={`Point a ${kinds.map((k) => terms.matches[k]?.label.toLowerCase()).join(", ")} at an objective: a person's own, or a company or department one with their objective beneath it. Each finished item is filed there as an ungraded weekly task for their manager to confirm.`}
       />
       <CardBody className="flex flex-col gap-5">
-        {rules.length > 0 && (
+        {rules.error && (
+          <LoadFailure
+            subject="the rules"
+            error={rules.error}
+            onRetry={rules.reload}
+          />
+        )}
+        {!rules.error && rules.items === null && (
+          <Skeleton className="h-16 w-full" />
+        )}
+        {rules.items !== null && rules.items.length > 0 && (
           <TableWrap>
             <THead>
               <TH>Work in</TH>
@@ -670,7 +697,7 @@ function RulesPanel({
               </TH>
             </THead>
             <TBody>
-              {rules.map((rule) => (
+              {rules.items.map((rule) => (
                 <TR key={rule.id}>
                   <TD>
                     <span className="text-muted">
@@ -799,11 +826,7 @@ function RulesPanel({
 
 /* ------------------------------------------------------------ history */
 
-function HistoryPanel({
-  runs,
-}: {
-  runs: ReturnType<typeof useWorkTrackerConnection>["runs"];
-}) {
+function HistoryPanel({ runs }: { runs: ListRead<ApiSyncRun> }) {
   const timeZone = useOrgTimezone();
   return (
     <Card>
@@ -813,7 +836,15 @@ function HistoryPanel({
         description="The last 30 runs, newest first."
       />
       <CardBody>
-        {runs.length === 0 ? (
+        {runs.error ? (
+          <LoadFailure
+            subject="the sync history"
+            error={runs.error}
+            onRetry={runs.reload}
+          />
+        ) : runs.items === null ? (
+          <Skeleton className="h-32 w-full" />
+        ) : runs.items.length === 0 ? (
           <EmptyState
             compact
             title="No syncs yet"
@@ -831,7 +862,7 @@ function HistoryPanel({
               <TH>Result</TH>
             </THead>
             <TBody>
-              {runs.map((run) => (
+              {runs.items.map((run) => (
                 <TR key={run.id}>
                   <TD>{formatDateTimeShort(run.startedAt, timeZone)}</TD>
                   <TD>{run.trigger === "MANUAL" ? "Sync now" : "Daily"}</TD>

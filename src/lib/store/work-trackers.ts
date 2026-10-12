@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import type { ApiError } from "@/lib/api/client";
 import {
   workTrackersApi,
   type ApiGoalMappingRule,
@@ -42,6 +43,33 @@ export function useWorkTrackerProviders() {
     error: fetched.error,
     reload: fetched.reload,
     connected: isConnected,
+  };
+}
+
+/**
+ * One list read, with its own state. `items` is **null** until the read has
+ * answered and stays null if it failed, which is what lets a screen tell
+ * "nobody here" from "this did not load" and "still asking". A bare array
+ * defaulting to `[]` cannot: all three look the same.
+ */
+export type ListRead<T> = {
+  items: T[] | null;
+  loading: boolean;
+  error: ApiError | null;
+  reload: () => void;
+};
+
+function listOf<T>(read: {
+  data: T[] | null;
+  loading: boolean;
+  error: ApiError | null;
+  reload: () => void;
+}): ListRead<T> {
+  return {
+    items: read.data,
+    loading: read.loading,
+    error: read.error,
+    reload: read.reload,
   };
 }
 
@@ -94,9 +122,9 @@ export function useWorkTrackerConnection(id: string) {
 
   return {
     connection: detail.data,
-    identities: identities.data ?? [],
-    rules: rules.data ?? [],
-    runs: runs.data ?? [],
+    identities: listOf(identities),
+    rules: listOf(rules),
+    runs: listOf(runs),
     loading: detail.loading,
     error: detail.error,
     reload: reloadAll,
@@ -105,7 +133,12 @@ export function useWorkTrackerConnection(id: string) {
   };
 }
 
-/** Read live from the tool, so only asked for once the picker is opened. */
+/**
+ * Read live from the tool, whenever a panel that needs the project list is on
+ * screen (Projects and Rules, on an active connection). Like every fetched
+ * read it is asked again when the reader returns to the window, at most once
+ * per `lib/revalidate`'s floor.
+ */
 export function useRemoteProjects(id: string, active: boolean) {
   const { isConnected } = useSession();
   const load = useCallback(

@@ -16,6 +16,8 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import {
+  connectFailureText,
+  connectionIdOf,
   workTrackersApi,
   type ApiWorkTrackerConnection,
   type ApiWorkTrackerProvider,
@@ -27,7 +29,8 @@ import { formatDateTimeShort } from "@/lib/time";
 import { useAction } from "@/lib/use-action";
 
 /**
- * Work trackers: Jira today, the other four as "coming soon".
+ * Work trackers: a card for each of the five tools, Connect, Manage or Reconnect
+ * according to its state, and "Coming soon" for one the API has no adapter for.
  *
  * The first part of the integrations page that really connects. Connect asks
  * the API for the tool's consent URL and sends the browser there; the tool
@@ -39,15 +42,6 @@ export type WorkTrackerReturn = {
   status: "connected" | "error" | null;
   reason: string | null;
   connectionId: string | null;
-};
-
-const REASONS: Record<string, string> = {
-  expired:
-    "The sign-in took longer than ten minutes, or did not start here. Start again.",
-  denied: "Access was not granted in the tool. Nothing was connected.",
-  no_site: "That account cannot see any site in the tool.",
-  unavailable: "That tool cannot be connected yet.",
-  failed: "The tool did not answer as expected. Try again in a minute.",
 };
 
 const STATUS: Record<WorkTrackerStatus, { label: string; tone: BadgeTone }> = {
@@ -86,16 +80,16 @@ export function WorkTrackersSection({
         tone: "success",
         detail: "Pick which projects to read next. Nothing syncs until you do.",
       });
-      if (returnStatus.connectionId) {
-        router.push(
-          `/settings/integrations/work-trackers/${returnStatus.connectionId}`,
-        );
+      /* From the address bar, so only a real id is followed. */
+      const connectionId = connectionIdOf(returnStatus.connectionId);
+      if (connectionId) {
+        router.push(`/settings/integrations/work-trackers/${connectionId}`);
       }
     } else {
       toast.push({
         title: "Not connected",
         tone: "danger",
-        detail: REASONS[returnStatus.reason ?? ""] ?? REASONS["failed"],
+        detail: connectFailureText(returnStatus.reason),
       });
     }
   }, [returnStatus, toast, router]);
