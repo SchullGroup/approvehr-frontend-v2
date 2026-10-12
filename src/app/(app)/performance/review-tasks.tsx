@@ -18,11 +18,14 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { TaskSource } from "@/components/performance/task-source";
 import { ApiError } from "@/lib/api/client";
 import type { ApiTaskForGrading, ApiTaskGrade } from "@/lib/api/performance";
 import { dayOf } from "@/lib/api/performance";
 import { cn } from "@/lib/cn";
+import { workTrackersApi } from "@/lib/api/work-trackers";
 import { useTaskActions, useTasksForGrading } from "@/lib/store/performance";
+import { useAction } from "@/lib/use-action";
 import { TaskGradeDialog, type GradeRequest } from "./task-grade-dialog";
 
 /**
@@ -65,6 +68,12 @@ export function ReviewTasksTab() {
      clearing the request does not unmount the dialog before it can leave. */
   const [request, setRequest] = useState<GradeRequest | null>(null);
   const [asking, setAsking] = useState(false);
+  const confirming = useAction();
+
+  /* Synced from a work tracker and still gradeable. A finished ticket is a
+     strong hint of Done, so these can be confirmed together; the API still
+     runs each one through the same who-may and open-week checks. */
+  const imported = tasks.filter((t) => t.source && !t.weekClosed);
 
   /**
    * Tasks by the day they were logged, oldest day first.
@@ -171,6 +180,32 @@ export function ReviewTasksTab() {
              the other would be a guess — a task logged on Monday can be for
              the week before. See BE-38. */
           description="Grouped by the day each task was logged, longest wait first. This is not the week the task covers."
+          action={
+            imported.length > 0 ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={confirming.pending}
+                onClick={() =>
+                  void confirming.run(
+                    () => workTrackersApi.confirm(imported.map((t) => t.id)),
+                    {
+                      subject: "the imported tasks",
+                      success: "Imported tasks marked done",
+                      notice: (result) =>
+                        result.skipped.length > 0
+                          ? `${result.skipped.length} could not be graded: ${result.skipped[0]!.reason}`
+                          : null,
+                      onDone: reload,
+                    },
+                  )
+                }
+              >
+                Mark {imported.length} synced{" "}
+                {imported.length === 1 ? "task" : "tasks"} done
+              </Button>
+            ) : undefined
+          }
         />
         {loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
@@ -218,6 +253,7 @@ export function ReviewTasksTab() {
                           <TD>{task.goalTitle}</TD>
                           <TD className="max-w-xs">
                             <LinkedText>{task.description}</LinkedText>
+                            <TaskSource source={task.source} />
                           </TD>
                           <TD align="right">
                             <GradeActions
@@ -261,6 +297,7 @@ export function ReviewTasksTab() {
                         <p className="text-body-sm text-body">
                           <LinkedText>{task.description}</LinkedText>
                         </p>
+                        <TaskSource source={task.source} />
                         <GradeActions
                           task={task}
                           busy={grading === task.id}

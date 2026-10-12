@@ -20,8 +20,8 @@ import {
   Timer,
   TriangleAlert,
   Users,
-  /* Plug, Webhook — with the Integrations and Webhooks cards below, commented
-     out for now. */
+  Plug,
+  /* Webhook — with the Webhooks card below, commented out for now. */
   ToggleRight,
 } from "lucide-react";
 import {
@@ -225,13 +225,14 @@ const ONGOING = [
       "Suggested objectives, drafted progress notes and development areas. Off until a key is set, and this is the only screen that says so, because a form with no assistant renders no button at all.",
     icon: <Sparkles aria-hidden="true" />,
   },
-  /* Commented out for now, not deleted — neither is ready to show yet.
   {
     href: "/settings/integrations",
     title: "Integrations",
-    description: "Accounting, biometric devices and single sign-on.",
+    description:
+      "Connect Jira so finished tickets reach the weekly task log. Accounting, devices and sign-on are on the way.",
     icon: <Plug aria-hidden="true" />,
   },
+  /* Commented out for now, not deleted — not ready to show yet.
   {
     href: "/settings/webhooks",
     title: "Webhooks",
