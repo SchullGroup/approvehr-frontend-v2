@@ -44,6 +44,7 @@ import {
   ReadAnswer,
   draftFrom,
 } from "../../review-parts";
+import { WorkEvidence } from "@/components/performance/work-evidence";
 import { FinaliseDialog } from "./finalise-dialog";
 import { SignOffDialog } from "./sign-off-dialog";
 
@@ -488,6 +489,13 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               message={score.available ? score.error?.message : score.refusal}
             />
           )}
+
+          {/* ---------------------------------------- tickets from connected tools */}
+          <WorkEvidence
+            employeeId={review.subjectId}
+            range={review.cycleId ? { cycleId: review.cycleId } : {}}
+            title="Work from connected tools this cycle"
+          />
 
           {/* ------------------------------------------------------------- the form */}
           <Card>
