@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fairness Check Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Tokens copied from src/app/globals.css (light, and its [data-theme="dark"]
+     block). The band and dot colours are the chart roles, validated with the
+     dataviz palette checker against these surfaces. */
+  :root {
+    color-scheme: light;
+    --canvas: #f7f9fb; --surface: #ffffff; --sunken: #f1f5f8;
+    --ink: #0a1f2d; --ink-soft: #16334a; --body: #4a5a68; --muted: #586675; --faint: #616d76;
+    --line: #e3e9ed; --line-strong: #cdd7de;
+    --accent-text: #2b3990; --accent-soft: #f0f2f9; --accent-line: #c8cfe8;
+    --warning-text: #8a5a00; --warning-soft: #fdf8ec; --warning-line: #f0dcae;
+    --info-text: #1a5f8a; --info-soft: #eff7fc; --info-line: #c2ddef;
+    --shadow: 0 1px 2px rgba(10, 31, 45, 0.08);
+    --tip-shadow: 0 6px 20px rgba(10, 31, 45, 0.14);
+    --brand: #2b3990;
+    --dot-emph: #2b3990; --dot-quiet: #8492a0;
+    --band-below: #b3261e; --band-partial: #e8958e; --band-meets: #cdd7de;
+    --band-exceeds: #8f9bd8; --band-outstanding: #2b3990;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --canvas: #0b121b; --surface: #141e2a; --sunken: #070c12;
+      --ink: #edf1f4; --ink-soft: #c7d1da; --body: #9ba9b5; --muted: #8996a3; --faint: #8996a3;
+      --line: #202b38; --line-strong: #354458;
+      --accent-text: #aab8f5; --accent-soft: #1b2242; --accent-line: #3d4a78;
+      --warning-text: #f0b33e; --warning-soft: #2e2308; --warning-line: #5c4519;
+      --info-text: #7ec1ee; --info-soft: #0f2231; --info-line: #1d4460;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      --tip-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+      --dot-emph: #8c99ee; --dot-quiet: #6b7c89;
+      --band-below: #f1857b; --band-partial: #a6463f; --band-meets: #354458;
+      --band-exceeds: #5262b8; --band-outstanding: #aab8f5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --canvas: #0b121b; --surface: #141e2a; --sunken: #070c12;
+    --ink: #edf1f4; --ink-soft: #c7d1da; --body: #9ba9b5; --muted: #8996a3; --faint: #8996a3;
+    --line: #202b38; --line-strong: #354458;
+    --accent-text: #aab8f5; --accent-soft: #1b2242; --accent-line: #3d4a78;
+    --warning-text: #f0b33e; --warning-soft: #2e2308; --warning-line: #5c4519;
+    --info-text: #7ec1ee; --info-soft: #0f2231; --info-line: #1d4460;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --tip-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    --dot-emph: #8c99ee; --dot-quiet: #6b7c89;
+    --band-below: #f1857b; --band-partial: #a6463f; --band-meets: #354458;
+    --band-exceeds: #5262b8; --band-outstanding: #aab8f5;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--canvas); color: var(--ink);
+    font: 14px/1.5 "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  button { font: inherit; }
+  button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+
+  .mock-banner {
+    background: var(--accent-soft); color: var(--accent-text); border-bottom: 1px solid var(--accent-line);
+    font-size: 12.5px; padding: 6px 16px; text-align: center;
+  }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--line); }
+  .topbar-inner {
+    max-width: 1120px; margin: 0 auto; padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .brand-mark {
+    width: 24px; height: 24px; border-radius: 6px; background: var(--brand); color: #fff;
+    display: grid; place-items: center; font-size: 13px;
+  }
+  .ghost-btn {
+    font-size: 13px; color: var(--body); background: transparent; cursor: pointer;
+    border: 1px solid var(--line-strong); border-radius: 8px; padding: 5px 10px;
+  }
+
+  .page { max-width: 1120px; margin: 0 auto; padding: 20px 16px 56px; }
+  .crumbs { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; }
+  .crumbs [aria-current] { color: var(--ink); }
+  .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 26px; line-height: 1.2; font-weight: 600; margin: 10px 0 6px; letter-spacing: -0.01em; }
+  .lead { color: var(--body); max-width: 70ch; margin: 0; }
+
+  .filters {
+    display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center;
+    margin: 20px 0 0; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  }
+  .filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .filter-label { font-size: 12.5px; color: var(--muted); }
+  .filter-static { font-size: 13px; font-weight: 500; }
+  .seg {
+    display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px;
+    background: var(--sunken); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .seg button {
+    font-size: 13px; line-height: 1.3; color: var(--body); background: transparent; cursor: pointer;
+    border: 0; border-radius: 6px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .seg button[aria-pressed="true"] {
+    background: var(--surface); color: var(--ink); font-weight: 500;
+    box-shadow: var(--shadow); outline: 1px solid var(--line);
+  }
+  .seg button[aria-disabled="true"] { color: var(--faint); cursor: not-allowed; }
+  .seg.sm button { font-size: 12.5px; padding: 3px 9px; }
+  .inline-note {
+    margin: 10px 0 0; font-size: 13px; color: var(--body);
+    background: var(--sunken); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px;
+  }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; margin: 16px 0; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .tile-label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .tile-label svg { color: var(--warning-text); }
+  .tile-value { font-size: 28px; font-weight: 600; line-height: 1.2; margin: 4px 0 2px; }
+  .tile-sub { font-size: 12.5px; color: var(--muted); }
+
+  .callout { border: 1px solid; border-radius: 12px; padding: 14px 16px; margin: 0 0 20px; }
+  .callout.warn { background: var(--warning-soft); border-color: var(--warning-line); }
+  .callout.info { background: var(--info-soft); border-color: var(--info-line); }
+  .callout.plain { background: var(--surface); border-color: var(--line); }
+  .callout-title { display: flex; gap: 8px; align-items: center; font-weight: 600; margin: 0; }
+  .callout.warn .callout-title { color: var(--warning-text); }
+  .callout.info .callout-title { color: var(--info-text); }
+  .callout ul { margin: 8px 0 0; padding-left: 20px; }
+  .callout li + li { margin-top: 4px; }
+  .callout p { margin: 8px 0 0; color: var(--body); font-size: 13.5px; }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 4px 0 16px; overflow-x: auto; }
+  .tab {
+    font-size: 14px; color: var(--muted); background: none; border: 0; cursor: pointer; white-space: nowrap;
+    border-bottom: 2px solid transparent; padding: 8px 12px; margin-bottom: -1px;
+  }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent-text); font-weight: 500; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 16px; }
+  .stack > * + * { margin-top: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .card h2, .card h3 { font-size: 15px; font-weight: 600; margin: 0; }
+  .finding { color: var(--body); font-size: 13.5px; margin: 6px 0 12px; }
+  .chart { margin-top: 10px; }
+  .chart svg { display: block; overflow: visible; }
+  .foot { font-size: 12.5px; color: var(--muted); margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--line); }
+  .foot + .foot { border-top: 0; padding-top: 0; margin-top: 6px; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+    font-size: 12px; font-weight: 500; line-height: 1.4; padding: 2px 8px; border-radius: 999px; border: 1px solid;
+  }
+  .badge.warn { color: var(--warning-text); background: var(--warning-soft); border-color: var(--warning-line); }
+  .badge.neutral { color: var(--muted); background: var(--sunken); border-color: var(--line); }
+  .badge.info { color: var(--info-text); background: var(--info-soft); border-color: var(--info-line); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--body); margin: 2px 0 6px; }
+  .legend .key { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
+  th { font-weight: 500; color: var(--muted); background: var(--sunken); font-size: 12px; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.wrap { white-space: normal; min-width: 220px; }
+  .muted { color: var(--muted); }
+
+  .moves { list-style: none; margin: 0; padding: 0; }
+  .moves li { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .moves li:last-child { border-bottom: 0; padding-bottom: 0; }
+  .move-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .move-who { font-weight: 500; }
+  .move-fig { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+  .move-reason { margin: 4px 0 0; color: var(--body); font-size: 13.5px; }
+  .move-by { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; }
+
+  .method { margin-top: 24px; }
+  .method dl { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr); gap: 10px 20px; margin: 12px 0 0; font-size: 13.5px; }
+  .method dt { font-weight: 500; }
+  .method dd { margin: 0; color: var(--body); }
+  @media (max-width: 640px) {
+    .method dl { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .method dd { margin-bottom: 10px; }
+    h1 { font-size: 22px; }
+    .tile-value { font-size: 24px; }
+  }
+
+  .tip {
+    position: fixed; z-index: 10; pointer-events: none; max-width: 280px;
+    display: flex; flex-direction: column; gap: 2px;
+    background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); border-radius: 8px;
+    padding: 8px 10px; box-shadow: var(--tip-shadow); font-size: 12.5px;
+  }
+  .tip[hidden] { display: none; }
+  .tip strong { font-size: 13.5px; font-weight: 600; }
+  .tip span { color: var(--muted); }
+
+  svg text { font-family: inherit; }
+  .t-ink { fill: var(--ink); } .t-soft { fill: var(--ink-soft); } .t-muted { fill: var(--muted); }
+  .tick { font-variant-numeric: tabular-nums; }
+  .grid-line { stroke: var(--line); stroke-width: 1; }
+  .axis-line { stroke: var(--line-strong); stroke-width: 1; }
+  .ref-line { stroke: var(--body); stroke-width: 1; }
+  .rng { stroke-width: 2; stroke-linecap: round; }
+  .rng.emph { stroke: var(--dot-emph); stroke-opacity: 0.55; }
+  .rng.quiet { stroke: var(--dot-quiet); stroke-opacity: 0.5; }
+  .dot { stroke: var(--surface); stroke-width: 2; }
+  .dot.emph { fill: var(--dot-emph); } .dot.quiet { fill: var(--dot-quiet); }
+  .row.on .dot { r: 6.5; }
+  .hit { fill: transparent; }
+  .hit:focus { outline: none; }
+  .hit:focus-visible { stroke: var(--accent-text); stroke-width: 1.5; }
+  .b-below { fill: var(--band-below); } .b-partial { fill: var(--band-partial); }
+  .b-meets { fill: var(--band-meets); } .b-exceeds { fill: var(--band-exceeds); }
+  .b-outstanding { fill: var(--band-outstanding); }
+  .segm.on { opacity: 0.75; }
+  i.b-below { background: var(--band-below); } i.b-partial { background: var(--band-partial); }
+  i.b-meets { background: var(--band-meets); } i.b-exceeds { background: var(--band-exceeds); }
+  i.b-outstanding { background: var(--band-outstanding); }
+</style>
+</head>
+<body>
+<div class="mock-banner">Mockup with made-up data for a demo company, Lagos Fabric Mills. Not connected to the product.</div>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">A</span>ApproveHR</div>
+    <button id="theme" class="ghost-btn" type="button">Theme: auto</button>
+  </div>
+</header>
+
+<main class="page">
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <span>Performance</span><span aria-hidden="true">/</span>
+    <span>Appraisal periods</span><span aria-hidden="true">/</span>
+    <span>H1 2026 appraisal</span><span aria-hidden="true">/</span>
+    <span aria-current="page">Fairness check</span>
+  </nav>
+  <div class="page-head">
+    <div>
+      <h1>Fairness check</h1>
+      <p class="lead">Whether marks in this period differ between groups of people, and by how much.
+        A flag is a question to take into calibration, not a finding of bias.</p>
+    </div>
+    <span class="badge info" style="margin-top:14px">HR only</span>
+  </div>
+
+  <div class="filters" role="group" aria-label="What this page compares">
+    <div class="filter">
+      <span class="filter-label">Period</span>
+      <span class="filter-static">H1 2026 appraisal · Calibration</span>
+    </div>
+    <div class="filter">
+      <span class="filter-label">Marks</span>
+      <div class="seg">
+        <button type="button" aria-pressed="true">Raw</button>
+        <button type="button" id="adjusted" aria-pressed="false" aria-disabled="true" aria-describedby="adjusted-note">
+          <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M5 7V5a3 3 0 0 1 6 0v2h.5A1.5 1.5 0 0 1 13 8.5v5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13.5v-5A1.5 1.5 0 0 1 4.5 7H5Zm1.5 0h3V5a1.5 1.5 0 0 0-3 0v2Z"/></svg>
+          Adjusted for objectives
+        </button>
+      </div>
+    </div>
+    <div class="filter">
+      <span class="filter-label">People counted</span>
+      <div class="seg" id="pool">
+        <button type="button" data-pool="0" aria-pressed="true">This period</button>
+        <button type="button" data-pool="1" aria-pressed="false">With 2 earlier periods</button>
+      </div>
+    </div>
+  </div>
+  <p id="adjusted-note" class="inline-note" hidden>
+    Adjusting for objectives is off until managers confirm objective progress. Today the owner types
+    their own progress figure, so adjusting for it would carry that bias into the comparison.
+  </p>
+
+  <section class="kpis" id="kpis" aria-label="Summary figures"></section>
+  <section id="summary" aria-live="polite"></section>
+
+  <div class="tabs" role="tablist" aria-label="Views">
+    <button class="tab" role="tab" id="tab-groups" aria-controls="panel-groups" aria-selected="true">Groups</button>
+    <button class="tab" role="tab" id="tab-managers" aria-controls="panel-managers" aria-selected="false" tabindex="-1">Managers</button>
+    <button class="tab" role="tab" id="tab-calibration" aria-controls="panel-calibration" aria-selected="false" tabindex="-1">Calibration moves</button>
+  </div>
+  <section id="panel-groups" role="tabpanel" aria-labelledby="tab-groups"></section>
+  <section id="panel-managers" role="tabpanel" aria-labelledby="tab-managers" hidden></section>
+  <section id="panel-calibration" role="tabpanel" aria-labelledby="tab-calibration" hidden></section>
+
+  <section class="card method" aria-labelledby="method-title">
+    <h2 id="method-title">How this is worked out</h2>
+    <dl>
+      <dt>What is compared</dt>
+      <dd>Each person's computed mark for the period, before calibration. Calibration moves are checked
+        on their own, in the Calibration moves tab, so a move cannot hide a gap or create one unnoticed.</dd>
+      <dt>Each group against the rest</dt>
+      <dd>A group is compared with everyone else who has a mark in the same grouping. Where there are
+        only two groups, they are compared with each other.</dd>
+      <dt>The range</dt>
+      <dd>The line behind each dot is where the group's true average probably sits (95% of the time).
+        Fewer people means a wider line. A gap has a range worked out the same way.</dd>
+      <dt>When a gap is flagged</dt>
+      <dd>The gap is at least 3 points, its whole range sits on one side of zero, and both sides have
+        at least 5 people. Every flag shows the numbers that triggered it.</dd>
+      <dt>Small groups</dt>
+      <dd>Groups of fewer than 5 people are hidden and named only with their size, so nobody can be
+        picked out. This page never shows any one person's gender, age or other group.</dd>
+      <dt>Earlier periods</dt>
+      <dd>Adding the two previous periods makes small groups readable and ranges narrower. In this
+        mockup the earlier periods are simulated.</dd>
+      <dt>Gender</dt>
+      <dd>Read from the free-text field: "F", "Female" and "Woman" count as women; "M", "Male" and "Man"
+        as men. Anything else is left out of the gender comparison only, and counted so HR can fix the record.</dd>
+      <dt>Not checked yet</dt>
+      <dd>Religion and state of origin, until the NDPA 2023 review confirms a lawful basis and employees
+        have been told. Marks adjusted for objectives, until managers confirm objective progress.</dd>
+      <dt>Managers</dt>
+      <dd>Flagged when their average is at least 5 points from everyone else's with the whole range on
+        one side of zero, or when the spread of their marks is under 7 points, half the company's 14.
+        Managers who rated fewer than 5 people are not shown.</dd>
+    </dl>
+  </section>
+</main>
+
+<div id="tip" class="tip" role="tooltip" hidden></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------- rules */
+  const SD = 14;            // spread of marks across the company, in points
+  const Z = 1.96;           // 95% range
+  const MIN_GROUP = 5;      // smaller groups are hidden
+  const MIN_GAP = 3;        // points
+  const RATER_GAP = 5;      // points
+  const FLAT_SD = 7;        // half the company's spread
+  const POOL_FACTOR = 2.8;  // simulated: three periods' worth of people
+  const POOL_SHRINK = 0.85; // simulated: earlier periods sit a little closer to average
+  const DOMAIN = [40, 80];
+  const MARKED = 118, IN_PERIOD = 126;
+
+  /* Bands as the product defines them: the midpoints of the 1-5 scale. */
+  const BANDS = [
+    { key: "below", label: "Below expectations", from: -Infinity, to: 12.5 },
+    { key: "partial", label: "Partially meets expectations", from: 12.5, to: 37.5 },
+    { key: "meets", label: "Meets expectations", from: 37.5, to: 62.5 },
+    { key: "exceeds", label: "Exceeds expectations", from: 62.5, to: 87.5 },
+    { key: "outstanding", label: "Outstanding", from: 87.5, to: Infinity },
+  ];
+
+  /* ------------------------------------------------------------ demo data */
+  const DIMENSIONS = [
+    { key: "gender", name: "Gender", unreadable: 3,
+      groups: [["Women", 52, 57.7], ["Men", 63, 65.5]] },
+    { key: "age", name: "Age",
+      groups: [["Under 30", 34, 59.6], ["30 to 39", 48, 63.0], ["40 to 49", 27, 63.7], ["50 and over", 9, 60.8]] },
+    { key: "tenure", name: "Time at the company",
+      groups: [["Under 1 year", 21, 55.4], ["1 to 3 years", 44, 62.5], ["3 to 5 years", 31, 64.0], ["Over 5 years", 22, 64.6]] },
+    { key: "location", name: "Work location",
+      groups: [["Ikeja head office", 71, 62.5], ["Apapa mill", 38, 61.1], ["Abuja office", 6, 60.4], ["Remote", 3, 63.6]] },
+    { key: "contract", name: "Contract type",
+      groups: [["Full-time", 104, 62.6], ["Contract", 10, 56.1], ["NYSC", 4, 60.0]] },
+    { key: "department", name: "Department",
+      groups: [["Production", 38, 59.8], ["Sales", 22, 66.0], ["Engineering", 26, 61.7], ["Finance", 14, 64.4], ["HR and Admin", 9, 62.6], ["Logistics", 9, 57.9]] },
+  ];
+
+  /* name, department, people rated, average, spread, share given the most common level */
+  const MANAGERS = [
+    ["Nkechi Okafor", "Production", 14, 58.9, 4.8, 71],
+    ["Bayo Ogunleye", "Sales", 11, 69.8, 11.2, 45],
+    ["Chinedu Eze", "Engineering", 9, 61.4, 12.9, 33],
+    ["Funmi Ajayi", "Finance", 7, 64.0, 10.3, 43],
+    ["Hauwa Garba", "Production", 12, 61.0, 13.0, 42],
+    ["Yakubu Danjuma", "Logistics", 9, 57.9, 13.1, 44],
+    ["Ronke Lawal", "Production", 12, 60.5, 14.8, 33],
+    ["Uche Obi", "HR and Admin", 6, 62.6, 12.1, 50],
+    ["Wale Akande", "Sales", 8, 62.9, 9.9, 50],
+    ["Dapo Ogun", "Engineering", 10, 62.2, 13.5, 40],
+  ];
+  const SMALL_MANAGERS = { period: 6, pooled: 3 };
+
+  const MOVES = [
+    { when: "11 Oct", who: "Kunle Ade", kind: "cleared", from: 74, to: 71, by: "Uche Obi", reason: null },
+    { when: "10 Oct", who: "Dayo Fashola", kind: "moved", from: 58, to: 63, by: "Uche Obi",
+      reason: "Moderated up against the wider production panel." },
+    { when: "10 Oct", who: "Amaka Okeke", kind: "moved", from: 66, to: 61, by: "Uche Obi",
+      reason: "Two agreed objectives landed after the period closed; the panel settled a point lower." },
+    { when: "9 Oct", who: "Femi Johnson", kind: "moved", from: 70, to: 74, by: "Bisi Adebayo",
+      reason: "Delivered the Apapa line changeover, which the objectives did not capture." },
+    { when: "9 Oct", who: "Kunle Ade", kind: "moved", from: 71, to: 74, by: "Bisi Adebayo",
+      reason: "The panel agreed the sales figures understate the Abuja account." },
+  ];
+  const MOVES_BY_GROUP = [
+    ["Gender", "Women", 3, 1.0], ["Gender", "Men", 6, 3.2],
+    ["Time at the company", "Under 1 year", 1, 5.0], ["Time at the company", "1 year or more", 8, 2.1],
+  ];
+
+  const COMPANY = (() => {
+    const dept = DIMENSIONS.find((d) => d.key === "department").groups;
+    const n = dept.reduce((s, g) => s + g[1], 0);
+    return dept.reduce((s, g) => s + g[1] * g[2], 0) / n;
+  })();
+
+  /* ---------------------------------------------------------------- state */
+  const state = { pooled: false, tab: "groups", views: {} };
+  const marked = () => (state.pooled ? Math.round(MARKED * POOL_FACTOR) : MARKED);
+  const scaleN = (n) => (state.pooled ? Math.round(n * POOL_FACTOR) : n);
+  const scaleMean = (m) => (state.pooled ? COMPANY + (m - COMPANY) * POOL_SHRINK : m);
+
+  /* ----------------------------------------------------------- formatting */
+  const MINUS = "−";
+  /* Every figure is shown to one decimal, and every flag is decided on that
+     same figure, so a range can never read "to −0.0" beside a flag. */
+  const r1 = (v) => Math.round(v * 10) / 10;
+  const pts = (v) => (r1(v) < 0 ? MINUS : "") + Math.abs(r1(v)).toFixed(1);
+  const signed = (v) => (r1(v) > 0 ? "+" : r1(v) < 0 ? MINUS : "") + Math.abs(r1(v)).toFixed(1);
+  const pct = (v) => v.toFixed(1) + "%";
+  const people = (n) => n + (n === 1 ? " person" : " people");
+
+  /* ------------------------------------------------------------- analysis */
+  function compare(a, rest, label, names, sdA) {
+    const restN = rest.reduce((s, g) => s + g.n, 0);
+    const restMean = rest.reduce((s, g) => s + g.n * g.mean, 0) / restN;
+    const gap = a.mean - restMean;
+    const se = Math.sqrt((sdA * sdA) / a.n + (SD * SD) / restN);
+    const lo = gap - Z * se, hi = gap + Z * se;
+    const flagged = Math.abs(r1(gap)) >= MIN_GAP && (r1(lo) > 0 || r1(hi) < 0) && a.n >= MIN_GROUP && restN >= MIN_GROUP;
+    return { label, names, gap, lo, hi, flagged, against: names.length > 1 ? names[1].toLowerCase() : "everyone else" };
+  }
+
+  function analyse(dim) {
+    const groups = dim.groups.map(([name, n, mean]) => {
+      const g = { name, n: scaleN(n), mean: scaleMean(mean) };
+      const half = (Z * SD) / Math.sqrt(g.n);
+      g.lo = g.mean - half; g.hi = g.mean + half;
+      return g;
+    });
+    const shown = groups.filter((g) => g.n >= MIN_GROUP);
+    const hidden = groups.filter((g) => g.n < MIN_GROUP);
+    const pair = groups.length === 2 && shown.length === 2;
+
+    shown.forEach((g) => {
+      const rest = groups.filter((o) => o !== g);
+      g.cmp = pair
+        ? compare(g, rest, `${g.name} vs ${rest[0].name.toLowerCase()}`, [g.name, rest[0].name], SD)
+        : compare(g, rest, `${g.name} vs everyone else`, [g.name], SD);
+    });
+    const comps = pair ? [shown[0].cmp] : shown.map((g) => g.cmp);
+    const flags = comps.filter((c) => c.flagged);
+    const emph = new Set(flags.flatMap((c) => c.names));
+    const status = shown.length < 2 ? "few" : flags.length ? "warn" : "none";
+    const widest = comps.slice().sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))[0];
+    const unreadable = dim.unreadable ? scaleN(dim.unreadable) : 0;
+    return { dim, groups, shown, hidden, comps, flags, emph, status, widest, unreadable };
+  }
+
+  function gapLine(c) {
+    const dir = c.gap < 0 ? "lower" : "higher";
+    return `${c.label}: ${Math.abs(c.gap).toFixed(1)} points ${dir} on average (range ${pts(c.lo)} to ${pts(c.hi)} points).`;
+  }
+
+  function finding(a) {
+    if (a.status === "few") return "Too few people in each group to compare.";
+    if (a.flags.length) return a.flags.map(gapLine).join(" ");
+    const c = a.widest;
+    const dir = c.gap < 0 ? "lower" : "higher";
+    const why = c.lo < 0 && c.hi > 0
+      ? `its range (${pts(c.lo)} to ${pts(c.hi)}) still includes no gap at all`
+      : `it is under the ${MIN_GAP}-point threshold`;
+    return `No gap large and clear enough to flag. The largest is ${c.label}, ${Math.abs(c.gap).toFixed(1)} points ${dir}, but ${why}.`;
+  }
+
+  function analyseManagers() {
+    const total = marked();
+    return MANAGERS.map(([name, dept, n0, mean0, sd, same]) => {
+      const n = scaleN(n0), mean = scaleMean(mean0);
+      const restN = total - n;
+      const restMean = (COMPANY * total - mean * n) / restN;
+      const gap = mean - restMean;
+      const se = Math.sqrt((sd * sd) / n + (SD * SD) / restN);
+      const glo = gap - Z * se, ghi = gap + Z * se;
+      const half = (Z * sd) / Math.sqrt(n);
+      return {
+        name, dept, n, mean, sd, same, gap, glo, ghi, lo: mean - half, hi: mean + half,
+        lean: Math.abs(r1(gap)) >= RATER_GAP && (r1(glo) > 0 || r1(ghi) < 0),
+        flat: sd < FLAT_SD,
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /* Normal spread of marks around a group's average, banded and rounded to whole people. */
+  function bandCounts(mean, n) {
+    const cdf = (x) => 0.5 * (1 + erf((x - mean) / (SD * Math.SQRT2)));
+    const lo = cdf(0), hi = cdf(100);
+    const shares = BANDS.map((b) => (cdf(Math.min(Math.max(b.to, 0), 100)) - cdf(Math.min(Math.max(b.from, 0), 100))) / (hi - lo));
+    const raw = shares.map((s) => s * n);
+    const counts = raw.map(Math.floor);
+    let left = n - counts.reduce((s, c) => s + c, 0);
+    raw.map((r, i) => [r - Math.floor(r), i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => {
+      if (left > 0) { counts[i] += 1; left -= 1; }
+    });
+    return counts;
+  }
+  function erf(x) {
+    const s = Math.sign(x), a = Math.abs(x), t = 1 / (1 + 0.3275911 * a);
+    const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-a * a);
+    return s * y;
+  }
+
+  /* -------------------------------------------------------------- DOM kit */
+  const SVGNS = "http://www.w3.org/2000/svg";
+  function setAttrs(node, attrs) {
+    if (!attrs) return;
+    for (const k of Object.keys(attrs)) {
+      const v = attrs[k];
+      if (v == null || v === false) continue;
+      if (k === "text") node.textContent = v;
+      else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+      else node.setAttribute(k, v === true ? "" : String(v));
+    }
+  }
+  function add(node, kids) {
+    if (kids == null) return node;
+    (Array.isArray(kids) ? kids : [kids]).forEach((k) => {
+      if (k == null || k === false) return;
+      node.appendChild(typeof k === "string" ? document.createTextNode(k) : k);
+    });
+    return node;
+  }
+  const h = (tag, attrs, kids) => { const n = document.createElement(tag); setAttrs(n, attrs); return add(n, kids); };
+  const s = (tag, attrs, kids) => { const n = document.createElementNS(SVGNS, tag); setAttrs(n, attrs); return add(n, kids); };
+
+  const ICONS = {
+    warn: "M8 1.5 15 14H1L8 1.5Zm0 4.2a.8.8 0 0 0-.8.8v3.2a.8.8 0 0 0 1.6 0V6.5a.8.8 0 0 0-.8-.8Zm0 6.1a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8Z",
+    dash: "M3 7.25h10v1.5H3z",
+    info: "M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1Zm0 5.6a.8.8 0 0 0-.8.8v3.8a.8.8 0 0 0 1.6 0V7.4a.8.8 0 0 0-.8-.8Zm0-2.9a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8Z",
+  };
+  const icon = (name, size) => s("svg", { width: size || 13, height: size || 13, viewBox: "0 0 16 16", "aria-hidden": "true" },
+    s("path", { d: ICONS[name], fill: "currentColor" }));
+  const badge = (tone, iconName, text) => h("span", { class: `badge ${tone}` }, [iconName ? icon(iconName, 12) : null, text]);
+  const STATUS = {
+    warn: () => badge("warn", "warn", "Worth a look"),
+    none: () => badge("neutral", "dash", "No clear gap"),
+    few: () => badge("neutral", "dash", "Too few to tell"),
+  };
+
+  /* -------------------------------------------------------------- tooltip */
+  const tip = document.getElementById("tip");
+  function showTip(evt, lines, anchor) {
+    tip.replaceChildren(h("strong", { text: lines[0] }), ...lines.slice(1).map((l) => h("span", { text: l })));
+    tip.hidden = false;
+    let x, y;
+    if (evt && evt.type !== "focus" && "clientX" in evt) { x = evt.clientX; y = evt.clientY; }
+    else { const r = anchor.getBoundingClientRect(); x = r.left + r.width / 2; y = r.top; }
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let left = x + 14, top = y + 14;
+    if (left + tw > window.innerWidth - 8) left = x - tw - 14;
+    if (top + th > window.innerHeight - 8) top = y - th - 14;
+    tip.style.left = Math.max(8, left) + "px";
+    tip.style.top = Math.max(8, top) + "px";
+  }
+  const hideTip = () => { tip.hidden = true; };
+  function hoverable(node, lines, lift) {
+    node.setAttribute("tabindex", "0");
+    node.setAttribute("aria-label", lines.join(". "));
+    const on = (e) => { showTip(e, lines, node); if (lift) lift.classList.add("on"); };
+    const off = () => { hideTip(); if (lift) lift.classList.remove("on"); };
+    node.addEventListener("pointerenter", on);
+    node.addEventListener("pointermove", on);
+    node.addEventListener("pointerleave", off);
+    node.addEventListener("focus", on);
+    node.addEventListener("blur", off);
+    return node;
+  }
+
+  /* --------------------------------------------------------------- charts */
+  function frame(host) {
+    const W = Math.max(280, Math.floor(host.clientWidth));
+    const narrow = W < 440;
+    return { W, labelW: narrow ? 104 : 140, nW: 42 };
+  }
+
+  /* Dot and range per row, on one shared 40-80% scale so cards compare. */
+  function rangePlot(host, rows, refLabel) {
+    const { W, labelW, nW } = frame(host);
+    const top = 30, rowH = 34, axisH = 24;
+    const plotH = rows.length * rowH;
+    const H = top + plotH + axisH;
+    const x0 = labelW, x1 = W - nW - 8;
+    const [d0, d1] = DOMAIN;
+    const x = (v) => x0 + ((Math.min(Math.max(v, d0), d1) - d0) / (d1 - d0)) * (x1 - x0);
+    const svg = s("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "group",
+      "aria-label": "Average mark per row, with its likely range" });
+
+    for (let t = d0; t <= d1; t += 10) {
+      svg.appendChild(s("line", { class: "grid-line", x1: x(t), x2: x(t), y1: top - 6, y2: top + plotH }));
+      svg.appendChild(s("text", { class: "t-muted tick", x: x(t), y: H - 6, "text-anchor": "middle", "font-size": 11.5, text: t + "%" }));
+    }
+    svg.appendChild(s("line", { class: "axis-line", x1: x0, x2: x1, y1: top + plotH, y2: top + plotH }));
+    svg.appendChild(s("text", { class: "t-muted", x: W, y: 14, "text-anchor": "end", "font-size": 11.5, text: "People" }));
+    const rx = x(COMPANY);
+    svg.appendChild(s("line", { class: "ref-line", x1: rx, x2: rx, y1: top - 8, y2: top + plotH }));
+    svg.appendChild(s("text", { class: "t-soft", x: rx, y: 14, "text-anchor": "middle", "font-size": 11.5,
+      text: `${refLabel} ${pct(COMPANY)}` }));
+
+    rows.forEach((r, i) => {
+      const cy = top + i * rowH + rowH / 2;
+      const tone = r.emph ? "emph" : "quiet";
+      const g = s("g", { class: "row" });
+      g.appendChild(s("text", { class: "t-ink", x: 0, y: cy + 4, "font-size": 13, "font-weight": r.emph ? 500 : 400, text: r.label }));
+      g.appendChild(s("text", { class: "t-muted tick", x: W, y: cy + 4, "text-anchor": "end", "font-size": 12.5, text: String(r.n) }));
+      g.appendChild(s("line", { class: `rng ${tone}`, x1: x(r.lo), x2: x(r.hi), y1: cy, y2: cy }));
+      g.appendChild(s("circle", { class: `dot ${tone}`, cx: x(r.mean), cy, r: 5 }));
+      if (r.emph) {
+        const right = x(r.hi) + 8;
+        const fits = right + 40 < x1 + nW - 4;
+        g.appendChild(s("text", { class: "t-soft tick", x: fits ? right : x(r.lo) - 8, y: cy + 4,
+          "text-anchor": fits ? "start" : "end", "font-size": 12, "font-weight": 500, text: pct(r.mean) }));
+      }
+      const hit = s("rect", { class: "hit", x: 0, y: cy - rowH / 2, width: W, height: rowH, rx: 4 });
+      hoverable(hit, r.tip, g);
+      g.appendChild(hit);
+      svg.appendChild(g);
+    });
+    host.replaceChildren(svg);
+  }
+
+  /* Band mix per row, diverging around "Meets". */
+  function bandPlot(host, rows) {
+    const { W, labelW, nW } = frame(host);
+    /* Narrow: each label sits above its bar, so the bar gets the card's whole
+       width rather than what is left beside a label column. */
+    const narrow = W < 440;
+    const top = 30, rowH = narrow ? 50 : 32, axisH = 24, barH = 16, pad = narrow ? 30 : 36;
+    const plotH = rows.length * rowH;
+    const H = top + plotH + axisH;
+    const x0 = narrow ? 0 : labelW, x1 = narrow ? W : W - nW - 8;
+    const cx = (x0 + x1) / 2, half = (x1 - x0) / 2 - pad;
+    const sides = rows.map((r) => {
+      const p = r.counts.map((c) => (c / r.n) * 100);
+      return { p, left: p[0] + p[1] + p[2] / 2, right: p[2] / 2 + p[3] + p[4] };
+    });
+    const m = Math.max(50, Math.ceil(Math.max(...sides.flatMap((v) => [v.left, v.right])) / 10) * 10);
+    const k = half / m;
+    const svg = s("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "group",
+      "aria-label": "Share of each group in each band, centred on Meets expectations" });
+
+    (narrow ? [-m, 0, m] : [-m, -m / 2, 0, m / 2, m]).forEach((v) => {
+      const tx = cx + v * k;
+      if (v !== 0) svg.appendChild(s("line", { class: "grid-line", x1: tx, x2: tx, y1: top - 6, y2: top + plotH }));
+      svg.appendChild(s("text", { class: "t-muted tick", x: tx, y: H - 6, "text-anchor": "middle", "font-size": 11.5,
+        text: Math.abs(v) + "%" }));
+    });
+    svg.appendChild(s("text", { class: "t-muted", x: cx - 8, y: 14, "text-anchor": "end", "font-size": 11.5, text: narrow ? "← Below" : "← Below meets" }));
+    svg.appendChild(s("text", { class: "t-muted", x: cx + 8, y: 14, "text-anchor": "start", "font-size": 11.5, text: narrow ? "Above →" : "Above meets →" }));
+    if (!narrow) svg.appendChild(s("text", { class: "t-muted", x: W, y: 14, "text-anchor": "end", "font-size": 11.5, text: "People" }));
+
+    rows.forEach((r, i) => {
+      const rowTop = top + i * rowH;
+      const cy = narrow ? rowTop + 33 : rowTop + rowH / 2;
+      const { p } = sides[i];
+      if (narrow) {
+        svg.appendChild(s("text", { class: "t-ink", x: 0, y: rowTop + 13, "font-size": 13, text: r.label }));
+        svg.appendChild(s("text", { class: "t-muted tick", x: W, y: rowTop + 13, "text-anchor": "end", "font-size": 12.5, text: people(r.n) }));
+      } else {
+        svg.appendChild(s("text", { class: "t-ink", x: 0, y: cy + 4, "font-size": 13, text: r.label }));
+        svg.appendChild(s("text", { class: "t-muted tick", x: W, y: cy + 4, "text-anchor": "end", "font-size": 12.5, text: String(r.n) }));
+      }
+
+      const mw = p[2] * k;
+      const spans = [];
+      let a = cx - mw / 2;
+      spans[2] = [a, cx + mw / 2];
+      spans[1] = [a - p[1] * k, a]; a = spans[1][0];
+      spans[0] = [a - p[0] * k, a];
+      let b = cx + mw / 2;
+      spans[3] = [b, b + p[3] * k]; b = spans[3][1];
+      spans[4] = [b, b + p[4] * k];
+      const present = BANDS.map((_, j) => r.counts[j] > 0);
+      const firstLeft = present.indexOf(true);
+      const lastRight = present.lastIndexOf(true);
+
+      BANDS.forEach((band, j) => {
+        if (!present[j]) return;
+        const [sx, ex] = spans[j];
+        const xA = sx + 1, xB = ex - 1;
+        if (xB - xA < 0.5) return;
+        const seg = s("path", { class: `segm b-${band.key}`,
+          d: barPath(xA, cy - barH / 2, xB - xA, barH, j === firstLeft ? 4 : 0, j === lastRight ? 4 : 0) });
+        svg.appendChild(seg);
+        const hit = s("rect", { class: "hit", x: sx, y: cy - 14, width: Math.max(ex - sx, 6), height: 28 });
+        hoverable(hit, [`${people(r.counts[j])} · ${Math.round(p[j])}%`, `${r.label} · ${band.label}`], seg);
+        svg.appendChild(hit);
+      });
+
+      const lowShare = Math.round(p[0] + p[1]), highShare = Math.round(p[3] + p[4]);
+      svg.appendChild(s("text", { class: "t-soft tick", x: spans[0][0] - 6, y: cy + 4, "text-anchor": "end", "font-size": 12, text: lowShare + "%" }));
+      svg.appendChild(s("text", { class: "t-soft tick", x: spans[4][1] + 6, y: cy + 4, "text-anchor": "start", "font-size": 12, text: highShare + "%" }));
+    });
+    svg.appendChild(s("line", { class: "axis-line", x1: cx, x2: cx, y1: top - 6, y2: top + plotH }));
+    host.replaceChildren(svg);
+  }
+
+  /* A bar with optional rounded outer ends; square where it meets a neighbour. */
+  function barPath(x, y, w, hgt, rl, rr) {
+    rl = Math.min(rl, w / 2, hgt / 2); rr = Math.min(rr, w / 2, hgt / 2);
+    return [
+      `M${x + rl},${y}`, `H${x + w - rr}`,
+      rr ? `A${rr},${rr} 0 0 1 ${x + w},${y + rr}` : "", `V${y + hgt - rr}`,
+      rr ? `A${rr},${rr} 0 0 1 ${x + w - rr},${y + hgt}` : "", `H${x + rl}`,
+      rl ? `A${rl},${rl} 0 0 1 ${x},${y + hgt - rl}` : "", `V${y + rl}`,
+      rl ? `A${rl},${rl} 0 0 1 ${x + rl},${y}` : "", "Z",
+    ].join(" ");
+  }
+
+  function legend() {
+    return h("div", { class: "legend", "aria-hidden": "true" },
+      BANDS.map((b) => h("span", { class: "key" }, [h("i", { class: `b-${b.key}` }), b.label])));
+  }
+
+  function table(head, rows) {
+    return h("div", { class: "table-wrap" }, h("table", null, [
+      h("thead", null, h("tr", null, head.map(([t, num]) => h("th", { class: num ? "num" : null, scope: "col", text: t })))),
+      h("tbody", null, rows.map((r) => h("tr", null, r.map((c, i) => {
+        const [, num, wrap] = head[i];
+        return h("td", { class: [num ? "num" : "", wrap ? "wrap" : ""].join(" ").trim() || null }, c);
+      })))),
+    ]));
+  }
+
+  function viewToggle(key, options, onChange) {
+    const current = state.views[key] || options[0][0];
+    return h("div", { class: "seg sm", role: "group", "aria-label": "Show as" }, options.map(([id, label]) =>
+      h("button", { type: "button", "aria-pressed": String(current === id),
+        onclick: () => { state.views[key] = id; onChange(); }, text: label })));
+  }
+
+  /* --------------------------------------------------------------- panels */
+  function renderKpis(all) {
+    const flags = all.reduce((n, a) => n + a.flags.length, 0);
+    const hidden = all.reduce((n, a) => n + a.hidden.length, 0);
+    const tiles = [
+      { label: "Marks compared", value: marked().toLocaleString("en-GB"),
+        sub: state.pooled ? "H1 2025, H2 2025 and H1 2026" : `of ${IN_PERIOD} people in the period. ${IN_PERIOD - MARKED} have no mark yet.` },
+      { label: "Gaps worth a look", value: String(flags), warn: flags > 0,
+        sub: flags ? "Each one listed below, with its numbers" : "None large and clear enough to flag" },
+      { label: "Groups too small to show", value: String(hidden),
+        sub: "Fewer than 5 people, hidden so nobody can be picked out" },
+      { label: "Not checked yet", value: "2", sub: "Religion and state of origin, until the NDPA review" },
+    ];
+    document.getElementById("kpis").replaceChildren(...tiles.map((t) => h("div", { class: "tile" }, [
+      h("div", { class: "tile-label" }, [t.warn ? icon("warn", 13) : null, t.label]),
+      h("div", { class: "tile-value", text: t.value }),
+      h("div", { class: "tile-sub", text: t.sub }),
+    ])));
+  }
+
+  function renderSummary(all) {
+    const flagged = all.filter((a) => a.flags.length);
+    const host = document.getElementById("summary");
+    const count = flagged.reduce((n, a) => n + a.flags.length, 0);
+    if (!count) {
+      host.replaceChildren(h("div", { class: "callout plain" }, [
+        h("p", { class: "callout-title" }, [icon("dash", 14), "No gap is large and clear enough to flag"]),
+        h("p", { text: "That is not the same as proof that marks are fair. Small groups have wide ranges; see each card for how wide." }),
+      ]));
+      return;
+    }
+    host.replaceChildren(h("div", { class: "callout warn" }, [
+      h("p", { class: "callout-title" }, [icon("warn", 14),
+        `${count} ${count === 1 ? "gap is" : "gaps are"} worth a look before calibration closes`]),
+      h("ul", null, flagged.flatMap((a) => a.flags.map((c) => h("li", null, [h("strong", { text: a.dim.name + ". " }), gapLine(c)])))),
+      h("p", { text: "A gap is not proof of bias. Check whether it follows objectives that were agreed late, one manager's marks (see the Managers tab), or how the work itself was split." }),
+    ]));
+  }
+
+  function dimCard(a) {
+    const card = h("article", { class: "card" });
+    const chart = h("div", { class: "chart" });
+    const key = a.dim.key;
+    const draw = () => {
+      const view = state.views[key] || "avg";
+      toggleHost.replaceChildren(viewToggle(key, [["avg", "Average"], ["bands", "Band mix"], ["table", "Table"]], draw));
+      if (view === "avg") {
+        chart.replaceChildren();
+        rangePlot(chart, a.shown.map((g) => ({
+          label: g.name, n: g.n, mean: g.mean, lo: g.lo, hi: g.hi, emph: a.emph.has(g.name),
+          tip: [`Average ${pct(g.mean)}`, `${g.name} · ${people(g.n)}`, `Likely range ${pct(g.lo)} to ${pct(g.hi)}`,
+            `${signed(g.cmp.gap)} points vs ${g.cmp.against}`],
+        })), "Everyone");
+      } else if (view === "bands") {
+        const plot = h("div");
+        chart.replaceChildren(legend(), plot);
+        bandPlot(plot, a.shown.map((g) => ({ label: g.name, n: g.n, counts: bandCounts(g.mean, g.n) })));
+      } else {
+        chart.replaceChildren(table(
+          [["Group"], ["People", 1], ["Average", 1], ["Likely range", 1], ["Gap", 1], ["Gap range", 1],
+            ["Below", 1], ["Partially", 1], ["Meets", 1], ["Exceeds", 1], ["Outstanding", 1]],
+          a.shown.map((g) => {
+            const c = bandCounts(g.mean, g.n);
+            return [g.name, String(g.n), pct(g.mean), `${pct(g.lo)} to ${pct(g.hi)}`,
+              `${signed(g.cmp.gap)} vs ${g.cmp.against}`, `${pts(g.cmp.lo)} to ${pts(g.cmp.hi)}`, ...c.map(String)];
+          })));
+      }
+    };
+    const toggleHost = h("div");
+    add(card, [
+      h("div", { class: "card-head" }, [h("h3", { text: a.dim.name }), STATUS[a.status]()]),
+      h("p", { class: "finding", text: finding(a) }),
+      toggleHost,
+      chart,
+      a.hidden.length ? h("p", { class: "foot", text:
+        `Not shown: ${a.hidden.map((g) => `${g.name} (${people(g.n)})`).join(", ")}. Groups under ${MIN_GROUP} people are hidden.` }) : null,
+      a.unreadable ? h("p", { class: "foot", text:
+        `${people(a.unreadable)}' gender isn't recorded in a form that can be grouped (blank, "-", "N/A"). They are left out of this comparison only.` }) : null,
+    ]);
+    card._draw = draw;
+    return card;
+  }
+
+  function renderGroups(all) {
+    const panel = document.getElementById("panel-groups");
+    const cards = all.map(dimCard);
+    panel.replaceChildren(h("div", { class: "grid" }, cards));
+    cards.forEach((c) => c._draw());
+  }
+
+  function renderManagers() {
+    const panel = document.getElementById("panel-managers");
+    const rows = analyseManagers();
+    const flagged = rows.filter((r) => r.lean || r.flat);
+    const chart = h("div", { class: "chart" });
+    const toggleHost = h("div");
+    const draw = () => {
+      const view = state.views.managers || "avg";
+      toggleHost.replaceChildren(viewToggle("managers", [["avg", "Average"], ["table", "Table"]], draw));
+      if (view === "avg") {
+        rangePlot(chart, rows.map((r) => ({
+          label: r.name, n: r.n, mean: r.mean, lo: r.lo, hi: r.hi, emph: r.lean || r.flat,
+          tip: [`Average ${pct(r.mean)}`, `${r.name} · ${r.dept} · rated ${people(r.n)}`,
+            `${signed(r.gap)} points vs everyone else`, `Spread ${r.sd.toFixed(1)} points · ${r.same}% got the most common level`],
+        })), "Everyone");
+      } else {
+        chart.replaceChildren(table(
+          [["Manager"], ["Department"], ["Rated", 1], ["Average", 1], ["Vs everyone else", 1], ["Gap range", 1], ["Spread", 1], ["Same level", 1], ["Pattern", 0, 1]],
+          rows.map((r) => [r.name, r.dept, String(r.n), pct(r.mean), signed(r.gap), `${pts(r.glo)} to ${pts(r.ghi)}`,
+            r.sd.toFixed(1), r.same + "%", patternText(r) || "None"])));
+      }
+    };
+    panel.replaceChildren(h("div", { class: "stack" }, [
+      h("div", { class: "callout info" }, [
+        h("p", { class: "callout-title" }, [icon("info", 14), "A higher average can be earned"]),
+        h("p", { text: "Objective progress is typed in by each person today, so this page cannot yet tell a generous manager from a strong team. Treat each flag as a question for the calibration meeting." }),
+      ]),
+      add(h("article", { class: "card" }), [
+        h("div", { class: "card-head" }, [h("h3", { text: "Average mark each manager gave" }),
+          flagged.length ? badge("warn", "warn", `${flagged.length} worth a look`) : badge("neutral", "dash", "No clear pattern")]),
+        h("p", { class: "finding", text: "Listed by name, not by mark. Highlighted managers have a pattern described below." }),
+        toggleHost, chart,
+        h("p", { class: "foot", text: `${state.pooled ? SMALL_MANAGERS.pooled : SMALL_MANAGERS.period} managers rated fewer than ${MIN_GROUP} people and are not shown.` }),
+      ]),
+      add(h("article", { class: "card" }), [
+        h("h3", { text: "Patterns" }),
+        flagged.length
+          ? h("ul", { class: "moves" }, flagged.map((r) => h("li", null, [
+              h("div", { class: "move-top" }, [h("span", { class: "move-who", text: r.name }), h("span", { class: "muted", text: `${r.dept} · rated ${people(r.n)}` })]),
+              h("p", { class: "move-reason", text: patternText(r) }),
+            ])))
+          : h("p", { class: "finding", text: "No manager's marks sit clearly apart from everyone else's." }),
+      ]),
+    ]));
+    draw();
+  }
+
+  function patternText(r) {
+    const parts = [];
+    if (r.lean) {
+      parts.push(`Average ${Math.abs(r.gap).toFixed(1)} points ${r.gap > 0 ? "above" : "below"} everyone else's (range ${pts(r.glo)} to ${pts(r.ghi)}). Flagged at ${RATER_GAP} points.`);
+    }
+    if (r.flat) {
+      parts.push(`Little spread: ${r.sd.toFixed(1)} points against the company's ${SD}, and ${r.same}% of their people got the same level. Flagged under ${FLAT_SD} points.`);
+    }
+    return parts.join(" ");
+  }
+
+  function renderCalibration() {
+    const panel = document.getElementById("panel-calibration");
+    const tiles = [["Marks moved", "9"], ["Moved up", "7"], ["Moved down", "2"], ["Put back to computed", "1"]];
+    panel.replaceChildren(h("div", { class: "stack" }, [
+      h("div", { class: "kpis", style: "margin:0" }, tiles.map(([l, v]) => h("div", { class: "tile" }, [
+        h("div", { class: "tile-label", text: l }), h("div", { class: "tile-value", text: v }),
+      ]))),
+      add(h("article", { class: "card" }), [
+        h("div", { class: "card-head" }, [h("h3", { text: "Moves by group" }), badge("neutral", "dash", "Too few to tell")]),
+        h("p", { class: "finding", text: `Calibration has moved 9 marks so far. A comparison needs at least ${MIN_GROUP} moves in each group, so this only shows the counts for now. This period only; earlier periods are not counted here.` }),
+        table([["Grouping"], ["Group"], ["Moves", 1], ["Average move", 1]],
+          MOVES_BY_GROUP.map(([d, g, n, avg]) => [d, g, String(n), signed(avg) + " points"])),
+      ]),
+      add(h("article", { class: "card" }), [
+        h("h3", { text: "Latest moves" }),
+        h("p", { class: "finding", text: "Every move and every clear is kept, with who made it and why. Each person's full history is on their score page." }),
+        h("ul", { class: "moves" }, MOVES.map((m) => h("li", null, [
+          h("div", { class: "move-top" }, [
+            h("span", { class: "move-who", text: m.who }),
+            h("span", { class: "move-fig", text: m.kind === "cleared" ? `${m.from}% → ${m.to}% (computed)` : `${m.from}% → ${m.to}%` }),
+            badge("neutral", null, m.kind === "cleared" ? "Put back" : m.to > m.from ? "Moved up" : "Moved down"),
+          ]),
+          h("p", { class: "move-reason", text: m.reason ? `“${m.reason}”` : "No reason recorded. Putting a mark back does not ask for one yet." }),
+          h("p", { class: "move-by", text: `${m.by} · ${m.when}` }),
+        ]))),
+      ]),
+    ]));
+  }
+
+  /* --------------------------------------------------------------- wiring */
+  function render() {
+    const all = DIMENSIONS.map(analyse);
+    renderKpis(all);
+    renderSummary(all);
+    renderGroups(all);
+    renderManagers();
+    renderCalibration();
+  }
+
+  document.querySelectorAll("#pool button").forEach((b) => b.addEventListener("click", () => {
+    state.pooled = b.dataset.pool === "1";
+    document.querySelectorAll("#pool button").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+    render();
+  }));
+
+  const adjusted = document.getElementById("adjusted");
+  adjusted.addEventListener("click", () => {
+    const note = document.getElementById("adjusted-note");
+    note.hidden = !note.hidden;
+  });
+
+  const tabs = Array.from(document.querySelectorAll(".tab"));
+  function selectTab(tab) {
+    tabs.forEach((t) => {
+      const on = t === tab;
+      t.setAttribute("aria-selected", String(on));
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+    });
+    render();
+  }
+  tabs.forEach((t, i) => {
+    t.addEventListener("click", () => selectTab(t));
+    t.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      const next = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+      next.focus(); selectTab(next);
+    });
+  });
+
+  const themeBtn = document.getElementById("theme");
+  const THEMES = ["auto", "light", "dark"];
+  function applyTheme(t) {
+    if (t === "auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", t);
+    themeBtn.textContent = "Theme: " + t;
+  }
+  let theme = "auto";
+  try { theme = localStorage.getItem("fairness-mockup-theme") || "auto"; } catch (e) { /* storage blocked */ }
+  if (!THEMES.includes(theme)) theme = "auto";
+  applyTheme(theme);
+  themeBtn.addEventListener("click", () => {
+    theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    applyTheme(theme);
+    try { localStorage.setItem("fairness-mockup-theme", theme); } catch (e) { /* storage blocked */ }
+  });
+
+  let resizeTimer;
+  let lastWidth = window.innerWidth;
+  window.addEventListener("resize", () => {
+    if (window.innerWidth === lastWidth) return;
+    lastWidth = window.innerWidth;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(render, 120);
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
