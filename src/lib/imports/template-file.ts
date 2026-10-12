@@ -118,6 +118,52 @@ export const columnsFromApi = (
 };
 
 /**
+ * Lists that belong to *this company, right now*, by the dictionary field they
+ * fill: its departments, the appraisal periods that are still open.
+ *
+ * Not on the dictionary, and that is the whole design. `ColumnSpec.dropdown` is
+ * for a vocabulary that is the same for everybody — the 37 states, Yes and No —
+ * which is why it can be compiled in, sent by the API and checked for drift
+ * between the two repos. A company's own departments are none of those: they
+ * are different for every customer, they change, and a copy compiled into a
+ * dictionary would be somebody else's list in the file. They are supplied by the
+ * screen at the moment of download, from what it has just read.
+ *
+ * A snapshot, and Excel enforces it: a department created after the download is
+ * not in the list and cannot be typed over it. Downloading the template again
+ * is the answer, and the check step names anything it does not recognise.
+ */
+export type TemplateLists = Readonly<Record<string, readonly string[]>>;
+
+/**
+ * The columns, with each live list turned into that column's dropdown.
+ *
+ * A live list wins over a compiled-in one for the same column, because it is the
+ * more specific of the two. An empty list is **no** dropdown, not an empty one:
+ * Excel would refuse every value typed into a column whose list has nothing in
+ * it, which is the opposite of help for a company that has not made its first
+ * department yet. Duplicates are dropped and the order the screen chose is kept.
+ */
+export const withLists = (
+  columns: readonly TemplateColumn[],
+  dictionary: Dictionary<string>,
+  lists: TemplateLists,
+): TemplateColumn[] => {
+  const byHeading = new Map<string, readonly string[]>();
+  for (const spec of dictionary.columns) {
+    const options = [...new Set(lists[spec.field] ?? [])].filter(
+      (option) => option.trim() !== "",
+    );
+    if (options.length > 0) byHeading.set(spec.column, options);
+  }
+  if (byHeading.size === 0) return [...columns];
+  return columns.map((column) => {
+    const options = byHeading.get(column.column);
+    return options === undefined ? column : { ...column, dropdown: options };
+  });
+};
+
+/**
  * The legend, when the API has not supplied one.
  *
  * Kept identical in wording to the employee entity's own `legend` in the API.

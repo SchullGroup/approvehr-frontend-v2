@@ -1,4 +1,5 @@
 import type { Dictionary } from "./spec";
+import type { TemplateLists } from "./template-file";
 
 /**
  * Everything the four-step import screen needs that is not in the dictionary.
@@ -64,6 +65,22 @@ export type ImportSurface = {
    * Always the same hook for a given surface, so it is called unconditionally.
    */
   useAccess?: () => boolean;
+  /**
+   * The company's own lists, for the template's dropdowns: its departments, the
+   * appraisal periods still open.
+   *
+   * A hook, because they are read off the same stores the rest of the app reads.
+   * `lists` is keyed by the dictionary field a list fills, and `ready` is false
+   * until every list has answered — one way or the other, so a list that failed
+   * to load is `ready` with nothing in it and the template simply has no
+   * dropdown there. The download waits on `ready`, because a workbook built a
+   * moment early looks exactly like one that was always going to have no list.
+   *
+   * Absent for an entity whose columns are all either free text or a fixed
+   * vocabulary, which is every entity but objectives. Always the same hook for a
+   * given surface, so it is called unconditionally.
+   */
+  useTemplateLists?: () => { lists: TemplateLists; ready: boolean };
   /**
    * What somebody without access is told. Absent means the pay-records wording,
    * which is true of the entities that are gated by `IMPORT_DATA` and false of
