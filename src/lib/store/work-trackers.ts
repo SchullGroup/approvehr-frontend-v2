@@ -133,7 +133,12 @@ export function useWorkTrackerConnection(id: string) {
   };
 }
 
-/** Read live from the tool, so only asked for once the picker is opened. */
+/**
+ * Read live from the tool, whenever a panel that needs the project list is on
+ * screen (Projects and Rules, on an active connection). Like every fetched
+ * read it is asked again when the reader returns to the window, at most once
+ * per `lib/revalidate`'s floor.
+ */
 export function useRemoteProjects(id: string, active: boolean) {
   const { isConnected } = useSession();
   const load = useCallback(
