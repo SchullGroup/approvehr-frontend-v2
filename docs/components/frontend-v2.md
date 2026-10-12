@@ -616,6 +616,9 @@ Screen components for the performance module, including its dialogs and panels.
 | `src/app/(app)/performance/periods/[id]/period-screen.tsx` | `PeriodScreen` | — | — | — |
 | `src/app/(app)/performance/periods/[id]/nine-box/nine-box-screen.tsx` | `NineBoxScreen` | — | — | — |
 | `src/app/(app)/performance/periods/[id]/nine-box/page.tsx` | `NineBoxPage` | — | — | 1 const |
+| `src/app/(app)/performance/periods/[id]/fairness/charts.tsx` | `RangeChart`, `BandBars` | — | `pct`, `points` | 2 const · 1 type |
+| `src/app/(app)/performance/periods/[id]/fairness/fairness-screen.tsx` | `FairnessScreen` | — | — | — |
+| `src/app/(app)/performance/periods/[id]/fairness/page.tsx` | `FairnessPage` | — | — | 1 const |
 | `src/app/(app)/performance/periods/[id]/report/page.tsx` | `PeriodReportPage` | — | — | 1 const |
 | `src/app/(app)/performance/periods/[id]/report/report-screen.tsx` | `PeriodReportScreen` | — | — | — |
 | `src/app/(app)/performance/periods/new/draft-wizard.tsx` | `DraftPeriodWizard` | — | — | — |
