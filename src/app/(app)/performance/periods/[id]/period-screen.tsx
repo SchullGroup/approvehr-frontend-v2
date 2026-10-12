@@ -150,6 +150,7 @@ const STAGE_NEXT_LABEL: Record<string, string> = {
 export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const router = useRouter();
   const canSeeCompany = useCan("EDIT_RECORDS");
+  const canSeeFairness = useCan("VIEW_FAIRNESS");
   const canManage = useCan("MANAGE_SETTINGS");
   const detail = useCycleRegister(cycleId, canSeeCompany);
   const periods = useCycleMutations();
@@ -442,6 +443,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 href={`/performance/periods/${cycleId}/nine-box`}
               >
                 Nine-box
+              </ButtonLink>
+            )}
+            {canSeeFairness && !draft && (
+              <ButtonLink
+                size="sm"
+                variant="secondary"
+                href={`/performance/periods/${cycleId}/fairness`}
+              >
+                Fairness check
               </ButtonLink>
             )}
             {/* The stage never moved on its own, and nothing moved it: the
