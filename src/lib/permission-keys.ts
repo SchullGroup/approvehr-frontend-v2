@@ -83,8 +83,6 @@ export const PERMISSION_KEYS = [
   "MANAGE_SHIFTS",
   "MANAGE_ROTA",
   "APPROVE_SHIFT_SWAP",
-  /* How a period's marks compare between groups of people. Its own grant
-     because the groups are protected characteristics. */
   "VIEW_FAIRNESS",
 ] as const;
 
