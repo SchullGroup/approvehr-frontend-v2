@@ -17,6 +17,8 @@ import {
   parseMeasure,
   performanceApi,
   type ApiAnswer,
+  type ApiFairness,
+  type FairnessPeriods,
   type ApiCompetency,
   type ApiCycle,
   type ApiCycleParticipants,
@@ -4205,6 +4207,47 @@ export function useCycleReport(
     error: isConnected ? fetched.error : null,
     available: isConnected && enabled,
     refusal: REPORT_OFFLINE,
+    reload: fetched.reload,
+  };
+}
+
+export const FAIRNESS_OFFLINE =
+  "The fairness check needs the API. Its figures are drawn from everybody's mark and records.";
+
+export function useCycleFairness(
+  cycleId: string,
+  periods: FairnessPeriods,
+  enabled: boolean,
+): {
+  fairness: ApiFairness | null;
+  cycle: ApiCycle | null;
+  loading: boolean;
+  error: ApiError | null;
+  available: boolean;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      const [cycle, fairness] = await Promise.all([
+        performanceApi.cycle(cycleId, signal),
+        performanceApi.cycleFairness(cycleId, periods, signal),
+      ]);
+      return { cycle, fairness };
+    },
+    [cycleId, periods],
+  );
+  const fetched = useFetched<{ cycle: ApiCycle; fairness: ApiFairness }>(
+    `cycle-fairness|${cycleId}|${String(periods)}`,
+    enabled && isConnected,
+    load,
+  );
+  return {
+    fairness: isConnected ? (fetched.data?.fairness ?? null) : null,
+    cycle: isConnected ? (fetched.data?.cycle ?? null) : null,
+    loading: isConnected && enabled ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    available: isConnected && enabled,
     reload: fetched.reload,
   };
 }

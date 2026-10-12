@@ -1153,6 +1153,100 @@ export type ApiReportComponent = {
  * other**. That rule is the whole reason this type has two nested objects
  * instead of one flat `counts`.
  */
+export type FairnessPeriods = 1 | 3;
+
+export type ApiFairnessGap = {
+  against: string | null;
+  gapBp: number;
+  lowBp: number | null;
+  highBp: number | null;
+  flagged: boolean;
+};
+
+export type ApiFairnessGroup = {
+  label: string;
+  people: number;
+  meanBp: number;
+  lowBp: number | null;
+  highBp: number | null;
+  bands: Record<ScoreBand, number>;
+  gap: ApiFairnessGap | null;
+};
+
+export type ApiFairnessDimension = {
+  key:
+    | "gender"
+    | "ageBand"
+    | "tenure"
+    | "workLocation"
+    | "employmentType"
+    | "department";
+  label: string;
+  groups: ApiFairnessGroup[];
+  hidden: { label: string; people: number; reason: "small" | "protects" }[];
+  notRecorded: number;
+  flags: (ApiFairnessGap & { label: string })[];
+};
+
+export type ApiFairnessManager = {
+  name: string;
+  people: number;
+  meanBp: number;
+  lowBp: number | null;
+  highBp: number | null;
+  spreadBp: number | null;
+  sameBandShare: number;
+  gap: ApiFairnessGap | null;
+  flags: ("apart" | "flat")[];
+};
+
+export type ApiFairnessMove = {
+  id: string;
+  employeeName: string;
+  computedBp: number;
+  previousBp: number | null;
+  calibratedBp: number | null;
+  reason: string | null;
+  actorName: string | null;
+  at: string;
+};
+
+export type ApiFairness = {
+  cycle: { id: string; name: string; stage: string };
+  referenceDate: string;
+  inPeriod: number;
+  periods: { id: string; name: string }[];
+  skipped: { name: string; reason: string }[];
+  compared: number;
+  averageBp: number | null;
+  spreadBp: number | null;
+  rules: { minGroup: number; minGapBp: number; likelyRange: string };
+  notChecked: string[];
+  dimensions: ApiFairnessDimension[];
+  managers: {
+    managers: ApiFairnessManager[];
+    hidden: { managers: number; people: number };
+    noManager: number;
+    rules: {
+      minRated: number;
+      apartBp: number;
+      flatBelowSpreadBp: number | null;
+    };
+  };
+  calibration: {
+    moved: number;
+    up: number;
+    down: number;
+    byGroup: {
+      key: string;
+      label: string;
+      comparable: boolean;
+      groups: { label: string; moves: number; averageMoveBp: number }[] | null;
+    }[];
+    latest: ApiFairnessMove[] | null;
+  };
+};
+
 export type ApiCycleReport = {
   cycleId: string;
   cycleName: string;
@@ -2210,6 +2304,16 @@ export const performanceApi = {
   cycleReport: (cycleId: string, signal?: AbortSignal) =>
     request<ApiCycleReport>(
       `/performance/cycles/${cycleId}/report`,
+      signalOf(signal),
+    ),
+
+  cycleFairness: (
+    cycleId: string,
+    periods: FairnessPeriods,
+    signal?: AbortSignal,
+  ) =>
+    request<ApiFairness>(
+      `/performance/cycles/${cycleId}/fairness?periods=${String(periods)}`,
       signalOf(signal),
     ),
 
