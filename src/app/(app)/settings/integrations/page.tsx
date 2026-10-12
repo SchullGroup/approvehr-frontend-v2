@@ -4,9 +4,36 @@ import { IntegrationsList } from "./list";
 export const metadata: Metadata = {
   title: "Integrations",
   description:
-    "Accounting, attendance devices, single sign-on and payment execution.",
+    "Work trackers such as Jira, accounting, attendance devices, single sign-on and payment execution.",
 };
 
-export default function IntegrationsPage() {
-  return <IntegrationsList />;
+/**
+ * `?workTracker=connected|error&reason=…&connectionId=…` is how the API sends
+ * the browser back after a tool's consent screen. Read here rather than with
+ * `useSearchParams`, the same as `/settings/audit`, so the screen needs no
+ * Suspense boundary.
+ */
+export default async function IntegrationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    workTracker?: string | string[];
+    reason?: string | string[];
+    connectionId?: string | string[];
+  }>;
+}) {
+  const params = await searchParams;
+  const one = (value?: string | string[]) =>
+    (Array.isArray(value) ? value[0] : value) ?? null;
+  const status = one(params.workTracker);
+
+  return (
+    <IntegrationsList
+      workTrackerReturn={{
+        status: status === "connected" || status === "error" ? status : null,
+        reason: one(params.reason),
+        connectionId: one(params.connectionId),
+      }}
+    />
+  );
 }

@@ -20,6 +20,10 @@ import { company } from "@/lib/api/endpoints";
 import { usePermissions } from "@/lib/permissions";
 import { useCompanySettings, type Integration } from "@/lib/store/company";
 import { useSession } from "@/lib/store/session";
+import {
+  WorkTrackersSection,
+  type WorkTrackerReturn,
+} from "./work-trackers-section";
 
 const CATEGORY_ORDER: Integration["category"][] = [
   "Banking",
@@ -32,7 +36,8 @@ const CATEGORY_ORDER: Integration["category"][] = [
 /**
  * Integrations.
  *
- * Deliberately has no Connect button that does nothing.
+ * Work trackers (Jira) connect for real — see `work-trackers-section.tsx`.
+ * Everything else here deliberately has no Connect button that does nothing.
  *
  * The obvious build here is a grid of logos with toggles that flip to
  * "Connected" and change no state anywhere — every competitor's integrations
@@ -61,7 +66,11 @@ type IntegrationRow = {
   status: Integration["status"];
 };
 
-export function IntegrationsList() {
+export function IntegrationsList({
+  workTrackerReturn,
+}: {
+  workTrackerReturn: WorkTrackerReturn;
+}) {
   const { can, loading } = usePermissions();
 
   if (loading) {
@@ -93,7 +102,7 @@ export function IntegrationsList() {
     );
   }
 
-  return <Catalogue />;
+  return <Catalogue workTrackerReturn={workTrackerReturn} />;
 }
 
 function Header() {
@@ -105,7 +114,11 @@ function Header() {
   );
 }
 
-function Catalogue() {
+function Catalogue({
+  workTrackerReturn,
+}: {
+  workTrackerReturn: WorkTrackerReturn;
+}) {
   const { isConnected } = useSession();
   const { settings, setIntegrationStatus } = useCompanySettings();
   const toast = useToast();
@@ -228,12 +241,12 @@ function Catalogue() {
           />
         )}
 
-        <Callout tone="info" title="None of these are live yet">
-          Connecting any of them means holding credentials for another
-          company&rsquo;s API, which needs the backend. Rather than showing a
-          toggle that flips to &ldquo;Connected&rdquo; and does nothing, this
-          page tells you where each one stands and lets you tell us which to
-          build first.
+        <WorkTrackersSection returnStatus={workTrackerReturn} />
+
+        <Callout tone="info" title="The integrations below are not live yet">
+          Rather than showing a toggle that flips to &ldquo;Connected&rdquo; and
+          does nothing, this page tells you where each one stands and lets you
+          tell us which to build first.
         </Callout>
 
         {requested.length > 0 && (
