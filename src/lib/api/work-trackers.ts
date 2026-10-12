@@ -274,3 +274,75 @@ export const PROVIDER_NAME: Record<WorkTrackerProvider, string> = {
   MONDAY: "Monday.com",
   TRELLO: "Trello",
 };
+
+/**
+ * Why the browser came back from a tool without a connection, in words. The
+ * API sends a short code in `?reason=`; anything else gets the generic line.
+ *
+ * **Own keys only.** The code comes from the address bar, so anybody can put
+ * anything there, and a plain `REASONS[code]` also finds what every object
+ * inherits: `__proto__` returns an object, which the toast then tries to
+ * render and React throws on, and `constructor` returns a function. A link
+ * that crashes the page is a small thing; it is also a one-word fix.
+ */
+const CONNECT_FAILURES: Record<string, string> = {
+  expired:
+    "The sign-in took longer than ten minutes, or did not start here. Start again.",
+  denied: "Access was not granted in the tool. Nothing was connected.",
+  no_site: "That account cannot see any site in the tool.",
+  unavailable: "That tool cannot be connected yet.",
+  failed: "The tool did not answer as expected. Try again in a minute.",
+};
+
+export function connectFailureText(reason: string | null): string {
+  const known =
+    reason !== null && Object.hasOwn(CONNECT_FAILURES, reason)
+      ? CONNECT_FAILURES[reason]
+      : undefined;
+  return known ?? CONNECT_FAILURES["failed"]!;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A connection id taken from the address bar, or null if it is not one. */
+export function connectionIdOf(raw: string | null): string | null {
+  return raw !== null && UUID.test(raw) ? raw : null;
+}
+
+/**
+ * The most tasks the API grades in one request (`confirmSchema` allows 1 to
+ * 200). A manager with more waiting than that would otherwise have the whole
+ * request refused, so the button sends them in batches of this size.
+ */
+export const CONFIRM_BATCH_LIMIT = 200;
+
+/**
+ * Grade imported tasks Completed, in as many requests as it takes.
+ *
+ * The answers are merged, so the caller sees one `graded` and one `skipped`.
+ * If a later batch fails after an earlier one landed, the tasks in the batches
+ * that never ran come back in `skipped` with the failure as the reason rather
+ * than the whole call throwing: the first batch is already graded, and an
+ * error that hid that would leave the screen showing work as undone that is
+ * done. A failure on the very first batch is thrown, as nothing has changed.
+ */
+export async function confirmInBatches(
+  confirm: (ids: string[]) => Promise<ApiConfirmResult>,
+  ids: string[],
+): Promise<ApiConfirmResult> {
+  const merged: ApiConfirmResult = { graded: [], skipped: [] };
+  for (let at = 0; at < ids.length; at += CONFIRM_BATCH_LIMIT) {
+    try {
+      const part = await confirm(ids.slice(at, at + CONFIRM_BATCH_LIMIT));
+      merged.graded.push(...part.graded);
+      merged.skipped.push(...part.skipped);
+    } catch (cause) {
+      if (at === 0) throw cause;
+      const reason =
+        cause instanceof Error ? cause.message : "The request failed.";
+      for (const id of ids.slice(at)) merged.skipped.push({ id, reason });
+      break;
+    }
+  }
+  return merged;
+}
