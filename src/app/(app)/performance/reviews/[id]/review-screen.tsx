@@ -36,10 +36,15 @@ import {
   useEmployeeScore,
   useRatingScale,
   useReview,
+  useReviewFlag,
   useSignOff,
   useSubjectSelfReview,
 } from "@/lib/store/performance";
 import { ReviewFormModal } from "../../review-form";
+import {
+  RecordCheck,
+  StatusBadge,
+} from "@/components/performance/record-check";
 import {
   AppraiserStrip,
   PeriodFraming,
@@ -137,6 +142,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const ratingWords = ratingWordsFrom(scale.levels);
   const { actingId } = useSession();
   const canSeeCompany = useCan("EDIT_RECORDS");
+  const canSeeFairness = useCan("VIEW_FAIRNESS");
   const signOff = useSignOff();
   const toast = useToast();
 
@@ -160,6 +166,16 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     review !== null &&
       review.kind === "MANAGER" &&
       (isSubject || review.mine || canSeeCompany),
+  );
+
+  const record = useReviewFlag(
+    review?.cycleId ?? null,
+    review?.subjectId ?? null,
+    review !== null &&
+      review.kind === "MANAGER" &&
+      canSeeFairness &&
+      !isSubject &&
+      !review.mine,
   );
 
   if (loading) {
@@ -473,6 +489,19 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               subjectName={review.subjectName}
               message={score.available ? score.error?.message : score.refusal}
             />
+          )}
+
+          {review.kind === "MANAGER" && record.flag && (
+            <Card>
+              <CardHeader
+                title="Rating against record"
+                description="Their mark beside what their objectives, peer feedback and past marks suggest. Their manager doesn't see this."
+                action={<StatusBadge status={record.flag.status} />}
+              />
+              <CardBody>
+                <RecordCheck cycleId={review.cycleId} flag={record.flag} />
+              </CardBody>
+            </Card>
           )}
 
           {/* ------------------------------------------------------------- the form */}

@@ -70,7 +70,9 @@ import {
   useCycleMutations,
   useCycleRegister,
   useRatingScale,
+  useReviewFlag,
 } from "@/lib/store/performance";
+import { points } from "@/components/performance/record-check";
 import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
 import { SectionsDialog } from "../../sections-dialog";
@@ -2087,6 +2089,14 @@ function CalibrateButton({
   const [failed, setFailed] = useState<string | null>(null);
 
   const existing = row.calibration;
+  const canSeeFairness = useCan("VIEW_FAIRNESS");
+  const { flag } = useReviewFlag(
+    cycleId,
+    row.employeeId,
+    open && canSeeFairness,
+  );
+  const offRecord =
+    flag && (flag.status === "below" || flag.status === "above") ? flag : null;
 
   const start = () => {
     /* Seeded with what is on screen, so somebody nudging a mark by two points
@@ -2203,6 +2213,19 @@ function CalibrateButton({
         }
       >
         <div className="flex flex-col gap-4">
+          {offRecord &&
+            offRecord.gapBp !== null &&
+            offRecord.expectedBp !== null && (
+              <Callout
+                tone="warning"
+                title="This mark doesn't match their record"
+              >
+                Their record suggests {scoreLabel(offRecord.expectedBp)}, a gap
+                of {points(offRecord.gapBp)}. Check the evidence on the fairness
+                check before moving it.
+              </Callout>
+            )}
+
           {existing && (
             <Callout tone="neutral" title="It has already been moved">
               Now {scoreLabel(existing.calibratedBp)}, from{" "}
