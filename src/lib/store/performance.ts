@@ -18,6 +18,8 @@ import {
   performanceApi,
   type ApiAnswer,
   type ApiFairness,
+  type ApiReviewFlag,
+  type ApiReviewFlags,
   type FairnessPeriods,
   type ApiCompetency,
   type ApiCycle,
@@ -4209,6 +4211,57 @@ export function useCycleReport(
     refusal: REPORT_OFFLINE,
     reload: fetched.reload,
   };
+}
+
+export function useReviewFlags(cycleId: string, enabled: boolean) {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    (signal: AbortSignal) => performanceApi.reviewFlags(cycleId, signal),
+    [cycleId],
+  );
+  const fetched = useFetched<ApiReviewFlags>(
+    `review-flags|${cycleId}`,
+    enabled && isConnected,
+    load,
+  );
+  return {
+    flags: fetched.data,
+    loading: fetched.loading,
+    error: fetched.error,
+    reload: fetched.reload,
+  };
+}
+
+// A 404 means there is nothing to show this reader about this person, not a failure.
+export function useReviewFlag(
+  cycleId: string | null,
+  employeeId: string | null,
+  enabled: boolean,
+) {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    async (signal: AbortSignal): Promise<ApiReviewFlag | null> => {
+      try {
+        return (
+          await performanceApi.reviewFlag(
+            cycleId ?? "",
+            employeeId ?? "",
+            signal,
+          )
+        ).flag;
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+      }
+    },
+    [cycleId, employeeId],
+  );
+  const fetched = useFetched<ApiReviewFlag | null>(
+    `review-flag|${cycleId ?? ""}|${employeeId ?? ""}`,
+    enabled && isConnected && cycleId !== null && employeeId !== null,
+    load,
+  );
+  return { flag: fetched.data, loading: fetched.loading };
 }
 
 export const FAIRNESS_OFFLINE =

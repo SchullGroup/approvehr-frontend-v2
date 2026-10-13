@@ -19,6 +19,7 @@ import {
   type ApiAnswer,
   type ApiSuggestOutcome,
 } from "@/lib/api/ai";
+import { performanceApi } from "@/lib/api/performance";
 import { useSession } from "./session";
 import { findScriptedAnswer } from "@/lib/mock/sales-script-qa";
 import { salesScriptAssistantName, scriptedFallback } from "@/lib/sales-script";
@@ -207,6 +208,14 @@ export const usePeriodGoalDraft = () =>
 
 export const usePeriodQuestionDraft = () =>
   useSuggestion<{ text: string; count?: number }>(draftPeriodQuestions);
+
+export const useReviewNote = () =>
+  useSuggestion<{ cycleId: string; employeeId: string }>(
+    performanceApi.reviewNote,
+  );
+
+export const useReviewBriefing = () =>
+  useSuggestion<{ cycleId: string }>(performanceApi.reviewBriefing);
 
 /** Asking a question about the company's records. Each answer replaces the last. */
 export function useAsk(): {
