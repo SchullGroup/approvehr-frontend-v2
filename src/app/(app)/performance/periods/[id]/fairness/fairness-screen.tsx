@@ -30,10 +30,15 @@ import type {
   FairnessPeriods,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
-import { FAIRNESS_OFFLINE, useCycleFairness } from "@/lib/store/performance";
+import {
+  FAIRNESS_OFFLINE,
+  useCycleFairness,
+  useReviewFlags,
+} from "@/lib/store/performance";
 import { BandBars, RangeChart, pct, points } from "./charts";
+import { PeopleToReview, flaggedCount } from "./people-to-review";
 
-type Tab = "groups" | "managers" | "calibration";
+type Tab = "groups" | "managers" | "calibration" | "people";
 type View = "average" | "bands" | "table";
 
 export function FairnessScreen({ cycleId }: { cycleId: string }) {
@@ -42,6 +47,7 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
   const [tab, setTab] = useState<Tab>("groups");
   const detail = useCycleFairness(cycleId, periods, allowed);
   const data = detail.fairness;
+  const review = useReviewFlags(cycleId, allowed);
 
   return (
     <>
@@ -124,6 +130,11 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
                 },
                 { id: "managers", label: "Managers" },
                 { id: "calibration", label: "Calibration moves" },
+                {
+                  id: "people",
+                  label: "People to review",
+                  count: flaggedCount(review.flags) || undefined,
+                },
               ]}
               value={tab}
               onChange={(id) => setTab(id as Tab)}
@@ -131,6 +142,15 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
               {tab === "groups" && <Groups data={data} />}
               {tab === "managers" && <Managers data={data} />}
               {tab === "calibration" && <Calibration data={data} />}
+              {tab === "people" && (
+                <PeopleToReview
+                  cycleId={cycleId}
+                  flags={review.flags}
+                  loading={review.loading}
+                  error={review.error}
+                  reload={review.reload}
+                />
+              )}
             </Tabs>
             <Disclosure title="How flags work" region={false}>
               <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">

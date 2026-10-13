@@ -2,10 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ScoreBand } from "@/lib/api/performance";
+import { pct, points } from "@/components/performance/record-check";
 
-export const pct = (bp: number) => `${(bp / 100).toFixed(1)}%`;
-export const points = (bp: number) =>
-  `${bp > 0 ? "+" : bp < 0 ? "−" : ""}${Math.abs(bp / 100).toFixed(1)} pts`;
+export { pct, points };
 
 const DOMAIN = [4000, 8000] as const;
 
