@@ -86,7 +86,7 @@ function useLeadReach(): LeadReach {
  */
 
 /** The current quarter and the three after it, plus the one just gone. */
-function quarterOptions(): string[] {
+export function quarterOptions(): string[] {
   const now = currentQuarter(TODAY);
   const [yearPart = "2026", quarterPart = "Q1"] = now.split("-");
   let year = Number(yearPart);
@@ -111,7 +111,7 @@ function quarterOptions(): string[] {
   return out;
 }
 
-const quarterText = (quarter: string) => {
+export const quarterText = (quarter: string) => {
   const [year, part] = quarter.split("-");
   return `${part} ${year}`;
 };

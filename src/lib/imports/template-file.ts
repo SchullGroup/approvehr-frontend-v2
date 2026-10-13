@@ -1,7 +1,7 @@
 import { toCsv, type CsvRow } from "@/lib/csv";
 import { writeXlsx } from "@/lib/xlsx";
 import type { ApiTemplateColumn } from "@/lib/api/imports";
-import type { Dictionary } from "./spec";
+import { normalizeKey, type Dictionary } from "./spec";
 
 /**
  * The template, as a file, in both formats somebody asked for. Entity-agnostic.
@@ -34,10 +34,10 @@ import type { Dictionary } from "./spec";
  *
  * ## The asterisk in the header row
  *
- * Required columns are marked `first_name *`. That is safe rather than cute:
+ * Required columns are marked `First name *`. That is safe rather than cute:
  * heading matching normalises away everything that is not a letter or a digit,
- * on this side and on the API's, so `first_name *` and `first_name` are the same
- * column and a customer who leaves the marker in place still imports. It is
+ * on this side and on the API's, so `First name *`, `first_name` and `First Name`
+ * are the same column and a customer who leaves the marker in place still imports. It is
  * checked against the dictionary's own lookup by `scripts/verify-template.ts`
  * for every required column, not assumed.
  */
@@ -67,6 +67,29 @@ export type TemplateColumn = {
    */
   dropdown?: readonly string[];
 };
+
+/**
+ * The other headings a file may use, written the way a person would type them.
+ *
+ * The dictionary stores them as matching keys — `employee_id`, `gl_code` — and
+ * printing those on a sheet a customer reads reads like a database. Underscores
+ * become spaces, and anything that is the heading itself once punctuation is
+ * ignored is left out: "Staff number" listing "staff_number" as another heading
+ * it accepts says nothing. Matching is unchanged — it normalises both sides, so
+ * `employee id` and `employee_id` are the same column whichever is shown.
+ */
+function otherHeadings(column: TemplateColumn): string {
+  const seen = new Set([normalizeKey(column.column)]);
+  return column.alsoAccepted
+    .filter((heading) => {
+      const key = normalizeKey(heading);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((heading) => heading.replace(/_/g, " "))
+    .join(", ");
+}
 
 /** A dictionary in the builder's shape. Used when the API has not answered. */
 export const columnsFromDictionary = (
@@ -179,8 +202,55 @@ export const FALLBACK_LEGEND: readonly string[] = [
   "Dates: DD/MM/YYYY or YYYY-MM-DD. Money: naira, monthly, and the naira sign and commas are fine.",
 ];
 
-const marked = (column: TemplateColumn): string =>
+/** The heading as the sheet prints it: a required column carries an asterisk. */
+export const marked = (column: TemplateColumn): string =>
   column.required ? `${column.column} *` : column.column;
+
+/** The hidden sheet every dropdown points at. */
+export const LISTS_SHEET = "Lists";
+
+/**
+ * The hidden sheet of option lists, and the dropdown cells that point at it.
+ *
+ * Shared by the template and by a downloaded draft, because both have to carry
+ * the same dropdowns or a draft would lose them on the way back into Excel.
+ *
+ * Every dropdown column is paired with the index it holds on the *options*
+ * sheet — never the index it holds on the main sheet, because two dropdown
+ * columns sitting apart in the main sheet still need adjacent columns on the
+ * sheet that carries their lists.
+ */
+export function dropdownSheets(columns: readonly TemplateColumn[]): {
+  listRows: string[][];
+  validations: {
+    column: number;
+    optionsSheet: string;
+    optionsColumn: number;
+    optionCount: number;
+  }[];
+} {
+  const dropdowns = columns
+    .map((column, index) => ({ index, options: column.dropdown }))
+    .filter(
+      (entry): entry is { index: number; options: readonly string[] } =>
+        entry.options !== undefined && entry.options.length > 0,
+    );
+
+  const listRows: string[][] = [];
+  if (dropdowns.length > 0) {
+    const longest = Math.max(...dropdowns.map((d) => d.options.length));
+    for (let row = 0; row < longest; row += 1) {
+      listRows.push(dropdowns.map((d) => d.options[row] ?? ""));
+    }
+  }
+  const validations = dropdowns.map((d, listsIndex) => ({
+    column: d.index,
+    optionsSheet: LISTS_SHEET,
+    optionsColumn: listsIndex,
+    optionCount: d.options.length,
+  }));
+  return { listRows, validations };
+}
 
 const need = (column: TemplateColumn): string =>
   column.required
@@ -226,33 +296,7 @@ export function buildTemplateFiles(
     headers.map((heading, index) => [heading, example[index] ?? ""]),
   );
 
-  /**
-   * Every dropdown column, paired with the index it holds on the *options*
-   * sheet — never the same index it holds on the staff sheet, because two
-   * dropdown columns sitting apart in the staff sheet still need adjacent
-   * columns on the sheet that carries their lists.
-   */
-  const dropdowns = columns
-    .map((column, index) => ({ index, options: column.dropdown }))
-    .filter(
-      (entry): entry is { index: number; options: readonly string[] } =>
-        entry.options !== undefined && entry.options.length > 0,
-    );
-
-  const LISTS_SHEET = "Lists";
-  const listRows: string[][] = [];
-  if (dropdowns.length > 0) {
-    const longest = Math.max(...dropdowns.map((d) => d.options.length));
-    for (let row = 0; row < longest; row += 1) {
-      listRows.push(dropdowns.map((d) => d.options[row] ?? ""));
-    }
-  }
-  const validations = dropdowns.map((d, listsIndex) => ({
-    column: d.index,
-    optionsSheet: LISTS_SHEET,
-    optionsColumn: listsIndex,
-    optionCount: d.options.length,
-  }));
+  const { listRows, validations } = dropdownSheets(columns);
 
   const guide: string[][] = [
     ["How to fill this in"],
@@ -271,7 +315,7 @@ export function buildTemplateFiles(
       need(column),
       column.example,
       column.note,
-      column.alsoAccepted.join(", "),
+      otherHeadings(column),
     ]),
   ];
 
@@ -296,7 +340,7 @@ export function buildTemplateFiles(
         rows: guide,
         /* The title, the legend lines, and the table's own header row. */
         boldRows: [0, legend.length + (matching ? 1 : 0) + 2],
-        widths: [22, 14, 24, 70, 44],
+        widths: [36, 14, 24, 70, 44],
       },
       /* Hidden — this sheet exists only to give every dropdown a source range
          to point at, never for a person to open. See `SheetSpec.hidden`. */
