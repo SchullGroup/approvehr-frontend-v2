@@ -111,6 +111,9 @@ function useImportDataAccess(): boolean {
   return !isConnected || can("IMPORT_DATA");
 }
 
+/** What a surface with no lists of its own passes: nothing, so `useImport`'s default applies. */
+const useNoTemplateLists = (): undefined => undefined;
+
 /**
  * Bring a spreadsheet in. Any spreadsheet, of anything.
  *
@@ -150,7 +153,11 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
      API holds the matching line. */
   const useAccess = surface.useAccess ?? useImportDataAccess;
   const allowed = useAccess();
-  const imp = useImport(surface.dictionary, allowed);
+  /* The company's own lists for the template's dropdowns, when the surface has
+     any. Always the same hook for a given surface, so it is called
+     unconditionally. */
+  const useTemplateLists = surface.useTemplateLists ?? useNoTemplateLists;
+  const imp = useImport(surface.dictionary, allowed, useTemplateLists());
   const dictionary = surface.dictionary;
 
   /* A count on every step, so nobody is ever guessing what is about to happen
@@ -233,7 +240,13 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
             </Badge>
           )
         }
-        action={<TemplateButtons onDownload={imp.downloadTemplate} size="sm" />}
+        action={
+          <TemplateButtons
+            onDownload={imp.downloadTemplate}
+            ready={imp.templateReady}
+            size="sm"
+          />
+        }
       />
 
       <PageBody className="flex flex-col gap-6">
@@ -281,6 +294,7 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
               if (ok) stepper.goTo(1);
             }}
             onTemplate={imp.downloadTemplate}
+            templateReady={imp.templateReady}
             onResume={async (batchId) => {
               const ok = await imp.resumeFrom(batchId);
               if (ok) stepper.goTo(1);
@@ -381,15 +395,26 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
 function TemplateButtons({
   onDownload,
   size = "md",
+  ready = true,
 }: {
   onDownload: (format: "csv" | "xlsx") => void;
   size?: "sm" | "md";
+  /**
+   * False while the company's own lists are still arriving.
+   *
+   * Only the workbook waits: it is the one with dropdowns in it, and a CSV has
+   * nowhere to put a list. A workbook downloaded a moment early would have no
+   * dropdown where the company has departments, and look exactly like one that
+   * did.
+   */
+  ready?: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button
         variant="secondary"
         size={size}
+        loading={!ready}
         onClick={() => onDownload("xlsx")}
       >
         <Download aria-hidden="true" className="size-4" />
@@ -417,6 +442,7 @@ function ChooseFile({
   columns,
   onFile,
   onTemplate,
+  templateReady,
   onResume,
 }: {
   surface: ImportSurface;
@@ -425,6 +451,8 @@ function ChooseFile({
   columns: number;
   onFile: (file: File) => void | Promise<void>;
   onTemplate: (format: "csv" | "xlsx") => void;
+  /** False while the company's own template lists are still arriving. */
+  templateReady: boolean;
   /** Pick a past batch up again. Resolves false when its rows are gone. */
   onResume: (batchId: string) => Promise<boolean>;
 }) {
@@ -550,7 +578,7 @@ function ChooseFile({
             description="Every column, with an example row."
           />
           <CardBody className="flex flex-col gap-4">
-            <TemplateButtons onDownload={onTemplate} />
+            <TemplateButtons onDownload={onTemplate} ready={templateReady} />
             <div>
               <p className="text-meta font-semibold text-faint">Required</p>
               <ul className="mt-2 flex flex-wrap gap-1.5">
