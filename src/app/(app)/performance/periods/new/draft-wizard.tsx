@@ -518,7 +518,7 @@ export function DraftPeriodWizard() {
                 />
               ) : (
                 <>
-                  <Field label="What to call it" required>
+                  <Field label="Period name" required>
                     <Input
                       value={name}
                       onChange={(event) => setName(event.target.value)}
