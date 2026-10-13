@@ -3,7 +3,7 @@
 import { Badge, Disclosure, Spinner } from "@/components/ui";
 import { SuggestButton } from "@/components/performance/suggestions";
 import type { ApiReviewFlag, ApiReviewStatus } from "@/lib/api/performance";
-import { useReviewNote, type SuggestState } from "@/lib/store/ai";
+import { useAutoReviewNote, type SuggestState } from "@/lib/store/ai";
 
 export const pct = (bp: number) => `${(bp / 100).toFixed(1)}%`;
 export const points = (bp: number) =>
@@ -65,13 +65,17 @@ export function NotePanel({ state }: { state: SuggestState }) {
 export function RecordCheck({
   cycleId,
   flag,
+  active = true,
 }: {
   cycleId: string;
   flag: ApiReviewFlag;
+  active?: boolean;
 }) {
-  const note = useReviewNote();
   const { objectives, peers, history } = flag.evidence;
   const flagged = flag.status === "below" || flag.status === "above";
+  const note = useAutoReviewNote(cycleId, flag.employeeId, active && flagged);
+  const failed =
+    note.error !== null || (note.outcome !== null && !note.outcome.available);
 
   return (
     <div className="flex flex-col gap-4">
@@ -146,18 +150,16 @@ export function RecordCheck({
 
       {flagged && (
         <div className="flex flex-col gap-2">
-          {!note.outcome && !note.loading && (
+          <NotePanel state={note} />
+          {failed && (
             <div>
               <SuggestButton
-                label="Write a note"
+                label="Try again"
                 loading={note.loading}
-                onClick={() =>
-                  void note.ask({ cycleId, employeeId: flag.employeeId })
-                }
+                onClick={note.retry}
               />
             </div>
           )}
-          <NotePanel state={note} />
         </div>
       )}
     </div>

@@ -162,7 +162,6 @@ function FlagList({
         <Disclosure
           key={person.employeeId}
           dense
-          keepMounted
           region={false}
           title={person.name}
           hint={describe(person)}

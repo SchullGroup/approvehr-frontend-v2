@@ -1217,6 +1217,8 @@ export type ApiReviewStatus = "below" | "above" | "matches" | "unclear";
 export type ApiReviewFlag = {
   employeeId: string;
   name: string;
+  firstName: string;
+  managerName: string | null;
   jobTitle: string;
   department: string | null;
   markBp: number;
