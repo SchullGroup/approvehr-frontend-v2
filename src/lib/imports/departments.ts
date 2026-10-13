@@ -60,8 +60,9 @@ const COLUMNS: readonly ColumnSpec<DepartmentField>[] = [
   {
     field: "name",
     templateExample: "DELETE THIS ROW",
-    column: "name",
+    column: "Department name",
     aliases: [
+      "name",
       "department",
       "department_name",
       "dept",
@@ -76,7 +77,7 @@ const COLUMNS: readonly ColumnSpec<DepartmentField>[] = [
   },
   {
     field: "parent",
-    column: "parent_department",
+    column: "Parent department",
     aliases: [
       "parent",
       "parent_name",
@@ -92,7 +93,7 @@ const COLUMNS: readonly ColumnSpec<DepartmentField>[] = [
   },
   {
     field: "costCentre",
-    column: "cost_centre",
+    column: "Cost centre",
     aliases: [
       "cost_center",
       "cost_centre_code",
@@ -110,8 +111,9 @@ const COLUMNS: readonly ColumnSpec<DepartmentField>[] = [
   },
   {
     field: "head",
-    column: "head_of_department",
+    column: "Head of department (email or staff number)",
     aliases: [
+      "head_of_department",
       "head",
       "hod",
       "department_head",

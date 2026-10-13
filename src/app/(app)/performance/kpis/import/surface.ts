@@ -32,9 +32,9 @@ export const OBJECTIVES_IMPORT_SURFACE: ImportSurface = {
   },
   prerequisites: {
     people: {
-      title: "Some owner emails match nobody",
+      title: "Some work emails match nobody on your staff list",
       consequence:
-        "will be skipped. The owner has to be on your staff list, by work email.",
+        "will be skipped. The person an objective is assigned to has to be on your staff list, by work email.",
       action: { href: "/people", label: "Check your staff list" },
     },
     departments: {

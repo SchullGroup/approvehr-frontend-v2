@@ -371,6 +371,56 @@ at the end.
 > go down** and progress becomes how far it has fallen. Without the tick, a target below the start is
 > refused with an explanation rather than silently scored backwards.
 
+#### 10. _Optional_ — add several objectives in one go
+
+For a team's quarter. It does what **Upload objectives** does, with the rows typed in instead of
+read from Excel: the same checks, with each row judged on your own authority, and everything arrives
+as a draft for whoever it is assigned to.
+
+|                |                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/performance/kpis`, beside **Upload objectives**                                                                |
+| **Who**        | Line manager · department head · HR / Owner. A plain employee adds their own, one at a time                      |
+| **Click**      | **Add multiple**                                                                                                 |
+| **You'll see** | A window called **Add several objectives**, with a switch for how the list looks: **Stacked**, **Page by page**, **Table** |
+
+The three layouts hold the same list, so switching never loses anything you typed.
+
+- **Stacked** — every objective is a card, one above the other.
+- **Page by page** — one objective at a time, with back and forward arrows and a numbered chip for each.
+  A chip turns red when that objective needs a change.
+- **Table** — one row each, like Excel. You can paste a block of cells copied from a spreadsheet and it
+  fills down and across; **Enter** and the arrow keys move between cells.
+
+Under the switch: **Load from a file** (an .xlsx or .csv; its rows are added after what you have typed,
+never over it), **Download draft** (**Excel (.xlsx)** keeps your dropdowns, **CSV** is plain text), and
+**Set one value for every objective** for filling one column on everything at once. **Add another**
+adds a blank one and **Clear all** empties the window.
+
+Then **Check and review**:
+
+1. If a row is refused, you stay on the form. The top of the window says **1 objective needs a change**
+   and lists each one with the reason; each is on its field too. Nothing is created until every row
+   passes.
+2. If they all pass, the same window turns **read only**: **Review 3 objectives**, with **Read only.
+   Nothing is created until you confirm.** The inputs are gone and the cards have a dashed border.
+   **Edit again** brings the inputs back with everything you typed, and the next check starts afresh.
+3. **Create 3 objectives** makes them. The window says **3 objectives created**. If some did not go in it
+   says **1 objective did not go in** with the reason, and **Fix the 1 objective that did not go in** brings
+   back only that one, so pressing again cannot create the others twice.
+
+> ⚠️ **Fifty at a time.** The window refuses a fifty-first, or a file that would make one, and says
+> where to go instead: **Upload objectives**.
+
+> ⚠️ **Assigned to is a typed work email**, as it is in the spreadsheet, because two people can share
+> a name. Somebody with the records permission is offered each person's address while typing. A
+> department head is not: the staff list a head can read carries no emails.
+
+> 🛑 **Nothing is saved.** Closing with objectives typed asks **Close without creating 3 objectives?**
+> with **Keep editing**, **Download Excel draft**, **Download CSV draft** and **Discard**. The download
+> is how to carry on later: it opens in Excel, and loads back into this window. The only thing this
+> browser remembers is which layout you chose.
+
 #### 10. *Optional* — give the same objective to several people at once
 
 Word it once; each person gets their own copy to track separately.

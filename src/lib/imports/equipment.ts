@@ -67,7 +67,7 @@ export type AssetField =
 const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   {
     field: "kind",
-    column: "kind",
+    column: "Kind",
     aliases: [
       "asset_kind",
       "category",
@@ -88,7 +88,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   {
     field: "tag",
     templateExample: "EXAMPLE-001",
-    column: "tag",
+    column: "Tag",
     aliases: [
       "asset_tag",
       "tag_number",
@@ -110,8 +110,9 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   {
     field: "name",
     templateExample: "DELETE THIS ROW",
-    column: "item",
+    column: "Name",
     aliases: [
+      "item",
       "name",
       "asset_name",
       "item_name",
@@ -126,7 +127,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   },
   {
     field: "mustReturn",
-    column: "must_be_returned_on_exit",
+    column: "Must be returned on exit",
     aliases: [
       "must_be_returned",
       "must_return",
@@ -145,7 +146,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   },
   {
     field: "serialNumber",
-    column: "serial_number",
+    column: "Serial number",
     aliases: ["serial", "serial_no", "sn", "imei", "service_tag", "vin"],
     required: false,
     example: "C02X1234ABCD",
@@ -156,9 +157,10 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   },
   {
     field: "value",
-    cell: { kind: "money", zeroAllowed: true, subject: "The value" },
-    column: "value",
+    cell: { kind: "money", zeroAllowed: true, subject: "The cost" },
+    column: "Cost",
     aliases: [
+      "value",
       "purchase_cost",
       "cost",
       "purchase_price",
@@ -175,7 +177,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   },
   {
     field: "condition",
-    column: "condition",
+    column: "Condition",
     aliases: ["state", "item_condition", "asset_condition", "grade"],
     required: false,
     example: "good",
@@ -184,8 +186,9 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   {
     field: "purchasedOn",
     cell: { kind: "date" },
-    column: "purchased_on",
+    column: "Bought on",
     aliases: [
+      "purchased_on",
       "purchase_date",
       "date_purchased",
       "bought_on",
@@ -198,7 +201,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   },
   {
     field: "make",
-    column: "make",
+    column: "Make",
     aliases: ["manufacturer", "brand", "vendor"],
     required: false,
     example: "Apple",
@@ -206,7 +209,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   },
   {
     field: "model",
-    column: "model",
+    column: "Model",
     aliases: ["model_number", "model_name", "variant"],
     required: false,
     example: "A2681",
@@ -214,7 +217,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   },
   {
     field: "status",
-    column: "status",
+    column: "Status",
     aliases: [
       "asset_status",
       "location_status",
@@ -223,12 +226,13 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     ],
     required: false,
     example: "available",
-    note: "available, in_repair, retired or lost. Say who holds it below, not here.",
+    note: "Available, in repair, retired or lost. Say who has it in the two Assigned to columns, not here.",
   },
   {
     field: "holderEmployeeNo",
-    column: "held_by_staff_no",
+    column: "Assigned to (staff number)",
     aliases: [
+      "held_by_staff_no",
       "assigned_to_staff_no",
       "assigned_to_employee_no",
       "employee_no",
@@ -243,8 +247,9 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   },
   {
     field: "holderEmail",
-    column: "held_by_email",
+    column: "Assigned to (work email)",
     aliases: [
+      "held_by_email",
       "assigned_to_email",
       "assigned_to",
       "email",
@@ -260,8 +265,9 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   {
     field: "assignedOn",
     cell: { kind: "date" },
-    column: "held_since",
+    column: "Assigned on",
     aliases: [
+      "held_since",
       "assigned_on",
       "issued_on",
       "handover_date",
@@ -274,7 +280,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
   },
   {
     field: "notes",
-    column: "notes",
+    column: "Notes",
     aliases: ["comment", "comments", "remarks", "note"],
     required: false,
     example: "Charger missing",
@@ -435,12 +441,12 @@ function assetRowRules(ctx: RowContext<AssetField>): void {
     if (normalizeKey(status) === "assigned") {
       error(
         "status",
-        'Say who has it in the held_by_staff_no or held_by_email column instead. "Assigned" is something we work out from an open handover, not a label — otherwise the register would say a laptop is out without saying who has it.',
+        'Say who has it in the Assigned to (staff number) or Assigned to (work email) column instead. "Assigned" is something we work out from an open handover, not a label — otherwise the register would say a laptop is out without saying who has it.',
       );
     } else if (!STATUS_WORDS[normalizeKey(status)]) {
       error(
         "status",
-        `We do not know what "${status}" means. Use available, in_repair, retired or lost.`,
+        `We do not know what "${status}" means. Use available, in repair, retired or lost.`,
       );
     }
   }

@@ -14,6 +14,7 @@ import {
 import {
   SHEET_BLANK_RULE,
   buildSheet,
+  headingOf,
   type SheetCarries,
   parseSheet,
   sheetRow,
@@ -259,7 +260,7 @@ export function SheetPanel({
                 {refused.problems.map((problem) => (
                   <li key={`${String(problem.row)}-${problem.column}`}>
                     <strong className="text-ink">
-                      Row {problem.row}, {problem.column}
+                      Row {problem.row}, {headingOf(problem.column)}
                     </strong>{" "}
                     — {problem.problem}
                   </li>
@@ -390,7 +391,7 @@ export function SheetPanel({
                   {parsed.carried.map((column, at) => (
                     <span key={column}>
                       {at > 0 ? ", " : ""}
-                      <code className="text-ink">{column}</code>
+                      <span className="text-ink">{headingOf(column)}</span>
                     </span>
                   ))}
                   .{" "}
