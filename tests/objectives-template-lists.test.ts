@@ -201,7 +201,7 @@ describe("the workbook that comes out", () => {
     expect(optionsFor("Department")).toEqual(["Engineering", "Marketing"]);
     expect(optionsFor("Appraisal period")).toEqual(["H2 2026", "H3 2026"]);
     expect(optionsFor("Lower is better")).toEqual(["Yes", "No"]);
-    expect(optionsFor("Owner email")).toEqual([]);
+    expect(optionsFor(OBJECTIVES.heading.ownerEmail)).toEqual([]);
   });
 
   it("has no dropdown on those columns when the company has none, and still opens", async () => {
@@ -233,7 +233,10 @@ describe("the workbook that comes out", () => {
     const headings = columnsFromDictionary(OBJECTIVES).map(
       (column) => column.column,
     );
-    expect(headings.slice(0, 2)).toEqual(["Title", "Quarter"]);
+    expect(headings.slice(0, 2)).toEqual([
+      OBJECTIVES.heading.title,
+      OBJECTIVES.heading.quarter,
+    ]);
     expect(headings.indexOf("Appraisal period")).toBe(
       headings.indexOf("Department") + 1,
     );

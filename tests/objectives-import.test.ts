@@ -15,10 +15,14 @@ import { OBJECTIVES, parseQuarter, parseYesNo } from "@/lib/imports/objectives";
 
 const present = new Set(OBJECTIVES.columns.map((spec) => spec.field));
 
+/** What the template calls each column. Looked up, never typed: the headings are
+ *  plain words and somebody will reword them again. */
+const H = OBJECTIVES.heading;
+
 /** A row keyed the way `mapRow` leaves it: by the template's own headings. */
 const row = (over: Record<string, string>): Record<string, string> => ({
-  Title: "Grow qualified pipeline",
-  Quarter: "2026-Q4",
+  [H.title]: "Grow qualified pipeline",
+  [H.quarter]: "2026-Q4",
   ...over,
 });
 
@@ -58,19 +62,44 @@ describe("reading a file's headings", () => {
     });
   });
 
+  it("still reads the headings the template used to print", () => {
+    const was = {
+      Title: "title",
+      Quarter: "quarter",
+      "Owner email": "ownerEmail",
+      Department: "department",
+      "Appraisal period": "period",
+      "Parent objective": "parent",
+      Description: "description",
+      Measure: "measure",
+      Start: "start",
+      Target: "target",
+      Unit: "unit",
+      "Lower is better": "lowerIsBetter",
+    };
+    expect(guessMapping(OBJECTIVES, Object.keys(was))).toEqual(was);
+  });
+
+  it("calls the owner column what people say: who it is assigned to", () => {
+    expect(H.ownerEmail).toBe("Assigned to (work email)");
+    expect(
+      guessMapping(OBJECTIVES, ["Assigned to", "Assigned to (work email)"]),
+    ).toMatchObject({ "Assigned to (work email)": "ownerEmail" });
+  });
+
   it("sends template headings, and leaves empty cells out", () => {
     const mapped = mapRow(
       OBJECTIVES,
       { Objective: "Ship it", Period: "Q4 2026", Owner: "", Notes: "" },
       { Objective: "title", Period: "quarter", Owner: "ownerEmail", Notes: "" },
     );
-    expect(mapped).toEqual({ Title: "Ship it", Quarter: "Q4 2026" });
+    expect(mapped).toEqual({ [H.title]: "Ship it", [H.quarter]: "Q4 2026" });
   });
 
   it("puts the two required columns first", () => {
     expect(OBJECTIVES.columns.slice(0, 2).map((spec) => spec.column)).toEqual([
-      "Title",
-      "Quarter",
+      H.title,
+      H.quarter,
     ]);
     expect(OBJECTIVES.requiredFields).toEqual(["title", "quarter"]);
   });
@@ -98,16 +127,16 @@ describe("what the file alone can settle", () => {
     const report = check([
       row({}),
       row({
-        Title: "Cut build time",
-        "Owner email": "ada@company.test",
-        Measure: "Median build time",
-        Start: "1,800",
-        Target: "900",
-        "Lower is better": "Yes",
+        [H.title]: "Cut build time",
+        [H.ownerEmail]: "ada@company.test",
+        [H.measure]: "Median build time",
+        [H.start]: "1,800",
+        [H.target]: "900",
+        [H.lowerIsBetter]: "Yes",
       }),
     ]);
     expect(report.toSkip).toBe(0);
-    expect(report.notes.join(" ")).toContain("1 row has no owner");
+    expect(report.notes.join(" ")).toContain("1 row has nobody in Assigned to");
     expect(report.notes.join(" ")).toContain(
       "1 objective is added with a measure",
     );
@@ -116,39 +145,43 @@ describe("what the file alone can settle", () => {
 
   it("refuses a missing title, a vague quarter and a name in the owner column", () => {
     const report = check([
-      row({ Title: "" }),
-      row({ Quarter: "next quarter" }),
-      row({ "Owner email": "Ada Okafor" }),
-      row({ Title: "Ab" }),
+      row({ [H.title]: "" }),
+      row({ [H.quarter]: "next quarter" }),
+      row({ [H.ownerEmail]: "Ada Okafor" }),
+      row({ [H.title]: "Ab" }),
     ]);
     const columns = report.rows.map((r) => r.errors[0]?.column);
-    expect(columns).toEqual(["Title", "Quarter", "Owner email", "Title"]);
+    expect(columns).toEqual([H.title, H.quarter, H.ownerEmail, H.title]);
     expect(report.rows[2]?.errors[0]?.problem).toContain("not a work email");
   });
 
   it("takes a measure whole or not at all", () => {
     const report = check([
-      row({ Target: "10" }),
-      row({ Measure: "Tickets closed" }),
+      row({ [H.target]: "10" }),
+      row({ [H.measure]: "Tickets closed" }),
       row({
-        Measure: "Churn",
-        Start: "5",
-        Target: "9",
-        "Lower is better": "Yes",
+        [H.measure]: "Churn",
+        [H.start]: "5",
+        [H.target]: "9",
+        [H.lowerIsBetter]: "Yes",
       }),
-      row({ Measure: "Revenue", Start: "10", Target: "5" }),
-      row({ Measure: "Tickets", Target: "lots" }),
-      row({ Measure: "Tickets", Target: "10", "Lower is better": "maybe" }),
-      row({ Measure: "Tickets", Start: "4", Target: "4" }),
+      row({ [H.measure]: "Revenue", [H.start]: "10", [H.target]: "5" }),
+      row({ [H.measure]: "Tickets", [H.target]: "lots" }),
+      row({
+        [H.measure]: "Tickets",
+        [H.target]: "10",
+        [H.lowerIsBetter]: "maybe",
+      }),
+      row({ [H.measure]: "Tickets", [H.start]: "4", [H.target]: "4" }),
     ]);
     expect(report.rows.map((r) => r.errors[0]?.column)).toEqual([
-      "Measure",
-      "Target",
-      "Target",
-      "Target",
-      "Target",
-      "Lower is better",
-      "Target",
+      H.measure,
+      H.target,
+      H.target,
+      H.target,
+      H.target,
+      H.lowerIsBetter,
+      H.target,
     ]);
     expect(report.rows[2]?.errors[0]?.problem).toContain("counts down");
     expect(report.rows[3]?.errors[0]?.problem).toContain("Lower is better");
@@ -157,21 +190,21 @@ describe("what the file alone can settle", () => {
   it("flags a row that repeats an earlier one, and only when owner and parent agree", () => {
     const report = check([
       row({
-        Title: "Document the runbooks",
-        "Owner email": "ada@company.test",
+        [H.title]: "Document the runbooks",
+        [H.ownerEmail]: "ada@company.test",
       }),
       row({
-        Title: "document the  runbooks",
-        "Owner email": "ADA@company.test",
+        [H.title]: "document the  runbooks",
+        [H.ownerEmail]: "ADA@company.test",
       }),
       row({
-        Title: "Document the runbooks",
-        "Owner email": "chidi@company.test",
+        [H.title]: "Document the runbooks",
+        [H.ownerEmail]: "chidi@company.test",
       }),
       row({
-        Title: "Document the runbooks",
-        "Owner email": "ada@company.test",
-        "Parent objective": "Ship",
+        [H.title]: "Document the runbooks",
+        [H.ownerEmail]: "ada@company.test",
+        [H.parent]: "Ship",
       }),
     ]);
     expect(report.rows.map((r) => r.action)).toEqual([
@@ -184,7 +217,7 @@ describe("what the file alone can settle", () => {
   });
 
   it("names who a row is about, for the report", () => {
-    const report = check([row({ "Owner email": "ada@company.test" })]);
+    const report = check([row({ [H.ownerEmail]: "ada@company.test" })]);
     expect(report.rows[0]?.name).toBe("Grow qualified pipeline");
     expect(report.rows[0]?.employeeNo).toBe("ada@company.test");
   });
