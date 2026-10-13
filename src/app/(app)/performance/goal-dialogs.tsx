@@ -299,7 +299,7 @@ export function NewKpiDialog({
     >
       <div className="flex flex-col gap-4">
         <Field
-          label="What is being aimed at"
+          label={objective ? "Objective title" : "KPI title"}
           required
           {...(error ? { error } : {})}
           help="Say it the way you would to the person doing it."
@@ -341,10 +341,7 @@ export function NewKpiDialog({
           </div>
         )}
 
-        <Field
-          label={objective ? "Whose objective is this" : "Whose KPI is this"}
-          required
-        >
+        <Field label="Assigned to" required>
           <Select
             value={owner}
             onChange={(event) => setChosenOwner(event.target.value)}
@@ -400,7 +397,7 @@ export function NewKpiDialog({
           </Select>
         </Field>
 
-        <Field label="Due by the end of" required>
+        <Field label="Due quarter" required>
           <Select
             value={quarter}
             onChange={(event) => setQuarter(event.target.value)}
@@ -416,7 +413,7 @@ export function NewKpiDialog({
         {openPeriods.length > 0 && (
           <Field
             optional
-            label="Scored in"
+            label="Appraisal period"
             help={
               reviewCycleId
                 ? "Counts towards this person's mark for that period, once somebody agrees it."
@@ -437,7 +434,7 @@ export function NewKpiDialog({
           </Field>
         )}
 
-        <Field optional label="Any detail">
+        <Field optional label="Description">
           <Textarea
             rows={3}
             value={description}
@@ -637,7 +634,7 @@ export function AssignKpiDialog({
     >
       <div className="flex flex-col gap-4">
         <Field
-          label="What each of them will do"
+          label="KPI title"
           required
           {...(error ? { error } : {})}
           help="The same KPI, worded once. Each person gets their own copy to track."
@@ -649,7 +646,7 @@ export function AssignKpiDialog({
           />
         </Field>
 
-        <Field label="Due by the end of" required>
+        <Field label="Due quarter" required>
           <Select
             value={quarter}
             onChange={(event) => setQuarter(event.target.value)}
@@ -663,7 +660,7 @@ export function AssignKpiDialog({
         </Field>
 
         <Field
-          label="Who gets it"
+          label="Assigned to"
           required
           help={
             parent.departmentId
@@ -693,7 +690,7 @@ export function AssignKpiDialog({
           )}
         </Field>
 
-        <Field optional label="Any detail">
+        <Field optional label="Description">
           <Textarea
             rows={2}
             value={description}
@@ -802,7 +799,7 @@ export function AddMeasureDialog({
     >
       <div className="flex flex-col gap-4">
         <Field
-          label="What are you counting"
+          label="Measure"
           required
           {...(errors["label"] ? { error: errors["label"] } : {})}
         >
@@ -814,7 +811,7 @@ export function AddMeasureDialog({
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Starting at" required>
+          <Field label="Starting value" required>
             <Input
               inputMode="decimal"
               value={start}
@@ -822,7 +819,7 @@ export function AddMeasureDialog({
             />
           </Field>
           <Field
-            label="Aiming at"
+            label="Target value"
             required
             {...(errors["target"] ? { error: errors["target"] } : {})}
           >
@@ -832,7 +829,10 @@ export function AddMeasureDialog({
               onChange={(event) => setTarget(event.target.value)}
             />
           </Field>
-          <Field label="Where it is now" help="Leave blank to use the start.">
+          <Field
+            label="Current value"
+            help="Leave blank to use the starting value."
+          >
             <Input
               inputMode="decimal"
               value={current}

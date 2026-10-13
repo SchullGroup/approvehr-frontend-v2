@@ -199,7 +199,7 @@ describe("Give a KPI to people, as a department head", () => {
 describe("New KPI, as a department head", () => {
   it("offers the people they lead, by name, and not themselves twice or another department", () => {
     render(<NewKpiDialog open onClose={vi.fn()} onCreate={vi.fn()} />);
-    const select = screen.getByRole("combobox", { name: /whose kpi/i });
+    const select = screen.getByRole("combobox", { name: /assigned to/i });
     const options = within(select)
       .getAllByRole("option")
       .map((option) => option.textContent);
