@@ -41,6 +41,7 @@ export type ObjectiveField =
   | "quarter"
   | "ownerEmail"
   | "department"
+  | "period"
   | "parent"
   | "description"
   | "measure"
@@ -96,6 +97,23 @@ const COLUMNS: readonly ColumnSpec<ObjectiveField>[] = [
     required: false,
     example: "Marketing",
     note: "The department it belongs to, by name. Needed when there is no owner and no parent; a personal objective takes its parent's.",
+  },
+  {
+    field: "period",
+    column: "Appraisal period",
+    /* Not "period": that is already an alias of Quarter, and a spreadsheet
+       headed "Period" has always meant the quarter. */
+    aliases: [
+      "scored_in",
+      "appraisal",
+      "appraisal_cycle",
+      "review_period",
+      "review_cycle",
+      "cycle",
+    ],
+    required: false,
+    example: "H2 2026",
+    note: "The appraisal period it counts towards, by name, and it has to be one that is still open. Blank means it counts towards nobody's appraisal mark.",
   },
   {
     field: "parent",

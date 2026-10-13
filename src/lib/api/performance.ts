@@ -1340,6 +1340,18 @@ export type ApiTask = {
 };
 
 /**
+ * Where a weekly task came from when it was not typed in: a ticket synced from
+ * a connected work tracker (`src/lib/api/work-trackers.ts`). Optional on both
+ * task rows because an API that predates the field leaves it out, and absent
+ * means typed in by hand, the same as `null`.
+ */
+export type ApiTaskSource = {
+  provider: "JIRA" | "ASANA" | "CLICKUP" | "MONDAY" | "TRELLO";
+  key: string;
+  url: string;
+} | null;
+
+/**
  * One row in somebody's own record of what they logged.
  *
  * Carries the objective's title and the week, because this list is read on
@@ -1352,6 +1364,7 @@ export type ApiMyTask = {
   goalTitle: string;
   keyResultId: string | null;
   description: string;
+  source?: ApiTaskSource;
   grade: ApiTaskGrade | null;
   /** The reviewer's comment on that grade, if they left one. */
   gradeNote: string | null;
@@ -1381,6 +1394,7 @@ export type ApiTaskForGrading = {
   goalId: string;
   goalTitle: string;
   description: string;
+  source?: ApiTaskSource;
   createdAt: string;
   /**
    * Its week has ended, so it can no longer be graded. Optional because an API

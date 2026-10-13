@@ -37,7 +37,9 @@ import {
   buildTemplateFiles,
   columnsFromApi,
   columnsFromDictionary,
+  withLists,
   type TemplateColumn,
+  type TemplateLists,
 } from "@/lib/imports/template-file";
 import { downloadXlsx, isXlsxName, readXlsx } from "@/lib/xlsx";
 import { useOrgTimezone, useSession } from "./session";
@@ -408,7 +410,28 @@ const messageOf = (error: unknown): string =>
 
 /* --------------------------------------------------------------------- hook */
 
-export function useImport(dictionary: Dictionary<string>, allowed?: boolean) {
+/**
+ * What an entity with no live lists passes: nothing to add, nothing to wait for.
+ * A module constant so the default is the same object on every render.
+ */
+const NO_TEMPLATE_LISTS = { lists: {}, ready: true } as const;
+
+export function useImport(
+  dictionary: Dictionary<string>,
+  allowed?: boolean,
+  templateLists: {
+    /** Lists that belong to this company, by dictionary field. */
+    lists: TemplateLists;
+    /**
+     * False until every list has answered, one way or the other.
+     *
+     * A template downloaded in that gap would have no dropdown where the company
+     * has departments, and nothing on screen would say so — a file that looks
+     * finished and is missing the half that stops the typo.
+     */
+    ready: boolean;
+  } = NO_TEMPLATE_LISTS,
+) {
   const { isConnected, can } = useSession();
   const timeZone = useOrgTimezone();
   /**
@@ -1107,10 +1130,15 @@ export function useImport(dictionary: Dictionary<string>, allowed?: boolean) {
    * legend and one example row. Two builders would drift, and the file a
    * customer fills in is the last place that can afford to.
    */
+  const { lists: liveLists, ready: templateReady } = templateLists;
   const templateColumns = useCallback((): TemplateColumn[] => {
-    if (!template) return columnsFromDictionary(dictionary);
-    return columnsFromApi(template.columns, dictionary);
-  }, [dictionary, template]);
+    const columns = template
+      ? columnsFromApi(template.columns, dictionary)
+      : columnsFromDictionary(dictionary);
+    /* The company's own lists go in last, so they are what the file carries
+       and not something the API's copy of the dictionary could have known. */
+    return withLists(columns, dictionary, liveLists);
+  }, [dictionary, template, liveLists]);
 
   const downloadTemplate = useCallback(
     (format: "csv" | "xlsx" = "xlsx") => {
@@ -1245,6 +1273,8 @@ export function useImport(dictionary: Dictionary<string>, allowed?: boolean) {
     decideAll,
     seedDecisions,
     downloadTemplate,
+    /** False while the company's own lists are still on their way. */
+    templateReady,
     downloadRowsToFix,
     downloadNotImported,
     dismissError: useCallback(() => setError(null), []),
