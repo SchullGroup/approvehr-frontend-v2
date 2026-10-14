@@ -17,8 +17,10 @@ import {
 import {
   currentQuarter,
   parseMeasure,
+  type ApiGoal,
   type CreateGoalBody,
   type CreateKeyResultBody,
+  type UpdateGoalBody,
 } from "@/lib/api/performance";
 import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
@@ -941,6 +943,287 @@ export function StopKpiDialog({
           onChange={(event) => setReason(event.target.value)}
         />
       </Field>
+    </Modal>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/** What the card calls this one: a person's own is a KPI, a shared one an objective. */
+const goalWord = (goal: ApiGoal) =>
+  goal.level === "personal" ? "KPI" : "objective";
+
+/**
+ * Whether the words of this objective can still be changed.
+ *
+ * An agreed target is frozen — the title, the period and every measure's target
+ * are what two people agreed — and the API refuses all of them, so the control is
+ * not offered; the card already says why and offers "Reopen the target", which is
+ * the way through. A finished one is the record of what was achieved.
+ */
+export const mayEditGoal = (goal: ApiGoal): boolean =>
+  !goal.targetFrozen && goal.status !== "DONE";
+
+/**
+ * Why this one cannot be deleted, or null when it can.
+ *
+ * The same four refusals `removeGoal` makes, so the button is absent rather than
+ * offering a click that comes back "no". An agreed objective is the record of an
+ * agreement and a refused one the record of a refusal — stopping keeps both —
+ * and one with others laddering up to it is holding up somebody else's page.
+ */
+export function deleteBlocker(goal: ApiGoal): string | null {
+  if (goal.status === "DONE") {
+    return "Done, so it is a record of what was achieved. It stays.";
+  }
+  if (goal.approval === "AGREED") {
+    return "Agreed, so it is the record of that agreement. Stop it instead of deleting it.";
+  }
+  if (goal.approval === "REJECTED") {
+    return "Not agreed, and that refusal is a record. It stays.";
+  }
+  if (goal.childCount > 0) {
+    return `${String(goal.childCount)} ${
+      goal.childCount === 1 ? "goal ladders" : "goals ladder"
+    } up to this one. Move or delete ${
+      goal.childCount === 1 ? "it" : "those"
+    } first.`;
+  }
+  return null;
+}
+
+/**
+ * Changing what a not-yet-agreed objective says: its title, quarter, appraisal
+ * period and description.
+ *
+ * Only what changed is sent, so saving after touching nothing is not offered and
+ * a field somebody did not mean to move is not re-written. Who it is assigned to
+ * is deliberately not here: handing an objective to somebody else is a different
+ * act with its own permission rules, and a form that quietly did both would make
+ * the rarer one easy to do by accident.
+ */
+export function EditGoalDialog({
+  goal,
+  open,
+  onClose,
+  onSave,
+}: {
+  goal: ApiGoal | null;
+  open: boolean;
+  onClose: () => void;
+  onSave: (id: string, body: UpdateGoalBody) => Promise<boolean>;
+}) {
+  const { cycles } = useAppraisals();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [quarter, setQuarter] = useState("");
+  const [reviewCycleId, setReviewCycleId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  /* Filled from the objective each time it opens. The dialog stays mounted so
+     its exit can animate, which would otherwise leave the last one's words in it
+     for the next. */
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const key = open && goal ? goal.id : null;
+  if (key !== loadedFor) {
+    setLoadedFor(key);
+    if (goal && key) {
+      setTitle(goal.title);
+      setDescription(goal.description ?? "");
+      setQuarter(goal.dueQuarter ?? "");
+      setReviewCycleId(goal.reviewCycleId ?? "");
+      setError(null);
+    }
+  }
+
+  const quarters = quarterOptions();
+  const quarterChoices =
+    goal?.dueQuarter && !quarters.includes(goal.dueQuarter)
+      ? [goal.dueQuarter, ...quarters]
+      : quarters;
+  const periods = cycles.filter(
+    (cycle) => cycle.stage !== "PUBLISHED" || cycle.id === goal?.reviewCycleId,
+  );
+  const word = goal ? goalWord(goal) : "objective";
+
+  const body: UpdateGoalBody = {};
+  if (goal) {
+    if (title.trim() !== goal.title) body.title = title.trim();
+    if (description.trim() !== (goal.description ?? "")) {
+      body.description = description.trim() === "" ? null : description.trim();
+    }
+    if (quarter !== (goal.dueQuarter ?? "")) {
+      body.dueQuarter = quarter === "" ? null : quarter;
+    }
+    if (reviewCycleId !== (goal.reviewCycleId ?? "")) {
+      body.reviewCycleId = reviewCycleId === "" ? null : reviewCycleId;
+    }
+  }
+  const changed = Object.keys(body).length > 0;
+
+  const submit = async () => {
+    if (!goal) return;
+    if (title.trim().length < 3) {
+      setError("Give it a title of at least three characters.");
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    try {
+      await onSave(goal.id, body);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`Edit this ${word}`}
+      description={goal?.title ?? ""}
+      size="md"
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            variant="accent"
+            loading={saving}
+            disabled={!changed}
+            onClick={() => void submit()}
+          >
+            Save changes
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Field
+          label={`${word === "KPI" ? "KPI" : "Objective"} title`}
+          required
+          {...(error ? { error } : {})}
+        >
+          <Input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+        </Field>
+
+        <Field label="Due quarter" required>
+          <Select
+            value={quarter}
+            onChange={(event) => setQuarter(event.target.value)}
+          >
+            {quarter === "" && <option value="">Choose a quarter</option>}
+            {quarterChoices.map((option) => (
+              <option key={option} value={option}>
+                {quarterText(option)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        {periods.length > 0 && (
+          <Field
+            optional
+            label="Appraisal period"
+            help={
+              reviewCycleId
+                ? "Counts towards this person's mark for that period, once somebody agrees it."
+                : "Nothing here reaches an appraisal mark. A quarter alone lets the objective be agreed and still score nothing."
+            }
+          >
+            <Select
+              value={reviewCycleId}
+              onChange={(event) => setReviewCycleId(event.target.value)}
+            >
+              <option value="">Not part of an appraisal period</option>
+              {periods.map((period) => (
+                <option key={period.id} value={period.id}>
+                  {period.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+
+        <Field optional label="Description">
+          <Textarea
+            rows={3}
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Deleting an objective that nobody has agreed.
+ *
+ * Says what goes with it, because a delete is the one move here that leaves no
+ * trace to open later: its measures go too, and nothing is kept. The button names
+ * the act rather than saying "Confirm", and the safe choice is the first one.
+ */
+export function DeleteGoalDialog({
+  goal,
+  open,
+  onClose,
+  onDelete,
+}: {
+  goal: ApiGoal | null;
+  open: boolean;
+  onClose: () => void;
+  onDelete: (goal: ApiGoal) => Promise<boolean>;
+}) {
+  const [saving, setSaving] = useState(false);
+  /* Kept while it closes, for the same reason the dialogs above keep their
+     text: the caller clears the objective the instant it closes this. */
+  const [shown, setShown] = useState<ApiGoal | null>(goal);
+  if (open && goal && goal !== shown) setShown(goal);
+  const target = goal ?? shown;
+  const word = target ? goalWord(target) : "objective";
+  const measures = target?.keyResults.length ?? 0;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`Delete this ${word}?`}
+      description={target?.title ?? ""}
+      size="sm"
+      footer={
+        <>
+          <Button onClick={onClose}>Keep it</Button>
+          <Button
+            variant="danger"
+            loading={saving}
+            onClick={() => {
+              if (!target) return;
+              setSaving(true);
+              void onDelete(target).finally(() => setSaving(false));
+            }}
+          >
+            {`Delete ${word}`}
+          </Button>
+        </>
+      }
+    >
+      <p className="text-body-sm text-body">
+        {measures > 0
+          ? `This removes it for good, along with its ${String(measures)} ${
+              measures === 1 ? "measure" : "measures"
+            }. It cannot be undone.`
+          : "This removes it for good. It cannot be undone."}
+      </p>
+      <p className="mt-3 text-body-sm text-muted">
+        Nobody has agreed it yet, so there is no agreement to lose. If it should
+        stay on record as stopped, use Stop instead.
+      </p>
     </Modal>
   );
 }

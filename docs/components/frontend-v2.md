@@ -590,7 +590,7 @@ Screen components for the performance module, including its dialogs and panels.
 | `src/app/(app)/performance/appraiser-map.tsx` | `AppraiserMapTab`, `AppraisersDialog` | — | — | — |
 | `src/app/(app)/performance/add-multiple-objectives.tsx` | `AddMultipleObjectives` | — | — | — |
 | `src/app/(app)/performance/approval-dialogs.tsx` | `ApprovalReasonDialog` | — | — | 1 type |
-| `src/app/(app)/performance/goal-dialogs.tsx` | `NewKpiDialog`, `AssignKpiDialog`, `AddMeasureDialog`, `StopKpiDialog` | — | `quarterOptions`, `quarterText` | — |
+| `src/app/(app)/performance/goal-dialogs.tsx` | `NewKpiDialog`, `AssignKpiDialog`, `AddMeasureDialog`, `StopKpiDialog`, `EditGoalDialog`, `DeleteGoalDialog` | — | `quarterOptions`, `quarterText`, `mayEditGoal`, `deleteBlocker` | — |
 | `src/app/(app)/performance/how-it-works.tsx` | `HowItWorksBody`, `FrameworkDisclosure` | — | — | — |
 | `src/app/(app)/performance/kpis.tsx` | `KpisTab` | — | — | — |
 | `src/app/(app)/performance/manager-question.tsx` | `ManagerQuestionButton` | — | — | — |

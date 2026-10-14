@@ -355,6 +355,20 @@ person's objectives under those. You can start anywhere.
 > "Whose KPI is this" list of your direct reports, plus everybody in a department you head. If
 > somebody you expect is missing from that list, that is why.
 
+#### 9b. _Optional_ — change or delete an objective before it is agreed
+
+| | |
+|---|---|
+| **Who** | Whoever can write the objective: its owner, their line manager, a department head, HR / Owner |
+| **Click** | Open the objective, then **Edit** or **Delete** (at the end of the buttons) |
+| **You'll see** | **Edit** opens **Objective title** (**KPI title** on a personal one), **Due quarter**, **Appraisal period** and **Description**; **Save changes** stays off until something differs. **Delete** asks "Delete this KPI?" and says it also removes the objective's measures |
+
+> ⚠️ **Neither is offered once it is agreed.** An agreed target is the record of what two people
+> agreed, so **Edit** is replaced by **Reopen the target**, and **Delete** by **Stop this KPI**. The
+> card says "Not deletable" and why, in one line. The same goes for a finished or refused one, and
+> for one that other objectives ladder up to (move or delete those first). **Who it is assigned to**
+> is not in Edit: handing an objective to somebody else is a separate act.
+
 #### 10. Put a number on it
 
 A measure is what makes progress track itself. Without one, somebody has to state a figure by hand
