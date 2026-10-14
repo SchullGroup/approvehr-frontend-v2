@@ -8620,3 +8620,48 @@ no suggestions, which the unit tests cover and no browser walk has seen.
 - **The default quarter follows `TODAY`**, the demo's pinned "now", as the New objective form does,
   so it can read a quarter behind the real date. Same source, so the two forms agree; fixing one
   means fixing both.
+
+# Objectives can be edited and deleted before they are agreed
+
+`updateGoal` and `deleteGoal` existed on the API and in `performanceApi` for a long time, and
+`useKpiMutations().deleteGoal` was wired to nothing: no screen could change an objective's words or remove
+one made by mistake (the only exit was Stop, which keeps it on the list as off track). That is the fifth
+instance in this file of a route with no caller. It came up when 53 test objectives from a bulk upload had to
+be cleared from the QA site and the only way was the API.
+
+## What it offers, and when
+
+**Edit** and **Delete** sit at the end of the buttons on an objective's detail window, each only where the
+API will take it, so neither comes back as a refusal.
+
+- **Edit** (`EditGoalDialog`): title, due quarter, appraisal period, description. Offered while the target is
+  not frozen (`mayEditGoal`: not agreed, not done). Only what changed is sent, and Save stays off until
+  something differs. A cleared description goes as `null`. A published appraisal period is not offered to move
+  into. **Who it is assigned to is not in it**: handing an objective to somebody else has its own permission
+  rules, and a form that did both would make the rarer one easy to do by accident.
+- **Delete** (`DeleteGoalDialog`): offered when `deleteBlocker` is null, the same four refusals as `removeGoal`
+  on the API: done, agreed, refused, or something laddering up to it. The dialog says what goes with it (its
+  measures) and that it cannot be undone. When there is a reason it is not offered, one line under the buttons
+  says why ("Not deletable: Agreed, so it is the record of that agreement. Stop it instead of deleting it."),
+  so the missing button is not a mystery.
+
+**`deleteBlocker` mirrors a rule on the backend.** If `removeGoal` in `approvehr-backend` changes, change it
+here too; the server is the authority, and a drifted copy shows as a Delete that is refused (the refusal
+arrives as the API's own sentence).
+
+Demo mode refuses both with the usual "needs the API" message: a local edit or delete of a goal would not match
+anything else the demo shows.
+
+## Verified
+
+`npm run check` passes; `tests/goal-edit-delete.test.tsx` (13) covers when each is offered, what Save sends,
+and the confirmation. In a browser against a local API: Edit renamed a draft and the card updated, Delete
+removed the other and said what it would do first, and an agreed objective showed neither and the sentence why.
+
+# The bulk window says a wrong email once
+
+The "Add several objectives" check showed a red box naming the objective and the email nobody has, and an amber
+box naming the same email again. Names an item's own error already quotes are now left out of the amber box and
+its link ("Check your staff list") moves into the red one; an amber box remains only for a name no item
+mentions. `tests/bulk-create-dialog.test.tsx` has two cases (one tamper-tested against the old code).
+
