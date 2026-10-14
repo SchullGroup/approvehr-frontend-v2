@@ -47,6 +47,7 @@ import {
   type ScoreComponent,
   type AnswerBody,
   type CreateGoalBody,
+  type UpdateGoalBody,
   type CreateKeyResultBody,
   type CreateQuestionBody,
   type ReviewCycleStage,
@@ -1602,6 +1603,14 @@ export function useKpiMutations() {
           "Sharing a goal tells the people it affects, which needs the API.",
         );
         return performanceApi.shareGoal(id);
+      },
+      [guard],
+    ),
+
+    updateGoal: useCallback(
+      async (id: string, body: UpdateGoalBody) => {
+        guard("Editing a goal needs the API.");
+        return performanceApi.updateGoal(id, body);
       },
       [guard],
     ),

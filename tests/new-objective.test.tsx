@@ -75,7 +75,7 @@ beforeEach(() => {
 });
 
 const whoseSelect = () =>
-  screen.getByRole("combobox", { name: /whose objective/i });
+  screen.getByRole("combobox", { name: /assigned to/i });
 
 const options = () =>
   Array.from(whoseSelect().querySelectorAll("option")).map(
@@ -155,7 +155,7 @@ describe("the objective form", () => {
       />,
     );
     await userEvent.type(
-      screen.getByRole("textbox", { name: /what is being aimed at/i }),
+      screen.getByRole("textbox", { name: /objective title/i }),
       "Ship the payments rebuild",
     );
     await userEvent.click(
@@ -179,7 +179,7 @@ describe("the objective form", () => {
       />,
     );
     await userEvent.type(
-      screen.getByRole("textbox", { name: /what is being aimed at/i }),
+      screen.getByRole("textbox", { name: /objective title/i }),
       "Ship the payments rebuild",
     );
     await userEvent.selectOptions(whoseSelect(), "me");
@@ -198,10 +198,8 @@ describe("the objective form", () => {
       <NewKpiDialog open mode="kpi" onClose={vi.fn()} onCreate={vi.fn()} />,
     );
 
-    expect(
-      screen.getByRole("textbox", { name: /what is being aimed at/i }),
-    ).toHaveValue("");
-    expect(screen.getByRole("combobox", { name: /whose kpi/i })).toHaveValue(
+    expect(screen.getByRole("textbox", { name: /kpi title/i })).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: /assigned to/i })).toHaveValue(
       "me",
     );
   });
@@ -217,7 +215,7 @@ describe("the KPI form is as it was", () => {
     expect(
       within(dialog).getByRole("button", { name: "Create KPI" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /whose kpi/i })).toHaveValue(
+    expect(screen.getByRole("combobox", { name: /assigned to/i })).toHaveValue(
       "me",
     );
   });
