@@ -140,7 +140,7 @@ export function RecordLevelDialog({
     >
       <div className="flex flex-col gap-4">
         <Field
-          label="Who is this about"
+          label="Employee"
           required
           {...(errors["person"] ? { error: errors["person"] } : {})}
         >
@@ -185,7 +185,7 @@ export function RecordLevelDialog({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label="Where they are now"
+            label="Current level"
             required
             {...(errors["level"] ? { error: errors["level"] } : {})}
           >
@@ -201,11 +201,7 @@ export function RecordLevelDialog({
               ))}
             </Select>
           </Field>
-          <Field
-            optional
-            label="Where they should be"
-            help="This is what makes a gap."
-          >
+          <Field optional label="Target level" help="This is what makes a gap.">
             <Select
               value={target}
               placeholder="No target"
@@ -223,7 +219,7 @@ export function RecordLevelDialog({
         {openPeriods.length > 0 && (
           <Field
             optional
-            label="Scored in"
+            label="Appraisal period"
             help={
               reviewCycleId
                 ? "Counts towards this person's mark for that period. Each person has one rating per period, so rating them again corrects this one."

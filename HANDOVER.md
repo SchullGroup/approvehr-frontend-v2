@@ -8388,3 +8388,280 @@ breaks `no-clock-derived-today` and `no-raw-date-formatting` on `dev`, `test` an
 **Not exercised:** the tester's own staging deployment. Nothing reachable from
 here carries its credentials, so this is verified against `origin/dev`'s frontend
 and `origin/staging`'s backend on a local stack.
+
+---
+
+# Spreadsheet headings are words, and the old ones still match
+
+Every spreadsheet we hand a customer — the five importer templates and the
+payroll adjustment sheet — printed field names in its header row:
+`gross_monthly`, `held_by_staff_no`, `must_be_returned_on_exit`, `staff_no`,
+`paye_tax`. The objectives sheet had words ("Owner email") and the rest did not.
+The product owner's request was to humanise display text, with "instead of owner
+email, use assigned to" as the example, so all six now print plain headings:
+"Assigned to (work email)", "Monthly pay (gross)", "Tax ID (TIN)", "Staff number
+or work email". Statutory names (PAYE, TIN, NIN, NHF) stay as they are.
+
+## The rule that makes renaming safe
+
+**A heading is only ever matched by what is left after removing everything but
+letters and digits**, on both sides (`normalizeKey`). So "First name",
+`first_name` and "FIRST  NAME" are one column, and most old headings equal their
+replacement without anybody doing anything. The ones that changed spelling —
+`gross_monthly` became "Monthly pay (gross)" — keep the old heading as an
+accepted alias, because `buildDictionary` reads `[column, ...aliases]`. That is
+what lets a template downloaded last month still upload.
+
+**If you rename a heading, put the old one in `aliases`.** Do not rely on
+remembering: `tests/imports-headings.test.ts` (backend) and the `WAS` table in
+`scripts/verify-template.ts` (frontend) list the headings as they stood, field by
+field, and fail if one stops mapping. Add the new column's old name there only if
+it ever shipped under another one.
+
+Two things that look like duplication and are not:
+
+- **`column` is the heading, `field` is the identity.** Nothing branches on the
+  heading; renaming one cannot change what a column means. It can only strand a
+  file, which is what the aliases and the two tables above are for.
+- **The adjustment sheet keeps its keys.** `SHEET_COLUMNS` has a `key`
+  (`staff_no`, `paye_tax`) and a `heading` ("Staff number", "PAYE tax"). The keys
+  are what the API echoes in its refusals and what the audit trail records, so
+  they do not change; anything a person reads goes through `headingOf`. The
+  reader accepts both spellings.
+
+## Both repos, and which one wins
+
+The API's dictionary (`modules/imports/*.ts`) is what answers when it is up and
+the frontend's mirror (`lib/imports/*.ts`) is what answers offline, so both were
+changed together and `verify-template` compares every heading between them. It
+only does that when a sibling folder named `approvehr-api` exists (item 38 in
+`out/tasks/`); on a layout that names it `approvehr-backend` it prints `skip` and
+compares nothing. Merge the backend first.
+
+## Not changed, on purpose
+
+The **exports** (`staff.csv`, `payslips.csv`, `attendance.csv`), the **statutory
+schedules** and the **bank register** still print snake_case headings. Other
+people's tools read those files and a schedule may have to match a filing
+format, so renaming them is a separate decision. Importing an export still works,
+because the old headings are accepted.
+
+## Verified
+
+Backend: the 18 test files that touch headings, imports, exports, payments,
+employment changes or the payroll sheet (462 tests, scratch database), `tsc`,
+ESLint and Prettier. The **whole** backend suite was not finished locally (201
+files; it was stopped after about an hour), so CI is its first full run.
+Frontend `npm run check` and `npm run build`; `verify-template` 73
+assertions (was 38) run against the real backend copy through a temporary
+`approvehr-api` symlink, and tamper-tested by changing one backend heading.
+In a browser against a scratch API: the objectives and employees uploads read a
+file headed with the **old** words and one headed with the **new** ones, each
+matching every column and passing the check; the downloaded workbooks were read
+back with openpyxl.
+
+---
+
+# Adding several records at once is one window, and objectives is the first
+
+The product owner's rule is that anywhere a person can add several of something there is a bulk
+way to do it. The spreadsheet upload was the only one. This is the second: a window on the KPIs
+screen, **Add multiple**, beside **Upload objectives**. Objectives only for now, and built so the
+next kind of record is a configuration rather than a copy.
+
+## What it is
+
+One window, three layouts of one list, a read-only review, and a way in and out of Excel.
+
+| File | What and why |
+| ---- | ------------ |
+| `components/bulk-create/bulk-create-dialog.tsx` | The window: toolbar, check, review, result, the question asked before closing. Knows nothing about objectives. |
+| `components/bulk-create/layouts.tsx` | **Stacked** (a card each), **Page by page** (arrows and a chip per item), **Table** (Excel-like; paste, Enter and arrow keys). |
+| `components/bulk-create/field-control.tsx` | One field in four forms: on a card, read-only, a table cell, a table cell read-only. Every layout reads a field's control from the surface, so a dropdown is a dropdown in all three. |
+| `lib/bulk-create/model.ts`, `report.ts`, `draft-file.ts`, `surface.ts` | Pure: drafts and their conversions, the check's answer put back on the right item, the downloaded file, and what a surface must say. |
+| `lib/store/bulk-create.ts` | The state machine: `edit`, `checking`, `review`, `applying`, `done`. |
+| `app/(app)/performance/add-multiple-objectives.tsx` | The only objectives-specific file: groups, controls, where the options come from. |
+
+## Decisions worth not undoing
+
+- **It goes through the importer, not through "create" in a loop.** The window posts what it holds
+  to `POST /imports/objectives/validate` and then `/apply`, exactly as an upload does. Same rules,
+  same refusals, and each row is judged on the author's own authority. A loop over `POST
+  /performance/goals` would be N requests, a half-saved result when the fourth fails, and a second
+  opinion about the rules.
+- **A draft is a row, held by dictionary field.** That is why a downloaded draft goes straight back
+  through **Upload objectives**, and why a file can be loaded in. Nothing about objectives is in the
+  model.
+- **The check is all-or-nothing, and the importer's is not.** An upload imports the good rows and
+  reports the rest. Here a row that fails keeps you on the form and nothing is created until every
+  row passes. A window of five items is one thought, and "four of your five went in" is a worse
+  place to be than "fix this one". A failure *at apply* (rare: the world changed between the two
+  presses) is reported by name, and **Fix the N that did not go in** brings back only those. The ones
+  that landed are removed from the window, because leaving them would let the next press create
+  them twice.
+- **The review is a phase of the same window, not a screen.** The person asked for the same window
+  read-only, and that is what it is: same layout, inputs gone, a dashed border. **Edit again** throws
+  the check away, so what is sent is always what was checked: the API fingerprints the validated
+  rows and refuses an apply whose rows differ, so `apply` sends the rows captured at the check and
+  never a re-read of the drafts.
+- **Nothing is kept in the browser except which layout you chose.** Closing with something typed asks
+  first, and the answer that keeps it is the download (`.xlsx` with the company's dropdowns, or
+  `.csv`). A draft that saved itself would be one the person could not see or carry away. The layout
+  preference lives in `createPersistedState`, which also keeps it **in module memory**: a test that
+  picks Table leaves every later test in Table, and clearing storage does not clear memory. The
+  tests choose their layout explicitly for that reason.
+- **Fifty, and a file that would make fifty-one is refused whole.** Not 500, which is the API's cap:
+  cards and pages are for a few, and a person typing fifty has already outgrown them. The refusal
+  says where to go instead (**Upload objectives**) rather than just stopping.
+- **Loading a file adds to what is typed and never replaces it.** Replacing would silently discard
+  work; the way to start over is **Clear all**, which asks.
+- **The server's backend has to know the headings the window sends, and the window stops when it
+  does not.** The window sends the headings from the frontend's copy of the dictionary. A backend a
+  deploy behind does not know a renamed one: `origin/staging`'s objectives dictionary has "Owner
+  email", not "Assigned to (work email)", so against it the owner would be silently dropped and
+  every row would pass. The API reports columns it did not recognise (`unmappedColumns`), and the
+  window treats that as a refusal: it names the column, says the server is a version behind, and
+  creates nothing. A test pins it and was shown to fail without it. The clean answer is still
+  order: **the backend headings change reaches `staging` before this frontend reaches `test`.** The
+  existing upload page has the same exposure and only prints a note.
+- **Assigned to is a typed work email.** The importer takes an email because two people can share a
+  name. A department head's staff list is a *lookup* row (`DirectoryPerson`), which has no email at
+  all, so for them there is nothing to suggest and the box is a plain email box, as the spreadsheet
+  column is. With `EDIT_RECORDS` the full rows carry addresses and each person is offered by name.
+  A real picker for heads needs the API to accept something else (a staff number) or to expose
+  emails to leaders: a backend decision, not made here.
+- **Department and Appraisal period are the upload template's own lists** (`useObjectiveTemplateLists`),
+  not a wider set. A dropdown that offers what the check then refuses puts the refusal further from
+  its cause.
+- **"Set one value for every objective" touches only items with something typed in them.** Filling a
+  column on an empty card would make it a row with no title.
+
+## The keystroke that took 1.3 seconds
+
+With fifty stacked cards every keystroke re-rendered six hundred fields. Measured in a real browser
+against a development build: 1,350 ms a key. Three causes, all fixed:
+
+1. **Nothing was memoised.** Cards and table rows are `memo`, which only works while props are equal,
+   and a handler written in a component is new on every render. `useStableCallback` hands the memo a
+   handler whose identity never changes and which always calls the latest. The new test counts
+   `itemName` calls (once per rendered card) after one keystroke among twelve cards, allows 3, and
+   fails with 12 when the `memo` is taken off.
+2. **Every field carried a tooltip that measures the page when it mounts.** `InfoTooltip` runs a
+   layout read per field, so fifty cards were six hundred forced layouts. The help is identical on
+   every card, so only the first card carries it.
+3. **Every text control with suggestions wrote its own `<datalist>`.** Two hundred addresses times
+   fifty cards is ten thousand `<option>`s. One list per column now, for the whole window.
+
+After: ~100 ms in the development build (React's dev build is the rest) and **about 6 ms a key in the
+production build, in every layout, at fifty items**. Fifty stacked cards appear in about a second.
+**Measure this against a production build.** The development figure is a poor guide, and the first
+instinct on seeing 100 ms is to start optimising something that is already fine.
+
+## Defects found by running it, and what class each is
+
+- **State set inside a state updater, with the return value computed there too.** The first `add`,
+  `paste` and `fill` set React state inside the `setDrafts` callback and read a variable assigned
+  there. React runs that callback later, so the function returned the wrong answer. They now read
+  the render's `drafts` and set the whole next list: they are event handlers, so that render is the
+  one the person was looking at.
+- **The "did not go in" list read its reasons from the wrong place.** It used the reports from the
+  *check*, which had passed and been cleared; the reasons came with the *apply*. Found by a test,
+  and invisible to the types: both are `Record<string, ItemReport>`.
+- **The "set one value" bar had labels tied to nothing.** `<label>` around a control that is not
+  inside it. A test could not find the control, which is what a screen reader would have said.
+- **A browser walk that passed once and failed on the next run** was the walk's fault: the
+  importer reports a title it already has as an error ("This objective has already been created, so
+  it is skipped rather than added twice"), and the first run had created them. The walk
+  suffixes its titles now. Worth knowing for anyone re-running one against the same company.
+
+## Pulled out so two screens do not hold two copies
+
+- `lib/imports/read-file.ts`: reading a chosen `.csv` or `.xlsx`, with every refusal, was inside the
+  import store's `chooseFile`. The window needs the identical reading, so the store now calls it.
+- `dropdownSheets` and `marked` in `lib/imports/template-file.ts`: the hidden `Lists` sheet and the
+  dropdown cells. The template and a downloaded draft both need them, and a draft that lost its
+  dropdowns on the way to Excel would invite the typo they exist to stop.
+- `quarterOptions` and `quarterText` are exported from `goal-dialogs.tsx`.
+
+## Verified
+
+`tests/bulk-create-model.test.ts` (21) and `tests/bulk-create-dialog.test.tsx` (24): the rows keyed by
+the template's headings, loading with old headings and aliases, the ceiling at 50 and 51, a paste
+that fills down and across and counts what did not fit, the draft going back through CSV and Excel
+unchanged, switching layouts without losing a character, the review having no inputs, **Edit again**
+restoring them, the same rows being checked and created, a refusal staying on the form with its
+reason, a part-failed apply naming what did not land, a column the server did not recognise stopping
+the check, and closing with work asking first. The ceiling, the heading keys, the memoisation and the
+unrecognised-column stop were each broken on purpose to see the test catch it. The whole suite
+(78 files, 763 tests) and all 22 gates of `npm run check` pass.
+
+In a browser against the real API on a scratch stack, signed in as the seeded administrator, on a
+production build: **27 of 27**. Add multiple on the KPIs screen; all three layouts keeping the
+typed title; a block pasted into the table adding rows; a refused row staying on the form with the
+API's own sentence; the review with no inputs; **Edit again**; both draft downloads; the discard
+question; the Excel draft loading back; **3 objectives created** with the measure counted; and the
+three objectives on the KPIs screen behind. The Excel draft was read back with openpyxl: the hidden
+`Lists` sheet, and dropdowns on Department, Appraisal period and Lower is better pointing at the
+right ranges. The Appraisal period dropdown appears once the company has a period that is not
+published, and not before.
+
+**Not exercised:** the QA site itself (this is verified against a local stack), demo mode in a
+browser, and a department head's view: their staff list has no emails, so the Assigned to box has
+no suggestions, which the unit tests cover and no browser walk has seen.
+
+## Deliberately not done
+
+- **Other kinds of record.** Departments, equipment and employees fit directly: a dictionary and a
+  config, no new window. **Payroll adjustments and attendance do not**: they are one row per
+  existing person, often hundreds, which wants a grid over a known list rather than cards over a
+  blank one. Decide that when it comes up.
+- **A sticky toolbar.** The layout switch scrolls away with fifty stacked cards. Switching to Table
+  is the answer today.
+- **The default quarter follows `TODAY`**, the demo's pinned "now", as the New objective form does,
+  so it can read a quarter behind the real date. Same source, so the two forms agree; fixing one
+  means fixing both.
+
+# Objectives can be edited and deleted before they are agreed
+
+`updateGoal` and `deleteGoal` existed on the API and in `performanceApi` for a long time, and
+`useKpiMutations().deleteGoal` was wired to nothing: no screen could change an objective's words or remove
+one made by mistake (the only exit was Stop, which keeps it on the list as off track). That is the fifth
+instance in this file of a route with no caller. It came up when 53 test objectives from a bulk upload had to
+be cleared from the QA site and the only way was the API.
+
+## What it offers, and when
+
+**Edit** and **Delete** sit at the end of the buttons on an objective's detail window, each only where the
+API will take it, so neither comes back as a refusal.
+
+- **Edit** (`EditGoalDialog`): title, due quarter, appraisal period, description. Offered while the target is
+  not frozen (`mayEditGoal`: not agreed, not done). Only what changed is sent, and Save stays off until
+  something differs. A cleared description goes as `null`. A published appraisal period is not offered to move
+  into. **Who it is assigned to is not in it**: handing an objective to somebody else has its own permission
+  rules, and a form that did both would make the rarer one easy to do by accident.
+- **Delete** (`DeleteGoalDialog`): offered when `deleteBlocker` is null, the same four refusals as `removeGoal`
+  on the API: done, agreed, refused, or something laddering up to it. The dialog says what goes with it (its
+  measures) and that it cannot be undone. When there is a reason it is not offered, one line under the buttons
+  says why ("Not deletable: Agreed, so it is the record of that agreement. Stop it instead of deleting it."),
+  so the missing button is not a mystery.
+
+**`deleteBlocker` mirrors a rule on the backend.** If `removeGoal` in `approvehr-backend` changes, change it
+here too; the server is the authority, and a drifted copy shows as a Delete that is refused (the refusal
+arrives as the API's own sentence).
+
+Demo mode refuses both with the usual "needs the API" message: a local edit or delete of a goal would not match
+anything else the demo shows.
+
+## Verified
+
+`npm run check` passes; `tests/goal-edit-delete.test.tsx` (13) covers when each is offered, what Save sends,
+and the confirmation. In a browser against a local API: Edit renamed a draft and the card updated, Delete
+removed the other and said what it would do first, and an agreed objective showed neither and the sentence why.
+
+# The bulk window says a wrong email once
+
+The "Add several objectives" check showed a red box naming the objective and the email nobody has, and an amber
+box naming the same email again. Names an item's own error already quotes are now left out of the amber box and
+its link ("Check your staff list") moves into the red one; an amber box remains only for a name no item
+mentions. `tests/bulk-create-dialog.test.tsx` has two cases (one tamper-tested against the old code).
+
