@@ -622,6 +622,28 @@ function Problems({
     .filter((entry) => entry.errors.length > 0);
   const named = Object.entries(missing).filter(([, names]) => names.length > 0);
 
+  /* A name the red list already quotes is not said twice. The importer reports
+     the same wrong email once per item and once as a group, and showing both
+     put one fact in two boxes. What the group adds is where to put it right, so
+     that rides on the red box; an amber one is only for names no item mentions. */
+  const quoted = (name: string) =>
+    failing.some(({ errors }) =>
+      errors.some((error) => error.problem.includes(name)),
+    );
+  const unquoted = named
+    .map(([kind, names]): [string, string[]] => [
+      kind,
+      names.filter((name) => !quoted(name)),
+    ])
+    .filter(([, names]) => names.length > 0);
+  const fixes = named
+    .filter(
+      ([kind, names]) =>
+        names.some(quoted) && surface.prerequisites[kind]?.action,
+    )
+    .map(([kind]) => surface.prerequisites[kind]?.action)
+    .filter((action): action is NonNullable<typeof action> => Boolean(action));
+
   return (
     <div className="flex flex-col gap-3">
       <Callout tone="danger" title={heading}>
@@ -645,8 +667,18 @@ function Problems({
             ))}
           </ul>
         )}
+        {fixes.length > 0 && (
+          <p className="mt-2">
+            {fixes.map((action, index) => (
+              <span key={action.href}>
+                {index > 0 && " · "}
+                <TextLink href={action.href}>{action.label}</TextLink>
+              </span>
+            ))}
+          </p>
+        )}
       </Callout>
-      {named.map(([kind, names]) => {
+      {unquoted.map(([kind, names]) => {
         const rule = surface.prerequisites[kind];
         return (
           <Callout

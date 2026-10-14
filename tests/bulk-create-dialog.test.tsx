@@ -414,6 +414,73 @@ describe("checking, and the read-only review", () => {
     expect(titleBox()).toHaveValue("Grow pipeline");
   });
 
+  describe("a wrong email, said once", () => {
+    const people = {
+      people: {
+        title: "Some work emails match nobody on your staff list",
+        consequence: "will be skipped.",
+        action: { href: "/people", label: "Check your staff list" },
+      },
+    };
+    const refusal = (named: string, missing: string[]) => ({
+      ...validated([
+        rowReport(1, [
+          {
+            column: "Assigned to (work email)",
+            problem: `Nobody on your staff list has the work email ${named}.`,
+          },
+        ]),
+      ]),
+      missing: { people: missing },
+    });
+
+    it("puts the names the list already quotes in one box, with the way to fix it", async () => {
+      const user = userEvent.setup();
+      validate.mockResolvedValue(
+        refusal("nobody@example.com", ["nobody@example.com"]),
+      );
+      open({ prerequisites: people });
+      await user.type(titleBox(), "Grow pipeline");
+      await user.click(
+        screen.getByRole("button", { name: "Check and review" }),
+      );
+
+      await screen.findByText(/1 objective needs a change/);
+      /* The amber box that said the same thing a second time is gone... */
+      expect(
+        screen.queryByText("Some work emails match nobody on your staff list"),
+      ).not.toBeInTheDocument();
+      /* ...and what it alone carried, the link to put it right, is not lost. */
+      expect(
+        screen.getByRole("link", { name: "Check your staff list" }),
+      ).toHaveAttribute("href", "/people");
+    });
+
+    it("still shows the amber box for a name no item mentions", async () => {
+      const user = userEvent.setup();
+      validate.mockResolvedValue(
+        refusal("nobody@example.com", [
+          "nobody@example.com",
+          "somebody.else@example.com",
+        ]),
+      );
+      open({ prerequisites: people });
+      await user.type(titleBox(), "Grow pipeline");
+      await user.click(
+        screen.getByRole("button", { name: "Check and review" }),
+      );
+
+      await screen.findByText(/1 objective needs a change/);
+      const box = screen.getByText(
+        "Some work emails match nobody on your staff list",
+      );
+      expect(box).toBeInTheDocument();
+      expect(
+        screen.getAllByText(/somebody\.else@example\.com/).length,
+      ).toBeGreaterThan(0);
+    });
+  });
+
   it("stops when the server did not recognise a column it was sent, and creates nothing", async () => {
     /* A server a deploy behind the app does not know a renamed heading, and
        would carry on without it: the objectives would be made with nobody

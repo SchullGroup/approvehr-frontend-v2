@@ -253,7 +253,7 @@ except the name is optional and can be filled in later.
 | **Where** | `/performance` or `/performance/periods` |
 | **Who** | HR / Owner |
 | **Click** | **Start an appraisal period** — top right of either screen |
-| **You'll see** | A dialog with **What to call it**, the dates, **Answers due by**, and three collapsed sections |
+| **You'll see** | A dialog with **Period name**, the dates, **Answers due by**, and three collapsed sections |
 
 The five collapsed sections, in the order you meet them:
 
@@ -343,17 +343,31 @@ person's objectives under those. You can start anywhere.
 | **Where**      | `/performance/kpis`                                                                                        |
 | **Who**        | Line manager · HR / Owner · anyone, for themselves                                                         |
 | **Click**      | **New objective**, which opens it, with **Add a KPI under this** waiting in it                             |
-| **You'll see** | Four fields: **What is being aimed at**, **Whose objective is this**, **Due by the end of**, **Scored in** |
+| **You'll see** | Four fields: **Objective title**, **Assigned to**, **Due quarter**, **Appraisal period** |
 
-> 🛑 **The field everybody misses.** **Scored in** is what files the objective against a period.
+> 🛑 **The field everybody misses.** **Appraisal period** is what files the objective against a period.
 > Leave it as _Not part of an appraisal period_ and the objective is a perfectly good tracker that
 > **counts towards nobody's mark**. It will not warn you.
 
-> ⚠️ **Who you can pick under "Whose objective is this."** Yourself, plus each department you head.
+> ⚠️ **Who you can pick under "Assigned to."** Yourself, plus each department you head.
 > The whole company, and every department, only if you hold the records permission. To put a KPI on
 > somebody else, open the objective and use **Give a KPI to people**. **Add a KPI under this** has a
-> "Whose KPI is this" list of your direct reports, plus everybody in a department you head. If
+> "Assigned to" list of your direct reports, plus everybody in a department you head. If
 > somebody you expect is missing from that list, that is why.
+
+#### 9b. _Optional_ — change or delete an objective before it is agreed
+
+| | |
+|---|---|
+| **Who** | Whoever can write the objective: its owner, their line manager, a department head, HR / Owner |
+| **Click** | Open the objective, then **Edit** or **Delete** (at the end of the buttons) |
+| **You'll see** | **Edit** opens **Objective title** (**KPI title** on a personal one), **Due quarter**, **Appraisal period** and **Description**; **Save changes** stays off until something differs. **Delete** asks "Delete this KPI?" and says it also removes the objective's measures |
+
+> ⚠️ **Neither is offered once it is agreed.** An agreed target is the record of what two people
+> agreed, so **Edit** is replaced by **Reopen the target**, and **Delete** by **Stop this KPI**. The
+> card says "Not deletable" and why, in one line. The same goes for a finished or refused one, and
+> for one that other objectives ladder up to (move or delete those first). **Who it is assigned to**
+> is not in Edit: handing an objective to somebody else is a separate act.
 
 #### 10. Put a number on it
 
@@ -365,7 +379,7 @@ at the end.
 | **Where**      | `/performance/kpis` → open the card                                   |
 | **Who**        | Line manager · the owner                                              |
 | **Click**      | **Add a measure**                                                     |
-| **You'll see** | **What are you counting**, **Starting at**, **Aiming at**, and a unit |
+| **You'll see** | **Measure**, **Starting value**, **Target value**, and a unit |
 
 > 💡 **For things that should go down** — cost, days-to-hire, complaints. Tick **This number should
 > go down** and progress becomes how far it has fallen. Without the tick, a target below the start is
@@ -590,7 +604,7 @@ built from their objectives alone.
 | **Click**      | **Record a level** → who, which skill, where they are now, where they should be |
 | **You'll see** | The _Below target_ count and the department heatmap both move as you record     |
 
-> 🛑 **The same trap as step 9.** **Scored in** is on this dialog too. Leave it blank and the level is
+> 🛑 **The same trap as step 9.** **Appraisal period** is on this dialog too. Leave it blank and the level is
 > recorded but counts towards no period's mark.
 
 #### 20. *Optional* — ask colleagues for feedback
@@ -883,7 +897,7 @@ seeded accounts to use.
 | 1   | **HR** — `/settings/performance`. Show the five weights totalling 100%, then drag one so it does not.                       | Save goes dead and the product tells you how much to add. A mark that cannot fail to add up.                                       |
 | 2   | **HR** — **Start an appraisal period**. Name it, set a due date, open _What to tell people_, type two sentences. Create it. | Nobody has been told anything yet. Say so.                                                                                         |
 | 3   | **HR** — **Write the questions**. Add one for the person and one for their manager.                                         | _Filed under_. And Start is dead until at least one question exists, and says why.                                                 |
-| 4   | **Employee** — `/performance/kpis`. **New objective**, set _Scored in_ to the new period, add a measure, **Send to be agreed**.   | Their Overview now shows it under _Waiting on somebody else_.                                                                      |
+| 4   | **Employee** — `/performance/kpis`. **New objective**, set _Appraisal period_ to the new period, add a measure, **Send to be agreed**.   | Their Overview now shows it under _Waiting on somebody else_.                                                                      |
 | 5   | **Manager** — `/performance`. The same objective is in **Waiting on you**. Open the queue and agree it.                     | Both sides of one action, thirty seconds apart. **This is the moment the demo lands.**                                             |
 | 6   | **Manager** — go back to KPIs and try to change the target you just agreed.                                                 | The controls are gone and a sentence above says why. Not a refusal after the click — the offer was never made.                     |
 | 7   | **HR** — **Start the period**. Confirm, then read the result out loud.                                                      | How many forms, how many told, and any names it gives you. "Nobody is appraising them" if it appears.                              |
