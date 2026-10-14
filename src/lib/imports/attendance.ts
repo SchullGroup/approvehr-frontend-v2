@@ -65,8 +65,9 @@ const COLUMNS: readonly ColumnSpec<AttendanceField>[] = [
   {
     field: "employee",
     templateExample: "DELETE THIS ROW",
-    column: "employee_no",
+    column: "Staff number or work email",
     aliases: [
+      "employee_no",
       "staff_no",
       "staff_number",
       "employee_id",
@@ -94,7 +95,7 @@ const COLUMNS: readonly ColumnSpec<AttendanceField>[] = [
   },
   {
     field: "date",
-    column: "date",
+    column: "Date",
     aliases: [
       "work_date",
       "attendance_date",
@@ -110,7 +111,7 @@ const COLUMNS: readonly ColumnSpec<AttendanceField>[] = [
   },
   {
     field: "clockIn",
-    column: "clock_in",
+    column: "Clock in",
     aliases: [
       "time_in",
       "in",
@@ -135,7 +136,7 @@ const COLUMNS: readonly ColumnSpec<AttendanceField>[] = [
   },
   {
     field: "clockOut",
-    column: "clock_out",
+    column: "Clock out",
     aliases: [
       "time_out",
       "out",
@@ -160,7 +161,7 @@ const COLUMNS: readonly ColumnSpec<AttendanceField>[] = [
   },
   {
     field: "location",
-    column: "work_location",
+    column: "Work location",
     aliases: [
       "location",
       "site",
@@ -175,7 +176,7 @@ const COLUMNS: readonly ColumnSpec<AttendanceField>[] = [
   },
   {
     field: "note",
-    column: "note",
+    column: "Note",
     aliases: ["reason", "comment", "remark", "remarks", "correction_note"],
     required: false,
     example: "Terminal export, September",

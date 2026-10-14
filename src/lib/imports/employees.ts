@@ -243,8 +243,9 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   {
     field: "employeeNo",
     templateExample: "EXAMPLE-001",
-    column: "employee_no",
+    column: "Staff number",
     aliases: [
+      "employee_no",
       "employee_id",
       "employee_number",
       "staff_no",
@@ -263,7 +264,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   {
     field: "firstName",
     templateExample: "DELETE",
-    column: "first_name",
+    column: "First name",
     aliases: ["given_name", "first"],
     required: true,
     example: "Ngozi",
@@ -272,7 +273,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   {
     field: "lastName",
     templateExample: "THIS ROW",
-    column: "last_name",
+    column: "Last name",
     aliases: ["surname", "family_name", "last"],
     required: true,
     example: "Williams",
@@ -280,7 +281,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "middleName",
-    column: "middle_name",
+    column: "Middle name",
     aliases: ["other_names", "other_name", "middle"],
     required: false,
     example: "Chiamaka",
@@ -289,8 +290,14 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   {
     field: "email",
     templateExample: "example@yourcompany.com",
-    column: "email",
-    aliases: ["email_address", "work_email", "company_email", "official_email"],
+    column: "Work email",
+    aliases: [
+      "email",
+      "email_address",
+      "work_email",
+      "company_email",
+      "official_email",
+    ],
     required: false,
     example: "ngozi.williams@company.com",
     note: "Their work email address.",
@@ -300,16 +307,23 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "canLogin",
-    column: "can_login",
-    aliases: ["login", "has_login", "portal_access", "can_sign_in"],
+    column: "Can sign in",
+    aliases: [
+      "can_login",
+      "login",
+      "has_login",
+      "portal_access",
+      "can_sign_in",
+    ],
     required: false,
     example: "yes",
-    note: "Yes or no. Defaults to yes if email is filled in.",
+    note: "Yes or no. Defaults to yes when a work email is filled in.",
   },
   {
     field: "role",
-    column: "role",
+    column: "Access level",
     aliases: [
+      "role",
       "access",
       "access_role",
       "permission",
@@ -327,8 +341,8 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "phone",
-    column: "phone",
-    aliases: ["phone_number", "mobile", "mobile_number", "telephone"],
+    column: "Phone number",
+    aliases: ["phone", "phone_number", "mobile", "mobile_number", "telephone"],
     required: false,
     example: "+234 803 111 0011",
     note: "Their phone number.",
@@ -336,7 +350,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   {
     field: "dateOfBirth",
     cell: { kind: "date" },
-    column: "date_of_birth",
+    column: "Date of birth",
     aliases: ["dob", "birth_date", "birthday"],
     required: false,
     example: "14/03/1991",
@@ -344,7 +358,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "gender",
-    column: "gender",
+    column: "Gender",
     aliases: ["sex"],
     required: false,
     example: "female",
@@ -353,7 +367,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "jobTitle",
-    column: "job_title",
+    column: "Job title",
     aliases: ["title", "position", "designation", "job_role"],
     required: true,
     example: "Data Analyst",
@@ -361,7 +375,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "department",
-    column: "department",
+    column: "Department",
     aliases: ["department_name", "dept", "unit", "division", "team"],
     required: false,
     example: "Finance",
@@ -369,7 +383,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "manager",
-    column: "manager",
+    column: "Manager",
     aliases: ["manager_name", "line_manager", "supervisor", "reports_to"],
     required: false,
     example: "Adaeze Okafor",
@@ -378,7 +392,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   {
     field: "startDate",
     cell: { kind: "date" },
-    column: "start_date",
+    column: "Start date",
     aliases: [
       "hire_date",
       "date_of_employment",
@@ -395,7 +409,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   {
     field: "endDate",
     cell: { kind: "date" },
-    column: "end_date",
+    column: "End date",
     aliases: [
       "termination_date",
       "exit_date",
@@ -409,8 +423,9 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   {
     field: "grossMonthly",
     cell: { kind: "money", subject: "Monthly pay" },
-    column: "gross_monthly",
+    column: "Monthly pay (gross)",
     aliases: [
+      "gross_monthly",
       "gross_monthly_pay",
       "monthly_gross",
       "gross_salary",
@@ -430,7 +445,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "payFrequency",
-    column: "pay_frequency",
+    column: "Pay frequency",
     aliases: ["salary_frequency", "pay_cycle", "frequency"],
     required: false,
     example: "monthly",
@@ -439,15 +454,15 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "bankName",
-    column: "bank_name",
-    aliases: ["bank"],
+    column: "Bank",
+    aliases: ["bank_name", "bank"],
     required: false,
     example: "First Bank",
     note: "Their bank.",
   },
   {
     field: "bankAccount",
-    column: "account_number",
+    column: "Account number",
     aliases: ["bank_account", "bank_account_number", "nuban", "account_no"],
     required: false,
     example: "9477600630",
@@ -460,7 +475,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "pensionPin",
-    column: "pension_pin",
+    column: "Pension PIN",
     aliases: ["rsa_pin", "pension_number", "rsa"],
     required: false,
     example: "PEN000000000",
@@ -472,8 +487,9 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "tin",
-    column: "tin",
+    column: "Tax ID (TIN)",
     aliases: [
+      "tin",
       "tax_id",
       "tax_identification_number",
       "tax_number",
@@ -490,7 +506,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   {
     field: "annualRent",
     cell: { kind: "money", zeroAllowed: true, subject: "Rent" },
-    column: "annual_rent",
+    column: "Annual rent",
     aliases: [
       "rent",
       "annual_rent_paid",
@@ -508,7 +524,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "nhfNumber",
-    column: "nhf_number",
+    column: "NHF number",
     aliases: ["nhf", "nhf_no", "housing_fund_number"],
     required: false,
     example: "NHF0012345",
@@ -516,7 +532,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "nextOfKinName",
-    column: "next_of_kin_name",
+    column: "Next of kin name",
     aliases: ["next_of_kin", "emergency_contact_name", "kin_name"],
     required: false,
     example: "Chinedu Williams",
@@ -524,7 +540,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "nextOfKinRelationship",
-    column: "next_of_kin_relationship",
+    column: "Next of kin relationship",
     aliases: ["emergency_contact_relationship", "kin_relationship"],
     required: false,
     example: "Spouse",
@@ -532,7 +548,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "nextOfKinPhone",
-    column: "next_of_kin_phone",
+    column: "Next of kin phone",
     aliases: ["emergency_contact_phone", "kin_phone"],
     required: false,
     example: "+234 803 111 0022",
@@ -540,8 +556,9 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "addressLine",
-    column: "address_line",
+    column: "Home address",
     aliases: [
+      "address_line",
       "address",
       "home_address",
       "residential_address",
@@ -557,8 +574,9 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "nin",
-    column: "nin",
+    column: "National ID (NIN)",
     aliases: [
+      "nin",
       "national_id",
       "national_identity_number",
       "national_identification_number",
@@ -574,7 +592,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "stateOfOrigin",
-    column: "state_of_origin",
+    column: "State of origin",
     aliases: ["origin_state", "home_state", "state_of_birth"],
     required: false,
     example: "Imo",
@@ -586,7 +604,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "lgaOfOrigin",
-    column: "local_government_area",
+    column: "Local government area",
     aliases: ["lga", "lga_of_origin", "local_govt", "local_government"],
     required: false,
     example: "Ikeduru",
@@ -595,7 +613,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
   },
   {
     field: "religion",
-    column: "religion",
+    column: "Religion",
     aliases: ["faith"],
     required: false,
     example: "Christianity",

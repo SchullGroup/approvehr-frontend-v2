@@ -41,6 +41,7 @@ export type ObjectiveField =
   | "quarter"
   | "ownerEmail"
   | "department"
+  | "period"
   | "parent"
   | "description"
   | "measure"
@@ -53,8 +54,9 @@ const COLUMNS: readonly ColumnSpec<ObjectiveField>[] = [
   {
     field: "title",
     templateExample: "DELETE THIS ROW",
-    column: "Title",
+    column: "Objective title",
     aliases: [
+      "Title",
       "objective",
       "objective_title",
       "goal",
@@ -68,16 +70,17 @@ const COLUMNS: readonly ColumnSpec<ObjectiveField>[] = [
   },
   {
     field: "quarter",
-    column: "Quarter",
-    aliases: ["due_quarter", "period", "due", "due_by"],
+    column: "Due quarter",
+    aliases: ["Quarter", "due_quarter", "period", "due", "due_by"],
     required: true,
     example: "2026-Q4",
     note: "The quarter it is due in, like 2026-Q4.",
   },
   {
     field: "ownerEmail",
-    column: "Owner email",
+    column: "Assigned to (work email)",
     aliases: [
+      "Owner email",
       "owner",
       "owner_email_address",
       "employee_email",
@@ -87,7 +90,7 @@ const COLUMNS: readonly ColumnSpec<ObjectiveField>[] = [
     ],
     required: false,
     example: "ngozi.williams@company.com",
-    note: "Whose objective it is, by work email. Leave blank for a department or company objective.",
+    note: "Who it is assigned to, by their work email. Leave blank for a department or company objective.",
   },
   {
     field: "department",
@@ -95,7 +98,24 @@ const COLUMNS: readonly ColumnSpec<ObjectiveField>[] = [
     aliases: ["dept", "department_name", "team"],
     required: false,
     example: "Marketing",
-    note: "The department it belongs to, by name. Needed when there is no owner and no parent; a personal objective takes its parent's.",
+    note: "The department it belongs to, by name. Needed when nobody is assigned and there is no parent objective; a personal objective takes its parent's.",
+  },
+  {
+    field: "period",
+    column: "Appraisal period",
+    /* Not "period": that is already an alias of Due quarter, and a spreadsheet
+       headed "Period" has always meant the quarter. */
+    aliases: [
+      "scored_in",
+      "appraisal",
+      "appraisal_cycle",
+      "review_period",
+      "review_cycle",
+      "cycle",
+    ],
+    required: false,
+    example: "H2 2026",
+    note: "The appraisal period it counts towards, by name, and it has to be one that is still open. Blank means it counts towards nobody's appraisal mark.",
   },
   {
     field: "parent",
@@ -126,20 +146,20 @@ const COLUMNS: readonly ColumnSpec<ObjectiveField>[] = [
     aliases: ["key_result", "measure_name", "metric", "kpi_measure"],
     required: false,
     example: "Qualified leads per month",
-    note: "What is counted, if the objective has a number to hit. Needs a Target.",
+    note: "What is counted, if the objective has a number to hit. Needs a target value.",
   },
   {
     field: "start",
-    column: "Start",
-    aliases: ["start_value", "baseline", "starting_value", "from"],
+    column: "Starting value",
+    aliases: ["Start", "start_value", "baseline", "starting_value", "from"],
     required: false,
     example: "10",
     note: "Where the number is today. Blank means 0.",
   },
   {
     field: "target",
-    column: "Target",
-    aliases: ["target_value", "goal_value", "to"],
+    column: "Target value",
+    aliases: ["Target", "target_value", "goal_value", "to"],
     required: false,
     example: "40",
     note: "The number it has to reach.",
@@ -231,7 +251,7 @@ function objectiveRowRules(ctx: RowContext<ObjectiveField>): void {
   if (owner !== "" && !owner.includes("@")) {
     error(
       "ownerEmail",
-      `"${owner}" is not a work email. This column takes an email, not a name — two people can share a name. Leave it blank for a department or company objective.`,
+      `"${owner}" is not a work email. The Assigned to column takes an email, not a name — two people can share a name. Leave it blank for a department or company objective.`,
     );
   }
   if (owner === "" && title !== "") tally("ownerless");
@@ -255,7 +275,7 @@ function objectiveRowRules(ctx: RowContext<ObjectiveField>): void {
     if (start !== "" || target !== "" || unit !== "" || lower !== "") {
       error(
         "measure",
-        "Name what is being measured, or clear the Start, Target, Unit and Lower is better cells on this row.",
+        "Name what is being measured, or clear the Starting value, Target value, Unit and Lower is better cells on this row.",
       );
     }
   } else {
@@ -339,7 +359,7 @@ function objectiveFileNotes(
 
   if (ownerless > 0) {
     notes.push(
-      `${ownerless} ${ownerless === 1 ? "row has" : "rows have"} no owner, so ${ownerless === 1 ? "it becomes a department or company objective" : "they become department or company objectives"}.`,
+      `${ownerless} ${ownerless === 1 ? "row has" : "rows have"} nobody in Assigned to, so ${ownerless === 1 ? "it becomes a department or company objective" : "they become department or company objectives"}.`,
     );
   }
   if (measures > 0) {
@@ -350,7 +370,7 @@ function objectiveFileNotes(
   /* Said once, because it is the thing most likely to be assumed the other way:
      nothing an upload makes is agreed. */
   notes.push(
-    "Objectives arrive as drafts. The owner sends them to be agreed and their lead agrees them. Whether you may raise each one for that person is checked when you connect.",
+    "Objectives arrive as drafts. Whoever each one is assigned to sends it to be agreed, and their lead agrees it. Whether you may raise each one for that person is checked when you connect.",
   );
   return notes;
 }
@@ -371,7 +391,7 @@ export const OBJECTIVES: Dictionary<ObjectiveField> = buildDictionary(
     },
     noun: { one: "objective", many: "objectives" },
     /* The second line of a report row is whose objective it is. */
-    keyLabel: "owner",
+    keyLabel: "assigned to",
     rowRules: objectiveRowRules,
     fileNotes: objectiveFileNotes,
     identify: (text) => ({

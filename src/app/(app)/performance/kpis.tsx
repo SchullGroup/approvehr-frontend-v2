@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Check,
   CornerDownRight,
+  ListPlus,
   Plus,
   Target,
   TrendingDown,
@@ -64,6 +65,7 @@ import {
   type GoalNode,
   type KpiScope,
 } from "@/lib/store/performance";
+import { AddMultipleObjectives } from "./add-multiple-objectives";
 import { ApprovalReasonDialog } from "./approval-dialogs";
 import { goalFacts } from "./goal-facts";
 import {
@@ -191,6 +193,8 @@ export function KpisTab({
     ? (kpis.goals.find((goal) => goal.id === creating.parentId) ??
       (justMade?.id === creating.parentId ? justMade : undefined))
     : undefined;
+  /* The window for adding several objectives at once. */
+  const [addingMany, setAddingMany] = useState(false);
   const [assigning, setAssigning] = useState<ApiGoal | null>(null);
   const [addingTo, setAddingTo] = useState<ApiGoal | null>(null);
   const [stopping, setStopping] = useState<ApiGoal | null>(null);
@@ -507,6 +511,19 @@ export function KpisTab({
               Upload objectives
             </ButtonLink>
           )}
+          {/* Beside the upload, because it is the same door for fewer rows:
+              the same people, the same checks, typed in here instead of in
+              Excel. */}
+          {mutations.editable && canUpload && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setAddingMany(true)}
+            >
+              <ListPlus aria-hidden="true" className="size-4" />
+              Add multiple
+            </Button>
+          )}
           {mutations.editable && (
             <Button
               variant="accent"
@@ -807,6 +824,13 @@ export function KpisTab({
           </CardBody>
         )}
       </Card>
+
+      <AddMultipleObjectives
+        open={addingMany}
+        onClose={() => setAddingMany(false)}
+        goals={kpis.goals}
+        onChanged={kpis.reload}
+      />
 
       <NewKpiDialog
         open={creating !== null}
