@@ -314,7 +314,7 @@ export function SectionsDialog({
         </NoticeLine>
 
         {!actions.editable ? (
-          <Callout tone="neutral" title="This needs the API">
+          <Callout tone="neutral" title="This needs a connection to the server">
             Sections are shared across every appraisal period, and one kept in
             this browser would not reach any of them.
           </Callout>
@@ -379,7 +379,7 @@ export function SectionsDialog({
                         </span>
                       }
                       hint={
-                        editable ? "Open it to rename or re-file it" : undefined
+                        editable ? "Open it to rename it or move it" : undefined
                       }
                     >
                       <div className="flex flex-col gap-4">

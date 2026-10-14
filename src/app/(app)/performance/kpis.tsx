@@ -521,7 +521,7 @@ export function KpisTab({
       </div>
 
       <LoadFailure
-        subject="the KPI cascade"
+        subject="your KPIs"
         error={kpis.error}
         onRetry={kpis.reload}
       />
@@ -596,15 +596,15 @@ export function KpisTab({
       {unsent.length > 0 && (
         <NoticeLine tone="warning">
           {unsent.length === 1
-            ? "1 objective has not been sent for approval yet"
-            : `${unsent.length} objectives have not been sent for approval yet`}
+            ? "1 objective has not been sent to be agreed yet"
+            : `${unsent.length} objectives have not been sent to be agreed yet`}
         </NoticeLine>
       )}
 
       <Card>
         <CardHeader
-          title="The cascade"
-          description="Company KPI at the top. Everything below ladders up to it."
+          title="All KPIs"
+          description="The company KPI is at the top. Team and personal KPIs sit underneath the goal they support."
         />
         {kpis.goals.length > 0 && !kpis.loading && (
           <CardBody className="pb-0">
@@ -627,7 +627,7 @@ export function KpisTab({
                     setOrder(event.target.value as Order | "")
                   }
                 >
-                  <option value="">The cascade&rsquo;s own order</option>
+                  <option value="">Grouped under the company goal</option>
                   {ORDERS.map(([key, label]) => (
                     <option key={key} value={key}>
                       {label}
@@ -706,7 +706,7 @@ export function KpisTab({
                   `Showing ${String(matching.length)} of ${String(kpis.goals.length)}. The figures above are for everything, not for what is filtered here.`}
                 {narrowing && order !== "" && " "}
                 {order !== "" &&
-                  "Ordered by date, so the ladder is flattened — nothing is nested while this is on."}
+                  "Ordered by date, so KPIs are not grouped under their parent while this is on."}
               </p>
             )}
           </CardBody>
@@ -724,7 +724,7 @@ export function KpisTab({
           <EmptyState
             icon={<Target aria-hidden="true" />}
             title="Nothing matches that"
-            description={`${String(kpis.goals.length)} objectives are here, and none of them fits what you have narrowed to.`}
+            description={`None of the ${String(kpis.goals.length)} objectives match your filters.`}
             action={
               <Button variant="ghost" onClick={clearFilters}>
                 Clear the filters
@@ -735,7 +735,7 @@ export function KpisTab({
           <EmptyState
             icon={<Target aria-hidden="true" />}
             title="No KPIs yet"
-            description="Start with one company KPI, then hang each team's under it."
+            description="Start with a company KPI, then add each team's KPIs under it."
             action={
               mutations.editable ? (
                 <Button
@@ -989,8 +989,8 @@ export function KpisTab({
         }}
         body={
           completing && completing.keyResults.some((measure) => !measure.met)
-            ? `${completing.keyResults.filter((m) => !m.met).length} of its measures are short of target. Done is your call, and the numbers stay as they are.`
-            : "Progress goes to 100% and it drops out of the tracked list."
+            ? `${completing.keyResults.filter((m) => !m.met).length} of its measures are short of target. You can still mark it done; the numbers stay as they are.`
+            : "Progress goes to 100% and it leaves the tracked list."
         }
       />
     </div>
@@ -1426,7 +1426,7 @@ function GoalDetailModal({
           </ul>
         ) : (
           <p className="text-body-sm text-body">
-            No measure yet, so nothing tracks itself.
+            No measure yet, so its progress has to be entered by hand.
           </p>
         )}
 
@@ -1440,17 +1440,17 @@ function GoalDetailModal({
             to confuse into "this KPI is finished". */}
         {goal.targetFrozen && (
           <p className="border-t border-line pt-4 text-body-sm text-muted">
-            Agreed, so the target is fixed: the title, the period and every
-            measure&apos;s target stay as they are, and no measure can be added
-            because that would change what delivering this means. The numbers
-            still move.
+            Agreed, so the target is fixed. The title, the period and every
+            measure&apos;s target stay as they are, and no new measure can be
+            added, because that would change what delivering this means.
+            Progress numbers can still change.
           </p>
         )}
 
         {noPeriod && goal.approval !== "AGREED" && (
           <p className="text-body-sm text-body">
-            Give this a quarter before it can be sent to be agreed. An objective
-            agreed for no period cannot be agreed before it.
+            Give this a quarter before you send it to be agreed, so it can be
+            agreed before that quarter starts.
           </p>
         )}
 

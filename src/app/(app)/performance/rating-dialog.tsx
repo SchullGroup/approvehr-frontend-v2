@@ -226,8 +226,8 @@ export function RecordLevelDialog({
             label="Scored in"
             help={
               reviewCycleId
-                ? "Counts towards this person's mark for that period. One rating of record per period, so rating them again is a correction to this one."
-                : "Nothing here reaches an appraisal mark. It is a point-in-time reading \u2014 it fills the gap table and the heatmap, and scores nothing."
+                ? "Counts towards this person's mark for that period. Each person has one rating per period, so rating them again corrects this one."
+                : "This will not affect any appraisal mark. It is a snapshot of where they are now, and it fills the skills gap table and heatmap."
             }
           >
             <Select

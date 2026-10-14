@@ -80,7 +80,7 @@ export function PeriodsTab() {
         {appraisals.loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
-            Reading the periods
+            Loading the periods
           </CardBody>
         ) : live.length === 0 ? (
           <EmptyState
@@ -122,8 +122,8 @@ export function PeriodsTab() {
 
       <p className="text-body-sm text-muted">
         How much each part of an appraisal counts towards a mark is set in{" "}
-        <TextLink href="/settings/performance">settings</TextLink>, and frozen
-        onto a period the moment it starts.
+        <TextLink href="/settings/performance">settings</TextLink>, and locked
+        in for a period the moment it starts.
       </p>
     </div>
   );

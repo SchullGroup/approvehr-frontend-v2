@@ -3,7 +3,8 @@ import { AppraisersScreen } from "./appraisers-screen";
 
 export const metadata: Metadata = {
   title: "Who appraises whom",
-  description: "The appraiser mapping for this cycle, and each one's weight.",
+  description:
+    "Who appraises whom in this period, and how much each appraiser's view counts.",
 };
 
 export default function PerformanceAppraisersPage() {

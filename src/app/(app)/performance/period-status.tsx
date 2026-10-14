@@ -100,7 +100,7 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
       stage: "CALIBRATION",
       done: report?.marks.finalised ?? 0,
       total: report?.marks.people ?? 0,
-      notYet: "Nobody is in the register yet",
+      notYet: "Nobody is in this period yet",
     },
     {
       label: "Signed off",
@@ -274,7 +274,7 @@ export function PeriodStatus({
     return (
       <div className="flex items-center gap-2 border-t border-line px-5 py-4 text-body-sm text-muted">
         <Spinner size="sm" />
-        Reading how far along it is
+        Loading progress
       </div>
     );
   }

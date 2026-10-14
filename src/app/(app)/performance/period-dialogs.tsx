@@ -880,7 +880,7 @@ function FiledUnderPicker({
                   ? `Answers to this count towards ${chosen.name}.`
                   : `Answers to this count towards ${chosen.name}, which is ${weightLabel(chosen.weightBp)} of the mark.`
             : sectionId !== ""
-              ? "Nothing is filed under a section on its own. Pick a subsection, or this question is asked, answered, and counts towards no part of the mark."
+              ? "Pick a subsection for this question, or it will be asked and answered but count towards no part of the mark."
               : "Unfiled questions are asked and answered, and count towards no part of the mark."}
         </span>
       </NoticeLine>

@@ -256,7 +256,7 @@ export function reviewLanguageFindings(
       `\\b(?:${PERSON_CONTRACTED}|(?:${subjects})\\s+${COPULA})${HEDGE}\\s+(?:${TRAITS.map(escape).join("|")})\\b`,
       "character",
       "This describes the person rather than their work.",
-      "Name what happened, and when. A mark has to be defensible from something you can point at.",
+      "Name what happened, and when. A mark should be backed by something you can point to.",
     ),
     ...findAll(
       text,
@@ -318,5 +318,5 @@ export function findingsHeadline(count: number): string {
  *  that presents as authority gets argued with; one that reads as a prompt
  *  gets read. */
 export const FINDINGS_CAVEAT =
-  "Nothing here stops you sending the review. This looks for four specific " +
-  "things and cannot tell whether what you wrote is fair, you can.";
+  "Nothing here stops you sending the review. It checks for four specific " +
+  "things and cannot tell whether what you wrote is fair. Only you can.";

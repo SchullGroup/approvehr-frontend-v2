@@ -125,7 +125,7 @@ export function AppraiserMapTab() {
 
   if (!editable) {
     return (
-      <Callout tone="warning" title="The mapping needs the API">
+      <Callout tone="warning" title="This needs a connection to the server">
         {refusal}
       </Callout>
     );
@@ -135,7 +135,7 @@ export function AppraiserMapTab() {
     return (
       <p className="flex items-center gap-2 text-body-sm text-muted">
         <Spinner size="sm" />
-        Reading the appraisal periods
+        Loading the appraisal periods
       </p>
     );
   }
@@ -145,7 +145,7 @@ export function AppraiserMapTab() {
       <EmptyState
         icon={<Network aria-hidden="true" />}
         title="No appraisal periods yet"
-        description="A mapping belongs to one appraisal period: who was best placed to judge somebody last half is not who is best placed this half. Start a period first."
+        description="Who appraises whom is set for one appraisal period at a time, because the best person to judge someone can change from one half to the next. Start a period first."
       />
     );
   }
@@ -242,7 +242,7 @@ export function AppraiserMapTab() {
 
         <div className="flex flex-wrap items-center gap-3">
           <Switch
-            label="Only what is wrong"
+            label="Only problems"
             checked={exceptionsOnly}
             onChange={(event) => setExceptionsOnly(event.target.checked)}
           />
@@ -254,7 +254,7 @@ export function AppraiserMapTab() {
             onClick={() => void autoAssign()}
           >
             <Wand2 aria-hidden="true" className="size-4" />
-            Fill in the obvious
+            Fill in from the reporting line
           </Button>
         </div>
       </div>
@@ -301,14 +301,14 @@ export function AppraiserMapTab() {
             title={
               blockers.length > 0
                 ? blockers.length === 1
-                  ? "1 thing will produce a mark nobody can defend"
-                  : `${blockers.length} things will produce marks nobody can defend`
+                  ? "1 thing will leave someone with no mark"
+                  : `${blockers.length} things will leave people with no mark`
                 : "Worth a look"
             }
             description={
               map?.started
-                ? "This period is running, so these are live."
-                : "Nothing has started yet, so none of this is final."
+                ? "This period is running, so these need fixing now."
+                : "The period has not started, so you have time to sort these out."
             }
           />
           <CardBody className="flex flex-col gap-2">
@@ -397,23 +397,21 @@ export function AppraiserMapTab() {
       <Card>
         <CardHeader
           title="Who appraises whom"
-          description="One line manager at 100% is the ordinary answer. Change it for the people a project lead or another department's manager actually judges."
+          description="One line manager at 100% is the usual setup. Change it for people whose work is really judged by a project lead or another department's manager."
         />
         {loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
-            Reading the mapping
+            Loading the list
           </CardBody>
         ) : !map || map.rows.length === 0 ? (
           <EmptyState
             compact
             icon={<Network aria-hidden="true" />}
-            title={
-              exceptionsOnly ? "Nothing is wrong" : "Nobody in this period"
-            }
+            title={exceptionsOnly ? "No problems" : "Nobody in this period"}
             description={
               exceptionsOnly
-                ? "Everybody has an appraiser and every set of weights makes 100%."
+                ? "Everyone has an appraiser and every set of weights adds up to 100%."
                 : "A period covers everybody who is still employed. Add people first."
             }
           />
@@ -816,7 +814,7 @@ export function AppraisersDialog({
   /* Every one of these is the API's rule, checked here so it lands while the row
      is still on screen. The server is where each of them is real. */
   const localProblem = duplicated
-    ? "The same person is listed twice. One appraiser, one row, one role."
+    ? "The same person is listed twice. Each appraiser should appear once, with one role."
     : lineManagers > 1
       ? "Only one person can be the line manager. Make the others functional managers or project leads."
       : missingSubmitted.length > 0
@@ -825,9 +823,9 @@ export function AppraisersDialog({
             .map((one) => one.appraiserName)
             .join(
               ", ",
-            )} already sent their review. Change their weight rather than taking them off.`
+            )} already sent their review. Change their weight instead of taking them off.`
         : entries.some((entry) => entry.weightBp < 1)
-          ? "An appraiser with no weight is not an appraiser. Remove the row instead."
+          ? "An appraiser needs some weight. Remove them instead."
           : weightIssue;
 
   const setRow = (index: number, patch: Partial<DraftRow>) =>
@@ -950,9 +948,8 @@ export function AppraisersDialog({
 
         {rows.length === 0 && (
           <Callout tone="warning" title="Nobody would appraise them">
-            Saving with an empty list is allowed and it is a real state: it is
-            how you undo a mapping. They will finish the period with no mark,
-            and the period will say so by name.
+            You can save with an empty list. It is how you undo a mapping. They
+            will finish the period with no mark, and the period will name them.
           </Callout>
         )}
 

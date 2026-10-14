@@ -52,7 +52,7 @@ export function finalisedCopy({
   } else if (subjectNotified === false) {
     details.push(`${first} could not be told in the app. Tell them yourself.`);
   }
-  details.push("It cannot be re-marked.");
+  details.push("It cannot be changed.");
   /* Not for somebody who could not be told: with no sign-in there is nowhere
      for them to give one, and the line would promise an answer that cannot come. */
   if (subjectNotified !== false) {
@@ -62,8 +62,8 @@ export function finalisedCopy({
   return {
     title: `${subjectName}'s rating is final`,
     lead: ratingLabel
-      ? `The mark of record for ${cycleName} is "${ratingLabel}".`
-      : `${cycleName} carries no overall mark, so ${first} reads the answers.`,
+      ? `The rating for ${cycleName} is "${ratingLabel}".`
+      : `${cycleName} has no overall mark, so ${first} will read the answers.`,
     details,
   };
 }
