@@ -2,15 +2,11 @@
 
 import { useState } from "react";
 import {
-  ArrowDown,
-  ArrowUp,
   FileQuestion,
   Lock,
   MapPin,
   Megaphone,
   Pencil,
-  Plus,
-  Trash2,
   Users,
 } from "lucide-react";
 import {
@@ -21,10 +17,8 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   EmptyState,
   Field,
-  IconButton,
   Input,
   Modal,
   Picker,
@@ -35,6 +29,10 @@ import {
   formatMoney,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import {
+  RequisitionStages,
+  type StageBody,
+} from "@/components/hiring/requisition-stages";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -47,7 +45,7 @@ import {
   type UpdateRequisitionBody,
 } from "@/lib/api/recruitment";
 import { usePermissions, useCan } from "@/lib/permissions";
-import { pipelineCards, requisitionById } from "@/lib/mock/hiring";
+import { requisitionById } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
 import { fullName } from "@/lib/types";
 import { useDepartments } from "@/lib/store/departments";
@@ -58,9 +56,9 @@ import {
   useStageMutations,
 } from "@/lib/store/recruitment";
 import { useSession } from "@/lib/store/session";
+import type { StageType } from "@/lib/hiring/pipeline/stage-types";
 import { RequisitionScreening, UnknownRequisition } from "./screening";
-import { RequisitionWorkspace } from "./workspace";
-import { RealRequisitionWorkspace } from "./real-workspace";
+import { PipelineWorkspace } from "./pipeline-workspace";
 
 /**
  * One role — gated.
@@ -213,11 +211,6 @@ function RealRequisitionDetail({ id }: { id: string }) {
   const canApprove = useCan("APPROVE_HIRING");
   const canManage = useCan("MANAGE_HIRING");
   const toast = useToast();
-  const [addingStage, setAddingStage] = useState(false);
-  const [stageName, setStageName] = useState("");
-  const [stageScored, setStageScored] = useState(false);
-  const [renamingStageId, setRenamingStageId] = useState<string | null>(null);
-  const [stageRenameDraft, setStageRenameDraft] = useState("");
   const [editingRole, setEditingRole] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -285,20 +278,23 @@ function RealRequisitionDetail({ id }: { id: string }) {
     }
   }
 
-  async function addStage() {
-    if (!stageName.trim() || !requisition) return;
-    const ok = await run(() =>
+  async function addStage(body: {
+    name: string;
+    type: StageType;
+    requiresScorecards: boolean;
+  }): Promise<boolean> {
+    if (!requisition) return false;
+    return run(() =>
       stageMutations.create(id, {
-        name: stageName.trim(),
-        requiresScorecards: stageScored,
+        name: body.name,
+        requiresScorecards: body.requiresScorecards,
+        /* A role made before stage types has none, and the API takes none. */
+        ...(requisition.stages.some((stage) => stage.type !== undefined)
+          ? { type: body.type }
+          : {}),
         order: requisition.stages.length,
       }),
     );
-    if (ok) {
-      setStageName("");
-      setStageScored(false);
-      setAddingStage(false);
-    }
   }
 
   /**
@@ -325,19 +321,11 @@ function RealRequisitionDetail({ id }: { id: string }) {
     );
   }
 
-  function startRenamingStage(stage: ApiStage) {
-    setRenamingStageId(stage.id);
-    setStageRenameDraft(stage.name);
-  }
-
-  async function saveStageRename(stage: ApiStage) {
-    const name = stageRenameDraft.trim();
-    if (name.length === 0 || name === stage.name) {
-      setRenamingStageId(null);
-      return;
-    }
-    const ok = await run(() => stageMutations.update(id, stage.id, { name }));
-    if (ok) setRenamingStageId(null);
+  async function updateStage(
+    stage: ApiStage,
+    body: StageBody,
+  ): Promise<boolean> {
+    return run(() => stageMutations.update(id, stage.id, body));
   }
 
   /**
@@ -547,155 +535,18 @@ function RealRequisitionDetail({ id }: { id: string }) {
           roleName={requisition.jobTitle}
         />
 
-        <Card>
-          <CardHeader
-            title="Pipeline stages"
-            action={
-              canManage ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setAddingStage((v) => !v)}
-                >
-                  <Plus aria-hidden="true" className="size-3.5" />
-                  Add stage
-                </Button>
-              ) : undefined
-            }
-          />
-          {addingStage && canManage && (
-            <CardBody className="flex flex-wrap items-end gap-3 border-b border-line">
-              <Field label="Stage name" className="flex-1">
-                <Input
-                  value={stageName}
-                  onChange={(e) => setStageName(e.currentTarget.value)}
-                  placeholder="Technical interview"
-                />
-              </Field>
-              <Checkbox
-                label="Requires scorecards to leave"
-                checked={stageScored}
-                onChange={(e) => setStageScored(e.currentTarget.checked)}
-              />
-              <Button
-                variant="accent"
-                size="sm"
-                loading={busy}
-                disabled={!stageName.trim()}
-                onClick={() => void addStage()}
-              >
-                Add
-              </Button>
-            </CardBody>
-          )}
-          <CardBody>
-            <ul className="flex flex-col gap-2">
-              {[...requisition.stages]
-                .sort((a, b) => a.order - b.order)
-                .map((s, index, sorted) => (
-                  <li
-                    key={s.id}
-                    className="flex flex-wrap items-center gap-2 rounded-md border border-line p-2.5"
-                  >
-                    {renamingStageId === s.id ? (
-                      <>
-                        <Input
-                          value={stageRenameDraft}
-                          onChange={(e) =>
-                            setStageRenameDraft(e.currentTarget.value)
-                          }
-                          className="flex-1"
-                          aria-label={`Rename ${s.name}`}
-                        />
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          loading={busy}
-                          disabled={stageRenameDraft.trim().length === 0}
-                          onClick={() => void saveStageRename(s)}
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={busy}
-                          onClick={() => setRenamingStageId(null)}
-                        >
-                          Cancel
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                          <span className="text-body-sm font-medium text-ink">
-                            {s.name}
-                          </span>
-                          {s.requiresScorecards && (
-                            <Badge tone="neutral" size="sm">
-                              Needs scorecards to leave
-                            </Badge>
-                          )}
-                          {/* Informational only — the count an "occupied
-                              stage" refusal would name. Never used to disable
-                              Remove here; the server decides that. */}
-                          {s.currentCount > 0 && (
-                            <Badge tone="neutral" size="sm">
-                              {s.currentCount === 1
-                                ? "1 person here"
-                                : `${String(s.currentCount)} people here`}
-                            </Badge>
-                          )}
-                        </span>
-                        {canManage && (
-                          <span className="flex items-center gap-1">
-                            <IconButton
-                              label={`Move ${s.name} up`}
-                              size="sm"
-                              disabled={busy || index === 0}
-                              onClick={() => void moveStage(s.id, -1)}
-                            >
-                              <ArrowUp aria-hidden="true" />
-                            </IconButton>
-                            <IconButton
-                              label={`Move ${s.name} down`}
-                              size="sm"
-                              disabled={busy || index === sorted.length - 1}
-                              onClick={() => void moveStage(s.id, 1)}
-                            >
-                              <ArrowDown aria-hidden="true" />
-                            </IconButton>
-                            <IconButton
-                              label={`Rename ${s.name}`}
-                              size="sm"
-                              disabled={busy}
-                              onClick={() => startRenamingStage(s)}
-                            >
-                              <Pencil aria-hidden="true" />
-                            </IconButton>
-                            <IconButton
-                              label={`Remove ${s.name}`}
-                              size="sm"
-                              disabled={busy}
-                              onClick={() => void removeStage(s)}
-                            >
-                              <Trash2 aria-hidden="true" />
-                            </IconButton>
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </li>
-                ))}
-            </ul>
-          </CardBody>
-        </Card>
+        <RequisitionStages
+          stages={requisition.stages}
+          canManage={canManage}
+          busy={busy}
+          onAdd={addStage}
+          onUpdate={updateStage}
+          onMove={moveStage}
+          onRemove={removeStage}
+        />
 
         <div className="flex flex-col gap-4">
-          <RealRequisitionWorkspace
-            requisitionId={requisition.id}
-            stages={requisition.stages}
-          />
+          <PipelineWorkspace requisitionId={requisition.id} />
         </div>
       </PageBody>
 
@@ -960,7 +811,6 @@ function SeededRequisitionDetail({ id }: { id: string }) {
   const req = requisitionById(id);
   if (!req) return <UnknownRequisition id={id} />;
 
-  const cards = pipelineCards(req.id);
   const manager = employeeById(req.hiringManagerId);
   const recruiter = employeeById(req.recruiterId);
 
@@ -1091,10 +941,7 @@ function SeededRequisitionDetail({ id }: { id: string }) {
 
         <div className="flex flex-col gap-4">
           <SourceBadge live={false} note="The pipeline board." />
-          <RequisitionWorkspace
-            initialCards={cards}
-            activeStages={[...req.activeStages]}
-          />
+          <PipelineWorkspace requisitionId={req.id} />
         </div>
       </PageBody>
     </>

@@ -7,6 +7,8 @@ import {
   Lock,
   Megaphone,
   Plus,
+  Settings,
+  Star,
   TriangleAlert,
 } from "lucide-react";
 import {
@@ -126,6 +128,22 @@ function Overview() {
             <ButtonLink href="/hiring/postings" variant="secondary" size="sm">
               <Megaphone aria-hidden="true" className="size-4" />
               Job adverts
+            </ButtonLink>
+            <ButtonLink
+              href="/hiring/talent-pool"
+              variant="secondary"
+              size="sm"
+            >
+              <Star aria-hidden="true" className="size-4" />
+              Talent pool
+            </ButtonLink>
+            <ButtonLink
+              href="/hiring/settings/pipelines"
+              variant="secondary"
+              size="sm"
+            >
+              <Settings aria-hidden="true" className="size-4" />
+              Settings
             </ButtonLink>
             <ButtonLink
               href="/hiring/requisitions/new"

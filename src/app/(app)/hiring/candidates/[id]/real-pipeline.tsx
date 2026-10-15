@@ -21,6 +21,8 @@ import {
   Textarea,
 } from "@/components/ui";
 import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
+import { RecordTags } from "@/components/hiring/record-tags";
+import { RejectDialog } from "@/components/hiring/reject-dialog";
 import { StageHistory } from "@/components/hiring/stage-history";
 import { ExportButton } from "@/components/portal/export-button";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -40,6 +42,11 @@ import {
   type ScorecardRecommendation,
   type UpdateOfferBody,
 } from "@/lib/api/recruitment";
+import {
+  usePipelineGateway,
+  useRejectionReasons,
+} from "@/lib/hiring/pipeline/use-pipeline";
+import { isTerminalType } from "@/lib/hiring/pipeline/stage-types";
 import { useCan } from "@/lib/permissions";
 import {
   useApplicationMutations,
@@ -157,6 +164,11 @@ export function RealPipeline({
   onChanged: () => void;
 }) {
   const stagesState = useStages(application.requisitionId);
+  /* Nobody is moved into Hired by hand (an accepted offer puts them there) and
+     Rejected has its own button with a reason; both are left out of the menu. */
+  const moveOptions = stagesState.stages
+    .filter((stage) => stage.id !== application.stageId)
+    .filter((stage) => !isTerminalType(stage.type));
   const applications = useApplicationMutations();
   const interviews = useInterviewMutations();
   const offers = useOfferMutations();
@@ -181,6 +193,9 @@ export function RealPipeline({
     });
   const [offering, setOffering] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [rejectError, setRejectError] = useState<string | null>(null);
+  const gateway = usePipelineGateway();
+  const reasons = useRejectionReasons();
   const [withdrawingApplication, setWithdrawingApplication] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{
@@ -211,15 +226,40 @@ export function RealPipeline({
     }
   }
 
-  async function reject(reason: string) {
+  /** A reason from the company's list, and an optional note. Nothing is sent. */
+  async function reject(choice: { reasonId: string; note: string | null }) {
     setBusy(true);
+    setRejectError(null);
     try {
-      await applications.reject(application.id, reason.trim() || undefined);
-      say("success", "Rejected.");
+      await gateway.reject(
+        {
+          id: application.id,
+          candidateId: application.candidate.id,
+          name: application.candidateName,
+          email: application.candidateEmail,
+          reference: null,
+          source: null,
+          flagged: false,
+          duplicate: false,
+          tags: [],
+          talentPool: false,
+          stageId: application.stageId,
+          stageName: application.stageName,
+          stageEnteredAt: application.stageEnteredAt,
+          outcome: application.outcome,
+          rejectionReason: application.rejectionReason,
+        },
+        { ...choice, sendEmail: false },
+      );
+      say("success", "Rejected. Nothing was sent to them.");
       setRejecting(false);
       onChanged();
     } catch (error) {
-      fail(error);
+      setRejectError(
+        error instanceof ApiError
+          ? error.message
+          : "Something went wrong. Try again.",
+      );
     } finally {
       setBusy(false);
     }
@@ -279,8 +319,7 @@ export function RealPipeline({
               !stagesState.loading &&
               !stagesState.error &&
               stagesState.stages.length > 0 &&
-              stagesState.stages.filter((s) => s.id !== application.stageId)
-                .length === 0 && (
+              moveOptions.length === 0 && (
                 <p className="w-full text-body-sm text-muted">
                   This requisition has only the one stage they are already in,
                   so there is nowhere else to move them — reject or withdraw
@@ -295,24 +334,35 @@ export function RealPipeline({
             {canManage &&
               !stagesState.loading &&
               !stagesState.error &&
-              stagesState.stages
-                .filter((s) => s.id !== application.stageId)
-                .map((s) => (
-                  <Button
-                    key={s.id}
-                    variant="secondary"
-                    size="sm"
-                    loading={busy}
-                    onClick={() => void moveTo(s.id)}
-                  >
-                    Move to {s.name}
-                  </Button>
-                ))}
+              moveOptions.length > 0 && (
+                <Select
+                  aria-label="Move to…"
+                  value=""
+                  disabled={busy}
+                  className="w-auto"
+                  onChange={(event) => {
+                    if (event.currentTarget.value)
+                      void moveTo(event.currentTarget.value);
+                  }}
+                >
+                  <option value="" disabled>
+                    Move to…
+                  </option>
+                  {moveOptions.map((stage) => (
+                    <option key={stage.id} value={stage.id}>
+                      {stage.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
             {canManage && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setRejecting(true)}
+                onClick={() => {
+                  setRejectError(null);
+                  setRejecting(true);
+                }}
               >
                 Reject
               </Button>
@@ -332,6 +382,12 @@ export function RealPipeline({
           </CardBody>
         </Card>
       )}
+
+      <RecordTags
+        application={application}
+        canManage={canManage}
+        onChanged={onChanged}
+      />
 
       {application.offer ? (
         <OfferCard
@@ -581,8 +637,11 @@ export function RealPipeline({
       <RejectDialog
         open={rejecting}
         busy={busy}
+        error={rejectError}
+        subject={application.candidateName}
+        reasons={reasons.items}
         onClose={() => setRejecting(false)}
-        onConfirm={reject}
+        onConfirm={(choice) => void reject(choice)}
       />
 
       <WithdrawApplicationDialog
@@ -1512,52 +1571,8 @@ function EditOfferDialog({
   );
 }
 
-function RejectDialog({
-  open,
-  busy,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  busy: boolean;
-  onClose: () => void;
-  onConfirm: (reason: string) => void;
-}) {
-  const [reason, setReason] = useState("");
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      size="md"
-      title="Reject this candidate?"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            loading={busy}
-            onClick={() => onConfirm(reason)}
-          >
-            Reject
-          </Button>
-        </>
-      }
-    >
-      <Field label="Reason" optional help="Kept internal.">
-        <Textarea
-          rows={3}
-          value={reason}
-          onChange={(e) => setReason(e.currentTarget.value)}
-        />
-      </Field>
-    </Modal>
-  );
-}
-
 /**
- * A distinct fact from `RejectDialog` — `ApplicationOutcome` has both
+ * A distinct fact from rejecting — `ApplicationOutcome` has both
  * `REJECTED` and `WITHDRAWN` as separate values, and the two controls must
  * not read as one act wearing two labels. The candidate pulling out on
  * their own is not the company turning them down, so neither this title nor
