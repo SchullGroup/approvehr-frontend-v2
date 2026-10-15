@@ -1158,6 +1158,7 @@ Appraisal periods, objectives, competencies, scoring, sign-off and the nine-box.
 | `PUT`    | `/performance/scoring-weights`                              |
 | `GET`    | `/performance/cycles/:id/scores`                            |
 | `GET`    | `/performance/cycles/:id/report`                            |
+| `GET`    | `/performance/cycles/:id/fairness`                          |
 | `GET`    | `/performance/cycles/:id/nine-box`                          |
 | `PUT`    | `/performance/cycles/:id/potential/:employeeId`             |
 | `DELETE` | `/performance/cycles/:id/potential/:employeeId`             |
