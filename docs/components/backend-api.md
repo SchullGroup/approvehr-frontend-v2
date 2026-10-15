@@ -538,7 +538,7 @@ The staff record, the reporting line and the directory.
 | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | `src/modules/employees/router.ts`       | —                                                                                                                                                    | 1 const           |
 | `src/modules/employees/schemas.ts`      | —                                                                                                                                                    | 6 const · 4 types |
-| `src/modules/employees/self-service.ts` | `selfMayTouch`, `selfNeedsApproval`, `updateOwnRecord`, `describe`, `decideChange`, `pendingFor`                                                     | 3 const · 4 types |
+| `src/modules/employees/self-service.ts` | `selfMayTouch`, `selfNeedsApproval`, `updateOwnRecord`, `describe`, `decideChange`, `pendingFor`                                                     | 4 const · 4 types |
 | `src/modules/employees/service.ts`      | `missingForPayroll`, `serialize`, `orgChart`, `serializeDirectory`, `list`, `get`, `summary`, `create`, `update`, `archive`, `restore`, `bulkAssign` | 3 types           |
 
 **Endpoints — 12**

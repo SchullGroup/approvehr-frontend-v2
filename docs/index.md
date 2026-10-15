@@ -18,6 +18,7 @@ Five things live here. Two are generated from source and three are written by ha
   a score. Each shipped because finding the first was harder than writing another.
 - **"What screens are there?"** → `pages/`.
 - **"How do I actually run an appraisal?"** → `walkthroughs/performance.md`.
+- **"How do I decide what is waiting on me?"** → `walkthroughs/approvals.md`.
 - **"Why is it like this, and may I change it?"** → `adr/`. One decision per file; read the one
   that covers a thing before you reverse it.
 
