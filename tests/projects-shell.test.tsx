@@ -175,8 +175,18 @@ describe("the project", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the backlog's sprint lists on ?view=backlog", () => {
+    search = new URLSearchParams("view=backlog");
+    render(<ProjectScreen id="pj-chk" />);
+    expect(
+      screen.getByRole("heading", { name: "Backlog", level: 2 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "CHK Sprint 4" }),
+    ).toBeInTheDocument();
+  });
+
   it.each([
-    ["backlog", "The backlog is coming next"],
     ["roadmap", "The roadmap is coming next"],
     ["reports", "Reports is coming next"],
   ])("marks %s as coming next, with a way on", (view, title) => {

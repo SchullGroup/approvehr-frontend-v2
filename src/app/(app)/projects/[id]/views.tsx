@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { ButtonLink, EmptyState } from "@/components/ui";
 import { useProject } from "@/components/projects/project-context";
+import { BacklogView } from "./backlog-view";
 import { BoardView } from "./board-view";
 import { IssuesView } from "./issues-view";
 import { SettingsView } from "./settings-view";
@@ -75,15 +76,6 @@ function ComingNext({
           Open All issues
         </ButtonLink>
       }
-    />
-  );
-}
-
-function BacklogView() {
-  return (
-    <ComingNext
-      title="The backlog"
-      description="Sprint planning will live here: drag issues into sprints, add them from a quick row, and start or complete a sprint. Until then, All issues lists everything, and the Board shows the active sprint."
     />
   );
 }

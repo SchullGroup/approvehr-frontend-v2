@@ -192,11 +192,20 @@ export function LabelChip({ label }: { label: string }) {
   );
 }
 
-export function EpicChip({ title }: { title: string }) {
+export function EpicChip({
+  title,
+  className,
+}: {
+  title: string;
+  className?: string;
+}) {
   return (
     <span
       title={title}
-      className="inline-flex max-w-[11rem] items-center gap-1 rounded-sm bg-cat-4/12 px-1.5 py-0.5 text-meta font-medium text-ink"
+      className={cn(
+        "inline-flex max-w-[11rem] items-center gap-1 rounded-sm bg-cat-4/12 px-1.5 py-0.5 text-meta font-medium text-ink",
+        className,
+      )}
     >
       <Zap aria-hidden="true" className="size-3 shrink-0 text-cat-4" />
       <span className="truncate">{title}</span>
