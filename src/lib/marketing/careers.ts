@@ -233,7 +233,11 @@ export const HONEYPOT_FIELD = "faxNumber";
  * - `invalid` — a field is wrong. `fields` says which.
  * - `rate_limited` — too many from this network or for this address. Waiting is
  *   the only fix, and `retryAfterSeconds` says how long when the API said.
- * - `duplicate` — they already applied. The API's own sentence says when.
+ * - `conflict` — the API refused because of the state of things rather than the
+ *   answers: most often the advert closed after the page was opened. A second
+ *   application is not one of these — the API answers it as it answers the first,
+ *   so that the form cannot be used to find out who has applied. The API's own
+ *   sentence says what happened.
  * - `captcha` — the "are you a person" check is on and was missing, wrong,
  *   expired or could not be run. The form shows the check and asks again.
  * - `server_error` — ours. Their answers are still in the form.
@@ -243,7 +247,7 @@ export const HONEYPOT_FIELD = "faxNumber";
 export type ApplyFailureKind =
   | "invalid"
   | "rate_limited"
-  | "duplicate"
+  | "conflict"
   | "captcha"
   | "server_error"
   | "network"
@@ -363,7 +367,7 @@ export async function apply(
       "That did not go through. Check your details and try again.";
     return failure(
       response.status === 409
-        ? "duplicate"
+        ? "conflict"
         : Object.keys(fields).length > 0
           ? "invalid"
           : "refused",

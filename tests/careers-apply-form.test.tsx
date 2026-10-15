@@ -34,7 +34,7 @@ const accepted = () =>
     },
   });
 
-async function mount(props: { captchaRequired?: boolean } = {}) {
+async function mount() {
   vi.resetModules();
   vi.stubEnv("NEXT_PUBLIC_API_URL", API);
   vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", SITE_KEY);
@@ -47,7 +47,6 @@ async function mount(props: { captchaRequired?: boolean } = {}) {
       roleSlug="payroll-analyst"
       roleTitle="Payroll Analyst"
       company="Acme Ltd"
-      {...props}
     />,
   );
   return { user };
@@ -281,12 +280,13 @@ describe("when the API refuses", () => {
     expect(screen.getByLabelText(/Surname/)).toHaveValue("Aduba");
   });
 
-  it("passes on the API's sentence when somebody has already applied", async () => {
+  it("passes on the API's sentence when the advert closed while the form was open", async () => {
     fetchMock.mockResolvedValue(
       json(409, {
         error: {
           code: "conflict",
-          message: "You applied for this role on 14 October 2026.",
+          message:
+            "Applications for Payroll Analyst closed on 14 October 2026.",
         },
       }),
     );
@@ -295,9 +295,9 @@ describe("when the API refuses", () => {
     await send(user);
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveAttribute("data-kind", "duplicate");
+    expect(alert).toHaveAttribute("data-kind", "conflict");
     expect(alert).toHaveTextContent(
-      "You applied for this role on 14 October 2026.",
+      "Applications for Payroll Analyst closed on 14 October 2026.",
     );
   });
 
@@ -356,7 +356,26 @@ describe("the check that proves somebody is a person", () => {
   const scriptTags = () =>
     document.head.querySelectorAll('script[src*="challenges.cloudflare.com"]');
 
-  it("is not on the page, and no third-party script is requested, when the API has not asked for it", async () => {
+  const required = () =>
+    json(422, {
+      error: {
+        code: "captcha_required",
+        message:
+          "Please complete the check above the Apply button, then send again.",
+      },
+    });
+
+  /** Fill in, send, and be told by the API that the check is on. */
+  async function sendUntilTheCheckAppears(
+    user: ReturnType<typeof userEvent.setup>,
+  ) {
+    fetchMock.mockResolvedValueOnce(required());
+    await fillIn(user);
+    await send(user);
+    return screen.findByTestId("captcha-slot");
+  }
+
+  it("is not on the page, and no third-party script is requested, until the API asks for it", async () => {
     const { user } = await mount();
     await fillIn(user);
 
@@ -364,68 +383,66 @@ describe("the check that proves somebody is a person", () => {
     expect(scriptTags()).toHaveLength(0);
   });
 
-  it("appears, and only then asks for the script, when the advert says the check is on", async () => {
-    await mount({ captchaRequired: true });
-
-    expect(screen.getByTestId("captcha-slot")).toBeInTheDocument();
-    await waitFor(() => expect(scriptTags()).toHaveLength(1));
-  });
-
-  it("will not send without it, says so beside the check, and spends no request", async () => {
-    const { user } = await mount({ captchaRequired: true });
-    await fillIn(user);
-    await send(user);
-
-    expect(
-      await screen.findByText("Complete the check above before you send."),
-    ).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("sends the token it earned along with the application", async () => {
-    fetchMock.mockResolvedValue(accepted());
-    const fake = turnstile();
-    window.turnstile = fake.api;
-    const { user } = await mount({ captchaRequired: true });
-    await fillIn(user);
-
-    await waitFor(() => expect(fake.api.render).toHaveBeenCalled());
-    expect(fake.api.render.mock.calls[0]?.[1]).toMatchObject({
-      sitekey: SITE_KEY,
-    });
-    fake.solve("token-123");
-    await send(user);
-
-    await screen.findByText("Application sent");
-    expect(lastBody()).toHaveProperty("captchaToken", "token-123");
-  });
-
-  it("is brought up by the API's refusal even when the advert did not say, and says what the API said", async () => {
-    fetchMock.mockResolvedValue(
-      json(422, {
-        error: {
-          code: "captcha_required",
-          message:
-            "Please complete the check above the Apply button, then send again.",
-        },
-      }),
-    );
+  it("is brought up by the API's refusal, says what the API said, and only then asks for the script", async () => {
     const { user } = await mount();
-    await fillIn(user);
-    expect(screen.queryByTestId("captcha-slot")).not.toBeInTheDocument();
-    await send(user);
+    expect(scriptTags()).toHaveLength(0);
 
-    expect(await screen.findByTestId("captcha-slot")).toBeInTheDocument();
+    await sendUntilTheCheckAppears(user);
+
     const alert = await screen.findByText(/Please complete the check above/);
     expect(alert.closest("[data-kind]")).toHaveAttribute(
       "data-kind",
       "captcha",
     );
     await waitFor(() => expect(scriptTags()).toHaveLength(1));
+    /* What was typed is still there. */
+    expect(screen.getByLabelText(/First name/)).toHaveValue("Chioma");
+  });
+
+  it("will not send again without it, says so beside the check, and spends no request", async () => {
+    const { user } = await mount();
+    await sendUntilTheCheckAppears(user);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await send(user);
+
+    expect(
+      await screen.findByText("Complete the check above before you send."),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the token it earned along with the application", async () => {
+    const fake = turnstile();
+    window.turnstile = fake.api;
+    const { user } = await mount();
+    await sendUntilTheCheckAppears(user);
+
+    await waitFor(() => expect(fake.api.render).toHaveBeenCalled());
+    expect(fake.api.render.mock.calls[0]?.[1]).toMatchObject({
+      sitekey: SITE_KEY,
+    });
+    fake.solve("token-123");
+    fetchMock.mockResolvedValueOnce(accepted());
+    await send(user);
+
+    await screen.findByText("Application sent");
+    expect(lastBody()).toHaveProperty("captchaToken", "token-123");
+    /* And the first attempt, before the check existed, carried none. */
+    const first = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as { body: string }).body,
+    ) as Sent;
+    expect(first).not.toHaveProperty("captchaToken");
   });
 
   it("asks for a fresh token after a refusal, because the first is spent", async () => {
-    fetchMock.mockResolvedValue(
+    const fake = turnstile();
+    window.turnstile = fake.api;
+    const { user } = await mount();
+    await sendUntilTheCheckAppears(user);
+    await waitFor(() => expect(fake.api.render).toHaveBeenCalled());
+    fake.solve("spent-token");
+    fetchMock.mockResolvedValueOnce(
       json(422, {
         error: {
           code: "captcha_failed",
@@ -433,12 +450,6 @@ describe("the check that proves somebody is a person", () => {
         },
       }),
     );
-    const fake = turnstile();
-    window.turnstile = fake.api;
-    const { user } = await mount({ captchaRequired: true });
-    await fillIn(user);
-    await waitFor(() => expect(fake.api.render).toHaveBeenCalled());
-    fake.solve("spent-token");
     await send(user);
 
     await screen.findByText(/did not pass/);
@@ -448,11 +459,32 @@ describe("the check that proves somebody is a person", () => {
     expect(
       await screen.findByText("Complete the check above before you send."),
     ).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("says what the API said when it could not run the check, rather than calling the server down", async () => {
+    const { user } = await mount();
+    fetchMock.mockResolvedValueOnce(
+      json(503, {
+        error: {
+          code: "captcha_unavailable",
+          message:
+            "We could not run the check just now. Wait a minute and try again.",
+        },
+      }),
+    );
+    await fillIn(user);
+    await send(user);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveAttribute("data-kind", "captcha");
+    expect(alert).toHaveTextContent("We could not run the check just now.");
+    expect(alert).not.toHaveTextContent("on our side, not yours");
   });
 
   it("says plainly when the check cannot load, and offers to try again", async () => {
-    await mount({ captchaRequired: true });
+    const { user } = await mount();
+    await sendUntilTheCheckAppears(user);
     const tag = await waitFor(() => {
       const found = scriptTags()[0] as HTMLScriptElement | undefined;
       if (!found) throw new Error("no script yet");
@@ -460,12 +492,13 @@ describe("the check that proves somebody is a person", () => {
     });
     tag.onerror?.(new Event("error"));
 
-    const alert = await screen.findByRole("alert");
+    /* Found by its text: the API's refusal is an alert too, and is already on
+       the page, so "any alert" would be satisfied before the load failure. */
+    const loadFailure = (
+      await screen.findByText(/The check did not load/)
+    ).closest('[role="alert"]') as HTMLElement;
     expect(
-      within(alert).getByText(/The check did not load/),
-    ).toBeInTheDocument();
-    expect(
-      within(alert).getByRole("button", { name: "Try loading it again" }),
+      within(loadFailure).getByRole("button", { name: "Try loading it again" }),
     ).toBeInTheDocument();
   });
 });
