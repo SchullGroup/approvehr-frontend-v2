@@ -18,6 +18,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { ProjectSourceTag } from "@/components/projects/project-source-tag";
 import { ApiError } from "@/lib/api/client";
 import type { ApiTaskForGrading, ApiTaskGrade } from "@/lib/api/performance";
 import { dayOf } from "@/lib/api/performance";
@@ -218,6 +219,11 @@ export function ReviewTasksTab() {
                           <TD>{task.goalTitle}</TD>
                           <TD className="max-w-xs">
                             <LinkedText>{task.description}</LinkedText>
+                            {task.projectSource && (
+                              <div className="mt-1.5">
+                                <ProjectSourceTag source={task.projectSource} />
+                              </div>
+                            )}
                           </TD>
                           <TD align="right">
                             <GradeActions
@@ -261,6 +267,11 @@ export function ReviewTasksTab() {
                         <p className="text-body-sm text-body">
                           <LinkedText>{task.description}</LinkedText>
                         </p>
+                        {task.projectSource && (
+                          <div>
+                            <ProjectSourceTag source={task.projectSource} />
+                          </div>
+                        )}
                         <GradeActions
                           task={task}
                           busy={grading === task.id}

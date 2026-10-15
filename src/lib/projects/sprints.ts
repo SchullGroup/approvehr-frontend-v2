@@ -59,8 +59,13 @@ export function nextSprintDraft(
     .sort()
     .pop();
   const startDate = lastEnd && lastEnd >= today ? addDays(lastEnd, 1) : today;
+  /* One more than the sprints there are, unless that name is taken: after a
+     sprint is deleted, "Sprint 3" can already exist with only two sprints left. */
+  const taken = new Set(sprints.map((s) => s.name.toLowerCase()));
+  let n = sprints.length + 1;
+  while (taken.has(`${project.key} Sprint ${n}`.toLowerCase())) n += 1;
   return {
-    name: `${project.key} Sprint ${sprints.length + 1}`,
+    name: `${project.key} Sprint ${n}`,
     startDate,
     endDate: addDays(startDate, DEFAULT_SPRINT_DAYS - 1),
   };
@@ -113,8 +118,16 @@ export function completeSprint(
   );
   const destination = move === "new" ? (newSprint?.id ?? null) : move;
 
+  /* What moves: each unfinished top-level issue and all of its sub-tasks, as the
+     API does. A finished parent keeps its sub-tasks with it, finished or not —
+     a sub-task never has a sprint of its own. */
+  const open = new Set(
+    top.filter((i) => !isDone(data.project.statuses, i)).map((i) => i.id),
+  );
   const unfinished = new Set(
-    scope.filter((i) => !isDone(data.project.statuses, i)).map((i) => i.id),
+    scope
+      .filter((i) => open.has(i.id) || (i.parentId && open.has(i.parentId)))
+      .map((i) => i.id),
   );
   const issues = data.issues.map((issue) =>
     unfinished.has(issue.id)

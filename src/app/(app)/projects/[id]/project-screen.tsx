@@ -38,7 +38,7 @@ import {
   useProjectActor,
   useProjectsGate,
 } from "@/lib/store/project-session";
-import { useOrgTimezone } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { dayIn, todayIn } from "@/lib/time";
 import { DEFAULT_VIEW, PROJECT_VIEWS, viewById } from "./views";
 
@@ -141,6 +141,8 @@ function ProjectShell({
   const actions = useProjectActions(project.id);
   const timeZone = useOrgTimezone();
   const today = todayIn(timeZone);
+  /* Objectives and the weekly-task bridge are the API's: the demo has neither. */
+  const { isConnected: connected } = useSession();
 
   const [filter, setFilter] = useState<IssueFilter>(EMPTY_FILTER);
   const [create, setCreate] = useState<{
@@ -301,6 +303,7 @@ function ProjectShell({
       actions,
       people,
       meId,
+      connected,
       canWork,
       canManage,
       timeZone,
@@ -321,6 +324,7 @@ function ProjectShell({
       actions,
       people,
       meId,
+      connected,
       canWork,
       canManage,
       timeZone,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import {
@@ -17,6 +17,7 @@ import { IssueFilterBar } from "@/components/projects/issue-filter-bar";
 import { PersonAvatar } from "@/components/projects/person";
 import { useProject } from "@/components/projects/project-context";
 import { TypeIcon } from "@/components/projects/glyphs";
+import { CompleteSprintDialog } from "@/components/projects/sprint-dialogs";
 import { useQueryParam } from "@/components/projects/use-query-param";
 import {
   SWIMLANE_LABEL,
@@ -67,6 +68,7 @@ export function BoardView() {
     people,
     actions,
     canWork,
+    canManage,
     today,
     dayOf,
     openIssue,
@@ -74,6 +76,7 @@ export function BoardView() {
   } = useProject();
 
   const [lanesParam, setLanesParam] = useQueryParam("lanes", "none");
+  const [completing, setCompleting] = useState(false);
   const mode: Swimlanes =
     lanesParam === "assignee" || lanesParam === "epic" ? lanesParam : "none";
 
@@ -183,6 +186,20 @@ export function BoardView() {
     if (patch) void actions.patchIssue(issue, patch);
   };
 
+  const sprint = scope.sprint;
+
+  /* Kept mounted across the board becoming "No active sprint": completing the
+     sprint is exactly what removes the header it was opened from, and the dialog
+     should leave the way it arrived. A `key`, so it is the same dialog in both. */
+  const completeDialog = (
+    <CompleteSprintDialog
+      key="complete-sprint"
+      sprint={sprint}
+      open={completing}
+      onClose={() => setCompleting(false)}
+    />
+  );
+
   /* Scrum with nothing started: the board has nothing to show, and the next
      step is the backlog. */
   if (project.type === "SCRUM" && !scope.sprint) {
@@ -200,17 +217,19 @@ export function BoardView() {
             </ButtonLink>
           }
         />
+        {completeDialog}
       </div>
     );
   }
 
-  const sprint = scope.sprint;
   const filtering = isFiltering(filter);
 
   return (
     <div className="space-y-5">
       {sprint ? (
-        <SprintHeader />
+        <SprintHeader
+          {...(canManage ? { onComplete: () => setCompleting(true) } : {})}
+        />
       ) : (
         <div>
           <h2 className="text-h4 text-ink">Kanban board</h2>
@@ -416,6 +435,8 @@ export function BoardView() {
           <span className="tabular text-muted">{held.key}</span> {held.title}
         </DragGhost>
       )}
+
+      {completeDialog}
     </div>
   );
 }
@@ -440,7 +461,7 @@ function cardBefore(
   return null;
 }
 
-function SprintHeader() {
+function SprintHeader({ onComplete }: { onComplete?: () => void }) {
   const { project, issues, sprints, today } = useProject();
   const sprint = sprints.find((s) => s.state === "ACTIVE");
   if (!sprint) return null;
@@ -449,7 +470,14 @@ function SprintHeader() {
   const tone: BadgeTone = late ? "danger" : "neutral";
   return (
     <div className="space-y-1.5">
-      <h2 className="text-h4 text-ink">{sprint.name}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-h4 text-ink">{sprint.name}</h2>
+        {onComplete && (
+          <Button size="sm" onClick={onComplete}>
+            Complete sprint
+          </Button>
+        )}
+      </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-body-sm text-muted">
         {sprint.goal && <span>{sprint.goal}</span>}
         {sprint.startDate && sprint.endDate && (

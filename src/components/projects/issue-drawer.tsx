@@ -21,6 +21,7 @@ import {
   storiesOf,
 } from "@/lib/projects/mutations";
 import { canDeleteComment } from "@/lib/projects/access";
+import { weeklyTaskLine } from "@/lib/projects/objectives";
 import { byRank } from "@/lib/projects/rank";
 import { countProgress } from "@/lib/projects/progress";
 import {
@@ -44,6 +45,7 @@ import { CommentItem } from "./comment-item";
 import { DraftHeading, DraftInput, DraftTextarea } from "./draft-fields";
 import { IssueKey, StatusPill, TypeIcon } from "./glyphs";
 import { MentionComposer } from "./mention-composer";
+import { IssueObjectiveLink } from "./objective-link";
 import { PersonAvatar, PersonName, PersonPicker } from "./person";
 import { SectionTabs } from "./section-tabs";
 import { closeTopPopup } from "./popups";
@@ -224,15 +226,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
 
   /* Said only when the API says it: nothing for an epic, a sub-task, an
      unassigned or unfinished issue, and nothing at all in the demo. */
-  const weekly = issue.weeklyTask;
-  const bridgeNote =
-    weekly?.state === "NOT_COUNTED"
-      ? weekly.message
-      : weekly?.state === "FILED"
-        ? weekly.graded
-          ? "Filed as a weekly task, and graded"
-          : "Filed as a weekly task"
-        : null;
+  const bridgeNote = weeklyTaskLine(issue.weeklyTask);
 
   return (
     <div className="space-y-5">
@@ -595,6 +589,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                 </Button>
               </div>
             )}
+          <IssueObjectiveLink issue={issue} />
           {bridgeNote && (
             <p className="text-meta leading-snug text-muted">{bridgeNote}</p>
           )}
