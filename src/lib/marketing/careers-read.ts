@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import {
   API_URL,
   parseRetryAfter,
+  type PublicBranding,
   type PublicRole,
   type PublicRoleDetail,
   type ReadFailure,
@@ -88,7 +89,9 @@ async function readRefusal(
   };
 }
 
-async function read<T>(path: string): Promise<ReadResult<T>> {
+async function read<T, M = undefined>(
+  path: string,
+): Promise<ReadResult<T> & { meta?: M }> {
   const fail = (
     reason: ReadFailure,
     retryAfterSeconds: number | null = null,
@@ -131,8 +134,12 @@ async function read<T>(path: string): Promise<ReadResult<T>> {
       );
     }
     if (!response.ok) return fail("server_error");
-    const body = (await response.json()) as { data: T };
-    return { ok: true, value: body.data };
+    const body = (await response.json()) as { data: T; meta?: M };
+    return {
+      ok: true,
+      value: body.data,
+      ...(body.meta !== undefined ? { meta: body.meta } : {}),
+    };
   } catch {
     return fail("unreachable");
   } finally {
@@ -140,11 +147,37 @@ async function read<T>(path: string): Promise<ReadResult<T>> {
   }
 }
 
-/** Every live advert for one company. Closed ones drop off this list. */
-export const listRoles = (orgSlug: string): Promise<ReadResult<PublicRole[]>> =>
-  read<PublicRole[]>(
-    `/careers/public/${encodeURIComponent(orgSlug)}?pageSize=100`,
-  );
+/**
+ * Every live advert for one company. Closed ones drop off this list.
+ *
+ * `company` and `branding` ride in the response's `meta`: the paged envelope
+ * carries `data` and `meta` only, so that is the one place the company's name
+ * survives the wire. Absent from an API that predates it, in which case the page
+ * goes on not naming the company rather than guessing one from the address.
+ */
+export type RoleList = {
+  roles: PublicRole[];
+  company: string | null;
+  branding: PublicBranding | null;
+};
+
+export async function listRoles(
+  orgSlug: string,
+): Promise<ReadResult<RoleList>> {
+  const result = await read<
+    PublicRole[],
+    { company?: string; branding?: PublicBranding }
+  >(`/careers/public/${encodeURIComponent(orgSlug)}?pageSize=100`);
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    value: {
+      roles: result.value,
+      company: result.meta?.company ?? result.meta?.branding?.name ?? null,
+      branding: result.meta?.branding ?? null,
+    },
+  };
+}
 
 /** One advert, in full. Stays readable after its closing date. */
 export const getRole = (

@@ -359,9 +359,18 @@ describe("one role", () => {
 
     const slot = screen.getByTestId("captcha-slot");
     expect(slot).not.toHaveAttribute("data-state", "no-site-key");
-    /* Whether a file can be attached is not this form's business yet, and says
-       so rather than offering a field: no file input appears. */
+    /* An API that says it can take a file gets a file box for the CV. */
+    expect(document.querySelector('input[type="file"]')).not.toBeNull();
+  });
+
+  it("offers no file box when the API cannot take one, and says to paste a link", async () => {
+    fetchMock.mockResolvedValue(json(200, { data: detail({}) }));
+    await openRole();
+
     expect(document.querySelector('input[type="file"]')).toBeNull();
+    expect(
+      screen.getByText(/put a link to your CV in the note/),
+    ).toBeInTheDocument();
   });
 
   it("says plainly that the form cannot be sent when the API needs the check and this site has no key for it", async () => {

@@ -1,12 +1,18 @@
 import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { CalendarClock, MapPin } from "lucide-react";
 import { CareersNotice } from "@/components/marketing/careers-notice";
-import { Pill } from "@/components/marketing/pill";
-import { Reveal } from "@/components/marketing/motion";
-import { payRange, readableDate, workTypeLabel } from "@/lib/marketing/careers";
+import { JsonLd } from "@/components/marketing/json-ld";
+import { Closed, RoleView } from "@/components/marketing/role-view";
+import {
+  cleanSource,
+  careersPageUrl,
+  formFromDetail,
+  jobPostingJsonLd,
+  readableDate,
+} from "@/lib/marketing/careers";
 import { getRole } from "@/lib/marketing/careers-read";
+import { SITE_URL } from "@/lib/marketing/site";
 import { ApplyForm } from "./apply-form";
 
 /**
@@ -38,18 +44,54 @@ export async function generateMetadata({
   const { org, role } = await params;
   const result = await readRole(org, role);
   if (!result.ok) return { title: "Job" };
+  const detail = result.value;
+  const title = detail.seo?.title ?? `${detail.title}, ${detail.company}`;
+  const url = careersPageUrl(SITE_URL, org, detail.slug);
   return {
-    title: `${result.value.title}, ${result.value.company}`,
-    description: result.value.summary,
+    title,
+    description: detail.summary,
+    alternates: { canonical: url },
+    /* A company that asked not to be listed stays readable by anybody with the
+       link and out of search results; so does an advert that has closed. */
+    ...(detail.seo?.indexable === false || !detail.acceptingApplications
+      ? { robots: { index: false, follow: true } }
+      : {}),
+    openGraph: {
+      type: "website",
+      title,
+      description: detail.summary,
+      url,
+      siteName: detail.company,
+    },
+    twitter: { card: "summary", title, description: detail.summary },
   };
 }
 
 export default async function RolePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ org: string; role: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { org, role: roleSlug } = await params;
+  /* `?src=` is where the visitor came from. Taken here, on the server, so the
+     form is handed a cleaned string and no client code reads the address bar. */
+  const query = searchParams ? await searchParams : {};
+  const first = (value: string | string[] | undefined) =>
+    cleanSource(Array.isArray(value) ? value[0] : value);
+  const src = first(query["src"]);
+  const utm = {
+    ...(first(query["utm_source"])
+      ? { source: first(query["utm_source"])! }
+      : {}),
+    ...(first(query["utm_medium"])
+      ? { medium: first(query["utm_medium"])! }
+      : {}),
+    ...(first(query["utm_campaign"])
+      ? { campaign: first(query["utm_campaign"])! }
+      : {}),
+  };
   const result = await readRole(org, roleSlug);
 
   /* A draft, a closed-and-unpublished advert and a typo are all the same 404 —
@@ -75,119 +117,39 @@ export default async function RolePage({
   }
 
   const role = result.value;
-  const pay = payRange(role);
+  const { form, uploadsEnabled } = formFromDetail(role);
+  const jsonLd = jobPostingJsonLd(role, {
+    siteUrl: SITE_URL,
+    org,
+    roleSlug: role.slug,
+  });
 
   return (
-    <section className="px-4 pb-28 pt-16 sm:pt-24">
-      <div className="container-page grid gap-14 lg:grid-cols-[1.15fr_1fr] lg:gap-20">
-        <Reveal>
-          <div>
-            <p className="mb-3 text-meta font-semibold text-slate-muted">
-              {role.company}
-            </p>
-            <h1 className="text-h1 text-slate">{role.title}</h1>
-            <p className="mt-5 text-lead text-slate-muted">{role.summary}</p>
-
-            <dl className="mt-8 flex flex-wrap gap-2.5">
-              <Fact
-                label="Type of work"
-                value={workTypeLabel(role.employmentType)}
-              />
-              {role.location && (
-                <Fact
-                  label="Where"
-                  value={role.location}
-                  icon={<MapPin aria-hidden="true" className="size-3.5" />}
-                />
-              )}
-              {pay && <Fact label="Pay" value={pay} tabular />}
-              {role.closesOn && (
-                <Fact
-                  label="Last day to apply"
-                  value={readableDate(role.closesOn)}
-                  icon={
-                    <CalendarClock aria-hidden="true" className="size-3.5" />
-                  }
-                />
-              )}
-            </dl>
-
-            {role.postedOn && (
-              <p className="mt-5 text-body-sm text-slate-muted">
-                Posted {readableDate(role.postedOn)}
-              </p>
-            )}
-
-            {/* The advert as it was written. Kept as typed rather than parsed —
-                a job description is somebody's own words about their own
-                company, and reformatting it is how a paragraph loses a line. */}
-            <div className="mt-10 whitespace-pre-line border-t border-sand-line pt-10 text-body leading-relaxed">
-              {role.description}
-            </div>
-          </div>
-        </Reveal>
-
-        <Reveal delay={100}>
-          <div className="lg:sticky lg:top-28">
-            {role.acceptingApplications ? (
-              <ApplyForm
-                org={org}
-                roleSlug={role.slug}
-                roleTitle={role.title}
-                company={role.company}
-                captchaRequired={role.captchaRequired === true}
-              />
-            ) : (
-              <Closed
-                org={org}
-                closedOn={role.closesOn ? readableDate(role.closesOn) : null}
-              />
-            )}
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-function Fact({
-  label,
-  value,
-  icon,
-  tabular = false,
-}: {
-  label: string;
-  value: string;
-  icon?: React.ReactNode;
-  tabular?: boolean;
-}) {
-  return (
-    <div className="inline-flex items-center gap-1.5 rounded-full border border-sand-line bg-white px-3.5 py-2 text-body-sm text-slate-soft">
-      <dt className="sr-only-focusable">{label}</dt>
-      <dd className={`flex items-center gap-1.5 ${tabular ? "tabular" : ""}`}>
-        {icon}
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function Closed({ org, closedOn }: { org: string; closedOn: string | null }) {
-  return (
-    <div className="rounded-3xl border border-sand-line bg-white/70 p-7 sm:p-9">
-      <h2 className="text-h3 text-slate">Applications have closed</h2>
-      <p className="mt-3 text-body leading-relaxed">
-        {closedOn
-          ? `The last day to apply was ${closedOn}.`
-          : "This role is no longer taking applications."}
-      </p>
-      <div className="mt-8">
-        <Pill href={`/careers/${org}`} variant="solid" arrow>
-          See what else is open
-        </Pill>
-      </div>
-    </div>
+    <>
+      {jsonLd && <JsonLd data={jsonLd} />}
+      <RoleView
+        role={role}
+        aside={
+          role.acceptingApplications ? (
+            <ApplyForm
+              org={org}
+              roleSlug={role.slug}
+              roleTitle={role.title}
+              company={role.company}
+              captchaRequired={role.captchaRequired === true}
+              uploadsEnabled={uploadsEnabled}
+              form={form}
+              src={src}
+              utm={utm}
+            />
+          ) : (
+            <Closed
+              org={org}
+              closedOn={role.closesOn ? readableDate(role.closesOn) : null}
+            />
+          )
+        }
+      />
+    </>
   );
 }

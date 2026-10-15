@@ -91,6 +91,11 @@ describe("sending an application", () => {
     expect(
       screen.getByText("We need an email to reply to."),
     ).toBeInTheDocument();
+    /* Focus goes to the summary of what is wrong, and each line in it goes to
+       its box. */
+    const summary = screen.getByTestId("apply-error-summary");
+    expect(summary).toHaveFocus();
+    await user.click(within(summary).getByRole("link", { name: "First name" }));
     expect(screen.getByLabelText(/First name/)).toHaveFocus();
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -117,7 +122,7 @@ describe("sending an application", () => {
        confirmation email will arrive" read as a failure. What is true is that we
        do not send one yet, and that the company will be in touch. */
     expect(panel).not.toHaveTextContent(/not connected/i);
-    expect(panel).toHaveTextContent("We do not send a confirmation email yet");
+    expect(panel).toHaveTextContent("We have not sent a confirmation email");
     expect(panel).toHaveTextContent("chioma@example.com");
     expect(panel).toHaveTextContent("Acme Ltd will contact you directly");
   });

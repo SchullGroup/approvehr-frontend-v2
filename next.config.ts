@@ -135,6 +135,45 @@ const challengeOrigin = process.env["NEXT_PUBLIC_TURNSTILE_SITE_KEY"]?.trim()
   ? " https://challenges.cloudflare.com"
   : "";
 
+/**
+ * Where an applicant's browser may send a file.
+ *
+ * The apply form uploads a CV straight to object storage through an address the
+ * API signs, and the browser enforces `connect-src` on that request like any
+ * other: without the bucket's origin here the upload is refused by the browser
+ * before it leaves, and the applicant is told their connection dropped. Storage
+ * is the API's to configure, not this build's to discover, so the origin comes
+ * from `NEXT_PUBLIC_UPLOAD_ORIGINS` — one or more origins, comma separated, e.g.
+ * `https://approvehr-uploads.s3.us-east-1.amazonaws.com`.
+ *
+ * Deliberately **not** `https://*.amazonaws.com`: that is every bucket anybody
+ * owns, which is a way out for data as much as a way in. Only `https:` origins are
+ * accepted from the variable (and `http://localhost` in a development build, where
+ * the fake storage the tests use lives); anything else is dropped rather than
+ * trusted, and a malformed entry does not take the build down over a header.
+ */
+const uploadOrigins = (() => {
+  const origins = new Set<string>();
+  for (const raw of (process.env["NEXT_PUBLIC_UPLOAD_ORIGINS"] ?? "").split(
+    ",",
+  )) {
+    const value = raw.trim();
+    if (!value) continue;
+    try {
+      const url = new URL(value);
+      const local =
+        process.env.NODE_ENV !== "production" &&
+        url.protocol === "http:" &&
+        (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+      if (url.protocol === "https:" || local) origins.add(url.origin);
+    } catch {
+      /* skip it */
+    }
+  }
+  origins.delete(apiOrigin);
+  return [...origins];
+})();
+
 const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -159,10 +198,12 @@ const CSP = [
   "manifest-src 'self'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob:",
+  /* The API's origin too, for one thing: a company's logo on its careers page is
+     served by the API (`/careers/public/{org}/logo`). */
+  `img-src 'self' data: blob:${apiOrigin ? ` ${apiOrigin}` : ""}`,
   `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""}${
     errorReportOrigin ? ` ${errorReportOrigin}` : ""
-  }`,
+  }${uploadOrigins.map((origin) => ` ${origin}`).join("")}`,
   "upgrade-insecure-requests",
 ].join("; ");
 
