@@ -14,6 +14,7 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ProjectKeyChip } from "@/components/projects/glyphs";
 import { ProjectsOff } from "@/components/projects/module-off";
+import { isModuleOff } from "@/lib/api/projects";
 import { canCreateProject, canSeeProject } from "@/lib/projects/access";
 import { PROJECT_TYPE_LABEL, type Project } from "@/lib/projects/types";
 import { useProjectList } from "@/lib/store/projects";
@@ -78,6 +79,9 @@ function List() {
     [actor, scope],
   );
   const list = useProjectList(scope, visible);
+  /* The flags can lag the API by a moment: if it says the module is off, so is it. */
+  if (list.status === "error" && isModuleOff(list.error))
+    return <ProjectsOff />;
   const canCreate = canCreateProject(actor);
   const projects = [...list.projects].sort((a, b) =>
     a.name.localeCompare(b.name),

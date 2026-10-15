@@ -14,7 +14,6 @@ import {
 import { cn } from "@/lib/cn";
 import { openSprints } from "@/lib/projects/board";
 import { describeActivity, type HistoryLookup } from "@/lib/projects/history";
-import { bodySegments } from "@/lib/projects/mentions";
 import {
   childrenOf,
   parseLabels,
@@ -41,6 +40,7 @@ import {
 import { useIssueThread } from "@/lib/store/projects";
 import { useProjectActor } from "@/lib/store/project-session";
 import { formatDateTimeShort } from "@/lib/time";
+import { CommentItem } from "./comment-item";
 import { DraftHeading, DraftInput, DraftTextarea } from "./draft-fields";
 import { IssueKey, StatusPill, TypeIcon } from "./glyphs";
 import { MentionComposer } from "./mention-composer";
@@ -142,7 +142,6 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
   const [confirming, setConfirming] = useState(false);
   const [tab, setTab] = useState<"comments" | "history">("comments");
   const [quickAdd, setQuickAdd] = useState("");
-  const [removing, setRemoving] = useState<string | null>(null);
 
   const statuses = useMemo(
     () => sortStatuses(project.statuses),
@@ -223,11 +222,17 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
 
   const canDelete = (c: IssueComment) => canDeleteComment(actor, project, c);
 
+  /* Said only when the API says it: nothing for an epic, a sub-task, an
+     unassigned or unfinished issue, and nothing at all in the demo. */
+  const weekly = issue.weeklyTask;
   const bridgeNote =
-    thread.bridge?.status === "NOT_COUNTED"
-      ? (thread.bridge.message ??
-        "Not counted toward a weekly task — link this issue or the project to an objective")
-      : null;
+    weekly?.state === "NOT_COUNTED"
+      ? weekly.message
+      : weekly?.state === "FILED"
+        ? weekly.graded
+          ? "Filed as a weekly task, and graded"
+          : "Filed as a weekly task"
+        : null;
 
   return (
     <div className="space-y-5">
@@ -475,74 +480,28 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                 ) : (
                   <ul className="space-y-4">
                     {comments.map((comment) => (
-                      <li key={comment.id} className="flex gap-3">
-                        <PersonAvatar
-                          people={people}
-                          id={comment.authorId}
-                          size="sm"
-                          decorative
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-                            <span className="text-body-sm font-semibold text-ink">
-                              {people.nameOf(comment.authorId)}
-                            </span>
-                            <time
-                              dateTime={comment.createdAt}
-                              className="text-meta text-muted"
-                            >
-                              {formatDateTimeShort(comment.createdAt, timeZone)}
-                            </time>
-                            {canDelete(comment) &&
-                              (removing === comment.id ? (
-                                <span className="inline-flex items-center gap-2 text-meta">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setRemoving(null);
-                                      void actions.deleteComment(
-                                        issue.id,
-                                        comment.id,
-                                      );
-                                    }}
-                                    className="font-medium text-danger-text underline-offset-4 hover:underline"
-                                  >
-                                    Delete this comment
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setRemoving(null)}
-                                    className="text-muted underline-offset-4 hover:underline"
-                                  >
-                                    Keep it
-                                  </button>
-                                </span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setRemoving(comment.id)}
-                                  className="text-meta text-muted underline-offset-4 hover:text-danger-text hover:underline"
-                                >
-                                  Delete
-                                </button>
-                              ))}
-                          </div>
-                          <p className="mt-0.5 whitespace-pre-wrap break-words text-body-sm text-ink">
-                            {bodySegments(comment.body).map((segment, i) =>
-                              segment.kind === "mention" ? (
-                                <span
-                                  key={i}
-                                  className="rounded-sm bg-accent-soft px-1 font-medium text-accent-text"
-                                >
-                                  @{people.nameOf(segment.employeeId)}
-                                </span>
-                              ) : (
-                                <span key={i}>{segment.text}</span>
-                              ),
-                            )}
-                          </p>
-                        </div>
-                      </li>
+                      <CommentItem
+                        key={comment.id}
+                        comment={comment}
+                        people={people}
+                        memberIds={project.memberIds}
+                        meId={meId}
+                        timeZone={timeZone}
+                        canEdit={meId !== null && comment.authorId === meId}
+                        canDelete={canDelete(comment)}
+                        onSave={async (body) =>
+                          (
+                            await actions.editComment(
+                              issue.id,
+                              comment.id,
+                              body,
+                            )
+                          ).ok
+                        }
+                        onDelete={() =>
+                          void actions.deleteComment(issue.id, comment.id)
+                        }
+                      />
                     ))}
                   </ul>
                 )}

@@ -29,6 +29,25 @@ export function encodeMentions(
   return out;
 }
 
+/**
+ * A stored body as the text a person would edit: `<@id>` becomes `@Name`, and the
+ * names are returned with their ids so posting can store them again. Two people
+ * with one name cannot both be restored; the later one wins, which is the same
+ * ambiguity typing `@Name` has.
+ */
+export function decodeMentions(
+  body: string,
+  nameOf: (employeeId: string) => string,
+): { text: string; mentions: Record<string, string> } {
+  const mentions: Record<string, string> = {};
+  const text = body.replace(new RegExp(`<@(${ID})>`, "g"), (_, id: string) => {
+    const name = nameOf(id).replace(/\s+/g, " ");
+    mentions[name] = id;
+    return `@${name}`;
+  });
+  return { text, mentions };
+}
+
 /** The ids mentioned in a stored body, once each, in order. */
 export function mentionedIds(body: string): string[] {
   const ids: string[] = [];

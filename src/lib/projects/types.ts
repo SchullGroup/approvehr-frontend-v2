@@ -138,11 +138,23 @@ export type Project = {
   createdById: string;
   createdAt: string;
   updatedAt: string;
+  /** The lead's name, so a card can say it before the directory has loaded. */
+  leadName: string | null;
   /**
    * Issues not yet in a DONE status, when the list endpoint says so.
    * `null` means "not told", which a card must not render as zero.
    */
   openIssueCount: number | null;
+  /** Every issue, epics and sub-tasks included. `null` when not told. */
+  issueCount: number | null;
+  /** The running sprint, if there is one. */
+  activeSprintId: string | null;
+  /**
+   * Whether the signed-in person may change settings, as the API says it. `null`
+   * where the API did not say (the demo), and the screen falls back to the same
+   * rule worked out from the project: the lead, or somebody who manages records.
+   */
+  canManage: boolean | null;
 };
 
 export type Sprint = {
@@ -183,6 +195,9 @@ export type Issue = {
   rank: number;
   doneAt: string | null;
   goalId: string | null;
+  /** What the weekly-task bridge says about this issue, when the API says anything. */
+  weeklyTask: IssueWeeklyTask | null;
+  commentCount: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -193,6 +208,8 @@ export type IssueComment = {
   authorId: string;
   /** Mentions are stored as `<@employeeId>`. */
   body: string;
+  /** Set once the author has changed it after posting. */
+  editedAt: string | null;
   createdAt: string;
 };
 
@@ -210,18 +227,22 @@ export type IssueActivity = {
 /**
  * What the weekly-task bridge says about an issue, only when the API says it.
  *
- * `NOT_COUNTED` carries the one plain line to show. Demo mode never has one: it
- * files nothing, so claiming either outcome would be inventing it.
+ * `null` is "nothing to say": an epic, a sub-task, an unassigned or unfinished
+ * issue. `NOT_COUNTED` carries the API's own sentence, to be shown as it is.
+ * Demo mode never has one — it files nothing, so claiming either outcome would
+ * be inventing it.
  */
-export type IssueBridge = {
-  status: "FILED" | "NOT_COUNTED";
-  message: string | null;
-};
+export type IssueWeeklyTask =
+  | { state: "FILED"; taskId: string; graded: boolean }
+  | {
+      state: "NOT_COUNTED";
+      reason: "NO_OBJECTIVE" | "OBJECTIVE_NOT_USABLE" | "WEEK_CLOSED";
+      message: string;
+    };
 
 export type IssueThread = {
   comments: IssueComment[];
   activity: IssueActivity[];
-  bridge: IssueBridge | null;
 };
 
 /** Everything the project screen needs about one project. */
@@ -239,8 +260,19 @@ export type NewProjectInput = {
   type: ProjectType;
   departmentId: string | null;
   description: string;
-  /** Employees to start with besides the creator. Seeded from the department when it is chosen. */
+  /**
+   * Add everyone active in the department as members, once, when the project is
+   * made. Connected, the API does it (it can see everybody); the demo uses
+   * `memberIds`.
+   */
+  seedMembersFromDepartment: boolean;
+  /** Employees to start with besides the creator. What the demo seeds from. */
   memberIds: string[];
+  /**
+   * The lead, when it is not the person creating the project. Required for a
+   * sign-in with no staff record behind it, which cannot lead anything itself.
+   */
+  leadId?: string;
 };
 
 export type ProjectPatch = Partial<{

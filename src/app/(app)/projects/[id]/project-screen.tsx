@@ -6,6 +6,7 @@ import { FolderKanban, Plus } from "lucide-react";
 import {
   Badge,
   Button,
+  Callout,
   EmptyState,
   LinkTabs,
   Skeleton,
@@ -23,6 +24,7 @@ import {
   type ProjectContextValue,
 } from "@/components/projects/project-context";
 import { canManageProject, canWorkInProject } from "@/lib/projects/access";
+import { isModuleOff } from "@/lib/api/projects";
 import { EMPTY_FILTER, type IssueFilter } from "@/lib/projects/filters";
 import {
   PROJECT_TYPE_LABEL,
@@ -57,6 +59,10 @@ export function ProjectScreen({ id }: { id: string }) {
   if (!gate.enabled) return <ProjectsOff />;
 
   if (project.status === "loading") return <ScreenSkeleton />;
+  /* The flags can lag the API by a moment: if it says the module is off, so is it. */
+  if (project.status === "error" && isModuleOff(project.error)) {
+    return <ProjectsOff />;
+  }
   if (project.status === "error") {
     return (
       <>
@@ -92,7 +98,7 @@ export function ProjectScreen({ id }: { id: string }) {
     );
   }
 
-  return <ProjectShell key={id} data={project.data} />;
+  return <ProjectShell key={id} data={project.data} capped={project.capped} />;
 }
 
 function ScreenSkeleton() {
@@ -118,7 +124,13 @@ function ScreenSkeleton() {
   );
 }
 
-function ProjectShell({ data }: { data: ProjectData }) {
+function ProjectShell({
+  data,
+  capped,
+}: {
+  data: ProjectData;
+  capped: boolean;
+}) {
   const { project, issues, sprints } = data;
   const router = useRouter();
   const pathname = usePathname();
@@ -137,7 +149,9 @@ function ProjectShell({ data }: { data: ProjectData }) {
   }>({ open: false, defaults: {} });
 
   const canWork = canWorkInProject(actor, project);
-  const canManage = canManageProject(actor, project);
+  /* The API's own answer where it gave one; the same rule worked out here where
+     it did not (the demo). */
+  const canManage = project.canManage ?? canManageProject(actor, project);
   const meId = actor.employeeId;
 
   const view = viewById(params.get("view") ?? DEFAULT_VIEW);
@@ -346,7 +360,13 @@ function ProjectShell({ data }: { data: ProjectData }) {
           />
         }
       />
-      <PageBody>
+      <PageBody className="space-y-5">
+        {capped && (
+          <Callout tone="warning" title="Only the first 5,000 issues are shown">
+            This project has more than that. Filters and counts here work on
+            what is shown.
+          </Callout>
+        )}
         <View />
       </PageBody>
 

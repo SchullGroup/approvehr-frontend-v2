@@ -21,6 +21,7 @@ import { ProjectKeyChip } from "@/components/projects/glyphs";
 import { PersonAvatar, PersonPicker } from "@/components/projects/person";
 import { useProject } from "@/components/projects/project-context";
 import { MANAGE_REASON } from "@/lib/projects/access";
+import { removalHolders, removalRefusal } from "@/lib/projects/members";
 import {
   PROJECT_COLORS,
   PROJECT_COLOR_NAMES,
@@ -250,13 +251,34 @@ function DetailsCard({ editable }: { editable: boolean }) {
 /* ----------------------------------------------------------------- members -- */
 
 function MembersCard({ editable }: { editable: boolean }) {
-  const { project, people, actions } = useProject();
+  const { project, issues, people, actions } = useProject();
   const toast = useToast();
   const members = project.memberIds;
+  /* Who could not be removed, and why — said under their row on press, the way the
+     workflow editor says why a status will not go. */
+  const [refused, setRefused] = useState<{ id: string; text: string } | null>(
+    null,
+  );
 
   async function set(next: string[], title: string) {
-    const result = await actions.setMembers(next);
+    setRefused(null);
+    const result = await actions.setMembers(next, { nameOf: people.nameOf });
     if (result.ok) toast.push({ tone: "success", title });
+  }
+
+  function remove(id: string) {
+    /* The API will not take somebody off while they hold open issues. Worked
+       out here first from the same issues, so the reason arrives with names and
+       without a round trip. */
+    const holders = removalHolders(project.statuses, issues, [id]);
+    if (holders.length > 0) {
+      setRefused({ id, text: removalRefusal(holders, people.nameOf) });
+      return;
+    }
+    void set(
+      members.filter((m) => m !== id),
+      `${people.nameOf(id)} removed`,
+    );
   }
 
   return (
@@ -268,37 +290,42 @@ function MembersCard({ editable }: { editable: boolean }) {
       <CardBody className="space-y-4">
         <ul className="divide-y divide-line">
           {members.map((id) => (
-            <li key={id} className="flex items-center gap-3 py-2.5">
-              <PersonAvatar people={people} id={id} size="sm" decorative />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-body-sm font-medium text-ink">
-                  {people.nameOf(id)}
-                </span>
-                {people.byId.get(id)?.jobTitle && (
-                  <span className="block truncate text-meta text-muted">
-                    {people.byId.get(id)?.jobTitle}
+            <li key={id} className="py-2.5">
+              <div className="flex items-center gap-3">
+                <PersonAvatar people={people} id={id} size="sm" decorative />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-body-sm font-medium text-ink">
+                    {people.nameOf(id)}
                   </span>
+                  {people.byId.get(id)?.jobTitle && (
+                    <span className="block truncate text-meta text-muted">
+                      {people.byId.get(id)?.jobTitle}
+                    </span>
+                  )}
+                </span>
+                {id === project.leadId && (
+                  <Badge tone="accent" size="sm">
+                    Lead
+                  </Badge>
                 )}
-              </span>
-              {id === project.leadId && (
-                <Badge tone="accent" size="sm">
-                  Lead
-                </Badge>
-              )}
-              {editable && id !== project.leadId && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  aria-label={`Remove ${people.nameOf(id)}`}
-                  onClick={() =>
-                    void set(
-                      members.filter((m) => m !== id),
-                      `${people.nameOf(id)} removed`,
-                    )
-                  }
+                {editable && id !== project.leadId && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label={`Remove ${people.nameOf(id)}`}
+                    onClick={() => remove(id)}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+              {refused?.id === id && (
+                <p
+                  role="status"
+                  className="mt-1.5 pl-11 text-meta text-danger-text"
                 >
-                  Remove
-                </Button>
+                  {refused.text}
+                </p>
               )}
             </li>
           ))}

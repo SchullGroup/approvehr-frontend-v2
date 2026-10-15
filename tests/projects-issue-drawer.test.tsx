@@ -18,7 +18,7 @@ import { contextFor, fakeActions, sampleData } from "./projects-fixture";
  * id.
  */
 
-let thread: IssueThread = { comments: [], activity: [], bridge: null };
+let thread: IssueThread = { comments: [], activity: [] };
 
 vi.mock("@/lib/store/projects", () => ({
   useIssueThread: () => ({ thread, status: "ready", reload: vi.fn() }),
@@ -70,7 +70,7 @@ const status = (d: ProjectData, name: string) =>
   d.project.statuses.find((s) => s.name === name)!;
 
 beforeEach(() => {
-  thread = { comments: [], activity: [], bridge: null };
+  thread = { comments: [], activity: [] };
 });
 
 describe("what the drawer shows", () => {
@@ -418,11 +418,11 @@ describe("comments", () => {
           issueId: "x",
           authorId: "p-03",
           body: "Over to <@p-01> now",
+          editedAt: null,
           createdAt: "2026-10-15T08:00:00.000Z",
         },
       ],
       activity: [],
-      bridge: null,
     };
     renderDrawer();
     expect(screen.getByText("@Adaeze Okonkwo")).toBeInTheDocument();
@@ -437,11 +437,11 @@ describe("comments", () => {
           issueId: "x",
           authorId: "p-01",
           body: "Mine",
+          editedAt: null,
           createdAt: "2026-10-15T08:00:00.000Z",
         },
       ],
       activity: [],
-      bridge: null,
     };
     const { actions } = renderDrawer();
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
@@ -480,7 +480,6 @@ describe("history", () => {
           at: "2026-10-14T09:00:00.000Z",
         },
       ],
-      bridge: null,
     };
     renderDrawer();
     await userEvent.click(screen.getByRole("tab", { name: "History" }));
@@ -497,42 +496,116 @@ describe("history", () => {
 });
 
 describe("the weekly-task note", () => {
-  it("says nothing unless the API says the issue is not counted", () => {
-    renderDrawer();
-    expect(
-      screen.queryByText(/Not counted toward a weekly task/),
-    ).not.toBeInTheDocument();
-    thread = {
-      comments: [],
-      activity: [],
-      bridge: { status: "FILED", message: null },
+  const withWeekly = (
+    key: string,
+    weeklyTask: Issue["weeklyTask"],
+  ): ProjectData => {
+    const data = sampleData();
+    return {
+      ...data,
+      issues: data.issues.map((i) =>
+        i.key === key ? { ...i, weeklyTask } : i,
+      ),
     };
+  };
+
+  it("says nothing when the API has nothing to say, which is always so in the demo", () => {
+    renderDrawer("CHK-13");
+    expect(screen.queryByText(/weekly task/)).not.toBeInTheDocument();
   });
 
-  it("says it in one plain line when the API does", () => {
-    thread = {
-      comments: [],
-      activity: [],
-      bridge: { status: "NOT_COUNTED", message: null },
-    };
-    renderDrawer();
+  it("says it in one plain line when the API says the issue is not counted", () => {
+    const message =
+      "Not counted toward a weekly task — link this issue or the project to an objective.";
+    renderDrawer(
+      "CHK-13",
+      {},
+      withWeekly("CHK-13", {
+        state: "NOT_COUNTED",
+        reason: "NO_OBJECTIVE",
+        message,
+      }),
+    );
+    expect(screen.getByText(message)).toBeInTheDocument();
+  });
+
+  it("shows the API's sentence as it is, whatever the reason", () => {
+    renderDrawer(
+      "CHK-13",
+      {},
+      withWeekly("CHK-13", {
+        state: "NOT_COUNTED",
+        reason: "WEEK_CLOSED",
+        message:
+          "Not counted toward a weekly task — it was finished in a week that has closed.",
+      }),
+    );
     expect(
-      screen.getByText(
-        "Not counted toward a weekly task — link this issue or the project to an objective",
-      ),
+      screen.getByText(/finished in a week that has closed/),
     ).toBeInTheDocument();
   });
 
-  it("uses the API's own sentence when it sends one", () => {
+  it("says a task was filed, and whether it has been graded", () => {
+    renderDrawer(
+      "CHK-13",
+      {},
+      withWeekly("CHK-13", { state: "FILED", taskId: "t1", graded: false }),
+    );
+    expect(screen.getByText("Filed as a weekly task")).toBeInTheDocument();
+  });
+});
+
+describe("editing a comment", () => {
+  const mine = {
+    id: "c1",
+    issueId: "x",
+    authorId: "p-01",
+    body: "Over to <@p-03> now",
+    editedAt: null,
+    createdAt: "2026-10-15T08:00:00.000Z",
+  };
+
+  it("offers Edit to the author only", () => {
     thread = {
-      comments: [],
+      comments: [mine, { ...mine, id: "c2", authorId: "p-03", body: "Theirs" }],
       activity: [],
-      bridge: {
-        status: "NOT_COUNTED",
-        message: "Not counted toward a weekly task — nobody is assigned.",
-      },
     };
     renderDrawer();
-    expect(screen.getByText(/nobody is assigned/)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(1);
+  });
+
+  it("starts from the text with mentions shown as names, and stores them as ids again", async () => {
+    thread = { comments: [mine], activity: [] };
+    const { actions } = renderDrawer();
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const box = screen.getByLabelText("Edit your comment");
+    expect(box).toHaveValue("Over to @Chidi Nwosu now");
+    await userEvent.type(box, " please");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(actions.editComment).toHaveBeenCalledWith(
+      expect.any(String),
+      "c1",
+      "Over to <@p-03> now please",
+    );
+  });
+
+  it("can be cancelled without changing anything", async () => {
+    thread = { comments: [mine], activity: [] };
+    const { actions } = renderDrawer();
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(
+      screen.queryByLabelText("Edit your comment"),
+    ).not.toBeInTheDocument();
+    expect(actions.editComment).not.toHaveBeenCalled();
+  });
+
+  it("says a comment was edited", () => {
+    thread = {
+      comments: [{ ...mine, editedAt: "2026-10-15T09:00:00.000Z" }],
+      activity: [],
+    };
+    renderDrawer();
+    expect(screen.getByText("edited")).toBeInTheDocument();
   });
 });

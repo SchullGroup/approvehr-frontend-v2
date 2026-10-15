@@ -19,9 +19,17 @@ import {
 import { keyProblem, normaliseKey, suggestKey } from "@/lib/projects/keys";
 import { useDepartments } from "@/lib/store/departments";
 import { useCreateProject } from "@/lib/store/projects";
-import { usePeople, type Person } from "@/lib/store/project-session";
+import {
+  usePeople,
+  useProjectActor,
+  type Person,
+} from "@/lib/store/project-session";
+import { ApiError } from "@/lib/api/client";
+import { PersonPicker } from "@/components/projects/person";
 
 type Draft = {
+  /** Only asked of a sign-in with no staff record, which cannot lead anything itself. */
+  leadId: string;
   name: string;
   key: string;
   /** Once the person has typed in the key, it stops following the name. */
@@ -32,6 +40,7 @@ type Draft = {
 };
 
 const BLANK: Draft = {
+  leadId: "",
   name: "",
   key: "",
   keyTouched: false,
@@ -77,6 +86,7 @@ export function NewProjectDialog({
   const toast = useToast();
   const create = useCreateProject();
   const people = usePeople();
+  const actor = useProjectActor();
   const departments = useDepartments();
   const formId = useId();
   const nameRef = useRef<HTMLInputElement>(null);
@@ -87,6 +97,7 @@ export function NewProjectDialog({
   const [nameError, setNameError] = useState<string | undefined>();
   const [keyError, setKeyError] = useState<string | undefined>();
   const [failure, setFailure] = useState<string | null>(null);
+  const [leadError, setLeadError] = useState<string | undefined>();
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -95,6 +106,7 @@ export function NewProjectDialog({
       setBusy(false);
       setNameError(undefined);
       setKeyError(undefined);
+      setLeadError(undefined);
       setFailure(null);
     }
   }
@@ -108,6 +120,12 @@ export function NewProjectDialog({
   const liveDepartments = departments.flat.filter((d) => !d.archived);
   const department = liveDepartments.find((d) => d.id === draft.departmentId);
   const seeded = department ? inDepartment(people.people, department) : [];
+  /* An account with no staff record behind it has nobody to be the lead. */
+  const needsLead = actor.employeeId === null;
+  /* Who the creator is already counts as a member, so say how many are *added*. */
+  const added = seeded.filter(
+    (p) => p.id !== (draft.leadId || actor.employeeId),
+  );
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -115,9 +133,12 @@ export function NewProjectDialog({
     const key = draft.key.trim().toUpperCase();
     const nameProblem = name ? undefined : "Give the project a name.";
     const keyIssue = keyProblem(key, takenKeys) ?? undefined;
+    const leadProblem =
+      needsLead && !draft.leadId ? "Choose who will lead it." : undefined;
     setNameError(nameProblem);
     setKeyError(keyIssue);
-    if (nameProblem || keyIssue) return;
+    setLeadError(leadProblem);
+    if (nameProblem || keyIssue || leadProblem) return;
 
     setBusy(true);
     setFailure(null);
@@ -128,14 +149,25 @@ export function NewProjectDialog({
         type: draft.type,
         departmentId: department ? department.id : null,
         description: draft.description.trim(),
+        seedMembersFromDepartment: department !== undefined,
         memberIds: seeded.map((p) => p.id),
+        ...(needsLead ? { leadId: draft.leadId } : {}),
       },
       { quiet: true },
     );
     setBusy(false);
     if (!result.ok) {
-      /* A key that is taken says so beside the key; anything else under the form. */
-      if (/key/i.test(result.message)) setKeyError(result.message);
+      /* A key somebody else has (409), or one the API finds malformed, says so
+         beside the key; anything else goes under the form. */
+      const error = result.error;
+      const keyMessage =
+        error instanceof ApiError
+          ? (error.messageFor("key") ??
+            (error.status === 409 ? result.message : undefined))
+          : /key/i.test(result.message)
+            ? result.message
+            : undefined;
+      if (keyMessage) setKeyError(keyMessage);
       else setFailure(result.message);
       return;
     }
@@ -243,9 +275,9 @@ export function NewProjectDialog({
             optional
             help={
               department
-                ? seeded.length > 0
-                  ? `${seeded.length} ${seeded.length === 1 ? "person" : "people"} in ${department.name} will be added as members.`
-                  : `Nobody is listed in ${department.name} yet, so you will be the only member.`
+                ? added.length > 0
+                  ? `${added.length} other ${added.length === 1 ? "person" : "people"} in ${department.name} will be added as members.`
+                  : `Nobody else is listed in ${department.name}, so it starts with ${needsLead ? "its lead" : "you"} alone.`
                 : "Choose one to start with its people as members."
             }
           >
@@ -262,6 +294,26 @@ export function NewProjectDialog({
                 </option>
               ))}
             </Select>
+          </Field>
+        )}
+
+        {needsLead && (
+          <Field
+            label="Project lead"
+            required
+            help="This sign-in is not linked to a staff record, so somebody else has to lead the project."
+            {...(leadError ? { error: leadError } : {})}
+          >
+            <PersonPicker
+              people={people}
+              value={draft.leadId}
+              placeholder="Choose a person"
+              aria-label="Project lead"
+              onChange={(id) => {
+                setDraft((d) => ({ ...d, leadId: id }));
+                if (leadError) setLeadError(undefined);
+              }}
+            />
           </Field>
         )}
 

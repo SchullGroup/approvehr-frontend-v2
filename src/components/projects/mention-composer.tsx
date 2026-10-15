@@ -18,6 +18,10 @@ import { registerPopup } from "./popups";
  *
  * Ctrl or ⌘ + Enter posts. A failed post keeps what was typed: the text is only
  * cleared once the comment is actually there.
+ *
+ * The same box edits a comment: give it the text and mentions to start from (a
+ * stored body run through `decodeMentions`), a label for the button, and a way to
+ * cancel. Editing keeps the text after a save, since the caller closes it.
  */
 export function MentionComposer({
   people,
@@ -25,6 +29,10 @@ export function MentionComposer({
   meId,
   disabled = false,
   onPost,
+  initial,
+  submitLabel = "Comment",
+  onCancel,
+  label = "Add a comment",
 }: {
   people: People;
   memberIds: readonly string[];
@@ -32,9 +40,16 @@ export function MentionComposer({
   disabled?: boolean;
   /** Resolves true once the comment is saved. */
   onPost: (body: string) => Promise<boolean>;
+  /** Start from this text, with these names standing for these people. */
+  initial?: { text: string; mentions: Record<string, string> };
+  submitLabel?: string;
+  onCancel?: () => void;
+  label?: string;
 }) {
-  const [text, setText] = useState("");
-  const [mentions, setMentions] = useState<Record<string, string>>({});
+  const [text, setText] = useState(initial?.text ?? "");
+  const [mentions, setMentions] = useState<Record<string, string>>(
+    initial?.mentions ?? {},
+  );
   const [query, setQuery] = useState<{ start: number; query: string } | null>(
     null,
   );
@@ -89,7 +104,7 @@ export function MentionComposer({
     setPosting(true);
     const done = await onPost(encodeMentions(body, mentions));
     setPosting(false);
-    if (done) {
+    if (done && !initial) {
       setText("");
       setMentions({});
       setQuery(null);
@@ -105,7 +120,7 @@ export function MentionComposer({
           rows={3}
           disabled={disabled}
           role="combobox"
-          aria-label="Add a comment"
+          aria-label={label}
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={open ? listId : undefined}
@@ -183,16 +198,25 @@ export function MentionComposer({
         )}
       </div>
       <div className="flex items-center justify-between gap-3">
-        <span className="text-meta text-muted">Ctrl or ⌘ + Enter to post</span>
-        <Button
-          size="sm"
-          variant="primary"
-          loading={posting}
-          disabled={disabled || text.trim() === ""}
-          onClick={() => void post()}
-        >
-          Comment
-        </Button>
+        <span className="text-meta text-muted">
+          Ctrl or ⌘ + Enter to {initial ? "save" : "post"}
+        </span>
+        <span className="flex items-center gap-2">
+          {onCancel && (
+            <Button size="sm" variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="primary"
+            loading={posting}
+            disabled={disabled || text.trim() === ""}
+            onClick={() => void post()}
+          >
+            {submitLabel}
+          </Button>
+        </span>
       </div>
     </div>
   );

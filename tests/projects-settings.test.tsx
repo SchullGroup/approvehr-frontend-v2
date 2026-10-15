@@ -253,14 +253,39 @@ describe("members", () => {
     ).toBeInTheDocument();
   });
 
-  it("removes a member by sending the rest", async () => {
-    const { actions, data } = renderSettings();
+  it("removes a member by sending the rest, once they hold nothing open", async () => {
+    const data = sampleData();
+    /* Chidi's open work goes to nobody, so nothing stands in the way. */
+    const cleared: ProjectData = {
+      ...data,
+      issues: data.issues.map((i) =>
+        i.assigneeId === "p-03" && !i.doneAt ? { ...i, assigneeId: null } : i,
+      ),
+    };
+    const { actions } = renderSettings({}, cleared);
     await userEvent.click(
       screen.getByRole("button", { name: "Remove Chidi Nwosu" }),
     );
     expect(actions.setMembers).toHaveBeenCalledWith(
       data.project.memberIds.filter((id) => id !== "p-03"),
+      expect.anything(),
     );
+  });
+
+  it("will not remove somebody who still has open issues, and says who and how many", async () => {
+    const data = sampleData();
+    const { actions } = renderSettings({}, data);
+    const open = data.issues.filter(
+      (i) => i.assigneeId === "p-09" && !i.doneAt,
+    ).length;
+    expect(open).toBeGreaterThan(0);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove Emeka Anyanwu" }),
+    );
+    expect(actions.setMembers).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(new RegExp(`Emeka Anyanwu \\(${String(open)} open\\)`)),
+    ).toBeInTheDocument();
   });
 });
 

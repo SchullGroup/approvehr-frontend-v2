@@ -12,6 +12,7 @@ import {
   deleteIssueInBook,
   deleteProject,
   deleteSprintInBook,
+  editCommentInBook,
   patchIssueInBook,
   removeCommentFromBook,
   sampleBook,
@@ -91,6 +92,7 @@ describe("creating a project", () => {
     type: "KANBAN" as const,
     departmentId: null,
     description: "  Rebuild the app.  ",
+    seedMembersFromDepartment: false,
     memberIds: ["p-03"],
   };
 
@@ -241,6 +243,34 @@ describe("comments", () => {
     );
   });
 
+  it("counts comments on the issue, and edits only the author's own", () => {
+    const b = book();
+    const issue = issueByKey(b, "CHK-14");
+    expect(issue.commentCount).toBe(0);
+    const { book: posted, comment } = addCommentToBook(
+      b,
+      issue.id,
+      "First",
+      ctx("p-09"),
+    );
+    expect(issueByKey(posted, "CHK-14").commentCount).toBe(1);
+    const edited = editCommentInBook(
+      posted,
+      comment.id,
+      "  Second  ",
+      ctx("p-09"),
+    );
+    expect(edited.comment.body).toBe("Second");
+    expect(edited.comment.editedAt).toBe(NOW);
+    expect(
+      refusal(() =>
+        editCommentInBook(posted, comment.id, "Hijacked", ctx("p-03")),
+      ),
+    ).toMatch(/Only the person who wrote/);
+    const removed = removeCommentFromBook(edited.book, comment.id);
+    expect(issueByKey(removed, "CHK-14").commentCount).toBe(0);
+  });
+
   it("refuses an empty comment", () => {
     const b = book();
     expect(
@@ -269,6 +299,36 @@ describe("project settings", () => {
     ).toMatch(/active sprint/);
   });
 
+  it("refuses to take somebody off who still has open issues, naming them", () => {
+    const b = book();
+    const message = refusal(() =>
+      setMembers(b, SAMPLE_PROJECT_ID, ["p-01", "p-03", "p-04"], NOW, (id) =>
+        id === "p-09" ? "Emeka Anyanwu" : id,
+      ),
+    );
+    expect(message).toContain("Emeka Anyanwu");
+    expect(message).toMatch(/open/);
+  });
+
+  it("lets somebody go once their open issues are reassigned", () => {
+    let b = book();
+    for (const issue of chk(b).issues.filter((i) => i.assigneeId === "p-09")) {
+      if (
+        chk(b).project.statuses.find((s) => s.id === issue.statusId)
+          ?.category !== "DONE"
+      ) {
+        b = patchIssueInBook(b, issue.id, { assigneeId: null }, ctx()).book;
+      }
+    }
+    const next = setMembers(
+      b,
+      SAMPLE_PROJECT_ID,
+      ["p-01", "p-03", "p-04"],
+      NOW,
+    );
+    expect(chk(next).project.memberIds).not.toContain("p-09");
+  });
+
   it("keeps the lead among the members when the lead changes or members are replaced", () => {
     const b = book();
     const changed = updateProject(
@@ -278,8 +338,20 @@ describe("project settings", () => {
       NOW,
     );
     expect(chk(changed).project.memberIds).toContain("p-06");
-    const replaced = setMembers(b, SAMPLE_PROJECT_ID, ["p-03"], NOW);
-    expect(chk(replaced).project.memberIds).toEqual(["p-01", "p-03"]);
+    /* Replacing the set without the lead still keeps the lead. */
+    const replaced = setMembers(
+      b,
+      SAMPLE_PROJECT_ID,
+      ["p-03", "p-09", "p-04", "p-06"],
+      NOW,
+    );
+    expect(chk(replaced).project.memberIds).toEqual([
+      "p-01",
+      "p-03",
+      "p-09",
+      "p-04",
+      "p-06",
+    ]);
   });
 
   it("saves a reordered workflow keeping ids, and refuses removing a status with issues", () => {
@@ -454,6 +526,7 @@ describe("sprints", () => {
         type: "KANBAN",
         departmentId: null,
         description: "",
+        seedMembersFromDepartment: false,
         memberIds: [],
       },
       ctx("p-01"),

@@ -12,6 +12,7 @@ import {
   type StatusInput,
 } from "@/lib/projects/types";
 import {
+  MAX_STATUSES,
   removalBlocker,
   sortStatuses,
   workflowProblem,
@@ -244,7 +245,11 @@ export function WorkflowEditor({ editable }: { editable: boolean }) {
             </p>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={add}>
+            <Button
+              size="sm"
+              onClick={add}
+              disabled={rows.length >= MAX_STATUSES}
+            >
               <Plus aria-hidden="true" className="size-4" />
               Add a status
             </Button>

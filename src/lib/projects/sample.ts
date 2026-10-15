@@ -484,6 +484,8 @@ export function buildSample(args: {
       rank,
       doneAt: null,
       goalId: null,
+      weeklyTask: null,
+      commentCount: 0,
       createdAt,
       updatedAt: o.doneAt ?? createdAt,
       ...o,
@@ -567,6 +569,7 @@ export function buildSample(args: {
         id: "cm-chk-1",
         issueId: i6,
         authorId: p1,
+        editedAt: null,
         createdAt: hoursAgo(5),
         body: `Provider sandbox now returns requires_action for the EU test cards. <@${p0}> can you check the redirect URL config?`,
       },
@@ -574,11 +577,15 @@ export function buildSample(args: {
         id: "cm-chk-2",
         issueId: i6,
         authorId: p0,
+        editedAt: null,
         createdAt: hoursAgo(3),
         body: "Fixed in staging. The return URL was missing the order id.",
       },
     ],
   };
+
+  const discussed = issues.find((i) => i.id === i6);
+  if (discussed) discussed.commentCount = 2;
 
   const project: Project = {
     id: SAMPLE_PROJECT_ID,
@@ -591,6 +598,7 @@ export function buildSample(args: {
     departmentId: args.departmentId ?? null,
     departmentName: null,
     leadId: p0,
+    leadName: null,
     goalId: null,
     memberIds: [...new Set(args.people.filter(Boolean))],
     statuses: [
@@ -627,6 +635,9 @@ export function buildSample(args: {
     createdAt: at(-40),
     updatedAt: at(-40),
     openIssueCount: null,
+    issueCount: null,
+    activeSprintId: "sp-chk-3",
+    canManage: null,
   };
 
   return { project, sprints, issues, comments, activity, lastNumber: number };

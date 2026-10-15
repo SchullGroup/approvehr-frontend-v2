@@ -12,6 +12,7 @@
  */
 
 import { issueKey, isValidKey } from "./keys";
+import { removalHolders, removalRefusal } from "./members";
 import {
   applyStatusInputs,
   buildIssue,
@@ -140,7 +141,7 @@ export function createProject(
   }
   const name = input.name.trim();
   if (!name) throw new ProjectRuleError("Give the project a name.");
-  const leadId = ctx.actorId ?? "";
+  const leadId = input.leadId ?? ctx.actorId ?? "";
   const project: Project = {
     id: ctx.makeId(),
     key,
@@ -154,6 +155,7 @@ export function createProject(
     departmentId: input.departmentId,
     departmentName: ctx.departmentName ?? null,
     leadId,
+    leadName: null,
     goalId: null,
     memberIds: withLead(input.memberIds, leadId).filter(Boolean),
     statuses: applyStatusInputs([], DEFAULT_STATUS_INPUTS, ctx.makeId),
@@ -161,6 +163,9 @@ export function createProject(
     createdAt: ctx.now,
     updatedAt: ctx.now,
     openIssueCount: 0,
+    issueCount: 0,
+    activeSprintId: null,
+    canManage: null,
   };
   return {
     project,
@@ -208,9 +213,15 @@ export function setMembers(
   projectId: string,
   memberIds: readonly string[],
   now: string,
+  nameOf: (employeeId: string) => string = () => "Someone",
 ): DemoBook {
   const d = data(book, projectId);
   const members = withLead(memberIds, d.project.leadId);
+  const dropped = d.project.memberIds.filter((id) => !members.includes(id));
+  const holders = removalHolders(d.project.statuses, d.issues, dropped);
+  if (holders.length > 0) {
+    throw new ProjectRuleError(removalRefusal(holders, nameOf));
+  }
   return withProject(book, {
     ...d,
     project: { ...d.project, memberIds: members, updatedAt: now },
@@ -380,12 +391,13 @@ export function addCommentToBook(
     issueId,
     authorId: ctx.actorId ?? "",
     body: text,
+    editedAt: null,
     createdAt: ctx.now,
   };
   return {
     comment,
     book: {
-      ...book,
+      ...withCommentCount(book, issueId, 1),
       comments: {
         ...book.comments,
         [issueId]: [...(book.comments[issueId] ?? []), comment],
@@ -394,15 +406,68 @@ export function addCommentToBook(
   };
 }
 
+/** Adds `by` to an issue's comment count, which the list carries so cards need no request. */
+function withCommentCount(
+  book: DemoBook,
+  issueId: string,
+  by: number,
+): DemoBook {
+  const projectId = projectIdOfIssue(book, issueId);
+  if (!projectId) return book;
+  const d = data(book, projectId);
+  return withProject(book, {
+    ...d,
+    issues: d.issues.map((i) =>
+      i.id === issueId
+        ? { ...i, commentCount: Math.max(0, i.commentCount + by) }
+        : i,
+    ),
+  });
+}
+
+export function editCommentInBook(
+  book: DemoBook,
+  commentId: string,
+  body: string,
+  ctx: Ctx,
+): { book: DemoBook; comment: IssueComment } {
+  const text = body.trim();
+  if (!text) throw new ProjectRuleError("Write something first.");
+  for (const [issueId, list] of Object.entries(book.comments)) {
+    const found = list.find((c) => c.id === commentId);
+    if (!found) continue;
+    if (found.authorId !== (ctx.actorId ?? "")) {
+      throw new ProjectRuleError(
+        "Only the person who wrote a comment can edit it.",
+      );
+    }
+    const comment = { ...found, body: text, editedAt: ctx.now };
+    return {
+      comment,
+      book: {
+        ...book,
+        comments: {
+          ...book.comments,
+          [issueId]: list.map((c) => (c.id === commentId ? comment : c)),
+        },
+      },
+    };
+  }
+  throw new ProjectRuleError("That comment is not here.");
+}
+
 export function removeCommentFromBook(
   book: DemoBook,
   commentId: string,
 ): DemoBook {
+  let next: DemoBook = book;
   const comments: Record<string, IssueComment[]> = {};
   for (const [issueId, list] of Object.entries(book.comments)) {
-    comments[issueId] = list.filter((c) => c.id !== commentId);
+    const kept = list.filter((c) => c.id !== commentId);
+    if (kept.length !== list.length) next = withCommentCount(next, issueId, -1);
+    comments[issueId] = kept;
   }
-  return { ...book, comments };
+  return { ...next, comments };
 }
 
 /* ----------------------------------------------------------------- sprints -- */

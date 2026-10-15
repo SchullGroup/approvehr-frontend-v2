@@ -16,6 +16,7 @@ import type {
 } from "./types";
 
 export const MIN_STATUSES = 2;
+export const MAX_STATUSES = 12;
 
 /** The workflow a new project starts with. WIP limits are advisory. */
 export const DEFAULT_STATUS_INPUTS: readonly StatusInput[] = [
@@ -123,6 +124,9 @@ export function removalBlocker(
 export function workflowProblem(draft: readonly StatusInput[]): string | null {
   if (draft.length < MIN_STATUSES) {
     return `A workflow needs at least ${MIN_STATUSES} statuses.`;
+  }
+  if (draft.length > MAX_STATUSES) {
+    return `A workflow can have at most ${MAX_STATUSES} statuses.`;
   }
   if (!draft.some((s) => s.category === "DONE")) {
     return "Keep at least one Done status.";

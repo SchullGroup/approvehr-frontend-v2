@@ -67,6 +67,7 @@ export function fakeActions(): {
     patchIssue: resolved(),
     deleteIssue: resolved(),
     addComment: resolved(),
+    editComment: resolved(),
     deleteComment: resolved(),
     updateProject: resolved(),
     setMembers: resolved(),

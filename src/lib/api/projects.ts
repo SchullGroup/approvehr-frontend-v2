@@ -1,14 +1,14 @@
 "use client";
 
-import { request } from "@/lib/api/client";
+import { ApiError, request, requestPaged } from "@/lib/api/client";
 import type {
   CompleteSprintMove,
   Issue,
   IssueActivity,
-  IssueBridge,
   IssueComment,
   IssuePatch,
   IssueThread,
+  IssueWeeklyTask,
   NewIssueInput,
   NewProjectInput,
   NewSprintInput,
@@ -26,15 +26,16 @@ import type {
  * Projects — `/api/v1/projects`, `/sprints`, `/issues`, `/comments`.
  *
  * A Jira-style tracker: projects with a workflow, members, sprints, issues with
- * sub-tasks and epics, comments and a history. See `docs/specs/projects-module.md`.
+ * sub-tasks and epics, comments and a history. The contract is "Contract as built"
+ * in `docs/specs/projects-module.md`.
  *
  * ## One adapter, so the wire can move without the screens knowing
  *
  * Every response is read through a `to…` function below. They tolerate a field
- * that is absent (a list in place of `undefined`, `null` in place of nothing) and
- * a couple of equivalent spellings, so a small difference between this client and
- * the API's own shape is a change in one place. The domain types in
- * `lib/projects/types.ts` are what the rest of the app sees.
+ * that is absent (a list in place of `undefined`, `null` in place of nothing), so
+ * a small difference between this client and the API's own shape is a change in
+ * one place. The domain types in `lib/projects/types.ts` are what the rest of the
+ * app sees.
  *
  * ## What the client does not decide
  *
@@ -42,6 +43,14 @@ import type {
  * one-active-sprint rule: the API is the authority on all of them. The browser
  * predicts the answer (`lib/projects/mutations.ts`) to move a card under the
  * pointer, and replaces the prediction with what comes back.
+ *
+ * ## Errors worth knowing
+ *
+ * - **404 is also "you are not on it".** A project somebody is not a member of
+ *   answers exactly as one that does not exist.
+ * - **422 with `details.reason === "module_off"`** means the company has not
+ *   switched Projects on; `isModuleOff` reads it.
+ * - Messages are written to be shown to a person as they are.
  */
 
 type Raw = Record<string, unknown>;
@@ -62,6 +71,17 @@ const day = (v: unknown): string | null => {
   return s ? s.slice(0, 10) : null;
 };
 
+/** Whether this is the API refusing because the company has Projects switched off. */
+export function isModuleOff(error: unknown): boolean {
+  if (!(error instanceof ApiError) || error.status !== 422) return false;
+  const details = error.details;
+  return (
+    !!details &&
+    !Array.isArray(details) &&
+    (details as Record<string, unknown>)["reason"] === "module_off"
+  );
+}
+
 export function toStatus(raw: Raw, index: number): ProjectStatus {
   return {
     id: str(raw["id"]),
@@ -74,15 +94,15 @@ export function toStatus(raw: Raw, index: number): ProjectStatus {
 
 function memberIdsOf(raw: Raw): string[] {
   const direct = raw["memberIds"];
-  if (Array.isArray(direct))
+  if (Array.isArray(direct)) {
     return direct.filter((x): x is string => typeof x === "string");
+  }
   return list(raw["members"])
     .map((m) => str(m["employeeId"] ?? m["id"]))
     .filter(Boolean);
 }
 
 export function toProject(raw: Raw): Project {
-  const department = raw["department"] as Raw | null | undefined;
   return {
     id: str(raw["id"]),
     key: str(raw["key"]),
@@ -91,19 +111,22 @@ export function toProject(raw: Raw): Project {
     type: str(raw["type"], "SCRUM") as Project["type"],
     color: str(raw["color"], "#2B3990"),
     departmentId: strOrNull(raw["departmentId"]),
-    departmentName:
-      strOrNull(raw["departmentName"]) ??
-      (department && typeof department === "object"
-        ? strOrNull(department["name"])
-        : null),
+    departmentName: strOrNull(raw["departmentName"]),
     leadId: str(raw["leadId"]),
+    leadName: strOrNull(raw["leadName"]),
     goalId: strOrNull(raw["goalId"]),
     memberIds: memberIdsOf(raw),
     statuses: list(raw["statuses"]).map(toStatus),
     createdById: str(raw["createdById"]),
     createdAt: str(raw["createdAt"]),
     updatedAt: str(raw["updatedAt"]),
-    openIssueCount: numOrNull(raw["openIssueCount"] ?? raw["openCount"]),
+    openIssueCount: numOrNull(raw["openIssueCount"]),
+    issueCount: numOrNull(raw["issueCount"]),
+    activeSprintId: strOrNull(raw["activeSprintId"]),
+    canManage:
+      typeof raw["canManage"] === "boolean"
+        ? (raw["canManage"] as boolean)
+        : null,
   };
 }
 
@@ -121,6 +144,33 @@ export function toSprint(raw: Raw): Sprint {
     closedAt: strOrNull(raw["closedAt"]),
     createdAt: str(raw["createdAt"]),
   };
+}
+
+/**
+ * The bridge's note on an issue. Absent or unrecognised is "nothing to say",
+ * never "filed": a screen must not claim an outcome the API did not report.
+ */
+export function toWeeklyTask(raw: unknown): IssueWeeklyTask | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Raw;
+  if (r["state"] === "FILED") {
+    return {
+      state: "FILED",
+      taskId: str(r["taskId"]),
+      graded: r["graded"] === true,
+    };
+  }
+  if (r["state"] === "NOT_COUNTED") {
+    return {
+      state: "NOT_COUNTED",
+      reason: str(r["reason"], "NO_OBJECTIVE") as Extract<
+        IssueWeeklyTask,
+        { state: "NOT_COUNTED" }
+      >["reason"],
+      message: str(r["message"]),
+    };
+  }
+  return null;
 }
 
 export function toIssue(raw: Raw): Issue {
@@ -150,6 +200,8 @@ export function toIssue(raw: Raw): Issue {
     rank: num(raw["rank"]),
     doneAt: strOrNull(raw["doneAt"]),
     goalId: strOrNull(raw["goalId"]),
+    weeklyTask: toWeeklyTask(raw["weeklyTask"]),
+    commentCount: num(raw["commentCount"]),
     createdAt: str(raw["createdAt"]),
     updatedAt: str(raw["updatedAt"]),
   };
@@ -161,6 +213,7 @@ export function toComment(raw: Raw): IssueComment {
     issueId: str(raw["issueId"]),
     authorId: str(raw["authorId"]),
     body: str(raw["body"]),
+    editedAt: strOrNull(raw["editedAt"]),
     createdAt: str(raw["createdAt"]),
   };
 }
@@ -177,19 +230,19 @@ export function toActivity(raw: Raw): IssueActivity {
   };
 }
 
-/**
- * The bridge's answer for one issue, only when the API gives one.
- * Absent means "nothing to say", never "filed".
- */
-export function toBridge(raw: unknown): IssueBridge | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Raw;
-  const status = str(r["status"]);
-  if (status !== "FILED" && status !== "NOT_COUNTED") return null;
-  return { status, message: strOrNull(r["message"] ?? r["reason"]) };
-}
-
 const signalOf = (signal?: AbortSignal) => (signal ? { signal } : {});
+
+export type LoadedProject = ProjectData & {
+  /** The API holds more issues than it sent (it stops at 5,000). */
+  issuesCapped: boolean;
+};
+
+/** What `POST /sprints/:id/complete` answers. */
+export type CompletedSprint = {
+  sprint: Sprint;
+  movedIssueIds: string[];
+  createdSprint: Sprint | null;
+};
 
 export const projectsApi = {
   /** The projects the caller is on. `all` is for people who hold `EDIT_RECORDS`. */
@@ -202,23 +255,42 @@ export const projectsApi = {
     ).map(toProject),
 
   create: async (input: NewProjectInput) =>
-    toProject(await request<Raw>("/projects", { method: "POST", body: input })),
+    toProject(
+      await request<Raw>("/projects", {
+        method: "POST",
+        body: {
+          key: input.key,
+          name: input.name,
+          type: input.type,
+          description: input.description,
+          ...(input.departmentId
+            ? {
+                departmentId: input.departmentId,
+                seedMembersFromDepartment: input.seedMembersFromDepartment,
+              }
+            : {}),
+          ...(input.leadId ? { leadId: input.leadId } : {}),
+        },
+      }),
+    ),
 
   /** One project, with every issue and sprint, in three requests. */
-  load: async (id: string, signal?: AbortSignal): Promise<ProjectData> => {
+  load: async (id: string, signal?: AbortSignal): Promise<LoadedProject> => {
     const [project, issues, sprints] = await Promise.all([
       request<Raw>(`/projects/${id}`, signalOf(signal)),
-      request<Raw[]>(`/projects/${id}/issues`, signalOf(signal)),
+      requestPaged<Raw, { capped?: boolean }>(`/projects/${id}/issues`, {
+        ...signalOf(signal),
+      }),
       request<Raw[]>(`/projects/${id}/sprints`, signalOf(signal)),
     ]);
     return {
       project: toProject(project),
-      issues: list(issues).map(toIssue),
+      issues: list(issues.data).map(toIssue),
       sprints: list(sprints).map(toSprint),
+      issuesCapped: issues.meta.capped === true,
     };
   },
 
-  /** The project row alone, and the sprints, for a refresh after a settings change. */
   get: async (id: string, signal?: AbortSignal) =>
     toProject(await request<Raw>(`/projects/${id}`, signalOf(signal))),
 
@@ -228,16 +300,20 @@ export const projectsApi = {
     ),
 
   remove: (id: string) =>
-    request<void>(`/projects/${id}`, { method: "DELETE" }),
+    request<unknown>(`/projects/${id}`, { method: "DELETE" }),
 
-  /** Replaces the member set. The lead stays whether or not it is listed. */
-  setMembers: async (id: string, memberIds: string[]) =>
-    toProject(
-      await request<Raw>(`/projects/${id}/members`, {
-        method: "PUT",
-        body: { memberIds },
-      }),
-    ),
+  /**
+   * Replaces the member set. The lead stays whether or not it is listed. Answers
+   * the set as saved. Removing somebody who still has open issues is refused
+   * (422, `reason: "has_open_issues"`).
+   */
+  setMembers: async (id: string, employeeIds: string[]): Promise<string[]> => {
+    const saved = await request<Raw>(`/projects/${id}/members`, {
+      method: "PUT",
+      body: { employeeIds },
+    });
+    return memberIdsOf(saved);
+  },
 
   /** Replaces the workflow: the full ordered list, new entries without an id. */
   setStatuses: async (id: string, statuses: StatusInput[]) => {
@@ -265,16 +341,37 @@ export const projectsApi = {
     ),
 
   deleteSprint: (id: string) =>
-    request<void>(`/sprints/${id}`, { method: "DELETE" }),
+    request<unknown>(`/sprints/${id}`, { method: "DELETE" }),
 
-  startSprint: async (id: string) =>
-    toSprint(await request<Raw>(`/sprints/${id}/start`, { method: "POST" })),
+  /** Starts a sprint, optionally editing its name, goal and dates in the same call. */
+  startSprint: async (id: string, edits: SprintPatch = {}) =>
+    toSprint(
+      await request<Raw>(`/sprints/${id}/start`, {
+        method: "POST",
+        body: edits,
+      }),
+    ),
 
-  completeSprint: async (id: string, moveTo: CompleteSprintMove) =>
-    request<Raw>(`/sprints/${id}/complete`, {
+  completeSprint: async (
+    id: string,
+    moveTo: CompleteSprintMove,
+  ): Promise<CompletedSprint> => {
+    const done = await request<Raw>(`/sprints/${id}/complete`, {
       method: "POST",
       body: { moveTo },
-    }),
+    });
+    return {
+      sprint: toSprint((done["sprint"] as Raw) ?? {}),
+      movedIssueIds: Array.isArray(done["movedIssueIds"])
+        ? (done["movedIssueIds"] as unknown[]).filter(
+            (x): x is string => typeof x === "string",
+          )
+        : [],
+      createdSprint: done["createdSprint"]
+        ? toSprint(done["createdSprint"] as Raw)
+        : null,
+    };
+  },
 
   /* ----------------------------------------------------------------- issues */
 
@@ -292,9 +389,9 @@ export const projectsApi = {
     ),
 
   removeIssue: (id: string) =>
-    request<void>(`/issues/${id}`, { method: "DELETE" }),
+    request<unknown>(`/issues/${id}`, { method: "DELETE" }),
 
-  /** An issue's comments and history, and the bridge's note when it has one. */
+  /** An issue's comments and its history. */
   thread: async (id: string, signal?: AbortSignal): Promise<IssueThread> => {
     const [issue, comments] = await Promise.all([
       request<Raw>(`/issues/${id}`, signalOf(signal)),
@@ -303,7 +400,6 @@ export const projectsApi = {
     return {
       comments: list(comments).map(toComment),
       activity: list(issue["activity"]).map(toActivity),
-      bridge: toBridge(issue["bridge"] ?? issue["weeklyTask"]),
     };
   },
 
@@ -315,6 +411,15 @@ export const projectsApi = {
       }),
     ),
 
+  /** Author only. */
+  editComment: async (id: string, body: string) =>
+    toComment(
+      await request<Raw>(`/comments/${id}`, {
+        method: "PATCH",
+        body: { body },
+      }),
+    ),
+
   removeComment: (id: string) =>
-    request<void>(`/comments/${id}`, { method: "DELETE" }),
+    request<unknown>(`/comments/${id}`, { method: "DELETE" }),
 };

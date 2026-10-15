@@ -18,6 +18,7 @@ import {
   deleteIssueInBook,
   deleteProject as bookDeleteProject,
   deleteSprintInBook,
+  editCommentInBook,
   patchIssueInBook,
   removeCommentFromBook,
   sampleBook,
@@ -35,7 +36,6 @@ import {
   updatedProject,
   withLead,
 } from "@/lib/projects/mutations";
-import { completeSprint, startSprint } from "@/lib/projects/sprints";
 import type {
   CompleteSprintMove,
   Issue,
@@ -112,6 +112,10 @@ export type Result<T> =
 
 const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 
+/** The same outcome, with nothing to hand back. */
+const voided = <T>(result: Result<T>): Result<void> =>
+  result.ok ? ok(undefined) : result;
+
 function messageOf(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof ProjectRuleError) return error.message;
@@ -141,6 +145,8 @@ type Entry = {
   status: LoadStatus;
   error: unknown;
   notFound: boolean;
+  /** The API holds more issues than it sent (it stops at 5,000). */
+  capped: boolean;
 };
 
 type ThreadEntry = {
@@ -192,7 +198,13 @@ function setEntry(projectId: string, entry: Entry) {
 }
 
 function setData(projectId: string, data: ProjectData) {
-  setEntry(projectId, { data, status: "ready", error: null, notFound: false });
+  setEntry(projectId, {
+    data,
+    status: "ready",
+    error: null,
+    notFound: false,
+    capped: cache.entries[projectId]?.capped ?? false,
+  });
 }
 
 function dataOf(projectId: string): ProjectData | null {
@@ -346,6 +358,7 @@ async function loadProject(owner: string, id: string): Promise<void> {
         status: "loading",
         error: null,
         notFound: false,
+        capped: false,
       });
     }
     try {
@@ -359,12 +372,34 @@ async function loadProject(owner: string, id: string): Promise<void> {
         }
         return;
       }
-      setEntry(id, { data, status: "ready", error: null, notFound: false });
+      setEntry(id, {
+        data: {
+          project: data.project,
+          issues: data.issues,
+          sprints: data.sprints,
+        },
+        status: "ready",
+        error: null,
+        notFound: false,
+        capped: data.issuesCapped,
+      });
     } catch (error) {
       if (isNotFound(error)) {
-        setEntry(id, { data: null, status: "error", error, notFound: true });
+        setEntry(id, {
+          data: null,
+          status: "error",
+          error,
+          notFound: true,
+          capped: false,
+        });
       } else if (!prev?.data) {
-        setEntry(id, { data: null, status: "error", error, notFound: false });
+        setEntry(id, {
+          data: null,
+          status: "error",
+          error,
+          notFound: false,
+          capped: false,
+        });
       }
       /* With data already on screen a failed refresh stays quiet: stale beats gone. */
     } finally {
@@ -432,6 +467,7 @@ async function apiCreateProject(
       status: "ready",
       error: null,
       notFound: false,
+      capped: false,
     });
     const lists = { ...cache.lists };
     for (const scope of ["mine", "all"] as const) {
@@ -572,7 +608,11 @@ async function apiSetMembers(
     const saved = await tracked(projectId, () =>
       projectsApi.setMembers(projectId, memberIds),
     );
-    const merged = mergeProject(dataOf(projectId)?.project ?? before, saved);
+    const current = dataOf(projectId)?.project ?? before;
+    const merged = {
+      ...current,
+      memberIds: saved.length > 0 ? saved : current.memberIds,
+    };
     replaceProject(projectId, merged);
     return ok(merged);
   } catch (error) {
@@ -701,6 +741,42 @@ async function apiRemoveComment(
         },
       });
     }
+    return fail(error);
+  }
+}
+
+async function apiEditComment(
+  owner: string,
+  projectId: string,
+  issueId: string,
+  commentId: string,
+  body: string,
+): Promise<Result<IssueComment>> {
+  claim(owner);
+  try {
+    const comment = await tracked(projectId, () =>
+      projectsApi.editComment(commentId, body),
+    );
+    const entry = cache.threads[issueId];
+    if (entry?.thread) {
+      setCache({
+        ...cache,
+        threads: {
+          ...cache.threads,
+          [issueId]: {
+            ...entry,
+            thread: {
+              ...entry.thread,
+              comments: entry.thread.comments.map((c) =>
+                c.id === commentId ? comment : c,
+              ),
+            },
+          },
+        },
+      });
+    }
+    return ok(comment);
+  } catch (error) {
     return fail(error);
   }
 }
@@ -885,6 +961,8 @@ export function useProjectData(id: string): {
   status: ViewStatus;
   error: unknown;
   data: ProjectData | null;
+  /** The API holds more issues than it sent, which stop at 5,000. */
+  capped: boolean;
   reload: () => void;
 } {
   const mode = useMode();
@@ -904,16 +982,34 @@ export function useProjectData(id: string): {
 
   return useMemo(() => {
     if (mode.sessionLoading) {
-      return { status: "loading" as const, error: null, data: null, reload };
+      return {
+        status: "loading" as const,
+        error: null,
+        data: null,
+        capped: false,
+        reload,
+      };
     }
     if (!mode.connected) {
       const data = book.projects[id] ?? null;
       if (book.anchor === "") {
-        return { status: "loading" as const, error: null, data: null, reload };
+        return {
+          status: "loading" as const,
+          error: null,
+          data: null,
+          capped: false,
+          reload,
+        };
       }
       return data
-        ? { status: "ready" as const, error: null, data, reload }
-        : { status: "notFound" as const, error: null, data: null, reload };
+        ? { status: "ready" as const, error: null, data, capped: false, reload }
+        : {
+            status: "notFound" as const,
+            error: null,
+            data: null,
+            capped: false,
+            reload,
+          };
     }
     const entry = state.owner === owner ? state.entries[id] : undefined;
     if (
@@ -921,13 +1017,20 @@ export function useProjectData(id: string): {
       entry.status === "idle" ||
       (entry.status === "loading" && !entry.data)
     ) {
-      return { status: "loading" as const, error: null, data: null, reload };
+      return {
+        status: "loading" as const,
+        error: null,
+        data: null,
+        capped: false,
+        reload,
+      };
     }
     if (entry.notFound) {
       return {
         status: "notFound" as const,
         error: entry.error,
         data: null,
+        capped: false,
         reload,
       };
     }
@@ -936,20 +1039,27 @@ export function useProjectData(id: string): {
         status: "error" as const,
         error: entry.error,
         data: null,
+        capped: false,
         reload,
       };
     }
-    return { status: "ready" as const, error: null, data: entry.data, reload };
+    return {
+      status: "ready" as const,
+      error: null,
+      data: entry.data,
+      capped: entry.capped,
+      reload,
+    };
   }, [mode.sessionLoading, mode.connected, book, state, owner, id, reload]);
 }
 
-const NO_THREAD: IssueThread = { comments: [], activity: [], bridge: null };
+const NO_THREAD: IssueThread = { comments: [], activity: [] };
 
 /**
  * An issue's comments and history, oldest first.
  *
- * Demo mode never has a bridge note: the weekly-task bridge is the API's, and a
- * demo that claimed either outcome would be inventing one.
+ * The weekly-task bridge's note is not here: it rides on the issue itself
+ * (`issue.weeklyTask`), so it is as fresh as the issue and needs no request.
  */
 export function useIssueThread(issueId: string | null): {
   thread: IssueThread;
@@ -979,7 +1089,6 @@ export function useIssueThread(issueId: string | null): {
         thread: {
           comments: book.comments[issueId] ?? [],
           activity: book.activity[issueId] ?? [],
-          bridge: null,
         },
         status: "ready" as const,
         reload,
@@ -1027,6 +1136,13 @@ export type ProjectActions = {
     body: string,
     options?: Quiet,
   ) => Promise<Result<IssueComment>>;
+  /** Author only. The API refuses anybody else. */
+  editComment: (
+    issueId: string,
+    commentId: string,
+    body: string,
+    options?: Quiet,
+  ) => Promise<Result<IssueComment>>;
   deleteComment: (
     issueId: string,
     commentId: string,
@@ -1036,9 +1152,13 @@ export type ProjectActions = {
     patch: ProjectPatch,
     options?: Quiet,
   ) => Promise<Result<Project>>;
+  /**
+   * Replaces the member set. Taking off somebody who still has open issues is
+   * refused with a sentence naming them; `nameOf` lets the demo write the same.
+   */
   setMembers: (
     memberIds: string[],
-    options?: Quiet,
+    options?: Quiet & { nameOf?: (employeeId: string) => string },
   ) => Promise<Result<Project>>;
   saveWorkflow: (
     drafts: StatusInput[],
@@ -1150,6 +1270,18 @@ export function useProjectActions(projectId: string): ProjectActions {
           options,
         ),
 
+      editComment: async (issueId, commentId, body, options) =>
+        settle(
+          api
+            ? await apiEditComment(api, projectId, issueId, commentId, body)
+            : demo((book, ctx) => {
+                const out = editCommentInBook(book, commentId, body, ctx);
+                return { book: out.book, value: out.comment };
+              }),
+          "Could not save the comment",
+          options,
+        ),
+
       deleteComment: async (issueId, commentId, options) =>
         settle(
           api
@@ -1184,6 +1316,7 @@ export function useProjectActions(projectId: string): ProjectActions {
                   projectId,
                   memberIds,
                   ctx.now,
+                  options?.nameOf,
                 );
                 return { book: next, value: next.projects[projectId]!.project };
               }),
@@ -1262,18 +1395,16 @@ export function useProjectActions(projectId: string): ProjectActions {
       updateSprint: async (id, patch, options) =>
         settle(
           api
-            ? await apiSprint(
-                api,
-                projectId,
-                async () => {
-                  await projectsApi.updateSprint(id, patch);
-                },
-                (_, data) => ({
-                  ...data,
-                  sprints: data.sprints.map((s) =>
-                    s.id === id ? { ...s, ...patch } : s,
-                  ),
-                }),
+            ? voided(
+                await apiSprint(
+                  api,
+                  projectId,
+                  () => projectsApi.updateSprint(id, patch),
+                  (saved, data) => ({
+                    ...data,
+                    sprints: data.sprints.map((s) => (s.id === id ? saved : s)),
+                  }),
+                ),
               )
             : demo((book) => ({
                 book: updateSprintInBook(book, id, patch),
@@ -1286,17 +1417,19 @@ export function useProjectActions(projectId: string): ProjectActions {
       deleteSprint: async (id, options) =>
         settle(
           api
-            ? await apiSprint(
-                api,
-                projectId,
-                () => projectsApi.deleteSprint(id),
-                (_, data) => ({
-                  ...data,
-                  sprints: data.sprints.filter((s) => s.id !== id),
-                  issues: data.issues.map((i) =>
-                    i.sprintId === id ? { ...i, sprintId: null } : i,
-                  ),
-                }),
+            ? voided(
+                await apiSprint(
+                  api,
+                  projectId,
+                  () => projectsApi.deleteSprint(id),
+                  (_, data) => ({
+                    ...data,
+                    sprints: data.sprints.filter((s) => s.id !== id),
+                    issues: data.issues.map((i) =>
+                      i.sprintId === id ? { ...i, sprintId: null } : i,
+                    ),
+                  }),
+                ),
               )
             : demo((book, ctx) => ({
                 book: deleteSprintInBook(book, id, ctx.now),
@@ -1309,16 +1442,18 @@ export function useProjectActions(projectId: string): ProjectActions {
       startSprint: async (id, edits, options) =>
         settle(
           api
-            ? await apiSprint(
-                api,
-                projectId,
-                async () => {
-                  if (edits && Object.keys(edits).length > 0) {
-                    await projectsApi.updateSprint(id, edits);
-                  }
-                  await projectsApi.startSprint(id);
-                },
-                (_, data) => startSprint(data, id, edits ?? {}),
+            ? voided(
+                await apiSprint(
+                  api,
+                  projectId,
+                  () => projectsApi.startSprint(id, edits ?? {}),
+                  (started, data) => ({
+                    ...data,
+                    sprints: data.sprints.map((s) =>
+                      s.id === id ? started : s,
+                    ),
+                  }),
+                ),
               )
             : demo((book) => ({
                 book: startSprintInBook(book, id, edits ?? {}),
@@ -1331,14 +1466,29 @@ export function useProjectActions(projectId: string): ProjectActions {
       completeSprint: async (id, move, next, options) =>
         settle(
           api
-            ? await apiSprint(
-                api,
-                projectId,
-                async () => {
-                  await projectsApi.completeSprint(id, move);
-                },
-                (_, data) =>
-                  completeSprint(data, id, move, nowIso(), null).data,
+            ? voided(
+                await apiSprint(
+                  api,
+                  projectId,
+                  () => projectsApi.completeSprint(id, move),
+                  (done, data) => {
+                    const moved = new Set(done.movedIssueIds);
+                    const to =
+                      move === "new" ? (done.createdSprint?.id ?? null) : move;
+                    return {
+                      ...data,
+                      sprints: [
+                        ...data.sprints.map((s) =>
+                          s.id === id ? done.sprint : s,
+                        ),
+                        ...(done.createdSprint ? [done.createdSprint] : []),
+                      ],
+                      issues: data.issues.map((i) =>
+                        moved.has(i.id) ? { ...i, sprintId: to } : i,
+                      ),
+                    };
+                  },
+                ),
               )
             : demo((book, ctx) => ({
                 book: completeSprintInBook(
