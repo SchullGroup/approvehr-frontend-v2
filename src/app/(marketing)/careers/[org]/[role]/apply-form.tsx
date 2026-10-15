@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { ApplyForm as Form } from "@/components/marketing/apply/apply-form";
 import { liveClient } from "@/lib/marketing/apply-client";
 import type { FormDefinition } from "@/lib/marketing/apply-form";
@@ -40,6 +41,7 @@ export function ApplyForm({
   utm?: { source?: string; medium?: string; campaign?: string } | null;
 }) {
   const client = useMemo(() => liveClient(org, roleSlug), [org, roleSlug]);
+  const router = useRouter();
   return (
     <Form
       client={client}
@@ -49,6 +51,7 @@ export function ApplyForm({
       uploadsEnabled={uploadsEnabled}
       src={src}
       utm={utm}
+      onFormChanged={() => router.refresh()}
       {...(form ? { form } : {})}
     />
   );

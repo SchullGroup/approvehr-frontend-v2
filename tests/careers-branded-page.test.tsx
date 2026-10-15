@@ -577,6 +577,34 @@ describe("what a search engine reads", () => {
     ).toEqual({ index: false, follow: true });
   });
 
+  it("offers the company's logo as the preview image, and no image when it has none", async () => {
+    fetchMock.mockResolvedValue(json(200, { data: detail() }));
+    const { one } = await pages();
+    const withLogo = await one.generateMetadata({
+      params: Promise.resolve({ org: "acme", role: "payroll-analyst" }),
+    });
+    expect(withLogo.openGraph).toMatchObject({
+      images: [
+        {
+          url: "https://api.example.test/api/v1/careers/public/acme/logo?v=abc",
+          alt: "Acme Payroll logo",
+        },
+      ],
+    });
+
+    fetchMock.mockResolvedValue(
+      json(200, {
+        data: detail({ branding: { ...detail().branding, logoUrl: null } }),
+      }),
+    );
+    const bare = await (
+      await pages()
+    ).one.generateMetadata({
+      params: Promise.resolve({ org: "acme", role: "payroll-analyst" }),
+    });
+    expect(bare.openGraph).not.toHaveProperty("images");
+  });
+
   it("falls back to a plain title for an API that sends no search data", async () => {
     fetchMock.mockResolvedValue(
       json(200, { data: detail({ seo: undefined }) }),

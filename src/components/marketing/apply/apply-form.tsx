@@ -104,6 +104,7 @@ export function ApplyForm({
   captchaRequired = false,
   src = null,
   utm = null,
+  onFormChanged,
 }: {
   roleTitle: string;
   company: string;
@@ -118,6 +119,13 @@ export function ApplyForm({
   src?: string | null;
   /** The `utm_*` values on that link, if any. Sent with the application. */
   utm?: { source?: string; medium?: string; campaign?: string } | null;
+  /**
+   * Called when the API refuses an answer to a question this form does not have:
+   * the advert's form changed while the applicant was filling it in. The page
+   * re-reads the advert and passes the new `form` down; what was typed stays,
+   * because this component is not remounted.
+   */
+  onFormChanged?: () => void;
 }) {
   const [fields, setFields] = useState<Fields>({
     firstName: "",
@@ -251,6 +259,7 @@ export function ApplyForm({
       note: "Your note",
       cv: "Your CV",
       consent: "Privacy notice",
+      form: "The form",
     };
     if (standard[key]) return standard[key];
     return questions.find((q) => questionDomId(q) === key)?.label ?? key;
@@ -276,6 +285,7 @@ export function ApplyForm({
     ...questions.map((q) => questionDomId(q)),
     ...(showNote ? ["note"] : []),
     "consent",
+    "form",
   ];
 
   function present(found: Errors) {
@@ -348,8 +358,20 @@ export function ApplyForm({
        situation and is worth more than anything this component could compose. */
     setRefusal({ kind: result.kind, message: result.message });
     const fieldErrors: Errors = {};
+    let changed = false;
     for (const [field, message] of Object.entries(result.fields)) {
+      if (isUnknownAnswer(field, questions)) {
+        changed = true;
+        continue;
+      }
       fieldErrors[serverFieldKey(field, questions)] = message;
+    }
+    /* An answer to a question this page has never heard of: the advert's form
+       changed under the applicant. Say so, and have the page read it again. */
+    if (changed) {
+      fieldErrors["form"] =
+        "The form changed while you were filling it in. We have updated it. Look for the new question, then send again.";
+      onFormChanged?.();
     }
     if (Object.keys(fieldErrors).length > 0) present(fieldErrors);
     else setErrors({});
@@ -732,6 +754,15 @@ export function ApplyForm({
  * form's boxes carry `q-` ids, so the two have to meet here. Anything it does not
  * recognise is kept under its own name and still shown in the summary.
  */
+/** Does this API field name an answer to a question the form does not have? */
+export function isUnknownAnswer(
+  field: string,
+  questions: readonly { id: string }[],
+): boolean {
+  const named = /^answers(?:\.|\[)(.+?)\]?(?:\.value)?$/.exec(field);
+  return Boolean(named?.[1]) && !questions.some((q) => q.id === named?.[1]);
+}
+
 export function serverFieldKey(
   field: string,
   questions: readonly { id: string }[],

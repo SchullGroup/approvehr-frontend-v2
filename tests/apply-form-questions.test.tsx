@@ -736,6 +736,78 @@ describe("what the API refuses, shown where it is about", () => {
   });
 });
 
+describe("when the advert's form changes while somebody fills it in", () => {
+  it("says so, asks the page to read the advert again, and keeps everything typed", async () => {
+    const { client, submit } = makeClient();
+    submit.mockResolvedValueOnce(
+      refused("invalid", { "answers.q_added_later": "Answer this question." }),
+    );
+    const onFormChanged = vi.fn();
+    const user = userEvent.setup();
+    const first = definition([
+      q({ id: "t", kind: "SHORT_TEXT", label: "Job title" }),
+    ]);
+    const view = render(
+      <ApplyForm
+        client={client}
+        form={first}
+        roleTitle="Payroll Analyst"
+        company="Acme Ltd"
+        onFormChanged={onFormChanged}
+      />,
+    );
+    await fillIn(user);
+    await user.type(screen.getByLabelText(/Job title/), "Payroll lead");
+    await send(user);
+
+    const summary = await screen.findByTestId("apply-error-summary");
+    expect(summary).toHaveTextContent(
+      "The form changed while you were filling it in",
+    );
+    expect(summary).not.toHaveTextContent("q_added_later");
+    expect(onFormChanged).toHaveBeenCalledTimes(1);
+
+    /* The page answers with the new form: the new question is there, and what
+       was typed is still there beside it. */
+    view.rerender(
+      <ApplyForm
+        client={client}
+        form={definition([
+          q({ id: "t", kind: "SHORT_TEXT", label: "Job title" }),
+          q({
+            id: "q_added_later",
+            kind: "SHORT_TEXT",
+            label: "Notice period",
+            required: true,
+          }),
+        ])}
+        roleTitle="Payroll Analyst"
+        company="Acme Ltd"
+        onFormChanged={onFormChanged}
+      />,
+    );
+    expect(screen.getByLabelText(/Notice period/)).toBeRequired();
+    expect(screen.getByLabelText(/First name/)).toHaveValue("Chioma");
+    expect(screen.getByLabelText(/Job title/)).toHaveValue("Payroll lead");
+  });
+
+  it("still names the other fields the API objected to", async () => {
+    const { client, submit } = makeClient();
+    submit.mockResolvedValueOnce(
+      refused("invalid", {
+        "answers.q_added_later": "Answer this question.",
+        phone: "Enter a phone number.",
+      }),
+    );
+    const { user } = mount(defaultDefinition(), { client });
+    await fillIn(user);
+    await send(user);
+    const summary = await screen.findByTestId("apply-error-summary");
+    expect(summary).toHaveTextContent("The form changed");
+    expect(summary).toHaveTextContent("Enter a phone number.");
+  });
+});
+
 describe("the honeypot", () => {
   it("is untouched by a person filling in every visible box, and sent empty", async () => {
     const { user, submit } = mount(

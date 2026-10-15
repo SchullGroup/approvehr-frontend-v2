@@ -12,6 +12,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const API = "https://api.example.test/api/v1";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+  usePathname: () => "/careers/acme/payroll-analyst",
+}));
 const SITE_KEY = "0xTESTSITEKEY";
 
 type Sent = Record<string, unknown>;

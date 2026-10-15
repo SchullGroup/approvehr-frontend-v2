@@ -9,6 +9,7 @@ import {
   careersPageUrl,
   formFromDetail,
   jobPostingJsonLd,
+  logoSrc,
   readableDate,
 } from "@/lib/marketing/careers";
 import { getRole } from "@/lib/marketing/careers-read";
@@ -47,6 +48,7 @@ export async function generateMetadata({
   const detail = result.value;
   const title = detail.seo?.title ?? `${detail.title}, ${detail.company}`;
   const url = careersPageUrl(SITE_URL, org, detail.slug);
+  const logo = logoSrc(detail.branding);
   return {
     title,
     description: detail.summary,
@@ -62,8 +64,18 @@ export async function generateMetadata({
       description: detail.summary,
       url,
       siteName: detail.company,
+      /* The company's own logo is the one image that is honestly about this
+         advert. Crawlers that cannot draw it (a vector one) simply show none. */
+      ...(logo
+        ? { images: [{ url: logo, alt: `${detail.company} logo` }] }
+        : {}),
     },
-    twitter: { card: "summary", title, description: detail.summary },
+    twitter: {
+      card: "summary",
+      title,
+      description: detail.summary,
+      ...(logo ? { images: [logo] } : {}),
+    },
   };
 }
 
