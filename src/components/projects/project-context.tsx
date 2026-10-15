@@ -45,6 +45,12 @@ export type ProjectContextValue = {
   people: People;
   /** The signed-in person's employee id, if they have one. */
   meId: string | null;
+  /**
+   * Talking to the real API. Objectives and the weekly-task bridge exist only
+   * there, so a control that links a project or an issue to one is drawn only
+   * when this is true; the demo has none to link to.
+   */
+  connected: boolean;
   canWork: boolean;
   canManage: boolean;
   timeZone: string;
