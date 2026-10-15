@@ -518,7 +518,7 @@ export function DraftPeriodWizard() {
                 />
               ) : (
                 <>
-                  <Field label="What to call it" required>
+                  <Field label="Period name" required>
                     <Input
                       value={name}
                       onChange={(event) => setName(event.target.value)}
@@ -596,6 +596,7 @@ export function DraftPeriodWizard() {
               ) : goals.length === 0 ? (
                 <EmptyState
                   compact
+                  icon={<Sparkles aria-hidden="true" />}
                   title="No goals came back"
                   description="Write them on the period itself instead."
                 />
@@ -733,6 +734,7 @@ export function DraftPeriodWizard() {
               ) : questions.length === 0 ? (
                 <EmptyState
                   compact
+                  icon={<Sparkles aria-hidden="true" />}
                   title="No questions came back"
                   description="Write them on the period itself instead. A period cannot start without at least one."
                 />

@@ -17,22 +17,35 @@ import {
 import {
   currentQuarter,
   parseMeasure,
+  type ApiGoal,
   type CreateGoalBody,
   type CreateKeyResultBody,
+  type UpdateGoalBody,
 } from "@/lib/api/performance";
+import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
 import { useObjectiveSuggestions } from "@/lib/store/ai";
-import { useDepartments } from "@/lib/store/departments";
+import {
+  useDepartments,
+  useHeadedDepartmentIds,
+} from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useAppraisals } from "@/lib/store/performance";
 import { useSession } from "@/lib/store/session";
 import { TODAY } from "@/lib/today";
+import {
+  objectiveWhoseChoices,
+  peopleILead,
+  type LeadReach,
+} from "./goal-facts";
 
 /**
- * Whose work this caller leads — a mirror of the API's `leadsWorkOf`.
+ * Whose work this caller leads, as the two dialogs below ask it.
  *
- * Kept as one function because two dialogs in this file ask it and they had
- * drifted in **opposite** directions, which is what two copies of a rule do:
+ * The rule itself is `peopleILead` in `goal-facts.ts`, a mirror of the API's
+ * `leadsWorkOf`; this only gathers what it needs to know about the caller. One
+ * rule, because two dialogs asked it and had drifted in **opposite**
+ * directions, which is what two copies of a rule do:
  *
  * - the owner select offered `managerId === employeeId` only, so a department
  *   head could not pick somebody in their own department even though
@@ -41,45 +54,29 @@ import { TODAY } from "@/lib/today";
  *   not by the caller at all, so an employee was shown ten colleagues and the
  *   API refused every one. It over-offered.
  *
- * The rule on the API is `reviewableTeamOf`: everybody with `EDIT_RECORDS`,
- * otherwise the caller's direct reports plus everybody in a department they
- * head. `headedDepartmentIds` matches on `headId` alone, so it is the
- * departments somebody heads and **not** the sub-departments beneath them.
- *
- * Matched on the department **name** rather than an id because `Employee`
- * carries `department: string` and no `departmentId` — the API sends a name
- * there too. Names are refused as duplicates on both sides, so the match is
- * sound; give `Employee` a `departmentId` and this should move to it.
- *
- * Self is `true` here: `createGoal` and `assignGoal` both let somebody set
- * their own. A call site that wants "somebody else" says so itself, because
- * only it knows whether it offers a separate "me" option.
+ * The people come from `useEmployeeDirectory().people`, which is what *every*
+ * caller can read — not `employees`, the full rows only HR is sent. A
+ * department head holds no `EDIT_RECORDS`, so the full list was empty for
+ * exactly the people these dialogs are for.
  */
-function headedDepartmentNames(
-  departments: readonly { name: string; headId: string | null }[],
-  employeeId: string | null,
-): Set<string> {
-  if (!employeeId) return new Set<string>();
-  return new Set(
-    departments
-      .filter((one) => one.headId === employeeId)
-      .map((one) => one.name),
+function useLeadReach(): LeadReach {
+  const { employeeId } = useSession();
+  const leadsEveryone = useCan("EDIT_RECORDS");
+  const headedDepartmentIds = useHeadedDepartmentIds();
+  const { flat: departments } = useDepartments();
+  return useMemo(
+    () => ({
+      employeeId,
+      leadsEveryone,
+      headedDepartmentIds,
+      headedDepartmentNames: new Set(
+        departments
+          .filter((department) => headedDepartmentIds.has(department.id))
+          .map((department) => department.name),
+      ),
+    }),
+    [employeeId, leadsEveryone, headedDepartmentIds, departments],
   );
-}
-
-function leadsWorkOf(
-  person: { id: string; managerId: string | null; department: string },
-  actor: {
-    employeeId: string | null;
-    canSetCompanyWide: boolean;
-    headed: Set<string>;
-  },
-): boolean {
-  if (actor.canSetCompanyWide) return true;
-  if (actor.employeeId === null) return false;
-  if (person.id === actor.employeeId) return true;
-  if (person.managerId === actor.employeeId) return true;
-  return actor.headed.has(person.department);
 }
 
 /**
@@ -91,7 +88,7 @@ function leadsWorkOf(
  */
 
 /** The current quarter and the three after it, plus the one just gone. */
-function quarterOptions(): string[] {
+export function quarterOptions(): string[] {
   const now = currentQuarter(TODAY);
   const [yearPart = "2026", quarterPart = "Q1"] = now.split("-");
   let year = Number(yearPart);
@@ -116,28 +113,52 @@ function quarterOptions(): string[] {
   return out;
 }
 
-const quarterText = (quarter: string) => {
+export const quarterText = (quarter: string) => {
   const [year, part] = quarter.split("-");
   return `${part} ${year}`;
 };
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The form for a new KPI, and — in `objective` mode — for a new objective.
+ *
+ * Same fields, same save, same rules on the API. The mode changes what the
+ * form calls itself and who it offers: an objective is the company's, a
+ * department's or the maker's own, so it leaves out the list of people a leader
+ * could hand a KPI to. That list is the KPI form's, and the next step from a
+ * new objective ("Give a KPI to people") does it better, in bulk.
+ */
 export function NewKpiDialog({
-  parentId,
-  parentTitle,
+  parentId: parentIdProp,
+  parentTitle: parentTitleProp,
+  mode: modeProp = "kpi",
   open,
   onClose,
   onCreate,
 }: {
   parentId?: string;
   parentTitle?: string;
+  mode?: "kpi" | "objective";
   open: boolean;
   onClose: () => void;
   onCreate: (body: CreateGoalBody) => Promise<void>;
 }) {
-  const { employees } = useEmployeeDirectory({ pageSize: 200 });
+  /* What this dialog is for, kept while it closes. The caller clears its own
+     state the instant it closes this, and an exit animation that read
+     "New KPI" over a form that said "New objective" a moment ago would be the
+     dialog changing its mind on the way out. */
+  const [mode, setMode] = useState(modeProp);
+  if (open && modeProp !== mode) setMode(modeProp);
+  const [parentId, setParentId] = useState(parentIdProp);
+  if (open && parentIdProp !== parentId) setParentId(parentIdProp);
+  const [parentTitle, setParentTitle] = useState(parentTitleProp);
+  if (open && parentTitleProp !== parentTitle) setParentTitle(parentTitleProp);
+  const objective = mode === "objective";
+
+  const { people } = useEmployeeDirectory({ pageSize: 200 });
   const { employeeId } = useSession();
+  const reach = useLeadReach();
   /* A company KPI has no owner and everybody can read it, which is why the API
      gates it. The option is absent rather than disabled for the same reason. */
   const canSetCompanyWide = useCan("EDIT_RECORDS");
@@ -157,10 +178,6 @@ export function NewKpiDialog({
    * refuse puts a name in front of somebody that does not work.
    */
   const { flat: departments } = useDepartments();
-  const headedHere = useMemo(
-    () => headedDepartmentNames(departments, employeeId),
-    [departments, employeeId],
-  );
   const mine = departments.filter(
     (department) =>
       canSetCompanyWide ||
@@ -179,12 +196,41 @@ export function NewKpiDialog({
   const quarters = quarterOptions();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [owner, setOwner] = useState<string>("me");
+  /* `null` is "not chosen yet", so the starting answer can follow the
+     departments as they arrive rather than being fixed at mount, before they
+     have loaded. */
+  const [chosenOwner, setChosenOwner] = useState<string | null>(null);
   const [quarter, setQuarter] = useState(quarters[1] ?? quarters[0] ?? "");
   /** Empty means no period, which is a real choice — see the copy below. */
   const [reviewCycleId, setReviewCycleId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  /* A blank form on every open. This dialog stays mounted between uses so its
+     exit can animate, which also means it keeps whatever was typed last time:
+     the second objective somebody makes, or the KPI they add under the one they
+     have just made, would start with the first one's title in it. */
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setTitle("");
+      setDescription("");
+      setChosenOwner(null);
+      setQuarter(quarters[1] ?? quarters[0] ?? "");
+      setReviewCycleId("");
+      setError(null);
+    }
+  }
+
+  /* The objective form's own list of answers; the KPI form builds its own
+     below. See `objectiveWhoseChoices`. */
+  const whose = objectiveWhoseChoices({
+    departments,
+    employeeId,
+    canSetCompanyWide,
+  });
+  const owner = chosenOwner ?? (objective ? whose.fallback : "me");
 
   /**
    * Suggestions, only under a parent.
@@ -227,7 +273,18 @@ export function NewKpiDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title={parentTitle ? `New KPI under "${parentTitle}"` : "New KPI"}
+      title={
+        parentTitle
+          ? `${objective ? "New objective" : "New KPI"} under "${parentTitle}"`
+          : objective
+            ? "New objective"
+            : "New KPI"
+      }
+      description={
+        objective && !parentTitle
+          ? "Once it is made you can add KPIs under it, or give them to people."
+          : undefined
+      }
       size="md"
       footer={
         <>
@@ -237,14 +294,14 @@ export function NewKpiDialog({
             loading={saving}
             onClick={() => void submit()}
           >
-            Create KPI
+            {objective ? "Create objective" : "Create KPI"}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
         <Field
-          label="What is being aimed at"
+          label={objective ? "Objective title" : "KPI title"}
           required
           {...(error ? { error } : {})}
           help="Say it the way you would to the person doing it."
@@ -286,58 +343,63 @@ export function NewKpiDialog({
           </div>
         )}
 
-        <Field label="Whose KPI is this" required>
+        <Field label="Assigned to" required>
           <Select
             value={owner}
-            onChange={(event) => setOwner(event.target.value)}
+            onChange={(event) => setChosenOwner(event.target.value)}
           >
-            <option value="me">Mine</option>
-            {canSetCompanyWide && (
-              <option value="company">
-                The whole company (everyone sees it)
-              </option>
-            )}
-            {/* The middle rung. A department's target is nobody's personally,
-                so it lives with "the whole company" rather than among the
-                names — and each one says which department, because "a
-                department" without saying which is half a fact. */}
-            {mine.map((department) => (
-              <option key={department.id} value={`dept:${department.id}`}>
-                {department.name} — the whole department
-              </option>
-            ))}
-            {/* The API's own rule, not a longer list than it will accept,
-                and not a shorter one either. `createGoal` refuses anybody who
-                is not the caller, a direct report, somebody in a department
-                the caller heads, or anybody at all with EDIT_RECORDS.
-
-                This used to read `managerId === employeeId`, which was the
-                rule when the comment was written and is narrower than the one
-                the API now applies — so a department head was not offered
-                their own department. `leadsWorkOf` above is the current rule,
-                shared with the assign dialog so the two cannot drift again.
-
-                `person.id !== employeeId` stays here rather than in the
-                helper: this select has its own "me" option above. */}
-            {employees
-              .filter(
-                (person) =>
-                  person.id !== employeeId &&
-                  leadsWorkOf(person, {
-                    employeeId,
-                    canSetCompanyWide,
-                    headed: headedHere,
-                  }),
-              )
-              .map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.firstName} {person.lastName} · {person.jobTitle}
+            {objective ? (
+              whose.choices.map((choice) => (
+                <option key={choice.value} value={choice.value}>
+                  {choice.label}
                 </option>
-              ))}
+              ))
+            ) : (
+              <>
+                <option value="me">Mine</option>
+                {canSetCompanyWide && (
+                  <option value="company">
+                    The whole company (everyone sees it)
+                  </option>
+                )}
+                {/* The middle rung. A department's target is nobody's
+                    personally, so it lives with "the whole company" rather
+                    than among the names — and each one says which department,
+                    because "a department" without saying which is half a
+                    fact. */}
+                {mine.map((department) => (
+                  <option key={department.id} value={`dept:${department.id}`}>
+                    {department.name} — the whole department
+                  </option>
+                ))}
+                {/* The API's own rule, not a longer list than it will accept,
+                    and not a shorter one either. `createGoal` refuses anybody
+                    who is not the caller, a direct report, somebody in a
+                    department the caller heads, or anybody at all with
+                    EDIT_RECORDS.
+
+                    This used to read `managerId === employeeId`, which was the
+                    rule when the comment was written and is narrower than the
+                    one the API now applies — so a department head was not
+                    offered their own department. `peopleILead` is the
+                    current rule, shared with the assign dialog so the two
+                    cannot drift again.
+
+                    `person.id !== employeeId` stays here rather than in the
+                    helper: this select has its own "me" option above. */}
+                {peopleILead(people, reach)
+                  .filter((person) => person.id !== employeeId)
+                  .map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.fullName} · {person.jobTitle}
+                    </option>
+                  ))}
+              </>
+            )}
           </Select>
         </Field>
 
-        <Field label="Due by the end of" required>
+        <Field label="Due quarter" required>
           <Select
             value={quarter}
             onChange={(event) => setQuarter(event.target.value)}
@@ -353,7 +415,7 @@ export function NewKpiDialog({
         {openPeriods.length > 0 && (
           <Field
             optional
-            label="Scored in"
+            label="Appraisal period"
             help={
               reviewCycleId
                 ? "Counts towards this person's mark for that period, once somebody agrees it."
@@ -374,7 +436,7 @@ export function NewKpiDialog({
           </Field>
         )}
 
-        <Field optional label="Any detail">
+        <Field optional label="Description">
           <Textarea
             rows={3}
             value={description}
@@ -454,14 +516,12 @@ export function AssignKpiDialog({
   /* Everybody when the objective is the company's; the department's own people
      when it is a department's. Filing a Sales KPI under Marketing's target is
      something the API refuses, so the list does not offer it. */
-  const { employees: inScope } = useEmployeeDirectory(
+  const { people: inScope } = useEmployeeDirectory(
     parent?.departmentId
       ? { departmentId: parent.departmentId, pageSize: 200 }
       : { pageSize: 200 },
   );
-  const { employeeId } = useSession();
-  const canSetCompanyWide = useCan("EDIT_RECORDS");
-  const { flat: departments } = useDepartments();
+  const reach = useLeadReach();
 
   /**
    * ...and then the caller's own reach, which this did not apply at all.
@@ -472,12 +532,10 @@ export function AssignKpiDialog({
    * action, while `assignGoal` refuses each name one at a time — *"… is not
    * somebody you set goals for."* For an employee every box was a dead option.
    */
-  const employees = useMemo(() => {
-    const headed = headedDepartmentNames(departments, employeeId);
-    return inScope.filter((person) =>
-      leadsWorkOf(person, { employeeId, canSetCompanyWide, headed }),
-    );
-  }, [inScope, departments, employeeId, canSetCompanyWide]);
+  const employees = useMemo(
+    () => peopleILead(inScope, reach),
+    [inScope, reach],
+  );
 
   const quarters = quarterOptions();
   const [title, setTitle] = useState("");
@@ -489,7 +547,33 @@ export function AssignKpiDialog({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  /* A blank form on every open, as in `NewKpiDialog`. This dialog stays
+     mounted so its exit can animate, and so it kept the last title and the
+     last ticks: a second objective opened with the first one's wording, and a
+     person ticked under a department objective stayed ticked — and was sent —
+     under the next one, where the department filter had already hidden them. */
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setTitle("");
+      setDescription("");
+      setChosen([]);
+      setQuarter(
+        (parentProp ?? parent)?.dueQuarter ?? quarters[1] ?? quarters[0] ?? "",
+      );
+      setError(null);
+    }
+  }
+
   if (!parent) return null;
+
+  /* Only people the list is showing. A tick for somebody the list no longer
+     offers is invisible, and sending it would assign a KPI to a person the
+     user cannot see they chose. */
+  const picked = chosen.filter((id) =>
+    employees.some((person) => person.id === id),
+  );
 
   const toggle = (id: string) =>
     setChosen((was) =>
@@ -501,7 +585,7 @@ export function AssignKpiDialog({
       setError("Give it a title of at least three characters.");
       return;
     }
-    if (chosen.length === 0) {
+    if (picked.length === 0) {
       setError("Pick at least one person.");
       return;
     }
@@ -513,10 +597,17 @@ export function AssignKpiDialog({
         description?: string;
         employeeIds: string[];
         dueQuarter?: string;
-      } = { title: title.trim(), employeeIds: chosen };
+      } = { title: title.trim(), employeeIds: picked };
       if (description.trim()) body.description = description.trim();
       if (quarter) body.dueQuarter = quarter;
       await onAssign(parent.id, body);
+    } catch (cause) {
+      /* The API is the authority on whose goals somebody may set, and it can
+         still say no to a list this dialog thought was right — the company's
+         objectives are HR's to give out, for one. Say what it said, here,
+         instead of leaving the dialog open and silent over a rejection. */
+      if (!(cause instanceof ApiError)) throw cause;
+      setError(cause.message);
     } finally {
       setSaving(false);
     }
@@ -536,16 +627,16 @@ export function AssignKpiDialog({
             loading={saving}
             onClick={() => void submit()}
           >
-            {chosen.length === 1
+            {picked.length === 1
               ? "Assign to 1 person"
-              : `Assign to ${chosen.length} people`}
+              : `Assign to ${picked.length} people`}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
         <Field
-          label="What each of them will do"
+          label="KPI title"
           required
           {...(error ? { error } : {})}
           help="The same KPI, worded once. Each person gets their own copy to track."
@@ -557,7 +648,7 @@ export function AssignKpiDialog({
           />
         </Field>
 
-        <Field label="Due by the end of" required>
+        <Field label="Due quarter" required>
           <Select
             value={quarter}
             onChange={(event) => setQuarter(event.target.value)}
@@ -571,7 +662,7 @@ export function AssignKpiDialog({
         </Field>
 
         <Field
-          label="Who gets it"
+          label="Assigned to"
           required
           help={
             parent.departmentId
@@ -594,14 +685,14 @@ export function AssignKpiDialog({
                   key={person.id}
                   checked={chosen.includes(person.id)}
                   onChange={() => toggle(person.id)}
-                  label={`${person.firstName} ${person.lastName} · ${person.jobTitle}`}
+                  label={`${person.fullName} · ${person.jobTitle}`}
                 />
               ))}
             </div>
           )}
         </Field>
 
-        <Field optional label="Any detail">
+        <Field optional label="Description">
           <Textarea
             rows={2}
             value={description}
@@ -710,7 +801,7 @@ export function AddMeasureDialog({
     >
       <div className="flex flex-col gap-4">
         <Field
-          label="What are you counting"
+          label="Measure"
           required
           {...(errors["label"] ? { error: errors["label"] } : {})}
         >
@@ -722,7 +813,7 @@ export function AddMeasureDialog({
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Starting at" required>
+          <Field label="Starting value" required>
             <Input
               inputMode="decimal"
               value={start}
@@ -730,7 +821,7 @@ export function AddMeasureDialog({
             />
           </Field>
           <Field
-            label="Aiming at"
+            label="Target value"
             required
             {...(errors["target"] ? { error: errors["target"] } : {})}
           >
@@ -740,7 +831,10 @@ export function AddMeasureDialog({
               onChange={(event) => setTarget(event.target.value)}
             />
           </Field>
-          <Field label="Where it is now" help="Leave blank to use the start.">
+          <Field
+            label="Current value"
+            help="Leave blank to use the starting value."
+          >
             <Input
               inputMode="decimal"
               value={current}
@@ -849,6 +943,287 @@ export function StopKpiDialog({
           onChange={(event) => setReason(event.target.value)}
         />
       </Field>
+    </Modal>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/** What the card calls this one: a person's own is a KPI, a shared one an objective. */
+const goalWord = (goal: ApiGoal) =>
+  goal.level === "personal" ? "KPI" : "objective";
+
+/**
+ * Whether the words of this objective can still be changed.
+ *
+ * An agreed target is frozen — the title, the period and every measure's target
+ * are what two people agreed — and the API refuses all of them, so the control is
+ * not offered; the card already says why and offers "Reopen the target", which is
+ * the way through. A finished one is the record of what was achieved.
+ */
+export const mayEditGoal = (goal: ApiGoal): boolean =>
+  !goal.targetFrozen && goal.status !== "DONE";
+
+/**
+ * Why this one cannot be deleted, or null when it can.
+ *
+ * The same four refusals `removeGoal` makes, so the button is absent rather than
+ * offering a click that comes back "no". An agreed objective is the record of an
+ * agreement and a refused one the record of a refusal — stopping keeps both —
+ * and one with others laddering up to it is holding up somebody else's page.
+ */
+export function deleteBlocker(goal: ApiGoal): string | null {
+  if (goal.status === "DONE") {
+    return "Done, so it is a record of what was achieved. It stays.";
+  }
+  if (goal.approval === "AGREED") {
+    return "Agreed, so it is the record of that agreement. Stop it instead of deleting it.";
+  }
+  if (goal.approval === "REJECTED") {
+    return "Not agreed, and that refusal is a record. It stays.";
+  }
+  if (goal.childCount > 0) {
+    return `${String(goal.childCount)} ${
+      goal.childCount === 1 ? "goal ladders" : "goals ladder"
+    } up to this one. Move or delete ${
+      goal.childCount === 1 ? "it" : "those"
+    } first.`;
+  }
+  return null;
+}
+
+/**
+ * Changing what a not-yet-agreed objective says: its title, quarter, appraisal
+ * period and description.
+ *
+ * Only what changed is sent, so saving after touching nothing is not offered and
+ * a field somebody did not mean to move is not re-written. Who it is assigned to
+ * is deliberately not here: handing an objective to somebody else is a different
+ * act with its own permission rules, and a form that quietly did both would make
+ * the rarer one easy to do by accident.
+ */
+export function EditGoalDialog({
+  goal,
+  open,
+  onClose,
+  onSave,
+}: {
+  goal: ApiGoal | null;
+  open: boolean;
+  onClose: () => void;
+  onSave: (id: string, body: UpdateGoalBody) => Promise<boolean>;
+}) {
+  const { cycles } = useAppraisals();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [quarter, setQuarter] = useState("");
+  const [reviewCycleId, setReviewCycleId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  /* Filled from the objective each time it opens. The dialog stays mounted so
+     its exit can animate, which would otherwise leave the last one's words in it
+     for the next. */
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const key = open && goal ? goal.id : null;
+  if (key !== loadedFor) {
+    setLoadedFor(key);
+    if (goal && key) {
+      setTitle(goal.title);
+      setDescription(goal.description ?? "");
+      setQuarter(goal.dueQuarter ?? "");
+      setReviewCycleId(goal.reviewCycleId ?? "");
+      setError(null);
+    }
+  }
+
+  const quarters = quarterOptions();
+  const quarterChoices =
+    goal?.dueQuarter && !quarters.includes(goal.dueQuarter)
+      ? [goal.dueQuarter, ...quarters]
+      : quarters;
+  const periods = cycles.filter(
+    (cycle) => cycle.stage !== "PUBLISHED" || cycle.id === goal?.reviewCycleId,
+  );
+  const word = goal ? goalWord(goal) : "objective";
+
+  const body: UpdateGoalBody = {};
+  if (goal) {
+    if (title.trim() !== goal.title) body.title = title.trim();
+    if (description.trim() !== (goal.description ?? "")) {
+      body.description = description.trim() === "" ? null : description.trim();
+    }
+    if (quarter !== (goal.dueQuarter ?? "")) {
+      body.dueQuarter = quarter === "" ? null : quarter;
+    }
+    if (reviewCycleId !== (goal.reviewCycleId ?? "")) {
+      body.reviewCycleId = reviewCycleId === "" ? null : reviewCycleId;
+    }
+  }
+  const changed = Object.keys(body).length > 0;
+
+  const submit = async () => {
+    if (!goal) return;
+    if (title.trim().length < 3) {
+      setError("Give it a title of at least three characters.");
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    try {
+      await onSave(goal.id, body);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`Edit this ${word}`}
+      description={goal?.title ?? ""}
+      size="md"
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            variant="accent"
+            loading={saving}
+            disabled={!changed}
+            onClick={() => void submit()}
+          >
+            Save changes
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Field
+          label={`${word === "KPI" ? "KPI" : "Objective"} title`}
+          required
+          {...(error ? { error } : {})}
+        >
+          <Input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+        </Field>
+
+        <Field label="Due quarter" required>
+          <Select
+            value={quarter}
+            onChange={(event) => setQuarter(event.target.value)}
+          >
+            {quarter === "" && <option value="">Choose a quarter</option>}
+            {quarterChoices.map((option) => (
+              <option key={option} value={option}>
+                {quarterText(option)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        {periods.length > 0 && (
+          <Field
+            optional
+            label="Appraisal period"
+            help={
+              reviewCycleId
+                ? "Counts towards this person's mark for that period, once somebody agrees it."
+                : "Nothing here reaches an appraisal mark. A quarter alone lets the objective be agreed and still score nothing."
+            }
+          >
+            <Select
+              value={reviewCycleId}
+              onChange={(event) => setReviewCycleId(event.target.value)}
+            >
+              <option value="">Not part of an appraisal period</option>
+              {periods.map((period) => (
+                <option key={period.id} value={period.id}>
+                  {period.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+
+        <Field optional label="Description">
+          <Textarea
+            rows={3}
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Deleting an objective that nobody has agreed.
+ *
+ * Says what goes with it, because a delete is the one move here that leaves no
+ * trace to open later: its measures go too, and nothing is kept. The button names
+ * the act rather than saying "Confirm", and the safe choice is the first one.
+ */
+export function DeleteGoalDialog({
+  goal,
+  open,
+  onClose,
+  onDelete,
+}: {
+  goal: ApiGoal | null;
+  open: boolean;
+  onClose: () => void;
+  onDelete: (goal: ApiGoal) => Promise<boolean>;
+}) {
+  const [saving, setSaving] = useState(false);
+  /* Kept while it closes, for the same reason the dialogs above keep their
+     text: the caller clears the objective the instant it closes this. */
+  const [shown, setShown] = useState<ApiGoal | null>(goal);
+  if (open && goal && goal !== shown) setShown(goal);
+  const target = goal ?? shown;
+  const word = target ? goalWord(target) : "objective";
+  const measures = target?.keyResults.length ?? 0;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`Delete this ${word}?`}
+      description={target?.title ?? ""}
+      size="sm"
+      footer={
+        <>
+          <Button onClick={onClose}>Keep it</Button>
+          <Button
+            variant="danger"
+            loading={saving}
+            onClick={() => {
+              if (!target) return;
+              setSaving(true);
+              void onDelete(target).finally(() => setSaving(false));
+            }}
+          >
+            {`Delete ${word}`}
+          </Button>
+        </>
+      }
+    >
+      <p className="text-body-sm text-body">
+        {measures > 0
+          ? `This removes it for good, along with its ${String(measures)} ${
+              measures === 1 ? "measure" : "measures"
+            }. It cannot be undone.`
+          : "This removes it for good. It cannot be undone."}
+      </p>
+      <p className="mt-3 text-body-sm text-muted">
+        Nobody has agreed it yet, so there is no agreement to lose. If it should
+        stay on record as stopped, use Stop instead.
+      </p>
     </Modal>
   );
 }

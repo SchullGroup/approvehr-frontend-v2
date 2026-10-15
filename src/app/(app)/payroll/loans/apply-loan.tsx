@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AlertTriangle, Wallet } from "lucide-react";
 import {
   Button,
+  ButtonLink,
   Callout,
   DescriptionList,
   Field,
@@ -11,18 +12,18 @@ import {
   Modal,
   Select,
   Switch,
+  SuccessMoment,
   Textarea,
   formatMoney,
-  useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { kobo, naira, type ApiLoanDetail } from "@/lib/api/loans";
 import { addMonths, monthLabel, priceLoan } from "@/lib/loans/schedule";
-import { useLoanActions } from "@/lib/store/loans";
+import { useLoanActions, useLoanToday } from "@/lib/store/loans";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { usePayPreview } from "@/lib/store/pay-components";
 import { useSession } from "@/lib/store/session";
-import { TODAY } from "@/lib/today";
+import { loanRequestedCopy, type MomentCopy } from "./loan-moments-copy";
 
 /**
  * Applying for a staff loan.
@@ -33,6 +34,15 @@ import { TODAY } from "@/lib/today";
  * when the deductions start, whether interest is charged — has a sensible answer
  * already and sits behind one disclosure. A Nigerian small-business owner who
  * lends a member of staff ₦200,000 is not filling in an origination form.
+ *
+ * ## Sending it ends in a statement, not a toast
+ *
+ * Asking for money is a one-way step somebody will wonder about afterwards: did
+ * it go, for how much, is anything deducted yet. The toast that answered it
+ * carried good wording and vanished in six seconds, so the dialog stays and
+ * turns into that wording instead — what was asked for, that nothing is
+ * deducted yet, and where to see it. It reads the loan the API answered with,
+ * so what is shown is what was saved.
  *
  * ## And then it shows the number they are actually deciding on
  *
@@ -89,6 +99,7 @@ function comfortableTerm(
   interestRate: number,
   netKobo: number,
   from: number,
+  startPeriod: string,
 ): number | null {
   const ceiling = Math.round(netKobo / 3);
   if (ceiling <= 0) return null;
@@ -97,7 +108,7 @@ function comfortableTerm(
       principalKobo,
       termMonths: term,
       interestRate,
-      startPeriod: TODAY,
+      startPeriod,
     });
     if (priced && priced.instalmentKobo <= ceiling) return term;
   }
@@ -169,7 +180,7 @@ export function ApplyLoanModal({
 }) {
   const { employeeId: selfId } = useSession();
   const { apply } = useLoanActions();
-  const toast = useToast();
+  const today = useLoanToday();
 
   const fixedId = forEmployeeId ?? selfId ?? null;
   const [target, setTarget] = useState<string>(fixedId ?? "");
@@ -182,6 +193,11 @@ export function ApplyLoanModal({
   const [showMore, setShowMore] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [failure, setFailure] = useState<ApiError | null>(null);
+  /* What was just sent. While it is set the dialog shows it in place of the
+     form. */
+  const [sent, setSent] = useState<{ copy: MomentCopy; loanId: string } | null>(
+    null,
+  );
 
   const applicantId = canApplyForOthers ? target || fixedId : fixedId;
   const forSomebodyElse = Boolean(
@@ -222,7 +238,7 @@ export function ApplyLoanModal({
   const principal = parseNaira(amount);
   const months = parseWhole(term);
   const interestRate = charging ? (parseNaira(rate) ?? 0) / 100 : 0;
-  const startPeriod = addMonths(TODAY, Number(startsIn));
+  const startPeriod = addMonths(today, Number(startsIn));
 
   const priced = useMemo(
     () =>
@@ -271,6 +287,7 @@ export function ApplyLoanModal({
           interestRate,
           effect.netBeforeKobo,
           months ?? 1,
+          startPeriod,
         )
       : null;
 
@@ -291,15 +308,15 @@ export function ApplyLoanModal({
         ...(reason.trim() ? { reason: reason.trim() } : {}),
         startPeriod,
       });
-      toast.push({
-        title: "Sent for approval",
-        tone: "success",
-        detail: `${formatMoney(naira(priced.instalmentKobo), "NGN", {
-          decimals: true,
-        })} a month from ${monthLabel(startPeriod)}, once somebody approves it.`,
+      setSent({
+        loanId: loan.id,
+        copy: loanRequestedCopy({
+          loan,
+          startPeriod,
+          forName: forSomebodyElse ? loan.employeeName : null,
+        }),
       });
       onApplied?.(loan);
-      onClose();
     } catch (error) {
       setFailure(error instanceof ApiError ? error : null);
     } finally {
@@ -315,258 +332,294 @@ export function ApplyLoanModal({
       open
       onClose={onClose}
       title="Apply for a loan"
-      description="Three questions, then you see what it costs you a month."
+      description={
+        sent
+          ? undefined
+          : "Three questions, then you see what it costs you a month."
+      }
       size="lg"
       footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="accent"
-            onClick={() => void submit()}
-            disabled={!ready}
-            loading={submitting}
-          >
-            Send for approval
-          </Button>
-        </>
+        sent ? undefined : (
+          <>
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              onClick={() => void submit()}
+              disabled={!ready}
+              loading={submitting}
+            >
+              Send for approval
+            </Button>
+          </>
+        )
       }
     >
-      <div className="flex flex-col gap-5">
-        {failure && (
-          <Callout tone="danger" title="That did not go through">
-            {failure.message}
-          </Callout>
-        )}
+      {sent ? (
+        <SuccessMoment
+          /* Under the dialog's own `h2`, not beside it. */
+          headingLevel={3}
+          align="center"
+          /* The button that was just pressed has left with the footer, so
+             focus goes to what replaced it. */
+          focusHeading
+          title={sent.copy.title}
+          lead={sent.copy.lead}
+          details={sent.copy.details}
+          actions={
+            <>
+              <Button variant="accent" onClick={onClose}>
+                Done
+              </Button>
+              <ButtonLink
+                variant="ghost"
+                href={`/payroll/loans/${sent.loanId}`}
+              >
+                See the details
+              </ButtonLink>
+            </>
+          }
+        />
+      ) : (
+        <div className="flex flex-col gap-5">
+          {failure && (
+            <Callout tone="danger" title="That did not go through">
+              {failure.message}
+            </Callout>
+          )}
 
-        {canApplyForOthers && (
-          <PersonPicker value={target} onChange={setTarget} selfId={selfId} />
-        )}
+          {canApplyForOthers && (
+            <PersonPicker value={target} onChange={setTarget} selfId={selfId} />
+          )}
 
-        <Field
-          label="How much do you need?"
-          required
-          error={failure?.messageFor("principalKobo")}
-          help="In naira. Type it however you like: 500000 or 500,000."
-        >
-          <Input
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            inputMode="decimal"
-            autoComplete="off"
-            placeholder="500,000"
-          />
-        </Field>
+          <Field
+            label="How much do you need?"
+            required
+            error={failure?.messageFor("principalKobo")}
+            help="In naira. Type it however you like: 500000 or 500,000."
+          >
+            <Input
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="500,000"
+            />
+          </Field>
 
-        <Field
-          label="Over how many months?"
-          required
-          error={failure?.messageFor("termMonths")}
-        >
-          <Input
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-            inputMode="numeric"
-            autoComplete="off"
-            className="max-w-32"
-          />
-        </Field>
+          <Field
+            label="Over how many months?"
+            required
+            error={failure?.messageFor("termMonths")}
+          >
+            <Input
+              value={term}
+              onChange={(event) => setTerm(event.target.value)}
+              inputMode="numeric"
+              autoComplete="off"
+              className="max-w-32"
+            />
+          </Field>
 
-        <Field
-          label="What is it for?"
-          error={failure?.messageFor("reason")}
-          help="One line. Whoever approves it reads this and nothing else."
-        >
-          <Textarea
-            rows={2}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder="School fees for my daughter's second term."
-          />
-        </Field>
+          <Field
+            label="What is it for?"
+            error={failure?.messageFor("reason")}
+            help="One line. Whoever approves it reads this and nothing else."
+          >
+            <Textarea
+              rows={2}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="School fees for my daughter's second term."
+            />
+          </Field>
 
-        {/* ------------------------------------------------ what it costs */}
+          {/* ------------------------------------------------ what it costs */}
 
-        {priced && (
-          <div className="rounded-lg border border-line bg-canvas p-4">
-            <p className="text-body leading-relaxed">
-              <strong className="font-semibold">
-                {money(priced.instalmentKobo)} a month
-              </strong>{" "}
-              comes out of {forSomebodyElse ? "their" : "your"} pay for {months}{" "}
-              {months === 1 ? "month" : "months"}
-              {/* Only when something is actually left. A deduction bigger than
+          {priced && (
+            <div className="rounded-lg border border-line bg-canvas p-4">
+              <p className="text-body leading-relaxed">
+                <strong className="font-semibold">
+                  {money(priced.instalmentKobo)} a month
+                </strong>{" "}
+                comes out of {forSomebodyElse ? "their" : "your"} pay for{" "}
+                {months} {months === 1 ? "month" : "months"}
+                {/* Only when something is actually left. A deduction bigger than
                   the pay it comes out of has no "leaving about" — printing a
                   negative take-home would be arithmetic nobody can act on, and
                   the warning underneath is the thing to read instead. */}
+                {effect && effect.netAfterKobo > 0 ? (
+                  <>
+                    , leaving about{" "}
+                    <strong className="font-semibold">
+                      {money(effect.netAfterKobo)}
+                    </strong>{" "}
+                    to take home.
+                  </>
+                ) : (
+                  "."
+                )}
+              </p>
+
               {effect && effect.netAfterKobo > 0 ? (
-                <>
-                  , leaving about{" "}
-                  <strong className="font-semibold">
-                    {money(effect.netAfterKobo)}
-                  </strong>{" "}
-                  to take home.
-                </>
+                <p className="mt-1.5 text-body-sm text-body">
+                  Take-home now {money(effect.netBeforeKobo)} · first deduction{" "}
+                  {monthLabel(startPeriod)} · last{" "}
+                  {monthLabel(
+                    priced.lines[priced.lines.length - 1]?.dueDate ??
+                      startPeriod,
+                  )}
+                </p>
               ) : (
-                "."
+                <p className="mt-1.5 text-body-sm text-body">
+                  First deduction {monthLabel(startPeriod)}, last{" "}
+                  {monthLabel(
+                    priced.lines[priced.lines.length - 1]?.dueDate ??
+                      startPeriod,
+                  )}
+                  .
+                  {effect
+                    ? ` Take-home now ${money(effect.netBeforeKobo)}.`
+                    : pay.available
+                      ? " Take-home is not shown because there is no pay figure on this record we can read."
+                      : " Take-home is worked out by the payroll engine on the API, which is not answering, so it is not shown."}
+                </p>
               )}
-            </p>
 
-            {effect && effect.netAfterKobo > 0 ? (
-              <p className="mt-1.5 text-body-sm text-body">
-                Take-home now {money(effect.netBeforeKobo)} · first deduction{" "}
-                {monthLabel(startPeriod)} · last{" "}
-                {monthLabel(
-                  priced.lines[priced.lines.length - 1]?.dueDate ?? startPeriod,
-                )}
-              </p>
-            ) : (
-              <p className="mt-1.5 text-body-sm text-body">
-                First deduction {monthLabel(startPeriod)}, last{" "}
-                {monthLabel(
-                  priced.lines[priced.lines.length - 1]?.dueDate ?? startPeriod,
-                )}
-                .
-                {effect
-                  ? ` Take-home now ${money(effect.netBeforeKobo)}.`
-                  : pay.available
-                    ? " Take-home is not shown because there is no pay figure on this record we can read."
-                    : " Take-home is worked out by the payroll engine on the API, which is not answering, so it is not shown."}
-              </p>
-            )}
+              <DescriptionList
+                className="mt-4"
+                columns={2}
+                items={[
+                  { term: "Borrowing", value: money(priced.principalKobo) },
+                  {
+                    term: "Interest",
+                    value:
+                      priced.interestKobo === 0
+                        ? "None"
+                        : `${money(priced.interestKobo)} · ${(
+                            interestRate * 100
+                          ).toFixed(2)}% a year`,
+                  },
+                  { term: "Total to repay", value: money(priced.totalKobo) },
+                  {
+                    term:
+                      priced.finalInstalmentKobo === priced.instalmentKobo
+                        ? "Every month"
+                        : "Last month",
+                    value:
+                      priced.finalInstalmentKobo === priced.instalmentKobo
+                        ? money(priced.instalmentKobo)
+                        : `${money(priced.finalInstalmentKobo)} (the balancing figure)`,
+                  },
+                ]}
+              />
+            </div>
+          )}
 
-            <DescriptionList
-              className="mt-4"
-              columns={2}
-              items={[
-                { term: "Borrowing", value: money(priced.principalKobo) },
-                {
-                  term: "Interest",
-                  value:
-                    priced.interestKobo === 0
-                      ? "None"
-                      : `${money(priced.interestKobo)} · ${(
-                          interestRate * 100
-                        ).toFixed(2)}% a year`,
-                },
-                { term: "Total to repay", value: money(priced.totalKobo) },
-                {
-                  term:
-                    priced.finalInstalmentKobo === priced.instalmentKobo
-                      ? "Every month"
-                      : "Last month",
-                  value:
-                    priced.finalInstalmentKobo === priced.instalmentKobo
-                      ? money(priced.instalmentKobo)
-                      : `${money(priced.finalInstalmentKobo)} (the balancing figure)`,
-                },
-              ]}
-            />
-          </div>
-        )}
-
-        {/* The rule: a sentence explaining a problem should be a button fixing
+          {/* The rule: a sentence explaining a problem should be a button fixing
             it. So the warning names the figure and the button changes the term. */}
-        {overCommitted === "none" && effect && (
-          <Callout
-            tone="danger"
-            icon={<AlertTriangle aria-hidden="true" />}
-            title="That leaves nothing to live on"
-          >
-            <p className="text-body-sm leading-relaxed">
-              {money(effect.monthlyKobo)} a month is more than the whole
-              take-home of {money(effect.netBeforeKobo)}.
-            </p>
-            {suggestion && (
-              <Button
-                size="sm"
-                className="mt-2"
-                onClick={() => setTerm(String(suggestion))}
-              >
-                Spread it over {suggestion} months instead
-              </Button>
-            )}
-          </Callout>
-        )}
-
-        {overCommitted === "tight" && effect && (
-          <Callout
-            tone="warning"
-            icon={<Wallet aria-hidden="true" />}
-            title="More than a third of take-home"
-          >
-            <p className="text-body-sm leading-relaxed">
-              {money(effect.monthlyKobo)} out of {money(effect.netBeforeKobo)} a
-              month.
-            </p>
-            {suggestion && (
-              <Button
-                size="sm"
-                className="mt-2"
-                onClick={() => setTerm(String(suggestion))}
-              >
-                Spread it over {suggestion} months instead
-              </Button>
-            )}
-          </Callout>
-        )}
-
-        {/* ------------------------------------------------- everything else */}
-
-        {showMore ? (
-          <div className="flex flex-col gap-4 rounded-lg border border-line p-4">
-            <Field
-              label="When do deductions start?"
-              error={failure?.messageFor("startPeriod")}
+          {overCommitted === "none" && effect && (
+            <Callout
+              tone="danger"
+              icon={<AlertTriangle aria-hidden="true" />}
+              title="That leaves nothing to live on"
             >
-              <Select
-                value={startsIn}
-                onChange={(event) =>
-                  setStartsIn(event.target.value as "0" | "1" | "2")
-                }
-              >
-                <option value="0">
-                  {monthLabel(addMonths(TODAY, 0))} (this month&rsquo;s payroll)
-                </option>
-                <option value="1">{monthLabel(addMonths(TODAY, 1))}</option>
-                <option value="2">{monthLabel(addMonths(TODAY, 2))}</option>
-              </Select>
-            </Field>
+              <p className="text-body-sm leading-relaxed">
+                {money(effect.monthlyKobo)} a month is more than the whole
+                take-home of {money(effect.netBeforeKobo)}.
+              </p>
+              {suggestion && (
+                <Button
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setTerm(String(suggestion))}
+                >
+                  Spread it over {suggestion} months instead
+                </Button>
+              )}
+            </Callout>
+          )}
 
-            <Switch
-              label="Charge interest on this loan"
-              description="Most staff loans here are interest-free. Leave this alone unless yours is not."
-              checked={charging}
-              onChange={(event) => setCharging(event.target.checked)}
-            />
+          {overCommitted === "tight" && effect && (
+            <Callout
+              tone="warning"
+              icon={<Wallet aria-hidden="true" />}
+              title="More than a third of take-home"
+            >
+              <p className="text-body-sm leading-relaxed">
+                {money(effect.monthlyKobo)} out of {money(effect.netBeforeKobo)}{" "}
+                a month.
+              </p>
+              {suggestion && (
+                <Button
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setTerm(String(suggestion))}
+                >
+                  Spread it over {suggestion} months instead
+                </Button>
+              )}
+            </Callout>
+          )}
 
-            {charging && (
+          {/* ------------------------------------------------- everything else */}
+
+          {showMore ? (
+            <div className="flex flex-col gap-4 rounded-lg border border-line p-4">
               <Field
-                label="Rate a year"
-                error={failure?.messageFor("interestRate")}
-                help="A flat annual rate, as a percentage. 5% on ₦300,000 over six months is ₦7,500."
+                label="When do deductions start?"
+                error={failure?.messageFor("startPeriod")}
               >
-                <Input
-                  value={rate}
-                  onChange={(event) => setRate(event.target.value)}
-                  inputMode="decimal"
-                  className="max-w-32"
-                />
+                <Select
+                  value={startsIn}
+                  onChange={(event) =>
+                    setStartsIn(event.target.value as "0" | "1" | "2")
+                  }
+                >
+                  <option value="0">
+                    {monthLabel(addMonths(today, 0))} (this month&rsquo;s
+                    payroll)
+                  </option>
+                  <option value="1">{monthLabel(addMonths(today, 1))}</option>
+                  <option value="2">{monthLabel(addMonths(today, 2))}</option>
+                </Select>
               </Field>
-            )}
-          </div>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="self-start"
-            onClick={() => setShowMore(true)}
-          >
-            Change the start month or add interest
-          </Button>
-        )}
-      </div>
+
+              <Switch
+                label="Charge interest on this loan"
+                description="Most staff loans here are interest-free. Leave this alone unless yours is not."
+                checked={charging}
+                onChange={(event) => setCharging(event.target.checked)}
+              />
+
+              {charging && (
+                <Field
+                  label="Rate a year"
+                  error={failure?.messageFor("interestRate")}
+                  help="A flat annual rate, as a percentage. 5% on ₦300,000 over six months is ₦7,500."
+                >
+                  <Input
+                    value={rate}
+                    onChange={(event) => setRate(event.target.value)}
+                    inputMode="decimal"
+                    className="max-w-32"
+                  />
+                </Field>
+              )}
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="self-start"
+              onClick={() => setShowMore(true)}
+            >
+              Change the start month or add interest
+            </Button>
+          )}
+        </div>
+      )}
     </Modal>
   );
 }

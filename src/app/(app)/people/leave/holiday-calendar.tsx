@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -10,6 +9,7 @@ import {
   Disclosure,
   IconButton,
   Spinner,
+  TextLink,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import {
@@ -328,12 +328,9 @@ export function HolidayCalendarCard({
             </IconButton>
           </div>
           {canManage && (
-            <Link
-              href="/settings/leave"
-              className="text-meta text-accent-text underline-offset-4 hover:underline"
-            >
+            <TextLink href="/settings/leave" className="text-meta font-normal">
               Manage the calendar
-            </Link>
+            </TextLink>
           )}
         </div>
 

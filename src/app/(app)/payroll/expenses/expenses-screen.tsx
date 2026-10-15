@@ -38,11 +38,17 @@ import {
   type SubmitClaimInput,
   type UpdateTypeInput,
 } from "@/lib/store/reimbursements";
+import { DecidedCard } from "@/components/payroll/decided-card";
 import { ApprovalQueue } from "./approval-queue";
 import { ClaimForm } from "./claim-form";
 import { useListQuery } from "@/lib/use-list-query";
 import { ClaimsRegister } from "./claims-register";
 import { ExpenseTypes } from "./expense-types";
+import {
+  claimApprovedCopy,
+  claimDeclinedToast,
+  expenseTypeSavedTitle,
+} from "./expense-moments-copy";
 
 /**
  * Expenses — one route, rendered by role.
@@ -99,6 +105,12 @@ export function ExpensesScreen() {
   const [includeArchived, setIncludeArchived] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [editingClaim, setEditingClaim] = useState<Claim | null>(null);
+  /* The claim just approved, kept above the queue until the next decision
+     replaces it or it is closed. `n` makes a second approval of the same claim
+     id (after a reload, say) a new moment rather than a no-op. */
+  const [approved, setApproved] = useState<{ claim: Claim; n: number } | null>(
+    null,
+  );
 
   /**
    * The register's query.
@@ -228,11 +240,23 @@ export function ExpensesScreen() {
       : []),
   ];
 
-  /** Every mutation reports its own outcome. The API's messages are the useful part. */
-  async function run(action: () => Promise<unknown>, success: string) {
+  /**
+   * Every mutation reports its own outcome. The API's messages are the useful part.
+   *
+   * `success` is a toast, or a `{ title, detail }` toast, or `null` when the
+   * caller says the outcome itself — an approval does, in a card above the queue.
+   */
+  async function run(
+    action: () => Promise<unknown>,
+    success: string | { title: string; detail: string } | null,
+  ) {
     try {
       await action();
-      toast.push({ title: success, tone: "success" });
+      if (typeof success === "string") {
+        toast.push({ title: success, tone: "success" });
+      } else if (success) {
+        toast.push({ ...success, tone: "success" });
+      }
       return true;
     } catch (error) {
       toast.push({
@@ -245,6 +269,15 @@ export function ExpensesScreen() {
       });
       return false;
     }
+  }
+
+  function showWhatIsOwed() {
+    /* Both go through `setFilter`/`setSearch`, which return to page one — this
+       can be pressed from page 4 of the register, and "show what is owed"
+       landing on an empty page 4 would read as nothing being owed. */
+    list.clearFilters();
+    list.setFilter("status", "APPROVED");
+    setTab("claims");
   }
 
   const tabs = useMemo<TabItem[]>(() => {
@@ -332,19 +365,7 @@ export function ExpensesScreen() {
               </div>
 
               {owed.claimCount > 0 && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    /* Both go through `setFilter`/`setSearch`, which return to
-                       page one — this can be pressed from page 4 of the
-                       register, and "show what is owed" landing on an empty
-                       page 4 would read as nothing being owed. */
-                    list.clearFilters();
-                    list.setFilter("status", "APPROVED");
-                    setTab("claims");
-                  }}
-                >
+                <Button variant="secondary" size="sm" onClick={showWhatIsOwed}>
                   Show what is owed
                 </Button>
               )}
@@ -383,7 +404,15 @@ export function ExpensesScreen() {
           </Card>
         </div>
 
-        <Tabs items={tabs} value={tab} onChange={(next) => setTab(next as Tab)}>
+        <Tabs
+          items={tabs}
+          value={tab}
+          onChange={(next) => {
+            /* An approval belongs to the queue it was made in. */
+            setApproved(null);
+            setTab(next as Tab);
+          }}
+        >
           {tab === "claims" && (
             <ClaimsRegister
               title={seesEverybody ? "All claims" : "My claims"}
@@ -493,24 +522,38 @@ export function ExpensesScreen() {
           )}
 
           {tab === "queue" && canApprove && (
-            <ApprovalQueue
-              claims={queue.claims}
-              types={allTypes.types}
-              myEmployeeId={queue.myEmployeeId}
-              loading={queue.loading}
-              onApprove={async (claim) => {
-                await run(
-                  () => queue.approve(claim.id),
-                  `Approved ${money(claim.amount)} for ${claim.employeeName}`,
-                );
-              }}
-              onDecline={async (claim, reason) => {
-                await run(
-                  () => queue.decline(claim.id, reason),
-                  `Declined ${claim.employeeName}'s claim`,
-                );
-              }}
-            />
+            <div className="flex flex-col gap-4">
+              {approved && (
+                <ApprovedClaimCard
+                  key={approved.n}
+                  claim={approved.claim}
+                  onShowOwed={showWhatIsOwed}
+                  onDismiss={() => setApproved(null)}
+                />
+              )}
+              <ApprovalQueue
+                claims={queue.claims}
+                types={allTypes.types}
+                myEmployeeId={queue.myEmployeeId}
+                loading={queue.loading}
+                onApprove={async (claim) => {
+                  const ok = await run(() => queue.approve(claim.id), null);
+                  if (ok) {
+                    setApproved((current) => ({
+                      claim,
+                      n: (current?.n ?? 0) + 1,
+                    }));
+                  }
+                }}
+                onDecline={async (claim, reason) => {
+                  const ok = await run(
+                    () => queue.decline(claim.id, reason),
+                    claimDeclinedToast(claim),
+                  );
+                  if (ok) setApproved(null);
+                }}
+              />
+            </div>
           )}
 
           {tab === "types" && (
@@ -524,7 +567,12 @@ export function ExpensesScreen() {
                 run(() => types.createType(input), `${input.name} added`)
               }
               onUpdate={(id: string, input: UpdateTypeInput) =>
-                run(() => types.updateType(id, input), "Saved")
+                run(
+                  () => types.updateType(id, input),
+                  expenseTypeSavedTitle(
+                    input.name ?? types.types.find((t) => t.id === id)?.name,
+                  ),
+                )
               }
               /* Archiving answers with a note that may name approved claims
                  still owed, so it is reported instead of a generic success. */
@@ -564,9 +612,9 @@ export function ExpensesScreen() {
             setClaiming(false);
             setEditingClaim(null);
           }}
+          /* No toast: the form says what was sent, in the dialog, itself. */
           onSubmit={async (input) => {
             await register.submit(input);
-            toast.push({ title: "Sent for approval", tone: "success" });
           }}
           onEdit={async (id, input) => {
             await register.edit(id, input);
@@ -575,6 +623,42 @@ export function ExpensesScreen() {
         />
       )}
     </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * An approval, said back above the queue it was made in.
+ *
+ * Approving commits company money, and the answer used to be a toast with a name
+ * and an amount. The one thing the approver then has to do — pay it, through
+ * payroll or by hand — is the thing a toast cannot hold, and the button here
+ * goes to the claims that are owed. There is no Undo: the API has no way to
+ * take an approval back, so none is offered.
+ */
+function ApprovedClaimCard({
+  claim,
+  onShowOwed,
+  onDismiss,
+}: {
+  claim: Claim;
+  onShowOwed: () => void;
+  onDismiss: () => void;
+}) {
+  const copy = claimApprovedCopy(claim);
+  return (
+    <DecidedCard
+      title={copy.title}
+      lead={copy.lead}
+      details={copy.details}
+      onDismiss={onDismiss}
+      actions={
+        <Button variant="ghost" size="sm" onClick={onShowOwed}>
+          See what is owed
+        </Button>
+      }
+    />
   );
 }
 

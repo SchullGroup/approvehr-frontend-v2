@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Lock, Plus, Trash2 } from "lucide-react";
+import { Check, Lock, MessagesSquare, Plus, Trash2 } from "lucide-react";
 import {
   Badge,
   Button,
@@ -105,6 +105,7 @@ export function OneOnOneScreen({ seriesId }: { seriesId: string }) {
           <Spinner label="Loading" />
         ) : read.data.length === 0 ? (
           <EmptyState
+            icon={<MessagesSquare aria-hidden="true" />}
             title="Nothing in the diary yet"
             description="Put the first one in. Either of you can, and both of you will see it."
           />

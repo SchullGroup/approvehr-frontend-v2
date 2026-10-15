@@ -246,7 +246,7 @@ export function SetupGuide({
                   className={
                     "flex size-7 items-center justify-center rounded-full border text-meta " +
                     (dot === index
-                      ? "border-accent bg-accent text-on-accent"
+                      ? "border-accent bg-accent text-white"
                       : row.status === "done"
                         ? "border-line bg-success-soft text-ink"
                         : "border-line bg-canvas text-muted")

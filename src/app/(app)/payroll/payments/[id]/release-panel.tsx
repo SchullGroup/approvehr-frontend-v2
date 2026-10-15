@@ -15,7 +15,10 @@ import {
 } from "@/components/ui";
 import { naira, type ApiBatchDetail } from "@/lib/api/payments";
 import { BATCH_STATUS } from "@/lib/store/payments";
-import { RecordPaidDialog } from "@/components/payroll/record-paid-dialog";
+import {
+  RecordPaidDialog,
+  type RecordedPayment,
+} from "@/components/payroll/record-paid-dialog";
 import { people } from "../format";
 
 /**
@@ -55,6 +58,7 @@ export function ReleasePanel({
   onRelease,
   onCancel,
   onDownload,
+  onRecorded,
   busy,
 }: {
   batch: ApiBatchDetail;
@@ -75,6 +79,13 @@ export function ReleasePanel({
   onRelease: () => Promise<void>;
   onCancel: (reason: string) => Promise<void>;
   onDownload: () => Promise<void>;
+  /**
+   * A bank payment has just been recorded against this batch.
+   *
+   * The screen that owns this panel says so, because recording re-reads the
+   * batch and the panel is not on screen while that happens.
+   */
+  onRecorded: (recorded: RecordedPayment) => void;
   busy: boolean;
 }) {
   const [confirming, setConfirming] = useState<"approve" | "release" | null>(
@@ -320,11 +331,14 @@ export function ReleasePanel({
         amountKobo={batch.computedTotalKobo}
         people={headcount}
         onClose={() => setRecording(false)}
-        onRecorded={() => {
+        onRecorded={(result) => {
           /* Nothing to refetch by hand: `markPaid` bumps the store's
              revision, so the batch this screen is rendering re-reads itself
-             and comes back COMPLETED. */
+             and comes back COMPLETED. What the person is told is the
+             screen's to say, not this panel's: by the time this runs the
+             revision has already moved and this panel is being unmounted. */
           setRecording(false);
+          onRecorded(result);
         }}
       />
     </>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   Badge,
   Button,
@@ -10,6 +9,7 @@ import {
   Select,
   Spinner,
   Textarea,
+  TextLink,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { LanguageCheck } from "@/components/performance/language-check";
@@ -35,6 +35,7 @@ import {
   AppraiserStrip,
   PeriodFraming,
   ReadAnswer,
+  answerBodyFor,
   draftFrom,
   filled,
   ratingOptionsFrom,
@@ -200,30 +201,8 @@ export function ReviewFormModal({
     review.questions.flatMap((question) => {
       const held = draft[question.id];
       if (!held) return [];
-      const body: AnswerBody = { questionId: question.id };
-      if (question.kind === "RATING" && held.rating) {
-        body.ratingValue = Number(held.rating);
-      } else if (question.kind === "CHOICE" && held.choice) {
-        body.choiceValue = held.choice;
-      } else if (question.kind === "BOOLEAN" && held.bool) {
-        body.boolValue = held.bool === "yes";
-      } else if (question.kind === "FILE" && held.file) {
-        /* Only when a file was picked **in this session**. A question whose
-           evidence is already on the record has no `file` in the draft, and
-           re-sending it is not possible — the bytes are behind a download
-           route, not in the browser. So this saves a replacement and leaves
-           an unchanged answer alone, which is what `respond` expects. */
-        body.file = {
-          filename: held.file.filename,
-          contentType: held.file.mimeType,
-          contentBase64: held.file.contentBase64,
-        };
-      } else if (held.text && held.text.trim()) {
-        body.textValue = held.text.trim();
-      } else {
-        return [];
-      }
-      return [body];
+      const body = answerBodyFor(question, held);
+      return body ? [body] : [];
     });
 
   const act = async (kind: "save" | "send") => {
@@ -310,12 +289,9 @@ export function ReviewFormModal({
           screen should be about that job. */}
       {review.submitted && (
         <p className="mb-4 text-body-sm text-muted">
-          <Link
-            href={`/performance/reviews/${review.id}`}
-            className="font-medium text-accent-text underline-offset-2 hover:underline"
-          >
+          <TextLink href={`/performance/reviews/${review.id}`}>
             See what came of this
-          </Link>{" "}
+          </TextLink>{" "}
           , the mark, and whether it has been signed off.
         </p>
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { ToggleRight } from "lucide-react";
+import { Lock, ToggleRight } from "lucide-react";
 import { ButtonLink, EmptyState, Spinner } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { FeatureOffLine } from "@/components/portal/feature-off-line";
@@ -63,6 +63,7 @@ export function PeriodsListScreen() {
         />
         <PageBody>
           <EmptyState
+            icon={<Lock aria-hidden="true" />}
             title="Not yours to run"
             description="Appraisal periods are managed by whoever runs them or reads across the company. Ask them to start or open one."
           />

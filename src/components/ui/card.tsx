@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -12,16 +13,24 @@ export function Card({
 }: React.HTMLAttributes<HTMLDivElement> & {
   as?: React.ElementType;
 }) {
-  return (
-    <As
-      className={cn(
-        "rounded-lg border border-line bg-surface",
-        "transition-shadow duration-200",
-        className,
-      )}
-      {...props}
-    />
-  );
+  /* `createElement` rather than `<As .../>`: with `As` typed as the fully
+     open `React.ElementType`, JSX's generic-tag resolution intersects props
+     across *every* intrinsic element in scope. `@react-three/fiber` (used
+     by the workforce explorer) globally augments `JSX.IntrinsicElements`
+     with its own elements — `mesh`, `group`, and the rest — which carry no
+     `className`, and the intersection collapsed `className`'s type to
+     `never` project-wide the moment any file imported it. `createElement`
+     takes the same arguments and produces the identical element at
+     runtime, but is typed against `As` directly rather than through JSX's
+     library-managed-attributes machinery, so it never hits that collapse. */
+  return createElement(As, {
+    className: cn(
+      "rounded-lg border border-line bg-surface",
+      "transition-shadow duration-200",
+      className,
+    ),
+    ...props,
+  });
 }
 
 export function CardHeader({
@@ -42,7 +51,15 @@ export function CardHeader({
   return (
     <div
       className={cn(
-        "flex items-start justify-between gap-4 px-5 py-4 border-b border-line",
+        /* `flex-wrap`, not the plain row `PageHeader` had before its own
+           mobile fix: a wide `action` (a multi-option SegmentedControl is
+           the case that found this) beside a `min-w-0` title does not make
+           the title scroll or truncate — it squeezes it to a sliver one
+           character wide while the action claims the rest of the row, which
+           at 375px reads as the two overlapping. Wrapping the action onto
+           its own line under the title is what `PageHeader` already does
+           for the same shape of collision. */
+        "flex flex-wrap items-start justify-between gap-4 px-5 py-4 border-b border-line",
         className,
       )}
     >
@@ -81,7 +98,12 @@ export function CardFooter({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 px-5 py-3.5 border-t border-line bg-canvas rounded-b-lg",
+        /* Same collision as CardHeader, one component down: two children
+           (a note on the left, actions on the right, most often) that do not
+           fit side by side at 375px need to wrap onto their own lines rather
+           than squeeze one child to a sliver. Found the same way — a footer
+           note colliding with two pill buttons on the Overtime screen. */
+        "flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-t border-line bg-canvas rounded-b-lg",
         className,
       )}
       {...props}

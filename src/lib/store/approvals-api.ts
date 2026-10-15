@@ -83,6 +83,12 @@ export type QueueCounts = {
 export type DecidedRow = {
   item: QueueItem;
   decision: "approved" | "declined";
+  /**
+   * An approval that is not the last one: a department head said yes and HR has
+   * not yet. It is recorded, and it is not "approved" — the person is not told
+   * until HR has decided.
+   */
+  halfway?: boolean;
 };
 
 /**
@@ -95,6 +101,8 @@ export type DecidedRow = {
  */
 export type DecideOutcome = {
   subjectMoved: boolean;
+  /** See `DecidedRow.halfway`. */
+  halfway?: boolean;
   note?: string;
 };
 
@@ -245,8 +253,10 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
           decision === "approved" ? "approve" : "decline",
           note,
         );
+        const halfway =
+          decision === "approved" && result.subjectStatus === "AWAITING_HR";
         setJustDecided((rows) => [
-          { item, decision },
+          { item, decision, ...(halfway ? { halfway: true } : {}) },
           ...rows.filter((row) => row.item.id !== item.id),
         ]);
         /* Not `load()`. This instance reloads through the announcement like
@@ -256,6 +266,7 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
         announceApprovalChange();
         return {
           subjectMoved: result.subjectMoved,
+          ...(halfway ? { halfway: true } : {}),
           ...(result.note ? { note: result.note } : {}),
         };
       }

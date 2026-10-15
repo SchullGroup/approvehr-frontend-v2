@@ -9,7 +9,6 @@ import {
   Check,
   Save,
   Trash2,
-  UserRoundCheck,
   UserRoundPlus,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -30,6 +29,7 @@ import {
   Select,
   Skeleton,
   StepIndicator,
+  SuccessMark,
   useStepper,
   useToast,
   type Step,
@@ -386,6 +386,11 @@ export function NewEmployeeForm() {
     /** See `inviteWarningFrom`. Null in demo mode, where nothing is ever sent. */
     inviteWarning: string | null;
   } | null>(null);
+  /* Whether the confirmation dialog is showing, kept apart from `added` on
+     purpose. `added` is *who* was added, and the cleared page behind the dialog
+     reads it too: closing the dialog used to null it, so the card underneath
+     fell back to a bare "Added" with no name and no way to the record. */
+  const [noticeOpen, setNoticeOpen] = useState(false);
 
   const set = <K extends keyof EmployeeDraft>(
     key: K,
@@ -707,7 +712,10 @@ export function NewEmployeeForm() {
     setDraft(BLANK_DRAFT);
     setOpen({ taxSetup: false, pensionSetup: false, bankDetails: false });
     setErrors([]);
-    setAdded(null);
+    /* `added` is left as it was. Nothing reads it once the form is back, and
+       the dialog is still on screen for its exit: clearing it here blanked the
+       name out of the dialog while it faded. The next save replaces it. */
+    setNoticeOpen(false);
     setProviderOtherChosen(false);
     stepper.reset();
   }
@@ -741,6 +749,7 @@ export function NewEmployeeForm() {
         advisory: wouldAdvise,
         inviteWarning,
       });
+      setNoticeOpen(true);
       setDraft(BLANK_DRAFT);
       setOpen({ taxSetup: false, pensionSetup: false, bankDetails: false });
       setErrors([]);
@@ -1046,9 +1055,7 @@ export function NewEmployeeForm() {
              behind it, and it is deliberately empty of the form. */
           <Card>
             <CardBody className="flex flex-col items-start gap-4 py-10 text-center sm:items-center">
-              <span className="flex size-11 items-center justify-center rounded-full bg-success-soft text-success-text">
-                <UserRoundCheck aria-hidden="true" className="size-5" />
-              </span>
+              <SuccessMark size="sm" />
               <div>
                 <p className="text-h4 text-ink">
                   {added ? `${added.name} has been added` : "Added"}
@@ -2047,15 +2054,16 @@ export function NewEmployeeForm() {
       </Modal>
 
       <Modal
-        open={added !== null}
-        onClose={() => setAdded(null)}
+        open={noticeOpen}
+        onClose={() => setNoticeOpen(false)}
         size="sm"
         title={added ? `${added.name} has been added` : "Added"}
       >
         <div className="flex flex-col items-center gap-4 text-center">
-          <span className="flex size-12 items-center justify-center rounded-full bg-success-soft text-success-text">
-            <UserRoundCheck aria-hidden="true" className="size-6" />
-          </span>
+          {/* The mark and not `SuccessMoment`: the dialog's own header is the
+              heading ("Ada Okafor has been added"), and the moment would say
+              it a second time. */}
+          <SuccessMark size="md" />
           <p className="text-body-sm leading-relaxed text-body">
             {connected
               ? "Their record is saved and they are in the directory."
@@ -2103,15 +2111,7 @@ export function NewEmployeeForm() {
             )}
 
           <div className="flex w-full flex-col gap-2 sm:flex-row">
-            <Button
-              type="button"
-              variant="accent"
-              block
-              onClick={() => {
-                setAdded(null);
-                blank();
-              }}
-            >
+            <Button type="button" variant="accent" block onClick={blank}>
               <UserRoundPlus aria-hidden="true" className="size-4" />
               Add another
             </Button>

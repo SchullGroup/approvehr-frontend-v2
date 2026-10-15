@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { hasLiveApp } from "@/lib/marketing/links";
+import { SITE_URL } from "@/lib/marketing/site";
 
 /**
  * The app surface is disallowed explicitly rather than merely left out of the
@@ -10,9 +11,6 @@ import { hasLiveApp } from "@/lib/marketing/links";
  * has none of these routes, and a `Disallow` for a path that does not exist is
  * noise that invites someone to go looking for it.
  */
-const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://approvehr.io"
-).replace(/\/$/, "");
 
 /** Signed-in product routes. Kept in one place so robots and any future auth
     middleware can agree on what counts as "inside the app". */

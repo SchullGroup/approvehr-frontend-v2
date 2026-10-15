@@ -302,6 +302,49 @@ export function payrollFieldsForDisplay(
 export const fullName = (p: { firstName: string; lastName: string }) =>
   `${p.firstName} ${p.lastName}`;
 
+/**
+ * Somebody as **any signed-in person** may see them: who they are and where
+ * they sit, and nothing more.
+ *
+ * It is what `GET /employees` answers a caller without `EDIT_RECORDS` (the
+ * API's `serializeLookup`), and it is a strict subset of `Employee` on
+ * purpose. A screen that only needs to name a colleague, or to ask "do I lead
+ * this person", reads this and works for everybody; a screen that needs
+ * anything on `Employee` — an email, a status, a start date — reads the full
+ * row and is HR's. Nothing here is filled in to make the two look alike: a
+ * lookup row simply has no email to be wrong about.
+ *
+ * `departmentId` and `managerId` are optional, not just nullable, and the two
+ * mean different things: `null` is "no department / nobody manages them",
+ * `undefined` is "this source does not say" (the demo store, which names a
+ * department rather than pointing at one, or an API that predates the ids on
+ * the lookup row). Anything deciding who somebody leads must treat the second
+ * as *unknown*, never as *no*.
+ */
+export type DirectoryPerson = {
+  id: Uuid;
+  fullName: string;
+  jobTitle: string;
+  /** The department's name, or null for nobody's. */
+  department: string | null;
+  departmentId?: Uuid | null;
+  managerId?: Uuid | null;
+};
+
+/** The demo store's `Employee`, narrowed to what a lookup row carries. */
+export function directoryPersonOf(e: Employee): DirectoryPerson {
+  return {
+    id: e.id,
+    fullName: fullName(e),
+    jobTitle: e.jobTitle,
+    /* The store writes "—" for a person with no department; a lookup row says
+       null. Same fact, one spelling. */
+    department:
+      e.department.trim() === "" || e.department === "—" ? null : e.department,
+    managerId: e.managerId,
+  };
+}
+
 /* ---------------------------------------------------------------- Hiring -- */
 
 /**

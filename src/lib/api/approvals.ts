@@ -79,6 +79,8 @@ type WireKind =
   | "EXPENSE"
   | "RECORD_CHANGE"
   | "LOAN"
+  | "CONFIRMATION"
+  | "EMPLOYMENT_CHANGE"
   | "HOLIDAY";
 
 type WireStatus = "PENDING" | "APPROVED" | "DECLINED" | "WITHDRAWN";
@@ -180,6 +182,8 @@ const KIND: Record<WireKind, ApprovalKind> = {
   EXPENSE: "expense",
   RECORD_CHANGE: "record_change",
   LOAN: "loan",
+  CONFIRMATION: "confirmation",
+  EMPLOYMENT_CHANGE: "employment_change",
   HOLIDAY: "holiday",
 };
 
@@ -226,6 +230,8 @@ const LABEL: Record<ApprovalKind, string> = {
   expense: "Expense",
   record_change: "Record change",
   loan: "Loan",
+  confirmation: "Confirmation",
+  employment_change: "Promotion or transfer",
   holiday: "Public holiday",
 };
 
@@ -287,6 +293,12 @@ export const approvalsApi = {
   ): Promise<{
     row: ApprovalRow | null;
     subjectMoved: boolean;
+    /**
+     * The status of the thing decided, as the module that owns it says — for a
+     * leave request, `AWAITING_HR` after a department head's approval, which is
+     * not an approval yet. Absent when the module sent nothing readable.
+     */
+    subjectStatus?: string;
     note?: string;
   }> => {
     const result = await request<{
@@ -297,9 +309,13 @@ export const approvalsApi = {
       method: "POST",
       body: { decision, ...(note ? { note } : {}) },
     });
+    const subject = result.subject as { status?: unknown } | null | undefined;
     return {
       row: result.approval ? toRow(result.approval) : null,
       subjectMoved: result.subject !== null && result.subject !== undefined,
+      ...(typeof subject?.status === "string"
+        ? { subjectStatus: subject.status }
+        : {}),
       ...(result.note ? { note: result.note } : {}),
     };
   },
@@ -412,15 +428,24 @@ export function isPastDeadline(iso: string | null): boolean {
 }
 
 /**
- * Where a kind is actually decided, for the three that cannot be decided
+ * Where a kind is actually decided, for the five that cannot be decided
  * from this inbox at all — see the module header. `/payroll` rather than a
  * specific run's URL for `payroll_run`: a row here has no period on it, and
  * the hub already opens on the current month with a picker for any other.
+ *
+ * `requisition` and `offer` joined this list for the same reason payroll did:
+ * `APPROVE_HIRING` additionally requires `assertHiringSegregation` (the
+ * maker/checker exception), which lives only on the requisition/offer routes
+ * themselves — a generic decider calling through would skip it. The backend's
+ * `mirrorApprovalDecision` keeps the tracking row honest once the real
+ * decision lands on one of those routes; this inbox never decides it.
  */
 const REAL_SCREEN: Partial<Record<ApprovalKind, string>> = {
   payroll_run: "/payroll",
   loan: "/payroll/loans",
   expense: "/payroll/expenses",
+  requisition: "/hiring",
+  offer: "/hiring/offers",
 };
 
 /** False for the three kinds that `decide()` now refuses outright (422). */

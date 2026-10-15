@@ -28,6 +28,7 @@ export { ThemeToggle } from "./theme-toggle";
 export type { Currency } from "./money";
 
 export { ProgressMeter, ScoreRing, FactorBars } from "./progress";
+export { SuccessMark, SuccessMoment } from "./success";
 
 export { Modal, Drawer, DrawerSection, ConfirmDialog } from "./modal";
 export { Sortable, SortableHandle } from "./sortable";
