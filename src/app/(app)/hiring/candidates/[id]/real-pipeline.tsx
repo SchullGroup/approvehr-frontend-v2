@@ -695,6 +695,13 @@ function OfferCard({
   onNotice: (tone: "success" | "danger", text: string) => void;
 }) {
   const offers = useOfferMutations();
+  /* Recording an acceptance **creates the employee**, and `POST /employees` needs
+     `EDIT_RECORDS` — so the API now asks for it as well as `MANAGE_HIRING`
+     (managing hiring alone used to be a way round the permission that guards
+     every other way of putting a person on the payroll). Offering the button to
+     somebody holding only the first is a control whose only outcome is a 403. */
+  const canEditPeople = useCan("EDIT_RECORDS");
+  const canRecordAcceptance = canManage && canEditPeople;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -818,26 +825,54 @@ function OfferCard({
             )}
           {offer.status === "SENT" && (
             <>
-              <Button
-                variant="approve"
-                size="sm"
-                loading={busy}
-                onClick={() =>
-                  void run(() => offers.accept(offer.id)).then((result) => {
-                    if (!result || result.rejectedOthers === 0) return;
-                    onNotice(
-                      "success",
-                      `Accepted. ${result.rejectedOthers} other ${
-                        result.rejectedOthers === 1 ? "candidate" : "candidates"
-                      } still in this pipeline ${
-                        result.rejectedOthers === 1 ? "was" : "were"
-                      } automatically rejected — the role is filled.`,
-                    );
-                  })
-                }
-              >
-                Record accepted
-              </Button>
+              {!canRecordAcceptance && (
+                <span className="text-meta text-muted">
+                  Recording that they accepted also creates their employee
+                  record, so it needs permission to edit people as well as to
+                  manage hiring.
+                </span>
+              )}
+              {canRecordAcceptance && (
+                <Button
+                  variant="approve"
+                  size="sm"
+                  loading={busy}
+                  onClick={() =>
+                    void run(() => offers.accept(offer.id)).then((result) => {
+                      if (!result) return;
+                      /* A role with room for more than one hire is not filled by
+                         the first, and nobody else is rejected: say which hire
+                         this was, so "Accepted" is not read as "the role is
+                         done". */
+                      if (
+                        result.rejectedOthers === 0 &&
+                        result.requisitionFilled === false &&
+                        result.hiresSoFar !== undefined &&
+                        result.headcount !== undefined
+                      ) {
+                        onNotice(
+                          "success",
+                          `Accepted. That is hire ${result.hiresSoFar} of ${result.headcount} for this role, so it is still open.`,
+                        );
+                        return;
+                      }
+                      if (result.rejectedOthers === 0) return;
+                      onNotice(
+                        "success",
+                        `Accepted. ${result.rejectedOthers} other ${
+                          result.rejectedOthers === 1
+                            ? "candidate"
+                            : "candidates"
+                        } still in this pipeline ${
+                          result.rejectedOthers === 1 ? "was" : "were"
+                        } automatically rejected — the role is filled.`,
+                      );
+                    })
+                  }
+                >
+                  Record accepted
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="sm"

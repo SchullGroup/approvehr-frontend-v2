@@ -399,7 +399,14 @@ export type OfferListParams = {
 
 export type CreateOfferBody = { grossMonthlyKobo: number; startDate: string };
 export type UpdateOfferBody = Partial<CreateOfferBody>;
-export type ApiAcceptOfferResult = ApiOffer & { rejectedOthers: number };
+export type ApiAcceptOfferResult = ApiOffer & {
+  /** Zero until the role fills: others are rejected only with the last hire. */
+  rejectedOthers: number;
+  /** Absent from an API that predates headcount-aware acceptance. */
+  hiresSoFar?: number;
+  headcount?: number;
+  requisitionFilled?: boolean;
+};
 
 /* -------------------------------------------------------------------- calls */
 
