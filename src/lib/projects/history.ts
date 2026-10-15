@@ -21,6 +21,8 @@ export type HistoryLookup = {
   personName: (id: string) => string;
   sprintName: (id: string) => string | null;
   issueKey: (id: string) => string | null;
+  /** An objective's title, where the screen has it. Without one, history says "an objective". */
+  goalTitle?: (id: string) => string | null;
 };
 
 const FIELD_LABEL: Record<string, string> = {
@@ -74,6 +76,9 @@ export function formatValue(
     case "epicId":
     case "parentId":
       return lookup.issueKey(text) ?? "an issue";
+    case "goalId":
+      /* An id is never shown: the title where it is known, otherwise a noun. */
+      return lookup.goalTitle?.(text) ?? "an objective";
     case "priority":
       return PRIORITY_LABEL[text as Priority] ?? text;
     case "type":

@@ -64,6 +64,8 @@ vi.mock("@/lib/store/project-session", () => ({
 
 vi.mock("@/lib/store/session", () => ({
   useOrgTimezone: () => "Africa/Lagos",
+  /* The demo: no objectives and no weekly-task bridge to draw controls for. */
+  useSession: () => ({ isConnected: false }),
 }));
 
 vi.mock("@/lib/permissions", () => ({

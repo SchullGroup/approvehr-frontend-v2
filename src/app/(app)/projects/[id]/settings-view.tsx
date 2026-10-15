@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/cn";
 import { DraftInput, DraftTextarea } from "@/components/projects/draft-fields";
 import { ProjectKeyChip } from "@/components/projects/glyphs";
+import { ProjectObjectiveField } from "@/components/projects/objective-link";
 import { PersonAvatar, PersonPicker } from "@/components/projects/person";
 import { useProject } from "@/components/projects/project-context";
 import { MANAGE_REASON } from "@/lib/projects/access";
@@ -193,6 +194,8 @@ function DetailsCard({ editable }: { editable: boolean }) {
             </Select>
           </Field>
         </div>
+
+        {editable && <ProjectObjectiveField />}
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="space-y-1.5">
