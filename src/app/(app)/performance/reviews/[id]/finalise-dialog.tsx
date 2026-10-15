@@ -82,7 +82,7 @@ export function FinaliseDialog({
       open={open}
       onClose={onClose}
       title={
-        made ? "Rating of record" : `Make this ${review.subjectName}'s rating?`
+        made ? "Rating is final" : `Make ${review.subjectName}'s rating final?`
       }
       size="sm"
       footer={
@@ -97,7 +97,7 @@ export function FinaliseDialog({
               loading={busy}
               onClick={() => void submit()}
             >
-              Make this the rating
+              Make it final
             </Button>
           </>
         )
@@ -126,9 +126,9 @@ export function FinaliseDialog({
             {review.subjectName} will be told, and will be asked to acknowledge
             it.{" "}
             {review.rating === null
-              ? "This form carries no overall mark, so what they read is the answers."
-              : `The mark of record becomes "${ratingWords(review.rating)}".`}{" "}
-            It cannot be re-marked afterwards.
+              ? "This form has no overall mark, so they will read the answers."
+              : `Their rating becomes "${ratingWords(review.rating)}".`}{" "}
+            It cannot be changed afterwards.
           </span>
         </div>
       )}

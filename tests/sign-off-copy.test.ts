@@ -20,18 +20,16 @@ describe("a rating was made final", () => {
     ratingLabel: "Meets Expectations",
   };
 
-  it("says whose rating, and carries the mark of record", () => {
+  it("says whose rating, and carries the rating", () => {
     const copy = finalisedCopy({ ...base, subjectNotified: true });
     expect(copy.title).toBe("Chidi Nwosu's rating is final");
-    expect(copy.lead).toBe(
-      'The mark of record for H1 2026 is "Meets Expectations".',
-    );
+    expect(copy.lead).toBe('The rating for H1 2026 is "Meets Expectations".');
   });
 
   it("says they have been told only when the API said it told them", () => {
     expect(finalisedCopy({ ...base, subjectNotified: true }).details).toEqual([
       "Chidi has been told, and is asked to acknowledge it.",
-      "It cannot be re-marked.",
+      "It cannot be changed.",
       "Their answer will show on this page once they give it.",
     ]);
   });
@@ -40,7 +38,7 @@ describe("a rating was made final", () => {
     const copy = finalisedCopy({ ...base, subjectNotified: false });
     expect(copy.details).toEqual([
       "Chidi could not be told in the app. Tell them yourself.",
-      "It cannot be re-marked.",
+      "It cannot be changed.",
     ]);
     expect(copy.details.join(" ")).not.toMatch(/has been told/);
     /* No promise of an answer from somebody who has nowhere to give one. */
@@ -61,7 +59,7 @@ describe("a rating was made final", () => {
       subjectNotified: true,
     });
     expect(copy.lead).toBe(
-      "H1 2026 carries no overall mark, so Chidi reads the answers.",
+      "H1 2026 has no overall mark, so Chidi will read the answers.",
     );
   });
 });

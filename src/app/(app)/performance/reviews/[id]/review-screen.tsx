@@ -321,16 +321,15 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           {owesAcknowledgement && (
             <Callout
               tone="accent"
-              title="This rating is final. It needs your answer"
+              title="Your rating is final and needs your response"
             >
               <p>
-                You have been told your rating for {review.cycleName}.
-                Acknowledge that you have seen it. It is recorded with the date,
-                and leaving it unanswered is not the same thing.
+                Your rating for {review.cycleName} is final. Please acknowledge
+                that you have seen it. The date is recorded.
               </p>
               <p className="mt-2">
-                <strong>Acknowledging is not agreeing.</strong> It records that
-                you were shown this and nothing more.
+                <strong>Acknowledging is not agreeing.</strong> It only records
+                that you have seen your rating.
               </p>
               <p className="mt-3">
                 <Button
@@ -348,12 +347,12 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           <Card>
             <CardHeader
               title={
-                review.kind === "MANAGER" ? "The rating" : "The mark on it"
+                review.kind === "MANAGER" ? "The rating" : "The self-rating"
               }
               description={
                 review.kind === "MANAGER"
-                  ? "One person's overall judgement, in their own words, with the date it was sent."
-                  : "A self-rating is collected and shown beside the manager's. It is weighted at zero unless the company deliberately turns it on."
+                  ? "The appraiser's overall view, in their own words, with the date it was sent."
+                  : "Shown beside the manager's rating. It does not count towards the final mark unless the company has turned that on."
               }
             />
             <CardBody className="flex flex-col gap-4">
@@ -368,7 +367,9 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                       : (ratingWords(review.rating) as string)
                   }
                   {...(review.rating === null
-                    ? { hint: "The answers were the judgement" }
+                    ? {
+                        hint: "No overall mark. The answers stand on their own.",
+                      }
                     : {})}
                 />
                 <Stat
@@ -403,7 +404,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                   appraiser what finalising will do. */}
               {review.finalisedAt && (
                 <p className="text-body-sm text-muted">
-                  Made the rating of record on {dayOf(review.finalisedAt)}.
+                  Made final on {dayOf(review.finalisedAt)}.
                 </p>
               )}
 
@@ -427,8 +428,8 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             {mayFinalise && (
               <CardFooter className="flex-col items-start gap-2 sm:flex-row sm:items-center">
                 <p className="text-body-sm text-body">
-                  Finalising makes this the rating of record and tells{" "}
-                  {review.subjectName}. It cannot be re-marked afterwards.
+                  Making it final tells {review.subjectName} their rating. It
+                  cannot be changed afterwards.
                 </p>
                 {signOff.canFinalise ? (
                   <Button
@@ -436,7 +437,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                     size="sm"
                     onClick={() => setFinalising(true)}
                   >
-                    Make this the rating
+                    Make it final
                   </Button>
                 ) : (
                   <span className="text-body-sm text-muted">
@@ -454,8 +455,8 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 title={review.disputed ? "Disputed" : "Acknowledged"}
                 description={
                   review.disputed
-                    ? "The rating stands and the dispute is recorded beside it. Rewriting the mark would destroy the evidence of what was decided."
-                    : "A record that this person was shown their rating. Not a record that they agreed with it."
+                    ? "The rating stays as it is and the dispute is recorded beside it."
+                    : "This shows the person has seen their rating. It does not mean they agree with it."
                 }
               />
               <CardBody className="flex flex-col gap-2">
@@ -473,7 +474,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                   </p>
                 ) : (
                   <p className="text-body-sm text-muted">
-                    They added nothing, which they were not obliged to.
+                    They did not add a comment.
                   </p>
                 )}
               </CardBody>
@@ -494,7 +495,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           <WorkEvidence
             employeeId={review.subjectId}
             range={review.cycleId ? { cycleId: review.cycleId } : {}}
-            title="Work from connected tools this cycle"
+            title="Work from connected tools this period"
           />
 
           {/* ------------------------------------------------------------- the form */}
@@ -520,8 +521,8 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               <EmptyState
                 compact
                 icon={<FileQuestion aria-hidden="true" />}
-                title="This period asks nothing on this form"
-                description="A form with no questions asks nobody anything. Add questions to the cycle."
+                title="No questions on this form"
+                description="Add questions to the period and they will show up here."
               />
             ) : (
               <CardBody className="flex flex-col gap-4">
@@ -626,7 +627,7 @@ function TheirOwnAccount({
       <Card>
         <CardBody className="flex items-center gap-2 text-body-sm text-muted">
           <Spinner size="sm" />
-          Looking for their self-appraisal
+          Loading their self-appraisal
         </CardBody>
       </Card>
     );
@@ -656,7 +657,7 @@ function TheirOwnAccount({
               : (ratingWords(review.rating) as string)
           }
           {...(review.rating === null
-            ? { hint: "The answers were the judgement" }
+            ? { hint: "No overall mark. The answers stand on their own." }
             : {})}
         />
       </CardBody>
@@ -669,7 +670,7 @@ function TheirOwnAccount({
       )}
       {review.questions.length === 0 ? (
         <CardBody className="text-body-sm text-muted">
-          They were asked nothing on their own form.
+          Their own form had no questions.
         </CardBody>
       ) : (
         <CardBody className="flex flex-col gap-4">
@@ -723,7 +724,7 @@ function ScorePanel({
         <CardHeader title="What the mark is made of" />
         <CardBody className="flex items-center gap-2 text-body-sm text-muted">
           <Spinner size="sm" />
-          Working out the components
+          Loading the score
         </CardBody>
       </Card>
     );
@@ -752,7 +753,7 @@ function ScorePanel({
       <CardBody className="flex flex-col gap-5">
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat
-            label="Composite score"
+            label="Overall score"
             /* An em dash, not a sentence — the reason lives in `hint`
                already, and a dash reads as the same kind of thing as the
                percentage it stands in for. */
@@ -765,15 +766,15 @@ function ScorePanel({
             }
             hint={
               score.scoreBp === null
-                ? "Nothing that counts has been recorded"
-                : "Weighted over the components that carried data"
+                ? "Nothing recorded yet, so there is no score"
+                : "Built from the parts that have something recorded"
             }
           />
           <Stat
             /* Read across the scale rather than out of five: it is a weighted
                average across several appraisers, so it does not land on a whole
                mark, and rounding it to one would throw a judgement away. */
-            label="Appraisers' mark, on the scale"
+            label="Appraisers' overall rating"
             value={
               score.appraiserMark.ratingBp === null ? (
                 <span className="text-faint">—</span>
@@ -783,8 +784,8 @@ function ScorePanel({
             }
             hint={
               score.appraiserMark.appraisers <= 1
-                ? "Deliberately not part of the score"
-                : `${weightLabel(score.appraiserMark.submittedWeightBp)} of ${score.appraiserMark.appraisers} appraisers in, deliberately not part of the score`
+                ? "For reference. It does not count towards the score."
+                : `${weightLabel(score.appraiserMark.submittedWeightBp)} of the weight is in, across ${score.appraiserMark.appraisers} appraisers. For reference; it does not count towards the score.`
             }
           />
           <Stat
@@ -807,8 +808,8 @@ function ScorePanel({
         {score.unmappedRatings > 0 && (
           <p className="text-body-sm text-muted">
             {score.unmappedRatings === 1
-              ? "1 rating was recorded against a category no component reads. It is counted here rather than dropped."
-              : `${score.unmappedRatings} ratings were recorded against a category no component reads. They are counted here rather than dropped.`}
+              ? "1 rating belongs to a category that no part of the mark uses, so it is not in the score."
+              : `${score.unmappedRatings} ratings belong to categories that no part of the mark uses, so they are not in the score.`}
           </p>
         )}
 
@@ -840,13 +841,13 @@ function ScorePanel({
           level={4}
           dense
           title="How this score is put together"
-          hint="The weights it was scored on, and why the figures are whole numbers."
+          hint="The weights used, and why the figures are whole numbers."
         >
           <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
             <p>
               {score.weightsFrom === "snapshot"
                 ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this mark."
-                : "Scored on the company's weights as they stand today. This period never locked in its own copy, so changing the company's weights would recalculate this mark too, even though it has already been given."}
+                : "Scored on the company's weights as they are today. This period never locked in its own set, so changing the company's weights would change this mark, even though it has already been given."}
             </p>
             <p className="flex items-start gap-2 text-muted">
               <ShieldCheck
@@ -854,10 +855,8 @@ function ScorePanel({
                 className="mt-0.5 size-4 shrink-0"
               />
               <span>
-                Every figure here is a whole number of basis points, so{" "}
-                {subjectName}&apos;s mark reproduces exactly. A score assembled
-                from decimals does not, and one that does not reproduce cannot
-                be defended.
+                Scores are worked out in whole numbers, so {subjectName}&apos;s
+                mark comes out exactly the same every time it is worked out.
               </span>
             </p>
           </div>
@@ -885,7 +884,7 @@ function ComponentRow({ component }: { component: ApiComponentScore }) {
           )}
           <Badge tone={component.included ? "accent" : "neutral"} size="sm">
             {component.included
-              ? `carried ${weightLabel(component.effectiveWeightBp)}`
+              ? `counts for ${weightLabel(component.effectiveWeightBp)}`
               : "not counted"}
           </Badge>
         </span>
@@ -907,18 +906,18 @@ function ComponentRow({ component }: { component: ApiComponentScore }) {
         </p>
       ) : component.effectiveWeightBp !== component.weightBp ? (
         <p className="mt-1.5 text-body-sm text-body">
-          Set at {weightLabel(component.weightBp)} by the company, carried{" "}
-          {weightLabel(component.effectiveWeightBp)} here because components
-          with no data were left out.
+          Set at {weightLabel(component.weightBp)} by the company, counted at{" "}
+          {weightLabel(component.effectiveWeightBp)} here because parts with
+          nothing recorded were left out.
         </p>
       ) : null}
 
       <p className="mt-1 text-meta text-muted">
         {component.evidenceCount === 0
-          ? "No evidence behind this"
+          ? "Nothing recorded for this"
           : component.evidenceCount === 1
-            ? "1 thing averaged"
-            : `${component.evidenceCount} things averaged`}
+            ? "Based on 1 thing"
+            : `Based on ${component.evidenceCount} things`}
       </p>
     </li>
   );

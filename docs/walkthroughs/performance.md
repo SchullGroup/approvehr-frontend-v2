@@ -629,7 +629,7 @@ the thing a person is told.
 | **Where**      | `/performance/periods/{id}`                                                                                   |
 | **Who**        | HR / Owner                                                                                                    |
 | **Click**      | **Move to calibration**                                                                                       |
-| **You'll see** | _"Marks are in. Nothing else is asked for until you publish."_ A _Calibration_ column appears on the register |
+| **You'll see** | _"Marks are in. Nothing more is asked of anyone until you publish."_ A _Calibration_ column appears on the register |
 
 > 💡 **This is what unlocks finalising.** Ratings to be made final only appear in a manager's
 > **Waiting on you** once the period is at calibration. If a manager tells you they cannot see
@@ -644,7 +644,7 @@ record rather than in a corridor.
 | -------------- | ------------------------------------------------------------------------------- |
 | **Where**      | `/performance/periods/{id}` → **Where the marks stand**                         |
 | **Who**        | HR / Owner                                                                      |
-| **Click**      | **Move the mark** on the row → new percentage → **Why**                         |
+| **Click**      | **Change the mark** on the row → new percentage → **Why**                         |
 | **You'll see** | The row shows both figures: what the answers produced, and what it was moved to |
 
 > ⚠️ **The reason is not optional and not a formality.** It is kept with the mark and it is what
@@ -665,7 +665,7 @@ is a judgement somebody records here.
 
 > ✅ **Worth pointing out to a stakeholder.** Anybody missing either half is **named underneath the
 > grid** with which half is missing, rather than being dropped into the bottom-left box. As the screen
-> puts it: an absence is not the bottom of a scale. Most nine-box tools get this wrong.
+> puts it: having no mark is not the same as a low one. Most nine-box tools get this wrong.
 
 #### 25. Make a rating final
 
@@ -676,10 +676,10 @@ tells the person.
 | -------------- | ----------------------------------------------------------------------------------------- |
 | **Where**      | `/performance/reviews/{id}` — reached from **Waiting on you**                             |
 | **Who**        | Line manager · HR / Owner                                                                 |
-| **Click**      | **Make this the rating**, then confirm                                                    |
+| **Click**      | **Make it final**, then confirm                                                           |
 | **You'll see** | A _Final_ badge, and the row moves to **Waiting on somebody else** — it is their move now |
 
-> 🛑 **It cannot be re-marked afterwards.** The confirmation says so. Once final, the mark cannot be
+> 🛑 **It cannot be changed afterwards.** The confirmation says so. Once final, the mark cannot be
 > changed, and the person has been told. If a review genuinely needs redoing after this, the only
 > route is step 27.
 
@@ -695,7 +695,7 @@ deliberately not one of the options.
 | **Where**      | `/performance/reviews/{id}` — reached from **Waiting on you**                       |
 | **Who**        | The person                                                                          |
 | **Click**      | **I have seen this** or **I do not accept it**                                      |
-| **You'll see** | A banner reading _"This rating is final. It needs your answer."_ above both buttons |
+| **You'll see** | A banner reading _"Your rating is final and needs your response."_ above both buttons |
 
 ```mermaid
 flowchart TD
@@ -718,7 +718,7 @@ else's review moves.
 | **Where**      | `/performance/periods/{id}` → the _Revision_ column                                     |
 | **Who**        | HR / Owner                                                                              |
 | **Click**      | **Send back** → choose **Manager review** or **Self-appraisal** → **Why**               |
-| **You'll see** | The row reads _Sent back, awaiting resubmission_, and the reason is shown to the person |
+| **You'll see** | The row reads _Sent back, waiting for them to send it again_, and the reason is shown to the person |
 
 > 💡 **It asks which review rather than guessing.** Self-appraisal and manager review are two
 > different documents by two different people. Reopening the wrong one would send the wrong person
@@ -815,7 +815,7 @@ who reports to you.
 2. Set objectives _for_ your reports on **KPIs**.
 3. Write a review of each report when the period reaches manager review, and record their competency
    levels.
-4. At calibration, press **Make this the rating** on each one.
+4. At calibration, press **Make it final** on each one.
 
 > ⚠️ **Being a department head widens this** to everybody in your department, not only your direct
 > reports. Being given the "Department Manager" role does not — that role is about leave and equipment
@@ -861,7 +861,7 @@ on purpose — they are the arguments the module is built on.
 | **An agreed objective cannot be edited.** | Not the title, not the period, not any target, and no new measure — because adding one changes what delivering it means. **Reopen the target** is the only way through and it records who, when and why. |
 | **A refusal is final.** | A refused objective cannot be resubmitted. The answer to a refused objective is a *different* objective, so the refusal stays on the record instead of being written over. |
 | **Changing the weights does not move a running period.** | A period keeps the weights and the scale words it started with. Otherwise a mark somebody was told in March would quietly become a different mark in June. |
-| **"Finalise" only appears at calibration.** | A manager at the manager-review stage has nothing to finalise and correctly sees no such button. Move the period to calibration and the rows appear. |
+| **"Make it final" only appears at calibration.** | A manager at the manager-review stage has nothing to make final and correctly sees no such button. Move the period to calibration and the rows appear. |
 
 ---
 
@@ -904,8 +904,8 @@ seeded accounts to use.
 | 8   | **Employee** — **Fill it in**. Answer, leave the overall mark blank on purpose, send it.                                    | Blank is a choice, and nothing downstream reads it as zero.                                                                        |
 | 9   | **HR** — **Move to manager review**.                                                                                        | Self-reviews already in are kept. Say it; people assume otherwise.                                                                 |
 | 10  | **Manager** — write the review. Type _"Chidera is quite disorganised"_ and press Send.                                      | It quotes the phrase back at you and the button becomes **Send anyway**. It never blocks — and nothing you typed left the product. |
-| 11  | **HR** — **Move to calibration**, then **Move the mark** on one person with a reason.                                       | The row keeps both figures: what the answers produced, and what it was moved to.                                                   |
-| 12  | **Manager** — **Make this the rating**. Read the confirmation aloud before pressing it.                                     | This is the one-way door and the moment the person is told.                                                                        |
+| 11  | **HR** — **Move to calibration**, then **Change the mark** on one person with a reason.                                       | The row keeps both figures: what the answers produced, and what it was moved to.                                                   |
+| 12  | **Manager** — **Make it final**. Read the confirmation aloud before pressing it.                                     | This is the one-way door and the moment the person is told.                                                                        |
 | 13  | **Employee** — answer it. **I have seen this**.                                                                             | The sentence saying acknowledging is not agreeing. Then show the other button is now gone. One answer, once.                       |
 | 14  | **HR** — **See the report**. Finish here.                                                                                   | The two headcounts, and the three lists of names: nobody marked them, written but not finalised, told and no answer yet.           |
 

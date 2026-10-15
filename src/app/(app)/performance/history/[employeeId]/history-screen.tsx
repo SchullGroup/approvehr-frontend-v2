@@ -116,7 +116,7 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
           <Card>
             <CardBody className="flex items-center gap-2 text-body-sm text-muted">
               <Spinner size="sm" />
-              Reading every period
+              Loading every period
             </CardBody>
           </Card>
         )}
@@ -137,7 +137,7 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
                   compact
                   icon={<TriangleAlert aria-hidden="true" />}
                   title="No appraisal period has covered them yet"
-                  description="A person appears here once an appraisal period they are in has started. A period that has not been started has no marks to show."
+                  description="Someone shows up here once an appraisal period they are part of has started. A period that has not started has no marks yet."
                 />
               </Card>
             ) : (
@@ -191,7 +191,7 @@ function Who({ history }: { history: ApiScoreHistory }) {
             scoreLabel(latest.scoreBp)
           )
         }
-        hint={latest ? latest.cycleName : "No cycle has produced one"}
+        hint={latest ? latest.cycleName : "No period has given a mark yet"}
       />
       <Stat
         label="Periods with a mark"
@@ -212,7 +212,7 @@ function Who({ history }: { history: ApiScoreHistory }) {
             ? "No appraisal period has covered them yet"
             : history.counts.unscored === 0
               ? "Every period has one"
-              : `${history.counts.unscored} ${history.counts.unscored === 1 ? "period" : "periods"} recorded nothing that counts`
+              : `${history.counts.unscored} ${history.counts.unscored === 1 ? "period" : "periods"} had no mark`
         }
       />
       <Stat
@@ -226,7 +226,7 @@ function Who({ history }: { history: ApiScoreHistory }) {
         }
         hint={
           history.trend === null
-            ? "One mark is not a direction, and none is not a flat line"
+            ? "Needs at least two marks to show a trend"
             : `${history.trend.fromCycle} to ${history.trend.toCycle}`
         }
       />
@@ -279,8 +279,8 @@ function Trend({ history }: { history: ApiScoreHistory }) {
         title="The marks, in order"
         description={
           scored.length < 2
-            ? "A line needs two marks. The figures are below."
-            : "Only the periods with a mark are plotted. The ones without are listed separately, never drawn as nought."
+            ? "A chart needs at least two marks. The figures are below."
+            : "Only periods with a mark are on the chart. Periods with no mark are listed separately."
         }
         {...(direction
           ? {
@@ -306,7 +306,7 @@ function Trend({ history }: { history: ApiScoreHistory }) {
           <p className="text-body-sm text-muted">
             {scored.length === 1
               ? `One mark so far: ${scoreLabel(scored[0]?.scoreBp ?? 0)} in ${scored[0]?.cycleName}.`
-              : "No mark has been recorded in any period, so there is nothing to plot."}
+              : "No marks yet, so there is nothing to chart."}
           </p>
         )}
       </CardBody>
@@ -323,8 +323,8 @@ function NoMark({ cycles }: { cycles: string[] }) {
   return (
     <NoticeLine tone="muted">
       {cycles.length === 1
-        ? `No mark was recorded in ${cycles[0]}.`
-        : `No mark was recorded in ${cycles.length} periods: ${cycles.join(", ")}.`}
+        ? `${cycles[0]} has no mark.`
+        : `${cycles.length} periods have no mark: ${cycles.join(", ")}.`}
     </NoticeLine>
   );
 }
@@ -498,10 +498,10 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
         {
           term: "Told the person",
           value: signOff.finalised
-            ? "Finalised"
+            ? "Final"
             : signOff.reviewId === null
               ? "No manager review exists"
-              : "Not finalised, so they have not been told",
+              : "Not final yet, so they have not been told",
         },
         {
           term: "Their answer",
@@ -534,9 +534,7 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
           ? [
               {
                 term: "What they said",
-                value:
-                  signOff.employeeComment ??
-                  "Nothing, which they were not obliged to add",
+                value: signOff.employeeComment ?? "No comment added",
               },
             ]
           : []),
@@ -556,8 +554,8 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
           term: "Appraisers' overall mark",
           value:
             point.appraiserMark.ratingBp === null
-              ? "None in yet"
-              : `${scoreLabel(point.appraiserMark.ratingBp)} across ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"}, weighted over the ${weightLabel(point.appraiserMark.submittedWeightBp)} that has come in, not scored`,
+              ? "None yet"
+              : `${scoreLabel(point.appraiserMark.ratingBp)}, from ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"} (${weightLabel(point.appraiserMark.submittedWeightBp)} of the weight is in). For reference; it is not part of the score.`,
         },
       ]}
     />

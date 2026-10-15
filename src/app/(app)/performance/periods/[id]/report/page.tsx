@@ -4,7 +4,7 @@ import { PeriodReportScreen } from "./report-screen";
 export const metadata: Metadata = {
   title: "Period report",
   description:
-    "How an appraisal period came out: the spread of marks, what came in, and who finishes unscored or unfinalised, by name.",
+    "How the period went: how marks are spread, what has come in, and who is still missing a mark or a final rating.",
 };
 
 /**

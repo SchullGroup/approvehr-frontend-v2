@@ -212,7 +212,7 @@ export function ApprovalsScreen() {
           <Card>
             <CardHeader
               title="Waiting to be agreed"
-              description="The target is frozen once you agree it. Progress still moves; changing what was asked for needs a recorded revision."
+              description="Once you agree it, the target is fixed. Progress can still change, but changing the target itself means reopening it with a recorded reason."
             />
             {approvals.loading ? (
               <CardBody className="flex items-center gap-2 text-body-sm text-muted">
@@ -268,9 +268,9 @@ export function ApprovalsScreen() {
             {agreeing?.ownerName ?? "The owner"} will be judged on this for{" "}
             {agreeing?.reviewCycleName ??
               quarterLabel(agreeing?.dueQuarter ?? null)}
-            . The target is frozen from now on: progress still moves, and
-            changing what was asked for needs a revision that records who
-            changed it and why.
+            . The target is fixed from now on. Progress can still change, but
+            changing the target itself needs a revision that records who changed
+            it and why.
           </span>
         }
         onConfirm={async () => {
