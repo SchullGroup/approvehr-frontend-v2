@@ -29,6 +29,7 @@ import {
 } from "@/lib/api/hiring";
 import {
   APPLICATIONS_PAGE_SIZE,
+  demoApplicationExtras,
   demoBook,
   filterDemoApplications,
   findDemoApplication,
@@ -36,6 +37,7 @@ import {
   usePostings,
   useScreeningActions,
 } from "@/lib/store/careers";
+import { NO_EXTRAS } from "@/lib/hiring/answers-view";
 import { pageLocally, usePagedList } from "@/lib/store/paged-list";
 import { useGrades } from "@/lib/store/grades";
 import {
@@ -735,7 +737,14 @@ export function useApplicantRecord(id: string): ApplicantView {
   const record = useMemo<ApplicantRecord | null>(() => {
     if (online) return detail ? toApplicantRecord(detail) : null;
     return demo
-      ? toApplicantRecord({ ...demo.row, otherApplications: [], history: [] })
+      ? {
+          ...toApplicantRecord({
+            ...demo.row,
+            otherApplications: [],
+            history: [],
+          }),
+          extras: demoApplicationExtras(demo.row.id) ?? NO_EXTRAS,
+        }
       : null;
   }, [online, detail, demo]);
 

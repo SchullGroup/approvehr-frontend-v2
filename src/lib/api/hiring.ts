@@ -17,6 +17,8 @@ import {
   type RequisitionStatus,
 } from "@/lib/api/careers";
 import type { ApiHistoryEvent } from "@/lib/api/application-history";
+import type { ApplicationExtras } from "@/lib/hiring/answers-view";
+import { extrasFromDetail } from "@/lib/hiring/form-wire";
 import type { ApiGrade } from "@/lib/api/grades";
 import type { Band } from "@/lib/grades/band";
 
@@ -416,6 +418,13 @@ export type ApplicantRecord = {
    */
   history: ApiHistoryEvent[] | undefined;
   otherApplications: OtherApplicationRow[];
+  /**
+   * What they answered, what they agreed to, the reference they were given, and
+   * what to look at twice (a flagged answer, a possible duplicate). Empty for an
+   * advert that asked nothing beyond the basics, and for an API that predates
+   * forms.
+   */
+  extras: ApplicationExtras;
 };
 
 /**
@@ -467,6 +476,7 @@ export function toApplicantRecord(
     hasCv: detail.cv !== null,
     cvFlagged: detail.cv?.scanStatus === "INFECTED",
     history: detail.history,
+    extras: extrasFromDetail(detail),
     otherApplications: detail.otherApplications.map((entry) => ({
       id: entry.id,
       postingTitle: entry.postingTitle,

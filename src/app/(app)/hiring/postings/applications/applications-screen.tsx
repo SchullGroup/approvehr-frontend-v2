@@ -2,7 +2,16 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Copy, Inbox, Lock, Mail, Phone } from "lucide-react";
+import {
+  ArrowRight,
+  Copy,
+  Flag,
+  Inbox,
+  Link2,
+  Lock,
+  Mail,
+  Phone,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -10,6 +19,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Checkbox,
   DescriptionList,
   EmptyState,
   Field,
@@ -28,7 +38,8 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { LoadMore } from "@/components/portal/load-more";
-import { OpenCv } from "@/components/hiring/open-cv";
+import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
+import { RowAnswers } from "@/components/hiring/row-answers";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -40,6 +51,8 @@ import {
   type ApiPosting,
   type ApplicationStatus,
 } from "@/lib/api/careers";
+import { sourceLabel, summaryFromRow } from "@/lib/hiring/form-wire";
+import { DUPLICATE_REASON } from "@/lib/hiring/answers-view";
 import { usePermissions } from "@/lib/permissions";
 import { useRequisitions } from "@/lib/store/recruitment";
 import {
@@ -196,6 +209,8 @@ function Queue({
   const [source, setSource] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [flagged, setFlagged] = useState(false);
+  const [duplicate, setDuplicate] = useState(false);
   const [search, setSearch] = useState("");
   const [advancing, setAdvancing] = useState<ApiApplication | null>(null);
   const [declining, setDeclining] = useState<ApiApplication | null>(null);
@@ -217,7 +232,10 @@ function Queue({
     ...(query ? { q: query } : {}),
     ...(from && !rangeBackwards ? { from } : {}),
     ...(to && !rangeBackwards ? { to } : {}),
+    ...(flagged ? { flagged } : {}),
+    ...(duplicate ? { duplicate } : {}),
   });
+  const canOpenFiles = useCanOpenCv();
   const toast = useToast();
   const router = useRouter();
 
@@ -247,7 +265,13 @@ function Queue({
         ]
       : []),
     ...(source
-      ? [{ label: "Heard via", value: source, onClear: () => setSource("") }]
+      ? [
+          {
+            label: "Heard via",
+            value: sourceLabel(source) ?? source,
+            onClear: () => setSource(""),
+          },
+        ]
       : []),
     ...(from
       ? [
@@ -261,6 +285,24 @@ function Queue({
     ...(to
       ? [{ label: "Applied to", value: to, onClear: () => setTo("") }]
       : []),
+    ...(flagged
+      ? [
+          {
+            label: "Showing",
+            value: "Needs a look",
+            onClear: () => setFlagged(false),
+          },
+        ]
+      : []),
+    ...(duplicate
+      ? [
+          {
+            label: "Showing",
+            value: "Possible duplicates",
+            onClear: () => setDuplicate(false),
+          },
+        ]
+      : []),
   ];
   const narrowed = applied.length > 0 || search.trim() !== "";
   const clearAll = () => {
@@ -268,6 +310,8 @@ function Queue({
     setSource("");
     setFrom("");
     setTo("");
+    setFlagged(false);
+    setDuplicate(false);
     setSearch("");
   };
 
@@ -345,7 +389,7 @@ function Queue({
                   <option value="">Any source</option>
                   {sourceOptions.map((name) => (
                     <option key={name} value={name}>
-                      {name}
+                      {sourceLabel(name) ?? name}
                     </option>
                   ))}
                 </Select>
@@ -375,6 +419,20 @@ function Queue({
                   onChange={(event) => setTo(event.target.value)}
                 />
               </Field>
+              <div className="flex flex-col justify-end gap-2.5 pb-1.5">
+                <Checkbox
+                  label="Needs a look"
+                  description="A knockout answer was given."
+                  checked={flagged}
+                  onChange={(event) => setFlagged(event.target.checked)}
+                />
+                <Checkbox
+                  label="Possible duplicates"
+                  description="Same email or phone as an earlier one."
+                  checked={duplicate}
+                  onChange={(event) => setDuplicate(event.target.checked)}
+                />
+              </div>
             </FilterBar>
 
             {applications.loading ? (
@@ -435,6 +493,7 @@ function Queue({
                       application={application}
                       posting={index.get(application.postingId)}
                       editable={applications.editable}
+                      canOpenFiles={canOpenFiles}
                       onAdvance={() => setAdvancing(application)}
                       onDecline={() => setDeclining(application)}
                       onCopyMessage={() => {
@@ -528,6 +587,7 @@ function ApplicationRow({
   application,
   posting,
   editable,
+  canOpenFiles,
   onAdvance,
   onDecline,
   onCopyMessage,
@@ -536,6 +596,7 @@ function ApplicationRow({
   /** Absent only if the advert is outside the page of adverts that was loaded. */
   posting: ApiPosting | undefined;
   editable: boolean;
+  canOpenFiles: boolean;
   onAdvance: () => void;
   onDecline: () => void;
   onCopyMessage: () => void;
@@ -547,6 +608,7 @@ function ApplicationRow({
     posting !== undefined
       ? requisitionClosedNote(posting.requisitionStatus)
       : null;
+  const summary = summaryFromRow(application);
 
   return (
     <div className="flex flex-col gap-3 rounded-md border border-line p-4">
@@ -557,6 +619,18 @@ function ApplicationRow({
             <Badge tone={STATUS_TONE[application.status]} size="sm" dot>
               {STATUS_LABEL[application.status]}
             </Badge>
+            {summary.flagCount > 0 && (
+              <Badge tone="warning" size="sm">
+                <Flag aria-hidden="true" className="size-3" />
+                Needs a look
+              </Badge>
+            )}
+            {summary.duplicate && (
+              <Badge tone="neutral" size="sm">
+                <Link2 aria-hidden="true" className="size-3" />
+                Possible duplicate
+              </Badge>
+            )}
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
             <span>{application.postingTitle}</span>
@@ -579,8 +653,25 @@ function ApplicationRow({
             <span className="tabular">
               Applied {application.appliedAt.slice(0, 10)}
             </span>
-            {application.source && <span>Heard: {application.source}</span>}
+            {application.source && (
+              <span>Heard: {sourceLabel(application.source)}</span>
+            )}
+            {summary.reference && (
+              <span className="tabular">Ref {summary.reference}</span>
+            )}
           </p>
+          {summary.duplicate && (
+            <p className="mt-1 text-body-sm text-muted">
+              Gave {DUPLICATE_REASON[summary.duplicate.reason]} as an earlier
+              application.{" "}
+              <TextLink
+                href={`/hiring/candidates/${summary.duplicate.ofId}`}
+                className="text-body-sm"
+              >
+                See the earlier one
+              </TextLink>
+            </p>
+          )}
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
@@ -629,6 +720,12 @@ function ApplicationRow({
           <LinkedText>{application.coverNote}</LinkedText>
         </p>
       )}
+
+      <RowAnswers
+        applicationId={application.id}
+        connected={editable}
+        canOpenFiles={canOpenFiles}
+      />
 
       {waiting && noApprovedRole && (
         <p className="text-body-sm text-warning-text">

@@ -36,6 +36,7 @@ import {
   type TimelineEntry,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { ApplicationAnswers } from "@/components/hiring/application-answers";
 import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
 import { StageHistory } from "@/components/hiring/stage-history";
 import { SourceBadge } from "@/components/hiring/source-badge";
@@ -45,6 +46,7 @@ import {
   ScreenInDialog,
 } from "@/components/hiring/screening-dialogs";
 import { BandPosition } from "@/app/(app)/payroll/pay-setup/band-position";
+import { hasExtras } from "@/lib/hiring/answers-view";
 import { ApiError } from "@/lib/api/client";
 import { careersApi } from "@/lib/api/careers";
 import {
@@ -771,6 +773,21 @@ function Application({
           </div>
         ) : (
           <p className="text-body-sm text-muted">They sent no covering note.</p>
+        )}
+
+        {/* What they answered, agreed to and were flagged for. A flag is a prompt
+            to look, drawn calmly and never as a rejection; a possible duplicate
+            is a marker with a link, never a merge. */}
+        {hasExtras(record.extras) && (
+          <ApplicationAnswers
+            extras={record.extras}
+            {...(editable && canOpenCv
+              ? {
+                  openFile: (answerId: string) =>
+                    careersApi.openAnswerFile(record.applicationId, answerId),
+                }
+              : {})}
+          />
         )}
 
         {/* The CV. Never a link: opening it asks the API for one short-lived

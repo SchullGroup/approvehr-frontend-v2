@@ -18,6 +18,8 @@ import {
   type UpdatePostingBody,
 } from "@/lib/api/careers";
 import { CANDIDATES, REQUISITIONS } from "@/lib/mock/hiring";
+import { demoExtrasAt } from "@/lib/hiring/demo-form";
+import { NO_EXTRAS, type ApplicationExtras } from "@/lib/hiring/answers-view";
 import { useRevalidation } from "@/lib/revalidate";
 import { pageLocally, usePagedList } from "@/lib/store/paged-list";
 
@@ -128,6 +130,10 @@ function demoPostings(): ApiPosting[] {
       applicationCount: 0,
       publicPath: `/${DEMO_ORG_SLUG}/${slug}`,
       createdAt: `${requisition.openedAt}T09:00:00.000Z`,
+      descriptionHtml: null,
+      remote: false,
+      formVersion: 1,
+      questionCount: 5,
     };
   });
 }
@@ -143,11 +149,15 @@ function demoApplications(postings: ApiPosting[]): ApiApplication[] {
   const live = postings.filter((posting) => posting.status === "PUBLISHED");
   if (live.length === 0) return [];
 
-  return CANDIDATES.filter(
+  const arrivals = CANDIDATES.filter(
     (candidate) => candidate.source === "careers_page",
-  ).flatMap((candidate, index) => {
+  );
+  const firstId = arrivals[0] ? `demo-application-${arrivals[0].id}` : "";
+
+  return arrivals.flatMap((candidate, index) => {
     const posting = live[index % live.length];
     if (!posting) return [];
+    const extras = demoExtrasAt(index, firstId);
     return {
       id: `demo-application-${candidate.id}`,
       postingId: posting.id,
@@ -173,8 +183,40 @@ function demoApplications(postings: ApiPosting[]): ApiApplication[] {
         note: DEMO_CV_NOTE,
       },
       appliedAt: `2026-08-${String(12 + index).padStart(2, "0")}T10:30:00.000Z`,
+      reference: extras.reference,
+      knockoutCount: extras.flagCount,
+      duplicate: extras.duplicate
+        ? { ofId: extras.duplicate.ofId, reason: extras.duplicate.reason }
+        : null,
     };
   });
+}
+
+/**
+ * What a demo applicant answered, agreed to and was flagged for.
+ *
+ * The same four people the queue shows, so the row and the record agree. `null`
+ * for an id that is not one of them.
+ */
+export function demoApplicationExtras(
+  applicationId: string,
+): ApplicationExtras | null {
+  const { applications } = demoBook();
+  const index = applications.findIndex((a) => a.id === applicationId);
+  if (index === -1) return null;
+  const first = applications[0]?.id ?? "";
+  const extras = demoExtrasAt(index, first);
+  if (extras === NO_EXTRAS) return null;
+  /* Name the earlier application the marker points at. */
+  const earlier = extras.duplicate
+    ? applications.find((a) => a.id === extras.duplicate?.ofId)
+    : undefined;
+  return extras.duplicate
+    ? {
+        ...extras,
+        duplicate: { ...extras.duplicate, ofName: earlier?.name ?? null },
+      }
+    : extras;
 }
 
 /** Counts derived from the two lists above, the way the API derives them. */
@@ -424,6 +466,10 @@ export type ApplicationFilters = {
   /** `YYYY-MM-DD`, inclusive. The day they applied. */
   from?: string;
   to?: string;
+  /** Only applications with a wrong knockout answer: the ones that need a look. */
+  flagged?: boolean;
+  /** Only those marked as a likely duplicate of an earlier one. */
+  duplicate?: boolean;
   /** How many a page asks for. Default 50. */
   pageSize?: number;
 };
@@ -452,6 +498,8 @@ export function filterDemoApplications(
       if (filters.postingId && application.postingId !== filters.postingId)
         return false;
       if (filters.source && application.source !== filters.source) return false;
+      if (filters.flagged && !(application.knockoutCount ?? 0)) return false;
+      if (filters.duplicate && !application.duplicate) return false;
       const day = application.appliedAt.slice(0, 10);
       if (filters.from && day < filters.from) return false;
       if (filters.to && day > filters.to) return false;
@@ -483,6 +531,8 @@ export function useApplications(filters: ApplicationFilters = {}) {
     q,
     from,
     to,
+    flagged,
+    duplicate,
     pageSize = APPLICATIONS_PAGE_SIZE,
   } = filters;
   const online = connected();
@@ -495,6 +545,8 @@ export function useApplications(filters: ApplicationFilters = {}) {
     q,
     from,
     to,
+    flagged,
+    duplicate,
     pageSize,
   ]);
 
@@ -510,6 +562,8 @@ export function useApplications(filters: ApplicationFilters = {}) {
             ...(q ? { q } : {}),
             ...(from ? { from } : {}),
             ...(to ? { to } : {}),
+            ...(flagged ? { flagged } : {}),
+            ...(duplicate ? { duplicate } : {}),
           }),
           cursor,
           pageSize,
@@ -524,6 +578,8 @@ export function useApplications(filters: ApplicationFilters = {}) {
         ...(q ? { q } : {}),
         ...(from ? { from } : {}),
         ...(to ? { to } : {}),
+        ...(flagged ? { flagged } : {}),
+        ...(duplicate ? { duplicate } : {}),
       };
       const result = await careersApi.listApplications(params, signal);
       return {
@@ -532,7 +588,18 @@ export function useApplications(filters: ApplicationFilters = {}) {
         next: result.meta.nextCursor ?? null,
       };
     },
-    [online, status, postingId, source, q, from, to, pageSize],
+    [
+      online,
+      status,
+      postingId,
+      source,
+      q,
+      from,
+      to,
+      flagged,
+      duplicate,
+      pageSize,
+    ],
   );
 
   const list = usePagedList<ApiApplication>({

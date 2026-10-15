@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Check, Lock, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Eye,
+  Lock,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Button,
@@ -16,6 +24,7 @@ import {
   FieldSet,
   IconButton,
   Input,
+  Modal,
   Money,
   Picker,
   RadioCard,
@@ -27,8 +36,18 @@ import {
   useToast,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { FormBuilder } from "@/components/hiring/form-builder";
+import { FormPreview } from "@/components/hiring/form-preview";
 import { SourceBadge } from "@/components/hiring/source-badge";
+import { careersApi } from "@/lib/api/careers";
 import { ApiError } from "@/lib/api/client";
+import { putBodyFromDefinition } from "@/lib/hiring/form-wire";
+import {
+  defaultDefinition,
+  validateDefinition,
+  type FormDefinition,
+} from "@/lib/marketing/apply-form";
+import { useCareersSettings } from "@/lib/store/careers-form";
 import { kobo } from "@/lib/api/recruitment";
 import { usePermissions } from "@/lib/permissions";
 import { useAdvertCreation } from "@/lib/store/hiring";
@@ -73,7 +92,8 @@ type Draft = {
   mustHaves: string[];
   niceToHaves: string[];
   activeStages: StageId[];
-  screeningQuestions: { id: string; question: string; knockout: boolean }[];
+  /** The advert's application form: standard boxes and the screening questions. */
+  form: FormDefinition;
   hiringManagerId: string;
   recruiterId: string;
   notes: string;
@@ -101,7 +121,7 @@ const EMPTY: Draft = {
     "interview",
     "selection",
   ],
-  screeningQuestions: [],
+  form: defaultDefinition(),
   hiringManagerId: "",
   recruiterId: "",
   notes: "",
@@ -120,11 +140,12 @@ const ADVERT_TYPE = {
  * The advert this draft can actually become.
  *
  * The parts of a role that belong to the requisition — the pipeline stages and
- * the hiring manager — are written to it by `submit` when connected. The
- * screening questions and the note for approvers are collected but sent
- * nowhere: nothing in the API stores them. What an advert *can* carry is the job
- * itself, so that is what gets written, as a draft. Publishing is a separate
- * press on the adverts screen, because that is the moment the words go public.
+ * the hiring manager — are written to it by `submit` when connected. The note for
+ * approvers is collected and sent nowhere: nothing in the API stores it. What an
+ * advert carries is the job itself, so that is what gets written, as a draft, and
+ * then its application form — the screening questions — is saved onto it.
+ * Publishing is a separate press on the adverts screen, because that is the
+ * moment the words go public.
  *
  * Composing the description here rather than in `lib/api/hiring.ts` is
  * deliberate: this is presentation — the shape of a job advert — and the next
@@ -230,6 +251,14 @@ function Wizard() {
   const departments = useDepartments();
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [busy, setBusy] = useState(false);
+  const careers = useCareersSettings();
+  const [previewing, setPreviewing] = useState(false);
+  const [showFormProblems, setShowFormProblems] = useState(false);
+  const filesAvailable = careers.settings?.deployment.fileUploads ?? true;
+  const formProblems = validateDefinition(draft.form);
+  const formValid =
+    Object.keys(formProblems.questions).length === 0 &&
+    formProblems.form === null;
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -250,7 +279,7 @@ function Wizard() {
   const complete = {
     role: Boolean(draft.title && draft.departmentId && draft.location),
     pay: min > 0 && max > 0 && !bandInvalid,
-    process: draft.activeStages.length >= 2,
+    process: draft.activeStages.length >= 2 && formValid,
     team: Boolean(draft.hiringManagerId && draft.recruiterId),
     review: true,
   };
@@ -340,12 +369,37 @@ function Wizard() {
         ...(requisitionId ? { requisitionId } : {}),
       });
 
-      if (requisitionId) {
+      /* The form goes onto the advert once it exists. An untouched form is the
+         API's own default already, so it is not sent. If this write fails the
+         role and the advert are real and stay: say so, and send them to the
+         advert, where the form can be set up again. */
+      let formSaved = true;
+      if (isConnected && !isDefaultForm(draft.form)) {
+        try {
+          await careersApi.putForm(
+            created.id,
+            putBodyFromDefinition(draft.form),
+          );
+        } catch (error) {
+          formSaved = false;
+          toast.push({
+            title: "The advert was saved, its form was not",
+            tone: "warning",
+            detail:
+              (error instanceof ApiError ? `${error.message} ` : "") +
+              "Open the advert to set the questions up again.",
+          });
+        }
+      }
+
+      if (!formSaved) {
+        router.push(`/hiring/postings/${created.id}`);
+      } else if (requisitionId) {
         toast.push({
           title: `${draft.title} opened`,
           tone: "success",
           detail:
-            "The role, its pipeline and its draft advert are all real. Publish the advert when you are ready.",
+            "The role, its pipeline, its draft advert and the advert's form are all real. Publish the advert when you are ready.",
         });
         router.push(`/hiring/requisitions/${requisitionId}`);
       } else {
@@ -617,74 +671,25 @@ function Wizard() {
                 />
 
                 <FieldSet
-                  legend="Screening questions"
-                  help="Not asked of applicants yet, and not saved with the role: the application form takes no questions today. Write them down here and re-enter them when it does."
+                  legend="The application form"
+                  help="What applicants are asked when they apply. Questions marked as a knockout flag the application for a person to review. Nobody is rejected by one."
                 >
-                  <div className="flex flex-col gap-2.5">
-                    {draft.screeningQuestions.map((q, i) => (
-                      <div key={q.id} className="flex items-start gap-2">
-                        <div className="flex-1">
-                          <Input
-                            value={q.question}
-                            placeholder="Do you have the right to work in Nigeria?"
-                            onChange={(e) => {
-                              const next = [...draft.screeningQuestions];
-                              next[i] = {
-                                ...q,
-                                question: e.currentTarget.value,
-                              };
-                              set("screeningQuestions", next);
-                            }}
-                          />
-                          <div className="mt-1.5">
-                            <Checkbox
-                              label="Knockout question"
-                              checked={q.knockout}
-                              onChange={(e) => {
-                                const next = [...draft.screeningQuestions];
-                                next[i] = {
-                                  ...q,
-                                  knockout: e.currentTarget.checked,
-                                };
-                                set("screeningQuestions", next);
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <IconButton
-                          label={`Remove question ${i + 1}`}
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            set(
-                              "screeningQuestions",
-                              draft.screeningQuestions.filter(
-                                (x) => x.id !== q.id,
-                              ),
-                            )
-                          }
-                        >
-                          <Trash2 aria-hidden="true" className="size-4" />
-                        </IconButton>
-                      </div>
-                    ))}
+                  <div className="flex flex-col gap-3">
+                    <FormBuilder
+                      value={draft.form}
+                      onChange={(form) => set("form", form)}
+                      problems={showFormProblems ? formProblems.questions : {}}
+                      formProblem={showFormProblems ? formProblems.form : null}
+                      filesAvailable={filesAvailable}
+                    />
                     <Button
                       variant="secondary"
                       size="sm"
                       className="self-start"
-                      onClick={() =>
-                        set("screeningQuestions", [
-                          ...draft.screeningQuestions,
-                          {
-                            id: `q${draft.screeningQuestions.length + 1}`,
-                            question: "",
-                            knockout: false,
-                          },
-                        ])
-                      }
+                      onClick={() => setPreviewing(true)}
                     >
-                      <Plus aria-hidden="true" className="size-4" />
-                      Add question
+                      <Eye aria-hidden="true" className="size-4" />
+                      Preview the form
                     </Button>
                   </div>
                 </FieldSet>
@@ -754,16 +759,16 @@ function Wizard() {
                       This saves a real <strong>requisition</strong> — title,
                       location, type, pay range, department, hiring manager and
                       its pipeline stages — plus a <strong>draft advert</strong>
-                      . Nothing is public until you publish it. Screening
-                      questions and the note for approvers stay on this screen;
-                      there is no field for them yet.
+                      with its application form. Nothing is public until you
+                      publish it. The note for approvers stays on this screen;
+                      there is no field for it yet.
                     </p>
                   ) : (
                     <p className="text-body-sm text-body">
                       This saves the job (title, location, type, pay range and
                       the text below) as a <strong>draft advert</strong>.
                       Nothing is public until you publish it. Stages, the hiring
-                      team and screening questions all need a connected company
+                      team and the application form all need a connected company
                       to save; there is nowhere to put them offline.
                     </p>
                   )}
@@ -815,13 +820,7 @@ function Wizard() {
                       "Must haves",
                       String(draft.mustHaves.filter(Boolean).length),
                     ],
-                    [
-                      "Screening questions",
-                      String(
-                        draft.screeningQuestions.filter((q) => q.question)
-                          .length,
-                      ),
-                    ],
+                    ["Form questions", String(draft.form.questions.length)],
                   ]}
                 />
                 <ReviewBlock
@@ -904,6 +903,26 @@ function Wizard() {
         </aside>
       </div>
 
+      <Modal
+        open={previewing}
+        onClose={() => setPreviewing(false)}
+        size="lg"
+        title="What an applicant sees"
+        description="Nothing you do here is sent or saved."
+        footer={
+          <Button variant="secondary" onClick={() => setPreviewing(false)}>
+            Close
+          </Button>
+        }
+      >
+        <FormPreview
+          definition={draft.form}
+          company={careers.settings?.branding.name ?? "Your company"}
+          roleTitle={draft.title}
+          filesAvailable={filesAvailable}
+        />
+      </Modal>
+
       {/* Actions never scroll out of reach. */}
       <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-line bg-surface px-1 py-3">
         {/* It said "Save & exit" and saved nothing. */}
@@ -929,8 +948,20 @@ function Wizard() {
           ) : (
             <Button
               variant="accent"
-              onClick={stepper.next}
-              disabled={!canContinue}
+              onClick={() => {
+                /* The process step is blocked by an unfinished question, and a
+                   disabled button cannot say which. Pressing it marks them. */
+                if (stepper.index === 2 && !formValid) {
+                  setShowFormProblems(true);
+                  return;
+                }
+                stepper.next();
+              }}
+              disabled={
+                stepper.index === 2
+                  ? !(draft.activeStages.length >= 2)
+                  : !canContinue
+              }
             >
               Continue
               <ArrowRight aria-hidden="true" className="size-4" />
@@ -943,6 +974,17 @@ function Wizard() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/** Has the form been left exactly as the API would start it? */
+function isDefaultForm(form: FormDefinition): boolean {
+  const base = defaultDefinition();
+  return (
+    form.questions.length === 0 &&
+    form.standard.phone === base.standard.phone &&
+    form.standard.cv === base.standard.cv &&
+    form.standard.coverNote === base.standard.coverNote
+  );
+}
 
 function ListBuilder({
   legend,
