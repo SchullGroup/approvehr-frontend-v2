@@ -8665,3 +8665,54 @@ box naming the same email again. Names an item's own error already quotes are no
 its link ("Check your staff list") moves into the red one; an amber box remains only for a name no item
 mentions. `tests/bulk-create-dialog.test.tsx` has two cases (one tamper-tested against the old code).
 
+
+---
+
+# An approval you could see and never decide
+
+A tester told every employee to update their bank details, and they did, up to eight
+times each. The approvals inbox then held eight entries for one change. Only the newest
+could be approved. Approving any other answered "That was already withdrawn", and so did
+sending it back, and the entry stayed. Nothing in `tsc`, lint or 780 tests could see it,
+because each half was correct on its own.
+
+## The cause was on the backend, in a rule that was right
+
+`updateOwnRecord` supersedes rather than queues: a second request for the same field
+marks the first `WITHDRAWN`, because two pending account numbers is a question nobody
+can answer. It did not close the first request's inbox entry (`ApprovalRequest`), which
+stayed `PENDING` for ever. The inbox is sorted oldest first, so the dead entries sat on
+top. Attendance corrections superseded the same way and had the same defect. Every other
+kind that can end without a decision (leave, exits, offers, payroll, loans) already
+mirrors its entry.
+
+> A request and its inbox entry are two rows. Whatever ends one has to end the other in
+> the same transaction. `mirrorApprovalDecision` exists for that; the two paths that
+> skipped it were the two that supersede.
+
+The fix is in `approvehr-backend`, with a data-only migration that closes the entries
+already stuck. It closes only an entry whose own request is `WITHDRAWN`, so anything
+decided or genuinely pending is untouched.
+
+## What changed on this side
+
+- **"Send back" is "Reject".** On the approvals inbox only. The dialog still requires a
+  reason, and now says the person sees it, which is true: the backend notifies the
+  requester of an approval and of a rejection, with the reason. Before, the reason was
+  kept on the request and nothing ever delivered it. `/people/leave` and the objective
+  approvals keep "Send back", where the thing really does go back for revision.
+- **A failed rejection no longer closes its dialog.** `decide` caught the error, showed a
+  toast and returned normally, so `DeclineDialog` believed it had worked, cleared the
+  reason and closed. `decide` now takes `{ throwOnFailure }`; the rejection dialog uses
+  it and shows the server's sentence in its own field, with what was typed still there.
+- **A stale row refreshes the queue.** A 409 or 404 on approve or reject means the row is
+  not what the list says it is, so the inbox asks again and the row leaves, rather than
+  waiting there to fail a second time.
+
+## Deliberately not done
+
+- **A Close or Discard action** for an entry that is neither approved nor rejected. The
+  tester asked; it was left out. What closing would mean differs by kind (a withdrawn
+  leave request, a cancelled requisition and a dismissed record change are different
+  acts), and it needs that decided per kind first.
+- **Renaming "Send back" on `/people/leave`.** Same decision, different screen.

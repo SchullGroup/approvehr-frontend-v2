@@ -124,8 +124,8 @@ function decidedCopy(
         detail: "The request and the balance behind it are updated.",
       }
     : {
-        title: `${item.title} went back`,
-        detail: "It is back with them to revise.",
+        title: `${item.title} rejected`,
+        detail: "Your reason is kept with the decision.",
       };
 }
 
@@ -179,6 +179,10 @@ export function ApprovalInbox() {
     item: QueueItem,
     decision: "approved" | "declined",
     note?: string,
+    /* The rejection dialog shows the failure itself, in the field the person is
+       looking at, and stays open. Reporting it here as well would close the
+       dialog as though it had worked. */
+    options?: { throwOnFailure?: boolean },
   ) => {
     try {
       const outcome = await queue.decide(item, decision, note);
@@ -205,6 +209,16 @@ export function ApprovalInbox() {
         detail: outcome.note ?? copy.detail,
       });
     } catch (failure) {
+      /* 409 and 404 mean this row is no longer what the list says it is —
+         somebody else decided it, or it was replaced. Ask again so it leaves
+         the list instead of waiting there to fail a second time. */
+      if (
+        failure instanceof ApiError &&
+        (failure.status === 409 || failure.status === 404)
+      ) {
+        queue.reload();
+      }
+      if (options?.throwOnFailure) throw failure;
       toast.push({
         title: "That did not work",
         tone: "danger",
@@ -393,7 +407,7 @@ export function ApprovalInbox() {
                     <ApprovalRow
                       item={item}
                       onApprove={() => void decide(item, "approved")}
-                      onSendBack={() => setDeclining(item)}
+                      onReject={() => setDeclining(item)}
                     />
                   </li>
                 ))}
@@ -429,7 +443,7 @@ export function ApprovalInbox() {
                               ? "Approved"
                               : item.kind === "holiday"
                                 ? "Declined"
-                                : "Sent back"}
+                                : "Rejected"}
                         </Badge>
                         <span className="min-w-0 flex-1 truncate text-body">
                           {item.title}
@@ -469,10 +483,12 @@ export function ApprovalInbox() {
       <DeclineDialog
         open={declining !== null}
         what={declining ? declining.title : ""}
-        reader={declining?.kind === "holiday" ? "record" : "requester"}
+        reader={declining?.kind === "holiday" ? "record" : "reject"}
         onClose={() => setDeclining(null)}
         onConfirm={async (note) => {
-          if (declining) await decide(declining, "declined", note);
+          if (declining) {
+            await decide(declining, "declined", note, { throwOnFailure: true });
+          }
         }}
       />
     </div>
@@ -640,11 +656,11 @@ function WithSourceLinks({ text }: { text: string }) {
 function ApprovalRow({
   item,
   onApprove,
-  onSendBack,
+  onReject,
 }: {
   item: QueueItem;
   onApprove: () => void;
-  onSendBack: () => void;
+  onReject: () => void;
 }) {
   const ageing = item.waitingDays >= 5;
   /* Only a seed row knows who raised it. The API's approval row does not carry
@@ -747,9 +763,9 @@ function ApprovalRow({
               <Check aria-hidden="true" className="size-3.5" />
               Approve
             </Button>
-            <Button variant="secondary" size="sm" onClick={onSendBack}>
+            <Button variant="secondary" size="sm" onClick={onReject}>
               <X aria-hidden="true" className="size-3.5" />
-              {item.kind === "holiday" ? "Decline" : "Send back"}
+              {item.kind === "holiday" ? "Decline" : "Reject"}
             </Button>
           </div>
         ) : (

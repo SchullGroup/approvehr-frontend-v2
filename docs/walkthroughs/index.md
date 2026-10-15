@@ -6,6 +6,7 @@ somebody running a demo. No code, no database, no jargon left unexplained.
 | Walkthrough                        | Covers                                                                                                                                                                                                                                          |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`performance.md`](performance.md) | **Running an appraisal, screen by screen.** Thirty numbered steps from setting the scoring up to publishing the marks, a relay diagram of who hands what to whom, a card per role, eight deliberate surprises, and a twenty-minute demo script. |
+| [`approvals.md`](approvals.md)     | **Deciding what is waiting on you.** The inbox, Approve and Reject with a required reason, what happens when the same thing is raised twice, how a bank change is decided as one, and what the person who asked is told.                        |
 
 ## The rule these follow
 
