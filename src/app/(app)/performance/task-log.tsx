@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Badge, Button, LinkedText, Select, Textarea } from "@/components/ui";
+import { ProjectSourceTag } from "@/components/projects/project-source-tag";
 import { ApiError } from "@/lib/api/client";
 import type { ApiKeyResult } from "@/lib/api/performance";
 import {
@@ -160,6 +161,11 @@ export function TaskLogPanel({
                       : "Not graded yet"}
                   </Badge>
                 </div>
+                {task.projectSource && (
+                  <div className="mt-1">
+                    <ProjectSourceTag source={task.projectSource} />
+                  </div>
+                )}
                 {task.gradeNote && (
                   <p className="mt-1 text-meta text-body">
                     <span className="font-medium text-ink">Comment:</span>{" "}

@@ -8,8 +8,7 @@ import {
   Settings,
   Table2,
 } from "lucide-react";
-import { ButtonLink, EmptyState } from "@/components/ui";
-import { useProject } from "@/components/projects/project-context";
+import { BacklogView } from "./backlog-view";
 import { BoardView } from "./board-view";
 import { IssuesView } from "./issues-view";
 import { ReportsView } from "./reports-view";
@@ -55,40 +54,6 @@ export type ProjectViewDef = {
 };
 
 export const DEFAULT_VIEW: ProjectViewId = "board";
-
-/**
- * A view that has not been built yet. Says what it will do and where to go in the
- * meantime — no figure, no sample.
- */
-function ComingNext({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  const { project } = useProject();
-  return (
-    <EmptyState
-      title={`${title} is coming next`}
-      description={description}
-      action={
-        <ButtonLink href={`/projects/${project.id}?view=issues`}>
-          Open All issues
-        </ButtonLink>
-      }
-    />
-  );
-}
-
-function BacklogView() {
-  return (
-    <ComingNext
-      title="The backlog"
-      description="Sprint planning will live here: drag issues into sprints, add them from a quick row, and start or complete a sprint. Until then, All issues lists everything, and the Board shows the active sprint."
-    />
-  );
-}
 
 export const PROJECT_VIEWS: readonly ProjectViewDef[] = [
   {

@@ -64,6 +64,8 @@ vi.mock("@/lib/store/project-session", () => ({
 
 vi.mock("@/lib/store/session", () => ({
   useOrgTimezone: () => "Africa/Lagos",
+  /* The demo: no objectives and no weekly-task bridge to draw controls for. */
+  useSession: () => ({ isConnected: false }),
 }));
 
 vi.mock("@/lib/permissions", () => ({
@@ -175,17 +177,38 @@ describe("the project", () => {
     ).toBeInTheDocument();
   });
 
-  it.each([["backlog", "The backlog is coming next"]])(
-    "marks %s as coming next, with a way on",
-    (view, title) => {
-      search = new URLSearchParams(`view=${view}`);
-      render(<ProjectScreen id="pj-chk" />);
-      expect(screen.getByText(title)).toBeInTheDocument();
-      expect(
-        screen.getByRole("link", { name: "Open All issues" }),
-      ).toHaveAttribute("href", "/projects/pj-chk?view=issues");
-    },
-  );
+  it("shows the backlog's sprint lists on ?view=backlog", () => {
+    search = new URLSearchParams("view=backlog");
+    render(<ProjectScreen id="pj-chk" />);
+    expect(
+      screen.getByRole("heading", { name: "Backlog", level: 2 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "CHK Sprint 4" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the roadmap's timeline on ?view=roadmap", () => {
+    search = new URLSearchParams("view=roadmap");
+    render(<ProjectScreen id="pj-chk" />);
+    expect(
+      screen.getByRole("heading", { name: "Roadmap", level: 2 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("list", { name: "Epics on the timeline" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the reports on ?view=reports", () => {
+    search = new URLSearchParams("view=reports");
+    render(<ProjectScreen id="pj-chk" />);
+    expect(
+      screen.getByRole("heading", { name: "Reports", level: 2 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: /CHK Sprint 3 burndown/ }),
+    ).toBeInTheDocument();
+  });
 
   it("falls back to the board for a view it does not know", () => {
     search = new URLSearchParams("view=nonsense");

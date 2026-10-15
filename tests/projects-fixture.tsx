@@ -96,6 +96,7 @@ export function contextFor(
     actions: fakeActions() as unknown as ProjectActions,
     people,
     meId: "p-01",
+    connected: false,
     canWork: true,
     canManage: true,
     timeZone: "Africa/Lagos",
