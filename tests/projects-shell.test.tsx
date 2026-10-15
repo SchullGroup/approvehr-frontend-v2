@@ -175,18 +175,17 @@ describe("the project", () => {
     ).toBeInTheDocument();
   });
 
-  it.each([
-    ["backlog", "The backlog is coming next"],
-    ["roadmap", "The roadmap is coming next"],
-    ["reports", "Reports is coming next"],
-  ])("marks %s as coming next, with a way on", (view, title) => {
-    search = new URLSearchParams(`view=${view}`);
-    render(<ProjectScreen id="pj-chk" />);
-    expect(screen.getByText(title)).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Open All issues" }),
-    ).toHaveAttribute("href", "/projects/pj-chk?view=issues");
-  });
+  it.each([["backlog", "The backlog is coming next"]])(
+    "marks %s as coming next, with a way on",
+    (view, title) => {
+      search = new URLSearchParams(`view=${view}`);
+      render(<ProjectScreen id="pj-chk" />);
+      expect(screen.getByText(title)).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: "Open All issues" }),
+      ).toHaveAttribute("href", "/projects/pj-chk?view=issues");
+    },
+  );
 
   it("falls back to the board for a view it does not know", () => {
     search = new URLSearchParams("view=nonsense");

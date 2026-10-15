@@ -12,6 +12,8 @@ import { ButtonLink, EmptyState } from "@/components/ui";
 import { useProject } from "@/components/projects/project-context";
 import { BoardView } from "./board-view";
 import { IssuesView } from "./issues-view";
+import { ReportsView } from "./reports-view";
+import { RoadmapView } from "./roadmap-view";
 import { SettingsView } from "./settings-view";
 
 /**
@@ -84,24 +86,6 @@ function BacklogView() {
     <ComingNext
       title="The backlog"
       description="Sprint planning will live here: drag issues into sprints, add them from a quick row, and start or complete a sprint. Until then, All issues lists everything, and the Board shows the active sprint."
-    />
-  );
-}
-
-function RoadmapView() {
-  return (
-    <ComingNext
-      title="The roadmap"
-      description="Epics will sit on a timeline with a line for today, and each bar will fill as the issues in it are finished. Until then, All issues lists every epic."
-    />
-  );
-}
-
-function ReportsView() {
-  return (
-    <ComingNext
-      title="Reports"
-      description="Open, finished and overdue counts, the sprint burndown, velocity, workload and breakdowns will be worked out here from the project's own issues. Until then, All issues can be sorted and filtered."
     />
   );
 }
