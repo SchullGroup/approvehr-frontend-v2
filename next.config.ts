@@ -119,6 +119,22 @@ const errorReportOrigin = (() => {
   }
 })();
 
+/**
+ * Cloudflare's challenge, only when a site key is configured.
+ *
+ * The careers apply form can show an "are you a person" check
+ * (`components/marketing/captcha-slot.tsx`). It loads a script and draws in a
+ * frame, and this policy refuses both from any origin it does not name — the
+ * widget would sit blank and the console would say why, which no applicant ever
+ * reads. Named here **only when `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is set**, the
+ * same condition under which the page can ever ask for it: a deployment with no
+ * check keeps exactly the policy it had, and never admits a third-party script
+ * it will never load.
+ */
+const challengeOrigin = process.env["NEXT_PUBLIC_TURNSTILE_SITE_KEY"]?.trim()
+  ? " https://challenges.cloudflare.com"
+  : "";
+
 const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -130,7 +146,10 @@ const CSP = [
      without it every page logs a CSP error that reads as a bug in the app.
      React never uses `eval()` in a production build, so production keeps the
      stricter policy — which is the half that faces a real reader. */
-  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}`,
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}${challengeOrigin}`,
+  /* Explicit, and only when there is something to add: with no `frame-src` the
+     fallback is `child-src`, then `default-src 'self'`, which is the same thing. */
+  ...(challengeOrigin ? [`frame-src 'self'${challengeOrigin}`] : []),
   /* Explicit rather than left to the fallback chain. `worker-src` falls back to
      `child-src` and then `script-src`, so `'self'` was already reaching it —
      but a directive a reader has to derive is one somebody tightens `script-src`

@@ -3,8 +3,15 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { CaptchaSlot } from "@/components/marketing/captcha-slot";
 import { PillButton } from "@/components/marketing/pill";
-import { CV_LINE, apply, type ApplyResult } from "@/lib/marketing/careers";
+import {
+  CV_LINE,
+  HONEYPOT_FIELD,
+  apply,
+  type ApplyFailureKind,
+  type ApplyResult,
+} from "@/lib/marketing/careers";
 
 /**
  * Apply.
@@ -19,10 +26,23 @@ import { CV_LINE, apply, type ApplyResult } from "@/lib/marketing/careers";
  *
  * ## There is no CV upload, and this form does not pretend otherwise
  *
- * Nothing in the stack stores or serves a file. A drop zone here would take
- * somebody's CV and lose it — they would believe it arrived, and the hiring
- * manager would find out the day before the interview. So one line says the
- * truth and the note field takes a link instead, which works today.
+ * This form does not attach a file to the application yet. A drop zone here
+ * would take somebody's CV and lose it — they would believe it arrived, and the
+ * hiring manager would find out the day before the interview. So one line says
+ * the truth and the note field takes a link instead, which works today.
+ *
+ * ## Two checks a person never sees
+ *
+ * A **honeypot**: one extra text box, off-screen, hidden from assistive
+ * technology, out of the tab order and told not to autofill. A person never
+ * reaches it; a script that fills in every field it finds does, and the API
+ * treats a non-empty value as a bot. It is sent on every submission, empty for
+ * people, because the API wants to see the field arrive.
+ *
+ * A **"are you a person" check**, which is off until the API is configured for
+ * it. It is not on the page — and its script is not requested — until the API
+ * says it is needed, either up front (`captchaRequired`) or by refusing an
+ * application with `captcha_required`. See `captcha-slot.tsx`.
  *
  * ## Validation happens on submit
  *
@@ -32,19 +52,27 @@ import { CV_LINE, apply, type ApplyResult } from "@/lib/marketing/careers";
  * hunting for it.
  */
 
-type Field = "firstName" | "lastName" | "email";
+type Field = "firstName" | "lastName" | "email" | "phone";
 type Errors = Partial<Record<Field, string>>;
+
+/** Public by design — it identifies this site to the challenge provider and
+ *  grants nothing. The matching secret lives only on the API. */
+const CAPTCHA_SITE_KEY =
+  process.env["NEXT_PUBLIC_TURNSTILE_SITE_KEY"]?.trim() || null;
 
 export function ApplyForm({
   org,
   roleSlug,
   roleTitle,
   company,
+  captchaRequired = false,
 }: {
   org: string;
   roleSlug: string;
   roleTitle: string;
   company: string;
+  /** True when the API said, with the advert, that the check is on. */
+  captchaRequired?: boolean;
 }) {
   const [form, setForm] = useState({
     firstName: "",
@@ -53,10 +81,19 @@ export function ApplyForm({
     phone: "",
     note: "",
   });
+  /* The honeypot. Empty for every person who ever uses this form. */
+  const [trap, setTrap] = useState("");
   const [errors, setErrors] = useState<Errors>({});
-  const [refusal, setRefusal] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<{
+    kind: ApplyFailureKind;
+    message: string;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<ApplyResult | null>(null);
+  const [needsCheck, setNeedsCheck] = useState(captchaRequired);
+  const [checkToken, setCheckToken] = useState<string | null>(null);
+  const [checkReset, setCheckReset] = useState(0);
+  const [checkMissing, setCheckMissing] = useState(false);
 
   const set = (key: keyof typeof form, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -84,15 +121,31 @@ export function ApplyForm({
       return;
     }
 
+    /* The check is on and has not been done. Say so beside the check itself and
+       do not spend a request — and a one-time token — finding out. */
+    if (needsCheck && !checkToken) {
+      setCheckMissing(true);
+      return;
+    }
+
     setBusy(true);
     setRefusal(null);
-    const result = await apply(org, roleSlug, {
-      firstName: form.firstName.trim(),
-      lastName: form.lastName.trim(),
-      email: form.email.trim(),
-      ...(form.phone.trim() ? { phone: form.phone.trim() } : {}),
-      ...(form.note.trim() ? { coverNote: form.note.trim() } : {}),
-    });
+    setCheckMissing(false);
+    const result = await apply(
+      org,
+      roleSlug,
+      {
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        email: form.email.trim(),
+        ...(form.phone.trim() ? { phone: form.phone.trim() } : {}),
+        ...(form.note.trim() ? { coverNote: form.note.trim() } : {}),
+      },
+      {
+        [HONEYPOT_FIELD]: trap,
+        ...(needsCheck && checkToken ? { captchaToken: checkToken } : {}),
+      },
+    );
     setBusy(false);
 
     if (result.ok) {
@@ -100,13 +153,22 @@ export function ApplyForm({
       return;
     }
 
+    /* A token is spent once, whether the API accepted it or not. */
+    if (needsCheck) setCheckReset((n) => n + 1);
+    if (result.kind === "captcha") setNeedsCheck(true);
+
     /* The API's own sentence, kept as written. "You have already applied, we
        received it on 14 August" is worth far more to the person reading it than
        anything this component could compose. */
-    setRefusal(result.message);
+    setRefusal({ kind: result.kind, message: result.message });
     const fieldErrors: Errors = {};
     for (const [field, message] of Object.entries(result.fields)) {
-      if (field === "firstName" || field === "lastName" || field === "email")
+      if (
+        field === "firstName" ||
+        field === "lastName" ||
+        field === "email" ||
+        field === "phone"
+      )
         fieldErrors[field] = message;
     }
     setErrors(fieldErrors);
@@ -127,8 +189,9 @@ export function ApplyForm({
           {sent.note}
         </p>
         <p className="mx-auto mt-4 max-w-sm text-body-sm leading-relaxed text-slate-muted">
-          No confirmation email will arrive, email is not connected. Your
-          application is saved under {form.email}.
+          We do not send a confirmation email yet, so there is nothing to wait
+          for in your inbox. Your application is saved under {form.email}, and{" "}
+          {company} will contact you directly if they want to take it further.
         </p>
       </div>
     );
@@ -183,6 +246,7 @@ export function ApplyForm({
             label="Phone"
             optional
             value={form.phone}
+            {...(errors.phone ? { error: errors.phone } : {})}
             onChange={(value) => set("phone", value)}
             placeholder="0803 000 0000"
           />
@@ -211,12 +275,63 @@ export function ApplyForm({
           />
         </div>
 
+        {/* The honeypot. Off-screen rather than `display: none`, because some
+            scripts skip a field that is not rendered; `aria-hidden`, out of the
+            tab order and told not to autofill, so no person and no password
+            manager ever lands in it. */}
+        <div
+          aria-hidden="true"
+          data-testid="apply-honeypot"
+          style={{
+            position: "absolute",
+            left: "-10000px",
+            top: "auto",
+            width: "1px",
+            height: "1px",
+            overflow: "hidden",
+          }}
+        >
+          <label htmlFor="apply-contact-preference">Leave this box empty</label>
+          <input
+            id="apply-contact-preference"
+            type="text"
+            name={HONEYPOT_FIELD}
+            value={trap}
+            onChange={(event) => setTrap(event.currentTarget.value)}
+            tabIndex={-1}
+            autoComplete="off"
+            data-lpignore="true"
+            data-1p-ignore="true"
+            data-bwignore="true"
+            data-form-type="other"
+          />
+        </div>
+
+        {needsCheck && (
+          <div>
+            <CaptchaSlot
+              siteKey={CAPTCHA_SITE_KEY}
+              onToken={(token) => {
+                setCheckToken(token);
+                if (token) setCheckMissing(false);
+              }}
+              resetKey={checkReset}
+            />
+            {checkMissing && (
+              <p role="alert" className="mt-2 text-meta text-danger-text">
+                Complete the check above before you send.
+              </p>
+            )}
+          </div>
+        )}
+
         {refusal && (
           <p
             role="alert"
+            data-kind={refusal.kind}
             className="rounded-xl bg-wash-rose p-3.5 text-body-sm leading-relaxed text-slate-soft"
           >
-            {refusal}
+            {refusal.message}
           </p>
         )}
 

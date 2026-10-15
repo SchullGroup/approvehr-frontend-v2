@@ -2,14 +2,11 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CalendarClock, MapPin } from "lucide-react";
+import { CareersNotice } from "@/components/marketing/careers-notice";
 import { Pill } from "@/components/marketing/pill";
 import { Reveal } from "@/components/marketing/motion";
-import {
-  getRole,
-  payRange,
-  readableDate,
-  workTypeLabel,
-} from "@/lib/marketing/careers";
+import { payRange, readableDate, workTypeLabel } from "@/lib/marketing/careers";
+import { getRole } from "@/lib/marketing/careers-read";
 import { ApplyForm } from "./apply-form";
 
 /**
@@ -64,17 +61,13 @@ export default async function RolePage({
     return (
       <section className="px-4 pb-28 pt-16 sm:pt-24">
         <div className="container-page max-w-2xl">
-          <h1 className="text-h2 text-slate">This role is not showing</h1>
-          <p className="mt-4 leading-relaxed text-slate-muted">
-            {result.reason === "unconfigured"
-              ? "This site is not connected to a careers system."
-              : "We could not load it just now."}
-          </p>
-          <div className="mt-8">
-            <Pill href={`/careers/${org}`} variant="dark" arrow>
-              See the open roles
-            </Pill>
-          </div>
+          <CareersNotice
+            reason={result.reason}
+            retryAfterSeconds={result.retryAfterSeconds}
+            subject="this role"
+            backHref={`/careers/${org}`}
+            backLabel="See the open roles"
+          />
         </div>
       </section>
     );

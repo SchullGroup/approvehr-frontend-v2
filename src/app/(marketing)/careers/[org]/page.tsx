@@ -2,16 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, MapPin } from "lucide-react";
-import { Pill } from "@/components/marketing/pill";
+import { CareersNotice } from "@/components/marketing/careers-notice";
 import { Reveal } from "@/components/marketing/motion";
 import {
-  listRoles,
   payRange,
   readableDate,
   workTypeLabel,
   type PublicRole,
-  type ReadFailure,
 } from "@/lib/marketing/careers";
+import { listRoles } from "@/lib/marketing/careers-read";
 
 export const metadata: Metadata = {
   title: "Open roles",
@@ -74,7 +73,15 @@ export default async function CareersListingPage({
         </Reveal>
 
         {!result.ok ? (
-          <Unavailable reason={result.reason} />
+          <div className="mt-14">
+            <CareersNotice
+              reason={result.reason}
+              retryAfterSeconds={result.retryAfterSeconds}
+              subject="roles"
+              backHref="/"
+              backLabel="Back to the homepage"
+            />
+          </div>
         ) : result.value.length === 0 ? (
           <Reveal delay={80}>
             <div className="mt-14 rounded-3xl border border-sand-line bg-white/70 p-10 sm:p-14">
@@ -153,33 +160,5 @@ function RoleCard({ org, role }: { org: string; role: PublicRole }) {
         </span>
       </Link>
     </article>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/**
- * What to say when the list could not be read.
- *
- * Two different facts, and neither of them is "no roles". Saying "nothing open"
- * when the truth is "we could not ask" would send somebody away from a job they
- * could have had.
- */
-function Unavailable({ reason }: { reason: ReadFailure }) {
-  const line =
-    reason === "unconfigured"
-      ? "This site is not connected to a careers system, so there are no roles to show."
-      : "We could not load the roles just now.";
-
-  return (
-    <div className="mt-14 rounded-3xl border border-sand-line bg-white/70 p-10 sm:p-14">
-      <h2 className="text-h3 text-slate">Roles are not showing</h2>
-      <p className="mt-3 max-w-md text-body leading-relaxed">{line}</p>
-      <div className="mt-8">
-        <Pill href="/" variant="dark" arrow>
-          Back to the homepage
-        </Pill>
-      </div>
-    </div>
   );
 }
