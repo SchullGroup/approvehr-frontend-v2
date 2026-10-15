@@ -13,12 +13,12 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import {
   NotePanel,
   RecordCheck,
+  exactPoints,
   StatusBadge,
 } from "@/components/performance/record-check";
 import { SuggestButton } from "@/components/performance/suggestions";
 import type { ApiReviewFlag, ApiReviewFlags } from "@/lib/api/performance";
 import { useReviewBriefing } from "@/lib/store/ai";
-import { points } from "./charts";
 
 export function flaggedCount(flags: ApiReviewFlags | null) {
   return flags ? flags.counts.below + flags.counts.above : 0;
@@ -170,7 +170,7 @@ function FlagList({
               <StatusBadge status={person.status} />
               {person.gapBp !== null && (
                 <span className="text-body-sm font-semibold tabular-nums text-warning-text">
-                  {points(person.gapBp)}
+                  {exactPoints(person.gapBp)}
                 </span>
               )}
             </>

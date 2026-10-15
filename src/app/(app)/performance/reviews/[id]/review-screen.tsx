@@ -499,7 +499,11 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 action={<StatusBadge status={record.flag.status} />}
               />
               <CardBody>
-                <RecordCheck cycleId={review.cycleId} flag={record.flag} />
+                <RecordCheck
+                  cycleId={review.cycleId}
+                  flag={record.flag}
+                  claims={record.claims}
+                />
               </CardBody>
             </Card>
           )}

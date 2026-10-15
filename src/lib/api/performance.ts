@@ -1233,6 +1233,18 @@ export type ApiReviewFlag = {
   patterns: { kind: string; text: string }[];
 };
 
+export type ApiClaim = {
+  author: string;
+  rating: string | null;
+  summary: string | null;
+  answers: { question: string; answer: string }[];
+};
+
+export type ApiClaims = {
+  manager: ApiClaim[];
+  employee: (ApiClaim & { onFinalMark: string | null }) | null;
+};
+
 export type ApiReviewFlags = {
   cycle: { id: string; name: string };
   rules: { gapBp: number; peerFloor: number };
@@ -2343,7 +2355,7 @@ export const performanceApi = {
     ),
 
   reviewFlag: (cycleId: string, employeeId: string, signal?: AbortSignal) =>
-    request<{ flag: ApiReviewFlag }>(
+    request<{ flag: ApiReviewFlag; claims: ApiClaims }>(
       `/performance/cycles/${cycleId}/review-flags/${employeeId}`,
       signalOf(signal),
     ),

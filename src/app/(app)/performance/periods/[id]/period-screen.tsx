@@ -72,7 +72,7 @@ import {
   useRatingScale,
   useReviewFlag,
 } from "@/lib/store/performance";
-import { points } from "@/components/performance/record-check";
+import { exactPoints } from "@/components/performance/record-check";
 import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
 import { SectionsDialog } from "../../sections-dialog";
@@ -2221,8 +2221,8 @@ function CalibrateButton({
                 title="This mark doesn't match their record"
               >
                 Their record suggests {scoreLabel(offRecord.expectedBp)}, a gap
-                of {points(offRecord.gapBp)}. Check the evidence on the fairness
-                check before moving it.
+                of {exactPoints(offRecord.gapBp)}. Check the evidence on the
+                fairness check before moving it.
               </Callout>
             )}
 

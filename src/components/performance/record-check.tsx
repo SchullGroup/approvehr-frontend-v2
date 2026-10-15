@@ -2,12 +2,23 @@
 
 import { Badge, Disclosure, Spinner } from "@/components/ui";
 import { SuggestButton } from "@/components/performance/suggestions";
-import type { ApiReviewFlag, ApiReviewStatus } from "@/lib/api/performance";
+import type {
+  ApiClaim,
+  ApiClaims,
+  ApiReviewFlag,
+  ApiReviewStatus,
+} from "@/lib/api/performance";
+import { useReviewFlag } from "@/lib/store/performance";
 import { useAutoReviewNote, type SuggestState } from "@/lib/store/ai";
 
 export const pct = (bp: number) => `${(bp / 100).toFixed(1)}%`;
 export const points = (bp: number) =>
   `${bp > 0 ? "+" : bp < 0 ? "−" : ""}${Math.abs(bp / 100).toFixed(1)} pts`;
+
+// Exact, never rounded: the note quotes these same figures.
+export const exactPct = (bp: number) => `${String(bp / 100)}%`;
+export const exactPoints = (bp: number) =>
+  `${bp > 0 ? "+" : bp < 0 ? "−" : ""}${String(Math.abs(bp) / 100)} pts`;
 
 export const STATUS: Record<
   ApiReviewStatus,
@@ -56,7 +67,8 @@ export function NotePanel({ state }: { state: SuggestState }) {
         </ul>
       </Disclosure>
       <p className="text-meta text-muted">
-        Written by AI from the figures above. It can be wrong.
+        Written by AI from the figures and what each side wrote. It can be
+        wrong.
       </p>
     </div>
   );
@@ -66,11 +78,20 @@ export function RecordCheck({
   cycleId,
   flag,
   active = true,
+  claims: given,
 }: {
   cycleId: string;
   flag: ApiReviewFlag;
   active?: boolean;
+  /** Pass when the caller already holds them; otherwise they are fetched. */
+  claims?: ApiClaims | null;
 }) {
+  const fetched = useReviewFlag(
+    cycleId,
+    flag.employeeId,
+    active && given === undefined,
+  );
+  const claims = given === undefined ? fetched.claims : given;
   const { objectives, peers, history } = flag.evidence;
   const flagged = flag.status === "below" || flag.status === "above";
   const note = useAutoReviewNote(cycleId, flag.employeeId, active && flagged);
@@ -83,7 +104,7 @@ export function RecordCheck({
         <div>
           <dt className="text-meta text-muted">Mark</dt>
           <dd className="text-body-md font-semibold text-ink">
-            {pct(flag.markBp)}
+            {exactPct(flag.markBp)}
           </dd>
         </div>
         <div>
@@ -91,7 +112,7 @@ export function RecordCheck({
           <dd className="text-body-md font-semibold text-ink">
             {flag.expectedBp === null
               ? "Not enough evidence"
-              : pct(flag.expectedBp)}
+              : exactPct(flag.expectedBp)}
           </dd>
         </div>
         <div>
@@ -99,7 +120,7 @@ export function RecordCheck({
           <dd
             className={`text-body-md font-semibold ${flagged ? "text-warning-text" : "text-ink"}`}
           >
-            {flag.gapBp === null ? "—" : points(flag.gapBp)}
+            {flag.gapBp === null ? "—" : exactPoints(flag.gapBp)}
           </dd>
         </div>
       </dl>
@@ -111,18 +132,18 @@ export function RecordCheck({
             Objectives:{" "}
             {objectives.scoreBp === null
               ? "none agreed for this period"
-              : `${String(objectives.agreed)} agreed, ${String(objectives.measured)} measured by key results, ${pct(objectives.scoreBp)} achieved`}
+              : `${String(objectives.agreed)} agreed, ${String(objectives.measured)} measured by key results, ${exactPct(objectives.scoreBp)} achieved`}
           </li>
           <li>
             Peer feedback:{" "}
             {peers?.averageBp != null
-              ? `${pct(peers.averageBp)} from ${String(peers.responses)} colleagues`
+              ? `${exactPct(peers.averageBp)} from ${String(peers.responses)} colleagues`
               : "fewer than 3 colleagues answered"}
           </li>
           <li>
             Previous periods:{" "}
             {history
-              ? `${pct(history.averageBp)} over ${String(history.periods)}`
+              ? `${exactPct(history.averageBp)} over ${String(history.periods)}`
               : "none on record"}
           </li>
         </ul>
@@ -161,6 +182,76 @@ export function RecordCheck({
             </div>
           )}
         </div>
+      )}
+
+      {claims && <ClaimsView claims={claims} />}
+    </div>
+  );
+}
+
+function ClaimsView({ claims }: { claims: ApiClaims }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div className="flex flex-col gap-3">
+        <p className="text-meta font-semibold text-faint">Manager’s claim</p>
+        {claims.manager.length ? (
+          claims.manager.map((claim) => (
+            <ClaimBox key={claim.author} claim={claim} by={claim.author} />
+          ))
+        ) : (
+          <p className="text-body-sm text-muted">
+            No written review submitted yet.
+          </p>
+        )}
+      </div>
+      <div className="flex flex-col gap-3">
+        <p className="text-meta font-semibold text-faint">Employee’s claim</p>
+        {claims.employee ? (
+          <>
+            {(claims.employee.rating ||
+              claims.employee.summary ||
+              claims.employee.answers.length > 0) && (
+              <ClaimBox claim={claims.employee} by="Self-review" />
+            )}
+            {claims.employee.onFinalMark && (
+              <p className="text-body-sm text-body">
+                {claims.employee.onFinalMark}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-body-sm text-muted">
+            No self-review submitted yet.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ClaimBox({ claim, by }: { claim: ApiClaim; by: string }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-line p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-body-sm font-semibold text-ink">{by}</span>
+        {claim.rating && (
+          <Badge tone="neutral" size="sm">
+            {claim.rating}
+          </Badge>
+        )}
+      </div>
+      {claim.summary && (
+        <p className="text-body-sm text-body">{claim.summary}</p>
+      )}
+      {claim.answers.length > 0 && (
+        <dl className="flex flex-col gap-2">
+          {claim.answers.map((answer) => (
+            <div key={answer.question}>
+              <dt className="text-meta text-muted">{answer.question}</dt>
+              <dd className="text-body-sm text-body">{answer.answer}</dd>
+            </div>
+          ))}
+        </dl>
       )}
     </div>
   );
