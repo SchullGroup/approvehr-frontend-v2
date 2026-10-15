@@ -64,6 +64,7 @@ export default async function RolePage({
           <CareersNotice
             reason={result.reason}
             retryAfterSeconds={result.retryAfterSeconds}
+            message={result.message}
             subject="this role"
             backHref={`/careers/${org}`}
             backLabel="See the open roles"
@@ -134,6 +135,7 @@ export default async function RolePage({
                 roleSlug={role.slug}
                 roleTitle={role.title}
                 company={role.company}
+                captchaRequired={role.captchaRequired === true}
               />
             ) : (
               <Closed

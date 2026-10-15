@@ -34,7 +34,7 @@ const accepted = () =>
     },
   });
 
-async function mount() {
+async function mount(props: { captchaRequired?: boolean } = {}) {
   vi.resetModules();
   vi.stubEnv("NEXT_PUBLIC_API_URL", API);
   vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", SITE_KEY);
@@ -47,6 +47,7 @@ async function mount() {
       roleSlug="payroll-analyst"
       roleTitle="Payroll Analyst"
       company="Acme Ltd"
+      {...props}
     />,
   );
   return { user };
@@ -199,14 +200,17 @@ describe("the honeypot", () => {
 });
 
 describe("when the API refuses", () => {
-  it("tells a throttled applicant how long to wait and keeps what they typed", async () => {
+  it("shows the API's own sentence to a throttled applicant, as written, and keeps what they typed", async () => {
     fetchMock.mockResolvedValue(
       json(
         429,
         {
           error: {
             code: "rate_limited",
-            message: "Old text that names a fixed hour.",
+            message:
+              "A lot of applications have been sent from this connection. Try again in about 40 minutes. If you are on a shared network, it may be somebody else's.",
+            reason: "ip_apply",
+            retryAfterSeconds: 2400,
           },
         },
         { "Retry-After": "2400" },
@@ -218,10 +222,12 @@ describe("when the API refuses", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveAttribute("data-kind", "rate_limited");
-    /* 2,400 seconds is 40 minutes. The API's own sentence names a fixed hour
-       and would be wrong about the real remainder, so it is not shown. */
-    expect(alert).toHaveTextContent("Wait about 40 minutes");
-    expect(alert).not.toHaveTextContent("Old text");
+    /* Verbatim: it says whether it is this connection, this advert or this
+       email address that has run out, and a sentence of ours would blur the
+       three. */
+    expect(alert).toHaveTextContent(
+      "A lot of applications have been sent from this connection. Try again in about 40 minutes. If you are on a shared network, it may be somebody else's.",
+    );
     expect(alert).toHaveTextContent("What you typed is still here");
 
     expect(screen.getByLabelText(/First name/)).toHaveValue("Chioma");
@@ -231,29 +237,23 @@ describe("when the API refuses", () => {
     ).toBeEnabled();
   });
 
-  it("falls back to the body's figure when the header is not readable cross-origin", async () => {
+  it("states the wait itself, from Retry-After, when the API sent no sentence", async () => {
     fetchMock.mockResolvedValue(
-      json(429, {
-        error: {
-          code: "rate_limited",
-          message: "Slow down.",
-          retryAfterSeconds: 90,
-        },
-      }),
+      json(429, { error: { code: "rate_limited" } }, { "Retry-After": "2400" }),
     );
     const { user } = await mount();
     await fillIn(user);
     await send(user);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Wait about 2 minutes",
+      "Try again in about 40 minutes.",
     );
   });
 
-  it("uses the API's own sentence for a 429 that names no wait at all", async () => {
+  it("falls back to the body's figure when the header is not readable cross-origin", async () => {
     fetchMock.mockResolvedValue(
       json(429, {
-        error: { code: "rate_limited", message: "Wait a little, please." },
+        error: { code: "rate_limited", retryAfterSeconds: 90 },
       }),
     );
     const { user } = await mount();
@@ -261,7 +261,18 @@ describe("when the API refuses", () => {
     await send(user);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Wait a little, please.",
+      "Try again in about 2 minutes.",
+    );
+  });
+
+  it("is still honest when a 429 says neither how long nor why", async () => {
+    fetchMock.mockResolvedValue(json(429, { error: { code: "rate_limited" } }));
+    const { user } = await mount();
+    await fillIn(user);
+    await send(user);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Wait a little while, then send it again.",
     );
   });
 
@@ -383,7 +394,40 @@ describe("the check that proves somebody is a person", () => {
     expect(scriptTags()).toHaveLength(0);
   });
 
-  it("is brought up by the API's refusal, says what the API said, and only then asks for the script", async () => {
+  it("appears with the form, and only then asks for the script, when the advert says the check is on", async () => {
+    await mount({ captchaRequired: true });
+
+    expect(screen.getByTestId("captcha-slot")).toBeInTheDocument();
+    await waitFor(() => expect(scriptTags()).toHaveLength(1));
+  });
+
+  it("will not send a form that said it needed the check without one, and spends no request", async () => {
+    const { user } = await mount({ captchaRequired: true });
+    await fillIn(user);
+    await send(user);
+
+    expect(
+      await screen.findByText("Complete the check above before you send."),
+    ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sends the token it earned, from the very first press, when the advert asked for the check", async () => {
+    const fake = turnstile();
+    window.turnstile = fake.api;
+    const { user } = await mount({ captchaRequired: true });
+    await fillIn(user);
+    await waitFor(() => expect(fake.api.render).toHaveBeenCalled());
+    fake.solve("token-up-front");
+    fetchMock.mockResolvedValueOnce(accepted());
+    await send(user);
+
+    await screen.findByText("Application sent");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(lastBody()).toHaveProperty("captchaToken", "token-up-front");
+  });
+
+  it("is brought up by the API's refusal even when the advert did not say, and says what the API said", async () => {
     const { user } = await mount();
     expect(scriptTags()).toHaveLength(0);
 

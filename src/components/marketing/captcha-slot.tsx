@@ -157,6 +157,8 @@ export function CaptchaSlot({
     return (
       <p
         role="alert"
+        data-testid="captcha-slot"
+        data-state="no-site-key"
         className="rounded-xl bg-wash-rose p-3.5 text-body-sm leading-relaxed text-slate-soft"
       >
         This form asks for a check that is not set up on this site, so it cannot

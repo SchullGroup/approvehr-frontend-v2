@@ -258,7 +258,8 @@ const decodePosition = (cursor: string | null): QueuePosition => {
  * role's queue was only as deep as its share of the company's last hundred, and a
  * busy role next door could empty it. Now it asks for each advert's own
  * applications, one advert after another, newest first within each, behind a
- * single cursor that remembers which advert it is on.
+ * single cursor that remembers which advert it is on. A page is filled from as
+ * many adverts as it takes, so a small advert never leaves a short page behind.
  *
  * The counts do not come from the rows. `total` is the adverts' own application
  * counts and `waiting` is the analytics figure for those adverts — both are the
@@ -301,19 +302,24 @@ export function useRoleQueue(requisitionId: string): RoleQueue {
         return pageLocally(mine, cursor, APPLICATIONS_PAGE_SIZE);
       }
 
+      /* A page is filled from as many adverts as it takes. An advert with only a
+         dozen applicants must not hand back a page of twelve with a "Load more"
+         under it: that reads as a list that stopped early. */
       let position = decodePosition(cursor);
+      const rows: ApiApplication[] = [];
       for (;;) {
         const advertId = advertIds[position.advert];
-        if (advertId === undefined) return { rows: [], total, next: null };
+        if (advertId === undefined) return { rows, total, next: null };
 
         const result = await careersApi.listApplications(
           {
             postingId: advertId,
-            pageSize: APPLICATIONS_PAGE_SIZE,
+            pageSize: APPLICATIONS_PAGE_SIZE - rows.length,
             ...(position.cursor ? { cursor: position.cursor } : {}),
           },
           signal,
         );
+        rows.push(...result.data);
 
         const inner = result.meta.nextCursor ?? null;
         const next: string | null = inner
@@ -322,11 +328,10 @@ export function useRoleQueue(requisitionId: string): RoleQueue {
             ? encodePosition({ advert: position.advert + 1, cursor: null })
             : null;
 
-        /* An advert nobody applied to yields an empty page; move straight on
-           to the next one rather than handing back nothing with "more" set,
-           which would read as a button that does nothing. */
-        if (result.data.length > 0 || next === null) {
-          return { rows: result.data, total, next };
+        /* Full, or nothing left to ask. An advert nobody applied to simply adds
+           nothing and the loop moves on to the next one. */
+        if (rows.length >= APPLICATIONS_PAGE_SIZE || next === null) {
+          return { rows, total, next };
         }
         position = decodePosition(next);
       }

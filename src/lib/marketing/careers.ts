@@ -64,6 +64,19 @@ export type PublicRole = {
 export type PublicRoleDetail = PublicRole & {
   company: string;
   description: string;
+  /**
+   * True when the API wants the "are you a person" check on this form. The API
+   * says so with the advert so the form can draw the check before anybody sends
+   * anything, rather than refusing the first application to find out. Absent from
+   * an API that predates it, which means "not asked for".
+   */
+  captchaRequired?: boolean;
+  /**
+   * True when a file bucket is configured, so a CV can be attached. This form
+   * does not use it yet — attaching a file to the application is the next piece
+   * of work on it — and says so rather than offering a field that might not work.
+   */
+  acceptsCv?: boolean;
 };
 
 export type ApplyBody = {
@@ -113,6 +126,11 @@ export type ReadResult<T> =
       reason: ReadFailure;
       /** Only for `rate_limited`, and only when the API said how long. */
       retryAfterSeconds: number | null;
+      /**
+       * Only for `rate_limited`: the API's own sentence, written for the
+       * visitor, which says whether it is their connection or something else.
+       */
+      message: string | null;
     };
 
 /**
@@ -330,12 +348,19 @@ export async function apply(
         payload.error.retryAfterSeconds > 0
           ? Math.ceil(payload.error.retryAfterSeconds)
           : null);
+      /* The API's sentence, as written: it says whether it is this connection,
+         this advert or this email address that has run out, and how long to wait
+         — three different situations that one sentence of ours would blur. Ours
+         is only the fallback for an API that sent none. */
+      const said = payload?.error?.message?.trim();
       return failure(
         "rate_limited",
-        wait === null
-          ? (payload?.error?.message ??
-              "Too many applications from your network. Wait a little while, then send it again.")
-          : `Too many applications from your network just now. Wait ${waitPhrase(wait)}, then send it again. What you typed is still here.`,
+        `${
+          said ||
+          (wait === null
+            ? "Too many applications were sent from your network. Wait a little while, then send it again."
+            : `Too many applications were sent from your network. Try again in ${waitPhrase(wait)}.`)
+        } What you typed is still here.`,
         {},
         wait,
       );

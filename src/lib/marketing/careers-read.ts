@@ -71,20 +71,29 @@ export async function visitorIp(): Promise<string | null> {
   return forwarded || null;
 }
 
-/** Only for a 429 the API gave no `Retry-After` header for. */
-async function retryAfterFromBody(response: Response): Promise<number | null> {
+/** What a 429 says in its body: the wait, and the API's own sentence for the visitor. */
+async function readRefusal(
+  response: Response,
+): Promise<{ seconds: number | null; message: string | null }> {
   const body = (await response.json().catch(() => null)) as {
-    error?: { retryAfterSeconds?: unknown };
+    error?: { retryAfterSeconds?: unknown; message?: unknown };
   } | null;
   const seconds = body?.error?.retryAfterSeconds;
-  return typeof seconds === "number" && seconds > 0 ? Math.ceil(seconds) : null;
+  const message = body?.error?.message;
+  return {
+    seconds:
+      typeof seconds === "number" && seconds > 0 ? Math.ceil(seconds) : null,
+    message:
+      typeof message === "string" && message.trim() ? message.trim() : null,
+  };
 }
 
 async function read<T>(path: string): Promise<ReadResult<T>> {
   const fail = (
     reason: ReadFailure,
     retryAfterSeconds: number | null = null,
-  ): ReadResult<T> => ({ ok: false, reason, retryAfterSeconds });
+    message: string | null = null,
+  ): ReadResult<T> => ({ ok: false, reason, retryAfterSeconds, message });
 
   if (!API_URL) return fail("unconfigured");
 
@@ -114,10 +123,11 @@ async function read<T>(path: string): Promise<ReadResult<T>> {
     });
     if (response.status === 404) return fail("missing");
     if (response.status === 429) {
+      const refusal = await readRefusal(response);
       return fail(
         "rate_limited",
-        parseRetryAfter(response.headers.get("Retry-After")) ??
-          (await retryAfterFromBody(response)),
+        parseRetryAfter(response.headers.get("Retry-After")) ?? refusal.seconds,
+        refusal.message,
       );
     }
     if (!response.ok) return fail("server_error");

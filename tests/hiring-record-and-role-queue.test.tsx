@@ -334,20 +334,17 @@ describe("a role's screening queue", () => {
     await waitFor(() => expect(result.current.waiting).toBe(43));
     expect(result.current.hasMore).toBe(true);
 
-    act(() => result.current.loadMore());
-    await waitFor(() => expect(result.current.rows).toHaveLength(60));
-    expect(careers.listApplications.mock.calls.at(-1)?.[0]).toMatchObject({
-      postingId: "A",
-      cursor: "A-cursor",
-    });
-    expect(result.current.hasMore).toBe(true);
-
+    /* The rest of A is ten, and B is ten: the second page is filled from both
+       rather than stopping at the end of A with a button under it. */
     act(() => result.current.loadMore());
     await waitFor(() => expect(result.current.rows).toHaveLength(70));
-    expect(careers.listApplications.mock.calls.at(-1)?.[0]).toMatchObject({
-      postingId: "B",
-    });
     expect(result.current.hasMore).toBe(false);
+    expect(
+      careers.listApplications.mock.calls.slice(-2).map((call) => call[0]),
+    ).toMatchObject([
+      { postingId: "A", cursor: "A-cursor", pageSize: 50 },
+      { postingId: "B", pageSize: 40 },
+    ]);
 
     const asked = new Set(
       careers.listApplications.mock.calls.map(
@@ -355,6 +352,48 @@ describe("a role's screening queue", () => {
       ),
     );
     expect(asked).toEqual(new Set(["A", "B"]));
+    expect(new Set(result.current.rows.map((row) => row.id)).size).toBe(70);
+  });
+
+  it("fills the first page from the next advert when the first has only a few", async () => {
+    careers.listPostings.mockResolvedValue({
+      data: [posting("campus", "req-1", 12), posting("main", "req-1", 251)],
+      meta: { total: 2 },
+    });
+    careers.analytics.mockResolvedValue({
+      totals: {},
+      perPosting: [],
+      perSource: [],
+      cvNote: null,
+    });
+    const campus = forAdvert("campus", 12);
+    const main = forAdvert("main", 251);
+    careers.listApplications.mockImplementation(
+      async (params: {
+        postingId: string;
+        pageSize: number;
+        cursor?: string;
+      }) => {
+        if (params.postingId === "campus") return page(campus, null);
+        const from = params.cursor ? Number.parseInt(params.cursor, 10) : 0;
+        const end = from + params.pageSize;
+        return page(
+          main.slice(from, end),
+          end < main.length ? String(end) : null,
+        );
+      },
+    );
+
+    const { result } = renderHook(() => useRoleQueue("req-1"));
+    /* Fifty, not twelve: the dozen from the small advert and thirty-eight from
+       the big one. */
+    await waitFor(() => expect(result.current.rows).toHaveLength(50));
+    expect(result.current.hasMore).toBe(true);
+    expect(result.current.total).toBe(263);
+
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.rows).toHaveLength(100));
+    expect(new Set(result.current.rows.map((row) => row.id)).size).toBe(100);
   });
 
   it("moves straight past an advert nobody applied to, instead of offering a button that loads nothing", async () => {

@@ -147,11 +147,19 @@ describe("the list of open roles", () => {
     ).rejects.toMatchObject({ digest: "NEXT_HTTP_ERROR_FALLBACK;404" });
   });
 
-  it("tells a throttled visitor to wait, for how long, and does not say there are no jobs", async () => {
+  it("shows the API's own sentence to a throttled visitor, with a way to try again, and does not say there are no jobs", async () => {
     fetchMock.mockResolvedValue(
       json(
         429,
-        { error: { code: "rate_limited", message: "Slow down." } },
+        {
+          error: {
+            code: "rate_limited",
+            message:
+              "Too many page views from this connection. Try again in about 3 minutes.",
+            reason: "ip_read",
+            retryAfterSeconds: 130,
+          },
+        },
         { "Retry-After": "130" },
       ),
     );
@@ -160,8 +168,10 @@ describe("the list of open roles", () => {
     const notice = screen.getByTestId("careers-notice");
     expect(notice).toHaveAttribute("data-reason", "rate_limited");
     expect(within(notice).getByText(/Too many visits/)).toBeInTheDocument();
-    /* 130 seconds is "about 3 minutes" — rounded up, so nobody retries early. */
-    expect(notice).toHaveTextContent("about 3 minutes");
+    /* Verbatim: the API knows which limit it was, and says so for the visitor. */
+    expect(notice).toHaveTextContent(
+      "Too many page views from this connection. Try again in about 3 minutes.",
+    );
     expect(
       within(notice).getByRole("link", { name: "Try again" }),
     ).toBeInTheDocument();
@@ -171,10 +181,19 @@ describe("the list of open roles", () => {
     expect(screen.queryByText(/could not load/i)).not.toBeInTheDocument();
   });
 
-  it("falls back to a plain 'few minutes' when a 429 names no wait", async () => {
+  it("works out the wait itself when a 429 carries no sentence — rounded up, from the header", async () => {
     fetchMock.mockResolvedValue(
-      json(429, { error: { code: "rate_limited", message: "Slow down." } }),
+      json(429, { error: { code: "rate_limited" } }, { "Retry-After": "130" }),
     );
+    await openList();
+
+    const notice = screen.getByTestId("careers-notice");
+    /* 130 seconds is "about 3 minutes": up, so nobody retries early. */
+    expect(notice).toHaveTextContent("about 3 minutes");
+  });
+
+  it("falls back to a plain 'few minutes' when a 429 names no wait and no sentence", async () => {
+    fetchMock.mockResolvedValue(json(429, { error: { code: "rate_limited" } }));
     await openList();
     expect(screen.getByTestId("careers-notice")).toHaveTextContent(
       "a few minutes",
@@ -305,11 +324,7 @@ describe("whose address the API sees", () => {
   it("reads the wait from the body when the header did not come through", async () => {
     fetchMock.mockResolvedValue(
       json(429, {
-        error: {
-          code: "rate_limited",
-          message: "Slow down.",
-          retryAfterSeconds: 1500,
-        },
+        error: { code: "rate_limited", retryAfterSeconds: 1500 },
       }),
     );
     await openList();
@@ -333,6 +348,44 @@ describe("one role", () => {
     expect(
       screen.getByRole("heading", { name: "Apply for this role" }),
     ).toBeInTheDocument();
+  });
+
+  it("draws the check with the form when the API says the advert needs one", async () => {
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "0xTESTKEY");
+    fetchMock.mockResolvedValue(
+      json(200, { data: detail({ captchaRequired: true, acceptsCv: true }) }),
+    );
+    await openRole();
+
+    const slot = screen.getByTestId("captcha-slot");
+    expect(slot).not.toHaveAttribute("data-state", "no-site-key");
+    /* Whether a file can be attached is not this form's business yet, and says
+       so rather than offering a field: no file input appears. */
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+  });
+
+  it("says plainly that the form cannot be sent when the API needs the check and this site has no key for it", async () => {
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "");
+    fetchMock.mockResolvedValue(
+      json(200, { data: detail({ captchaRequired: true }) }),
+    );
+    await openRole();
+
+    expect(screen.getByTestId("captcha-slot")).toHaveAttribute(
+      "data-state",
+      "no-site-key",
+    );
+    expect(screen.getByTestId("captcha-slot")).toHaveTextContent(
+      "cannot be sent from here",
+    );
+  });
+
+  it("draws no check when the API does not ask for one", async () => {
+    fetchMock.mockResolvedValue(
+      json(200, { data: detail({ captchaRequired: false }) }),
+    );
+    await openRole();
+    expect(screen.queryByTestId("captcha-slot")).not.toBeInTheDocument();
   });
 
   it("replaces the form with the closing date once applications have closed, and keeps the advert readable", async () => {
@@ -365,11 +418,19 @@ describe("one role", () => {
     ).rejects.toMatchObject({ digest: "NEXT_HTTP_ERROR_FALLBACK;404" });
   });
 
-  it("tells a throttled visitor how long to wait, with a way back to the list", async () => {
+  it("shows the API's sentence to a throttled visitor, with a way back to the list", async () => {
     fetchMock.mockResolvedValue(
       json(
         429,
-        { error: { code: "rate_limited", message: "Slow down." } },
+        {
+          error: {
+            code: "rate_limited",
+            message:
+              "Too many page views from this connection. Try again in about 60 minutes.",
+            reason: "ip_read",
+            retryAfterSeconds: 3600,
+          },
+        },
         { "Retry-After": "3600" },
       ),
     );
@@ -377,7 +438,7 @@ describe("one role", () => {
 
     const notice = screen.getByTestId("careers-notice");
     expect(notice).toHaveAttribute("data-reason", "rate_limited");
-    expect(notice).toHaveTextContent("about 1 hour");
+    expect(notice).toHaveTextContent("Try again in about 60 minutes.");
     expect(
       within(notice).getByRole("link", { name: "See the open roles" }),
     ).toHaveAttribute("href", "/careers/acme");

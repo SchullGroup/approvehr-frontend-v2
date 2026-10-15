@@ -77,6 +77,7 @@ export default async function CareersListingPage({
             <CareersNotice
               reason={result.reason}
               retryAfterSeconds={result.retryAfterSeconds}
+              message={result.message}
               subject="roles"
               backHref="/"
               backLabel="Back to the homepage"

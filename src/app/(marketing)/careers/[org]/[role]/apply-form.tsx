@@ -41,9 +41,11 @@ import {
  *
  * A **"are you a person" check**, which is off until the API is configured for
  * it. It is not on the page — and its script is not requested — until the API
- * says it is needed, which it does by refusing an application with
- * `captcha_required`. The form keeps what was typed, shows the check, and the
- * applicant presses Send again. See `captcha-slot.tsx`.
+ * says it is needed: with the advert (`captchaRequired`), so the check is there
+ * before anybody sends anything, or, if that was missed, by refusing an
+ * application with `captcha_required`, in which case the form keeps what was
+ * typed, shows the check, and the applicant presses Send again. See
+ * `captcha-slot.tsx`.
  *
  * ## Validation happens on submit
  *
@@ -66,11 +68,14 @@ export function ApplyForm({
   roleSlug,
   roleTitle,
   company,
+  captchaRequired = false,
 }: {
   org: string;
   roleSlug: string;
   roleTitle: string;
   company: string;
+  /** True when the API said, with the advert, that the check is on. */
+  captchaRequired?: boolean;
 }) {
   const [form, setForm] = useState({
     firstName: "",
@@ -88,8 +93,9 @@ export function ApplyForm({
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<ApplyResult | null>(null);
-  /* Set only by the API refusing an application for want of the check. */
-  const [needsCheck, setNeedsCheck] = useState(false);
+  /* On from the start when the advert said so; otherwise only once the API has
+     refused an application for want of the check. */
+  const [needsCheck, setNeedsCheck] = useState(captchaRequired);
   const [checkToken, setCheckToken] = useState<string | null>(null);
   const [checkReset, setCheckReset] = useState(0);
   const [checkMissing, setCheckMissing] = useState(false);

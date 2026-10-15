@@ -28,18 +28,21 @@ import { waitPhrase, type ReadFailure } from "@/lib/marketing/careers";
 export function CareersNotice({
   reason,
   retryAfterSeconds,
+  message = null,
   subject,
   backHref,
   backLabel,
 }: {
   reason: ReadFailure;
   retryAfterSeconds: number | null;
+  /** The API's own sentence for a rate limit, shown in place of ours. */
+  message?: string | null;
   /** What did not load: "roles" for the list, "this role" for an advert. */
   subject: "roles" | "this role";
   backHref: string;
   backLabel: string;
 }) {
-  const copy = noticeCopy(reason, retryAfterSeconds, subject);
+  const copy = noticeCopy(reason, retryAfterSeconds, subject, message);
 
   return (
     <div
@@ -63,15 +66,19 @@ export function noticeCopy(
   reason: ReadFailure,
   retryAfterSeconds: number | null,
   subject: "roles" | "this role",
+  message: string | null = null,
 ): { title: string; body: string; retry: boolean } {
   switch (reason) {
     case "rate_limited":
       return {
         title: "Too many visits from your network",
+        /* The API's sentence when it sent one: it is written for the visitor and
+           knows which limit it was. Ours is the fallback, and states the wait. */
         body:
+          message ??
           `This page has been opened a lot from your network in a short time, so it is ` +
-          `paused for a while. It is nothing you have done wrong. Try again in ` +
-          `${waitPhrase(retryAfterSeconds)}.`,
+            `paused for a while. It is nothing you have done wrong. Try again in ` +
+            `${waitPhrase(retryAfterSeconds)}.`,
         retry: true,
       };
     case "server_error":
