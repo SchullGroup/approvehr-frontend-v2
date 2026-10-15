@@ -1,6 +1,6 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ProjectProvider,
   type ProjectContextValue,
@@ -429,6 +429,92 @@ describe("a Kanban project", () => {
     expect(
       screen.queryByText(/a Kanban project has none/),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("the burndown's size", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  /** A box whose width the test sets, and a way to tell the chart it changed. */
+  function box(initial: number) {
+    let notify: () => void = () => undefined;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          notify = callback;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    const state = { width: initial };
+    vi.spyOn(Element.prototype, "clientWidth", "get").mockImplementation(
+      () => state.width,
+    );
+    return {
+      resize: (width: number) => {
+        state.width = width;
+        act(() => notify());
+      },
+    };
+  }
+
+  const chart = () => screen.getByRole("img", { name: /burndown/ });
+
+  it("draws at the width of the box it is in, so its text is never scaled", () => {
+    box(333);
+    renderReports();
+    expect(chart()).toHaveAttribute("width", "333");
+    expect(chart()).toHaveAttribute(
+      "viewBox",
+      expect.stringMatching(/^0 0 333 /),
+    );
+  });
+
+  it("draws again when the box changes", () => {
+    const b = box(640);
+    renderReports();
+    expect(chart()).toHaveAttribute("width", "640");
+    b.resize(300);
+    expect(chart()).toHaveAttribute("width", "300");
+    b.resize(520);
+    expect(chart()).toHaveAttribute("width", "520");
+  });
+
+  it("does not draw narrower than a chart can be read", () => {
+    box(120);
+    renderReports();
+    expect(chart()).toHaveAttribute("width", "260");
+  });
+
+  it("keeps every label at the 14px floor at any width", () => {
+    const b = box(900);
+    renderReports();
+    for (const width of [900, 360, 260]) {
+      b.resize(width);
+      const sizes = [...chart().querySelectorAll("text")].map((t) =>
+        t.getAttribute("font-size"),
+      );
+      expect(sizes.length).toBeGreaterThan(4);
+      expect(new Set(sizes)).toEqual(new Set(["14"]));
+    }
+  });
+
+  it("keeps every label inside the drawing", () => {
+    const b = box(300);
+    renderReports();
+    for (const width of [300, 260, 900]) {
+      b.resize(width);
+      for (const t of chart().querySelectorAll("text")) {
+        const x = Number(t.getAttribute("x"));
+        expect(x).toBeGreaterThanOrEqual(0);
+        expect(x).toBeLessThanOrEqual(width < 260 ? 260 : width);
+      }
+    }
   });
 });
 
