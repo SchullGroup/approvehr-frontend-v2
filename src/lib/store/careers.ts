@@ -18,6 +18,18 @@ import {
   type UpdatePostingBody,
 } from "@/lib/api/careers";
 import { CANDIDATES, REQUISITIONS } from "@/lib/mock/hiring";
+import { queueCrowd } from "@/lib/mock/hiring-crowd";
+import {
+  queueAdvance,
+  queueDecline,
+  type DemoQueueEntry,
+} from "@/lib/hiring/pipeline/demo-ops";
+import {
+  demoPipeline,
+  demoRun,
+  useDemoBook,
+} from "@/lib/hiring/pipeline/demo-store";
+import { referenceFor } from "@/lib/hiring/pipeline/reference";
 import { demoExtrasAt } from "@/lib/hiring/demo-form";
 import { NO_EXTRAS, type ApplicationExtras } from "@/lib/hiring/answers-view";
 import { useRevalidation } from "@/lib/revalidate";
@@ -154,42 +166,79 @@ function demoApplications(postings: ApiPosting[]): ApiApplication[] {
   );
   const firstId = arrivals[0] ? `demo-application-${arrivals[0].id}` : "";
 
-  return arrivals.flatMap((candidate, index) => {
+  const seeded = arrivals.flatMap(
+    (candidate, index): ApiApplication | ApiApplication[] => {
+      const posting = live[index % live.length];
+      if (!posting) return [];
+      const extras = demoExtrasAt(index, firstId);
+      return {
+        id: `demo-application-${candidate.id}`,
+        postingId: posting.id,
+        postingTitle: posting.title,
+        firstName: candidate.firstName,
+        lastName: candidate.lastName,
+        name: `${candidate.firstName} ${candidate.lastName}`,
+        email: candidate.email,
+        phone: candidate.phone,
+        coverNote:
+          index === 0
+            ? "I have attached my CV. I am on one month's notice and can start after that."
+            : null,
+        source: index % 2 === 0 ? "Careers page" : null,
+        status: "RECEIVED",
+        screenedAt: null,
+        declineReason: null,
+        candidateId: null,
+        cv: {
+          key: `demo/cv/${candidate.cvFileName}`,
+          url: null,
+          expiresAt: null,
+          note: DEMO_CV_NOTE,
+        },
+        appliedAt: `2026-08-${String(12 + index).padStart(2, "0")}T10:30:00.000Z`,
+        reference: extras.reference,
+        knockoutCount: extras.flagCount,
+        duplicate: extras.duplicate
+          ? { ofId: extras.duplicate.ofId, reason: extras.duplicate.reason }
+          : null,
+      };
+    },
+  );
+
+  /* The crowd: people who applied and nobody has looked at yet. */
+  const crowd = queueCrowd().flatMap((person, index): ApiApplication[] => {
     const posting = live[index % live.length];
     if (!posting) return [];
-    const extras = demoExtrasAt(index, firstId);
-    return {
-      id: `demo-application-${candidate.id}`,
-      postingId: posting.id,
-      postingTitle: posting.title,
-      firstName: candidate.firstName,
-      lastName: candidate.lastName,
-      name: `${candidate.firstName} ${candidate.lastName}`,
-      email: candidate.email,
-      phone: candidate.phone,
-      coverNote:
-        index === 0
-          ? "I have attached my CV. I am on one month's notice and can start after that."
-          : null,
-      source: index % 2 === 0 ? "Careers page" : null,
-      status: "RECEIVED",
-      screenedAt: null,
-      declineReason: null,
-      candidateId: null,
-      cv: {
-        key: `demo/cv/${candidate.cvFileName}`,
-        url: null,
-        expiresAt: null,
-        note: DEMO_CV_NOTE,
+    const id = `demo-application-q${String(index + 1).padStart(2, "0")}`;
+    return [
+      {
+        id,
+        postingId: posting.id,
+        postingTitle: posting.title,
+        firstName: person.firstName,
+        lastName: person.lastName,
+        name: `${person.firstName} ${person.lastName}`,
+        email: person.email,
+        phone: person.phone,
+        coverNote: null,
+        source: person.source,
+        status: "RECEIVED",
+        screenedAt: null,
+        declineReason: null,
+        candidateId: null,
+        cv: null,
+        appliedAt: `${person.appliedOn}T10:30:00.000Z`,
+        reference: referenceFor(id),
+        knockoutCount: index % 9 === 4 ? 1 : 0,
+        duplicate:
+          index % 14 === 9
+            ? { ofId: "demo-application-c-03", reason: "SAME_EMAIL" }
+            : null,
       },
-      appliedAt: `2026-08-${String(12 + index).padStart(2, "0")}T10:30:00.000Z`,
-      reference: extras.reference,
-      knockoutCount: extras.flagCount,
-      duplicate: extras.duplicate
-        ? { ofId: extras.duplicate.ofId, reason: extras.duplicate.reason }
-        : null,
-    };
+    ];
   });
+
+  return [...seeded, ...crowd];
 }
 
 /**
@@ -205,8 +254,22 @@ export function demoApplicationExtras(
   const index = applications.findIndex((a) => a.id === applicationId);
   if (index === -1) return null;
   const first = applications[0]?.id ?? "";
-  const extras = demoExtrasAt(index, first);
-  if (extras === NO_EXTRAS) return null;
+  const made = demoExtrasAt(index, first);
+  if (made === NO_EXTRAS) return null;
+  /* The row is the authority on what it says about itself; the answers are the
+     record's. Where the crowd's row has its own reference, channel and day, the
+     record shows those. */
+  const row = applications[index];
+  const extras: ApplicationExtras = row
+    ? {
+        ...made,
+        reference: row.reference ?? made.reference,
+        source: row.source ?? made.source,
+        consent: made.consent
+          ? { ...made.consent, acceptedOn: row.appliedAt.slice(0, 10) }
+          : made.consent,
+      }
+    : made;
   /* Name the earlier application the marker points at. */
   const earlier = extras.duplicate
     ? applications.find((a) => a.id === extras.duplicate?.ofId)
@@ -292,6 +355,41 @@ export function demoBook(): {
     })),
     applications,
   };
+}
+
+/**
+ * What was done in the queue in this browser, laid over the seeded rows.
+ *
+ * The seed is a fixed snapshot; a decline or a screening-in made here is kept in
+ * the demo's own book, and this is where the two meet: a declined row reads
+ * "Turned down" with the reason that was written, a screened-in one reads
+ * "In the pipeline" and links to the person on the board.
+ */
+export function overlayQueue(
+  rows: ApiApplication[],
+  queue: Record<string, DemoQueueEntry>,
+): ApiApplication[] {
+  return rows.map((row) => {
+    const entry = queue[row.id];
+    if (!entry) return row;
+    if (entry.declined) {
+      return {
+        ...row,
+        status: "DECLINED" as const,
+        declineReason: entry.declined.reason,
+        screenedAt: entry.declined.at,
+      };
+    }
+    if (entry.advanced) {
+      return {
+        ...row,
+        status: "ADVANCED" as const,
+        candidateId: entry.advanced.appId,
+        screenedAt: entry.advanced.at,
+      };
+    }
+    return row;
+  });
 }
 
 /**
@@ -555,16 +653,19 @@ export function useApplications(filters: ApplicationFilters = {}) {
       if (!online) {
         const { applications } = demoBook();
         return pageLocally(
-          filterDemoApplications(applications, {
-            ...(status ? { status } : {}),
-            ...(postingId ? { postingId } : {}),
-            ...(source ? { source } : {}),
-            ...(q ? { q } : {}),
-            ...(from ? { from } : {}),
-            ...(to ? { to } : {}),
-            ...(flagged ? { flagged } : {}),
-            ...(duplicate ? { duplicate } : {}),
-          }),
+          filterDemoApplications(
+            overlayQueue(applications, demoPipeline.current().queue),
+            {
+              ...(status ? { status } : {}),
+              ...(postingId ? { postingId } : {}),
+              ...(source ? { source } : {}),
+              ...(q ? { q } : {}),
+              ...(from ? { from } : {}),
+              ...(to ? { to } : {}),
+              ...(flagged ? { flagged } : {}),
+              ...(duplicate ? { duplicate } : {}),
+            },
+          ),
           cursor,
           pageSize,
         );
@@ -623,8 +724,18 @@ export function useApplications(filters: ApplicationFilters = {}) {
     loadingMore: list.loadingMore,
     moreError: list.moreError,
     loadMore: list.loadMore,
-    /** False in demo mode: everything here is read-only. */
+    /**
+     * Connected: there is an API behind it, so a CV can be opened and an answer's
+     * file can be fetched. False in a demo, whose applicants have names and no
+     * files.
+     */
     editable: online,
+    /**
+     * Whether somebody can be screened in or turned down here. Always: in a demo
+     * it is kept in this browser's own book, and the board shows who was screened
+     * in, so the flow is real even with no database behind it.
+     */
+    canScreen: true,
     reload: useCallback(async () => reload(), [reload]),
     /**
      * Screen somebody in. Resolves with the API's own sentence about where they
@@ -666,6 +777,53 @@ export function useApplications(filters: ApplicationFilters = {}) {
 }
 
 /**
+ * Everybody the filters match, up to `limit`, in one request.
+ *
+ * What "select everyone matching these filters" works from in the queue. The queue
+ * takes at most a hundred at a time, so one page is the whole of it; a bigger match
+ * is the caller's to refuse before asking.
+ */
+export async function queueMatching(
+  filters: ApplicationFilters,
+  limit: number,
+  signal: AbortSignal,
+): Promise<ApiApplication[]> {
+  const { status, postingId, source, q, from, to, flagged, duplicate } =
+    filters;
+  if (!connected()) {
+    const { applications } = demoBook();
+    return filterDemoApplications(
+      overlayQueue(applications, demoPipeline.current().queue),
+      {
+        ...(status ? { status } : {}),
+        ...(postingId ? { postingId } : {}),
+        ...(source ? { source } : {}),
+        ...(q ? { q } : {}),
+        ...(from ? { from } : {}),
+        ...(to ? { to } : {}),
+        ...(flagged ? { flagged } : {}),
+        ...(duplicate ? { duplicate } : {}),
+      },
+    ).slice(0, limit);
+  }
+  const result = await careersApi.listApplications(
+    {
+      pageSize: limit,
+      ...(status ? { status } : {}),
+      ...(postingId ? { postingId } : {}),
+      ...(source ? { source } : {}),
+      ...(q ? { q } : {}),
+      ...(from ? { from } : {}),
+      ...(to ? { to } : {}),
+      ...(flagged ? { flagged } : {}),
+      ...(duplicate ? { duplicate } : {}),
+    },
+    signal,
+  );
+  return result.data;
+}
+
+/**
  * The two decisions on an application, without any list attached.
  *
  * Split out of `useApplications` because the candidate's own page screens
@@ -680,7 +838,7 @@ export function useScreeningActions() {
         id: string,
         body: AdvanceBody = {},
       ): Promise<{ note: string; candidateId: string }> => {
-        if (!connected()) throw demoError();
+        if (!connected()) return demoAdvance(id, body);
         const result = await careersApi.advance(id, body);
         return { note: result.note, candidateId: result.candidateId };
       },
@@ -688,13 +846,71 @@ export function useScreeningActions() {
         id: string,
         reason?: string,
       ): Promise<{ note: string }> => {
-        if (!connected()) throw demoError();
+        if (!connected()) return demoDecline(id, reason);
         const result = await careersApi.decline(id, reason);
         return { note: result.note };
       },
     }),
     [],
   );
+}
+
+/** The channel as the board keys it: "Careers page" is `careers-page`. */
+const channelKey = (label: string | null): string | null =>
+  label === null ? null : label.trim().toLowerCase().replace(/\s+/g, "-");
+
+/**
+ * Screening somebody in, in a demo: they land on the role's board.
+ *
+ * Kept in this browser's book, so the board, the queue and the record all agree
+ * about who was screened in. Refused in the API's own words where the API would
+ * refuse: an advert with no role behind it, somebody already decided on.
+ */
+function demoAdvance(
+  id: string,
+  body: AdvanceBody,
+): { note: string; candidateId: string } {
+  const { postings, applications } = demoBook();
+  const row = applications.find((application) => application.id === id);
+  if (!row)
+    throw new ApiError(
+      404,
+      "not_found",
+      "That application is not here any more.",
+    );
+  const posting = postings.find((p) => p.id === row.postingId);
+  const result = demoRun((book) =>
+    queueAdvance(book, {
+      id,
+      name: row.name,
+      email: row.email,
+      requisitionId: posting?.requisitionId ?? body.requisitionId ?? null,
+      source: channelKey(row.source),
+    }),
+  );
+  if (!result.ok) throw new ApiError(409, "conflict", result.error);
+  return {
+    note: result.value.alreadyThere
+      ? `${row.name} was already on this role's board, so this application is linked to them.`
+      : `${row.name} is on the board for ${posting?.title ?? "this role"}, in its first stage.`,
+    candidateId: result.value.appId,
+  };
+}
+
+function demoDecline(id: string, reason?: string): { note: string } {
+  const { applications } = demoBook();
+  const row = applications.find((application) => application.id === id);
+  if (!row)
+    throw new ApiError(
+      404,
+      "not_found",
+      "That application is not here any more.",
+    );
+  const result = demoRun((book) =>
+    queueDecline(book, id, reason?.trim() ? reason.trim() : "No reason given"),
+  );
+  if (!result.ok) throw new ApiError(409, "conflict", result.error);
+  return { note: "Nothing was sent to them. Use Copy message to write." };
 }
 
 /* ---------------------------------------------------------------- analytics */
@@ -749,10 +965,11 @@ export function useCareersAnalytics() {
     };
   }, [online, attempt, revalidation]);
 
+  const book = useDemoBook();
   const demo = useMemo(() => {
     const { postings, applications } = demoBook();
-    return demoAnalytics(postings, applications);
-  }, []);
+    return demoAnalytics(postings, overlayQueue(applications, book.queue));
+  }, [book.queue]);
 
   const reload = useCallback(() => setAttempt((current) => current + 1), []);
   const matched = fetched !== null && fetched.attempt === attempt;

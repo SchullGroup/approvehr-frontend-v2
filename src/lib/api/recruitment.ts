@@ -3,6 +3,7 @@
 import { request, requestPaged, type Paged } from "@/lib/api/client";
 import type { ApiHistoryEvent } from "@/lib/api/application-history";
 import type { ApiCvLink } from "@/lib/api/careers";
+import type { StageType } from "@/lib/hiring/pipeline/stage-types";
 
 /**
  * The internal recruitment pipeline — requisitions, candidates, interviews,
@@ -89,6 +90,11 @@ export type ApiStage = {
   name: string;
   order: number;
   requiresScorecards: boolean;
+  /**
+   * What the stage is for. Absent from an API that predates stage types, which a
+   * screen must treat as "not said", not as a type of its own.
+   */
+  type?: StageType;
 };
 
 export type ApiRequisitionDetail = ApiRequisition & {
@@ -163,6 +169,12 @@ export type ApiCandidate = {
   currentSalaryKobo: number | null;
   expectedSalaryKobo: number | null;
   rightToWork: boolean | null;
+  /** Kept on file for another role. Absent from an API that predates the pool. */
+  talentPool?: boolean;
+  talentPoolSince?: string | null;
+  talentPoolNote?: string | null;
+  /** The company's tags on this person. Absent from an API that predates them. */
+  tags?: { id: string; name: string; color: string | null }[];
   createdAt: string;
   updatedAt: string;
 };
@@ -287,6 +299,12 @@ export type CreateRequisitionBody = {
    * rejects anyone.
    */
   screeningQuestions?: { id?: string; question: string; knockout: boolean }[];
+  /**
+   * The pipeline template the role copies its stages from: a template's id, or
+   * `"default"` for the company's. The stages are copied, so the role owns them
+   * from then on. Absent, no stages are made.
+   */
+  pipelineTemplateId?: string;
 };
 
 export type UpdateRequisitionBody = Partial<
@@ -297,8 +315,13 @@ export type CreateStageBody = {
   name: string;
   requiresScorecards?: boolean;
   order?: number;
+  type?: StageType;
 };
-export type UpdateStageBody = { name?: string; requiresScorecards?: boolean };
+export type UpdateStageBody = {
+  name?: string;
+  requiresScorecards?: boolean;
+  type?: StageType;
+};
 
 export type ApplicationListParams = {
   page?: number;

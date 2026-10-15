@@ -260,25 +260,54 @@ function rowsFor(spec: Spec): AnswerRow[] {
   return rows;
 }
 
-/** What each of the four demo applicants answered, by their position in the queue. */
+/** The crowd's answers: wrong on the same ones the queue flags (every ninth). */
+const WHYS = [
+  "I enjoy the detail in payroll work and I would like to do it for a team that checks its figures.",
+  "I have wanted to move into hiring and this role is the closest I have found to what I do now.",
+  "My current contract ends this month and this job is close to home.",
+  "",
+];
+
+function crowdSpec(k: number): Spec {
+  return {
+    work: k % 9 === 4 ? "no" : "yes",
+    years: String(1 + (k % 9)),
+    notice:
+      ["Straight away", "In a month", "In three months", null][k % 4] ?? null,
+    why: WHYS[k % WHYS.length] ?? "",
+    link: k % 5 === 0 ? "https://example.com/portfolio" : null,
+  };
+}
+
+/**
+ * What each demo applicant answered, by their position in the queue.
+ *
+ * The first four are the hand-written ones. Everybody after them is the crowd, made
+ * from a formula, and answered the same way for the same reason as the queue's
+ * flags and duplicate markers: the row and the record must agree.
+ */
 export function demoExtrasAt(
   index: number,
   firstApplicationId: string,
 ): ApplicationExtras {
-  const spec = SPECS[index];
+  const seeded = SPECS.length;
+  const spec =
+    SPECS[index] ?? (index >= seeded ? crowdSpec(index - seeded) : undefined);
   if (!spec) return NO_EXTRAS;
   const answers = rowsFor(spec);
+  const k = index - seeded;
   return {
     reference: `APP-DEMO000${index + 1}`,
     source: ["LinkedIn", "WhatsApp", "Careers page", null][index] ?? null,
     answers,
     consent: {
-      acceptedOn: `2026-08-${String(12 + index).padStart(2, "0")}`,
+      acceptedOn: `2026-08-${String(12 + (index % 7)).padStart(2, "0")}`,
       noticeText: DEMO_SETTINGS.consent.text,
       noticeRef: DEMO_SETTINGS.consent.version,
     },
     flagCount: answers.filter((row) => row.flagged).length,
-    /* The third applicant gave the first one's phone number: a marker, not a merge. */
+    /* The third applicant gave the first one's phone number: a marker, not a merge.
+       So does every fourteenth of the crowd, by email. */
     duplicate:
       index === 2
         ? {
@@ -286,6 +315,12 @@ export function demoExtrasAt(
             ofId: firstApplicationId,
             ofName: null,
           }
-        : null,
+        : index >= seeded && k % 14 === 9
+          ? {
+              reason: "SAME_EMAIL",
+              ofId: firstApplicationId,
+              ofName: null,
+            }
+          : null,
   };
 }
