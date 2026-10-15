@@ -32,6 +32,7 @@ import {
   Skeleton,
   StepIndicator,
   Textarea,
+  TextLink,
   useStepper,
   useToast,
 } from "@/components/ui";
@@ -42,6 +43,7 @@ import { SourceBadge } from "@/components/hiring/source-badge";
 import { careersApi } from "@/lib/api/careers";
 import { ApiError } from "@/lib/api/client";
 import { putBodyFromDefinition } from "@/lib/hiring/form-wire";
+import { useTemplates } from "@/lib/hiring/pipeline/use-pipeline";
 import {
   defaultDefinition,
   validateDefinition,
@@ -92,6 +94,8 @@ type Draft = {
   mustHaves: string[];
   niceToHaves: string[];
   activeStages: StageId[];
+  /** The pipeline template the role copies. Empty: the company's default. */
+  templateId: string;
   /** The advert's application form: standard boxes and the screening questions. */
   form: FormDefinition;
   hiringManagerId: string;
@@ -121,6 +125,7 @@ const EMPTY: Draft = {
     "interview",
     "selection",
   ],
+  templateId: "",
   form: defaultDefinition(),
   hiringManagerId: "",
   recruiterId: "",
@@ -249,7 +254,17 @@ function Wizard() {
   const stages = useStageMutations();
   const directory = useEmployeeDirectory({ pageSize: 200 });
   const departments = useDepartments();
+  const templates = useTemplates();
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  /* A company with templates picks one; one without (an older API, or none made
+     yet) is offered the five fixed stages it always had. */
+  const chosenTemplate =
+    templates.items.length > 0
+      ? (templates.items.find((t) => t.id === draft.templateId) ??
+        templates.items.find((t) => t.isDefault) ??
+        templates.items[0] ??
+        null)
+      : null;
   const [busy, setBusy] = useState(false);
   const careers = useCareersSettings();
   const [previewing, setPreviewing] = useState(false);
@@ -279,7 +294,8 @@ function Wizard() {
   const complete = {
     role: Boolean(draft.title && draft.departmentId && draft.location),
     pay: min > 0 && max > 0 && !bandInvalid,
-    process: draft.activeStages.length >= 2 && formValid,
+    process:
+      (chosenTemplate !== null || draft.activeStages.length >= 2) && formValid,
     team: Boolean(draft.hiringManagerId && draft.recruiterId),
     review: true,
   };
@@ -358,16 +374,23 @@ function Wizard() {
             ? { hiringManagerId: draft.hiringManagerId }
             : {}),
           ...(screening.length > 0 ? { screeningQuestions: screening } : {}),
+          /* The API copies the template's stages onto the role, so none are
+             made one at a time here. */
+          ...(chosenTemplate ? { pipelineTemplateId: chosenTemplate.id } : {}),
         });
         requisitionId = requisition.id;
 
-        const active = STAGES.filter((s) => draft.activeStages.includes(s.id));
-        for (const [index, s] of active.entries()) {
-          await stages.create(requisition.id, {
-            name: s.label,
-            order: index,
-            requiresScorecards: s.id === "interview",
-          });
+        if (!chosenTemplate) {
+          const active = STAGES.filter((s) =>
+            draft.activeStages.includes(s.id),
+          );
+          for (const [index, s] of active.entries()) {
+            await stages.create(requisition.id, {
+              name: s.label,
+              order: index,
+              requiresScorecards: s.id === "interview",
+            });
+          }
         }
       }
 
@@ -628,46 +651,81 @@ function Wizard() {
 
             {stepper.index === 2 && (
               <>
-                <FieldSet
-                  legend="Pipeline stages"
-                  help="Turn off any stage this role does not need. Sourcing and selection cannot be removed."
-                >
-                  <div className="flex flex-col gap-2.5">
-                    {STAGES.map((s) => {
-                      const locked = LOCKED_STAGES.includes(s.id);
-                      const on = draft.activeStages.includes(s.id);
-                      return (
-                        <div
-                          key={s.id}
-                          className={cn(
-                            "rounded-lg border p-3 transition-colors",
-                            on
-                              ? "border-accent-line bg-accent-soft"
-                              : "border-line",
-                          )}
-                        >
-                          <Checkbox
-                            label={s.label}
-                            description={s.blurb}
-                            checked={on}
-                            disabled={locked}
-                            onChange={(e) => {
-                              const next = e.currentTarget.checked
-                                ? [...draft.activeStages, s.id]
-                                : draft.activeStages.filter((x) => x !== s.id);
-                              set(
-                                "activeStages",
-                                STAGES.filter((x) => next.includes(x.id)).map(
-                                  (x) => x.id,
-                                ) as StageId[],
-                              );
-                            }}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </FieldSet>
+                {chosenTemplate ? (
+                  <FieldSet
+                    legend="Pipeline"
+                    help="The role copies this pipeline when it is created. You can change the role's own stages afterwards, and changing the template later does not change this role."
+                  >
+                    <div className="grid gap-2.5 sm:grid-cols-2">
+                      {templates.items.map((template) => (
+                        <RadioCard
+                          key={template.id}
+                          name="pipeline-template"
+                          label={
+                            template.isDefault
+                              ? `${template.name} (default)`
+                              : template.name
+                          }
+                          description={template.stages
+                            .map((stage) => stage.name)
+                            .join(" → ")}
+                          checked={chosenTemplate.id === template.id}
+                          onChange={() => set("templateId", template.id)}
+                        />
+                      ))}
+                    </div>
+                    <p className="mt-2 text-meta text-muted">
+                      Templates are made in{" "}
+                      <TextLink href="/hiring/settings/pipelines">
+                        Hiring settings
+                      </TextLink>
+                      .
+                    </p>
+                  </FieldSet>
+                ) : (
+                  <FieldSet
+                    legend="Pipeline stages"
+                    help="Turn off any stage this role does not need. Sourcing and selection cannot be removed."
+                  >
+                    <div className="flex flex-col gap-2.5">
+                      {STAGES.map((s) => {
+                        const locked = LOCKED_STAGES.includes(s.id);
+                        const on = draft.activeStages.includes(s.id);
+                        return (
+                          <div
+                            key={s.id}
+                            className={cn(
+                              "rounded-lg border p-3 transition-colors",
+                              on
+                                ? "border-accent-line bg-accent-soft"
+                                : "border-line",
+                            )}
+                          >
+                            <Checkbox
+                              label={s.label}
+                              description={s.blurb}
+                              checked={on}
+                              disabled={locked}
+                              onChange={(e) => {
+                                const next = e.currentTarget.checked
+                                  ? [...draft.activeStages, s.id]
+                                  : draft.activeStages.filter(
+                                      (x) => x !== s.id,
+                                    );
+                                set(
+                                  "activeStages",
+                                  STAGES.filter((x) => next.includes(x.id)).map(
+                                    (x) => x.id,
+                                  ) as StageId[],
+                                );
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </FieldSet>
+                )}
 
                 <ListBuilder
                   legend="Must have"
@@ -826,9 +884,15 @@ function Wizard() {
                   rows={[
                     [
                       "Stages",
-                      STAGES.filter((s) => draft.activeStages.includes(s.id))
-                        .map((s) => s.label)
-                        .join(" → "),
+                      chosenTemplate
+                        ? `${chosenTemplate.name}: ${chosenTemplate.stages
+                            .map((stage) => stage.name)
+                            .join(" → ")}`
+                        : STAGES.filter((s) =>
+                            draft.activeStages.includes(s.id),
+                          )
+                            .map((s) => s.label)
+                            .join(" → "),
                     ],
                     [
                       "Must haves",
@@ -897,19 +961,25 @@ function Wizard() {
               <div className="border-t border-line pt-3">
                 <p className="mb-1.5 text-meta text-faint">Pipeline</p>
                 <ol className="flex flex-col gap-1">
-                  {STAGES.filter((s) => draft.activeStages.includes(s.id)).map(
-                    (s, i) => (
-                      <li
-                        key={s.id}
-                        className="flex items-center gap-2 text-meta text-body"
-                      >
-                        <span className="tabular flex size-4 shrink-0 items-center justify-center rounded-full bg-sunken text-meta font-semibold text-muted">
-                          {i + 1}
-                        </span>
-                        {s.label}
-                      </li>
-                    ),
-                  )}
+                  {(chosenTemplate
+                    ? chosenTemplate.stages.map((stage) => ({
+                        id: stage.id,
+                        label: stage.name,
+                      }))
+                    : STAGES.filter((s) =>
+                        draft.activeStages.includes(s.id),
+                      ).map((s) => ({ id: s.id, label: s.label }))
+                  ).map((stage, i) => (
+                    <li
+                      key={stage.id}
+                      className="flex items-center gap-2 text-meta text-body"
+                    >
+                      <span className="tabular flex size-4 shrink-0 items-center justify-center rounded-full bg-sunken text-meta font-semibold text-muted">
+                        {i + 1}
+                      </span>
+                      {stage.label}
+                    </li>
+                  ))}
                 </ol>
               </div>
             </CardBody>
