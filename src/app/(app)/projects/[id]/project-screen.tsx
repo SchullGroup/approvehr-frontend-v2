@@ -220,17 +220,35 @@ function ProjectShell({
     router.replace(urlWith(null), { scroll: false });
   }, [router, urlWith]);
 
-  /* A link to an issue that is not in this project (mistyped, deleted, or from
-     another project) says so once and drops the parameter. */
-  const unknown = issueParam !== null && open === null;
+  /* The last issue the drawer showed, so that an issue that disappears while it
+     is open (deleted here, or by somebody else) is told apart from a link to one
+     that was never in this project. Written in an effect: a ref is not read or
+     written during render. */
+  const lastShown = useRef<string | null>(null);
   useEffect(() => {
-    if (!unknown || !issueParam) return;
-    toast.push({
-      tone: "info",
-      title: `${issueParam} is not in this project`,
-    });
+    if (open) lastShown.current = open.key;
+  });
+
+  /* A link to an issue that is not in this project (mistyped, or from another
+     project) says so once and drops the parameter. An issue that was open and has
+     gone is not that: closing it is already under way, and a toast about a thing
+     the person just deleted would be noise. Once per value, because this effect
+     re-runs on every render that changes a dependency, and a toast raised on each
+     of those is a column of them. */
+  const told = useRef<string | null>(null);
+  const { push: pushToast } = toast;
+  useEffect(() => {
+    if (issueParam === null || open !== null) return;
+    if (told.current === issueParam) return;
+    told.current = issueParam;
+    if (lastShown.current !== issueParam.toUpperCase()) {
+      pushToast({
+        tone: "info",
+        title: `${issueParam} is not in this project`,
+      });
+    }
     router.replace(urlWith(null), { scroll: false });
-  }, [unknown, issueParam, router, urlWith, toast]);
+  }, [issueParam, open, router, urlWith, pushToast]);
 
   /* ---------------------------------------------------------- the shortcuts -- */
 

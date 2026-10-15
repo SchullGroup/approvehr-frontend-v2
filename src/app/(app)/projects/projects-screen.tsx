@@ -201,7 +201,9 @@ function List() {
                     <span>
                       Lead{" "}
                       <strong className="font-semibold text-ink">
-                        {people.nameOf(project.leadId)}
+                        {people.byId.get(project.leadId)?.name ??
+                          project.leadName ??
+                          people.nameOf(project.leadId)}
                       </strong>
                     </span>
                     <span className="tabular">
