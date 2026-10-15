@@ -2,16 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowRight,
-  Copy,
-  Inbox,
-  Lock,
-  Mail,
-  Paperclip,
-  Phone,
-  Search,
-} from "lucide-react";
+import { ArrowRight, Copy, Inbox, Lock, Mail, Phone } from "lucide-react";
 import {
   Badge,
   Button,
@@ -22,6 +13,7 @@ import {
   DescriptionList,
   EmptyState,
   Field,
+  FilterBar,
   Input,
   LinkedText,
   Modal,
@@ -32,11 +24,15 @@ import {
   Textarea,
   TextLink,
   useToast,
+  type AppliedFilter,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { LoadMore } from "@/components/portal/load-more";
+import { OpenCv } from "@/components/hiring/open-cv";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
+  careersApi,
   kobo,
   requisitionClosedNote,
   type AdvanceBody,
@@ -48,9 +44,11 @@ import { usePermissions } from "@/lib/permissions";
 import { useRequisitions } from "@/lib/store/recruitment";
 import {
   useApplications,
+  useCareersAnalytics,
   usePostingIndex,
   usePostings,
 } from "@/lib/store/careers";
+import { useDebounced } from "@/lib/use-debounced";
 
 /**
  * The screening queue.
@@ -69,14 +67,23 @@ import {
  * that do not are flagged on the row, and pressing Advance on them asks for the
  * one missing thing rather than failing.
  *
- * ## Two things this screen cannot do, and says so
+ * ## A page at a time, and the server does the filtering
  *
- * - **A CV cannot be opened.** The form records where a file was meant to go and
- *   there is no upload pipeline behind it. What arrives instead is the applicant's
- *   own note, which is shown in full.
- * - **Declining sends nothing.** There is no mail transport. So the dialog says
- *   that before you press it, and the row afterwards hands you a message to send
- *   yourself.
+ * The queue used to load the newest hundred and filter, search and count them in
+ * the browser, so a campus drive's two-hundredth applicant was invisible and the
+ * search box could only find the hundred it had. Every filter here — status,
+ * advert, source, the dates somebody applied between, and the search — is now a
+ * question to the API, the count in the bar is the API's, and "Load more" fetches
+ * the next fifty. The search waits for a pause in typing before it asks.
+ *
+ * ## Two things this screen says plainly
+ *
+ * - **A CV opens on request.** A row carries no link; "Open CV" asks the API for
+ *   one short-lived address for that person's file, and the API records who
+ *   asked. See `OpenCv`.
+ * - **Declining sends nothing.** ApproveHR does not email applicants yet. So the
+ *   dialog says that before you press it, and the row afterwards hands you a
+ *   message to send yourself.
  */
 /** Every status value a link into this screen may legitimately name. */
 const LINKABLE_STATUSES = new Set<string>([
@@ -186,32 +193,83 @@ function Queue({
     initialStatus,
   );
   const [postingId, setPostingId] = useState(initialPostingId);
+  const [source, setSource] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [search, setSearch] = useState("");
   const [advancing, setAdvancing] = useState<ApiApplication | null>(null);
   const [declining, setDeclining] = useState<ApiApplication | null>(null);
 
+  /* A keystroke is faster than a request: ask once the typing pauses. */
+  const query = useDebounced(search.trim(), 300);
+
+  /* Start after end is nobody's question. Say so and ask for neither, rather
+     than sending a range the API can only answer with nothing. */
+  const rangeBackwards = from !== "" && to !== "" && from > to;
+
   const postings = usePostings();
   const index = usePostingIndex(postings.postings);
+  const sources = useCareersAnalytics();
   const applications = useApplications({
     ...(status === "ALL" ? {} : { status }),
     ...(postingId ? { postingId } : {}),
+    ...(source ? { source } : {}),
+    ...(query ? { q: query } : {}),
+    ...(from && !rangeBackwards ? { from } : {}),
+    ...(to && !rangeBackwards ? { to } : {}),
   });
   const toast = useToast();
   const router = useRouter();
 
-  const rows = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return applications.applications;
-    return applications.applications.filter(
-      (application) =>
-        application.name.toLowerCase().includes(needle) ||
-        application.email.toLowerCase().includes(needle),
-    );
-  }, [applications.applications, search]);
+  /* Rows on screen answer an earlier question: filters changed, or the search
+     has been typed but not yet sent. Shown dimmed rather than swapped for a
+     skeleton, so the list does not collapse and jump. */
+  const stale = applications.settling || search.trim() !== query;
 
-  /** One line, from the API, whenever a CV reference cannot be opened. */
-  const cvNote =
-    applications.applications.find((a) => a.cv?.note)?.cv?.note ?? null;
+  const sourceOptions = useMemo(
+    () =>
+      (sources.analytics?.perSource ?? [])
+        .map((entry) => entry.source)
+        /* "Not given" is a bucket the tally invents for the blanks; it is not a
+           value the API can filter on. */
+        .filter((name) => name !== "Not given"),
+    [sources.analytics],
+  );
+
+  const applied: AppliedFilter[] = [
+    ...(postingId
+      ? [
+          {
+            label: "Advert",
+            value: index.get(postingId)?.title ?? "Selected advert",
+            onClear: () => setPostingId(""),
+          },
+        ]
+      : []),
+    ...(source
+      ? [{ label: "Heard via", value: source, onClear: () => setSource("") }]
+      : []),
+    ...(from
+      ? [
+          {
+            label: "Applied from",
+            value: from,
+            onClear: () => setFrom(""),
+          },
+        ]
+      : []),
+    ...(to
+      ? [{ label: "Applied to", value: to, onClear: () => setTo("") }]
+      : []),
+  ];
+  const narrowed = applied.length > 0 || search.trim() !== "";
+  const clearAll = () => {
+    setPostingId("");
+    setSource("");
+    setFrom("");
+    setTo("");
+    setSearch("");
+  };
 
   const fail = (error: unknown) =>
     toast.push({
@@ -241,37 +299,34 @@ function Queue({
           </Callout>
         )}
 
-        {applications.error && (
-          <LoadFailure
-            subject="the queue"
-            error={applications.error}
-            onRetry={applications.reload}
-          />
-        )}
-
-        {cvNote && (
-          <p className="text-body-sm text-muted">
-            Attached CVs cannot be opened: file upload is not connected. The
-            applicant&rsquo;s own note is below each row instead.
-          </p>
-        )}
-
         <Card>
           <CardHeader
-            title={`${applications.total} ${applications.total === 1 ? "application" : "applications"}`}
+            title="Applications"
             description="Newest first, which is the order to work it in."
             action={
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <SegmentedControl
-                  label="Filter applications by status"
-                  options={STATUS_FILTERS}
-                  value={status}
-                  onChange={setStatus}
-                />
+              <SegmentedControl
+                label="Filter applications by status"
+                options={STATUS_FILTERS}
+                value={status}
+                onChange={setStatus}
+              />
+            }
+          />
+
+          <CardBody className="flex flex-col gap-4">
+            <FilterBar
+              search={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Find a name or email"
+              searchLabel="Find an applicant by name or email"
+              applied={applied}
+              onClearAll={clearAll}
+              count={applications.total ?? undefined}
+              noun={["application", "applications"]}
+            >
+              <Field label="Advert">
                 <Select
                   value={postingId}
-                  aria-label="Filter by advert"
-                  className="w-48"
                   onChange={(event) => setPostingId(event.target.value)}
                 >
                   <option value="">Every advert</option>
@@ -281,61 +336,134 @@ function Queue({
                     </option>
                   ))}
                 </Select>
+              </Field>
+              <Field label="Heard via">
+                <Select
+                  value={source}
+                  onChange={(event) => setSource(event.target.value)}
+                >
+                  <option value="">Any source</option>
+                  {sourceOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Applied from" optional>
                 <Input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Find a name"
-                  aria-label="Find a name"
-                  icon={<Search aria-hidden="true" />}
-                  className="w-40"
+                  type="date"
+                  value={from}
+                  max={to || undefined}
+                  onChange={(event) => setFrom(event.target.value)}
                 />
-              </div>
-            }
-          />
+              </Field>
+              <Field
+                label="Applied to"
+                optional
+                {...(rangeBackwards
+                  ? {
+                      error:
+                        "That is before the start date, so no dates are applied.",
+                    }
+                  : {})}
+              >
+                <Input
+                  type="date"
+                  value={to}
+                  min={from || undefined}
+                  onChange={(event) => setTo(event.target.value)}
+                />
+              </Field>
+            </FilterBar>
 
-          {applications.loading ? (
-            <CardBody>
-              <Skeleton className="h-32 w-full" />
-              <span className="sr-only-focusable">Loading the queue</span>
-            </CardBody>
-          ) : rows.length === 0 ? (
-            <EmptyState
-              icon={<Inbox aria-hidden="true" />}
-              title={
-                status === "RECEIVED" ? "Nobody is waiting" : "Nothing to show"
-              }
-              description={
-                status === "RECEIVED"
-                  ? "New applications land here the moment somebody sends the form."
-                  : undefined
-              }
-            />
-          ) : (
-            <CardBody className="flex flex-col gap-3">
-              {rows.map((application) => (
-                <ApplicationRow
-                  key={application.id}
-                  application={application}
-                  posting={index.get(application.postingId)}
-                  editable={applications.editable}
-                  onAdvance={() => setAdvancing(application)}
-                  onDecline={() => setDeclining(application)}
-                  onCopyMessage={() => {
-                    void copyText(
-                      declineMessage(application),
-                      () =>
-                        toast.push({
-                          title: "Message copied",
-                          tone: "success",
-                          detail: `Send it to ${application.email}.`,
-                        }),
-                      fail,
-                    );
-                  }}
+            {applications.loading ? (
+              <div>
+                <Skeleton className="h-32 w-full" />
+                <span className="sr-only-focusable">Loading the queue</span>
+              </div>
+            ) : applications.error ? (
+              <LoadFailure
+                subject="the queue"
+                error={applications.error}
+                onRetry={() => void applications.reload()}
+              />
+            ) : applications.applications.length === 0 && !stale ? (
+              <EmptyState
+                icon={<Inbox aria-hidden="true" />}
+                title={
+                  narrowed
+                    ? "Nobody matches"
+                    : status === "RECEIVED"
+                      ? "Nobody is waiting"
+                      : "Nothing to show"
+                }
+                description={
+                  narrowed
+                    ? "Nobody fits the search and filters above."
+                    : status === "RECEIVED"
+                      ? "New applications land here the moment somebody sends the form."
+                      : undefined
+                }
+                {...(narrowed
+                  ? {
+                      action: (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={clearAll}
+                        >
+                          Clear the search and filters
+                        </Button>
+                      ),
+                    }
+                  : {})}
+              />
+            ) : (
+              <>
+                <div
+                  aria-busy={stale}
+                  className={
+                    stale
+                      ? "flex flex-col gap-3 opacity-60 transition-opacity"
+                      : "flex flex-col gap-3 transition-opacity"
+                  }
+                >
+                  {applications.applications.map((application) => (
+                    <ApplicationRow
+                      key={application.id}
+                      application={application}
+                      posting={index.get(application.postingId)}
+                      editable={applications.editable}
+                      onAdvance={() => setAdvancing(application)}
+                      onDecline={() => setDeclining(application)}
+                      onCopyMessage={() => {
+                        void copyText(
+                          declineMessage(application),
+                          () =>
+                            toast.push({
+                              title: "Message copied",
+                              tone: "success",
+                              detail: `Send it to ${application.email}.`,
+                            }),
+                          fail,
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
+                <LoadMore
+                  shown={applications.applications.length}
+                  total={applications.total}
+                  noun={["application", "applications"]}
+                  hasMore={applications.hasMore}
+                  loading={applications.loadingMore}
+                  error={applications.moreError}
+                  onLoadMore={applications.loadMore}
                 />
-              ))}
-            </CardBody>
-          )}
+              </>
+            )}
+          </CardBody>
         </Card>
       </PageBody>
 
@@ -429,27 +557,6 @@ function ApplicationRow({
             <Badge tone={STATUS_TONE[application.status]} size="sm" dot>
               {STATUS_LABEL[application.status]}
             </Badge>
-            {/* A CV reference with nothing behind it says so. If a store is ever
-                wired the same field carries a real URL and this becomes a link,
-                which is the whole point of `cvAccess` returning both. */}
-            {application.cv && application.cv.url === null && (
-              <Badge
-                tone="neutral"
-                size="sm"
-                icon={<Paperclip aria-hidden="true" />}
-              >
-                CV cannot be opened
-              </Badge>
-            )}
-            {application.cv?.url && (
-              <TextLink
-                href={application.cv.url}
-                className="inline-flex items-center gap-1 text-body-sm"
-              >
-                <Paperclip aria-hidden="true" className="size-3.5" />
-                Open CV
-              </TextLink>
-            )}
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
             <span>{application.postingTitle}</span>
@@ -477,6 +584,18 @@ function ApplicationRow({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+          {/* Only where there is a file to open: connected, and the applicant
+              attached one. The demo's CVs have a filename and nothing behind it. */}
+          {editable && application.cv?.scanStatus === "INFECTED" && (
+            <Badge tone="danger" size="sm">
+              CV flagged by the virus check
+            </Badge>
+          )}
+          {editable &&
+            application.cv !== null &&
+            application.cv.scanStatus !== "INFECTED" && (
+              <OpenCv open={() => careersApi.openCv(application.id)} />
+            )}
           {application.status === "ADVANCED" && application.candidateId && (
             <TextLink
               href={`/hiring/candidates/${application.candidateId}`}
@@ -755,7 +874,8 @@ function DeclineDialog({
     >
       <div className="flex flex-col gap-4">
         <p className="text-body-sm text-body">
-          Nothing is sent to them: email is not connected. Afterwards,
+          Nothing is sent to them: ApproveHR does not email applicants yet.
+          Afterwards,
           <span className="font-medium text-ink"> Copy message</span> gives you
           a short note to send from your own inbox.
         </p>

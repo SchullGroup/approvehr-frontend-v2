@@ -19,6 +19,7 @@ import {
 } from "@/lib/api/careers";
 import { CANDIDATES, REQUISITIONS } from "@/lib/mock/hiring";
 import { useRevalidation } from "@/lib/revalidate";
+import { pageLocally, usePagedList } from "@/lib/store/paged-list";
 
 /**
  * Job adverts and the applications they bring in.
@@ -62,13 +63,10 @@ const demoError = () => new ApiError(0, "offline", DEMO_REFUSAL);
 
 /* ---------------------------------------------------------------- demo data */
 
-/**
- * The same sentence the API returns when no object store is wired, so a screen
- * sees one string whichever mode it is in. See `src/modules/careers/storage.ts`.
- */
+/** What a demo CV says about itself: it is a name, not a file. */
 const DEMO_CV_NOTE =
-  "We recorded where this CV was meant to be stored. There is no file behind " +
-  "the key yet — no upload pipeline is wired.";
+  "Demo applicants have a CV filename and no file behind it, so there is " +
+  "nothing to open.";
 
 const slugify = (title: string): string =>
   title
@@ -232,13 +230,13 @@ function demoAnalytics(
         .sort((a, b) => b.applications - a.applications);
     })(),
     cvNote:
-      "CVs are recorded as storage keys only — no upload pipeline is wired yet, " +
-      "so none of them can be opened.",
+      "Demo CVs have a filename and no file behind it, so none of them can be " +
+      "opened.",
   };
 }
 
 /** Both demo lists, with the per-advert count filled in from the other. */
-function demoBook(): {
+export function demoBook(): {
   postings: ApiPosting[];
   applications: ApiApplication[];
 } {
@@ -252,6 +250,29 @@ function demoBook(): {
     })),
     applications,
   };
+}
+
+/**
+ * One demo application, by any id a link might carry.
+ *
+ * The demo has no server to ask, so its record lookup is a pure function of the
+ * seeded book: the application's own id, the candidate id a screened-in row would
+ * carry, or — for a seeded pipeline card — the email the two share.
+ */
+export function findDemoApplication(
+  id: string,
+  email: string | null,
+): { row: ApiApplication; matchedBy: "id" | "email" } | null {
+  const { applications } = demoBook();
+  const byId = applications.find(
+    (application) => application.id === id || application.candidateId === id,
+  );
+  if (byId) return { row: byId, matchedBy: "id" };
+  if (email === null) return null;
+  const byEmail = applications.find(
+    (application) => application.email === email,
+  );
+  return byEmail ? { row: byEmail, matchedBy: "email" } : null;
 }
 
 /* ------------------------------------------------------------------ adverts */
@@ -393,137 +414,220 @@ export function usePostings(filters: PostingFilters = {}) {
 
 /* ------------------------------------------------------------- applications */
 
-type ApplicationsState = {
-  applications: ApiApplication[];
-  total: number;
-  loading: boolean;
-  error: ApiError | null;
-  editable: boolean;
-};
-
 export type ApplicationFilters = {
   status?: ApplicationStatus;
   postingId?: string;
+  /** Exactly as the API stores it — "Careers page", "LinkedIn". */
+  source?: string;
+  /** Free text, matched on the server against name and email. */
   q?: string;
+  /** `YYYY-MM-DD`, inclusive. The day they applied. */
+  from?: string;
+  to?: string;
+  /** How many a page asks for. Default 50. */
   pageSize?: number;
 };
 
-/** The screening queue. Newest first, which is the order somebody works it in. */
+/** A screen's worth. Small enough to land fast, large enough to be worth reading. */
+export const APPLICATIONS_PAGE_SIZE = 50;
+
+/**
+ * The same questions the API answers, asked of the demo list.
+ *
+ * Mirrors the server on purpose — every word of a search must match the name or
+ * the email, dates are inclusive, and the order is newest first — so the demo
+ * cannot show a list the real one would not.
+ */
+export function filterDemoApplications(
+  all: ApiApplication[],
+  filters: ApplicationFilters,
+): ApiApplication[] {
+  const words = (filters.q ?? "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word !== "");
+  return all
+    .filter((application) => {
+      if (filters.status && application.status !== filters.status) return false;
+      if (filters.postingId && application.postingId !== filters.postingId)
+        return false;
+      if (filters.source && application.source !== filters.source) return false;
+      const day = application.appliedAt.slice(0, 10);
+      if (filters.from && day < filters.from) return false;
+      if (filters.to && day > filters.to) return false;
+      const haystack = `${application.name} ${application.email}`.toLowerCase();
+      return words.every((word) => haystack.includes(word));
+    })
+    .sort(
+      (a, b) =>
+        b.appliedAt.localeCompare(a.appliedAt) || b.id.localeCompare(a.id),
+    );
+}
+
+/**
+ * The screening queue: newest first, a page at a time, filtered by the server.
+ *
+ * This used to ask for one page of a hundred and filter and count what came
+ * back, so a company with a campus drive saw the newest hundred and a search box
+ * that could only find them. Now every filter is a question to the API, the count
+ * is the API's, and "Load more" fetches the next lot — see `usePagedList` for how
+ * the rows are kept.
+ *
+ * Demo mode pages the seeded list the same way, through the same hook.
+ */
 export function useApplications(filters: ApplicationFilters = {}) {
-  const { status, postingId, q, pageSize = 100 } = filters;
-  const [state, setState] = useState<ApplicationsState>(() => ({
-    applications: [],
-    total: 0,
-    loading: true,
-    error: null,
-    editable: true,
-  }));
+  const {
+    status,
+    postingId,
+    source,
+    q,
+    from,
+    to,
+    pageSize = APPLICATIONS_PAGE_SIZE,
+  } = filters;
+  const online = connected();
 
-  const load = useCallback(async () => {
-    if (!connected()) {
-      const { applications } = demoBook();
-      const filtered = applications.filter(
-        (application) =>
-          (!status || application.status === status) &&
-          (!postingId || application.postingId === postingId) &&
-          (!q ||
-            application.name.toLowerCase().includes(q.toLowerCase()) ||
-            application.email.toLowerCase().includes(q.toLowerCase())),
-      );
-      setState({
-        applications: filtered,
-        total: filtered.length,
-        loading: false,
-        error: null,
-        editable: false,
-      });
-      return;
-    }
+  const key = JSON.stringify([
+    online,
+    status,
+    postingId,
+    source,
+    q,
+    from,
+    to,
+    pageSize,
+  ]);
 
-    setState((current) => ({ ...current, loading: true, error: null }));
-    try {
+  const fetchPage = useCallback(
+    async (cursor: string | null, signal: AbortSignal) => {
+      if (!online) {
+        const { applications } = demoBook();
+        return pageLocally(
+          filterDemoApplications(applications, {
+            ...(status ? { status } : {}),
+            ...(postingId ? { postingId } : {}),
+            ...(source ? { source } : {}),
+            ...(q ? { q } : {}),
+            ...(from ? { from } : {}),
+            ...(to ? { to } : {}),
+          }),
+          cursor,
+          pageSize,
+        );
+      }
       const params: ApplicationListParams = {
         pageSize,
+        ...(cursor ? { cursor } : {}),
         ...(status ? { status } : {}),
         ...(postingId ? { postingId } : {}),
+        ...(source ? { source } : {}),
         ...(q ? { q } : {}),
+        ...(from ? { from } : {}),
+        ...(to ? { to } : {}),
       };
-      const result = await careersApi.listApplications(params);
-      setState({
-        applications: result.data,
+      const result = await careersApi.listApplications(params, signal);
+      return {
+        rows: result.data,
         total: result.meta.total,
-        loading: false,
-        error: null,
-        editable: true,
-      });
-    } catch (error) {
-      setState((current) => ({
-        ...current,
-        loading: false,
-        error: error instanceof ApiError ? error : null,
-      }));
-    }
-  }, [status, postingId, q, pageSize]);
+        next: result.meta.nextCursor ?? null,
+      };
+    },
+    [online, status, postingId, source, q, from, to, pageSize],
+  );
 
-  /* Re-ask when somebody comes back to the window. Not in the key below,
-     so the answer is replaced without the screen flashing a skeleton. */
-  const revalidation = useRevalidation();
-  useEffect(() => {
-    void load();
-  }, [load, revalidation]);
+  const list = usePagedList<ApiApplication>({
+    key,
+    fetchPage,
+    idOf: (application) => application.id,
+  });
 
-  const guard = useCallback(() => {
-    if (!connected()) throw demoError();
-  }, []);
+  const { reload } = list;
+  const actions = useScreeningActions();
 
   return {
-    ...state,
-    reload: load,
+    applications: list.rows,
+    /** The server's count under these filters, or `null` while unknown. */
+    total: list.total,
+    loading: list.loading,
+    /** Filters changed; the rows shown still answer the previous question. */
+    settling: list.settling,
+    error: list.error,
+    hasMore: list.hasMore,
+    loadingMore: list.loadingMore,
+    moreError: list.moreError,
+    loadMore: list.loadMore,
+    /** False in demo mode: everything here is read-only. */
+    editable: online,
+    reload: useCallback(async () => reload(), [reload]),
     /**
      * Screen somebody in. Resolves with the API's own sentence about where they
      * landed — show that rather than composing one, so the screen cannot
      * disagree with what happened.
      */
     advance: useCallback(
-      async (
-        id: string,
-        body: AdvanceBody = {},
-      ): Promise<{ note: string; candidateId: string }> => {
-        guard();
-        /* `load()` runs whether this succeeds or refuses. The commonest
+      async (id: string, body: AdvanceBody = {}) => {
+        /* The list is refreshed whether this succeeds or refuses. The commonest
            refusal is somebody else — the requisition's own screening panel,
            another tab, another recruiter — having already advanced this same
-           application a moment earlier; the API names that in a 409 and both
-           of this action's entry points already show it via `fail()`, but
-           the row that triggered it kept reading "Waiting" with a live
-           Advance button until an unrelated reload, so pressing it again
-           just reproduced the identical refusal. Reloading here reconciles
-           the list with what the server just revealed, on the failure path
-           precisely because that is the path where the local list is now
-           wrong. */
+           application a moment earlier; the API names that in a 409 and both of
+           this action's entry points already show it via `fail()`, but the row
+           that triggered it kept reading "Waiting" with a live Advance button
+           until an unrelated reload, so pressing it again just reproduced the
+           identical refusal. Refreshing on the failure path is the point: that is
+           where the local list is now wrong. The refresh is quiet — the rows stay
+           on screen while it asks — so nothing jumps. */
         try {
-          const result = await careersApi.advance(id, body);
-          return { note: result.note, candidateId: result.candidateId };
+          return await actions.advance(id, body);
         } finally {
-          await load();
+          reload();
         }
       },
-      [guard, load],
+      [actions, reload],
     ),
     /** Screen somebody out. The reason is internal and is sent nowhere. */
     decline: useCallback(
-      async (id: string, reason?: string): Promise<{ note: string }> => {
-        guard();
+      async (id: string, reason?: string) => {
         try {
-          const result = await careersApi.decline(id, reason);
-          return { note: result.note };
+          return await actions.decline(id, reason);
         } finally {
-          await load();
+          reload();
         }
       },
-      [guard, load],
+      [actions, reload],
     ),
   };
+}
+
+/**
+ * The two decisions on an application, without any list attached.
+ *
+ * Split out of `useApplications` because the candidate's own page screens
+ * somebody in too, and it no longer holds a list to reload — it holds one record.
+ * Each caller refreshes whatever it is showing; this only does the write, and
+ * refuses in demo mode for the reason in the file header.
+ */
+export function useScreeningActions() {
+  return useMemo(
+    () => ({
+      advance: async (
+        id: string,
+        body: AdvanceBody = {},
+      ): Promise<{ note: string; candidateId: string }> => {
+        if (!connected()) throw demoError();
+        const result = await careersApi.advance(id, body);
+        return { note: result.note, candidateId: result.candidateId };
+      },
+      decline: async (
+        id: string,
+        reason?: string,
+      ): Promise<{ note: string }> => {
+        if (!connected()) throw demoError();
+        const result = await careersApi.decline(id, reason);
+        return { note: result.note };
+      },
+    }),
+    [],
+  );
 }
 
 /* ---------------------------------------------------------------- analytics */

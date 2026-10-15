@@ -2,14 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowRight,
-  Inbox,
-  Mail,
-  Megaphone,
-  Paperclip,
-  Phone,
-} from "lucide-react";
+import { ArrowRight, Inbox, Mail, Megaphone, Phone } from "lucide-react";
 import {
   Badge,
   Button,
@@ -24,6 +17,8 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { LoadMore } from "@/components/portal/load-more";
+import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import {
@@ -31,7 +26,7 @@ import {
   ScreenInDialog,
 } from "@/components/hiring/screening-dialogs";
 import { ApiError } from "@/lib/api/client";
-import { careersPath } from "@/lib/api/careers";
+import { careersApi, careersPath } from "@/lib/api/careers";
 import type { ScreeningRow } from "@/lib/api/hiring";
 import { useRoleQueue, type RoleQueue } from "@/lib/store/hiring";
 
@@ -54,9 +49,10 @@ import { useRoleQueue, type RoleQueue } from "@/lib/store/hiring";
  *
  * ## Two sources, one page
  *
- * This panel is live whenever the API is up. The board below it is not — there
- * is no route for a pipeline `Application` — so each carries its own badge
- * rather than the page carrying one for both.
+ * This panel is live whenever the API is up, and so is the board below it when
+ * somebody is signed in (`RealRequisitionWorkspace`). With no session the board
+ * is the demo seed while this panel is the careers-page demo applications, so
+ * each carries its own badge rather than the page carrying one for both.
  */
 export function RequisitionScreening({
   requisitionId,
@@ -106,9 +102,9 @@ function ScreeningCard({
         <CardHeader
           title="Applied through the careers page"
           description={
-            queue.adverts.length === 0
+            queue.adverts.length === 0 || queue.waiting === null
               ? undefined
-              : `${queue.waiting} waiting on a first look.`
+              : `${queue.waiting.toLocaleString("en-NG")} waiting on a first look.`
           }
           action={<SourceBadge live={queue.live} />}
         />
@@ -175,6 +171,15 @@ function ScreeningCard({
                 onDecline={() => setDeclining(row)}
               />
             ))}
+            <LoadMore
+              shown={queue.rows.length}
+              total={queue.total}
+              noun={["application", "applications"]}
+              hasMore={queue.hasMore}
+              loading={queue.loadingMore}
+              error={queue.moreError}
+              onLoadMore={queue.loadMore}
+            />
             {!queue.editable && (
               <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
                 <p className="text-body-sm text-body">
@@ -189,9 +194,6 @@ function ScreeningCard({
                   Check again
                 </Button>
               </div>
-            )}
-            {queue.cvNote && (
-              <p className="text-meta text-muted">{queue.cvNote}</p>
             )}
           </CardBody>
         )}
@@ -242,7 +244,8 @@ function ScreeningCard({
             toast.push({
               title: `${declining.name} turned down`,
               tone: "success",
-              detail: "Nothing was sent to them. Write to them yourself.",
+              detail:
+                "Nothing was sent to them: ApproveHR does not email applicants yet. Write to them yourself.",
             });
             setDeclining(null);
           } catch (error) {
@@ -257,11 +260,11 @@ function ScreeningCard({
 /**
  * A requisition this browser has never heard of.
  *
- * Reachable in connected mode: the roles list is built from adverts, and an
- * advert's `requisitionId` is a real database id with no route behind it. Rather
- * than a bare 404 — which is what the applications queue currently walks into —
- * the page still does the one useful thing it can, which is show that role's
- * applications and let somebody screen them in.
+ * Reached only from the demo: a role id the seed does not hold, usually one the
+ * demo's own adverts point at. Connected, an unknown id is a genuine 404 — see
+ * `RealRequisitionDetail`. Rather than a bare 404 the demo page still does the
+ * one useful thing it can, which is show that role's applications and let
+ * somebody screen them in.
  */
 export function UnknownRequisition({ id }: { id: string }) {
   const queue = useRoleQueue(id);
@@ -307,6 +310,7 @@ function ApplicantRow({
   onScreenIn: () => void;
   onDecline: () => void;
 }) {
+  const canOpenCv = useCanOpenCv();
   return (
     <div className="flex flex-col gap-3 rounded-md border border-line p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -320,23 +324,6 @@ function ApplicantRow({
             ) : (
               <Badge tone="success" size="sm" dot>
                 Screened
-              </Badge>
-            )}
-            {row.cvUrl ? (
-              <TextLink
-                href={row.cvUrl}
-                className="inline-flex items-center gap-1 text-body-sm"
-              >
-                <Paperclip aria-hidden="true" className="size-3.5" />
-                Open CV
-              </TextLink>
-            ) : (
-              <Badge
-                tone="neutral"
-                size="sm"
-                icon={<Paperclip aria-hidden="true" />}
-              >
-                CV cannot be opened
               </Badge>
             )}
           </p>
@@ -363,6 +350,14 @@ function ApplicantRow({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+          {editable && canOpenCv && row.cvFlagged && (
+            <Badge tone="danger" size="sm">
+              CV flagged by the virus check
+            </Badge>
+          )}
+          {editable && canOpenCv && row.hasCv && !row.cvFlagged && (
+            <OpenCv open={() => careersApi.openCv(row.id)} />
+          )}
           {!row.waiting && row.candidateId && (
             <TextLink
               href={`/hiring/candidates/${row.candidateId}`}

@@ -1,6 +1,7 @@
 "use client";
 
 import { request, requestPaged, type Paged } from "@/lib/api/client";
+import type { ApiHistoryEvent } from "@/lib/api/application-history";
 
 /**
  * Job adverts and the applications they bring in — `/api/v1/careers`.
@@ -148,17 +149,46 @@ export type ApiPostingDetail = ApiPosting & {
 export type ApiClosedPosting = ApiPostingDetail & { waiting: number };
 
 /**
- * Whether anything can open an attached CV.
+ * What a list row knows about an attached CV.
  *
- * `url` is `null` in every environment while no object store is wired, and
- * `note` is the one line the interface shows instead. There is no development
- * shortcut and there cannot be — unlike an email token, the file genuinely does
- * not exist anywhere. See `src/modules/careers/storage.ts`.
+ * `key` is only a record that one was attached. A file is opened through the
+ * audited route (`careersApi.openCv`), which the API logs, never from a link
+ * presigned into a list row — a list of 250 people would otherwise mint 250 live
+ * download addresses, and nothing would say who followed which. `url` is
+ * therefore always `null` here and is kept only because the wire still names it.
+ *
+ * The rest says what is worth knowing *before* pressing Open: whether storage can
+ * serve a file at all, and what the virus check made of it. Optional, because an
+ * API that predates them sends neither.
  */
 export type ApiCvAccess = {
   key: string;
   url: string | null;
   expiresAt: string | null;
+  note: string | null;
+  available?: boolean;
+  scanStatus?: ApiCvLink["scanStatus"];
+  contentType?: string | null;
+  sizeBytes?: number | null;
+};
+
+/**
+ * What opening one CV answers.
+ *
+ * `url` is **null** — with `note` saying why in the API's own words — when there
+ * is nothing to open: file storage is not set up, or the application names a CV
+ * that was never uploaded. That is an answer, not a failure, and the screen shows
+ * the note. When there is a file the address is good for about five minutes and
+ * names that one file.
+ */
+export type ApiCvLink = {
+  url: string | null;
+  expiresAt: string | null;
+  /** What the download will be saved as. */
+  filename: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+  scanStatus: "NOT_SCANNED" | "PENDING" | "CLEAN" | "INFECTED" | "SCAN_FAILED";
   note: string | null;
 };
 
@@ -194,6 +224,12 @@ export type ApiOtherApplication = {
 
 export type ApiApplicationDetail = ApiApplication & {
   otherApplications: ApiOtherApplication[];
+  /**
+   * Every move this application has made, oldest first — its own, plus those of
+   * the pipeline record it became. Empty for one that has not moved since the API
+   * began keeping it: there is no backfill.
+   */
+  history?: ApiHistoryEvent[];
 };
 
 /**
@@ -278,7 +314,24 @@ export type ApplicationListParams = {
   status?: ApplicationStatus;
   postingId?: string;
   source?: string;
+  /** Every word has to match the first name, last name or email. */
   q?: string;
+  /** `YYYY-MM-DD`, inclusive: the first day they could have applied. */
+  from?: string;
+  /** `YYYY-MM-DD`, inclusive: the last day they could have applied. */
+  to?: string;
+  /**
+   * The `meta.nextCursor` of the page before. Opaque — hand back what a
+   * response gave, never build one. Only with the default newest-first order,
+   * which is the order every screen here uses.
+   */
+  cursor?: string;
+};
+
+/** What a keyset-paged list adds to the usual envelope. */
+export type CursorMeta = {
+  /** `null` on the last page. */
+  nextCursor: string | null;
 };
 
 /**
@@ -363,6 +416,9 @@ const applicationQuery = (params: ApplicationListParams) => ({
   postingId: params.postingId,
   source: params.source,
   q: params.q,
+  from: params.from,
+  to: params.to,
+  cursor: params.cursor,
 });
 
 export const careersApi = {
@@ -406,7 +462,7 @@ export const careersApi = {
     params: ApplicationListParams = {},
     signal?: AbortSignal,
   ) =>
-    requestPaged<ApiApplication>("/careers/applications", {
+    requestPaged<ApiApplication, CursorMeta>("/careers/applications", {
       query: applicationQuery(params),
       ...(signal ? { signal } : {}),
     }),
@@ -429,6 +485,18 @@ export const careersApi = {
       body: reason ? { reason } : {},
     }),
 
+  /**
+   * The one way to read a CV. Audited: the API records who opened whose, every
+   * time. Needs `MANAGE_HIRING` or `APPROVE_HIRING`, like reading the application.
+   *
+   * A `GET` and never cached (`Cache-Control: no-store`): the address in the
+   * answer is a live link to a stranger's file.
+   */
+  openCv: (id: string, signal?: AbortSignal) =>
+    request<ApiCvLink>(`/careers/applications/${id}/cv`, {
+      ...(signal ? { signal } : {}),
+    }),
+
   analytics: (signal?: AbortSignal) =>
     request<ApiCareersAnalytics>("/careers/analytics", {
       ...(signal ? { signal } : {}),
@@ -436,7 +504,7 @@ export const careersApi = {
 };
 
 export type PagedPostings = Paged<ApiPosting>;
-export type PagedApplications = Paged<ApiApplication>;
+export type PagedApplications = Paged<ApiApplication, CursorMeta>;
 
 /* ---------------------------------------------------------------- the money */
 

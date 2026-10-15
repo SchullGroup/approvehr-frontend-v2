@@ -122,27 +122,25 @@ describe("a mistake can be taken back", () => {
   });
 });
 
-describe("the CV is not offered as a download", () => {
-  it("says it cannot be fetched rather than giving a dead button", () => {
-    /* No deployment has ever set `S3_BUCKET`, so the bytes are not there. A
-       download button whose only outcome is a refusal is a design failure two
-       clicks earlier. */
-    /* Whitespace-tolerant: JSX wraps prose across lines, so a literal regex
-       matches the rendered sentence and not the source one. */
+describe("the CV is read through the audited route", () => {
+  it("opens through the API on request instead of showing a dead storage-key note", () => {
+    /* The screened-in CV used to say it "is recorded as a storage key and cannot
+       be downloaded until file storage is configured". File storage is wired now,
+       so the note was a claim nobody could use; the line asks the API for the
+       file instead, and the API records who asked. The behaviour — what pressing
+       it does, and what it says when the answer is no — is proved by rendering it
+       in `applications-queue.test.tsx`; this only pins that the dead sentence is
+       gone from the screen that used to carry it. */
     const prose = panel.replace(/\s+/g, " ");
-    expect(prose).toMatch(
-      /cannot be downloaded until file storage is configured/,
-    );
+    expect(prose).not.toMatch(/cannot be downloaded until file storage/);
+    expect(prose).not.toMatch(/recorded as a storage key/);
 
-    /* Bounded to the next top-level declaration rather than the first closing
-       brace — JSX is full of those, and the first draft of this cut the body in
-       half and then asserted about the wrong text. */
     const from = panel.indexOf("function CvLine");
     const rest = panel.slice(from + 1);
     const next = rest.search(/\n(?:\/\*\*|function |export )/);
     const body = next === -1 ? rest : rest.slice(0, next);
-    expect(body.replace(/\s+/g, " ")).toMatch(/storage key/);
-    expect(body).not.toMatch(/ExportButton|<a |href=/);
+    expect(body).toMatch(/openCandidateCv/);
+    expect(body).not.toMatch(/<a |href=/);
   });
 });
 

@@ -14,7 +14,7 @@ import {
   type ApiRequisition,
   type ApiRequisitionDetail,
   type ApiStage,
-  type ApplicationListParams,
+  type ApplicationOutcome,
   type CandidateListParams,
   type CreateOfferBody,
   type CreateRequisitionBody,
@@ -32,6 +32,7 @@ import {
 } from "@/lib/api/recruitment";
 import { useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
+import { usePagedList } from "./paged-list";
 
 /**
  * The internal hiring pipeline — connected only.
@@ -398,74 +399,114 @@ export function useStageMutations() {
 
 /* --------------------------------------------------------------- applications */
 
-export type ApplicationListState = {
+export type PipelineFilters = {
+  outcome?: ApplicationOutcome;
+  stageId?: string;
+  /** Free text, matched on the server against name and email. */
+  q?: string;
+  /** `YYYY-MM-DD`, inclusive. The day they entered the pipeline. */
+  from?: string;
+  to?: string;
+  pageSize?: number;
+};
+
+/** A screen's worth of one role's pipeline. */
+export const PIPELINE_PAGE_SIZE = 50;
+
+export type PipelineListState = {
   applications: ApiApplication[];
-  total: number;
+  /** The server's count under these filters, or `null` while unknown. */
+  total: number | null;
+  /** First load only. */
   loading: boolean;
+  /** Filters changed; the rows shown still answer the previous question. */
+  settling: boolean;
   error: ApiError | null;
+  hasMore: boolean;
+  loadingMore: boolean;
+  moreError: ApiError | null;
+  loadMore: () => void;
   connected: boolean;
   reload: () => void;
 };
 
-export function useApplicationsForRequisition(
+/**
+ * One role's pipeline, **newest first**, a page at a time, filtered by the server.
+ *
+ * The board asked for one page of two hundred with no order, and the API's
+ * default for this list is oldest first — so a role with more than two hundred
+ * people showed the two hundred who applied first and hid the ones who applied
+ * this week. The order is now stated (`desc`), every filter is the API's, and
+ * `total` is its count rather than the length of what was handed over.
+ */
+export function usePipelineApplications(
   requisitionId: string | undefined,
-  params: ApplicationListParams = {},
-): ApplicationListState {
+  filters: PipelineFilters = {},
+): PipelineListState {
   const { isConnected } = useSession();
-  const [state, setState] = useState<{
-    applications: ApiApplication[];
-    total: number;
-    loading: boolean;
-    error: ApiError | null;
-  }>({ applications: [], total: 0, loading: isConnected, error: null });
-  const key = JSON.stringify(params);
-  const latest = useRef(0);
+  const {
+    outcome,
+    stageId,
+    q,
+    from,
+    to,
+    pageSize = PIPELINE_PAGE_SIZE,
+  } = filters;
+  const enabled = isConnected && Boolean(requisitionId);
 
-  const load = useCallback(async () => {
-    if (!isConnected || !requisitionId) return;
-    const ticket = ++latest.current;
-    const controller = new AbortController();
-    setState((s) => ({ ...s, loading: true, error: null }));
-    try {
-      const page = await recruitmentApi.listApplications(
-        requisitionId,
-        JSON.parse(key) as ApplicationListParams,
-        controller.signal,
+  const fetchPage = useCallback(
+    async (cursor: string | null, signal: AbortSignal) => {
+      const result = await recruitmentApi.listApplications(
+        requisitionId as string,
+        {
+          pageSize,
+          order: "desc",
+          ...(cursor ? { cursor } : {}),
+          ...(outcome ? { outcome } : {}),
+          ...(stageId ? { stageId } : {}),
+          ...(q ? { q } : {}),
+          ...(from ? { from } : {}),
+          ...(to ? { to } : {}),
+        },
+        signal,
       );
-      if (ticket !== latest.current) return;
-      setState({
-        applications: page.data,
-        total: page.meta.total,
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      if (ticket !== latest.current) return;
-      setState((s) => ({
-        ...s,
-        loading: false,
-        error: error instanceof ApiError ? error : null,
-      }));
-    }
-  }, [isConnected, requisitionId, key]);
+      return {
+        rows: result.data,
+        total: result.meta.total,
+        next: result.meta.nextCursor ?? null,
+      };
+    },
+    [requisitionId, pageSize, outcome, stageId, q, from, to],
+  );
 
-  const revalidation = useRevalidation();
-  useEffect(() => {
-    void load();
-  }, [load, revalidation]);
+  const list = usePagedList<ApiApplication>({
+    key: JSON.stringify([
+      requisitionId,
+      outcome,
+      stageId,
+      q,
+      from,
+      to,
+      pageSize,
+    ]),
+    enabled,
+    fetchPage,
+    idOf: (application) => application.id,
+  });
 
-  if (!isConnected || !requisitionId) {
-    return {
-      applications: [],
-      total: 0,
-      loading: false,
-      error: null,
-      connected: isConnected,
-      reload: () => {},
-    };
-  }
-  return { ...state, connected: true, reload: load };
+  return {
+    applications: list.rows,
+    total: list.total,
+    loading: list.loading,
+    settling: list.settling,
+    error: list.error,
+    hasMore: list.hasMore,
+    loadingMore: list.loadingMore,
+    moreError: list.moreError,
+    loadMore: list.loadMore,
+    connected: isConnected,
+    reload: list.reload,
+  };
 }
 
 export type ApplicationDetailState = {

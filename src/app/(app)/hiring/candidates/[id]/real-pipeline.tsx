@@ -20,6 +20,8 @@ import {
   Skeleton,
   Textarea,
 } from "@/components/ui";
+import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
+import { StageHistory } from "@/components/hiring/stage-history";
 import { ExportButton } from "@/components/portal/export-button";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
@@ -29,6 +31,7 @@ import {
   RECOMMENDATION_LABEL,
   kobo,
   naira,
+  recruitmentApi,
   type ApiApplicationDetail,
   type ApiInterviewSummary,
   type ApiStage,
@@ -504,6 +507,11 @@ export function RealPipeline({
           ))}
         </CardBody>
       </Card>
+
+      {/* Last, after the live controls: this is the record of what has been
+          done, read after the things that can still be done. It comes with the
+          application itself, so it refreshes with every `onChanged`. */}
+      <StageHistory events={application.history} />
 
       {/* Each dialog below stays mounted regardless of its gating state —
           `Modal` decides whether to render from the real `open` prop, so it
@@ -1724,7 +1732,11 @@ export function RealScreening({
           ]}
         />
 
-        <CvLine storageKey={candidate.cvStorageKey} source={candidate.source} />
+        <CvLine
+          candidateId={candidate.id}
+          hasCv={Boolean(candidate.cvStorageKey)}
+          source={candidate.source}
+        />
       </CardBody>
 
       {/* `candidate` is always available here (it comes straight from the
@@ -1745,32 +1757,45 @@ export function RealScreening({
 }
 
 /**
- * The CV, and the honest thing to say about it.
+ * The CV, and the one way to read it.
  *
- * `cvStorageKey` is a **key**, not a file. No deployment has ever had
- * `S3_BUCKET` set, so the bytes are not there to serve and the API says so at
- * boot. A download button here would be a control whose only outcome is a
- * refusal — so the key is named as a record that one was attached, and where it
- * has to be fetched from until object storage is wired.
+ * `cvStorageKey` is a **key** — a record that a file was attached on screening —
+ * and nothing here ever shows it or links to it. Reading the file is
+ * `OpenCv`: one audited request that asks the API for a short-lived address, and
+ * the API writes down who asked. It is offered only to whoever may read the
+ * candidate at all, and only when there is a key to open; what the API says when
+ * the file is missing, flagged or unreachable is shown beside the button as it
+ * wrote it.
  */
 function CvLine({
-  storageKey,
+  candidateId,
+  hasCv,
   source,
 }: {
-  storageKey: string | null;
+  candidateId: string;
+  hasCv: boolean;
   source: string | null;
 }) {
-  if (!storageKey && !source) return null;
+  const canOpen = useCanOpenCv();
+  if (!hasCv && !source) return null;
   return (
     <div className="flex flex-col gap-1 border-t border-line pt-3">
-      {storageKey && (
-        <p className="text-meta text-muted">
-          A CV was attached on screening.{" "}
-          <span className="text-faint">
-            It is recorded as a storage key and cannot be downloaded until file
-            storage is configured.
-          </span>
-        </p>
+      {hasCv && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="text-meta text-muted">
+            A CV was attached on screening.
+          </p>
+          {canOpen ? (
+            <OpenCv
+              open={() => recruitmentApi.openCandidateCv(candidateId)}
+              label="Open CV"
+            />
+          ) : (
+            <p className="text-meta text-faint">
+              Opening it is kept to whoever hires or approves hiring.
+            </p>
+          )}
+        </div>
       )}
       {source && (
         <p className="text-meta text-muted">

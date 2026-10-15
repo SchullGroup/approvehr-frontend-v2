@@ -1,6 +1,8 @@
 "use client";
 
 import { request, requestPaged, type Paged } from "@/lib/api/client";
+import type { ApiHistoryEvent } from "@/lib/api/application-history";
+import type { ApiCvLink } from "@/lib/api/careers";
 
 /**
  * The internal recruitment pipeline — requisitions, candidates, interviews,
@@ -182,6 +184,14 @@ export type ApiApplicationDetail = ApiApplication & {
   requisitionReference: string;
   requisitionJobTitle: string;
   candidate: ApiCandidate;
+  /**
+   * Every move this application has made — and the events on the public
+   * application it came from — oldest first. Empty for one that has not moved
+   * since the API began keeping it: there is no backfill. Absent altogether from
+   * an API that predates it, which a screen must treat as "unknown", not as
+   * "nothing happened".
+   */
+  history?: ApiHistoryEvent[];
   interviews: ApiInterviewSummary[];
   offer: ApiOffer | null;
 };
@@ -288,8 +298,29 @@ export type ApplicationListParams = {
   pageSize?: number;
   outcome?: ApplicationOutcome;
   stageId?: string;
+  /** Where the candidate came from, exactly as recorded. */
+  source?: string;
+  /** Every word has to match the candidate's name or email. */
+  q?: string;
+  /** `YYYY-MM-DD`, inclusive: the day they entered the pipeline. */
+  from?: string;
+  to?: string;
   sort?: string;
+  /**
+   * **Oldest first is the API's default for this list**, as it always was.
+   * Every screen that shows it sends `desc`, because a recruiter wants the
+   * newest applicant, not the first one ever received — and a page of the
+   * oldest two hundred is what the board showed for a company with more.
+   */
   order?: "asc" | "desc";
+  /** The `meta.nextCursor` of the page before. Opaque. */
+  cursor?: string;
+};
+
+/** What a keyset-paged list adds to the usual envelope. */
+export type CursorMeta = {
+  /** `null` on the last page. */
+  nextCursor: string | null;
 };
 
 export type CandidateListParams = {
@@ -462,7 +493,7 @@ export const recruitmentApi = {
     params: ApplicationListParams = {},
     signal?: AbortSignal,
   ) =>
-    requestPaged<ApiApplication>(
+    requestPaged<ApiApplication, CursorMeta>(
       `/recruitment/requisitions/${requisitionId}/applications`,
       {
         query: { ...params },
@@ -496,6 +527,15 @@ export const recruitmentApi = {
     }),
   getCandidate: (id: string, signal?: AbortSignal) =>
     request<ApiCandidateDetail>(`/recruitment/candidates/${id}`, {
+      ...(signal ? { signal } : {}),
+    }),
+  /**
+   * The audited way to read a candidate's CV — the twin of
+   * `careersApi.openCv` for a person who has a pipeline record. Same answer, same
+   * permissions, same audit trail.
+   */
+  openCandidateCv: (id: string, signal?: AbortSignal) =>
+    request<ApiCvLink>(`/recruitment/candidates/${id}/cv`, {
       ...(signal ? { signal } : {}),
     }),
   updateCandidate: (id: string, body: UpdateCandidateBody) =>
@@ -596,7 +636,7 @@ export const recruitmentApi = {
 };
 
 export type PagedRequisitions = Paged<ApiRequisition>;
-export type PagedApplications = Paged<ApiApplication>;
+export type PagedApplications = Paged<ApiApplication, CursorMeta>;
 export type PagedInterviews = Paged<ApiInterview>;
 export type PagedOffers = Paged<ApiOffer>;
 export type PagedCandidates = Paged<ApiCandidate>;
