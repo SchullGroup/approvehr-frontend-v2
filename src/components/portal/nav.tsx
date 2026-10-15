@@ -19,6 +19,7 @@ import {
   FileSignature,
   FileText,
   FileUp,
+  FolderKanban,
   FolderOpen,
   GraduationCap,
   History,
@@ -284,6 +285,19 @@ const PERSONAL: NavItem[] = [
     label: "Assistant",
     icon: <Sparkles aria-hidden="true" />,
     assistant: true,
+    always: true,
+  },
+  {
+    /* Here rather than under a module, because the six the site sells are not
+       this one's and a seventh heading for a single row would be furniture.
+       No permission: who sees which project is the API's rule (members, and
+       anybody who manages records), and a person on none sees an empty list with
+       a way to start one if they lead people. The feature flag is what keeps it
+       out of a company that has not switched it on. */
+    href: "/projects",
+    label: "Projects",
+    icon: <FolderKanban aria-hidden="true" />,
+    feature: "projects",
     always: true,
   },
   /*
