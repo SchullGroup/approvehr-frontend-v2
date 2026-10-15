@@ -280,6 +280,13 @@ export type CreateRequisitionBody = {
   description?: string | null;
   hiringManagerId?: string | null;
   reference?: string;
+  /**
+   * The wizard's screening questions: yes or no, and whether a wrong answer flags
+   * the application for a person to look at. Kept on the requisition, and copied
+   * onto the form of any advert made for it. `knockout` flags a "No"; it never
+   * rejects anyone.
+   */
+  screeningQuestions?: { id?: string; question: string; knockout: boolean }[];
 };
 
 export type UpdateRequisitionBody = Partial<

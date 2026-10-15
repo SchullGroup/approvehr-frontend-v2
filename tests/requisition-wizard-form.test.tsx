@@ -299,6 +299,52 @@ describe("saving the role", () => {
     expect(push).toHaveBeenCalledWith("/hiring/requisitions/req-9");
   });
 
+  it("keeps the yes-or-no questions on the requisition as its own screening questions, and only those", async () => {
+    const user = userEvent.setup();
+    render(<RequisitionWizard />);
+    await toProcess(user);
+    await addQuestion(user, /^Yes or no/);
+    await user.type(questionBox(1), "Right to work in Nigeria?");
+    await user.click(screen.getByRole("switch", { name: "Knockout question" }));
+    await addQuestion(user, /^Long answer/);
+    await user.type(questionBox(2), "Why this job?");
+    await toReview(user);
+    await user.click(
+      screen.getByRole("button", { name: /Save as draft advert/ }),
+    );
+
+    await waitFor(() => expect(createRequisition).toHaveBeenCalledTimes(1));
+    const body = createRequisition.mock.calls[0]?.[0] as {
+      screeningQuestions?: {
+        id?: string;
+        question: string;
+        knockout: boolean;
+      }[];
+    };
+    expect(body.screeningQuestions).toEqual([
+      expect.objectContaining({
+        question: "Right to work in Nigeria?",
+        knockout: true,
+      }),
+    ]);
+  });
+
+  it("sends no screening questions with the requisition when there are no yes-or-no ones", async () => {
+    const user = userEvent.setup();
+    render(<RequisitionWizard />);
+    await toProcess(user);
+    await addQuestion(user, /^Long answer/);
+    await user.type(questionBox(1), "Why this job?");
+    await toReview(user);
+    await user.click(
+      screen.getByRole("button", { name: /Save as draft advert/ }),
+    );
+    await waitFor(() => expect(createRequisition).toHaveBeenCalledTimes(1));
+    expect(createRequisition.mock.calls[0]?.[0]).not.toHaveProperty(
+      "screeningQuestions",
+    );
+  });
+
   it("sends no form at all when it was left as the API would start it", async () => {
     const user = userEvent.setup();
     render(<RequisitionWizard />);

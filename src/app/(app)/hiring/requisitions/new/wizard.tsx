@@ -328,6 +328,19 @@ function Wizard() {
   async function submit() {
     setBusy(true);
     const { summary, description } = advertText(draft);
+    /* The requisition keeps the yes-or-no questions as the role's own screening
+       questions, and the API copies them onto the draft advert it is linked to.
+       The form saved onto the advert afterwards replaces that copy with the whole
+       form as built here, so nothing is asked twice; if that second write fails,
+       the copy is what the advert still carries. */
+    const screening = draft.form.questions
+      .filter((q) => q.kind === "YES_NO" && q.label.trim() !== "")
+      .slice(0, 10)
+      .map((q) => ({
+        id: q.id,
+        question: q.label.trim(),
+        knockout: q.knockout,
+      }));
     try {
       let requisitionId: string | undefined;
 
@@ -344,6 +357,7 @@ function Wizard() {
           ...(draft.hiringManagerId
             ? { hiringManagerId: draft.hiringManagerId }
             : {}),
+          ...(screening.length > 0 ? { screeningQuestions: screening } : {}),
         });
         requisitionId = requisition.id;
 
