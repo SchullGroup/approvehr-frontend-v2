@@ -20,6 +20,7 @@ import {
   CardBody,
   CardHeader,
   Checkbox,
+  ConfirmDialog,
   DescriptionList,
   EmptyState,
   Field,
@@ -31,13 +32,19 @@ import {
   SegmentedControl,
   Select,
   Skeleton,
-  Textarea,
   TextLink,
   useToast,
   type AppliedFilter,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { LoadMore } from "@/components/portal/load-more";
+import {
+  BulkBar,
+  BulkResults,
+  type BulkChoice,
+} from "@/components/hiring/bulk-bar";
+import { EveryoneDialog } from "@/components/hiring/bulk-dialogs";
+import { RejectDialog } from "@/components/hiring/reject-dialog";
 import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
 import { RowAnswers } from "@/components/hiring/row-answers";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -56,12 +63,26 @@ import { DUPLICATE_REASON } from "@/lib/hiring/answers-view";
 import { usePermissions } from "@/lib/permissions";
 import { useRequisitions } from "@/lib/store/recruitment";
 import {
+  queueMatching,
   useApplications,
   useCareersAnalytics,
   usePostingIndex,
   usePostings,
+  useScreeningActions,
+  type ApplicationFilters,
 } from "@/lib/store/careers";
 import { useDebounced } from "@/lib/use-debounced";
+import { downloadCsv, toCsv } from "@/lib/csv";
+import { sentenceOf } from "@/lib/hiring/pipeline/errors";
+import type { BulkOutcome, BulkProgress } from "@/lib/hiring/pipeline/model";
+import {
+  QUEUE_BULK_MAX,
+  confirmedRows,
+  queueCsvRows,
+  runQueue,
+} from "@/lib/hiring/pipeline/queue-bulk";
+import { useBulkSelection } from "@/lib/hiring/pipeline/use-bulk-selection";
+import { useRejectionReasons } from "@/lib/hiring/pipeline/use-pipeline";
 
 /**
  * The screening queue.
@@ -214,6 +235,13 @@ function Queue({
   const [search, setSearch] = useState("");
   const [advancing, setAdvancing] = useState<ApiApplication | null>(null);
   const [declining, setDeclining] = useState<ApiApplication | null>(null);
+  const [results, setResults] = useState<{
+    what: string;
+    outcome: BulkOutcome;
+  } | null>(null);
+  const [decliningBusy, setDecliningBusy] = useState(false);
+  const [declineError, setDeclineError] = useState<string | null>(null);
+  const reasons = useRejectionReasons();
 
   /* A keystroke is faster than a request: ask once the typing pauses. */
   const query = useDebounced(search.trim(), 300);
@@ -235,6 +263,20 @@ function Queue({
     ...(flagged ? { flagged } : {}),
     ...(duplicate ? { duplicate } : {}),
   });
+  /* What narrows the queue, as the one object the list, the "select everyone
+     matching" count and the action all read, so they cannot disagree. */
+  const queueFilters: ApplicationFilters = {
+    ...(status === "ALL" ? {} : { status }),
+    ...(postingId ? { postingId } : {}),
+    ...(source ? { source } : {}),
+    ...(query ? { q: query } : {}),
+    ...(from && !rangeBackwards ? { from } : {}),
+    ...(to && !rangeBackwards ? { to } : {}),
+    ...(flagged ? { flagged } : {}),
+    ...(duplicate ? { duplicate } : {}),
+  };
+  /* A different question is a different list, and a selection belongs to one. */
+  const selectionScope = JSON.stringify(queueFilters);
   const canOpenFiles = useCanOpenCv();
   const toast = useToast();
   const router = useRouter();
@@ -336,13 +378,6 @@ function Queue({
       />
 
       <PageBody className="flex flex-col gap-6">
-        {DEMO_ENABLED && !applications.editable && (
-          <Callout tone="warning" title="Read-only in demo mode">
-            Screening somebody in creates a candidate in the hiring pipeline, so
-            it needs the API. These applications come from the seed data.
-          </Callout>
-        )}
-
         <Card>
           <CardHeader
             title="Applications"
@@ -435,6 +470,14 @@ function Queue({
               </div>
             </FilterBar>
 
+            {results && (
+              <BulkResults
+                what={results.what}
+                outcome={results.outcome}
+                onDismiss={() => setResults(null)}
+              />
+            )}
+
             {applications.loading ? (
               <div>
                 <Skeleton className="h-32 w-full" />
@@ -478,49 +521,30 @@ function Queue({
                   : {})}
               />
             ) : (
-              <>
-                <div
-                  aria-busy={stale}
-                  className={
-                    stale
-                      ? "flex flex-col gap-3 opacity-60 transition-opacity"
-                      : "flex flex-col gap-3 transition-opacity"
-                  }
-                >
-                  {applications.applications.map((application) => (
-                    <ApplicationRow
-                      key={application.id}
-                      application={application}
-                      posting={index.get(application.postingId)}
-                      editable={applications.editable}
-                      canOpenFiles={canOpenFiles}
-                      onAdvance={() => setAdvancing(application)}
-                      onDecline={() => setDeclining(application)}
-                      onCopyMessage={() => {
-                        void copyText(
-                          declineMessage(application),
-                          () =>
-                            toast.push({
-                              title: "Message copied",
-                              tone: "success",
-                              detail: `Send it to ${application.email}.`,
-                            }),
-                          fail,
-                        );
-                      }}
-                    />
-                  ))}
-                </div>
-                <LoadMore
-                  shown={applications.applications.length}
-                  total={applications.total}
-                  noun={["application", "applications"]}
-                  hasMore={applications.hasMore}
-                  loading={applications.loadingMore}
-                  error={applications.moreError}
-                  onLoadMore={applications.loadMore}
-                />
-              </>
+              <QueueResults
+                key={selectionScope}
+                applications={applications}
+                index={index}
+                canOpenFiles={canOpenFiles}
+                filters={queueFilters}
+                chips={applied}
+                stale={stale}
+                onResults={setResults}
+                onAdvance={setAdvancing}
+                onDecline={setDeclining}
+                onCopyMessage={(application) => {
+                  void copyText(
+                    declineMessage(application),
+                    () =>
+                      toast.push({
+                        title: "Message copied",
+                        tone: "success",
+                        detail: `Send it to ${application.email}.`,
+                      }),
+                    fail,
+                  );
+                }}
+              />
             )}
           </CardBody>
         </Card>
@@ -555,26 +579,316 @@ function Queue({
         }}
       />
 
-      <DeclineDialog
+      <RejectDialog
         open={declining !== null}
-        application={declining}
         onClose={() => setDeclining(null)}
-        onConfirm={async (reason) => {
+        subject={declining?.name ?? "this applicant"}
+        title={
+          declining
+            ? `Turn down ${declining.name}?`
+            : "Turn down this applicant?"
+        }
+        confirmLabel="Turn them down"
+        reasons={reasons.items}
+        busy={decliningBusy}
+        error={declineError}
+        onConfirm={(choice) => {
           if (!declining) return;
-          try {
-            await applications.decline(
-              declining.id,
-              reason.trim() === "" ? undefined : reason.trim(),
-            );
-            toast.push({
-              title: `${declining.name} turned down`,
-              tone: "success",
-              detail: "Nothing was sent to them. Use Copy message to write.",
-            });
-            setDeclining(null);
-          } catch (error) {
-            fail(error);
-          }
+          setDecliningBusy(true);
+          setDeclineError(null);
+          void applications
+            .decline(declining.id, reasonText(reasons.items, choice))
+            .then(() => {
+              toast.push({
+                title: `${declining.name} turned down`,
+                tone: "success",
+                detail: "Nothing was sent to them. Use Copy message to write.",
+              });
+              setDeclining(null);
+            })
+            .catch((error: unknown) => setDeclineError(sentenceOf(error)))
+            .finally(() => setDecliningBusy(false));
+        }}
+      />
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/** The reason as the queue keeps it: the company's wording, and a note if there is one. */
+function reasonText(
+  reasons: readonly { id: string; label: string }[],
+  choice: { reasonId: string; note: string | null },
+): string {
+  const label =
+    reasons.find((reason) => reason.id === choice.reasonId)?.label ??
+    "No reason given";
+  return choice.note ? `${label}: ${choice.note}` : label;
+}
+
+type QueueApplications = ReturnType<typeof useApplications>;
+
+/**
+ * The list, and what can be done to several people in it.
+ *
+ * ## Why it is keyed by the question
+ *
+ * Its parent gives it a `key` made of the filters, so asking a different question
+ * mounts a fresh one and the selection starts empty. Nobody carries "everyone
+ * matching" from one list to another, and a tick never outlives the rows it was
+ * made on.
+ *
+ * ## What the queue can and cannot do in bulk
+ *
+ * Advance and decline, a hundred at a time, one request each. Tags are the
+ * pipeline's: they belong to a candidate, and an applicant waiting in the queue is
+ * not one yet, so there are none here.
+ */
+function QueueResults({
+  applications,
+  index,
+  canOpenFiles,
+  filters,
+  chips,
+  stale,
+  onResults,
+  onAdvance,
+  onDecline,
+  onCopyMessage,
+}: {
+  applications: QueueApplications;
+  index: ReturnType<typeof usePostingIndex>;
+  canOpenFiles: boolean;
+  filters: ApplicationFilters;
+  chips: AppliedFilter[];
+  stale: boolean;
+  /**
+   * Where the answer goes. The results live in the parent, not here: when the last
+   * person waiting is done the list gives way to "Nobody is waiting", and a panel
+   * that listed who could not be done must not go with it.
+   */
+  onResults: (results: { what: string; outcome: BulkOutcome } | null) => void;
+  onAdvance: (application: ApiApplication) => void;
+  onDecline: (application: ApiApplication) => void;
+  onCopyMessage: (application: ApiApplication) => void;
+}) {
+  const toast = useToast();
+  const reasons = useRejectionReasons();
+  const screening = useScreeningActions();
+  const selection = useBulkSelection("queue");
+  const [dialog, setDialog] = useState<
+    "advance" | "decline" | "everyone" | null
+  >(null);
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<BulkProgress | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const rows = applications.applications;
+  const waiting = rows.filter((row) => row.status === "RECEIVED");
+  const waitingIds = waiting.map((row) => row.id);
+  const total = applications.total ?? rows.length;
+
+  const offer =
+    !selection.everyone &&
+    applications.hasMore &&
+    total > rows.length &&
+    total <= QUEUE_BULK_MAX &&
+    selection.allOf(waitingIds)
+      ? { count: total }
+      : null;
+  const tooMany =
+    !selection.everyone &&
+    applications.hasMore &&
+    total > QUEUE_BULK_MAX &&
+    selection.allOf(waitingIds);
+
+  /** Who the next action is for. "Everyone" is checked against the count confirmed. */
+  async function whoIsSelected(): Promise<ApiApplication[]> {
+    if (selection.everyone) {
+      const found = await queueMatching(
+        filters,
+        QUEUE_BULK_MAX + 1,
+        new AbortController().signal,
+      );
+      return confirmedRows(found, selection.everyone.count).filter(
+        (row) => row.status === "RECEIVED",
+      );
+    }
+    return rows.filter((row) => selection.picked.has(row.id));
+  }
+
+  async function run(
+    what: string,
+    act: (row: ApiApplication) => Promise<void>,
+  ) {
+    setBusy(true);
+    setProgress(null);
+    onResults(null);
+    setProblem(null);
+    try {
+      const chosen = await whoIsSelected();
+      const outcome = await runQueue({
+        rows: chosen,
+        act,
+        onProgress: setProgress,
+      });
+      onResults({ what, outcome });
+      selection.clear();
+      setDialog(null);
+      await applications.reload();
+    } catch (error) {
+      setProblem(sentenceOf(error));
+      toast.push({
+        title: "Nothing was changed",
+        tone: "danger",
+        detail: sentenceOf(error),
+      });
+    } finally {
+      setBusy(false);
+      setProgress(null);
+    }
+  }
+
+  async function exportSelected() {
+    try {
+      const chosen = await whoIsSelected();
+      const sheet = queueCsvRows(chosen);
+      downloadCsv("applicants.csv", toCsv(sheet.headers, sheet.rows));
+      toast.push({ title: "Downloaded applicants.csv", tone: "success" });
+    } catch (error) {
+      toast.push({
+        title: "Nothing was downloaded",
+        tone: "danger",
+        detail: sentenceOf(error),
+      });
+    }
+  }
+
+  function choose(choice: BulkChoice) {
+    if (choice === "move") setDialog("advance");
+    else if (choice === "reject") {
+      setProblem(null);
+      setDialog("decline");
+    } else if (choice === "everyone") setDialog("everyone");
+    else if (choice === "export") void exportSelected();
+    else if (choice === "clear") selection.clear();
+  }
+
+  const n = selection.size.toLocaleString("en-NG");
+  const people = `${n} ${selection.size === 1 ? "person" : "people"}`;
+
+  return (
+    <>
+      {applications.canScreen && waiting.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <Checkbox
+            label="Select everyone shown who is waiting"
+            checked={selection.allOf(waitingIds)}
+            indeterminate={selection.someOf(waitingIds)}
+            disabled={Boolean(selection.everyone) || busy}
+            onChange={() => selection.toggleMany(waitingIds)}
+          />
+          <BulkBar
+            selection={selection}
+            busy={busy}
+            progress={progress}
+            offer={offer ? { count: offer.count, where: "in this list" } : null}
+            onChoose={choose}
+            choices={["move", "reject", "export", "clear"]}
+            labels={{ move: "Advance…", reject: "Turn down…" }}
+          />
+          {tooMany && (
+            <p className="text-body-sm text-muted">
+              {total.toLocaleString("en-NG")} people match. The queue does{" "}
+              {QUEUE_BULK_MAX} at a time, so narrow the filters, or work through
+              them in parts.
+            </p>
+          )}
+          {problem && (
+            <p role="alert" className="text-body-sm text-danger-text">
+              {problem}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div
+        aria-busy={stale}
+        className={
+          stale
+            ? "flex flex-col gap-3 opacity-60 transition-opacity"
+            : "flex flex-col gap-3 transition-opacity"
+        }
+      >
+        {rows.map((application) => (
+          <ApplicationRow
+            key={application.id}
+            application={application}
+            posting={index.get(application.postingId)}
+            editable={applications.editable}
+            canScreen={applications.canScreen}
+            selected={selection.isSelected(application.id)}
+            selectable={!selection.everyone && !busy}
+            onToggle={() => selection.toggle(application.id)}
+            canOpenFiles={canOpenFiles}
+            onAdvance={() => onAdvance(application)}
+            onDecline={() => onDecline(application)}
+            onCopyMessage={() => onCopyMessage(application)}
+          />
+        ))}
+      </div>
+      <LoadMore
+        shown={rows.length}
+        total={applications.total}
+        noun={["application", "applications"]}
+        hasMore={applications.hasMore}
+        loading={applications.loadingMore}
+        error={applications.moreError}
+        onLoadMore={applications.loadMore}
+      />
+
+      <ConfirmDialog
+        open={dialog === "advance"}
+        onClose={() => setDialog(null)}
+        title={`Move ${people} into the pipeline?`}
+        body="Each goes into the first stage of the role their advert is for. Anybody whose advert has no approved role, or who has already been decided on, is listed afterwards with the reason."
+        confirmLabel={`Move ${people}`}
+        tone="primary"
+        loading={busy}
+        onConfirm={() =>
+          void run("Moved into the pipeline", async (row) => {
+            await screening.advance(row.id, {});
+          })
+        }
+      />
+
+      <RejectDialog
+        open={dialog === "decline"}
+        onClose={() => setDialog(null)}
+        subject={people}
+        title={`Turn down ${people}?`}
+        confirmLabel={`Turn down ${people}`}
+        reasons={reasons.items}
+        busy={busy}
+        error={problem}
+        onConfirm={(choice) =>
+          void run("Turned down", async (row) => {
+            await screening.decline(row.id, reasonText(reasons.items, choice));
+          })
+        }
+      />
+
+      <EveryoneDialog
+        open={dialog === "everyone" && offer !== null}
+        onClose={() => setDialog(null)}
+        count={offer?.count ?? 0}
+        where="in this list"
+        applied={chips}
+        onConfirm={() => {
+          if (!offer) return;
+          selection.chooseEveryone(offer.count);
+          setDialog(null);
         }}
       />
     </>
@@ -587,6 +901,10 @@ function ApplicationRow({
   application,
   posting,
   editable,
+  canScreen,
+  selected,
+  selectable,
+  onToggle,
   canOpenFiles,
   onAdvance,
   onDecline,
@@ -596,6 +914,12 @@ function ApplicationRow({
   /** Absent only if the advert is outside the page of adverts that was loaded. */
   posting: ApiPosting | undefined;
   editable: boolean;
+  /** Somebody can be screened in or turned down here (a demo can, in its own book). */
+  canScreen: boolean;
+  selected: boolean;
+  /** The tick is shown and works: waiting rows only, and not in "everyone" mode. */
+  selectable: boolean;
+  onToggle: () => void;
   canOpenFiles: boolean;
   onAdvance: () => void;
   onDecline: () => void;
@@ -613,65 +937,76 @@ function ApplicationRow({
   return (
     <div className="flex flex-col gap-3 rounded-md border border-line p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-            {application.name}
-            <Badge tone={STATUS_TONE[application.status]} size="sm" dot>
-              {STATUS_LABEL[application.status]}
-            </Badge>
-            {summary.flagCount > 0 && (
-              <Badge tone="warning" size="sm">
-                <Flag aria-hidden="true" className="size-3" />
-                Needs a look
-              </Badge>
-            )}
-            {summary.duplicate && (
-              <Badge tone="neutral" size="sm">
-                <Link2 aria-hidden="true" className="size-3" />
-                Possible duplicate
-              </Badge>
-            )}
-          </p>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
-            <span>{application.postingTitle}</span>
-            <TextLink
-              href={`mailto:${application.email}`}
-              className="inline-flex items-center gap-1 font-normal"
-            >
-              <Mail aria-hidden="true" className="size-3.5" />
-              {application.email}
-            </TextLink>
-            {application.phone && (
-              <TextLink
-                href={`tel:${application.phone}`}
-                className="tabular inline-flex items-center gap-1 font-normal"
-              >
-                <Phone aria-hidden="true" className="size-3.5" />
-                {application.phone}
-              </TextLink>
-            )}
-            <span className="tabular">
-              Applied {application.appliedAt.slice(0, 10)}
-            </span>
-            {application.source && (
-              <span>Heard: {sourceLabel(application.source)}</span>
-            )}
-            {summary.reference && (
-              <span className="tabular">Ref {summary.reference}</span>
-            )}
-          </p>
-          {summary.duplicate && (
-            <p className="mt-1 text-body-sm text-muted">
-              Gave {DUPLICATE_REASON[summary.duplicate.reason]} as an earlier
-              application.{" "}
-              <TextLink
-                href={`/hiring/candidates/${summary.duplicate.ofId}`}
-                className="text-body-sm"
-              >
-                See the earlier one
-              </TextLink>
-            </p>
+        <div className="flex min-w-0 items-start gap-3">
+          {canScreen && waiting && (
+            <Checkbox
+              className="mt-0.5"
+              hiddenLabel={`Select ${application.name}`}
+              checked={selected}
+              disabled={!selectable}
+              onChange={onToggle}
+            />
           )}
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+              {application.name}
+              <Badge tone={STATUS_TONE[application.status]} size="sm" dot>
+                {STATUS_LABEL[application.status]}
+              </Badge>
+              {summary.flagCount > 0 && (
+                <Badge tone="warning" size="sm">
+                  <Flag aria-hidden="true" className="size-3" />
+                  Needs a look
+                </Badge>
+              )}
+              {summary.duplicate && (
+                <Badge tone="neutral" size="sm">
+                  <Link2 aria-hidden="true" className="size-3" />
+                  Possible duplicate
+                </Badge>
+              )}
+            </p>
+            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+              <span>{application.postingTitle}</span>
+              <TextLink
+                href={`mailto:${application.email}`}
+                className="inline-flex items-center gap-1 font-normal"
+              >
+                <Mail aria-hidden="true" className="size-3.5" />
+                {application.email}
+              </TextLink>
+              {application.phone && (
+                <TextLink
+                  href={`tel:${application.phone}`}
+                  className="tabular inline-flex items-center gap-1 font-normal"
+                >
+                  <Phone aria-hidden="true" className="size-3.5" />
+                  {application.phone}
+                </TextLink>
+              )}
+              <span className="tabular">
+                Applied {application.appliedAt.slice(0, 10)}
+              </span>
+              {application.source && (
+                <span>Heard: {sourceLabel(application.source)}</span>
+              )}
+              {summary.reference && (
+                <span className="tabular">Ref {summary.reference}</span>
+              )}
+            </p>
+            {summary.duplicate && (
+              <p className="mt-1 text-body-sm text-muted">
+                Gave {DUPLICATE_REASON[summary.duplicate.reason]} as an earlier
+                application.{" "}
+                <TextLink
+                  href={`/hiring/candidates/${summary.duplicate.ofId}`}
+                  className="text-body-sm"
+                >
+                  See the earlier one
+                </TextLink>
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
@@ -702,7 +1037,7 @@ function ApplicationRow({
               Copy message
             </Button>
           )}
-          {editable && waiting && (
+          {canScreen && waiting && (
             <>
               <Button variant="secondary" size="sm" onClick={onDecline}>
                 Decline
@@ -925,72 +1260,6 @@ function AdvanceDialog({
 }
 
 /* -------------------------------------------------------------------------- */
-
-function DeclineDialog({
-  open,
-  application,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  /** Null while closed — the caller stays mounted rather than gating on this. */
-  application: ApiApplication | null;
-  onClose: () => void;
-  onConfirm: (reason: string) => Promise<void>;
-}) {
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      size="md"
-      title={
-        application
-          ? `Turn down ${application.name}?`
-          : "Turn down application?"
-      }
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="danger"
-            loading={busy}
-            onClick={() => {
-              setBusy(true);
-              void onConfirm(reason).finally(() => setBusy(false));
-            }}
-          >
-            Turn them down
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <p className="text-body-sm text-body">
-          Nothing is sent to them: ApproveHR does not email applicants yet.
-          Afterwards,
-          <span className="font-medium text-ink"> Copy message</span> gives you
-          a short note to send from your own inbox.
-        </p>
-        <Field
-          label="Why, for your own records"
-          help="Only your team sees this. It is what stops the same CV being screened twice."
-        >
-          <Textarea
-            rows={3}
-            value={reason}
-            placeholder="Wants twice the band."
-            onChange={(event) => setReason(event.target.value)}
-          />
-        </Field>
-      </div>
-    </Modal>
-  );
-}
 
 /* -------------------------------------------------------------------------- */
 
