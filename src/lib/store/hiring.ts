@@ -334,9 +334,16 @@ export function useRoleQueue(requisitionId: string): RoleQueue {
     [advertIds, online, total],
   );
 
+  /* The adverts are re-read whenever somebody comes back to the window, and
+     `usePostings` raises `loading` for each of those reads while keeping the old
+     answer. Waiting on `loading` alone would blank this queue — and flash its
+     skeleton — on every alt-tab, so only the very first read holds it back: once
+     there are adverts to ask about, the list stays up while they refresh. */
+  const advertsKnown = !postings.loading || postings.postings.length > 0;
+
   const list = usePagedList<ApiApplication>({
     key: JSON.stringify([online, requisitionId, advertIds]),
-    enabled: !postings.loading && postings.error === null,
+    enabled: advertsKnown && postings.error === null,
     fetchPage,
     idOf: (application) => application.id,
   });
@@ -387,7 +394,7 @@ export function useRoleQueue(requisitionId: string): RoleQueue {
       .reduce((sum, tally) => sum + tally.waiting, 0);
   }, [analytics.analytics, advertIds]);
 
-  const loading = postings.loading || list.loading;
+  const loading = !advertsKnown || list.loading;
 
   return {
     live: online && !loading,
@@ -396,7 +403,7 @@ export function useRoleQueue(requisitionId: string): RoleQueue {
     error: postings.error ?? list.error,
     adverts,
     rows,
-    total: postings.loading ? null : total,
+    total: advertsKnown ? total : null,
     waiting,
     hasMore: list.hasMore,
     loadingMore: list.loadingMore,
