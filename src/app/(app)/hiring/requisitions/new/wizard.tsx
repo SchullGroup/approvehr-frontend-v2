@@ -119,10 +119,11 @@ const ADVERT_TYPE = {
 /**
  * The advert this draft can actually become.
  *
- * `Requisition` has no route in this API, so the parts of a role that belong to
- * it — the pipeline stages, the screening questions, the hiring manager, the
- * note for approvers — are not sent anywhere. What an advert *can* carry is the
- * job itself, so that is what gets written, as a draft. Publishing is a separate
+ * The parts of a role that belong to the requisition — the pipeline stages and
+ * the hiring manager — are written to it by `submit` when connected. The
+ * screening questions and the note for approvers are collected but sent
+ * nowhere: nothing in the API stores them. What an advert *can* carry is the job
+ * itself, so that is what gets written, as a draft. Publishing is a separate
  * press on the adverts screen, because that is the moment the words go public.
  *
  * Composing the description here rather than in `lib/api/hiring.ts` is
@@ -617,7 +618,7 @@ function Wizard() {
 
                 <FieldSet
                   legend="Screening questions"
-                  help="Asked at pre-screening. Knockout questions auto-flag a failing answer."
+                  help="Not asked of applicants yet, and not saved with the role: the application form takes no questions today. Write them down here and re-enter them when it does."
                 >
                   <div className="flex flex-col gap-2.5">
                     {draft.screeningQuestions.map((q, i) => (

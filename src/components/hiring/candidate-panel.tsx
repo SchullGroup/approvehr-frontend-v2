@@ -163,7 +163,7 @@ export function CandidatePanel({
                   onClick={() =>
                     nothingHappened(
                       "Nothing was recorded",
-                      "Hiring somebody creates an employee record, and the pipeline has no endpoint to do it from yet. Add them from the people directory.",
+                      "Demo mode: nothing was saved. Hiring somebody creates an employee record, which needs a connected workspace. Add them from the people directory.",
                     )
                   }
                 >
@@ -300,11 +300,11 @@ export function CandidatePanel({
                 ]}
               />
 
-              {/* The filename is all the seed holds, and it is all the API
-                  holds either — a CV is recorded as a storage key and no upload
-                  pipeline is wired, in any environment. So this names the file
-                  and says it cannot be opened, in the same words the screening
-                  queue uses, rather than offering a button that opens nothing. */}
+              {/* The filename is all the demo seed holds — there is no file
+                  behind it. Connected, a CV opens through the audited route on
+                  the candidate's own record; this panel is only the offline
+                  demo, so it names the file and says it cannot be opened rather
+                  than offering a button that opens nothing. */}
               <div className="rounded-lg border border-line bg-canvas p-3">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <FileText
@@ -412,7 +412,7 @@ export function CandidatePanel({
                 onClick={() =>
                   nothingHappened(
                     "Nothing was booked",
-                    "Interviews have no endpoint yet, so no invitation went out and no diary changed.",
+                    "Demo mode: no invitation went out and no diary changed.",
                   )
                 }
               >

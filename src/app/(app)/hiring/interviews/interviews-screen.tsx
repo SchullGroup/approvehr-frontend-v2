@@ -259,7 +259,7 @@ function Diary() {
                               title: "Nothing was sent",
                               tone: "info",
                               detail:
-                                "Interviews and scorecards have no endpoint yet, so there is nobody to remind. Ask " +
+                                "Demo mode: nobody was reminded. Ask " +
                                 `${name.split(" ")[0]} directly.`,
                             })
                           }

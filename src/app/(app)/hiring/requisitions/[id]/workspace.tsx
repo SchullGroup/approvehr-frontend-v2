@@ -94,7 +94,7 @@ export function RequisitionWorkspace({
       tone: goingBack ? "warning" : "success",
       detail:
         (goingBack ? "Moved back a stage. " : "") +
-        "Not saved anywhere: the pipeline has no endpoint yet.",
+        "Demo mode: not saved anywhere.",
     });
   }
 
