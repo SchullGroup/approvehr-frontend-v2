@@ -176,7 +176,7 @@ function FlagList({
             </>
           }
         >
-          <RecordCheck cycleId={cycleId} flag={person} />
+          <RecordCheck cycleId={cycleId} flag={person} gapShown />
         </Disclosure>
       ))}
     </section>

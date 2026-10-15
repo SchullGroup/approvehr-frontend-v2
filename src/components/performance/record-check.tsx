@@ -59,17 +59,7 @@ export function NotePanel({ state }: { state: SuggestState }) {
     <div className="flex flex-col gap-2 rounded-md border border-line bg-canvas p-3">
       <p className="text-body-sm font-semibold text-ink">{note.title}</p>
       <p className="text-body-sm text-body">{note.detail}</p>
-      <Disclosure title="Based on" dense region={false}>
-        <ul className="list-disc space-y-1 pl-5 text-body-sm text-muted">
-          {outcome.groundedIn.facts.map((fact) => (
-            <li key={fact}>{fact}</li>
-          ))}
-        </ul>
-      </Disclosure>
-      <p className="text-meta text-muted">
-        Written by AI from the figures and what each side wrote. It can be
-        wrong.
-      </p>
+      <p className="text-meta text-muted">Written by AI. It can be wrong.</p>
     </div>
   );
 }
@@ -79,12 +69,15 @@ export function RecordCheck({
   flag,
   active = true,
   claims: given,
+  gapShown = false,
 }: {
   cycleId: string;
   flag: ApiReviewFlag;
   active?: boolean;
   /** Pass when the caller already holds them; otherwise they are fetched. */
   claims?: ApiClaims | null;
+  /** True when the gap is already on screen beside this panel. */
+  gapShown?: boolean;
 }) {
   const fetched = useReviewFlag(
     cycleId,
@@ -97,79 +90,14 @@ export function RecordCheck({
   const note = useAutoReviewNote(cycleId, flag.employeeId, active && flagged);
   const failed =
     note.error !== null || (note.outcome !== null && !note.outcome.available);
+  const noted =
+    note.outcome?.available === true && note.outcome.suggestions.length > 0;
+  // Without a note, the evidence is the only account of the record figure.
+  const evidenceOpen = !noted && !note.loading;
 
   return (
     <div className="flex flex-col gap-4">
-      <dl className="grid gap-3 sm:grid-cols-3">
-        <div>
-          <dt className="text-meta text-muted">Mark</dt>
-          <dd className="text-body-md font-semibold text-ink">
-            {exactPct(flag.markBp)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-meta text-muted">Record suggests</dt>
-          <dd className="text-body-md font-semibold text-ink">
-            {flag.expectedBp === null
-              ? "Not enough evidence"
-              : exactPct(flag.expectedBp)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-meta text-muted">Gap</dt>
-          <dd
-            className={`text-body-md font-semibold ${flagged ? "text-warning-text" : "text-ink"}`}
-          >
-            {flag.gapBp === null ? "—" : exactPoints(flag.gapBp)}
-          </dd>
-        </div>
-      </dl>
-
-      <div>
-        <p className="mb-1 text-meta font-semibold text-faint">Evidence</p>
-        <ul className="space-y-1 text-body-sm text-body">
-          <li>
-            Objectives:{" "}
-            {objectives.scoreBp === null
-              ? "none agreed for this period"
-              : `${String(objectives.agreed)} agreed, ${String(objectives.measured)} measured by key results, ${exactPct(objectives.scoreBp)} achieved`}
-          </li>
-          <li>
-            Peer feedback:{" "}
-            {peers?.averageBp != null
-              ? `${exactPct(peers.averageBp)} from ${String(peers.responses)} colleagues`
-              : "fewer than 3 colleagues answered"}
-          </li>
-          <li>
-            Previous periods:{" "}
-            {history
-              ? `${exactPct(history.averageBp)} over ${String(history.periods)}`
-              : "none on record"}
-          </li>
-        </ul>
-      </div>
-
-      {flagged && (
-        <div>
-          <p className="mb-1 text-meta font-semibold text-faint">
-            Patterns that apply
-          </p>
-          {flag.patterns.length ? (
-            <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">
-              {flag.patterns.map((pattern) => (
-                <li key={pattern.text}>{pattern.text}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-body-sm text-body">
-              No known pattern applies. Worth asking their manager what the mark
-              is based on.
-            </p>
-          )}
-        </div>
-      )}
-
-      {flagged && (
+      {flagged && (note.loading || note.outcome || note.error) && (
         <div className="flex flex-col gap-2">
           <NotePanel state={note} />
           {failed && (
@@ -184,7 +112,88 @@ export function RecordCheck({
         </div>
       )}
 
-      {claims && <ClaimsView claims={claims} />}
+      <p className="flex flex-wrap gap-x-6 gap-y-1 text-body-sm text-muted">
+        <span>
+          Mark{" "}
+          <span className="font-semibold text-ink">
+            {exactPct(flag.markBp)}
+          </span>
+        </span>
+        <span>
+          Record suggests{" "}
+          <span className="font-semibold text-ink">
+            {flag.expectedBp === null
+              ? "not enough evidence"
+              : exactPct(flag.expectedBp)}
+          </span>
+        </span>
+        {!gapShown && flag.gapBp !== null && (
+          <span>
+            Gap{" "}
+            <span
+              className={`font-semibold ${flagged ? "text-warning-text" : "text-ink"}`}
+            >
+              {exactPoints(flag.gapBp)}
+            </span>
+          </span>
+        )}
+      </p>
+
+      {flagged && (
+        <div>
+          <p className="mb-1 text-meta font-semibold text-faint">
+            Patterns that apply
+          </p>
+          {flag.patterns.length ? (
+            <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">
+              {flag.patterns.map((pattern) => (
+                <li key={pattern.text}>{pattern.text}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-body-sm text-body">
+              None. Their manager marks close to average and none of their
+              groups is flagged.
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {claims && (claims.manager.length > 0 || claims.employee) && (
+          <Disclosure title="What each side wrote" dense region={false}>
+            <ClaimsView claims={claims} />
+          </Disclosure>
+        )}
+        <Disclosure
+          key={evidenceOpen ? "open" : "closed"}
+          title="How the record figure is worked out"
+          dense
+          region={false}
+          defaultOpen={evidenceOpen}
+        >
+          <ul className="space-y-1 text-body-sm text-body">
+            <li>
+              Objectives:{" "}
+              {objectives.scoreBp === null
+                ? "none agreed for this period"
+                : `${String(objectives.agreed)} agreed, ${String(objectives.measured)} measured by key results, ${exactPct(objectives.scoreBp)} achieved`}
+            </li>
+            <li>
+              Peer feedback:{" "}
+              {peers?.averageBp != null
+                ? `${exactPct(peers.averageBp)} from ${String(peers.responses)} colleagues`
+                : "fewer than 3 colleagues answered"}
+            </li>
+            <li>
+              Previous periods:{" "}
+              {history
+                ? `${exactPct(history.averageBp)} over ${String(history.periods)}`
+                : "none on record"}
+            </li>
+          </ul>
+        </Disclosure>
+      </div>
     </div>
   );
 }
