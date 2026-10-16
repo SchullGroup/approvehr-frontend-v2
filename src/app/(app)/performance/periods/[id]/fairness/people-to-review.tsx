@@ -1,20 +1,16 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Sparkles } from "lucide-react";
 import {
-  Avatar,
-  Card,
-  EmptyState,
-  SegmentedControl,
-  Spinner,
-} from "@/components/ui";
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  Sparkles,
+} from "lucide-react";
+import { Button, Select, Spinner } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
-import {
-  STATUS,
-  exactPct,
-  exactPoints,
-} from "@/components/performance/record-check";
+import { exactPct, exactPoints } from "@/components/performance/record-check";
 import { SuggestButton } from "@/components/performance/suggestions";
 import type {
   ApiClaim,
@@ -22,15 +18,9 @@ import type {
   ApiReviewFlag,
   ApiReviewFlags,
 } from "@/lib/api/performance";
-import {
-  useAutoReviewNote,
-  useReviewBriefing,
-  type SuggestState,
-} from "@/lib/store/ai";
+import { useAutoReviewNote } from "@/lib/store/ai";
 import { useReviewFlag } from "@/lib/store/performance";
 import { cn } from "@/lib/cn";
-
-type Filter = "all" | "below" | "above";
 
 export function flaggedCount(flags: ApiReviewFlags | null) {
   return flags ? flags.counts.below + flags.counts.above : 0;
@@ -52,9 +42,7 @@ export function PeopleToReview({
   error: Error | null;
   reload: () => void;
 }) {
-  const [filter, setFilter] = useState<Filter>("all");
-  const [picked, setPicked] = useState<string | null>(null);
-  const [showUnclear, setShowUnclear] = useState(false);
+  const [index, setIndex] = useState(0);
   const detail = useRef<HTMLDivElement>(null);
 
   if (error) {
@@ -68,217 +56,143 @@ export function PeopleToReview({
   }
   if (!flags) {
     return loading ? (
-      <Card className="flex items-center gap-2 p-5 text-body-sm text-muted">
+      <p className="flex items-center gap-2 py-8 text-body-sm text-muted">
         <Spinner size="sm" />
         Comparing marks with records
-      </Card>
+      </p>
     ) : null;
   }
 
-  const flagged = flags.people.filter(
+  const queue = flags.people.filter(
     (p) => p.status === "below" || p.status === "above",
   );
-  const unclear = flags.people.filter((p) => p.status === "unclear");
-  const visible = flagged.filter(
-    (p) => filter === "all" || p.status === filter,
-  );
-  const selected =
-    visible.find((p) => p.employeeId === picked) ?? visible[0] ?? null;
   const gap = String(flags.rules.gapBp / 100);
+  if (!queue.length) {
+    return (
+      <p className="py-8 text-body-md text-body">
+        Nobody to review. Every mark is within {gap} points of the record, or
+        there isn’t enough evidence to tell.
+      </p>
+    );
+  }
+
+  const at = Math.min(index, queue.length - 1);
+  const person = queue[at]!;
+  const go = (next: number) => {
+    setIndex(next);
+    if (window.matchMedia("(max-width: 1023px)").matches)
+      requestAnimationFrame(() =>
+        detail.current?.scrollIntoView({ behavior: "smooth" }),
+      );
+  };
 
   return (
-    <div className="flex flex-col gap-4">
-      <Briefing cycleId={cycleId} gap={gap} hasFlags={flagged.length > 0} />
-
-      {flagged.length === 0 ? (
-        <Card>
-          <EmptyState
-            title="Nobody to review"
-            description={`Every mark is within ${gap} points of the record, or there isn't enough evidence to tell.`}
-          />
-        </Card>
-      ) : (
-        <Card className="grid overflow-hidden lg:grid-cols-[minmax(280px,340px)_1fr]">
-          <div className="flex flex-col border-line lg:border-r">
-            <div className="border-b border-line p-3">
-              <SegmentedControl
-                label="Show"
-                value={filter}
-                onChange={setFilter}
-                options={[
-                  { value: "all", label: `All ${String(flagged.length)}` },
-                  {
-                    value: "below",
-                    label: `Below ${String(flags.counts.below)}`,
-                  },
-                  {
-                    value: "above",
-                    label: `Above ${String(flags.counts.above)}`,
-                  },
-                ]}
-              />
+    <div className="grid pt-6 lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-14">
+      <nav
+        aria-label="People to review"
+        className="hidden lg:sticky lg:top-6 lg:block lg:self-start"
+      >
+        {(["below", "above"] as const).map((dir) => {
+          const people = queue.filter((p) => p.status === dir);
+          if (!people.length) return null;
+          return (
+            <div key={dir} className="mb-6">
+              <h3 className="mb-2 px-2.5 text-meta font-semibold uppercase tracking-wide text-faint">
+                {dir === "below" ? "Below their record" : "Above their record"}
+              </h3>
+              <ol>
+                {people.map((p) => {
+                  const k = queue.indexOf(p);
+                  return (
+                    <li key={p.employeeId}>
+                      <button
+                        type="button"
+                        onClick={() => go(k)}
+                        aria-current={k === at ? "true" : undefined}
+                        className={cn(
+                          "flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-2 text-left text-body-sm transition-colors",
+                          k === at
+                            ? "bg-sunken font-medium text-ink"
+                            : "text-body hover:bg-canvas",
+                        )}
+                      >
+                        <span className="truncate">{p.name}</span>
+                        {p.gapBp !== null && <Gap bp={p.gapBp} />}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
             </div>
-            <ul className="flex-1 divide-y divide-line">
-              {visible.map((person) => (
-                <li key={person.employeeId}>
-                  <PersonRow
-                    person={person}
-                    current={person.employeeId === selected?.employeeId}
-                    onSelect={() => {
-                      setPicked(person.employeeId);
-                      // Stacked below the list on narrow screens, so bring it into view.
-                      if (window.matchMedia("(max-width: 1023px)").matches)
-                        requestAnimationFrame(() =>
-                          detail.current?.scrollIntoView({
-                            behavior: "smooth",
-                          }),
-                        );
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-            {unclear.length > 0 && (
-              <div className="border-t border-line px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => setShowUnclear((v) => !v)}
-                  aria-expanded={showUnclear}
-                  className="text-left text-meta text-muted hover:text-ink"
-                >
-                  {unclear.length} can’t be checked — not enough evidence
-                  <span aria-hidden="true"> {showUnclear ? "▴" : "▾"}</span>
-                </button>
-                {showUnclear && (
-                  <ul className="mt-2 space-y-1">
-                    {unclear.map((p) => (
-                      <li key={p.employeeId} className="text-meta text-body">
-                        {p.name}
-                        <span className="text-muted"> · {role(p)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </div>
+          );
+        })}
+        {flags.counts.unclear > 0 && (
+          <p className="px-2.5 text-meta text-muted">
+            {flags.counts.unclear} more can’t be checked — not enough evidence.
+          </p>
+        )}
+      </nav>
 
-          <div
-            ref={detail}
-            className="scroll-mt-4 border-t border-line lg:border-t-0"
-          >
-            {selected && (
-              <PersonDetail
-                key={selected.employeeId}
-                cycleId={cycleId}
-                person={selected}
-              />
-            )}
+      <div ref={detail} className="min-w-0 scroll-mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
+          <span className="hidden text-body-sm text-muted lg:inline">
+            {at + 1} of {queue.length} to review
+          </span>
+          <div className="min-w-0 flex-1 lg:hidden">
+            <Select
+              aria-label="Jump to a person"
+              value={String(at)}
+              onChange={(event) => go(Number(event.target.value))}
+            >
+              {queue.map((p, k) => (
+                <option key={p.employeeId} value={String(k)}>
+                  {`${String(k + 1)} of ${String(queue.length)} · ${p.name}`}
+                </option>
+              ))}
+            </Select>
           </div>
-        </Card>
-      )}
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={at === 0}
+              onClick={() => go(at - 1)}
+            >
+              <ArrowLeft aria-hidden="true" className="size-4" />
+              <span className="max-sm:sr-only">Previous</span>
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={at === queue.length - 1}
+              onClick={() => go(at + 1)}
+            >
+              <span className="max-sm:sr-only">Next</span>
+              <ArrowRight aria-hidden="true" className="size-4" />
+            </Button>
+          </div>
+        </div>
+        <Person key={person.employeeId} cycleId={cycleId} person={person} />
+      </div>
     </div>
   );
 }
 
-function Briefing({
-  cycleId,
-  gap,
-  hasFlags,
-}: {
-  cycleId: string;
-  gap: string;
-  hasFlags: boolean;
-}) {
-  const briefing = useReviewBriefing();
-  const note =
-    briefing.outcome?.available === true
-      ? briefing.outcome.suggestions[0]
-      : undefined;
+function Gap({ bp }: { bp: number }) {
+  const Arrow = bp < 0 ? ArrowDown : ArrowUp;
   return (
-    <Card className="flex flex-col gap-3 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="max-w-[68ch]">
-          <h3 className="text-h4 text-ink">
-            Marks that don’t match the record
-          </h3>
-          <p className="mt-1 text-body-sm text-muted">
-            People marked at least {gap} points away from what their objectives,
-            peer feedback and past marks suggest. A flag is a reason to look,
-            not a finding. Their own manager never sees it.
-          </p>
-        </div>
-        {hasFlags && !note && !briefing.loading && (
-          <SuggestButton
-            label="Summarise the period"
-            loading={briefing.loading}
-            onClick={() => void briefing.ask({ cycleId })}
-          />
-        )}
-      </div>
-      {(briefing.loading || briefing.error || briefing.outcome) && (
-        <div className="border-t border-line pt-3">
-          <Prose state={briefing} label="Period summary" />
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function PersonRow({
-  person,
-  current,
-  onSelect,
-}: {
-  person: ApiReviewFlag;
-  current: boolean;
-  onSelect: () => void;
-}) {
-  const below = person.status === "below";
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-current={current ? "true" : undefined}
-      className={cn(
-        "relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
-        current ? "bg-sunken" : "hover:bg-canvas",
-      )}
-    >
-      {current && (
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-0 left-0 w-0.5 bg-accent"
-        />
-      )}
-      <Avatar name={person.name} size="sm" />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-body-sm font-medium text-ink">
-          {person.name}
-        </span>
-        <span className="block truncate text-meta text-muted">
-          {role(person)}
-        </span>
+    <span className="flex shrink-0 items-center gap-0.5 text-meta font-semibold tabular-nums text-warning-text">
+      <Arrow aria-hidden="true" className="size-3.5" />
+      {String(Math.abs(bp) / 100)}
+      <span className="sr-only">
+        {" "}
+        points {bp < 0 ? "below" : "above"} their record
       </span>
-      {person.gapBp !== null && (
-        <span className="flex shrink-0 items-center gap-1 text-meta font-semibold tabular-nums text-warning-text">
-          {below ? (
-            <ArrowDown aria-hidden="true" className="size-3.5" />
-          ) : (
-            <ArrowUp aria-hidden="true" className="size-3.5" />
-          )}
-          {String(Math.abs(person.gapBp) / 100)}
-          <span className="sr-only">
-            {" "}
-            points {below ? "below" : "above"} their record
-          </span>
-        </span>
-      )}
-    </button>
+    </span>
   );
 }
 
-function PersonDetail({
+function Person({
   cycleId,
   person,
 }: {
@@ -287,117 +201,130 @@ function PersonDetail({
 }) {
   const note = useAutoReviewNote(cycleId, person.employeeId, true);
   const { claims } = useReviewFlag(cycleId, person.employeeId, true);
-  const [view, setView] = useState<"claims" | "record">("claims");
+  const summary = note.outcome?.available
+    ? note.outcome.suggestions[0]
+    : undefined;
+  const writtenAt = note.outcome?.available
+    ? note.outcome.writtenAt
+    : undefined;
+  const failure =
+    note.error ??
+    (note.outcome && !note.outcome.available ? note.outcome.reason : null);
+  const noSummary = !summary && !note.loading;
+  const [shown, setShown] = useState<boolean | null>(null);
+  const open = shown ?? noSummary;
 
   return (
-    <div className="flex flex-col divide-y divide-line">
-      <header className="flex flex-wrap items-center gap-3 p-5">
-        <Avatar name={person.name} size="md" />
-        <div className="min-w-0 flex-1 basis-48">
-          <h3 className="text-h4 text-ink">{person.name}</h3>
-          <p className="text-meta text-muted">{role(person)}</p>
-        </div>
-        <span className="rounded-full bg-warning-soft px-2.5 py-1 text-meta font-medium text-warning-text">
-          {STATUS[person.status].label}
-        </span>
-      </header>
+    <article className="pt-8">
+      <h2 className="text-h3 text-ink">{person.name}</h2>
+      <p className="mt-1 text-body-sm text-muted">{role(person)}</p>
 
-      <section className="p-5" aria-label="Mark against record">
-        <MarkScale person={person} />
-      </section>
+      <Figures person={person} />
 
-      <section className="p-5">
-        <Prose state={note} label="AI summary" onRetry={note.retry} />
-      </section>
-
-      <section className="p-5">
-        <h4 className="text-meta font-semibold uppercase tracking-wide text-faint">
-          Patterns that apply
-        </h4>
-        {person.patterns.length ? (
-          <ul className="mt-2 space-y-2">
-            {person.patterns.map((pattern) => (
-              <li
-                key={pattern.text}
-                className="flex gap-2.5 text-body-sm text-body"
-              >
-                <span
-                  aria-hidden="true"
-                  className="mt-2 size-1.5 shrink-0 rounded-full bg-warning"
-                />
-                {pattern.text}
-              </li>
-            ))}
-          </ul>
+      <section className="mt-10 max-w-[68ch]">
+        <p className="flex items-center gap-1.5 text-meta font-semibold uppercase tracking-wide text-accent-text">
+          <Sparkles aria-hidden="true" className="size-3.5" />
+          AI summary
+          {writtenAt && (
+            <span className="font-normal normal-case tracking-normal text-muted">
+              · written{" "}
+              {new Date(writtenAt).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+              })}
+            </span>
+          )}
+        </p>
+        {note.loading ? (
+          <div
+            className="mt-4 flex flex-col gap-2.5"
+            aria-label="Writing the summary"
+          >
+            <span className="h-4 w-11/12 animate-pulse rounded bg-sunken" />
+            <span className="h-4 w-full animate-pulse rounded bg-sunken" />
+            <span className="h-4 w-2/3 animate-pulse rounded bg-sunken" />
+          </div>
+        ) : summary ? (
+          <>
+            <p className="mt-3 text-body-lg text-ink">{summary.detail}</p>
+            <p className="mt-3 text-meta text-muted">
+              Written by AI. It can be wrong.
+            </p>
+          </>
         ) : (
-          <p className="mt-2 text-body-sm text-body">
-            None. Their manager marks close to average and none of their groups
-            is flagged.
-          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <p className="text-body-sm text-muted">
+              {failure ?? "No summary available."}
+            </p>
+            {failure && (
+              <SuggestButton
+                label="Try again"
+                loading={false}
+                onClick={note.retry}
+              />
+            )}
+          </div>
         )}
       </section>
 
-      <section className="flex flex-col gap-4 p-5">
-        <SegmentedControl
-          className="self-start"
-          label="Detail"
-          value={view}
-          onChange={setView}
-          options={[
-            { value: "claims", label: "What they wrote" },
-            { value: "record", label: "The record" },
-          ]}
-        />
-        {view === "claims" ? (
-          claims ? (
-            <ClaimsView claims={claims} />
-          ) : (
-            <p className="text-body-sm text-muted">Loading what was written…</p>
-          )
-        ) : (
-          <RecordView person={person} />
-        )}
+      <section className="mt-10 border-t border-line pt-6">
+        <button
+          type="button"
+          onClick={() => setShown(!open)}
+          aria-expanded={open}
+          className="text-body-sm font-medium text-accent-text hover:underline"
+        >
+          {open ? "Hide what this is based on" : "See what this is based on"}
+        </button>
+        {open && <Basis person={person} claims={claims} />}
       </section>
-    </div>
+    </article>
   );
 }
 
-const clampPct = (bp: number) => Math.min(100, Math.max(0, bp / 100));
-
-function MarkScale({ person }: { person: ApiReviewFlag }) {
-  const mark = clampPct(person.markBp);
-  const record =
-    person.expectedBp === null ? null : clampPct(person.expectedBp);
+function Figures({ person }: { person: ApiReviewFlag }) {
+  const clamp = (bp: number) => Math.min(100, Math.max(0, bp / 100));
+  const mark = clamp(person.markBp);
+  const record = person.expectedBp === null ? null : clamp(person.expectedBp);
+  const figure = "mt-1 text-h3 tabular-nums sm:text-h2";
   return (
-    <div className="flex flex-col gap-5">
-      <dl className="flex flex-wrap gap-x-10 gap-y-3">
+    <div className="mt-8">
+      <dl className="grid grid-cols-3 gap-4 sm:flex sm:gap-x-14">
         <div>
-          <dt className="text-meta text-muted">Mark</dt>
-          <dd className="text-h3 tabular-nums text-ink">
-            {exactPct(person.markBp)}
-          </dd>
+          <dt className="flex items-center gap-1.5 text-meta text-muted">
+            <span aria-hidden="true" className="size-2.5 rounded-full bg-ink" />
+            Mark
+          </dt>
+          <dd className={cn(figure, "text-ink")}>{exactPct(person.markBp)}</dd>
         </div>
         <div>
-          <dt className="text-meta text-muted">Record suggests</dt>
-          <dd className="text-h3 tabular-nums text-ink">
+          <dt className="flex items-center gap-1.5 text-meta text-muted">
+            <span
+              aria-hidden="true"
+              className="size-2.5 rounded-full border-2 border-accent"
+            />
+            <span>
+              Record<span className="max-sm:hidden"> suggests</span>
+            </span>
+          </dt>
+          <dd className={cn(figure, "text-ink")}>
             {person.expectedBp === null ? "—" : exactPct(person.expectedBp)}
           </dd>
         </div>
         {person.gapBp !== null && (
           <div>
             <dt className="text-meta text-muted">Gap</dt>
-            <dd className="text-h3 tabular-nums text-warning-text">
-              {exactPoints(person.gapBp)}
+            <dd className={cn(figure, "text-warning-text")}>
+              {exactPoints(person.gapBp).replace(" pts", "")}
             </dd>
           </div>
         )}
       </dl>
-
-      <div aria-hidden="true" className="relative mx-1 h-2">
-        <div className="absolute inset-0 rounded-full bg-sunken" />
+      <div aria-hidden="true" className="relative mx-1.5 mt-6 h-3.5">
+        <span className="absolute inset-x-0 top-1.5 h-0.5 bg-sunken" />
         {record !== null && (
-          <div
-            className="absolute inset-y-0 rounded-full bg-warning-soft"
+          <span
+            className="absolute top-[5px] h-1 rounded-full bg-warning/40"
             style={{
               left: `${String(Math.min(mark, record))}%`,
               width: `${String(Math.abs(mark - record))}%`,
@@ -406,215 +333,145 @@ function MarkScale({ person }: { person: ApiReviewFlag }) {
         )}
         {record !== null && (
           <span
-            className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent bg-surface"
+            className="absolute top-px size-3 -translate-x-1/2 rounded-full border-2 border-accent bg-surface"
             style={{ left: `${String(record)}%` }}
           />
         )}
         <span
-          className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink ring-2 ring-surface"
+          className="absolute top-px size-3 -translate-x-1/2 rounded-full bg-ink"
           style={{ left: `${String(mark)}%` }}
         />
       </div>
-      <div className="flex items-center justify-between text-meta text-muted">
+      <div
+        aria-hidden="true"
+        className="mt-1.5 flex justify-between text-meta text-faint"
+      >
         <span>0%</span>
-        <span className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full bg-ink" />
-            Mark
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full border-2 border-accent" />
-            Record
-          </span>
-        </span>
         <span>100%</span>
       </div>
     </div>
   );
 }
 
-function Prose({
-  state,
-  label,
-  onRetry,
+const heading = "mb-3 text-body-sm font-semibold text-ink";
+
+// Only what has content is shown.
+function Basis({
+  person,
+  claims,
 }: {
-  state: SuggestState;
-  label: string;
-  onRetry?: () => void;
+  person: ApiReviewFlag;
+  claims: ApiClaims | null;
 }) {
-  const outcome = state.outcome;
-  const note = outcome?.available ? outcome.suggestions[0] : undefined;
-  const writtenAt = outcome?.available ? outcome.writtenAt : undefined;
-  const failure =
-    state.error ?? (outcome && !outcome.available ? outcome.reason : null);
-
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="flex items-center gap-1.5 text-meta font-semibold uppercase tracking-wide text-accent-text">
-        <Sparkles aria-hidden="true" className="size-3.5" />
-        {label}
-        {writtenAt && (
-          <span className="font-normal normal-case tracking-normal text-muted">
-            · written{" "}
-            {new Date(writtenAt).toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "short",
-            })}
-          </span>
-        )}
-      </p>
-      {state.loading ? (
-        <div className="flex flex-col gap-2" aria-label="Writing">
-          <span className="h-3.5 w-11/12 animate-pulse rounded bg-sunken" />
-          <span className="h-3.5 w-full animate-pulse rounded bg-sunken" />
-          <span className="h-3.5 w-2/3 animate-pulse rounded bg-sunken" />
-        </div>
-      ) : note ? (
-        <>
-          <p className="text-body-md font-semibold text-ink">{note.title}</p>
-          <p className="max-w-[72ch] text-body-md text-body">{note.detail}</p>
-          <p className="text-meta text-muted">
-            Written by AI. It can be wrong.
-          </p>
-        </>
-      ) : failure ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-body-sm text-muted">{failure}</p>
-          {onRetry && (
-            <SuggestButton
-              label="Try again"
-              loading={false}
-              onClick={onRetry}
-            />
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function ClaimsView({ claims }: { claims: ApiClaims }) {
-  const employee = claims.employee;
+  const { objectives, peers, history } = person.evidence;
+  const employee = claims?.employee;
   const selfWritten =
-    employee !== null &&
+    !!employee &&
     (employee.rating !== null ||
       employee.summary !== null ||
       employee.answers.length > 0);
+  const written = !!claims && (claims.manager.length > 0 || !!employee);
+  const record: [string, string][] = [
+    ...(objectives.scoreBp === null
+      ? []
+      : [
+          [
+            "Objectives",
+            `${exactPct(objectives.scoreBp)} achieved · ${String(objectives.agreed)} agreed, ${String(objectives.measured)} measured by key results`,
+          ] as [string, string],
+        ]),
+    ...(peers?.averageBp != null
+      ? [
+          [
+            "Peer feedback",
+            `${exactPct(peers.averageBp)} from ${String(peers.responses)} colleagues`,
+          ] as [string, string],
+        ]
+      : []),
+    ...(history
+      ? [
+          [
+            "Previous periods",
+            `${exactPct(history.averageBp)} average over ${String(history.periods)}`,
+          ] as [string, string],
+        ]
+      : []),
+  ];
+
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <div className="flex flex-col gap-4">
-        {claims.manager.length ? (
-          claims.manager.map((claim) => (
+    <div className="mt-6 flex max-w-[72ch] flex-col gap-8">
+      {person.patterns.length > 0 && (
+        <div>
+          <h3 className={heading}>Patterns that apply</h3>
+          <ul className="list-disc space-y-1.5 pl-5 text-body-sm text-body">
+            {person.patterns.map((p) => (
+              <li key={p.text}>{p.text}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {written && (
+        <div>
+          <h3 className={heading}>What each side wrote</h3>
+          {claims.manager.map((claim) => (
             <Claim
               key={claim.author}
-              who="Manager"
-              name={claim.author}
+              who={`${claim.author}, manager`}
               claim={claim}
             />
-          ))
-        ) : (
-          <Empty who="Manager" text="No written review submitted yet." />
-        )}
-      </div>
-      <div className="flex flex-col gap-4">
-        {employee && selfWritten ? (
-          <Claim who="Employee" name="Self-review" claim={employee} />
-        ) : (
-          <Empty who="Employee" text="No self-review submitted yet." />
-        )}
-        {employee?.onFinalMark && (
-          <p className="text-body-sm text-body">{employee.onFinalMark}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Empty({ who, text }: { who: string; text: string }) {
-  return (
-    <div>
-      <p className="text-meta font-semibold uppercase tracking-wide text-faint">
-        {who}
-      </p>
-      <p className="mt-1 text-body-sm text-muted">{text}</p>
-    </div>
-  );
-}
-
-function Claim({
-  who,
-  name,
-  claim,
-}: {
-  who: string;
-  name: string;
-  claim: ApiClaim;
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <p className="text-meta font-semibold uppercase tracking-wide text-faint">
-          {who}
-        </p>
-        <p className="text-body-sm text-ink">
-          <span className="font-medium">{name}</span>
-          {claim.rating && (
-            <span className="text-muted"> · {claim.rating}</span>
+          ))}
+          {employee && selfWritten && (
+            <Claim who={`${person.firstName}, self-review`} claim={employee} />
           )}
-        </p>
-      </div>
+          {employee?.onFinalMark && (
+            <p className="text-body-sm text-body">{employee.onFinalMark}</p>
+          )}
+        </div>
+      )}
+
+      {record.length > 0 && (
+        <div>
+          <h3 className={heading}>How the record figure is worked out</h3>
+          <dl className="text-body-sm">
+            {record.map(([label, value]) => (
+              <div
+                key={label}
+                className="grid gap-0.5 py-1.5 sm:grid-cols-[160px_1fr] sm:gap-4"
+              >
+                <dt className="text-muted">{label}</dt>
+                <dd className="text-ink">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Claim({ who, claim }: { who: string; claim: ApiClaim }) {
+  return (
+    <div className="mb-6 last:mb-0">
+      <p className="text-body-sm text-muted">
+        <span className="font-medium text-ink">{who}</span>
+        {claim.rating && ` · ${claim.rating}`}
+      </p>
       {claim.summary && (
-        <blockquote className="border-l-2 border-line-strong pl-3 text-body-sm text-ink">
+        <blockquote className="mt-2 border-l-2 border-line-strong pl-3 text-body-sm text-ink">
           {claim.summary}
         </blockquote>
       )}
       {claim.answers.map((answer) => (
-        <figure key={answer.question} className="flex flex-col gap-1">
+        <figure key={answer.question} className="mt-3">
           <figcaption className="text-meta text-muted">
             {answer.question}
           </figcaption>
-          <blockquote className="border-l-2 border-line-strong pl-3 text-body-sm text-ink">
+          <blockquote className="mt-1 border-l-2 border-line-strong pl-3 text-body-sm text-ink">
             {answer.answer}
           </blockquote>
         </figure>
       ))}
     </div>
-  );
-}
-
-function RecordView({ person }: { person: ApiReviewFlag }) {
-  const { objectives, peers, history } = person.evidence;
-  const rows: [string, string][] = [
-    [
-      "Objectives",
-      objectives.scoreBp === null
-        ? "None agreed for this period"
-        : `${exactPct(objectives.scoreBp)} achieved · ${String(objectives.agreed)} agreed, ${String(objectives.measured)} measured by key results`,
-    ],
-    [
-      "Peer feedback",
-      peers?.averageBp != null
-        ? `${exactPct(peers.averageBp)} from ${String(peers.responses)} colleagues`
-        : "Fewer than 3 colleagues answered",
-    ],
-    [
-      "Previous periods",
-      history
-        ? `${exactPct(history.averageBp)} average over ${String(history.periods)}`
-        : "None on record",
-    ],
-  ];
-  return (
-    <dl className="divide-y divide-line">
-      {rows.map(([label, value]) => (
-        <div
-          key={label}
-          className="grid gap-1 py-2.5 first:pt-0 sm:grid-cols-[160px_1fr]"
-        >
-          <dt className="text-meta text-muted">{label}</dt>
-          <dd className="text-body-sm text-ink">{value}</dd>
-        </div>
-      ))}
-    </dl>
   );
 }

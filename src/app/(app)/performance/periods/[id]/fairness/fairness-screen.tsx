@@ -44,7 +44,7 @@ type View = "average" | "bands" | "table";
 export function FairnessScreen({ cycleId }: { cycleId: string }) {
   const allowed = useCan("VIEW_FAIRNESS");
   const [periods, setPeriods] = useState<FairnessPeriods>(1);
-  const [tab, setTab] = useState<Tab>("groups");
+  const [tab, setTab] = useState<Tab>("people");
   const detail = useCycleFairness(cycleId, periods, allowed);
   const data = detail.fairness;
   const review = useReviewFlags(cycleId, allowed);
@@ -68,7 +68,7 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
           ) : undefined
         }
         action={
-          allowed ? (
+          allowed && tab !== "people" ? (
             <SegmentedControl
               label="Periods counted"
               value={String(periods) as "1" | "3"}
@@ -120,9 +120,14 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
 
         {data && (
           <>
-            <Summary data={data} periods={periods} />
+            {tab !== "people" && <Summary data={data} periods={periods} />}
             <Tabs
               items={[
+                {
+                  id: "people",
+                  label: "People to review",
+                  count: flaggedCount(review.flags) || undefined,
+                },
                 {
                   id: "groups",
                   label: "Groups",
@@ -130,11 +135,6 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
                 },
                 { id: "managers", label: "Managers" },
                 { id: "calibration", label: "Calibration moves" },
-                {
-                  id: "people",
-                  label: "People to review",
-                  count: flaggedCount(review.flags) || undefined,
-                },
               ]}
               value={tab}
               onChange={(id) => setTab(id as Tab)}
@@ -152,28 +152,30 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
                 />
               )}
             </Tabs>
-            <Disclosure title="How flags work" region={false}>
-              <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">
-                <li>
-                  Marks are compared before calibration. Calibration moves are
-                  on their own tab.
-                </li>
-                <li>
-                  A group is flagged when its gap is at least{" "}
-                  {pct(data.rules.minGapBp).replace("%", "")} points and the
-                  likely range doesn’t cross zero.
-                </li>
-                <li>
-                  Groups under {data.rules.minGroup} people are hidden. Religion
-                  and state of origin aren’t checked.
-                </li>
-                <li>
-                  A manager is flagged at{" "}
-                  {pct(data.managers.rules.apartBp).replace("%", "")} points
-                  from everyone else, or when their marks barely vary.
-                </li>
-              </ul>
-            </Disclosure>
+            {tab !== "people" && (
+              <Disclosure title="How flags work" region={false}>
+                <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">
+                  <li>
+                    Marks are compared before calibration. Calibration moves are
+                    on their own tab.
+                  </li>
+                  <li>
+                    A group is flagged when its gap is at least{" "}
+                    {pct(data.rules.minGapBp).replace("%", "")} points and the
+                    likely range doesn’t cross zero.
+                  </li>
+                  <li>
+                    Groups under {data.rules.minGroup} people are hidden.
+                    Religion and state of origin aren’t checked.
+                  </li>
+                  <li>
+                    A manager is flagged at{" "}
+                    {pct(data.managers.rules.apartBp).replace("%", "")} points
+                    from everyone else, or when their marks barely vary.
+                  </li>
+                </ul>
+              </Disclosure>
+            )}
           </>
         )}
       </PageBody>
