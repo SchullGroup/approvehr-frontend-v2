@@ -105,10 +105,10 @@ export function CriteriaPreviewPanel({
             </p>
           ) : (
             <p className="text-body-sm text-body">
-              Tried on the newest {count(preview.sampled)} of{" "}
-              {count(preview.available)}{" "}
-              {preview.available === 1 ? "applicant" : "applicants"} whose CV
-              has been read. {count(preview.scored)} would get a score
+              {preview.sampled >= preview.available
+                ? `Tried on ${preview.available === 1 ? "the one applicant" : `all ${count(preview.available)} applicants`}`
+                : `Tried on the newest ${count(preview.sampled)} of ${count(preview.available)} applicants`}{" "}
+              whose CV has been read. {count(preview.scored)} would get a score
               {preview.notScorable > 0
                 ? `, and ${count(preview.notScorable)} would not, because there is too little in the CV to judge`
                 : ""}

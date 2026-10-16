@@ -369,6 +369,32 @@ describe("previewing", () => {
     ).toBeDisabled();
   });
 
+  it("says all of them, not the newest of them, when the sample is everybody", async () => {
+    current.gateway = fakeGateway({
+      criteria: {
+        ...fakeGateway().criteria,
+        preview: vi.fn(async () => ({
+          available: 16,
+          sampled: 16,
+          rows: [],
+          scored: 16,
+          notScorable: 0,
+          mean: 55.1,
+          bands: [0, 1, 0, 4, 2, 2, 3, 1, 0, 3],
+        })),
+      },
+    });
+    const user = userEvent.setup();
+    open();
+    await ready();
+    await user.click(
+      screen.getByRole("button", { name: "Preview on current applicants" }),
+    );
+    expect(await screen.findByTestId("criteria-preview")).toHaveTextContent(
+      "Tried on all 16 applicants whose CV has been read. 16 would get a score. The average would be 55.1.",
+    );
+  });
+
   it("says a preview could not be made", async () => {
     current.gateway = fakeGateway({
       criteria: {
