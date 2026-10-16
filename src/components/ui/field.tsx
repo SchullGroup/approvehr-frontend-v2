@@ -228,16 +228,16 @@ export function Field({
     <FieldContext.Provider
       value={{ inputId, helpId, errorId, hasError, describedBy, required }}
     >
-      <div className={cn("flex flex-col gap-1.5", className)}>
+      <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
         <span
           className={cn(
-            "flex items-center gap-1.5",
+            "flex min-w-0 items-center gap-1.5",
             hideLabel && "sr-only-focusable",
           )}
         >
           <label
             htmlFor={inputId}
-            className="text-body-sm font-medium text-ink"
+            className="min-w-0 text-body-sm font-medium text-ink"
           >
             {label}
             {required && (
@@ -284,6 +284,74 @@ export function Field({
         )}
       </div>
     </FieldContext.Provider>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How many columns a `FieldRow` has, and whether a phone gets them.
+ *
+ * Written out in full rather than assembled from the numbers: Tailwind finds
+ * classes by reading the source, and `grid-cols-${n}` is not in it.
+ */
+const FIELD_ROW_COLUMNS = {
+  stack: {
+    2: "grid-cols-1 sm:grid-cols-2",
+    3: "grid-cols-1 sm:grid-cols-3",
+  },
+  pair: {
+    2: "grid-cols-2",
+    3: "grid-cols-3",
+  },
+} as const;
+
+/**
+ * Fields side by side, built so that neither can push the row off the screen.
+ *
+ * ## Why this exists rather than a `grid grid-cols-2` at each call site
+ *
+ * A grid item's automatic minimum width is its content's, and a control's
+ * content is whatever the engine says it is. In iPhone Safari a time input in a
+ * 161px column rendered 187px wide, so two of them overran a 375px sheet and
+ * the second — "Clock out should be", on the attendance correction — could not
+ * be reached at all. Every row written by hand has to remember
+ * `min-w-0` on every cell, and none of the ones that forgot looked wrong on a
+ * laptop. This one does it for the cells, so a row cannot be made wrong by
+ * adding a field to it.
+ *
+ * ## `phone`: one per line, or still two across
+ *
+ * - `"stack"` (the default) is a single column below `sm` and `cols` columns
+ *   from there. Use it for anything a thumb has to read inside: two native date
+ *   pickers, two money figures, a select beside a date.
+ * - `"pair"` keeps the columns on a phone. Only for short controls that fit at
+ *   320px with room to spare — first and last name, two clock times, two small
+ *   numbers. Half of a 320px sheet is about 134px, less its padding.
+ *
+ * Choosing is the point: a row nobody chose for is the row that overflows.
+ */
+export function FieldRow({
+  cols = 2,
+  phone = "stack",
+  className,
+  children,
+}: {
+  cols?: 2 | 3;
+  phone?: "stack" | "pair";
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid gap-3 [&>*]:min-w-0",
+        FIELD_ROW_COLUMNS[phone][cols],
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
 }
 
