@@ -220,9 +220,18 @@ describe("editing and saving", () => {
     await user.click(
       await screen.findByRole("button", { name: "Save and score" }),
     );
+    /* The refusal names the list it is about, beside that list's own box. */
+    const message = await screen.findAllByText("Use up to 60 characters.");
+    expect(message.length).toBeGreaterThanOrEqual(2);
+    const list = screen
+      .getByRole("textbox", { name: /^Must-have skills/ })
+      .closest("div.flex-col") as HTMLElement;
+    expect(list).toHaveTextContent("Use up to 60 characters.");
     expect(
-      await screen.findByText("Use up to 60 characters."),
-    ).toBeInTheDocument();
+      screen
+        .getByRole("textbox", { name: /^Nice-to-have skills/ })
+        .closest("div.flex-col"),
+    ).not.toHaveTextContent("Use up to 60 characters.");
   });
 
   it("throws changes away only after asking", async () => {
@@ -250,6 +259,52 @@ describe("editing and saving", () => {
     ).toBeVisible();
     expect(current.gateway.criteria.suggest).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Unsaved changes")).toBeNull();
+  });
+});
+
+describe("saving what is already saved", () => {
+  it("says nothing changed and starts no re-score", async () => {
+    current.gateway = fakeGateway({
+      criteria: {
+        ...fakeGateway().criteria,
+        save: vi.fn(async () => ({ ...savedView(), changed: false })),
+      },
+    });
+    const user = userEvent.setup();
+    open();
+    await ready();
+    await addSkill(user, /^Must-have skills/, "Tax");
+    await user.click(screen.getByRole("button", { name: "Save criteria" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Save and score" }),
+    );
+    expect(await screen.findByText("Nothing changed")).toBeInTheDocument();
+    expect(screen.getByText(/nobody was scored again/)).toBeInTheDocument();
+    expect(current.gateway.rescore.progress).toHaveBeenCalledTimes(1);
+  });
+
+  it("says what the API tidied", async () => {
+    current.gateway = fakeGateway({
+      criteria: {
+        ...fakeGateway().criteria,
+        save: vi.fn(async () => ({
+          ...savedView({ version: 4 }),
+          changed: true,
+          notes: ['"Tax" was listed twice; kept once.'],
+        })),
+      },
+    });
+    const user = userEvent.setup();
+    open();
+    await ready();
+    await addSkill(user, /^Must-have skills/, "Tax");
+    await user.click(screen.getByRole("button", { name: "Save criteria" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Save and score" }),
+    );
+    expect(
+      await screen.findByText(/"Tax" was listed twice; kept once\./),
+    ).toBeInTheDocument();
   });
 });
 

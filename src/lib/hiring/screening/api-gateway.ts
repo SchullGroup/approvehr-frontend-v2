@@ -55,9 +55,15 @@ export const apiScreeningGateway: ScreeningGateway = {
           `Somebody saved newer criteria, version ${String(have ?? 0)}, while you were editing. Reload to see them, then make your changes again.`,
         );
       }
-      return viewFromApi(
-        await screeningApi.putCriteria(postingId, criteriaToApi(criteria)),
+      const saved = await screeningApi.putCriteria(
+        postingId,
+        criteriaToApi(criteria),
       );
+      return {
+        ...viewFromApi(saved),
+        changed: saved.changed,
+        notes: saved.notes,
+      };
     },
 
     suggest: async (postingId, signal) =>

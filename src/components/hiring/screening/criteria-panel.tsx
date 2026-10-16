@@ -23,10 +23,12 @@ import {
   criteriaKey,
   hasProblems,
   isEmptyCriteria,
+  type CriteriaProblems,
   sameCriteria,
   validateCriteria,
 } from "@/lib/hiring/screening/criteria";
 import type { Criteria } from "@/lib/hiring/screening/model";
+import { problemsFromApi } from "@/lib/hiring/screening/wire";
 import {
   useCriteria,
   usePreview,
@@ -67,6 +69,7 @@ export function CriteriaPanel({
   const [draft, setDraft] = useState<Criteria | null>(null);
   const [showProblems, setShowProblems] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [serverProblems, setServerProblems] = useState<CriteriaProblems>({});
   const [refusal, setRefusal] = useState<{
     message: string;
     conflict: boolean;
@@ -103,12 +106,13 @@ export function CriteriaPanel({
   }
 
   const problems = validateCriteria(cleaned(effective));
-  const shown = showProblems ? problems : {};
+  const shown = { ...(showProblems ? problems : {}), ...serverProblems };
   const previewKey = criteriaKey(effective);
 
   const edit = (next: Criteria) => {
     setDraft(next);
     setRefusal(null);
+    setServerProblems({});
   };
 
   function requestSave() {
@@ -134,14 +138,30 @@ export function CriteriaPanel({
       setShowProblems(false);
       setRefusal(null);
       setConfirming(false);
-      rescore.watch();
-      toast.push({
-        title: "Criteria saved",
-        tone: "success",
-        detail: `This is version ${String(next.version ?? 1)}. Everybody who has applied is being scored against it.`,
-      });
+      if (next.changed === false) {
+        toast.push({
+          title: "Nothing changed",
+          tone: "info",
+          detail:
+            "These are the criteria already saved, so nobody was scored again.",
+        });
+      } else {
+        rescore.watch();
+        toast.push({
+          title: "Criteria saved",
+          tone: "success",
+          detail: `This is version ${String(next.version ?? 1)}. Everybody who has applied is being scored against it.${
+            next.notes && next.notes.length > 0
+              ? ` ${next.notes.join(" ")}`
+              : ""
+          }`,
+        });
+      }
     } catch (error) {
       setConfirming(false);
+      /* The API names every wrong field at once: put each on its own box. */
+      if (error instanceof ApiError && error.fieldErrors.length > 0)
+        setServerProblems(problemsFromApi(error.fieldErrors));
       setRefusal({
         message:
           error instanceof ApiError

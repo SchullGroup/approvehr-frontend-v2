@@ -174,6 +174,13 @@ export type CriteriaView = {
   neverUsed: string[];
   updatedAt: string | null;
   updatedBy: string | null;
+  /**
+   * Only on what a save returns: whether it changed anything. Saving what is
+   * already saved writes nothing and starts nothing, and the screen says so.
+   */
+  changed?: boolean;
+  /** Only on what a save returns: what was quietly tidied ("kept once"). */
+  notes?: string[];
 };
 
 /** A skill the advert's words suggest, with the sentence it came from. */
