@@ -100,7 +100,7 @@ export function PeopleToReview({
               <h3 className="mb-2 px-2.5 text-meta font-semibold uppercase tracking-wide text-faint">
                 {dir === "below" ? "Below their record" : "Above their record"}
               </h3>
-              <ol>
+              <ol className="space-y-1">
                 {people.map((p) => {
                   const k = queue.indexOf(p);
                   return (
@@ -110,7 +110,7 @@ export function PeopleToReview({
                         onClick={() => go(k)}
                         aria-current={k === at ? "true" : undefined}
                         className={cn(
-                          "flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-2 text-left text-body-sm transition-colors",
+                          "flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-2.5 text-left text-body-sm transition-colors",
                           k === at
                             ? "bg-sunken font-medium text-ink"
                             : "text-body hover:bg-canvas",
@@ -221,7 +221,7 @@ function Person({
 
       <Figures person={person} />
 
-      <section className="mt-10 max-w-[68ch]">
+      <section className="mt-10 max-w-[84ch]">
         <p className="flex items-center gap-1.5 text-meta font-semibold uppercase tracking-wide text-accent-text">
           <Sparkles aria-hidden="true" className="size-3.5" />
           AI summary
@@ -289,7 +289,7 @@ function Figures({ person }: { person: ApiReviewFlag }) {
   const figure = "mt-1 text-h3 tabular-nums sm:text-h2";
   return (
     <div className="mt-8">
-      <dl className="grid grid-cols-3 gap-4 sm:flex sm:gap-x-14">
+      <dl className="grid grid-cols-3 gap-8">
         <div>
           <dt className="flex items-center gap-1.5 text-meta text-muted">
             <span aria-hidden="true" className="size-2.5 rounded-full bg-ink" />
