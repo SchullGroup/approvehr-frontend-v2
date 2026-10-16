@@ -122,7 +122,7 @@ function view(postingId: string): CriteriaView {
     formQuestions: [],
     neverUsed: NEVER_USED,
     updatedAt: state.updatedAt,
-    updatedBy: state.updatedAt ? "Fatima Bello" : null,
+    updatedBy: state.updatedAt && DEMO_ENABLED ? "Fatima Bello" : null,
   };
 }
 
