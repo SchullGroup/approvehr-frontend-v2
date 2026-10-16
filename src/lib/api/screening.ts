@@ -144,11 +144,7 @@ export type ApiSuggestions = {
 
 /** The API's own words for where a score is. */
 export type ApiScoreStatus =
-  | "PENDING"
-  | "SCORED"
-  | "NO_CV"
-  | "NEEDS_READING"
-  | "NO_CRITERIA";
+  "PENDING" | "SCORED" | "NO_CV" | "NEEDS_READING" | "NO_CRITERIA";
 
 export type ApiCriterionResult = {
   /** `must:0`, `nice:2`, `experience`, `education`, `location`. */

@@ -300,9 +300,11 @@ export function ExplanationView({
       {explanation.stale && (
         <Callout tone="info" title="Scored with an older version">
           {STALE_NOTE}
-          {explanation.currentVersion !== null && explanation.version !== null
-            ? ` This score is from version ${String(explanation.version)}, and the advert is now on version ${String(explanation.currentVersion)}.`
-            : ""}
+          {explanation.version === null
+            ? ""
+            : explanation.currentVersion !== null
+              ? ` This score is from version ${String(explanation.version)}, and the advert is now on version ${String(explanation.currentVersion)}.`
+              : ` This score is from version ${String(explanation.version)}.`}
         </Callout>
       )}
 
