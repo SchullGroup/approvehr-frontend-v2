@@ -419,7 +419,7 @@ export function NewKpiDialog({
             help={
               reviewCycleId
                 ? "Counts towards this person's mark for that period, once somebody agrees it."
-                : "Nothing here reaches an appraisal mark. A quarter alone lets the objective be agreed and still score nothing."
+                : "Without an appraisal period, this objective will not count towards anyone's mark, even once it is agreed."
             }
           >
             <Select

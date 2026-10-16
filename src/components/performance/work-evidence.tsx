@@ -97,7 +97,7 @@ export function WorkEvidence({
       <CardHeader
         title={title}
         level={3}
-        description={`Tickets from ${providers.join(" and ")}, ${formatDateShort(evidence.from, timeZone)} to ${formatDateShort(evidence.to, timeZone)}. For the conversation: these figures are not part of the score.`}
+        description={`Tickets from ${providers.join(" and ")}, ${formatDateShort(evidence.from, timeZone)} to ${formatDateShort(evidence.to, timeZone)}. These figures are for your conversation and are not part of the score.`}
       />
       <CardBody className="flex flex-col gap-5">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

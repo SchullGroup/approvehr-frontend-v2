@@ -87,6 +87,7 @@ export const PERMISSION_KEYS = [
   "MANAGE_SHIFTS",
   "MANAGE_ROTA",
   "APPROVE_SHIFT_SWAP",
+  "VIEW_FAIRNESS",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -97,6 +98,7 @@ export type PermissionModule =
   | "repairs"
   | "exits"
   | "hiring"
+  | "performance"
   | "leave"
   | "shifts"
   | "payroll"
@@ -180,6 +182,7 @@ export const PERMISSION_SHAPE: Record<
   MANAGE_SHIFTS: { module: "shifts", action: "manage" },
   MANAGE_ROTA: { module: "shifts", action: "assign" },
   APPROVE_SHIFT_SWAP: { module: "shifts", action: "approve" },
+  VIEW_FAIRNESS: { module: "performance", action: "view" },
   MANAGE_SETTINGS: { module: "settings", action: "manage" },
   MANAGE_ROLES: { module: "access", action: "manage" },
   INVITE_STAFF: { module: "access", action: "invite" },
