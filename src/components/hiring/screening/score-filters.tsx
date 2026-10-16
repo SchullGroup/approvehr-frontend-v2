@@ -158,7 +158,11 @@ export function ScoreFilterFields({
         label="Sort by"
         {...(needsAdvert
           ? { help: "Newest first, until you choose an advert." }
-          : {})}
+          : state.sort === "fit-asc" && gateway.mode === "api"
+            ? {
+                help: "Only people who have a score are listed. Find the rest by score status.",
+              }
+            : {})}
       >
         <Select
           value={needsAdvert ? "newest" : state.sort}

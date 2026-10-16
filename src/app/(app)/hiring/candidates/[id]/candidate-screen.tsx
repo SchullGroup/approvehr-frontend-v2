@@ -422,6 +422,11 @@ function Record({ id }: { id: string }) {
               />
             ) : realApp ? (
               <ScreeningCard subject={{ kind: "pipeline", id: realApp.id }} />
+            ) : card ? (
+              <ScreeningCard
+                subject={{ kind: "pipeline", id: card.id }}
+                postingId={`demo-advert-${card.requisitionId}`}
+              />
             ) : null}
 
             {/* The history of an application nobody has screened in — a turn-down,
