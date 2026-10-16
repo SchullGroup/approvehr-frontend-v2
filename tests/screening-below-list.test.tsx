@@ -467,6 +467,66 @@ describe("rejecting, which a person does", () => {
     });
   });
 
+  it("says emails are queued, not sent, when they can leave", async () => {
+    const user = userEvent.setup();
+    open();
+    await ready();
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select Applicant 1" }),
+    );
+    await user.click(within(bar()).getByRole("button", { name: "Reject…" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Reject 1 person?",
+    });
+    await user.selectOptions(
+      within(dialog).getByRole("combobox", { name: /Reason/ }),
+      "Not enough relevant experience",
+    );
+    await user.click(
+      within(dialog).getByRole("checkbox", { name: /Send decline emails/ }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Reject 1 person" }),
+    );
+    expect(
+      await screen.findByText(
+        /3 emails were queued to send\. Queued is not sent/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("says no email was sent, and why, when the dialog had said none would leave", async () => {
+    readiness.data = {
+      ...readiness.data,
+      willSend: false,
+      blockedBy: ["Add a reply-to address."],
+    };
+    const user = userEvent.setup();
+    open();
+    await ready();
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select Applicant 1" }),
+    );
+    await user.click(within(bar()).getByRole("button", { name: "Reject…" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Reject 1 person?",
+    });
+    await user.selectOptions(
+      within(dialog).getByRole("combobox", { name: /Reason/ }),
+      "Not enough relevant experience",
+    );
+    await user.click(
+      within(dialog).getByRole("checkbox", { name: /Send decline emails/ }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Reject 1 person" }),
+    );
+    const note = await screen.findByText(/No email was sent\./);
+    expect(note).toHaveTextContent("Add a reply-to address.");
+    expect(note).toHaveTextContent("each email is recorded as not sent");
+    expect(screen.queryByText(/were queued to send/)).toBeNull();
+  });
+
   it("offers no email box when the server sends no emails to candidates", async () => {
     readiness.data = { ...readiness.data, supported: false };
     const user = userEvent.setup();

@@ -262,7 +262,21 @@ function Below({ id }: { id: string }) {
         signal: new AbortController().signal,
         onProgress: setProgress,
       });
-      setResults({ what: "Rejected", outcome });
+      /* The dialog said, before the tick was acted on, that nothing would leave. The
+         API records each such email as not sent, so the result says that, and never
+         "queued", which reads as on its way. */
+      const blocked = readiness.data?.blockedBy ?? [];
+      setResults({
+        what: "Rejected",
+        outcome:
+          choice.sendEmail && outcome.emailed !== null && blocked.length > 0
+            ? {
+                ...outcome,
+                emailed: 0,
+                emailNote: `No email was sent. ${blocked.join(" ")} The rejection is recorded, and each email is recorded as not sent on the person's record.`,
+              }
+            : outcome,
+      });
       selection.clear();
       setRejecting(false);
       list.reload();

@@ -495,3 +495,36 @@ describe("a skill the form already asks about", () => {
     expect(kw("x").weight).toBe(1);
   });
 });
+
+describe("what the progress bar says it is doing", () => {
+  const running = (cause: "CRITERIA" | "PASS_MARK") => ({
+    running: true,
+    done: 40,
+    total: 100,
+    cause,
+    failure: null,
+  });
+
+  it("says new criteria move scores to the new version", async () => {
+    const { RescoreBar } =
+      await import("@/components/hiring/screening/rescore-progress");
+    render(<RescoreBar progress={running("CRITERIA")} />);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Scores change to the new version as they are ready",
+    );
+  });
+
+  it("says a new pass mark changes nobody's score, and rejects nobody", async () => {
+    const { RescoreBar } =
+      await import("@/components/hiring/screening/rescore-progress");
+    render(<RescoreBar progress={running("PASS_MARK")} />);
+    const note = screen.getByRole("status");
+    expect(note).toHaveTextContent(
+      "Working out who is below the new pass mark",
+    );
+    expect(note).toHaveTextContent(
+      "Nobody's score changes and nobody is rejected",
+    );
+    expect(note).not.toHaveTextContent("Scores change to the new version");
+  });
+});

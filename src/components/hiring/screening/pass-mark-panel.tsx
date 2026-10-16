@@ -420,7 +420,7 @@ function Reasons({ data }: { data: PassMarkCount }) {
   const parts = [
     data.byReason.fit > 0 ? `${count(data.byReason.fit)} on fit score` : null,
     data.byReason.assessment > 0
-      ? `${count(data.byReason.assessment)} on assessment score`
+      ? `${count(data.byReason.assessment)} on assessment result`
       : null,
     data.byReason.knockout > 0
       ? `${count(data.byReason.knockout)} on a flagged answer`

@@ -459,6 +459,37 @@ function ChooseFile({
 
 /* ----------------------------------------------------------------- step two */
 
+/**
+ * What a check says, in a sentence: how many results would be written, how many
+ * cannot be used and why they are listed, and how many change nothing.
+ *
+ * "Can be saved" counts what would be written, not what is merely usable: a file
+ * that repeats what is already on file has nothing to save, and says so.
+ */
+export function checkSentence(check: AssessmentCheck): string {
+  if (check.usable === 0)
+    return "Not one row can be used, so nothing would be saved. Fix the file and choose it again.";
+  const writable = check.usable - check.unchanged;
+  const same = check.unchanged;
+  const lead =
+    writable === 0
+      ? "Nothing would change"
+      : `${count(writable)} ${writable === 1 ? "score can" : "scores can"} be saved`;
+  const refused =
+    check.refused > 0
+      ? `. ${count(check.refused)} ${check.refused === 1 ? "row cannot" : "rows cannot"}, and ${check.refused === 1 ? "is" : "are"} listed below with the reason.`
+      : ".";
+  const replacing =
+    check.replacing > 0
+      ? ` ${count(check.replacing)} ${check.replacing === 1 ? "replaces" : "replace"} a result the person already has, and the earlier one stays in their history.`
+      : "";
+  const unchanged =
+    same > 0
+      ? ` ${count(same)} ${same === 1 ? "is" : "are"} the same as a result already on file, or as an earlier row of this file, so nothing is written for ${same === 1 ? "it" : "them"}.`
+      : "";
+  return `${lead}${refused}${replacing}${unchanged}`;
+}
+
 const SHOWN_REFUSALS = 200;
 
 function CheckReport({
@@ -498,21 +529,7 @@ function CheckReport({
         tone={check.refused === 0 ? "success" : "warning"}
         title={`${check.filename}: ${count(check.total)} ${check.total === 1 ? "row" : "rows"} checked`}
       >
-        {check.usable === 0
-          ? "Not one row can be used, so nothing would be saved. Fix the file and choose it again."
-          : `${count(check.usable)} ${check.usable === 1 ? "score can" : "scores can"} be saved${
-              check.refused > 0
-                ? `. ${count(check.refused)} ${check.refused === 1 ? "row cannot" : "rows cannot"}, and ${check.refused === 1 ? "is" : "are"} listed below with the reason.`
-                : "."
-            }${
-              check.replacing > 0
-                ? ` ${count(check.replacing)} ${check.replacing === 1 ? "replaces" : "replace"} a result the person already has, and the earlier one stays in their history.`
-                : ""
-            }${
-              check.unchanged > 0
-                ? ` ${count(check.unchanged)} ${check.unchanged === 1 ? "is" : "are"} already on file exactly as the file says, so nothing is written for ${check.unchanged === 1 ? "it" : "them"}.`
-                : ""
-            }`}
+        {checkSentence(check)}
       </Callout>
 
       {refused.length > 0 && (
@@ -664,9 +681,9 @@ function Done({
           {result.unchanged > 0 && (
             <p>
               {count(result.unchanged)}{" "}
-              {result.unchanged === 1 ? "was" : "were"} already on file exactly
-              as the file says, so nothing was written for{" "}
-              {result.unchanged === 1 ? "it" : "them"}.
+              {result.unchanged === 1 ? "was" : "were"} the same as a result
+              already on file, or as an earlier row of this file, so nothing was
+              written for {result.unchanged === 1 ? "it" : "them"}.
             </p>
           )}
           {result.refused > 0 && (

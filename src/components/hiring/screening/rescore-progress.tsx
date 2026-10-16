@@ -80,9 +80,9 @@ export function RescoreBar({
         </p>
       )}
       <p className="text-meta text-info-text">
-        You can keep working. Scores change to the new version as they are
-        ready, and anybody still waiting is marked as scored with an older
-        version.
+        {progress.cause === "PASS_MARK"
+          ? "You can keep working. Nobody's score changes and nobody is rejected: this only decides who is flagged for a person to look at."
+          : "You can keep working. Scores change to the new version as they are ready, and anybody still waiting is marked as scored with an older version."}
       </p>
     </div>
   );

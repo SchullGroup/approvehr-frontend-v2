@@ -610,7 +610,7 @@ export const SORTS: { value: ScreeningSort; label: string }[] = [
   { value: "newest", label: "Newest first" },
   { value: "fit-desc", label: "Highest fit score" },
   { value: "fit-asc", label: "Lowest fit score" },
-  { value: "assessment-desc", label: "Highest assessment score" },
+  { value: "assessment-desc", label: "Highest assessment result" },
   { value: "knockouts-desc", label: "Most flagged answers" },
 ];
 

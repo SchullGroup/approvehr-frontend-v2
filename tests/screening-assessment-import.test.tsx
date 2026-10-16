@@ -291,6 +291,32 @@ describe("the three steps", () => {
     expect(saved[3]).toEqual({ test: "Aptitude test" });
   });
 
+  it("says nothing would change when every usable row is already on file", async () => {
+    current.gateway.assessment.check.mockImplementation(async () =>
+      checkOf({
+        usable: 2,
+        refused: 0,
+        unchanged: 2,
+        total: 2,
+        rows: [
+          { ...checkOf().rows[0]!, effect: "unchanged" as const },
+          { ...checkOf().rows[1]!, effect: "unchanged" as const },
+        ],
+      }),
+    );
+    const user = userEvent.setup();
+    open();
+    await user.upload(
+      screen.getByLabelText("Assessment scores file"),
+      file("Email,Score\na@x.test,1\n"),
+    );
+    await screen.findByText("bootcamp.csv: 2 rows checked");
+    expect(screen.getByText(/^Nothing would change\./)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Save 0 scores" }),
+    ).toBeDisabled();
+  });
+
   it("says how many replace a result and how many change nothing", async () => {
     current.gateway.assessment.check.mockImplementation(async () =>
       checkOf({
@@ -322,9 +348,12 @@ describe("the three steps", () => {
       screen.getByText(/1 replaces a result the person already has/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/1 is already on file exactly as the file says/),
+      screen.getByText(
+        /1 is the same as a result already on file, or as an earlier row of this file/,
+      ),
     ).toBeInTheDocument();
-    /* The one that changes nothing is not counted in what will be saved. */
+    /* The one that changes nothing is not counted as something to save. */
+    expect(screen.getByText(/^2 scores can be saved\./)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save 2 scores" })).toBeEnabled();
   });
 
