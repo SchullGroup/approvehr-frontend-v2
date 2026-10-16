@@ -246,6 +246,12 @@ export type ApiApplication = {
   score?: number | null;
   /** Why there is no score, or `SCORED`. */
   scoreStatus?: ApiScoreStatus;
+  /** The assessment result the pass mark reads, as a percentage of its maximum. */
+  assessment?: { percent: number } | null;
+  /** Below the advert's pass mark and nobody has said to keep them: on the list to confirm. */
+  belowCutoff?: boolean;
+  /** A person looked and kept them in the running, so the pass mark no longer flags them. */
+  keptInRunning?: boolean;
 };
 
 /** Everything else this email address has applied for. */
@@ -402,8 +408,8 @@ export type ApplicationListParams = {
   page?: number;
   pageSize?: number;
   /**
-   * Allow-list: createdAt | lastName | status | source, and the three screening
-   * sorts. Newest first by default.
+   * Allow-list: createdAt | lastName | status | source, and the screening sorts
+   * (`fitScore`, `assessment`). `knockoutCount` is for the pipeline's own list. Newest first by default.
    */
   sort?:
     | "createdAt"
@@ -411,7 +417,7 @@ export type ApplicationListParams = {
     | "status"
     | "source"
     | "fitScore"
-    | "assessmentScore"
+    | "assessment"
     | "knockoutCount";
   order?: "asc" | "desc";
   status?: ApplicationStatus;

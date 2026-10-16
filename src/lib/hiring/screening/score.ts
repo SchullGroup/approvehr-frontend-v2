@@ -155,7 +155,7 @@ export function sortParams(sort: ScreeningSort): {
     case "fit-asc":
       return { sort: "fitScore", order: "asc" };
     case "assessment-desc":
-      return { sort: "assessmentScore", order: "desc" };
+      return { sort: "assessment", order: "desc" };
     case "knockouts-desc":
       return { sort: "knockoutCount", order: "desc" };
   }

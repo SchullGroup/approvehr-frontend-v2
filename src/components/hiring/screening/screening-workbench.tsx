@@ -71,8 +71,8 @@ export function ScreeningWorkbench({ postingId }: { postingId: string }) {
       {gateway.supports.assessment && (
         <Card>
           <CardHeader
-            title="Assessment scores"
-            description="A boot camp or a test sends back a spreadsheet. Import it here, or type one score on a person's record."
+            title="Assessment results"
+            description="A boot camp or a test sends back a spreadsheet. Import it here, or type one result on a person's record."
           />
           <CardBody className="flex flex-wrap items-center gap-3">
             <ButtonLink
@@ -84,8 +84,9 @@ export function ScreeningWorkbench({ postingId }: { postingId: string }) {
               Import assessment scores
             </ButtonLink>
             <p className="text-meta text-muted">
-              Each score feeds the sort and the pass mark. The history is kept
-              on the person&apos;s record.
+              Each result is read as a percentage of what the test is marked out
+              of, and feeds the sort and the pass mark. The history is kept on
+              the person&apos;s record.
             </p>
           </CardBody>
         </Card>

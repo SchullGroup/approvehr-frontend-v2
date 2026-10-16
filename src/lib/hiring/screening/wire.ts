@@ -252,14 +252,16 @@ export function summaryFromRow(row: {
   score?: number | null | undefined;
   scoreStatus?: ApiScoreStatus | undefined;
   knockoutCount?: number | undefined;
+  assessment?: { percent: number } | null | undefined;
+  belowCutoff?: boolean | undefined;
 }): ScreeningSummary | null {
   const fit = fitFromRow(row);
   if (!fit) return null;
   return {
     fit,
-    assessment: null,
+    assessment: row.assessment?.percent ?? null,
     knockoutCount: row.knockoutCount ?? 0,
-    belowPassMark: false,
+    belowPassMark: row.belowCutoff === true,
   };
 }
 

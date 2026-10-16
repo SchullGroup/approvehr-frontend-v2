@@ -295,6 +295,20 @@ describe("a score's status", () => {
       belowPassMark: false,
     });
   });
+
+  it("reads a list row's assessment result and its pass-mark flag", () => {
+    expect(
+      summaryFromRow({
+        score: 40,
+        scoreStatus: "SCORED",
+        assessment: { percent: 48.5 },
+        belowCutoff: true,
+      }),
+    ).toMatchObject({ assessment: 48.5, belowPassMark: true });
+    expect(
+      summaryFromRow({ score: 40, scoreStatus: "SCORED", assessment: null }),
+    ).toMatchObject({ assessment: null, belowPassMark: false });
+  });
 });
 
 const detail = (

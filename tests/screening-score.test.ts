@@ -176,6 +176,11 @@ describe("ordering by score", () => {
   it("asks the API in its own words", () => {
     expect(sortParams("newest")).toBeNull();
     expect(sortParams("fit-desc")).toEqual({ sort: "fitScore", order: "desc" });
+    expect(sortParams("fit-asc")).toEqual({ sort: "fitScore", order: "asc" });
+    expect(sortParams("assessment-desc")).toEqual({
+      sort: "assessment",
+      order: "desc",
+    });
     expect(sortParams("knockouts-desc")).toEqual({
       sort: "knockoutCount",
       order: "desc",
