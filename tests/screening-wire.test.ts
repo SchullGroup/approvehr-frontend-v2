@@ -488,6 +488,65 @@ describe("an explanation", () => {
   });
 });
 
+describe("where somebody stands against the pass mark", () => {
+  const cutoff = (over: Record<string, unknown> = {}) => ({
+    belowCutoff: true,
+    reasons: [
+      {
+        code: "SCORE" as const,
+        text: "Fit score 31 is below the pass mark of 50.",
+      },
+      { code: "KNOCKOUT" as const, text: "Right to work: answered No." },
+    ],
+    flaggedAt: "2026-10-02T09:00:00.000Z",
+    passMark: { fitScoreMin: 50, assessmentMinPct: null, flagKnockouts: true },
+    kept: null,
+    assessment: null,
+    ...over,
+  });
+
+  it("says they are below it, and why, in the API's own words", () => {
+    const e = explanationFromApi(detail({ cutoff: cutoff() }));
+    expect(e.standing).toEqual({
+      below: true,
+      reasons: [
+        { kind: "FIT", text: "Fit score 31 is below the pass mark of 50." },
+        { kind: "KNOCKOUT", text: "Right to work: answered No." },
+      ],
+      kept: null,
+    });
+  });
+
+  it("keeps the reasons and says who kept somebody in the running, and why", () => {
+    const e = explanationFromApi(
+      detail({
+        cutoff: cutoff({
+          belowCutoff: false,
+          kept: {
+            at: "2026-10-03T09:00:00.000Z",
+            by: "Fatima Bello",
+            reason: "Referred by the hiring manager",
+          },
+        }),
+      }),
+    );
+    expect(e.standing?.kept).toEqual({
+      at: "2026-10-03T09:00:00.000Z",
+      by: "Fatima Bello",
+      reason: "Referred by the hiring manager",
+    });
+    expect(e.standing?.reasons).toHaveLength(2);
+  });
+
+  it("says nothing when the advert has no pass mark, or the server does not say", () => {
+    expect(
+      explanationFromApi(detail({ cutoff: cutoff({ passMark: null }) }))
+        .standing,
+    ).toBeNull();
+    expect(explanationFromApi(detail()).standing).toBeNull();
+  });
+});
+
 describe("a preview and a suggestion", () => {
   it("reads the sample as a sample, never as everybody", () => {
     const preview = previewFromApi({

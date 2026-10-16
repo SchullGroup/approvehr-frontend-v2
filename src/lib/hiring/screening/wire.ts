@@ -351,7 +351,26 @@ export function explanationFromApi(
       : [],
     items,
     extraction,
-    standing: null,
+    standing: standingFromApi(detail.cutoff),
+  };
+}
+
+/**
+ * Where somebody stands against the pass mark, or `null` when the advert has none
+ * or the server does not say. Somebody a person kept in the running is still shown
+ * with the reasons they were flagged for, so the record never loses why.
+ */
+export function standingFromApi(
+  cutoff: ApiScreeningDetail["cutoff"],
+): Explanation["standing"] {
+  if (!cutoff || cutoff.passMark === null) return null;
+  return {
+    below: cutoff.belowCutoff || cutoff.kept !== null,
+    reasons: cutoff.reasons.map((reason) => ({
+      kind: KIND_OF_REASON[reason.code],
+      text: reason.text,
+    })),
+    kept: cutoff.kept,
   };
 }
 

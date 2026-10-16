@@ -190,6 +190,27 @@ export type ApiScreeningDetail = {
     truncated: boolean;
   } | null;
   neverUsed: string[];
+  /**
+   * Where this applicant stands against the advert's pass mark. Absent from an API
+   * that predates the pass mark.
+   */
+  cutoff?: ApiCutoffDetail;
+};
+
+export type ApiCutoffDetail = {
+  /** Below the pass mark and not kept in the running: on the list for a person to confirm. */
+  belowCutoff: boolean;
+  /** Why, in words, even while somebody is being kept in the running. */
+  reasons: { code: ApiCutoffReason; text: string }[];
+  flaggedAt: string | null;
+  /** The advert's pass mark, or `null` when it has none: nothing is flagged. */
+  passMark: {
+    fitScoreMin: number | null;
+    assessmentMinPct: number | null;
+    flagKnockouts: boolean;
+  } | null;
+  kept: { at: string; by: string | null; reason: string } | null;
+  assessment: { percent: number } | null;
 };
 
 /* ---------------------------------------------------------------------- pass mark */
