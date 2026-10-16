@@ -244,10 +244,11 @@ export function ExplanationView({
           )}
           {words.label}
         </p>
-        <p className="text-body-sm text-body">{words.detail}</p>
-        {extraction.reason && (
-          <p className="text-body-sm text-muted">{extraction.reason}</p>
-        )}
+        {/* The API's own sentence says why this CV has no score; where it wrote
+            none, ours does. Never both, which would say the same thing twice. */}
+        <p className="text-body-sm text-body">
+          {extraction.reason ?? words.detail}
+        </p>
         <StandingNote explanation={explanation} />
         {extraction.canRetry && onRetryReading && (
           <Button
