@@ -3,10 +3,8 @@
 import { request, requestPaged, type Paged } from "@/lib/api/client";
 import type { ApiHistoryEvent } from "@/lib/api/application-history";
 import type { QuestionKind } from "@/lib/marketing/apply-form";
-import type {
-  ScoreStatus,
-  ScreeningSummary,
-} from "@/lib/hiring/screening/model";
+import type { ApiScoreStatus, ApiScreeningDetail } from "@/lib/api/screening";
+import type { ScreeningSummary } from "@/lib/hiring/screening/model";
 
 /**
  * Job adverts and the applications they bring in — `/api/v1/careers`.
@@ -243,7 +241,11 @@ export type ApiApplication = {
    * score, and whether they are below the pass mark. Advice for a person, never a
    * decision. Absent from an API that predates screening.
    */
-  screening?: ScreeningSummary | null;
+  fit?: ScreeningSummary | null;
+  /** The fit score, 0 to 100, or `null` when there is none: never 0 for "no score". */
+  score?: number | null;
+  /** Why there is no score, or `SCORED`. */
+  scoreStatus?: ApiScoreStatus;
 };
 
 /** Everything else this email address has applied for. */
@@ -298,6 +300,8 @@ export type ApiLikelyDuplicate = {
 };
 
 export type ApiApplicationDetail = ApiApplication & {
+  /** Why they have the score they have, or why they have none. Staff only. */
+  screening?: ApiScreeningDetail;
   /** The version of the advert's form they were answering. */
   formVersion?: number | null;
   /** What they answered, in the order asked. Absent from an API that predates forms. */
@@ -427,7 +431,7 @@ export type ApplicationListParams = {
   scoreMin?: number;
   scoreMax?: number;
   /** Only people whose score is in this state. */
-  scoreStatus?: ScoreStatus;
+  scoreStatus?: ApiScoreStatus;
   /**
    * The `meta.nextCursor` of the page before. Opaque — hand back what a
    * response gave, never build one. Only with the default newest-first order,

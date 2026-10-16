@@ -193,6 +193,19 @@ export type FakeGateway = {
 export function fakeGateway(over: Partial<ScreeningGateway> = {}): FakeGateway {
   const gateway = {
     mode: "demo",
+    supports: {
+      passMark: true,
+      assessment: true,
+      below: true,
+      board: true,
+      sorts: [
+        "newest",
+        "fit-desc",
+        "fit-asc",
+        "assessment-desc",
+        "knockouts-desc",
+      ],
+    },
     criteria: {
       get: vi.fn(async () => savedView()),
       save: vi.fn(
@@ -238,6 +251,7 @@ export function fakeGateway(over: Partial<ScreeningGateway> = {}): FakeGateway {
       })),
     },
     rescore: {
+      start: null,
       progress: vi.fn(async () => ({
         running: false,
         done: 0,

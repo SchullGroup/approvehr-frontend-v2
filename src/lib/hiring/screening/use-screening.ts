@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { usePagedList } from "@/lib/store/paged-list";
 import { useDebounced } from "@/lib/use-debounced";
@@ -185,11 +185,19 @@ export function useRescore(postingId: string) {
     };
   }, [gateway, postingId, watching]);
 
-  return {
-    progress,
-    finished,
-    watch: useCallback(() => setWatching((n) => n + 1), []),
-  };
+  const watch = useCallback(() => setWatching((n) => n + 1), []);
+  const start = gateway.rescore.start;
+  const restart = useMemo(
+    () =>
+      start
+        ? async () => {
+            await start(postingId);
+            watch();
+          }
+        : null,
+    [start, postingId, watch],
+  );
+  return { progress, finished, watch, restart };
 }
 
 /* ------------------------------------------------------------------ pass mark */

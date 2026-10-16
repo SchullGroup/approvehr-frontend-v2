@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { ButtonLink, Callout } from "@/components/ui";
 import type { ApiApplication } from "@/lib/api/careers";
 import { count } from "@/lib/hiring/screening/score";
+import { useScreeningGateway } from "@/lib/hiring/screening/use-gateway";
 import { useBelowCount } from "@/lib/hiring/screening/use-screening";
 
 /**
@@ -23,8 +24,8 @@ export function PostingScreeningNote({
   /** The rows on screen, to tell "no criteria" from "not loaded". */
   rows: readonly ApiApplication[];
 }) {
-  const below = useBelowCount(postingId);
-  const screening = rows.map((row) => row.screening).filter(Boolean);
+  const gateway = useScreeningGateway();
+  const screening = rows.map((row) => row.fit).filter(Boolean);
   const noCriteria =
     screening.length > 0 &&
     screening.every((summary) => summary?.fit.status === "NO_CRITERIA");
@@ -48,28 +49,30 @@ export function PostingScreeningNote({
       </Callout>
     );
   }
+  return gateway.supports.below ? <BelowNote postingId={postingId} /> : null;
+}
 
-  if (below.count && below.count.below > 0) {
-    return (
-      <Callout tone="neutral" title="Some are below the pass mark">
-        <div className="flex flex-col items-start gap-2">
-          <p>
-            {count(below.count.below)}{" "}
-            {below.count.below === 1 ? "person is" : "people are"} below this
-            advert&apos;s pass mark. Nobody is rejected until a person confirms
-            it.
-          </p>
-          <ButtonLink
-            href={`/hiring/postings/${postingId}/below-pass-mark`}
-            variant="secondary"
-            size="sm"
-          >
-            Review them
-            <ArrowRight aria-hidden="true" className="size-3.5" />
-          </ButtonLink>
-        </div>
-      </Callout>
-    );
-  }
-  return null;
+function BelowNote({ postingId }: { postingId: string }) {
+  const below = useBelowCount(postingId);
+  if (!below.count || below.count.below === 0) return null;
+  return (
+    <Callout tone="neutral" title="Some are below the pass mark">
+      <div className="flex flex-col items-start gap-2">
+        <p>
+          {count(below.count.below)}{" "}
+          {below.count.below === 1 ? "person is" : "people are"} below this
+          advert&apos;s pass mark. Nobody is rejected until a person confirms
+          it.
+        </p>
+        <ButtonLink
+          href={`/hiring/postings/${postingId}/below-pass-mark`}
+          variant="secondary"
+          size="sm"
+        >
+          Review them
+          <ArrowRight aria-hidden="true" className="size-3.5" />
+        </ButtonLink>
+      </div>
+    </Callout>
+  );
 }

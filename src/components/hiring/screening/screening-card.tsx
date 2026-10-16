@@ -4,6 +4,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui";
 import { AssessmentRecord } from "@/components/hiring/screening/assessment-record";
 import { ExplanationPanel } from "@/components/hiring/screening/explanation-panel";
 import type { ScreeningSubject } from "@/lib/hiring/screening/model";
+import { useScreeningGateway } from "@/lib/hiring/screening/use-gateway";
 import { useCan } from "@/lib/permissions";
 
 /**
@@ -22,6 +23,7 @@ export function ScreeningCard({
   postingId?: string | undefined;
 }) {
   const canManage = useCan("MANAGE_HIRING");
+  const gateway = useScreeningGateway();
   return (
     <Card>
       <CardHeader
@@ -37,9 +39,11 @@ export function ScreeningCard({
               : undefined
           }
         />
-        <div className="border-t border-line pt-5">
-          <AssessmentRecord subject={subject} canEdit={canManage} />
-        </div>
+        {gateway.supports.assessment && (
+          <div className="border-t border-line pt-5">
+            <AssessmentRecord subject={subject} canEdit={canManage} />
+          </div>
+        )}
       </CardBody>
     </Card>
   );

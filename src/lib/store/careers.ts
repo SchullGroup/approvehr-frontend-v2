@@ -31,6 +31,7 @@ import {
 } from "@/lib/hiring/pipeline/demo-store";
 import { referenceFor } from "@/lib/hiring/pipeline/reference";
 import { decorateQueue } from "@/lib/hiring/screening/demo-queue";
+import { statusToApi, summaryFromRow } from "@/lib/hiring/screening/wire";
 import type { ScoreStatus, ScreeningSort } from "@/lib/hiring/screening/model";
 import {
   compareBySort,
@@ -586,6 +587,15 @@ export type ApplicationFilters = {
   pageSize?: number;
 };
 
+/**
+ * A row as the API sent it, with its screening laid on in the shape the screens
+ * draw. A row from an API that predates screening has none, and stays as it was.
+ */
+function withScreening(row: ApiApplication): ApiApplication {
+  const screening = summaryFromRow(row);
+  return screening ? { ...row, fit: screening } : row;
+}
+
 /** A screen's worth. Small enough to land fast, large enough to be worth reading. */
 export const APPLICATIONS_PAGE_SIZE = 50;
 
@@ -617,8 +627,8 @@ export function filterDemoApplications(
           filters.scoreMax !== undefined ||
           filters.scoreStatus !== undefined) &&
         !(
-          application.screening &&
-          matchesScoreFilters(application.screening, {
+          application.fit &&
+          matchesScoreFilters(application.fit, {
             ...(filters.scoreMin !== undefined
               ? { scoreMin: filters.scoreMin }
               : {}),
@@ -639,16 +649,11 @@ export function filterDemoApplications(
       return words.every((word) => haystack.includes(word));
     })
     .sort((a, b) => {
-      if (
-        filters.sort &&
-        filters.sort !== "newest" &&
-        a.screening &&
-        b.screening
-      ) {
+      if (filters.sort && filters.sort !== "newest" && a.fit && b.fit) {
         return compareBySort(
           filters.sort,
-          { summary: a.screening, at: a.appliedAt, id: a.id },
-          { summary: b.screening, at: b.appliedAt, id: b.id },
+          { summary: a.fit, at: a.appliedAt, id: a.id },
+          { summary: b.fit, at: b.appliedAt, id: b.id },
         );
       }
       return b.appliedAt.localeCompare(a.appliedAt) || b.id.localeCompare(a.id);
@@ -745,7 +750,7 @@ export function useApplications(filters: ApplicationFilters = {}) {
         ...(duplicate ? { duplicate } : {}),
         ...(scoreMin !== undefined ? { scoreMin } : {}),
         ...(scoreMax !== undefined ? { scoreMax } : {}),
-        ...(scoreStatus ? { scoreStatus } : {}),
+        ...(scoreStatus ? { scoreStatus: statusToApi(scoreStatus) } : {}),
         ...(ordering
           ? {
               sort: ordering.sort as ApplicationListParams["sort"],
@@ -755,7 +760,7 @@ export function useApplications(filters: ApplicationFilters = {}) {
       };
       const result = await careersApi.listApplications(params, signal);
       return {
-        rows: result.data,
+        rows: result.data.map(withScreening),
         total: result.meta.total,
         next: result.meta.nextCursor ?? null,
       };
@@ -907,7 +912,7 @@ export async function queueMatching(
       ...(duplicate ? { duplicate } : {}),
       ...(scoreMin !== undefined ? { scoreMin } : {}),
       ...(scoreMax !== undefined ? { scoreMax } : {}),
-      ...(scoreStatus ? { scoreStatus } : {}),
+      ...(scoreStatus ? { scoreStatus: statusToApi(scoreStatus) } : {}),
       ...(ordering
         ? {
             sort: ordering.sort as ApplicationListParams["sort"],
@@ -917,7 +922,7 @@ export async function queueMatching(
     },
     signal,
   );
-  return result.data;
+  return result.data.map(withScreening);
 }
 
 /**

@@ -1,6 +1,7 @@
 "use client";
 
-import { ProgressMeter, Spinner } from "@/components/ui";
+import { useState } from "react";
+import { Button, Callout, ProgressMeter, Spinner } from "@/components/ui";
 import type { RescoreProgress } from "@/lib/hiring/screening/model";
 import { count } from "@/lib/hiring/screening/score";
 
@@ -20,8 +21,42 @@ const CAUSE: Record<NonNullable<RescoreProgress["cause"]>, string> = {
   CV_TEXT: "Scoring CVs as their text is read",
 };
 
-export function RescoreBar({ progress }: { progress: RescoreProgress }) {
-  if (!progress.running) return null;
+export function RescoreBar({
+  progress,
+  onRestart,
+}: {
+  progress: RescoreProgress;
+  /** Present only where the API offers to score everybody again. */
+  onRestart?: (() => Promise<void>) | null | undefined;
+}) {
+  const [restarting, setRestarting] = useState(false);
+
+  if (!progress.running) {
+    if (!progress.failure) return null;
+    return (
+      <Callout tone="warning" title="The last re-score stopped part way">
+        <div className="flex flex-col items-start gap-2">
+          <p>
+            {progress.failure} Some scores may be from an older version until it
+            has run again.
+          </p>
+          {onRestart && (
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={restarting}
+              onClick={() => {
+                setRestarting(true);
+                void onRestart().finally(() => setRestarting(false));
+              }}
+            >
+              Score everybody again
+            </Button>
+          )}
+        </div>
+      </Callout>
+    );
+  }
   const heading = progress.cause ? CAUSE[progress.cause] : "Re-scoring";
   const known = progress.total > 0;
   return (

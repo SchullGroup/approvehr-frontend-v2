@@ -338,6 +338,7 @@ describe("re-scoring after a save", () => {
     let calls = 0;
     current.gateway = fakeGateway({
       rescore: {
+        start: null,
         progress: vi.fn(async () => {
           calls += 1;
           /* Nothing running at first; running once a save asks again; then done. */
@@ -386,6 +387,7 @@ describe("re-scoring after a save", () => {
     let calls = 0;
     current.gateway = fakeGateway({
       rescore: {
+        start: null,
         progress: vi.fn(async () => {
           calls += 1;
           return calls === 1

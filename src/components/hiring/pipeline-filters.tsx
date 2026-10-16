@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { Checkbox, Field, FilterBar, Input, Select } from "@/components/ui";
+import { useScreeningGateway } from "@/lib/hiring/screening/use-gateway";
 import {
   ScoreFilterFields,
   type ScoreFilterState,
@@ -62,6 +63,7 @@ export function PipelineFilters({
   /** The score filters and the sort, held by the screen that also asks the board. */
   score?: ScoreFilterState;
 }) {
+  const gateway = useScreeningGateway();
   const channels = useMemo(() => {
     const list: string[] = [...CHANNELS];
     if (filters.source && !list.includes(filters.source))
@@ -160,7 +162,7 @@ export function PipelineFilters({
           onChange={(event) => set("to", event.target.value)}
         />
       </Field>
-      {score && <ScoreFilterFields state={score} />}
+      {score && gateway.supports.board && <ScoreFilterFields state={score} />}
       <div className="flex flex-col justify-end gap-2.5 pb-1.5">
         <Checkbox
           label="Needs a look"

@@ -52,7 +52,7 @@ export function decorateQueue(rows: ApiApplication[]): ApiApplication[] {
     const total = totals.get(row.postingId) ?? 0;
     return {
       ...row,
-      screening: summaryFor({ book, now, total }, personOf(row), order),
+      fit: summaryFor({ book, now, total }, personOf(row), order),
     };
   });
 }

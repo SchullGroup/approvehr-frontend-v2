@@ -233,7 +233,7 @@ function Queue({
   const [status, setStatus] = useState<ApplicationStatus | "ALL">(
     initialStatus,
   );
-  const [postingId, setPostingId] = useState(initialPostingId);
+  const [postingId, setPostingIdRaw] = useState(initialPostingId);
   const [source, setSource] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -243,6 +243,12 @@ function Queue({
   const [advancing, setAdvancing] = useState<ApiApplication | null>(null);
   const [declining, setDeclining] = useState<ApiApplication | null>(null);
   const score = useScoreFilterState();
+  /* A score range and a score sort only mean something against one advert, so
+     letting go of the advert lets go of them. */
+  const setPostingId = (next: string) => {
+    setPostingIdRaw(next);
+    if (next === "") score.dropAdvertOnly();
+  };
   const [results, setResults] = useState<{
     what: string;
     outcome: BulkOutcome;
@@ -468,7 +474,7 @@ function Queue({
                   onChange={(event) => setTo(event.target.value)}
                 />
               </Field>
-              <ScoreFilterFields state={score} />
+              <ScoreFilterFields state={score} needsAdvert={postingId === ""} />
               <div className="flex flex-col justify-end gap-2.5 pb-1.5">
                 <Checkbox
                   label="Needs a look"
@@ -987,7 +993,7 @@ function ApplicationRow({
                   Possible duplicate
                 </Badge>
               )}
-              <ScreeningBadges summary={application.screening} />
+              <ScreeningBadges summary={application.fit} />
             </p>
             <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
               <span>{application.postingTitle}</span>
@@ -1087,7 +1093,7 @@ function ApplicationRow({
         canOpenFiles={canOpenFiles}
       />
 
-      {application.screening && (
+      {application.fit && (
         <ExplanationDisclosure
           subject={{ kind: "application", id: application.id }}
           criteriaHref={`/hiring/postings/${application.postingId}?tab=screening`}

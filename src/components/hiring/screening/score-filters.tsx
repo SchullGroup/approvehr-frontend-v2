@@ -8,6 +8,7 @@ import type {
   ScreeningSort,
 } from "@/lib/hiring/screening/model";
 import { SORTS } from "@/lib/hiring/screening/model";
+import { useScreeningGateway } from "@/lib/hiring/screening/use-gateway";
 import {
   STATUS_OPTIONS,
   cleanScoreFilters,
@@ -45,6 +46,8 @@ export type ScoreFilterState = {
   minBad: boolean;
   maxBad: boolean;
   backwards: boolean;
+  /** Let go of what only means something against one advert: the range and the sort. */
+  dropAdvertOnly: () => void;
   /** Any score filter in force (sorting is not one). */
   narrowed: boolean;
   chips: AppliedFilter[];
@@ -73,6 +76,12 @@ export function useScoreFilterState(): ScoreFilterState {
     setMinText("");
     setMaxText("");
     setStatus("");
+  }, []);
+
+  const dropAdvertOnly = useCallback(() => {
+    setMinText("");
+    setMaxText("");
+    setSort("newest");
   }, []);
 
   const chips: AppliedFilter[] = [];
@@ -114,24 +123,50 @@ export function useScoreFilterState(): ScoreFilterState {
     minBad,
     maxBad,
     backwards,
+    dropAdvertOnly,
     narrowed: chips.length > 0,
     chips,
     clear,
   };
 }
 
-/** The four fields, for a `FilterBar`'s children. */
-export function ScoreFilterFields({ state }: { state: ScoreFilterState }) {
+/**
+ * The four fields, for a `FilterBar`'s children.
+ *
+ * `needsAdvert` is for a list that spans adverts: a score only means something
+ * against one advert's criteria, so the score sorts and the range are held back
+ * and say why, and only the status (which does mean something everywhere) stays.
+ */
+export function ScoreFilterFields({
+  state,
+  needsAdvert = false,
+}: {
+  state: ScoreFilterState;
+  needsAdvert?: boolean;
+}) {
+  const gateway = useScreeningGateway();
+  const sorts = SORTS.filter(
+    (option) =>
+      gateway.supports.sorts.includes(option.value) &&
+      !(needsAdvert && option.value !== "newest"),
+  );
+  const why =
+    "Choose an advert first: a score only means something against one.";
   return (
     <>
-      <Field label="Sort by">
+      <Field
+        label="Sort by"
+        {...(needsAdvert
+          ? { help: "Newest first, until you choose an advert." }
+          : {})}
+      >
         <Select
-          value={state.sort}
+          value={needsAdvert ? "newest" : state.sort}
           onChange={(event) =>
             state.setSort(event.target.value as ScreeningSort)
           }
         >
-          {SORTS.map((option) => (
+          {sorts.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -141,28 +176,36 @@ export function ScoreFilterFields({ state }: { state: ScoreFilterState }) {
       <Field
         label="Fit score from"
         optional
-        {...(state.minBad ? { error: "0 to 100" } : {})}
+        {...(needsAdvert
+          ? { help: why }
+          : state.minBad
+            ? { error: "0 to 100" }
+            : {})}
       >
         <Input
           inputMode="numeric"
           value={state.minText}
           placeholder="0"
+          disabled={needsAdvert}
           onChange={(event) => state.setMinText(event.target.value)}
         />
       </Field>
       <Field
         label="Fit score to"
         optional
-        {...(state.maxBad
-          ? { error: "0 to 100" }
-          : state.backwards
-            ? { error: "That is below the start, so no scores are applied." }
-            : {})}
+        {...(needsAdvert
+          ? {}
+          : state.maxBad
+            ? { error: "0 to 100" }
+            : state.backwards
+              ? { error: "That is below the start, so no scores are applied." }
+              : {})}
       >
         <Input
           inputMode="numeric"
           value={state.maxText}
           placeholder="100"
+          disabled={needsAdvert}
           onChange={(event) => state.setMaxText(event.target.value)}
         />
       </Field>

@@ -16,6 +16,7 @@ import type {
   PassMarkCount,
   PassMarkInput,
   RescoreProgress,
+  ScreeningSort,
   ScreeningSubject,
   Suggestion,
 } from "./model";
@@ -48,8 +49,27 @@ export type AssessmentRowInput = {
   score: string;
 };
 
+/**
+ * What the other side can do. A screen offers only what is here, and says nothing
+ * about the rest: a server that has criteria and scores but no pass mark yet is
+ * not shown a pass mark it cannot keep.
+ */
+export type ScreeningSupport = {
+  /** Pass mark, its live count and the recompute. */
+  passMark: boolean;
+  /** Importing and typing assessment scores. */
+  assessment: boolean;
+  /** The list of people below the pass mark, and deciding there. */
+  below: boolean;
+  /** The pipeline board's cards carry scores, and it can be sorted and filtered by them. */
+  board: boolean;
+  /** The sorts the queue can be asked for. */
+  sorts: ScreeningSort[];
+};
+
 export type ScreeningGateway = {
   mode: "api" | "demo";
+  supports: ScreeningSupport;
 
   criteria: {
     get(postingId: string, signal: AbortSignal): Promise<CriteriaView>;
@@ -76,6 +96,8 @@ export type ScreeningGateway = {
   /** How far re-scoring has got. Asked again while it runs. */
   rescore: {
     progress(postingId: string, signal: AbortSignal): Promise<RescoreProgress>;
+    /** Score everybody again. `null` where the API offers no such thing. */
+    start: ((postingId: string) => Promise<void>) | null;
   };
 
   passMark: {

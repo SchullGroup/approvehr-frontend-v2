@@ -237,6 +237,19 @@ const refuse = (status: number, code: string, message: string): ApiError =>
 
 export const demoScreeningGateway: ScreeningGateway = {
   mode: "demo",
+  supports: {
+    passMark: true,
+    assessment: true,
+    below: true,
+    board: true,
+    sorts: [
+      "newest",
+      "fit-desc",
+      "fit-asc",
+      "assessment-desc",
+      "knockouts-desc",
+    ],
+  },
 
   criteria: {
     get: async (postingId) => view(postingId),
@@ -322,6 +335,7 @@ export const demoScreeningGateway: ScreeningGateway = {
   },
 
   rescore: {
+    start: null,
     progress: async (postingId) => {
       const total = applicantsOf(postingId).length;
       return rescoreAt(

@@ -242,6 +242,11 @@ export type RescoreProgress = {
   total: number;
   /** Why it is running, in a word the screen can put a sentence to. */
   cause: "CRITERIA" | "PASS_MARK" | "CV_TEXT" | null;
+  /**
+   * The last pass stopped part way, and why. Scores may be out of date until it is
+   * run again. `null` when the last pass finished, or none has run.
+   */
+  failure?: string | null;
 };
 
 export const NOT_RESCORING: RescoreProgress = {

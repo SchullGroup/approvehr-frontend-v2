@@ -287,6 +287,7 @@ describe("saving it", () => {
     let calls = 0;
     current.gateway = fakeGateway({
       rescore: {
+        start: null,
         progress: vi.fn(async () => {
           calls += 1;
           return calls >= 2
