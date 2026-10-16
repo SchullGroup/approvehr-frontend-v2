@@ -95,11 +95,16 @@ describe("the criteria", () => {
       { ...view.criteria, mustHave: [kw("Node.js")] },
       signal,
     );
-    expect(preview.total).toBe(22);
-    expect(preview.rows).toHaveLength(20);
-    expect(preview.scored + preview.waitingForText + preview.noText).toBe(22);
-    expect(preview.bands).toHaveLength(5);
+    /* Tried on those whose CV could be read: three of the 22 could not be. */
+    expect(preview.available).toBe(19);
+    expect(preview.sampled).toBe(19);
+    expect(preview.rows).toHaveLength(19);
+    expect(preview.scored + preview.notScorable).toBe(preview.sampled);
+    expect(preview.bands).toHaveLength(10);
     expect(preview.bands.reduce((a, b) => a + b, 0)).toBe(preview.scored);
+    const row = preview.rows.find((r) => r.next !== null && r.current !== null);
+    expect(row?.change).toBe((row?.next ?? 0) - (row?.current ?? 0));
+    expect(row?.reasons).toMatch(/Matched|Missing/);
     expect((await gateway.criteria.get(SEEDED, signal)).version).toBe(2);
   });
 });

@@ -176,33 +176,62 @@ export type CriteriaView = {
   updatedBy: string | null;
 };
 
-/** What "Suggest from the job description" brings back: chips to accept or edit. */
+/** A skill the advert's words suggest, with the sentence it came from. */
+export type SuggestedKeyword = Keyword & {
+  /** The sentence of the advert it was read from, trimmed. */
+  from: string | null;
+  confidence: Confidence | null;
+};
+
+/**
+ * What "Suggest from the job description" brings back: chips to accept or edit,
+ * each with the sentence that gave it. Nothing here is applied until a person says.
+ */
 export type Suggestion = {
-  mustHave: Keyword[];
-  niceToHave: Keyword[];
+  mustHave: SuggestedKeyword[];
+  niceToHave: SuggestedKeyword[];
   minYears: number | null;
+  minYearsFrom: string | null;
   education: string | null;
+  educationFrom: string | null;
+  places: string[];
+  placesFrom: string | null;
   /** One line on where the words came from. */
   note: string | null;
 };
 
-/** "This would score these applicants like so", before anything is saved. */
+/** One applicant in a preview: the score now, and the score under the draft. */
 export type PreviewRow = {
   id: string;
   name: string;
-  fit: FitSummary;
+  /** The score with the saved criteria. `null` when there is none. */
+  current: number | null;
+  /** The score with the draft. `null` when the draft cannot score them. */
+  next: number | null;
+  /** The draft's score less the current one, when both exist. */
+  change: number | null;
+  /** The draft's reasons in one line: "Matched: … Missing: …". */
+  reasons: string | null;
 };
 
+/**
+ * "This would score these applicants like so", before anything is saved.
+ *
+ * It is tried on a sample, the newest applicants whose CV has been read, because a
+ * CV nobody has read has no words to try the draft on. It says how many there were
+ * to sample from, so nobody reads it as a count of everybody.
+ */
 export type CriteriaPreview = {
-  /** How many applicants the advert has in all. */
-  total: number;
-  /** The first few, so a person can see the shape. */
+  /** Applicants whose CV has been read: what the sample is drawn from. */
+  available: number;
+  /** How many were tried. */
+  sampled: number;
   rows: PreviewRow[];
-  /** Of all of them: how many would be scored, and how many cannot be. */
+  /** Of the sample: how many the draft could score, and how many it could not. */
   scored: number;
-  waitingForText: number;
-  noText: number;
-  /** Of those scored: counts in bands of 20, lowest first. Five numbers. */
+  notScorable: number;
+  mean: number | null;
+  /** Of those scored: counts in bands of ten, lowest first. Ten numbers. */
   bands: number[];
 };
 

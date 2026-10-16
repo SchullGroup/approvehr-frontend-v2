@@ -263,12 +263,15 @@ describe("previewing", () => {
     );
     const preview = await screen.findByTestId("criteria-preview");
     expect(preview).toHaveTextContent(
-      "This would score 4,210 applicants like so. 3,987 would get a score, 150 are waiting for their CV text, and 73 have no text and need a person to read the CV.",
+      "Tried on the newest 20 of 4,210 applicants whose CV has been read. 19 would get a score, and 1 would not, because there is too little in the CV to judge. The average would be 64.2.",
     );
     expect(within(preview).getByText("Ada Okafor")).toBeInTheDocument();
-    expect(within(preview).getByText("Fit 91")).toBeInTheDocument();
     expect(
-      within(preview).getByText("Needs a person to read it"),
+      within(preview).getByText("Fit 91, up 31 from 60"),
+    ).toBeInTheDocument();
+    expect(within(preview).getByText("Matched: Payroll.")).toBeInTheDocument();
+    expect(
+      within(preview).getByText("No score either way"),
     ).toBeInTheDocument();
     expect(
       within(preview).getByRole("list", { name: "Scores by band" }),

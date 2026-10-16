@@ -17,6 +17,7 @@ import type {
   FitSummary,
   Keyword,
   Suggestion,
+  SuggestedKeyword,
   Verdict,
   Weights,
 } from "./model";
@@ -795,13 +796,29 @@ const SUGGEST_VOCABULARY: Keyword[] = !DEMO_ENABLED
  * text near it says "need", "must" or "required", and under "nice to have" when it
  * says "nice", "plus" or "bonus". The person accepts or edits every chip.
  */
-export function suggestFrom(description: string): Suggestion {
+export function suggestFrom(
+  description: string,
+  location: string | null = null,
+): Suggestion {
   const text = description;
   const niceAt = text.search(/nice to have|a plus|bonus|preferred/i);
   const mustPart = niceAt === -1 ? text : text.slice(0, niceAt);
   const nicePart = niceAt === -1 ? "" : text.slice(niceAt);
 
-  const pick = (part: string, skip: Set<string>): Keyword[] =>
+  /** The line of the advert a thing was read from, trimmed to a sentence's worth. */
+  const lineWith = (part: string, terms: string[]): string | null => {
+    const line = part
+      .split(/\n+/)
+      .find((candidate) => findAny(candidate, terms) !== null);
+    return line
+      ? line
+          .replace(/^[-*\s]+/, "")
+          .trim()
+          .slice(0, 140)
+      : null;
+  };
+
+  const pick = (part: string, skip: Set<string>): SuggestedKeyword[] =>
     SUGGEST_VOCABULARY.filter(
       (entry) =>
         !skip.has(compareForm(entry.label)) &&
@@ -811,6 +828,8 @@ export function suggestFrom(description: string): Suggestion {
       label: entry.label,
       aliases: [...entry.aliases],
       weight: 1,
+      from: lineWith(part, [entry.label, ...entry.aliases]),
+      confidence: "HIGH" as const,
     }));
 
   const mustHave = pick(mustPart, new Set());
@@ -821,12 +840,37 @@ export function suggestFrom(description: string): Suggestion {
   let education: string | null = null;
   if (/degree|b\.?sc|bachelor/i.test(text)) education = "BACHELORS";
   else if (/\bhnd\b/i.test(text)) education = "HND";
+  const place = location ? (location.split(",")[0]?.trim() ?? "") : "";
 
   return {
     mustHave,
     niceToHave,
     minYears: years ? Number(years[1]) : null,
+    minYearsFrom: years ? lineWith(text, [years[0]]) : null,
     education,
+    educationFrom: education
+      ? lineWith(text, ["degree", "bachelor", "BSc", "HND"])
+      : null,
+    places: place.length >= 2 ? [place] : [],
+    placesFrom: place.length >= 2 ? "The advert's own location." : null,
     note: "Taken from the words in the advert. Check every one before you keep it.",
   };
+}
+
+/** The one line the real thing writes: what matched, what is missing, what it could not tell. */
+export function reasonsLine(explanation: Explanation): string {
+  const by = (verdict: Verdict) =>
+    explanation.items
+      .filter((item) => item.verdict === verdict)
+      .map((item) => item.label);
+  const part = (name: string, list: string[]) =>
+    list.length > 0 ? `${name}: ${list.join(", ")}.` : null;
+  return [
+    part("Matched", by("MATCHED")),
+    part("Partly", by("PARTIAL")),
+    part("Missing", by("MISSING")),
+    part("Could not tell", by("UNKNOWN")),
+  ]
+    .filter((piece): piece is string => piece !== null)
+    .join(" ");
 }

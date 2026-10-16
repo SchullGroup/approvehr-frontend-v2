@@ -66,7 +66,7 @@ describe("the pass mark as it stands", () => {
     await waitFor(() => expect(fitBox()).toHaveValue("50"));
     expect(assessmentBox()).toHaveValue("");
     expect(
-      screen.getByText(
+      await screen.findByText(
         "Right now, 412 of 4,210 people are below the pass mark.",
       ),
     ).toBeInTheDocument();

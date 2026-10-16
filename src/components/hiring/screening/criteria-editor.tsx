@@ -18,6 +18,8 @@ import {
   WEIGHT_LABEL,
   parseWeight,
   parseYears,
+  placesFromText,
+  sameWord,
   weightsLine,
   withChips,
   type CriteriaProblems,
@@ -27,8 +29,8 @@ import {
   type Criteria,
   type EducationLevel,
   type FormQuestionRef,
-  type Keyword,
   type Suggestion,
+  type SuggestedKeyword,
   type Weights,
 } from "@/lib/hiring/screening/model";
 
@@ -350,8 +352,23 @@ function Suggest({
     }
   }
 
-  const accept = (list: "mustHave" | "niceToHave", chips: Keyword[]): void =>
-    onAccept(withChips(criteria, list, chips));
+  /* What is kept is the skill and its spellings, not the sentence it came from. */
+  const accept = (
+    list: "mustHave" | "niceToHave",
+    chips: SuggestedKeyword[],
+  ): void =>
+    onAccept(
+      withChips(
+        criteria,
+        list,
+        chips.map(({ id, label, aliases, weight }) => ({
+          id,
+          label,
+          aliases,
+          weight,
+        })),
+      ),
+    );
 
   return (
     <div className="flex flex-col gap-3">
@@ -387,6 +404,12 @@ function Suggest({
           onAcceptEducation={(level) =>
             onAccept({ ...criteria, education: level })
           }
+          onAcceptPlaces={(places) =>
+            onAccept({
+              ...criteria,
+              places: placesFromText(places.join(","), criteria.places),
+            })
+          }
           onClose={() => setState({ status: "idle" })}
         />
       )}
@@ -401,14 +424,19 @@ function SuggestionList({
   onAccept,
   onAcceptYears,
   onAcceptEducation,
+  onAcceptPlaces,
   onClose,
 }: {
   suggestion: Suggestion;
   criteria: Criteria;
   scale: EducationLevel[];
-  onAccept: (list: "mustHave" | "niceToHave", chips: Keyword[]) => void;
+  onAccept: (
+    list: "mustHave" | "niceToHave",
+    chips: SuggestedKeyword[],
+  ) => void;
   onAcceptYears: (years: number) => void;
   onAcceptEducation: (level: string) => void;
+  onAcceptPlaces: (places: string[]) => void;
   onClose: () => void;
 }) {
   const have = new Set(
@@ -416,7 +444,7 @@ function SuggestionList({
       chip.label.toLowerCase(),
     ),
   );
-  const fresh = (chips: Keyword[]) =>
+  const fresh = (chips: SuggestedKeyword[]) =>
     chips.filter((chip) => !have.has(chip.label.toLowerCase()));
   const must = fresh(suggestion.mustHave);
   const nice = fresh(suggestion.niceToHave);
@@ -425,8 +453,15 @@ function SuggestionList({
   const educationNew =
     suggestion.education !== null &&
     criteria.education !== suggestion.education;
+  const newPlaces = suggestion.places.filter(
+    (place) => !criteria.places.some((have) => sameWord(have, place)),
+  );
   const nothing =
-    must.length === 0 && nice.length === 0 && !yearsNew && !educationNew;
+    must.length === 0 &&
+    nice.length === 0 &&
+    !yearsNew &&
+    !educationNew &&
+    newPlaces.length === 0;
 
   return (
     <Callout tone="neutral" title="Suggestions from the advert">
@@ -453,31 +488,52 @@ function SuggestionList({
           />
         )}
         {yearsNew && suggestion.minYears !== null && (
-          <p className="flex flex-wrap items-center gap-2">
-            The advert mentions {suggestion.minYears}{" "}
-            {suggestion.minYears === 1 ? "year" : "years"}.
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onAcceptYears(suggestion.minYears ?? 0)}
-            >
-              Ask for at least {suggestion.minYears}
-            </Button>
-          </p>
+          <div className="flex flex-col gap-1">
+            <p className="flex flex-wrap items-center gap-2">
+              The advert mentions {suggestion.minYears}{" "}
+              {suggestion.minYears === 1 ? "year" : "years"}.
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onAcceptYears(suggestion.minYears ?? 0)}
+              >
+                Ask for at least {suggestion.minYears}
+              </Button>
+            </p>
+            <From text={suggestion.minYearsFrom} />
+          </div>
         )}
         {educationNew && suggestion.education !== null && (
-          <p className="flex flex-wrap items-center gap-2">
-            The advert mentions a qualification.
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onAcceptEducation(suggestion.education ?? "")}
-            >
-              Ask for{" "}
-              {scale.find((level) => level.value === suggestion.education)
-                ?.label ?? "that level"}
-            </Button>
-          </p>
+          <div className="flex flex-col gap-1">
+            <p className="flex flex-wrap items-center gap-2">
+              The advert mentions a qualification.
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onAcceptEducation(suggestion.education ?? "")}
+              >
+                Ask for{" "}
+                {scale.find((level) => level.value === suggestion.education)
+                  ?.label ?? "that level"}
+              </Button>
+            </p>
+            <From text={suggestion.educationFrom} />
+          </div>
+        )}
+        {newPlaces.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <p className="flex flex-wrap items-center gap-2">
+              The advert is for {newPlaces.join(", ")}.
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onAcceptPlaces(newPlaces)}
+              >
+                Count {newPlaces.join(", ")} as the place
+              </Button>
+            </p>
+            <From text={suggestion.placesFrom} />
+          </div>
         )}
         <div>
           <Button variant="ghost" size="sm" onClick={onClose}>
@@ -489,14 +545,24 @@ function SuggestionList({
   );
 }
 
+/** The sentence a suggestion was read from, so a person can judge it. */
+function From({ text }: { text: string | null }) {
+  if (!text) return null;
+  return (
+    <span className="text-meta text-muted [overflow-wrap:anywhere]">
+      From the advert: &ldquo;{text}&rdquo;
+    </span>
+  );
+}
+
 function SuggestionGroup({
   title,
   chips,
   onAdd,
 }: {
   title: string;
-  chips: Keyword[];
-  onAdd: (chips: Keyword[]) => void;
+  chips: SuggestedKeyword[];
+  onAdd: (chips: SuggestedKeyword[]) => void;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -507,9 +573,9 @@ function SuggestionGroup({
           <span className="sr-only">{title.toLowerCase()} suggestions</span>
         </Button>
       </p>
-      <ul className="flex flex-wrap gap-1.5">
+      <ul className="flex list-none flex-col gap-1.5 p-0">
         {chips.map((chip) => (
-          <li key={chip.id}>
+          <li key={chip.id} className="flex flex-col items-start gap-0.5">
             <button
               type="button"
               onClick={() => onAdd([chip])}
@@ -518,6 +584,7 @@ function SuggestionGroup({
             >
               + {chip.label}
             </button>
+            <From text={chip.from} />
           </li>
         ))}
       </ul>

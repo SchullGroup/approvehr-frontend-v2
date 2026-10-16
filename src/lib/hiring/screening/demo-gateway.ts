@@ -15,7 +15,13 @@ import {
   FALLBACK_WEIGHTS,
 } from "./criteria";
 import { demoNow, demoStamp } from "./demo-clock";
-import { explain, fitOf, profileFor, suggestFrom } from "./demo-engine";
+import {
+  explain,
+  fitOf,
+  profileFor,
+  reasonsLine,
+  suggestFrom,
+} from "./demo-engine";
 import { FORMULA_LINE } from "./score";
 import {
   addAssessment,
@@ -54,6 +60,9 @@ import {
  * Refusals are thrown as `ApiError`, so a screen has one catch block whichever
  * side it is talking to.
  */
+
+/** How many applicants a preview is tried on. */
+const PREVIEW_SAMPLE = 20;
 
 const NEVER_USED = [
   "name",
@@ -255,38 +264,58 @@ export const demoScreeningGateway: ScreeningGateway = {
 
     suggest: async (postingId) => {
       const posting = demoBook().postings.find((p) => p.id === postingId);
-      return suggestFrom(posting?.description ?? "");
+      return suggestFrom(posting?.description ?? "", posting?.location ?? null);
     },
 
     preview: async (postingId, criteria) => {
       const rows = applicantsOf(postingId);
-      const state = postingStateOf(demoScreening.current(), postingId);
+      const ctx = context(postingId);
+      const state = postingStateOf(ctx.book, postingId);
       const version = (state.version ?? 0) + 1;
-      const bands = [0, 0, 0, 0, 0];
+      /* A CV nobody has read has no words to try a draft on. */
+      const readable = rows.filter((row) => !specialOf(row.person.email));
+      const sample = readable.slice(0, PREVIEW_SAMPLE);
+      const bands = Array.from({ length: 10 }, () => 0);
       let scored = 0;
-      let waitingForText = 0;
-      let noText = 0;
-      const sample = rows.map((row) => {
+      const items = sample.map((row) => {
         const explanation = explain(
           profileFor(row.person, specialOf(row.person.email)),
           cleaned(criteria),
           { version, currentVersion: version },
         );
-        const fit = fitOf(explanation);
-        if (fit.status === "SCORED" && fit.score !== null) {
+        const next = fitOf(explanation).score;
+        if (next !== null) {
           scored += 1;
-          const band = Math.min(4, Math.floor(fit.score / 20));
+          const band = Math.min(9, Math.floor(next / 10));
           bands[band] = (bands[band] ?? 0) + 1;
-        } else if (fit.status === "WAITING_FOR_TEXT") waitingForText += 1;
-        else noText += 1;
-        return { id: row.application.id, name: row.application.name, fit };
+        }
+        const current = fitOf(explanationFor(ctx, row.person, row.order)).score;
+        return {
+          id: row.application.id,
+          name: row.application.name,
+          current,
+          next,
+          change: current !== null && next !== null ? next - current : null,
+          reasons: next === null ? null : reasonsLine(explanation),
+        };
       });
+      const scores = items.flatMap((item) =>
+        item.next === null ? [] : [item.next],
+      );
       return {
-        total: rows.length,
-        rows: sample.slice(0, 20),
+        available: readable.length,
+        sampled: items.length,
+        rows: items,
         scored,
-        waitingForText,
-        noText,
+        notScorable: items.length - scored,
+        mean:
+          scores.length === 0
+            ? null
+            : Math.round(
+                (scores.reduce((sum, value) => sum + value, 0) /
+                  scores.length) *
+                  10,
+              ) / 10,
         bands,
       };
     },

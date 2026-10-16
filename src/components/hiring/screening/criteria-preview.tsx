@@ -1,20 +1,40 @@
 "use client";
 
 import { Button, Skeleton } from "@/components/ui";
-import type { CriteriaPreview } from "@/lib/hiring/screening/model";
+import type { CriteriaPreview, PreviewRow } from "@/lib/hiring/screening/model";
 import { count } from "@/lib/hiring/screening/score";
-import { FitBadge } from "@/components/hiring/screening/fit-badge";
 
 /**
  * "This would score these applicants like so", before anything is saved.
  *
- * Asked for on request, never on every keystroke: it reads the advert's own
- * applicants, which for a big advert is real work. It says what it answers (the
- * draft as it was when asked) and when the draft has moved on since, so an old
- * preview is never read as a new one.
+ * It is tried on a sample: the newest applicants whose CV has been read, because a
+ * CV nobody has read has no words to try a draft on. So it says how many it was
+ * tried on and how many there were to choose from, and never reads as a count of
+ * everybody. Each person shows the score they have now and the one the draft would
+ * give, in words, so a change is a sentence and not a colour.
+ *
+ * Asked for on request, never on every keystroke, and it says when the draft has
+ * moved on since it was made, so an old preview is never read as a new one.
  */
 
-const BANDS = ["0 to 19", "20 to 39", "40 to 59", "60 to 79", "80 to 100"];
+const BANDS = Array.from({ length: 10 }, (_, index) =>
+  index === 9
+    ? "90 to 100"
+    : `${String(index * 10)} to ${String(index * 10 + 9)}`,
+);
+
+/** "72, up 12 from 60": the draft's score and what it did, in words. */
+export function changeWords(row: PreviewRow): string {
+  if (row.next === null) {
+    return row.current === null
+      ? "No score either way"
+      : `No score with these. They have ${String(row.current)} now`;
+  }
+  if (row.current === null) return `Fit ${String(row.next)}, with no score now`;
+  if (row.change === 0) return `Fit ${String(row.next)}, no change`;
+  const by = Math.abs(row.change ?? 0);
+  return `Fit ${String(row.next)}, ${(row.change ?? 0) > 0 ? "up" : "down"} ${String(by)} from ${String(row.current)}`;
+}
 
 export function CriteriaPreviewPanel({
   status,
@@ -48,8 +68,8 @@ export function CriteriaPreviewPanel({
             : "Preview on current applicants"}
         </Button>
         <p className="text-meta text-muted">
-          Shows how these criteria would score the people who have applied.
-          Nothing is saved.
+          Tries these criteria on some of the people who have applied. Nothing
+          is saved.
         </p>
       </div>
 
@@ -77,18 +97,27 @@ export function CriteriaPreviewPanel({
               the new picture.
             </p>
           )}
-          <p className="text-body-sm text-body">
-            This would score {count(preview.total)}{" "}
-            {preview.total === 1 ? "applicant" : "applicants"} like so.{" "}
-            {count(preview.scored)} would get a score
-            {preview.waitingForText > 0
-              ? `, ${count(preview.waitingForText)} are waiting for their CV text`
-              : ""}
-            {preview.noText > 0
-              ? `, and ${count(preview.noText)} have no text and need a person to read the CV`
-              : ""}
-            .
-          </p>
+          {preview.sampled === 0 ? (
+            <p className="text-body-sm text-body">
+              Nobody can be tried on yet: no applicant has a CV that has been
+              read. Once some have, this shows how the criteria would score
+              them.
+            </p>
+          ) : (
+            <p className="text-body-sm text-body">
+              Tried on the newest {count(preview.sampled)} of{" "}
+              {count(preview.available)}{" "}
+              {preview.available === 1 ? "applicant" : "applicants"} whose CV
+              has been read. {count(preview.scored)} would get a score
+              {preview.notScorable > 0
+                ? `, and ${count(preview.notScorable)} would not, because there is too little in the CV to judge`
+                : ""}
+              {preview.mean !== null
+                ? `. The average would be ${String(preview.mean)}`
+                : ""}
+              .
+            </p>
+          )}
 
           {preview.scored > 0 && (
             <ul
@@ -125,18 +154,24 @@ export function CriteriaPreviewPanel({
           {preview.rows.length > 0 && (
             <>
               <p className="mt-4 text-meta font-semibold text-faint">
-                The first {preview.rows.length}
+                Each person tried
               </p>
               <ul className="mt-1 divide-y divide-line">
                 {preview.rows.map((row) => (
-                  <li
-                    key={row.id}
-                    className="flex flex-wrap items-center justify-between gap-2 py-2"
-                  >
-                    <span className="min-w-0 text-body-sm text-ink [overflow-wrap:anywhere]">
-                      {row.name}
+                  <li key={row.id} className="flex flex-col gap-0.5 py-2">
+                    <span className="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <span className="min-w-0 text-body-sm font-medium text-ink [overflow-wrap:anywhere]">
+                        {row.name}
+                      </span>
+                      <span className="tabular text-body-sm text-body">
+                        {changeWords(row)}
+                      </span>
                     </span>
-                    <FitBadge fit={row.fit} />
+                    {row.reasons && (
+                      <span className="text-meta text-muted">
+                        {row.reasons}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

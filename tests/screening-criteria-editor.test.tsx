@@ -13,7 +13,7 @@ import {
   type Criteria,
   type Suggestion,
 } from "@/lib/hiring/screening/model";
-import { kw } from "./screening-helpers";
+import { kw, sk } from "./screening-helpers";
 
 /**
  * Writing what an advert's applicants are matched against.
@@ -188,10 +188,14 @@ describe("other spellings and weights", () => {
 
 describe("suggesting from the advert", () => {
   const suggestion: Suggestion = {
-    mustHave: [kw("Payroll"), kw("PAYE")],
-    niceToHave: [kw("Excel")],
+    mustHave: [sk("Payroll", "You must know payroll."), sk("PAYE")],
+    niceToHave: [sk("Excel", "Excel is a plus.")],
     minYears: 5,
+    minYearsFrom: "At least 5 years of experience.",
     education: "BACHELORS",
+    educationFrom: "A degree is required.",
+    places: ["Lagos"],
+    placesFrom: "The advert's own location.",
     note: "Taken from the words in the advert.",
   };
 
@@ -269,7 +273,11 @@ describe("suggesting from the advert", () => {
           mustHave: [],
           niceToHave: [],
           minYears: null,
+          minYearsFrom: null,
           education: null,
+          educationFrom: null,
+          places: [],
+          placesFrom: null,
           note: null,
         })}
       />,
@@ -302,6 +310,68 @@ describe("suggesting from the advert", () => {
     expect(
       screen.queryByRole("button", { name: /Suggest from/ }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("what a suggestion shows", () => {
+  const suggestion: Suggestion = {
+    mustHave: [sk("Payroll", "You must know payroll.")],
+    niceToHave: [],
+    minYears: null,
+    minYearsFrom: null,
+    education: null,
+    educationFrom: null,
+    places: ["Lagos"],
+    placesFrom: "The advert's own location.",
+    note: null,
+  };
+
+  it("gives the sentence of the advert each one was read from", async () => {
+    const user = userEvent.setup();
+    render(<Harness onSuggest={async () => suggestion} />);
+    await user.click(
+      screen.getByRole("button", { name: "Suggest from the job description" }),
+    );
+    expect(
+      await screen.findByText(/From the advert: “You must know payroll\.”/),
+    ).toBeInTheDocument();
+  });
+
+  it("offers the place, and takes it on request", async () => {
+    const user = userEvent.setup();
+    const seen: Criteria[] = [];
+    render(
+      <Harness
+        onSuggest={async () => suggestion}
+        onChange={(next) => seen.push(next)}
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Suggest from the job description" }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Count Lagos as the place" }),
+    );
+    expect(seen.at(-1)?.places).toEqual(["Lagos"]);
+  });
+
+  it("keeps the skill and its spellings, not the sentence", async () => {
+    const user = userEvent.setup();
+    const seen: Criteria[] = [];
+    render(
+      <Harness
+        onSuggest={async () => suggestion}
+        onChange={(next) => seen.push(next)}
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Suggest from the job description" }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Add Payroll to must-have" }),
+    );
+    expect(seen.at(-1)?.mustHave[0]).not.toHaveProperty("from");
+    expect(seen.at(-1)?.mustHave[0]?.label).toBe("Payroll");
   });
 });
 

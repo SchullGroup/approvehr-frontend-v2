@@ -40,6 +40,13 @@ export const kw = (
   weight,
 });
 
+/** A suggested skill, with the sentence the advert gave it. */
+export const sk = (label: string, from = "We need payroll experience.") => ({
+  ...kw(label),
+  from,
+  confidence: "HIGH" as const,
+});
+
 export const fit = (over: Partial<FitSummary> = {}): FitSummary => ({
   status: "SCORED",
   score: 72,
@@ -193,26 +200,41 @@ export function fakeGateway(over: Partial<ScreeningGateway> = {}): FakeGateway {
           savedView({ version: (base ?? 0) + 1 }),
       ),
       suggest: vi.fn(async () => ({
-        mustHave: [kw("Payroll"), kw("PAYE")],
-        niceToHave: [kw("Excel")],
+        mustHave: [sk("Payroll"), sk("PAYE")],
+        niceToHave: [sk("Excel", "Excel is a plus.")],
         minYears: 5,
+        minYearsFrom: "At least 5 years of experience.",
         education: "BACHELORS",
+        educationFrom: "A degree is required.",
+        places: ["Lagos"],
+        placesFrom: "The advert's own location.",
         note: "Taken from the words in the advert.",
       })),
       preview: vi.fn(async () => ({
-        total: 4210,
+        available: 4210,
+        sampled: 20,
         rows: [
-          { id: "r1", name: "Ada Okafor", fit: fit({ score: 91 }) },
+          {
+            id: "r1",
+            name: "Ada Okafor",
+            current: 60,
+            next: 91,
+            change: 31,
+            reasons: "Matched: Payroll.",
+          },
           {
             id: "r2",
             name: "Tunde Bello",
-            fit: fit({ status: "NO_TEXT", score: null }),
+            current: null,
+            next: null,
+            change: null,
+            reasons: null,
           },
         ],
-        scored: 3987,
-        waitingForText: 150,
-        noText: 73,
-        bands: [100, 400, 1200, 1500, 787],
+        scored: 19,
+        notScorable: 1,
+        mean: 64.2,
+        bands: [0, 1, 2, 3, 4, 3, 2, 2, 1, 1],
       })),
     },
     rescore: {
