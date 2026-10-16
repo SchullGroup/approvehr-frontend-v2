@@ -970,7 +970,9 @@ function ApplicationRow({
               <span>{application.postingTitle}</span>
               <TextLink
                 href={`mailto:${application.email}`}
-                className="inline-flex items-center gap-1 font-normal"
+                /* An address has no space to break at: without `anywhere` a
+                   long one is the widest thing on a 320px screen. */
+                className="inline-flex max-w-full min-w-0 items-center gap-1 font-normal [overflow-wrap:anywhere]"
               >
                 <Mail aria-hidden="true" className="size-3.5" />
                 {application.email}
@@ -978,7 +980,7 @@ function ApplicationRow({
               {application.phone && (
                 <TextLink
                   href={`tel:${application.phone}`}
-                  className="tabular inline-flex items-center gap-1 font-normal"
+                  className="tabular inline-flex max-w-full min-w-0 items-center gap-1 font-normal [overflow-wrap:anywhere]"
                 >
                   <Phone aria-hidden="true" className="size-3.5" />
                   {application.phone}
@@ -1009,7 +1011,7 @@ function ApplicationRow({
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+        <div className="flex max-w-full shrink-0 flex-wrap items-center gap-1.5">
           {/* Only where there is a file to open: connected, and the applicant
               attached one. The demo's CVs have a filename and nothing behind it. */}
           {editable && application.cv?.scanStatus === "INFECTED" && (

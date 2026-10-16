@@ -566,8 +566,18 @@
   padding-inline: 1.25rem;
 }
 
-/* Wide content scrolls inside its own box so the page never does. */
+/* Wide content scrolls inside its own box so the page never does.
+
+   `position: relative` is what makes that true for everything inside it. A
+   box is only clipped by an overflow ancestor if that ancestor is, or sits
+   inside, its containing block — so a visually hidden label (`sr-only` is
+   `position: absolute`) in the far column of a wide table was laid out at
+   x=1500 against the page, ignored the scroller, and made the whole page
+   1,563px wide. Measured on /performance/skills: the layout viewport grew to
+   1500px and every dialog opened from that screen came up at its desktop
+   width on a phone. */
 @utility scroll-x {
+  position: relative;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;

@@ -176,10 +176,14 @@ export function ReleasePanel({
                 <div className="flex flex-wrap items-center gap-3">
                   <Button
                     variant="secondary"
+                    /* The label carries the whole amount, so it is the longest
+                       button on the screen: let it wrap rather than push a
+                       320px page sideways. */
+                    className="h-auto max-w-full whitespace-normal py-2 text-left"
                     disabled={!providerConnected || !canApprove || busy}
                     onClick={() => setConfirming("release")}
                   >
-                    <Send aria-hidden="true" className="size-4" />
+                    <Send aria-hidden="true" className="size-4 shrink-0" />
                     Release {total} to {headcount}
                   </Button>
                   {!providerConnected && (

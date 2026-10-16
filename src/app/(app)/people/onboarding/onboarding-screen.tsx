@@ -415,7 +415,10 @@ function StepRow({
           </span>
           <span
             className={cn(
-              "min-w-0 flex-1 truncate text-body-sm",
+              /* `relative`: the screen-reader suffix inside is absolutely
+                 positioned, and only a positioned ancestor clips it — without
+                 one it sat past the end of a long label and widened the page. */
+              "relative min-w-0 flex-1 truncate text-body-sm",
               done ? "text-muted line-through" : "text-ink",
             )}
           >
