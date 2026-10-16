@@ -240,6 +240,7 @@ export function CriteriaPanel({
           scale={view.scale}
           defaults={view.defaults}
           neverUsed={view.neverUsed}
+          formQuestions={view.formQuestions}
           onSuggest={suggest}
         />
 

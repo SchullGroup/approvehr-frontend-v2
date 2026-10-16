@@ -1,0 +1,512 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "@/lib/api/client";
+import { demoPipeline } from "@/lib/hiring/pipeline/demo-store";
+import { demoScreeningGateway as gateway } from "@/lib/hiring/screening/demo-gateway";
+import { demoScreening } from "@/lib/hiring/screening/demo-store";
+import { demoBook } from "@/lib/store/careers";
+import { RESCORE_MS } from "@/lib/hiring/screening/demo-store";
+import { kw } from "./screening-helpers";
+import { NO_CRITERIA } from "@/lib/hiring/screening/model";
+
+/**
+ * The demo's screening, end to end, against the real demo book.
+ *
+ * What these hold: the module opens on a scored advert and an advert with no
+ * criteria, every state of a CV is on screen somewhere (a scan, one waiting, one
+ * that would not open, one scored with an older version), a save is a new version
+ * that re-scores everybody over a few seconds, two people saving at once are told,
+ * the pass mark's count is the list's count, and a rejection is a person's, in
+ * bulk, with a count that has to still be true.
+ */
+
+const SEEDED = "demo-advert-req-01";
+const EMPTY = "demo-advert-req-02";
+const signal = new AbortController().signal;
+
+const person = (pattern: RegExp) => {
+  const found = demoBook().applications.find((a) => pattern.test(a.email));
+  if (!found) throw new Error(`no demo applicant like ${String(pattern)}`);
+  return found;
+};
+
+beforeEach(() => {
+  window.localStorage?.clear?.();
+  demoScreening.reset();
+  demoPipeline.reset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-16T09:00:00Z"));
+});
+afterEach(() => vi.useRealTimers());
+
+describe("the criteria", () => {
+  it("opens on one advert with criteria and one without", async () => {
+    const seeded = await gateway.criteria.get(SEEDED, signal);
+    expect(seeded.version).toBe(2);
+    expect(seeded.configured).toBe(true);
+    expect(seeded.criteria.mustHave.map((c) => c.label)).toEqual([
+      "Node.js",
+      "PostgreSQL",
+      "REST APIs",
+    ]);
+    const empty = await gateway.criteria.get(EMPTY, signal);
+    expect(empty.version).toBeNull();
+    expect(empty.configured).toBe(false);
+    expect(empty.criteria).toEqual(NO_CRITERIA);
+    expect(seeded.neverUsed).toContain("photo");
+    expect(seeded.defaults.mustHave).toBe(50);
+  });
+
+  it("saves as the next version, and says so when somebody saved first", async () => {
+    const view = await gateway.criteria.get(SEEDED, signal);
+    const next = await gateway.criteria.save(
+      SEEDED,
+      { ...view.criteria, minYears: 6 },
+      view.version,
+    );
+    expect(next.version).toBe(3);
+    await expect(
+      gateway.criteria.save(SEEDED, view.criteria, view.version),
+    ).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringMatching(
+        /Somebody saved newer criteria, version 3/,
+      ),
+    });
+  });
+
+  it("refuses criteria that are not complete", async () => {
+    await expect(
+      gateway.criteria.save(EMPTY, NO_CRITERIA, null),
+    ).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("suggests from the advert's own words and applies nothing", async () => {
+    const suggestion = await gateway.criteria.suggest(SEEDED, signal);
+    expect(
+      suggestion.mustHave.length + suggestion.niceToHave.length,
+    ).toBeGreaterThan(0);
+    expect((await gateway.criteria.get(SEEDED, signal)).version).toBe(2);
+  });
+
+  it("previews on the advert's own applicants and writes nothing", async () => {
+    const view = await gateway.criteria.get(SEEDED, signal);
+    const preview = await gateway.criteria.preview(
+      SEEDED,
+      { ...view.criteria, mustHave: [kw("Node.js")] },
+      signal,
+    );
+    expect(preview.total).toBe(22);
+    expect(preview.rows).toHaveLength(20);
+    expect(preview.scored + preview.waitingForText + preview.noText).toBe(22);
+    expect(preview.bands).toHaveLength(5);
+    expect(preview.bands.reduce((a, b) => a + b, 0)).toBe(preview.scored);
+    expect((await gateway.criteria.get(SEEDED, signal)).version).toBe(2);
+  });
+});
+
+describe("every state of a CV is somewhere", () => {
+  const explain = (pattern: RegExp) =>
+    gateway.explanation(
+      { kind: "application", id: person(pattern).id },
+      signal,
+    );
+
+  it("has a scan that needs a person to read it", async () => {
+    const result = await explain(/\.q04@/);
+    expect(result.status).toBe("NO_TEXT");
+    expect(result.score).toBeNull();
+    expect(result.extraction.reason).toMatch(/scan of paper/);
+  });
+
+  it("has a CV still waiting to be read", async () => {
+    expect((await explain(/\.q07@/)).status).toBe("WAITING_FOR_TEXT");
+  });
+
+  it("has a file that would not open, with the reason", async () => {
+    const result = await explain(/\.q10@/);
+    expect(result.status).toBe("COULD_NOT_READ");
+    expect(result.extraction.reason).toMatch(/password/);
+  });
+
+  it("has somebody scored with the version before", async () => {
+    const result = await explain(/\.q13@/);
+    expect(result.status).toBe("SCORED");
+    expect(result.stale).toBe(true);
+    expect(result.version).toBe(1);
+    expect(result.currentVersion).toBe(2);
+  });
+
+  it("has an advert with no criteria, where nobody is scored", async () => {
+    const other = demoBook().applications.find((a) => a.postingId === EMPTY);
+    const result = await gateway.explanation(
+      { kind: "application", id: other?.id ?? "" },
+      signal,
+    );
+    expect(result.status).toBe("NO_CRITERIA");
+  });
+
+  it("explains a score with the reasons and where the person stands", async () => {
+    const scored = demoBook().applications.find(
+      (a) => a.postingId === SEEDED && !/\.q(04|07|10)@/.test(a.email),
+    );
+    const result = await gateway.explanation(
+      { kind: "application", id: scored?.id ?? "" },
+      signal,
+    );
+    expect(result.items.length).toBeGreaterThan(3);
+    expect(result.formula).toMatch(/weight/);
+    expect(result.standing).not.toBeNull();
+  });
+});
+
+describe("re-scoring", () => {
+  it("runs for a few seconds after a save, and leaves the rest on the older version meanwhile", async () => {
+    const stale = person(/\.q13@/);
+    const view = await gateway.criteria.get(SEEDED, signal);
+    await gateway.criteria.save(
+      SEEDED,
+      { ...view.criteria, minYears: 6 },
+      view.version,
+    );
+
+    const begun = await gateway.rescore.progress(SEEDED, signal);
+    expect(begun).toMatchObject({
+      running: true,
+      done: 0,
+      total: 22,
+      cause: "CRITERIA",
+    });
+
+    vi.setSystemTime(new Date("2026-10-16T09:00:02Z"));
+    const half = await gateway.rescore.progress(SEEDED, signal);
+    expect(half.running).toBe(true);
+    expect(half.done).toBeGreaterThan(5);
+    expect(half.done).toBeLessThan(22);
+
+    vi.setSystemTime(
+      new Date(Date.parse("2026-10-16T09:00:00Z") + RESCORE_MS + 100),
+    );
+    const done = await gateway.rescore.progress(SEEDED, signal);
+    expect(done.running).toBe(false);
+
+    const after = await gateway.explanation(
+      { kind: "application", id: stale.id },
+      signal,
+    );
+    expect(after.stale).toBe(false);
+    expect(after.version).toBe(3);
+  });
+
+  it("shows somebody not yet reached as scored with the older version", async () => {
+    const view = await gateway.criteria.get(SEEDED, signal);
+    await gateway.criteria.save(SEEDED, view.criteria, view.version);
+    const rows = demoBook().applications.filter((a) => a.postingId === SEEDED);
+    const last = rows[rows.length - 1];
+    const result = await gateway.explanation(
+      { kind: "application", id: last?.id ?? "" },
+      signal,
+    );
+    /* The last in line has not been reached a moment after the save. */
+    expect(result.stale || result.status !== "SCORED").toBe(true);
+  });
+});
+
+describe("the pass mark", () => {
+  it("counts who would be below it, and the count is the list's count", async () => {
+    const count = await gateway.passMark.count(
+      SEEDED,
+      { fitMin: 50, assessmentMin: null },
+      signal,
+    );
+    const list = await gateway.below.list(
+      { postingId: SEEDED, filters: {}, cursor: null, pageSize: 100 },
+      signal,
+    );
+    expect(count.total).toBe(22);
+    expect(count.below).toBe(list.total);
+    expect(count.notScored).toBeGreaterThan(0);
+    expect(count.byReason.fit).toBeGreaterThan(0);
+  });
+
+  it("does not count people with no score as below it", async () => {
+    const list = await gateway.below.list(
+      { postingId: SEEDED, filters: {}, cursor: null, pageSize: 100 },
+      signal,
+    );
+    const none = [/\.q04@/, /\.q07@/, /\.q10@/].map((p) => person(p).id);
+    expect(
+      list.rows.map((r) => r.id).filter((id) => none.includes(id)),
+    ).toEqual([]);
+  });
+
+  it("raises the count when the line is raised, and saves it as a new version", async () => {
+    const low = await gateway.passMark.count(
+      SEEDED,
+      { fitMin: 20, assessmentMin: null },
+      signal,
+    );
+    const high = await gateway.passMark.count(
+      SEEDED,
+      { fitMin: 90, assessmentMin: null },
+      signal,
+    );
+    expect(high.below).toBeGreaterThan(low.below);
+    const saved = await gateway.passMark.save(SEEDED, {
+      fitMin: 90,
+      assessmentMin: null,
+    });
+    expect(saved.fitMin).toBe(90);
+    expect(saved.version).toBe(2);
+    expect((await gateway.rescore.progress(SEEDED, signal)).cause).toBe(
+      "PASS_MARK",
+    );
+  });
+
+  it("lists the lowest scores first, each with its reasons", async () => {
+    const list = await gateway.below.list(
+      { postingId: SEEDED, filters: {}, cursor: null, pageSize: 100 },
+      signal,
+    );
+    const scores = list.rows.map((r) => r.summary.fit.score ?? 1000);
+    expect(scores).toEqual([...scores].sort((a, b) => a - b));
+    expect(list.rows[0]?.reasons[0]?.kind).toBe("FIT");
+    expect(list.rows[0]?.reasons[0]?.text).toMatch(/pass mark is 50/);
+  });
+
+  it("pages the list with a cursor", async () => {
+    const first = await gateway.below.list(
+      { postingId: SEEDED, filters: {}, cursor: null, pageSize: 3 },
+      signal,
+    );
+    expect(first.rows).toHaveLength(3);
+    expect(first.next).not.toBeNull();
+    const second = await gateway.below.list(
+      { postingId: SEEDED, filters: {}, cursor: first.next, pageSize: 3 },
+      signal,
+    );
+    expect(second.rows[0]?.id).not.toBe(first.rows[0]?.id);
+  });
+});
+
+describe("deciding", () => {
+  const all = () =>
+    gateway.below.list(
+      { postingId: SEEDED, filters: {}, cursor: null, pageSize: 100 },
+      signal,
+    );
+
+  it("rejects the people it was asked to, and they leave the list", async () => {
+    const before = await all();
+    const ids = before.rows.slice(0, 2).map((r) => r.id);
+    const outcome = await gateway.below.reject({
+      target: { kind: "ids", postingId: SEEDED, ids },
+      decision: { reasonId: "any", note: "Thin CV", sendEmails: false },
+      idempotencyKey: "k-1-xxxxxxxx",
+      signal,
+      onProgress: () => undefined,
+    });
+    expect(outcome).toMatchObject({ requested: 2, done: 2, emailed: null });
+    const after = await all();
+    expect(after.total).toBe(before.total - 2);
+    expect(after.rows.map((r) => r.id)).not.toEqual(
+      expect.arrayContaining(ids),
+    );
+  });
+
+  it("says no email was sent, whatever was asked, because a demo has no mail", async () => {
+    const before = await all();
+    const outcome = await gateway.below.reject({
+      target: {
+        kind: "ids",
+        postingId: SEEDED,
+        ids: [before.rows[0]?.id ?? ""],
+      },
+      decision: { reasonId: "any", note: null, sendEmails: true },
+      idempotencyKey: "k-2-xxxxxxxx",
+      signal,
+      onProgress: () => undefined,
+    });
+    expect(outcome.emailed).toBe(0);
+    expect(outcome.emailNote).toMatch(/Nothing was sent/);
+  });
+
+  it("does an 'everyone matching' only if the count is still the one confirmed", async () => {
+    const before = await all();
+    await expect(
+      gateway.below.reject({
+        target: {
+          kind: "filter",
+          postingId: SEEDED,
+          filters: {},
+          expected: before.total + 5,
+        },
+        decision: { reasonId: "any", note: null, sendEmails: false },
+        idempotencyKey: "k-3-xxxxxxxx",
+        signal,
+        onProgress: () => undefined,
+      }),
+    ).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringMatching(
+        /The list changed while you were choosing/,
+      ),
+    });
+    expect((await all()).total).toBe(before.total);
+
+    const outcome = await gateway.below.reject({
+      target: {
+        kind: "filter",
+        postingId: SEEDED,
+        filters: {},
+        expected: before.total,
+      },
+      decision: { reasonId: "any", note: null, sendEmails: false },
+      idempotencyKey: "k-4-xxxxxxxx",
+      signal,
+      onProgress: () => undefined,
+    });
+    expect(outcome.done).toBe(before.total);
+    expect((await all()).total).toBe(0);
+  });
+
+  it("keeps somebody in the running only with a reason, and takes them off the list", async () => {
+    const before = await all();
+    const id = before.rows[0]?.id ?? "";
+    await expect(gateway.below.keep(id, "ok")).rejects.toMatchObject({
+      status: 400,
+    });
+    await gateway.below.keep(id, "Strong portfolio");
+    const after = await all();
+    expect(after.rows.map((r) => r.id)).not.toContain(id);
+    const standing = (
+      await gateway.explanation({ kind: "application", id }, signal)
+    ).standing;
+    expect(standing?.kept?.reason).toBe("Strong portfolio");
+    expect(standing?.below).toBe(false);
+  });
+
+  it("narrows by reason and by search", async () => {
+    const bySearch = await gateway.below.list(
+      { postingId: SEEDED, filters: { q: "zzzz" }, cursor: null, pageSize: 50 },
+      signal,
+    );
+    expect(bySearch.total).toBe(0);
+    const byReason = await gateway.below.list(
+      {
+        postingId: SEEDED,
+        filters: { reason: "ASSESSMENT" },
+        cursor: null,
+        pageSize: 50,
+      },
+      signal,
+    );
+    expect(byReason.total).toBe(0);
+  });
+});
+
+describe("assessment scores", () => {
+  const emailOf = (pattern: RegExp) => person(pattern).email;
+
+  it("checks every row and says what is wrong with each, by name", async () => {
+    const good = emailOf(/\.q01@/);
+    const check = await gateway.assessment.check(
+      SEEDED,
+      "boot.csv",
+      [
+        { row: 1, email: good, score: "72" },
+        { row: 2, email: "", score: "50" },
+        { row: 3, email: "nobody@example.test", score: "50" },
+        { row: 4, email: good, score: "80" },
+        { row: 5, email: emailOf(/\.q04@/), score: "seven" },
+        { row: 6, email: emailOf(/\.q07@/), score: "130" },
+      ],
+      signal,
+    );
+    expect(check.rows.map((r) => r.refusal)).toEqual([
+      null,
+      "blank_email",
+      "unmatched_email",
+      "duplicate_in_file",
+      "not_a_number",
+      "out_of_range",
+    ]);
+    expect(check.usable).toBe(1);
+    expect(check.refused).toBe(5);
+    expect(check.rows[2]?.message).toMatch(
+      /No applicant for this advert has that email/,
+    );
+  });
+
+  it("saves only the usable rows, and refuses a file that is not the one checked", async () => {
+    const good = emailOf(/\.q01@/);
+    const rows = [
+      { row: 1, email: good, score: "30" },
+      { row: 2, email: "nobody@example.test", score: "50" },
+    ];
+    const check = await gateway.assessment.check(
+      SEEDED,
+      "boot.csv",
+      rows,
+      signal,
+    );
+    await expect(
+      gateway.assessment.commit(SEEDED, check, [{ ...rows[0]!, score: "99" }]),
+    ).rejects.toMatchObject({ status: 409 });
+    const result = await gateway.assessment.commit(SEEDED, check, rows);
+    expect(result.saved).toBe(1);
+    expect(result.refused).toBe(1);
+    const history = await gateway.assessment.history(
+      { kind: "application", id: person(/\.q01@/).id },
+      signal,
+    );
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      score: 30,
+      source: "IMPORT",
+      filename: "boot.csv",
+    });
+  });
+
+  it("feeds the pass mark: a low assessment score puts somebody below it", async () => {
+    const q = person(/\.q16@/);
+    const before = await gateway.passMark.count(
+      SEEDED,
+      { fitMin: null, assessmentMin: 60 },
+      signal,
+    );
+    await gateway.assessment.enter(
+      { kind: "application", id: q.id },
+      20,
+      "Re-sat",
+    );
+    const after = await gateway.passMark.count(
+      SEEDED,
+      { fitMin: null, assessmentMin: 60 },
+      signal,
+    );
+    expect(after.byReason.assessment).toBe(before.byReason.assessment + 1);
+  });
+
+  it("keeps the history, newest first, with the typed note", async () => {
+    const subject = { kind: "application" as const, id: person(/\.q03@/).id };
+    await gateway.assessment.enter(subject, 40, null);
+    vi.setSystemTime(new Date("2026-10-17T09:00:00Z"));
+    await gateway.assessment.enter(subject, 65, "Second sitting");
+    const history = await gateway.assessment.history(subject, signal);
+    expect(history.map((h) => h.score)).toEqual([65, 40]);
+    expect(history[0]).toMatchObject({
+      source: "MANUAL",
+      note: "Second sitting",
+    });
+  });
+
+  it("refuses a typed score out of range", async () => {
+    await expect(
+      gateway.assessment.enter(
+        { kind: "application", id: person(/\.q03@/).id },
+        130,
+        null,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+});

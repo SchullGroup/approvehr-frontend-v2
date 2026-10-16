@@ -28,17 +28,25 @@
  * - `WAITING_FOR_TEXT`: the CV is in the queue to be read; the number comes after.
  * - `NO_TEXT`: the file has nothing to read (a scan, a photograph). It needs a
  *   person to read it, and is never scored zero.
+ * - `NO_CV`: no file was attached, so there is nothing to read. The answers on the
+ *   form may still be looked at by a person.
  * - `NO_CRITERIA`: the advert has no criteria yet, so nothing can be scored.
  * - `COULD_NOT_READ`: the file would not open (damaged, locked, the wrong kind of
  *   file). The reason is on the record and, where the API offers it, a retry.
  */
 export type ScoreStatus =
-  "SCORED" | "WAITING_FOR_TEXT" | "NO_TEXT" | "NO_CRITERIA" | "COULD_NOT_READ";
+  | "SCORED"
+  | "WAITING_FOR_TEXT"
+  | "NO_TEXT"
+  | "NO_CV"
+  | "NO_CRITERIA"
+  | "COULD_NOT_READ";
 
 export const SCORE_STATUSES: readonly ScoreStatus[] = [
   "SCORED",
   "WAITING_FOR_TEXT",
   "NO_TEXT",
+  "NO_CV",
   "NO_CRITERIA",
   "COULD_NOT_READ",
 ];
@@ -80,17 +88,19 @@ export type Keyword = {
   id: string;
   label: string;
   aliases: string[];
+  /** How much it counts within its list, 1 to 5. One unless somebody says more. */
+  weight: number;
 };
 
 /**
- * How much each part counts for, as percentages that need not add to 100: the
- * score is a weighted share, so only the proportions matter. `null` on the
- * criteria means "use the defaults", and the screen says what they are.
+ * How much each of the five parts counts for. They are shares, so only their
+ * proportions matter and they need not add up to 100. `null` on the criteria means
+ * "use the defaults", and the screen says what they are.
  */
 export type Weights = {
   mustHave: number;
   niceToHave: number;
-  years: number;
+  experience: number;
   education: number;
   location: number;
 };
@@ -98,25 +108,34 @@ export type Weights = {
 export const WEIGHT_KEYS: readonly (keyof Weights)[] = [
   "mustHave",
   "niceToHave",
-  "years",
+  "experience",
   "education",
   "location",
 ];
 
-/** One step on the ordered education scale. Level only: never a school or a grade. */
-export type EducationLevel = { value: string; label: string };
+/**
+ * One step on the ordered education scale. Level only: never a school, a course or
+ * a grade. `examples` is the list of qualifications that count as the level.
+ */
+export type EducationLevel = {
+  value: string;
+  label: string;
+  examples?: string;
+};
 
 export type Criteria = {
   mustHave: Keyword[];
   niceToHave: Keyword[];
-  /** Whole years, or `null` for "not asked". */
+  /** Whole or half years, or `null` for "not asked". */
   minYears: number | null;
   /** A `value` from the scale, or `null` for "not asked". */
   education: string | null;
-  /** Where the job is, as the CV might write it. `null` for "not asked". */
-  place: string | null;
-  /** Count somebody elsewhere who says they would move. */
-  relocation: boolean;
+  /** The cities, states or countries that count. Empty is "not asked". */
+  places: string[];
+  /** The form question whose answer says where somebody is. */
+  locationQuestionId: string | null;
+  /** The yes/no form question that says whether they would move. */
+  relocateQuestionId: string | null;
   /** `null` uses the defaults. */
   weights: Weights | null;
 };
@@ -126,14 +145,20 @@ export const NO_CRITERIA: Criteria = {
   niceToHave: [],
   minYears: null,
   education: null,
-  place: null,
-  relocation: false,
+  places: [],
+  locationQuestionId: null,
+  relocateQuestionId: null,
   weights: null,
 };
+
+/** A question on the advert's form, for pointing location at one. */
+export type FormQuestionRef = { id: string; kind: string; label: string };
 
 /** What an advert's criteria are right now, and what the screen needs to edit them. */
 export type CriteriaView = {
   postingId: string;
+  /** Whether there is anything to score against. Saved-but-empty reads as not. */
+  configured: boolean;
   /** `null` until criteria have been saved once. Each save is a new version. */
   version: number | null;
   criteria: Criteria;
@@ -141,6 +166,8 @@ export type CriteriaView = {
   defaults: Weights;
   /** Lowest first. */
   scale: EducationLevel[];
+  /** The advert's form questions, for the two location questions. */
+  formQuestions: FormQuestionRef[];
   /** How the score is worked out, in one line. The API's own words. */
   formula: string;
   /** What the score never looks at: the plain list the screen prints. */
@@ -201,8 +228,18 @@ export type Verdict = "MATCHED" | "PARTIAL" | "MISSING" | "UNKNOWN";
 
 export type Confidence = "HIGH" | "MEDIUM" | "LOW";
 
-/** A short stretch of the CV with the matched words marked. Never more than this. */
-export type Evidence = { before: string; match: string; after: string };
+/**
+ * A short stretch of what somebody wrote, with the words that matched to be marked.
+ * Never more than this: the text of the CV is not sent to the screen.
+ */
+export type Evidence = {
+  /** Where the words are from. */
+  source: "cv" | "cover_note" | "answer";
+  /** The stretch, a few words either side, on one line. */
+  text: string;
+  /** What to mark inside it: the skill and its other spellings. May be empty. */
+  marks: string[];
+};
 
 export type CriterionKind =
   "MUST_HAVE" | "NICE_TO_HAVE" | "YEARS" | "EDUCATION" | "LOCATION";
@@ -213,19 +250,29 @@ export type ExplanationItem = {
   /** What was asked: "Payroll", "At least 3 years", "A bachelor's degree". */
   label: string;
   verdict: Verdict;
-  /** How sure the match is. `null` where the notion does not apply (missing, unknown). */
+  /** How sure the match is. */
   confidence: Confidence | null;
-  /** What it added to the score, and what it could have added. */
-  points: number;
-  outOf: number;
+  /** What the criterion earned, 0 to 1, or `null` when it could not be judged. */
+  value: number | null;
   evidence: Evidence[];
-  /** One plain sentence where the verdict needs one ("The CV gives no years."). */
+  /** One plain sentence where the verdict needs one ("States 7 years; dated roles add up to 4"). */
   note: string | null;
+};
+
+/** One of the five parts: what it is worth, and whether it counted. */
+export type ExplanationGroup = {
+  kind: CriterionKind;
+  /** The weight the company gave it. */
+  weight: number;
+  /** How well the judged things in it did, 0 to 1. `null` when none could be judged. */
+  value: number | null;
+  /** It counted towards the score: something in it could be judged. */
+  judged: boolean;
 };
 
 /** Whether the CV could be read, and what to do if not. */
 export type Extraction = {
-  state: "READY" | "PENDING" | "NO_TEXT" | "COULD_NOT_READ";
+  state: "READY" | "PENDING" | "NO_TEXT" | "NO_CV" | "COULD_NOT_READ";
   /** Why, in words, when it could not be read. */
   reason: string | null;
   /** The API offers a retry. */
@@ -243,12 +290,18 @@ export type Standing = {
 export type Explanation = {
   status: ScoreStatus;
   score: number | null;
+  /**
+   * How much of the weight could be judged at all, 0 to 100. A high score on a low
+   * coverage means "what could be read was good", not "a great fit".
+   */
+  coverage: number | null;
   /** The one-line formula behind it, the API's own words. */
   formula: string | null;
   /** The version it was worked out with, and the one the job has now. */
   version: number | null;
   currentVersion: number | null;
   stale: boolean;
+  groups: ExplanationGroup[];
   items: ExplanationItem[];
   extraction: Extraction;
   /** `null` or absent where the API does not say. */

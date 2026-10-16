@@ -23,9 +23,9 @@ import { useExplanation } from "@/lib/hiring/screening/use-screening";
  *
  * ## What it shows, and what it does not
  *
- * One row per thing the advert asked for: matched, partly, not found, or unknown,
- * with the few words of the CV that say so, the points it earned, and how sure the
- * match is. The one-line formula and the version of the criteria it was worked out
+ * One row per thing the advert asked for: matched, partly, missing, or unknown,
+ * with the few words of the CV that say so, the credit it earned, and how sure the
+ * match is. Each of the five parts says how much of the 100 it carries. The one-line formula and the version of the criteria it was worked out
  * with are at the top. **Never the CV itself**: only the short stretches the match
  * was made on, so reading this is not a way round the audited route that opens a
  * file.
@@ -57,18 +57,67 @@ const CONFIDENCE_WORDS = {
   LOW: "Not very sure of this match",
 } as const;
 
-/** A short stretch of the CV with the matched words marked. */
+const SOURCE_WORDS = {
+  cv: "From the CV",
+  cover_note: "From the cover note",
+  answer: "From an answer on the form",
+} as const;
+
+/** The text cut into plain stretches and the words to mark, in order. */
+export function markedParts(
+  text: string,
+  marks: readonly string[],
+): { text: string; marked: boolean }[] {
+  const words = [...new Set(marks.map((mark) => mark.trim()).filter(Boolean))]
+    .sort((a, b) => b.length - a.length)
+    .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  if (words.length === 0) return [{ text, marked: false }];
+  const pattern = new RegExp(`(${words.join("|")})`, "gi");
+  const out: { text: string; marked: boolean }[] = [];
+  let last = 0;
+  for (const found of text.matchAll(pattern)) {
+    const at = found.index ?? 0;
+    if (at > last) out.push({ text: text.slice(last, at), marked: false });
+    out.push({ text: found[0], marked: true });
+    last = at + found[0].length;
+  }
+  if (last < text.length) out.push({ text: text.slice(last), marked: false });
+  return out;
+}
+
+/** A short stretch of what somebody wrote, with the matched words marked. */
 function Snippet({ evidence }: { evidence: Evidence }) {
   return (
     <blockquote className="rounded-md border-l-2 border-accent-line bg-canvas px-3 py-1.5 text-meta leading-relaxed text-body [overflow-wrap:anywhere]">
-      <span className="sr-only">From the CV: </span>
-      {evidence.before}
-      <mark className="rounded-sm bg-accent-soft px-0.5 font-medium text-ink">
-        {evidence.match}
-      </mark>
-      {evidence.after}
+      <span className="sr-only">{SOURCE_WORDS[evidence.source]}: </span>
+      {markedParts(evidence.text, evidence.marks).map((part, index) =>
+        part.marked ? (
+          <mark
+            key={index}
+            className="rounded-sm bg-accent-soft px-0.5 font-medium text-ink"
+          >
+            {part.text}
+          </mark>
+        ) : (
+          <span key={index}>{part.text}</span>
+        ),
+      )}
+      {evidence.source !== "cv" && (
+        <span className="ml-1 text-faint">
+          ({SOURCE_WORDS[evidence.source]})
+        </span>
+      )}
     </blockquote>
   );
+}
+
+/** How much credit a criterion earned, in words. */
+function creditWords(item: ExplanationItem): string {
+  if (item.verdict === "UNKNOWN" || item.value === null)
+    return "Left out of the score";
+  if (item.value >= 1) return "Full credit";
+  if (item.value <= 0) return "No credit";
+  return `${String(Math.round(item.value * 100))}% credit`;
 }
 
 function Item({ item }: { item: ExplanationItem }) {
@@ -89,9 +138,7 @@ function Item({ item }: { item: ExplanationItem }) {
             </span>
           )}
         <span className="tabular ml-auto text-meta text-muted">
-          {item.verdict === "UNKNOWN"
-            ? "Left out of the score"
-            : `${String(item.points)} of ${String(item.outOf)} points`}
+          {creditWords(item)}
         </span>
       </div>
       {item.note && <p className="text-meta text-muted">{item.note}</p>}
@@ -125,6 +172,18 @@ function StandingNote({ explanation }: { explanation: Explanation }) {
       <p className="mt-2">A person decides what happens next.</p>
     </Callout>
   );
+}
+
+/**
+ * The share of the 100 a part carries: its weight out of the weight of every part
+ * that could be judged. `null` when it was left out.
+ */
+function shareOf(explanation: Explanation, kind: CriterionKind): number | null {
+  const counted = explanation.groups.filter((group) => group.judged);
+  const total = counted.reduce((sum, group) => sum + group.weight, 0);
+  const mine = counted.find((group) => group.kind === kind);
+  if (!mine || total === 0) return null;
+  return Math.round((100 * mine.weight) / total);
 }
 
 /**
@@ -219,6 +278,15 @@ export function ExplanationView({
             How it is worked out: {explanation.formula}
           </p>
         )}
+        {explanation.coverage !== null && (
+          <p className="text-meta text-muted">
+            It could judge {String(explanation.coverage)}% of what you asked
+            for.
+            {explanation.coverage < 60
+              ? " Read the score as what could be read, not as the whole picture."
+              : ""}
+          </p>
+        )}
         <p className="text-meta text-muted">
           {explanation.version !== null
             ? `Worked out with version ${String(explanation.version)} of the criteria.`
@@ -244,10 +312,16 @@ export function ExplanationView({
             (item) => item.kind === group.kind,
           );
           if (items.length === 0) return null;
+          const share = shareOf(explanation, group.kind);
           return (
             <section key={group.kind} aria-label={group.title}>
-              <h4 className="text-meta font-semibold text-faint">
+              <h4 className="flex flex-wrap items-baseline gap-x-2 text-meta font-semibold text-faint">
                 {group.title}
+                <span className="font-normal">
+                  {share === null
+                    ? "Left out: nothing in it could be judged"
+                    : `Counts for ${String(share)} of the 100`}
+                </span>
               </h4>
               <ul className="divide-y divide-line">
                 {items.map((item) => (
@@ -344,7 +418,7 @@ export function ExplanationDisclosure({
         {open ? "Hide the explanation" : label}
       </button>
       <div id={panelId} hidden={!open} className="mt-2">
-        {open && (
+        {enabled && (
           <ExplanationPanel
             subject={subject}
             criteriaHref={criteriaHref}

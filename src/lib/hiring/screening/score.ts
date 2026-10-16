@@ -49,6 +49,12 @@ const STATUS_WORDS: Record<Exclude<ScoreStatus, "SCORED">, StatusWords> = {
       "There is no text in this CV to read, as with a scan or a photograph, so it has no score. It needs a person to read it.",
     tone: "warning",
   },
+  NO_CV: {
+    label: "No CV to read",
+    detail:
+      "No CV was attached, so there is nothing to score. The answers on the form are still there for a person to read.",
+    tone: "warning",
+  },
   NO_CRITERIA: {
     label: "No criteria yet",
     detail:
@@ -80,6 +86,7 @@ export const STATUS_OPTIONS: { value: ScoreStatus; label: string }[] = [
   { value: "SCORED", label: "Scored" },
   { value: "WAITING_FOR_TEXT", label: "Waiting for CV text" },
   { value: "NO_TEXT", label: "Needs a person to read it" },
+  { value: "NO_CV", label: "No CV to read" },
   { value: "COULD_NOT_READ", label: "Could not read the CV" },
   { value: "NO_CRITERIA", label: "No criteria yet" },
 ];
@@ -97,6 +104,13 @@ export function fitAnnouncement(fit: FitSummary): string {
 /** The line under a stale score. */
 export const STALE_NOTE =
   "Scored with an older version of the criteria. A new score is on its way.";
+
+/**
+ * The one line that says how a score is worked out, for where the API does not send
+ * its own. It is the sum the engine does and nothing more.
+ */
+export const FORMULA_LINE =
+  "Each part counts by its weight. Within a part, a match earns full credit, a partial match half or its share, and a miss none. What the CV does not say is left out. The score is the credit earned out of the weight that could be judged, as a number out of 100.";
 
 /* -------------------------------------------------------------------- verdicts */
 

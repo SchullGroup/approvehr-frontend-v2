@@ -13,10 +13,11 @@ import {
   Select,
 } from "@/components/ui";
 import { ChipInput } from "@/components/hiring/screening/chip-input";
+import { PlaceInput } from "@/components/hiring/screening/place-input";
 import {
-  LIMITS,
   WEIGHT_LABEL,
   parseWeight,
+  parseYears,
   weightsLine,
   withChips,
   type CriteriaProblems,
@@ -25,6 +26,7 @@ import {
   WEIGHT_KEYS,
   type Criteria,
   type EducationLevel,
+  type FormQuestionRef,
   type Keyword,
   type Suggestion,
   type Weights,
@@ -58,6 +60,7 @@ export function CriteriaEditor({
   scale,
   defaults,
   neverUsed,
+  formQuestions = [],
   onSuggest,
   disabled = false,
 }: {
@@ -68,6 +71,8 @@ export function CriteriaEditor({
   defaults: Weights;
   /** What the score never uses, as the API lists it. */
   neverUsed: string[];
+  /** The advert's form questions, for pointing location at one. */
+  formQuestions?: FormQuestionRef[];
   /** Absent hides the button. */
   onSuggest?: (() => Promise<Suggestion>) | undefined;
   disabled?: boolean;
@@ -108,22 +113,12 @@ export function CriteriaEditor({
       />
 
       <FieldRow>
-        <Field
-          label="Years of experience, at least"
-          optional
-          {...(problems.minYears ? { error: problems.minYears } : {})}
-        >
-          <Input
-            inputMode="numeric"
-            value={value.minYears === null ? "" : String(value.minYears)}
-            disabled={disabled}
-            placeholder="3"
-            onChange={(event) => {
-              const text = event.target.value.replace(/[^0-9]/g, "");
-              set("minYears", text === "" ? null : Number(text));
-            }}
-          />
-        </Field>
+        <YearsField
+          value={value.minYears}
+          problem={problems.minYears}
+          disabled={disabled}
+          onChange={(next) => set("minYears", next)}
+        />
         <Field
           label="Education level, at least"
           optional
@@ -144,26 +139,71 @@ export function CriteriaEditor({
         </Field>
       </FieldRow>
 
-      <div className="flex flex-col gap-3">
-        <Field
-          label="Where the job is"
-          optional
-          {...(problems.place ? { error: problems.place } : {})}
-        >
-          <Input
-            value={value.place ?? ""}
-            disabled={disabled}
-            maxLength={LIMITS.place + 20}
-            placeholder="Lagos"
-            onChange={(event) => set("place", event.target.value || null)}
-          />
-        </Field>
-        <Checkbox
-          label="Count people elsewhere who say they would relocate"
-          checked={value.relocation}
-          disabled={disabled || !value.place}
-          onChange={(event) => set("relocation", event.target.checked)}
+      <div className="flex flex-col gap-4">
+        <PlaceInput
+          label="Places that count"
+          help="Cities, states or countries. Somebody who is there scores in full."
+          placeholder="For example Lagos, Ikeja"
+          value={value.places}
+          error={problems.places}
+          disabled={disabled}
+          onChange={(next) => set("places", next)}
         />
+        {value.places.length > 0 && formQuestions.length > 0 && (
+          <FieldRow>
+            <Field
+              label="Question that asks where they are"
+              optional
+              help="The answer is read as well as the CV."
+            >
+              <Select
+                value={value.locationQuestionId ?? ""}
+                disabled={disabled}
+                onChange={(event) =>
+                  set("locationQuestionId", event.target.value || null)
+                }
+              >
+                <option value="">None</option>
+                {formQuestions
+                  .filter((question) =>
+                    [
+                      "SHORT_TEXT",
+                      "LONG_TEXT",
+                      "SINGLE_CHOICE",
+                      "MULTI_CHOICE",
+                    ].includes(question.kind),
+                  )
+                  .map((question) => (
+                    <option key={question.id} value={question.id}>
+                      {question.label}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+            <Field
+              label="Question that asks if they would move"
+              optional
+              help="A yes counts for half when they are elsewhere."
+            >
+              <Select
+                value={value.relocateQuestionId ?? ""}
+                disabled={disabled}
+                onChange={(event) =>
+                  set("relocateQuestionId", event.target.value || null)
+                }
+              >
+                <option value="">None</option>
+                {formQuestions
+                  .filter((question) => question.kind === "YES_NO")
+                  .map((question) => (
+                    <option key={question.id} value={question.id}>
+                      {question.label}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+          </FieldRow>
+        )}
       </div>
 
       <WeightsField
@@ -180,7 +220,7 @@ export function CriteriaEditor({
         </h4>
         <ul className="mt-1.5 list-disc pl-5 text-body-sm text-body">
           {neverUsed.map((line) => (
-            <li key={line}>{line}</li>
+            <li key={line}>{line.charAt(0).toUpperCase() + line.slice(1)}</li>
           ))}
         </ul>
       </div>
@@ -463,8 +503,8 @@ function SuggestionGroup({
       <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
         {title}
         <Button variant="secondary" size="sm" onClick={() => onAdd(chips)}>
-          Add all {chips.length}
-          <span className="sr-only"> {title.toLowerCase()} suggestions</span>
+          Add all {chips.length}{" "}
+          <span className="sr-only">{title.toLowerCase()} suggestions</span>
         </Button>
       </p>
       <ul className="flex flex-wrap gap-1.5">
@@ -482,5 +522,55 @@ function SuggestionGroup({
         ))}
       </ul>
     </div>
+  );
+}
+
+/* --------------------------------------------------------------------- years */
+
+/**
+ * Whole or half years. What is typed is kept as text, so a "3." on the way to
+ * "3.5" is not snapped to anything; only a valid figure reaches the criteria.
+ */
+function YearsField({
+  value,
+  problem,
+  disabled,
+  onChange,
+}: {
+  value: number | null;
+  problem: string | undefined;
+  disabled: boolean;
+  onChange: (next: number | null) => void;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const shown = text ?? (value === null ? "" : String(value));
+  const parsed = parseYears(shown);
+  const pending = /^\d{1,2}[.,]$/.test(shown.trim());
+  const bad = parsed === "bad" && !pending;
+  return (
+    <Field
+      label="Years of experience, at least"
+      optional
+      help="Whole or half years."
+      {...(bad
+        ? { error: "Use whole or half years, such as 3 or 3.5." }
+        : problem
+          ? { error: problem }
+          : {})}
+    >
+      <Input
+        inputMode="decimal"
+        value={shown}
+        disabled={disabled}
+        placeholder="3"
+        onChange={(event) => {
+          const next = event.target.value;
+          setText(next);
+          const result = parseYears(next);
+          if (result !== "bad") onChange(result);
+        }}
+        onBlur={() => setText(null)}
+      />
+    </Field>
   );
 }

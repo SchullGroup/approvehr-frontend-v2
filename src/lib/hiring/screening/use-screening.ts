@@ -245,8 +245,13 @@ export function usePassMarkCount(postingId: string, input: PassMarkInput) {
       );
     },
   );
+  /* The last answer, kept while the next is on its way, so the number is dimmed
+     under a new figure rather than vanishing and coming back. Derived while
+     rendering: there is no frame showing something else. */
+  const [last, setLast] = useState<PassMarkCount | null>(null);
+  if (loaded.data && loaded.data !== last) setLast(loaded.data);
   return {
-    count: loaded.data,
+    count: loaded.data ?? last,
     loading: loaded.loading,
     error: loaded.error,
     /** The count answers what is in the boxes now. */

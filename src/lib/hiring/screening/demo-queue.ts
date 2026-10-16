@@ -5,6 +5,7 @@ import {
   summaryFor,
   type DemoPerson,
 } from "./demo-store";
+import { demoNow } from "./demo-clock";
 import type { ScreeningSummary } from "./model";
 
 /**
@@ -40,7 +41,7 @@ const personOf = (
 export function decorateQueue(rows: ApiApplication[]): ApiApplication[] {
   if (!DEMO_ENABLED) return rows;
   const book = demoScreening.current();
-  const now = Date.now();
+  const now = demoNow();
   const totals = new Map<string, number>();
   for (const row of rows)
     totals.set(row.postingId, (totals.get(row.postingId) ?? 0) + 1);
@@ -67,7 +68,7 @@ export function cardScreening(card: {
 }): ScreeningSummary {
   const book = demoScreening.current();
   return summaryFor(
-    { book, now: Date.now(), total: 0 },
+    { book, now: demoNow(), total: 0 },
     {
       id: card.id,
       applicationId: card.id,

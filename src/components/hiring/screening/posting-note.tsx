@@ -56,7 +56,8 @@ export function PostingScreeningNote({
           <p>
             {count(below.count.below)}{" "}
             {below.count.below === 1 ? "person is" : "people are"} below this
-            advert&apos;s pass mark. Nobody is rejected until a person confirms it.
+            advert&apos;s pass mark. Nobody is rejected until a person confirms
+            it.
           </p>
           <ButtonLink
             href={`/hiring/postings/${postingId}/below-pass-mark`}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Pencil, Plus, X } from "lucide-react";
-import { Button, Field, FieldRow, Input } from "@/components/ui";
+import { Button, Field, FieldRow, Input, Select } from "@/components/ui";
 import {
   LIMITS,
   aliasesFromText,
@@ -96,7 +96,7 @@ export function ChipInput({
             className="shrink-0"
           >
             <Plus aria-hidden="true" className="size-4" />
-            Add<span className="sr-only"> to {label}</span>
+            Add <span className="sr-only">to {label}</span>
           </Button>
         </div>
       </Field>
@@ -127,6 +127,12 @@ export function ChipInput({
                       <span className="text-muted">
                         {" "}
                         also {chip.aliases.join(", ")}
+                      </span>
+                    )}
+                    {chip.weight > 1 && (
+                      <span className="text-muted">
+                        {" "}
+                        counts {chip.weight} times as much
                       </span>
                     )}
                   </span>
@@ -173,6 +179,7 @@ function ChipEditor({
 }) {
   const [name, setName] = useState(chip.label);
   const [aliases, setAliases] = useState(chip.aliases.join(", "));
+  const [weight, setWeight] = useState(chip.weight);
   const label = tidy(name).slice(0, LIMITS.label);
   const clash = taken.some((other) => sameWord(other.label, label));
   const problem =
@@ -203,6 +210,21 @@ function ChipEditor({
           />
         </Field>
       </FieldRow>
+      <Field
+        label="How much it counts"
+        help="Within its list. One is normal; five counts five times as much."
+      >
+        <Select
+          value={String(weight)}
+          onChange={(event) => setWeight(Number(event.target.value))}
+        >
+          {[1, 2, 3, 4, 5].map((n) => (
+            <option key={n} value={n}>
+              {n === 1 ? "1 (normal)" : String(n)}
+            </option>
+          ))}
+        </Select>
+      </Field>
       <div className="flex flex-wrap gap-2">
         <Button
           variant="accent"
@@ -213,6 +235,7 @@ function ChipEditor({
               ...chip,
               label,
               aliases: aliasesFromText(aliases, label),
+              weight,
             })
           }
         >

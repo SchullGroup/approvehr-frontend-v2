@@ -10,16 +10,13 @@ import {
   cleaned,
   validateCriteria,
   hasProblems,
+  isEmptyCriteria,
   DEFAULT_SCALE,
   FALLBACK_WEIGHTS,
 } from "./criteria";
-import {
-  DEMO_FORMULA,
-  explain,
-  fitOf,
-  profileFor,
-  suggestFrom,
-} from "./demo-engine";
+import { demoNow, demoStamp } from "./demo-clock";
+import { explain, fitOf, profileFor, suggestFrom } from "./demo-engine";
+import { FORMULA_LINE } from "./score";
 import {
   addAssessment,
   belowReasons,
@@ -59,11 +56,18 @@ import {
  */
 
 const NEVER_USED = [
-  "Name, gender, age or date of birth",
-  "A photograph",
-  "Marital status, religion, tribe or state of origin",
-  "Which school or which employer: education counts as a level only",
-  "Anything else on the CV that is not written on the criteria",
+  "name",
+  "gender",
+  "age or date of birth",
+  "marital status",
+  "nationality",
+  "photo",
+  "religion",
+  "disability",
+  "address (beyond the location you ask for)",
+  "institution names or rankings",
+  "gaps in employment",
+  "email address or phone number, or their domain",
 ];
 
 /* ------------------------------------------------------------------- applicants */
@@ -92,7 +96,7 @@ function applicantsOf(postingId: string): Row[] {
 
 const context = (postingId: string): ScoringContext => ({
   book: demoScreening.current(),
-  now: Date.now(),
+  now: demoNow(),
   total: applicantsOf(postingId).length,
 });
 
@@ -101,10 +105,12 @@ function view(postingId: string): CriteriaView {
   return {
     postingId,
     version: state.version,
+    configured: state.criteria !== null && !isEmptyCriteria(state.criteria),
     criteria: state.criteria ?? NO_CRITERIA,
     defaults: FALLBACK_WEIGHTS,
     scale: DEFAULT_SCALE,
-    formula: DEMO_FORMULA,
+    formula: FORMULA_LINE,
+    formQuestions: [],
     neverUsed: NEVER_USED,
     updatedAt: state.updatedAt,
     updatedBy: state.updatedAt ? "Fatima Bello" : null,
@@ -241,7 +247,7 @@ export const demoScreeningGateway: ScreeningGateway = {
           postingId,
           draft,
           baseVersion,
-          Date.now(),
+          demoNow(),
         ),
       );
       return view(postingId);
@@ -292,7 +298,7 @@ export const demoScreeningGateway: ScreeningGateway = {
       return rescoreAt(
         postingStateOf(demoScreening.current(), postingId),
         total,
-        Date.now(),
+        demoNow(),
       );
     },
   },
@@ -328,7 +334,7 @@ export const demoScreeningGateway: ScreeningGateway = {
 
     save: async (postingId, input) => {
       demoScreening.commit(
-        savePassMarkOp(demoScreening.current(), postingId, input, Date.now()),
+        savePassMarkOp(demoScreening.current(), postingId, input, demoNow()),
       );
       return passMarkOf(demoScreening.current(), postingId);
     },
@@ -456,8 +462,8 @@ export const demoScreeningGateway: ScreeningGateway = {
         if (row.refusal !== null || row.score === null || row.email === null)
           continue;
         book = addAssessment(book, row.email, {
-          id: `imp-${String(Date.now())}-${String(row.row)}`,
-          at: new Date().toISOString(),
+          id: `imp-${String(demoNow())}-${String(row.row)}`,
+          at: demoStamp(),
           by: "You",
           source: "IMPORT",
           filename: check.filename,
@@ -483,8 +489,8 @@ export const demoScreeningGateway: ScreeningGateway = {
         throw refuse(400, "validation_failed", "Scores run from 0 to 100.");
       demoScreening.commit(
         addAssessment(demoScreening.current(), email, {
-          id: `man-${String(Date.now())}`,
-          at: new Date().toISOString(),
+          id: `man-${String(demoNow())}`,
+          at: demoStamp(),
           by: "You",
           source: "MANUAL",
           filename: null,
@@ -580,7 +586,7 @@ export const demoScreeningGateway: ScreeningGateway = {
           "Say in a few words why they stay in the running.",
         );
       demoScreening.commit(
-        keepOp(demoScreening.current(), applicationId, trimmed, Date.now()),
+        keepOp(demoScreening.current(), applicationId, trimmed, demoNow()),
       );
     },
   },

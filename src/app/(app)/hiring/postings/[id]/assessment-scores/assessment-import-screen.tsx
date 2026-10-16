@@ -28,7 +28,6 @@ import {
   TR,
   TableWrap,
   useStepper,
-  useToast,
   type Step,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -128,7 +127,6 @@ async function textOf(file: File): Promise<string> {
 function Flow({ id }: { id: string }) {
   const gateway = useScreeningGateway();
   const advert = usePosting(id);
-  const toast = useToast();
   const [read, setRead] = useState<Read | null>(null);
   const [check, setCheck] = useState<AssessmentCheck | null>(null);
   const [result, setResult] = useState<AssessmentResult | null>(null);
@@ -206,10 +204,6 @@ function Flow({ id }: { id: string }) {
     try {
       const saved = await gateway.assessment.commit(id, check, read.rows);
       setResult(saved);
-      toast.push({
-        title: `${count(saved.saved)} ${saved.saved === 1 ? "score" : "scores"} saved`,
-        tone: "success",
-      });
     } catch (error) {
       setProblem(
         error instanceof ApiError

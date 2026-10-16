@@ -7,9 +7,11 @@ import {
 import type {
   Confidence,
   Criteria,
+  CriterionKind,
   EducationLevel,
   Evidence,
   Explanation,
+  ExplanationGroup,
   ExplanationItem,
   Extraction,
   FitSummary,
@@ -18,6 +20,7 @@ import type {
   Verdict,
   Weights,
 } from "./model";
+import { FORMULA_LINE } from "./score";
 
 /**
  * The demo's scorer: plain rules over invented CVs.
@@ -162,12 +165,12 @@ const FAMILIES: Family[] = !DEMO_ENABLED
 const DEGREES: { level: string; text: string }[] = !DEMO_ENABLED
   ? []
   : [
-      { level: "secondary", text: "SSCE, Government College" },
-      { level: "diploma", text: "OND in Business Administration" },
-      { level: "hnd", text: "HND, Computer Science" },
-      { level: "bachelors", text: "BSc, University of Lagos" },
-      { level: "masters", text: "MSc, University of Ibadan" },
-      { level: "doctorate", text: "PhD, Covenant University" },
+      { level: "SECONDARY", text: "SSCE, Government College" },
+      { level: "DIPLOMA", text: "OND in Business Administration" },
+      { level: "HND", text: "HND, Computer Science" },
+      { level: "BACHELORS", text: "BSc, University of Lagos" },
+      { level: "MASTERS", text: "MSc, University of Ibadan" },
+      { level: "DOCTORATE", text: "PhD, Covenant University" },
     ];
 
 /** A small, stable number from a string. */
@@ -241,7 +244,9 @@ export function profileFor(
       : (family.place[Math.floor(unit(key, 45) * family.place.length)] ?? null);
   const relocating = unit(key, 46) < 0.3;
 
-  const lines: string[] = [applicant.name, ""];
+  /* No name, no email: the scorer is never given who somebody is, which is also
+     how the real one is built. */
+  const lines: string[] = ["Curriculum vitae", ""];
   if (place) {
     lines.push(
       `Based in ${place}.${relocating ? " Willing to relocate for the right role." : ""}`,
@@ -281,15 +286,23 @@ function finder(term: string): RegExp {
 
 const SNIPPET_SIDE = 36;
 
-function snippet(text: string, index: number, length: number): Evidence {
+/** A stretch of the text around a match, on one line, with the words to mark. */
+function snippet(
+  text: string,
+  index: number,
+  length: number,
+  marks: string[],
+): Evidence {
   const clip = (value: string) => value.replace(/\s+/g, " ");
-  const beforeRaw = text.slice(Math.max(0, index - SNIPPET_SIDE), index);
-  const afterRaw = text.slice(index + length, index + length + SNIPPET_SIDE);
+  const from = Math.max(0, index - SNIPPET_SIDE);
+  const to = Math.min(text.length, index + length + SNIPPET_SIDE);
   return {
-    before: (index - SNIPPET_SIDE > 0 ? "…" : "") + clip(beforeRaw),
-    match: clip(text.slice(index, index + length)),
-    after:
-      clip(afterRaw) + (index + length + SNIPPET_SIDE < text.length ? "…" : ""),
+    source: "cv",
+    text:
+      (from > 0 ? "…" : "") +
+      clip(text.slice(from, to)).trim() +
+      (to < text.length ? "…" : ""),
+    marks,
   };
 }
 
@@ -310,15 +323,19 @@ function findAny(
 
 /** The highest level a CV names, as an index into the scale. */
 const LEVEL_WORDS: { value: string; pattern: RegExp }[] = [
-  { value: "doctorate", pattern: /\b(ph\.?d|doctorate|doctoral)\b/i },
-  { value: "masters", pattern: /\b(m\.?sc|m\.?b\.?a|master'?s|m\.?eng)\b/i },
+  { value: "DOCTORATE", pattern: /\b(ph\.?d|doctorate|doctoral)\b/i },
+  { value: "MASTERS", pattern: /\b(m\.?sc|m\.?b\.?a|master'?s|m\.?eng)\b/i },
   {
-    value: "bachelors",
+    value: "POSTGRAD_DIPLOMA",
+    pattern: /\b(pgde?|postgraduate diploma)\b/i,
+  },
+  {
+    value: "BACHELORS",
     pattern: /\b(b\.?sc|b\.?eng|b\.?tech|bachelor'?s?|llb)\b/i,
   },
-  { value: "hnd", pattern: /\b(hnd|higher national diploma)\b/i },
-  { value: "diploma", pattern: /\b(ond|nce|diploma)\b/i },
-  { value: "secondary", pattern: /\b(ssce|waec|neco|secondary school)\b/i },
+  { value: "HND", pattern: /\b(hnd|higher national diploma)\b/i },
+  { value: "DIPLOMA", pattern: /\b(ond|nce|diploma)\b/i },
+  { value: "SECONDARY", pattern: /\b(ssce|waec|neco|secondary school)\b/i },
 ];
 
 function highestLevel(
@@ -339,8 +356,11 @@ function highestLevel(
 
 /* -------------------------------------------------------------------- scoring */
 
+/** What one thing asked for came to: how it reads, and how much credit it earned. */
 type Credit = {
   verdict: Verdict;
+  /** 0 to 1, or `null` when it could not be judged. */
+  value: number | null;
   confidence: Confidence | null;
   evidence: Evidence[];
   note: string | null;
@@ -348,6 +368,7 @@ type Credit = {
 
 const unknown = (note: string): Credit => ({
   verdict: "UNKNOWN",
+  value: null,
   confidence: null,
   evidence: [],
   note,
@@ -358,8 +379,14 @@ function keywordCredit(text: string, chip: Keyword): Credit {
   if (labelHit) {
     return {
       verdict: "MATCHED",
+      value: 1,
       confidence: "HIGH",
-      evidence: [snippet(text, labelHit.index, labelHit.length)],
+      evidence: [
+        snippet(text, labelHit.index, labelHit.length, [
+          chip.label,
+          ...chip.aliases,
+        ]),
+      ],
       note: null,
     };
   }
@@ -367,30 +394,21 @@ function keywordCredit(text: string, chip: Keyword): Credit {
   if (aliasHit) {
     return {
       verdict: "MATCHED",
+      value: 1,
       confidence: "MEDIUM",
-      evidence: [snippet(text, aliasHit.index, aliasHit.length)],
+      evidence: [
+        snippet(text, aliasHit.index, aliasHit.length, [
+          chip.label,
+          ...chip.aliases,
+        ]),
+      ],
       note: `Found as "${aliasHit.term}", another way of writing it.`,
     };
   }
-  /* More than one word and only some of them: partly, and not very sure. */
-  const words = chip.label.split(/\s+/).filter((word) => word.length > 2);
-  if (words.length > 1) {
-    const hits = words
-      .map((word) => ({ word, hit: findAny(text, [word]) }))
-      .filter((entry) => entry.hit !== null);
-    const first = hits[0]?.hit;
-    if (hits.length > 0 && hits.length < words.length && first) {
-      return {
-        verdict: "PARTIAL",
-        confidence: "LOW",
-        evidence: [snippet(text, first.index, first.length)],
-        note: `Only "${hits.map((entry) => entry.word).join('", "')}" of it appears.`,
-      };
-    }
-  }
   return {
     verdict: "MISSING",
-    confidence: null,
+    value: 0,
+    confidence: "HIGH",
     evidence: [],
     note: "The CV was read and does not mention it.",
   };
@@ -398,20 +416,26 @@ function keywordCredit(text: string, chip: Keyword): Credit {
 
 function yearsCredit(text: string, minYears: number): Credit {
   const found = [...text.matchAll(/(\d{1,2})\s*\+?\s*(?:years?|yrs?)\b/gi)];
-  if (found.length === 0) return unknown("The CV gives no number of years.");
   let best = found[0];
   for (const match of found) {
     if (best === undefined || Number(match[1]) > Number(best[1])) best = match;
   }
   if (!best) return unknown("The CV gives no number of years.");
   const years = Number(best[1]);
-  const evidence = [snippet(text, best.index ?? 0, best[0].length)];
+  const evidence = [snippet(text, best.index ?? 0, best[0].length, [best[0]])];
   if (years >= minYears) {
-    return { verdict: "MATCHED", confidence: "HIGH", evidence, note: null };
+    return {
+      verdict: "MATCHED",
+      value: 1,
+      confidence: "HIGH",
+      evidence,
+      note: null,
+    };
   }
   if (years * 2 >= minYears) {
     return {
       verdict: "PARTIAL",
+      value: years / minYears,
       confidence: "MEDIUM",
       evidence,
       note: `The CV says ${String(years)}, and the ask is ${String(minYears)}.`,
@@ -419,6 +443,7 @@ function yearsCredit(text: string, minYears: number): Credit {
   }
   return {
     verdict: "MISSING",
+    value: 0,
     confidence: "MEDIUM",
     evidence,
     note: `The CV says ${String(years)}, and the ask is ${String(minYears)}.`,
@@ -433,13 +458,24 @@ function educationCredit(
   const need = scale.findIndex((level) => level.value === required);
   const have = highestLevel(text, scale);
   if (!have) return unknown("The CV does not name a qualification.");
-  const evidence = [snippet(text, have.index, have.length)];
+  const evidence = [
+    snippet(text, have.index, have.length, [
+      text.slice(have.index, have.index + have.length),
+    ]),
+  ];
   if (need === -1 || have.rank >= need) {
-    return { verdict: "MATCHED", confidence: "HIGH", evidence, note: null };
+    return {
+      verdict: "MATCHED",
+      value: 1,
+      confidence: "HIGH",
+      evidence,
+      note: null,
+    };
   }
   if (have.rank === need - 1) {
     return {
       verdict: "PARTIAL",
+      value: 0.5,
       confidence: "MEDIUM",
       evidence,
       note: "One level below what was asked.",
@@ -447,45 +483,48 @@ function educationCredit(
   }
   return {
     verdict: "MISSING",
+    value: 0,
     confidence: "MEDIUM",
     evidence,
     note: "Below the level asked.",
   };
 }
 
-function placeCredit(text: string, place: string, relocation: boolean): Credit {
-  const here = findAny(text, [place]);
+function placeCredit(
+  text: string,
+  places: string[],
+  relocating: boolean,
+): Credit {
+  const here = findAny(text, places);
   if (here) {
     return {
       verdict: "MATCHED",
+      value: 1,
       confidence: "HIGH",
-      evidence: [snippet(text, here.index, here.length)],
+      evidence: [snippet(text, here.index, here.length, [here.term])],
       note: null,
     };
   }
-  const moving = relocation ? /relocat/i.exec(text) : null;
+  const based = /based in ([A-Za-z][A-Za-z ]+)/i.exec(text);
+  if (!based) return unknown("The CV does not say where the person is.");
+  const moving = relocating ? /relocat\w*/i.exec(text) : null;
   if (moving) {
     return {
       verdict: "PARTIAL",
+      value: 0.5,
       confidence: "MEDIUM",
-      evidence: [snippet(text, moving.index, moving[0].length)],
+      evidence: [snippet(text, moving.index, moving[0].length, [moving[0]])],
       note: "Based elsewhere and willing to relocate.",
     };
   }
-  const based = /based in ([A-Z][A-Za-z ]+)/.exec(text);
-  if (based) {
-    return {
-      verdict: "MISSING",
-      confidence: "MEDIUM",
-      evidence: [snippet(text, based.index, based[0].length)],
-      note: "Based somewhere else, and does not say they would move.",
-    };
-  }
-  return unknown("The CV does not say where the person is.");
+  return {
+    verdict: "MISSING",
+    value: 0,
+    confidence: "MEDIUM",
+    evidence: [snippet(text, based.index, based[0].length, [based[0]])],
+    note: "Based somewhere else, and does not say they would move.",
+  };
 }
-
-export const DEMO_FORMULA =
-  "Points earned out of the points that could be checked, scaled to 100. A full match earns a part's points, a partial match half, a miss none, and anything the CV does not say is left out.";
 
 export function noExplanation(
   status: Explanation["status"],
@@ -496,17 +535,32 @@ export function noExplanation(
   return {
     status,
     score: null,
+    coverage: null,
     formula: null,
     version,
     currentVersion,
     stale: false,
+    groups: [],
     items: [],
     extraction,
   };
 }
 
+const GROUP_OF: Record<CriterionKind, keyof Weights> = {
+  MUST_HAVE: "mustHave",
+  NICE_TO_HAVE: "niceToHave",
+  YEARS: "experience",
+  EDUCATION: "education",
+  LOCATION: "location",
+};
+
 /**
  * Score one CV against one set of criteria.
+ *
+ * The same sum the real thing does: each part of the criteria is worth a weight,
+ * a part's value is the weighted mean of what in it could be judged, and the score
+ * is the weighted value out of the weight that could be judged at all. What a CV
+ * does not say is left out of both sides, so nobody is marked down for it.
  *
  * `version` is the version these criteria were saved as and `currentVersion` the
  * job's latest: when they differ the explanation says it is stale.
@@ -544,7 +598,7 @@ export function explain(
   if (profile.state === "COULD_NOT_READ") {
     return noExplanation(
       "COULD_NOT_READ",
-      { state: "COULD_NOT_READ", reason: profile.reason, canRetry: true },
+      { state: "COULD_NOT_READ", reason: profile.reason, canRetry: false },
       version,
       currentVersion,
     );
@@ -557,124 +611,137 @@ export function explain(
   const text = profile.text;
   const weights = criteria.weights ?? defaults;
 
-  type Draft = {
-    id: string;
-    kind: ExplanationItem["kind"];
-    label: string;
-    weight: number;
-    credit: Credit;
-  };
+  type Draft = { item: ExplanationItem; weight: number };
   const drafts: Draft[] = [];
-  const chips = (list: Keyword[], kind: "MUST_HAVE" | "NICE_TO_HAVE") => {
-    const each =
-      list.length === 0
-        ? 0
-        : weights[kind === "MUST_HAVE" ? "mustHave" : "niceToHave"] /
-          list.length;
-    for (const chip of list) {
+  const skills = (list: Keyword[], kind: "MUST_HAVE" | "NICE_TO_HAVE") => {
+    list.forEach((chip, index) => {
+      const credit = keywordCredit(text, chip);
       drafts.push({
-        id: `${kind}:${compareForm(chip.label)}`,
-        kind,
-        label: chip.label,
-        weight: each,
-        credit: keywordCredit(text, chip),
+        weight: chip.weight,
+        item: {
+          id: `${kind === "MUST_HAVE" ? "must" : "nice"}:${String(index)}`,
+          kind,
+          label: chip.label,
+          verdict: credit.verdict,
+          confidence: credit.confidence,
+          value: credit.value,
+          evidence: credit.evidence,
+          note: credit.note,
+        },
       });
-    }
-  };
-  chips(criteria.mustHave, "MUST_HAVE");
-  chips(criteria.niceToHave, "NICE_TO_HAVE");
-  if (criteria.minYears !== null) {
-    drafts.push({
-      id: "YEARS",
-      kind: "YEARS",
-      label: `At least ${String(criteria.minYears)} ${criteria.minYears === 1 ? "year" : "years"}`,
-      weight: weights.years,
-      credit: yearsCredit(text, criteria.minYears),
     });
+  };
+  skills(criteria.mustHave, "MUST_HAVE");
+  skills(criteria.niceToHave, "NICE_TO_HAVE");
+  const single = (
+    id: string,
+    kind: CriterionKind,
+    label: string,
+    credit: Credit,
+  ) =>
+    drafts.push({
+      weight: 1,
+      item: {
+        id,
+        kind,
+        label,
+        verdict: credit.verdict,
+        confidence: credit.confidence,
+        value: credit.value,
+        evidence: credit.evidence,
+        note: credit.note,
+      },
+    });
+  if (criteria.minYears !== null) {
+    single(
+      "experience",
+      "YEARS",
+      `At least ${String(criteria.minYears)} ${criteria.minYears === 1 ? "year" : "years"}`,
+      yearsCredit(text, criteria.minYears),
+    );
   }
   if (criteria.education !== null) {
     const level = scale.find((entry) => entry.value === criteria.education);
-    drafts.push({
-      id: "EDUCATION",
-      kind: "EDUCATION",
-      label: level?.label ?? "An education level",
-      weight: weights.education,
-      credit: educationCredit(text, criteria.education, scale),
-    });
+    single(
+      "education",
+      "EDUCATION",
+      level?.label ?? "An education level",
+      educationCredit(text, criteria.education, scale),
+    );
   }
-  if (criteria.place) {
-    drafts.push({
-      id: "LOCATION",
-      kind: "LOCATION",
-      label: criteria.relocation
-        ? `${criteria.place}, or willing to relocate`
-        : criteria.place,
-      weight: weights.location,
-      credit: placeCredit(text, criteria.place, criteria.relocation),
-    });
+  if (criteria.places.length > 0) {
+    single(
+      "location",
+      "LOCATION",
+      criteria.places.join(" or "),
+      placeCredit(text, criteria.places, criteria.relocateQuestionId !== null),
+    );
   }
 
-  const checkable = drafts
-    .filter((draft) => draft.credit.verdict !== "UNKNOWN")
-    .reduce((sum, draft) => sum + draft.weight, 0);
+  const kinds: CriterionKind[] = [
+    "MUST_HAVE",
+    "NICE_TO_HAVE",
+    "YEARS",
+    "EDUCATION",
+    "LOCATION",
+  ];
+  const groups: ExplanationGroup[] = kinds
+    .filter((kind) => drafts.some((draft) => draft.item.kind === kind))
+    .map((kind) => {
+      const judged = drafts.filter(
+        (draft) => draft.item.kind === kind && draft.item.value !== null,
+      );
+      const total = judged.reduce((sum, draft) => sum + draft.weight, 0);
+      const value =
+        total === 0
+          ? null
+          : judged.reduce(
+              (sum, draft) => sum + draft.weight * (draft.item.value ?? 0),
+              0,
+            ) / total;
+      return {
+        kind,
+        weight: weights[GROUP_OF[kind]],
+        value,
+        judged: value !== null && weights[GROUP_OF[kind]] > 0,
+      };
+    });
 
-  if (checkable === 0) {
+  const counted = groups.filter((group) => group.judged);
+  const allWeight = groups.reduce((sum, group) => sum + group.weight, 0);
+  const countedWeight = counted.reduce((sum, group) => sum + group.weight, 0);
+  if (countedWeight === 0) {
     /* Nothing asked could be checked: not a zero, a person has to read it. */
-    return {
-      ...noExplanation(
-        "NO_TEXT",
-        {
-          state: "NO_TEXT",
-          reason: "Nothing in this CV could be checked against the criteria.",
-          canRetry: false,
-        },
-        version,
-        currentVersion,
-      ),
-    };
+    return noExplanation(
+      "NO_TEXT",
+      {
+        state: "NO_TEXT",
+        reason: "Nothing in this CV could be checked against the criteria.",
+        canRetry: false,
+      },
+      version,
+      currentVersion,
+    );
   }
-
-  const scale100 = 100 / checkable;
-  const round1 = (value: number) => Math.round(value * 10) / 10;
-  const items: ExplanationItem[] = drafts.map((draft) => {
-    const counted = draft.credit.verdict !== "UNKNOWN";
-    const outOf = counted ? draft.weight * scale100 : 0;
-    const share =
-      draft.credit.verdict === "MATCHED"
-        ? 1
-        : draft.credit.verdict === "PARTIAL"
-          ? 0.5
-          : 0;
-    return {
-      id: draft.id,
-      kind: draft.kind,
-      label: draft.label,
-      verdict: draft.credit.verdict,
-      confidence: draft.credit.confidence,
-      points: round1(outOf * share),
-      outOf: round1(outOf),
-      evidence: draft.credit.evidence,
-      note: draft.credit.note,
-    };
-  });
-  const earned = drafts.reduce((sum, draft, index) => {
-    const share =
-      draft.credit.verdict === "MATCHED"
-        ? 1
-        : draft.credit.verdict === "PARTIAL"
-          ? 0.5
-          : 0;
-    return sum + (items[index] ? draft.weight * scale100 * share : 0);
-  }, 0);
+  const earned = counted.reduce(
+    (sum, group) => sum + group.weight * (group.value ?? 0),
+    0,
+  );
 
   return {
     status: "SCORED",
-    score: Math.max(0, Math.min(100, Math.round(earned))),
-    formula: DEMO_FORMULA,
+    score: Math.max(
+      0,
+      Math.min(100, Math.round((100 * earned) / countedWeight)),
+    ),
+    coverage:
+      allWeight === 0 ? 0 : Math.round((100 * countedWeight) / allWeight),
+    formula: FORMULA_LINE,
     version,
     currentVersion,
     stale: currentVersion !== null && version < currentVersion,
-    items,
+    groups,
+    items: drafts.map((draft) => draft.item),
     extraction: ready,
   };
 }
@@ -693,23 +760,33 @@ export function fitOf(explanation: Explanation): FitSummary {
 const SUGGEST_VOCABULARY: Keyword[] = !DEMO_ENABLED
   ? []
   : [
-      { id: "", label: "Node.js", aliases: ["NodeJS", "Node"] },
-      { id: "", label: "Go", aliases: ["Golang"] },
-      { id: "", label: "PostgreSQL", aliases: ["Postgres"] },
-      { id: "", label: "REST APIs", aliases: ["REST API", "RESTful"] },
-      { id: "", label: "TypeScript", aliases: [] },
-      { id: "", label: "AWS", aliases: ["Amazon Web Services"] },
-      { id: "", label: "Terraform", aliases: [] },
-      { id: "", label: "Docker", aliases: [] },
-      { id: "", label: "Payroll", aliases: ["PAYE"] },
-      { id: "", label: "PAYE", aliases: [] },
-      { id: "", label: "Pension", aliases: ["pensions"] },
-      { id: "", label: "Excel", aliases: ["spreadsheets"] },
-      { id: "", label: "ICAN", aliases: [] },
-      { id: "", label: "ACCA", aliases: [] },
-      { id: "", label: "Figma", aliases: [] },
-      { id: "", label: "Design systems", aliases: ["design system"] },
-      { id: "", label: "Prototyping", aliases: ["prototypes"] },
+      { id: "", label: "Node.js", aliases: ["NodeJS", "Node"], weight: 1 },
+      { id: "", label: "Go", aliases: ["Golang"], weight: 1 },
+      { id: "", label: "PostgreSQL", aliases: ["Postgres"], weight: 1 },
+      {
+        id: "",
+        label: "REST APIs",
+        aliases: ["REST API", "RESTful"],
+        weight: 1,
+      },
+      { id: "", label: "TypeScript", aliases: [], weight: 1 },
+      { id: "", label: "AWS", aliases: ["Amazon Web Services"], weight: 1 },
+      { id: "", label: "Terraform", aliases: [], weight: 1 },
+      { id: "", label: "Docker", aliases: [], weight: 1 },
+      { id: "", label: "Payroll", aliases: ["PAYE"], weight: 1 },
+      { id: "", label: "PAYE", aliases: [], weight: 1 },
+      { id: "", label: "Pension", aliases: ["pensions"], weight: 1 },
+      { id: "", label: "Excel", aliases: ["spreadsheets"], weight: 1 },
+      { id: "", label: "ICAN", aliases: [], weight: 1 },
+      { id: "", label: "ACCA", aliases: [], weight: 1 },
+      { id: "", label: "Figma", aliases: [], weight: 1 },
+      {
+        id: "",
+        label: "Design systems",
+        aliases: ["design system"],
+        weight: 1,
+      },
+      { id: "", label: "Prototyping", aliases: ["prototypes"], weight: 1 },
     ];
 
 /**
@@ -733,6 +810,7 @@ export function suggestFrom(description: string): Suggestion {
       id: newKeywordId(),
       label: entry.label,
       aliases: [...entry.aliases],
+      weight: 1,
     }));
 
   const mustHave = pick(mustPart, new Set());
@@ -741,8 +819,8 @@ export function suggestFrom(description: string): Suggestion {
 
   const years = /(\d{1,2})\s*\+?\s*years?/i.exec(text);
   let education: string | null = null;
-  if (/degree|b\.?sc|bachelor/i.test(text)) education = "bachelors";
-  else if (/\bhnd\b/i.test(text)) education = "hnd";
+  if (/degree|b\.?sc|bachelor/i.test(text)) education = "BACHELORS";
+  else if (/\bhnd\b/i.test(text)) education = "HND";
 
   return {
     mustHave,

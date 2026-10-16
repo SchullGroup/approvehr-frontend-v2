@@ -96,6 +96,7 @@ const kw = (label: string, ...aliases: string[]) => ({
   id: `seed-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
   label,
   aliases,
+  weight: 1,
 });
 
 /** The seeded stale person: scored before the criteria last changed. */
@@ -129,9 +130,10 @@ function seedFor(postingId: string): DemoPostingState {
         kw("Payroll", "PAYE"),
       ],
       minYears: 5,
-      education: "bachelors",
-      place: "Lagos",
-      relocation: true,
+      education: "BACHELORS",
+      places: ["Lagos"],
+      locationQuestionId: null,
+      relocateQuestionId: null,
       weights: null,
     },
     prior: {
@@ -144,8 +146,9 @@ function seedFor(postingId: string): DemoPostingState {
         niceToHave: [kw("Terraform")],
         minYears: 4,
         education: null,
-        place: null,
-        relocation: false,
+        places: [],
+        locationQuestionId: null,
+        relocateQuestionId: null,
         weights: null,
       },
     },

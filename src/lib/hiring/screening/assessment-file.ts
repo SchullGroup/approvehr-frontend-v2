@@ -29,6 +29,7 @@ export function assessmentTemplate(): { filename: string; body: string } {
 const EMAIL_NAMES = [
   "email",
   "e-mail",
+  "e-mail address",
   "email address",
   "mail",
   "applicant email",
