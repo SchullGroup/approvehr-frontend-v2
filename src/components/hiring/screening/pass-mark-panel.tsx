@@ -166,7 +166,7 @@ function PassMarkForm({
     <Card>
       <CardHeader
         title="Pass mark"
-        description="Below it, a person is shown to somebody to look at. It flags. It never rejects."
+        description="People below it are listed for somebody to look at. It flags. It never rejects."
         action={
           <div className="flex flex-wrap items-center gap-2">
             {dirty && (

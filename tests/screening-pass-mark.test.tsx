@@ -80,7 +80,7 @@ describe("the pass mark as it stands", () => {
     open();
     await waitFor(() => expect(fitBox()).toBeInTheDocument());
     expect(
-      screen.getByText(/Below it, a person is shown to somebody to look at/),
+      screen.getByText(/People below it are listed for somebody to look at/),
     ).toBeInTheDocument();
     expect(screen.getByText(/It never rejects/)).toBeInTheDocument();
   });
