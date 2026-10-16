@@ -10,6 +10,7 @@ import {
   CardHeader,
   EmptyState,
   Field,
+  FieldRow,
   FilterBar,
   Input,
   Modal,
@@ -389,7 +390,11 @@ export function RequestCorrectionDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
+        {/* Two clock times stay side by side on a phone: each is short and
+            half of a 320px sheet is still wider than "12:00 PM" needs. They
+            are in a `FieldRow` because a hand-written grid here once let the
+            second one run off the screen in iPhone Safari. */}
+        <FieldRow phone="pair">
           <Field label="Clock in should be">
             <Input
               type="time"
@@ -406,7 +411,7 @@ export function RequestCorrectionDialog({
               onChange={(event) => setClockOut(event.target.value)}
             />
           </Field>
-        </div>
+        </FieldRow>
         <p className="text-meta text-muted">
           The record currently says {row.clockIn ?? "no clock-in"} to{" "}
           {row.clockOut ?? "no clock-out"}.

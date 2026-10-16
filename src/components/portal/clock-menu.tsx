@@ -10,6 +10,7 @@ import {
   Select,
   useToast,
 } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
 import { geofenceRefusal, type ApiClockResult } from "@/lib/api/attendance";
 import { PositionError } from "@/lib/geolocation";
@@ -84,7 +85,11 @@ export function ClockMenu({ roster }: { roster: RosterState }) {
   const onTheClock = Boolean(myRow?.clockIn && !myRow.clockOut);
 
   return (
-    <div className="relative">
+    /* `max-sm:static`: on a phone the panel is placed against the header, not
+       against this wrapper. The wrapper sits in the middle of the header, so a
+       288px panel right-aligned to it ran 39px off the left of a 375px screen
+       (80px at 320px) with the start of the form unreachable. */
+    <div className="relative max-sm:static">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -116,7 +121,12 @@ export function ClockMenu({ roster }: { roster: RosterState }) {
           <div
             role="dialog"
             aria-label="Your clock"
-            className="animate-scale-in absolute right-0 z-50 mt-1.5 w-72 rounded-lg border border-line bg-surface p-3 shadow-lg"
+            className={cn(
+              "animate-scale-in absolute right-0 z-50 mt-1.5 w-72 rounded-lg border border-line bg-surface p-3 shadow-lg",
+              /* A phone: the full width of the header, less its own gutter,
+                 directly under it. From `sm` it is the 288px popover it was. */
+              "max-sm:inset-x-3 max-sm:top-full max-sm:w-auto",
+            )}
           >
             <ClockPanel roster={roster} onDone={() => setOpen(false)} />
           </div>
