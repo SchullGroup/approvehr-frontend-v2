@@ -150,6 +150,15 @@ export function ScoreFilterFields({
       gateway.supports.sorts.includes(option.value) &&
       !(needsAdvert && option.value !== "newest"),
   );
+  /*
+   * The API files a scan and a damaged file under one status ("needs a person to
+   * read it"), and a list row cannot say which it was. Offering "could not read"
+   * there would list scans under a label that says something else, so only the
+   * status the list can answer is offered. The record still says which it was.
+   */
+  const statuses = STATUS_OPTIONS.filter(
+    (option) => !(gateway.mode === "api" && option.value === "COULD_NOT_READ"),
+  );
   const why =
     "Choose an advert first: a score only means something against one.";
   return (
@@ -221,7 +230,7 @@ export function ScoreFilterFields({
           }
         >
           <option value="">Any</option>
-          {STATUS_OPTIONS.map((option) => (
+          {statuses.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
