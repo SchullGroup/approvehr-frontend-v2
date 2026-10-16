@@ -57,6 +57,18 @@ describe("Field", () => {
   });
 });
 
+describe("a hidden label", () => {
+  it("is left exactly as it was — it lives in a 1px box and must not be made to wrap in it", () => {
+    render(
+      <Field label="Search" hideLabel>
+        <Input />
+      </Field>,
+    );
+    const label = screen.getByText("Search");
+    expect(classes(label)).not.toContain("min-w-0");
+  });
+});
+
 describe("the controls", () => {
   it.each(["text", "number", "date", "time", "datetime-local", "month"])(
     "Input type=%s is full width, may shrink, and never exceeds its parent",

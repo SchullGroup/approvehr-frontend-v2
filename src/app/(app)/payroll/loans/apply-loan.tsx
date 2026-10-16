@@ -614,8 +614,9 @@ export function ApplyLoanModal({
               size="sm"
               /* A button is `whitespace-nowrap`, which is right for "Save" and
                  wrong for a sentence: at 320px this label was 17px wider than
-                 the sheet's content box. Let it wrap, and grow a line. */
-              className="h-auto max-w-full self-start whitespace-normal py-1.5 text-left"
+                 the sheet's content box. On a phone it wraps and grows a line;
+                 from `sm` up it is the button it always was. */
+              className="max-w-full self-start max-sm:h-auto max-sm:whitespace-normal max-sm:py-1.5 max-sm:text-left"
               onClick={() => setShowMore(true)}
             >
               Change the start month or add interest

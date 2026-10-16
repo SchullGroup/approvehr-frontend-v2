@@ -237,7 +237,13 @@ export function Field({
         >
           <label
             htmlFor={inputId}
-            className="min-w-0 text-body-sm font-medium text-ink"
+            /* Only a visible label is allowed to shrink and wrap: a hidden one
+               lives in a 1px box, and shrinking it there would wrap it a word
+               to a line for nothing. */
+            className={cn(
+              "text-body-sm font-medium text-ink",
+              !hideLabel && "min-w-0",
+            )}
           >
             {label}
             {required && (

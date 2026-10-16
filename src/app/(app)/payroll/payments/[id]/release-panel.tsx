@@ -177,9 +177,9 @@ export function ReleasePanel({
                   <Button
                     variant="secondary"
                     /* The label carries the whole amount, so it is the longest
-                       button on the screen: let it wrap rather than push a
-                       320px page sideways. */
-                    className="h-auto max-w-full whitespace-normal py-2 text-left"
+                       button on the screen: on a phone let it wrap rather than
+                       push a 320px page sideways. */
+                    className="max-w-full max-sm:h-auto max-sm:whitespace-normal max-sm:py-2 max-sm:text-left"
                     disabled={!providerConnected || !canApprove || busy}
                     onClick={() => setConfirming("release")}
                   >
