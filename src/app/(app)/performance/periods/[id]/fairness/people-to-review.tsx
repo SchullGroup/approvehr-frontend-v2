@@ -51,7 +51,7 @@ export function PeopleToReview({
     return loading ? (
       <p className="flex items-center gap-2 py-8 text-body-sm text-muted">
         <Spinner size="sm" />
-        Comparing marks with records
+        Comparing marks with the evidence
       </p>
     ) : null;
   }
@@ -63,8 +63,8 @@ export function PeopleToReview({
   if (!queue.length) {
     return (
       <p className="py-8 text-body-md text-body">
-        Nobody to review. Every mark is within {gap} points of the record, or
-        there isn’t enough evidence to tell.
+        Nobody to review. Every mark is within {gap} points of what the evidence
+        suggests, or there isn’t enough evidence to tell.
       </p>
     );
   }
@@ -91,7 +91,7 @@ export function PeopleToReview({
           return (
             <div key={dir} className="mb-6">
               <h3 className="mb-2 px-2.5 text-meta font-semibold uppercase tracking-wide text-faint">
-                {dir === "below" ? "Below their record" : "Above their record"}
+                {dir === "below" ? "Below the evidence" : "Above the evidence"}
               </h3>
               <ol className="space-y-1">
                 {people.map((p) => {
@@ -179,7 +179,7 @@ function Gap({ bp }: { bp: number }) {
       {String(Math.abs(bp) / 100)}
       <span className="sr-only">
         {" "}
-        points {bp < 0 ? "below" : "above"} their record
+        points {bp < 0 ? "below" : "above"} the evidence
       </span>
     </span>
   );
@@ -282,7 +282,7 @@ function Figures({ person }: { person: ApiReviewFlag }) {
         <dd className={cn(figure, "text-ink")}>{exactPct(person.markBp)}</dd>
       </div>
       <div>
-        <dt className="text-meta text-muted">Record suggests</dt>
+        <dt className="text-meta text-muted">Evidence suggests</dt>
         <dd className={cn(figure, "text-ink")}>
           {person.expectedBp === null ? "—" : exactPct(person.expectedBp)}
         </dd>
@@ -378,7 +378,7 @@ function Basis({
 
       {record.length > 0 && (
         <div>
-          <h3 className={heading}>How the record figure is worked out</h3>
+          <h3 className={heading}>How the evidence figure is worked out</h3>
           <dl className="text-body-sm">
             {record.map(([label, value]) => (
               <div

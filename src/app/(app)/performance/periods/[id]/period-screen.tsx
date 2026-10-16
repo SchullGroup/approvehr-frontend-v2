@@ -2218,9 +2218,9 @@ function CalibrateButton({
             offRecord.expectedBp !== null && (
               <Callout
                 tone="warning"
-                title="This mark doesn't match their record"
+                title="This mark doesn't match the evidence"
               >
-                Their record suggests {scoreLabel(offRecord.expectedBp)}, a gap
+                The evidence suggests {scoreLabel(offRecord.expectedBp)}, a gap
                 of {exactPoints(offRecord.gapBp)}. Check the evidence on the
                 fairness check before moving it.
               </Callout>

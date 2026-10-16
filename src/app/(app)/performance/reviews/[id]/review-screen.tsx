@@ -494,7 +494,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           {review.kind === "MANAGER" && record.flag && (
             <Card>
               <CardHeader
-                title="Rating against record"
+                title="Mark against the evidence"
                 description="Their mark beside what their objectives, peer feedback and past marks suggest. Their manager doesn't see this."
                 action={<StatusBadge status={record.flag.status} />}
               />

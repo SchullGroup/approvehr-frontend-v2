@@ -24,9 +24,9 @@ export const STATUS: Record<
   ApiReviewStatus,
   { label: string; tone: "warning" | "neutral" }
 > = {
-  below: { label: "Below their record", tone: "warning" },
-  above: { label: "Above their record", tone: "warning" },
-  matches: { label: "Matches their record", tone: "neutral" },
+  below: { label: "Below the evidence", tone: "warning" },
+  above: { label: "Above the evidence", tone: "warning" },
+  matches: { label: "Matches the evidence", tone: "neutral" },
   unclear: { label: "Can't tell", tone: "neutral" },
 };
 
@@ -92,7 +92,7 @@ export function RecordCheck({
     note.error !== null || (note.outcome !== null && !note.outcome.available);
   const noted =
     note.outcome?.available === true && note.outcome.suggestions.length > 0;
-  // Without a note, the evidence is the only account of the record figure.
+  // Without a note, the evidence is the only account of the figure.
   const evidenceOpen = !noted && !note.loading;
 
   return (
@@ -120,7 +120,7 @@ export function RecordCheck({
           </span>
         </span>
         <span>
-          Record suggests{" "}
+          Evidence suggests{" "}
           <span className="font-semibold text-ink">
             {flag.expectedBp === null
               ? "not enough evidence"
@@ -167,7 +167,7 @@ export function RecordCheck({
         )}
         <Disclosure
           key={evidenceOpen ? "open" : "closed"}
-          title="How the record figure is worked out"
+          title="How the evidence figure is worked out"
           dense
           region={false}
           defaultOpen={evidenceOpen}
