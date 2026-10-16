@@ -1,17 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
-  Sparkles,
-} from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
 import { Button, Select, Spinner } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { exactPct, exactPoints } from "@/components/performance/record-check";
-import { SuggestButton } from "@/components/performance/suggestions";
 import type {
   ApiClaim,
   ApiClaims,
@@ -222,11 +215,11 @@ function Person({
       <Figures person={person} />
 
       <section className="mt-10 max-w-[84ch]">
-        <p className="flex items-center gap-1.5 text-meta font-semibold uppercase tracking-wide text-accent-text">
-          <Sparkles aria-hidden="true" className="size-3.5" />
-          AI summary
+        <p className="text-body-sm font-semibold text-ink">
+          Summary
           {writtenAt && (
-            <span className="font-normal normal-case tracking-normal text-muted">
+            <span className="font-normal text-muted">
+              {" "}
               · written{" "}
               {new Date(writtenAt).toLocaleDateString("en-GB", {
                 day: "numeric",
@@ -257,11 +250,9 @@ function Person({
               {failure ?? "No summary available."}
             </p>
             {failure && (
-              <SuggestButton
-                label="Try again"
-                loading={false}
-                onClick={note.retry}
-              />
+              <Button variant="secondary" size="sm" onClick={note.retry}>
+                Try again
+              </Button>
             )}
           </div>
         )}
@@ -283,73 +274,28 @@ function Person({
 }
 
 function Figures({ person }: { person: ApiReviewFlag }) {
-  const clamp = (bp: number) => Math.min(100, Math.max(0, bp / 100));
-  const mark = clamp(person.markBp);
-  const record = person.expectedBp === null ? null : clamp(person.expectedBp);
   const figure = "mt-1 text-h3 tabular-nums sm:text-h2";
   return (
-    <div className="mt-8">
-      <dl className="grid grid-cols-3 gap-8">
+    <dl className="mt-8 grid grid-cols-3 gap-8">
+      <div>
+        <dt className="text-meta text-muted">Mark</dt>
+        <dd className={cn(figure, "text-ink")}>{exactPct(person.markBp)}</dd>
+      </div>
+      <div>
+        <dt className="text-meta text-muted">Record suggests</dt>
+        <dd className={cn(figure, "text-ink")}>
+          {person.expectedBp === null ? "—" : exactPct(person.expectedBp)}
+        </dd>
+      </div>
+      {person.gapBp !== null && (
         <div>
-          <dt className="flex items-center gap-1.5 text-meta text-muted">
-            <span aria-hidden="true" className="size-2.5 rounded-full bg-ink" />
-            Mark
-          </dt>
-          <dd className={cn(figure, "text-ink")}>{exactPct(person.markBp)}</dd>
-        </div>
-        <div>
-          <dt className="flex items-center gap-1.5 text-meta text-muted">
-            <span
-              aria-hidden="true"
-              className="size-2.5 rounded-full border-2 border-accent"
-            />
-            <span>
-              Record<span className="max-sm:hidden"> suggests</span>
-            </span>
-          </dt>
-          <dd className={cn(figure, "text-ink")}>
-            {person.expectedBp === null ? "—" : exactPct(person.expectedBp)}
+          <dt className="text-meta text-muted">Gap (points)</dt>
+          <dd className={cn(figure, "text-warning-text")}>
+            {exactPoints(person.gapBp).replace(" pts", "")}
           </dd>
         </div>
-        {person.gapBp !== null && (
-          <div>
-            <dt className="text-meta text-muted">Gap</dt>
-            <dd className={cn(figure, "text-warning-text")}>
-              {exactPoints(person.gapBp).replace(" pts", "")}
-            </dd>
-          </div>
-        )}
-      </dl>
-      <div aria-hidden="true" className="relative mx-1.5 mt-6 h-3.5">
-        <span className="absolute inset-x-0 top-1.5 h-0.5 bg-sunken" />
-        {record !== null && (
-          <span
-            className="absolute top-[5px] h-1 rounded-full bg-warning/40"
-            style={{
-              left: `${String(Math.min(mark, record))}%`,
-              width: `${String(Math.abs(mark - record))}%`,
-            }}
-          />
-        )}
-        {record !== null && (
-          <span
-            className="absolute top-px size-3 -translate-x-1/2 rounded-full border-2 border-accent bg-surface"
-            style={{ left: `${String(record)}%` }}
-          />
-        )}
-        <span
-          className="absolute top-px size-3 -translate-x-1/2 rounded-full bg-ink"
-          style={{ left: `${String(mark)}%` }}
-        />
-      </div>
-      <div
-        aria-hidden="true"
-        className="mt-1.5 flex justify-between text-meta text-faint"
-      >
-        <span>0%</span>
-        <span>100%</span>
-      </div>
-    </div>
+      )}
+    </dl>
   );
 }
 
