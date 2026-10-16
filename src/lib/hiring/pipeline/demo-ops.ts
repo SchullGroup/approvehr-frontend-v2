@@ -6,6 +6,9 @@ import { cardMatches } from "./filters";
 import type { DemoComms } from "@/lib/hiring/comms/state";
 import type { MoveResult } from "@/lib/hiring/comms/model";
 import { owe, retentionLine, scoreFor } from "./demo-comms-ops";
+import { cardScreening } from "@/lib/hiring/screening/demo-queue";
+import { compareBySort } from "@/lib/hiring/screening/score";
+import { REQUISITIONS } from "@/lib/mock/hiring";
 import type {
   BoardCard,
   BoardData,
@@ -153,6 +156,16 @@ export function cardOf(book: DemoBook, app: DemoApp): BoardCard {
         : app.rejection.label
       : null,
     score: scoreFor(app.id),
+    screening: cardScreening({
+      id: app.id,
+      email: app.email,
+      name: app.name,
+      requisitionId: app.requisitionId,
+      roleTitle:
+        REQUISITIONS.find((role) => role.id === app.requisitionId)?.title ??
+        "A role",
+      knockoutCount: app.flagged ? 1 : 0,
+    }),
     scheduledDeletionOn:
       app.outcome === "REJECTED" || app.outcome === "WITHDRAWN"
         ? retentionLine(book, app).scheduledDeletionOn
@@ -191,17 +204,28 @@ function matching(
   column: string,
   filters: BoardFilters,
 ): DemoApp[] {
-  return book.apps
-    .filter((app) => {
+  const found = book.apps
+    .map((app) => ({ app, card: cardOf(book, app) }))
+    .filter(({ app, card }) => {
       if (app.requisitionId !== requisitionId) return false;
       if (!inColumn(book, app, column)) return false;
-      return cardMatches(
-        cardOf(book, app),
-        filters,
-        app.createdAt.slice(0, 10),
-      );
-    })
-    .sort(newestFirst);
+      return cardMatches(card, filters, app.createdAt.slice(0, 10));
+    });
+  const sort = filters.sort;
+  if (sort && sort !== "newest") {
+    return found
+      .sort((a, b) =>
+        a.card.screening && b.card.screening
+          ? compareBySort(
+              sort,
+              { summary: a.card.screening, at: a.app.createdAt, id: a.app.id },
+              { summary: b.card.screening, at: b.app.createdAt, id: b.app.id },
+            )
+          : newestFirst(a.app, b.app),
+      )
+      .map(({ app }) => app);
+  }
+  return found.map(({ app }) => app).sort(newestFirst);
 }
 
 /** Every id a filter matches. What "select everyone matching these" works from. */

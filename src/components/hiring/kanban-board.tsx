@@ -19,6 +19,11 @@ import {
   STALE_AFTER_DAYS,
 } from "@/lib/hiring/pipeline/age";
 import { DeletionLine, ScoreBadge } from "@/components/hiring/card-bits";
+import {
+  AssessmentBadge,
+  BelowBadge,
+  FitBar,
+} from "@/components/hiring/screening/fit-badge";
 import { columnKeyOf } from "@/lib/hiring/pipeline/columns";
 import { channelLabel } from "@/lib/hiring/pipeline/filters";
 import type { BoardCard, BoardColumn } from "@/lib/hiring/pipeline/model";
@@ -431,6 +436,9 @@ function Card({
           {card.flagged && (
             <Badge tone="warning" size="sm" icon={<Flag />}>
               Needs a look
+              {(card.screening?.knockoutCount ?? 0) > 1
+                ? `: ${String(card.screening?.knockoutCount)} answers`
+                : ""}
             </Badge>
           )}
           {card.duplicate && (
@@ -444,7 +452,11 @@ function Card({
             </Badge>
           )}
           <ScoreBadge score={card.score} />
+          <AssessmentBadge score={card.screening?.assessment} />
+          <BelowBadge below={card.screening?.belowPassMark === true} />
         </div>
+
+        {card.screening && <FitBar fit={card.screening.fit} className="mt-2" />}
 
         {(shownTags.length > 0 || canManage) && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5">

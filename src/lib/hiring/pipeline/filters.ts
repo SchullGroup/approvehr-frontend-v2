@@ -1,4 +1,10 @@
 import type { AppliedFilter } from "@/components/ui";
+import {
+  cleanScoreFilters,
+  matchesScoreFilters,
+  scoreRangeBackwards,
+  STATUS_OPTIONS,
+} from "@/lib/hiring/screening/score";
 import type { BoardCard, BoardFilters, Tag } from "./model";
 
 /**
@@ -43,7 +49,8 @@ export function hasFilters(filters: BoardFilters): boolean {
     Boolean(filters.duplicate) ||
     Boolean(filters.from) ||
     Boolean(filters.to) ||
-    Boolean(filters.talentPool)
+    Boolean(filters.talentPool) ||
+    Object.keys(cleanScoreFilters(filters)).length > 0
   );
 }
 
@@ -66,6 +73,8 @@ export function cleanFilters(filters: BoardFilters): BoardFilters {
     if (filters.from) out.from = filters.from;
     if (filters.to) out.to = filters.to;
   }
+  Object.assign(out, cleanScoreFilters(filters));
+  if (filters.sort && filters.sort !== "newest") out.sort = filters.sort;
   return out;
 }
 
@@ -133,6 +142,33 @@ export function appliedChips(
       onClear: () => context.clear("to"),
     });
   }
+  if (
+    (filters.scoreMin !== undefined || filters.scoreMax !== undefined) &&
+    !scoreRangeBackwards(filters)
+  ) {
+    chips.push({
+      label: "Fit score",
+      value:
+        filters.scoreMin !== undefined && filters.scoreMax !== undefined
+          ? `${String(filters.scoreMin)} to ${String(filters.scoreMax)}`
+          : filters.scoreMin !== undefined
+            ? `${String(filters.scoreMin)} or more`
+            : `${String(filters.scoreMax ?? "")} or less`,
+      onClear: () => {
+        context.clear("scoreMin");
+        context.clear("scoreMax");
+      },
+    });
+  }
+  if (filters.scoreStatus) {
+    chips.push({
+      label: "Score",
+      value:
+        STATUS_OPTIONS.find((option) => option.value === filters.scoreStatus)
+          ?.label ?? "",
+      onClear: () => context.clear("scoreStatus"),
+    });
+  }
   return chips;
 }
 
@@ -165,5 +201,13 @@ export function cardMatches(
   if (filters.talentPool && !card.talentPool) return false;
   if (filters.from && enteredOn < filters.from) return false;
   if (filters.to && enteredOn > filters.to) return false;
+  /* A range only ever matches people who have a score. */
+  if (
+    (filters.scoreMin !== undefined ||
+      filters.scoreMax !== undefined ||
+      filters.scoreStatus) &&
+    !(card.screening && matchesScoreFilters(card.screening, filters))
+  )
+    return false;
   return true;
 }

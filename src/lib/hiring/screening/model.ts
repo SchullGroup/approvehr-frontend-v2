@@ -1,0 +1,441 @@
+/**
+ * What the screening screens draw, whichever side it came from.
+ *
+ * ## One rule runs through every name in here
+ *
+ * A score is **advice for a person**. Nothing in this module can say somebody was
+ * turned down, because nothing here turns anybody down: a score, a pass mark and a
+ * knockout flag only decide who is shown to a person first. The words the screens
+ * use for the low end are "below the pass mark" and "needs a look", never
+ * "rejected", "failed" or "eliminated", and `score.ts` is where those words live.
+ *
+ * ## "Unknown" is not "missing"
+ *
+ * A CV that does not say whether the person has five years of experience has not
+ * said they lack it. Every criterion therefore comes back as one of four verdicts,
+ * and the score leaves the unknown ones out of the sum rather than counting them
+ * against anybody.
+ *
+ * No React, no state.
+ */
+
+/* ------------------------------------------------------------------ the score */
+
+/**
+ * Where a score is, in words a person can act on.
+ *
+ * - `SCORED`: there is a number.
+ * - `WAITING_FOR_TEXT`: the CV is in the queue to be read; the number comes after.
+ * - `NO_TEXT`: the file has nothing to read (a scan, a photograph). It needs a
+ *   person to read it, and is never scored zero.
+ * - `NO_CRITERIA`: the advert has no criteria yet, so nothing can be scored.
+ * - `COULD_NOT_READ`: the file would not open (damaged, locked, the wrong kind of
+ *   file). The reason is on the record and, where the API offers it, a retry.
+ */
+export type ScoreStatus =
+  "SCORED" | "WAITING_FOR_TEXT" | "NO_TEXT" | "NO_CRITERIA" | "COULD_NOT_READ";
+
+export const SCORE_STATUSES: readonly ScoreStatus[] = [
+  "SCORED",
+  "WAITING_FOR_TEXT",
+  "NO_TEXT",
+  "NO_CRITERIA",
+  "COULD_NOT_READ",
+];
+
+/** A fit score as a list row or a board card carries it. */
+export type FitSummary = {
+  status: ScoreStatus;
+  /** A whole number from 0 to 100. `null` unless `status` is `SCORED`. */
+  score: number | null;
+  /** The version of the job's criteria it was worked out with. `null` when there is none. */
+  version: number | null;
+  /** Worked out with an older version than the job has now; a re-score is on its way. */
+  stale: boolean;
+};
+
+/** What a row or a card says about a person's screening, in one place. */
+export type ScreeningSummary = {
+  fit: FitSummary;
+  /** The imported or typed assessment score. `null` when there is none: never 0. */
+  assessment: number | null;
+  /** How many knockout answers raised a flag. A prompt to look, never a verdict. */
+  knockoutCount: number;
+  /** Below the job's pass mark (either figure, or a knockout). Advice, not a decision. */
+  belowPassMark: boolean;
+};
+
+export const NO_SCREENING: ScreeningSummary = {
+  fit: { status: "NO_CRITERIA", score: null, version: null, stale: false },
+  assessment: null,
+  knockoutCount: 0,
+  belowPassMark: false,
+};
+
+/* ----------------------------------------------------------------- the criteria */
+
+/** One skill or keyword, and the other ways a CV might write it. */
+export type Keyword = {
+  /** The client's own key while it is being edited; the API's id once saved. */
+  id: string;
+  label: string;
+  aliases: string[];
+};
+
+/**
+ * How much each part counts for, as percentages that need not add to 100: the
+ * score is a weighted share, so only the proportions matter. `null` on the
+ * criteria means "use the defaults", and the screen says what they are.
+ */
+export type Weights = {
+  mustHave: number;
+  niceToHave: number;
+  years: number;
+  education: number;
+  location: number;
+};
+
+export const WEIGHT_KEYS: readonly (keyof Weights)[] = [
+  "mustHave",
+  "niceToHave",
+  "years",
+  "education",
+  "location",
+];
+
+/** One step on the ordered education scale. Level only: never a school or a grade. */
+export type EducationLevel = { value: string; label: string };
+
+export type Criteria = {
+  mustHave: Keyword[];
+  niceToHave: Keyword[];
+  /** Whole years, or `null` for "not asked". */
+  minYears: number | null;
+  /** A `value` from the scale, or `null` for "not asked". */
+  education: string | null;
+  /** Where the job is, as the CV might write it. `null` for "not asked". */
+  place: string | null;
+  /** Count somebody elsewhere who says they would move. */
+  relocation: boolean;
+  /** `null` uses the defaults. */
+  weights: Weights | null;
+};
+
+export const NO_CRITERIA: Criteria = {
+  mustHave: [],
+  niceToHave: [],
+  minYears: null,
+  education: null,
+  place: null,
+  relocation: false,
+  weights: null,
+};
+
+/** What an advert's criteria are right now, and what the screen needs to edit them. */
+export type CriteriaView = {
+  postingId: string;
+  /** `null` until criteria have been saved once. Each save is a new version. */
+  version: number | null;
+  criteria: Criteria;
+  /** The weights used when none are chosen, so the screen can say what they are. */
+  defaults: Weights;
+  /** Lowest first. */
+  scale: EducationLevel[];
+  /** How the score is worked out, in one line. The API's own words. */
+  formula: string;
+  /** What the score never looks at: the plain list the screen prints. */
+  neverUsed: string[];
+  updatedAt: string | null;
+  updatedBy: string | null;
+};
+
+/** What "Suggest from the job description" brings back: chips to accept or edit. */
+export type Suggestion = {
+  mustHave: Keyword[];
+  niceToHave: Keyword[];
+  minYears: number | null;
+  education: string | null;
+  /** One line on where the words came from. */
+  note: string | null;
+};
+
+/** "This would score these applicants like so", before anything is saved. */
+export type PreviewRow = {
+  id: string;
+  name: string;
+  fit: FitSummary;
+};
+
+export type CriteriaPreview = {
+  /** How many applicants the advert has in all. */
+  total: number;
+  /** The first few, so a person can see the shape. */
+  rows: PreviewRow[];
+  /** Of all of them: how many would be scored, and how many cannot be. */
+  scored: number;
+  waitingForText: number;
+  noText: number;
+  /** Of those scored: counts in bands of 20, lowest first. Five numbers. */
+  bands: number[];
+};
+
+/** Re-scoring after the criteria or the CV text changed. */
+export type RescoreProgress = {
+  running: boolean;
+  done: number;
+  total: number;
+  /** Why it is running, in a word the screen can put a sentence to. */
+  cause: "CRITERIA" | "PASS_MARK" | "CV_TEXT" | null;
+};
+
+export const NOT_RESCORING: RescoreProgress = {
+  running: false,
+  done: 0,
+  total: 0,
+  cause: null,
+};
+
+/* ------------------------------------------------------------- the explanation */
+
+export type Verdict = "MATCHED" | "PARTIAL" | "MISSING" | "UNKNOWN";
+
+export type Confidence = "HIGH" | "MEDIUM" | "LOW";
+
+/** A short stretch of the CV with the matched words marked. Never more than this. */
+export type Evidence = { before: string; match: string; after: string };
+
+export type CriterionKind =
+  "MUST_HAVE" | "NICE_TO_HAVE" | "YEARS" | "EDUCATION" | "LOCATION";
+
+export type ExplanationItem = {
+  id: string;
+  kind: CriterionKind;
+  /** What was asked: "Payroll", "At least 3 years", "A bachelor's degree". */
+  label: string;
+  verdict: Verdict;
+  /** How sure the match is. `null` where the notion does not apply (missing, unknown). */
+  confidence: Confidence | null;
+  /** What it added to the score, and what it could have added. */
+  points: number;
+  outOf: number;
+  evidence: Evidence[];
+  /** One plain sentence where the verdict needs one ("The CV gives no years."). */
+  note: string | null;
+};
+
+/** Whether the CV could be read, and what to do if not. */
+export type Extraction = {
+  state: "READY" | "PENDING" | "NO_TEXT" | "COULD_NOT_READ";
+  /** Why, in words, when it could not be read. */
+  reason: string | null;
+  /** The API offers a retry. */
+  canRetry: boolean;
+};
+
+/** Where somebody stands against the job's pass mark, and why, in words. */
+export type Standing = {
+  below: boolean;
+  reasons: BelowReason[];
+  /** A person kept them in the running: who, and the reason given. */
+  kept: { reason: string; at: string; by: string | null } | null;
+};
+
+export type Explanation = {
+  status: ScoreStatus;
+  score: number | null;
+  /** The one-line formula behind it, the API's own words. */
+  formula: string | null;
+  /** The version it was worked out with, and the one the job has now. */
+  version: number | null;
+  currentVersion: number | null;
+  stale: boolean;
+  items: ExplanationItem[];
+  extraction: Extraction;
+  /** `null` or absent where the API does not say. */
+  standing?: Standing | null;
+};
+
+/** Who an explanation, a retry or an assessment history is about. */
+export type ScreeningSubject =
+  { kind: "application"; id: string } | { kind: "pipeline"; id: string };
+
+/* ------------------------------------------------------------------- pass mark */
+
+/** A knockout answer that raises a flag, listed so the pass mark shows all of it. */
+export type KnockoutRule = {
+  id: string;
+  question: string;
+  /** The answer that raises the flag: "No". */
+  flagWhen: string;
+};
+
+export type PassMark = {
+  /** `null` means no threshold on that figure. Two independent, optional inputs. */
+  fitMin: number | null;
+  assessmentMin: number | null;
+  /** The ceiling an assessment score can have (100 unless the API says otherwise). */
+  assessmentMax: number;
+  knockouts: KnockoutRule[];
+  /** `null` until a pass mark has been saved. */
+  version: number | null;
+};
+
+export type PassMarkInput = Pick<PassMark, "fitMin" | "assessmentMin">;
+
+/** "412 of 4,210 would be below the pass mark", worked out before anything is saved. */
+export type PassMarkCount = {
+  total: number;
+  below: number;
+  byReason: { fit: number; assessment: number; knockout: number };
+  /** People with no score yet. They are not counted as below, and the screen says so. */
+  notScored: number;
+};
+
+/* ---------------------------------------------------------- assessment scores */
+
+/** Why a row of a file could not be used. */
+export type RowRefusal =
+  | "unmatched_email"
+  | "ambiguous"
+  | "out_of_range"
+  | "not_a_number"
+  | "duplicate_in_file"
+  | "blank_email";
+
+export type AssessmentRow = {
+  /** 1-based, header excluded. */
+  row: number;
+  email: string | null;
+  /** Who it matched, when it matched somebody. */
+  name: string | null;
+  score: number | null;
+  /** `null` when the row is good. */
+  refusal: RowRefusal | null;
+  /** A sentence: the API's where it wrote one. */
+  message: string | null;
+};
+
+/** What a dry run of a file says before anything is saved. */
+export type AssessmentCheck = {
+  filename: string;
+  /** What the check was made on, for the commit to be given back. */
+  token: string;
+  total: number;
+  usable: number;
+  refused: number;
+  max: number;
+  rows: AssessmentRow[];
+};
+
+export type AssessmentResult = {
+  saved: number;
+  refused: number;
+  /** How many people's pass-mark standing the new scores moved, when known. */
+  movedBelow: number | null;
+};
+
+/** One entry in a person's assessment history. */
+export type AssessmentEntry = {
+  id: string;
+  at: string;
+  /** Who imported or typed it. */
+  by: string | null;
+  source: "IMPORT" | "MANUAL";
+  filename: string | null;
+  score: number;
+  note: string | null;
+};
+
+/* ----------------------------------------------------- below the pass mark */
+
+export type BelowKind = "FIT" | "ASSESSMENT" | "KNOCKOUT";
+
+export type BelowReason = {
+  kind: BelowKind;
+  /** "Fit 41, the pass mark is 50". The API's own words where it wrote them. */
+  text: string;
+};
+
+export type BelowRow = {
+  id: string;
+  name: string;
+  email: string | null;
+  appliedAt: string;
+  summary: ScreeningSummary;
+  reasons: BelowReason[];
+  /** The knockout answers that raised a flag, for the row to show at a glance. */
+  flagged: { question: string; answer: string }[];
+};
+
+export type BelowFilters = {
+  q?: string;
+  /** Only those below for this reason. */
+  reason?: BelowKind;
+  from?: string;
+  to?: string;
+};
+
+export type BelowQuery = {
+  postingId: string;
+  filters: BelowFilters;
+  cursor: string | null;
+  pageSize: number;
+};
+
+export type BelowPage = {
+  rows: BelowRow[];
+  /** Everybody below the pass mark under the filters. */
+  total: number;
+  next: string | null;
+};
+
+/** Everybody below the pass mark on a job, for the line above the list. */
+export type BelowCount = { below: number; total: number };
+
+export type BelowTarget =
+  | { kind: "ids"; postingId: string; ids: string[] }
+  | {
+      kind: "filter";
+      postingId: string;
+      filters: BelowFilters;
+      /** The count the person was shown and confirmed. */
+      expected: number;
+    };
+
+export type BelowDecision = {
+  /** The company's own reason. Required: turning somebody down is a decision with a record. */
+  reasonId: string;
+  note: string | null;
+  /** Only ever true when the person ticked it in the dialog. */
+  sendEmails: boolean;
+};
+
+export type BelowOutcome = {
+  requested: number;
+  done: number;
+  skipped: number;
+  refused: { id: string; name: string; reason: string }[];
+  /** Emails the API says it queued. `null` when none were asked for. */
+  emailed: number | null;
+  emailNote?: string | null;
+};
+
+/* ------------------------------------------------------------ sort and filter */
+
+export type ScreeningSort =
+  "newest" | "fit-desc" | "fit-asc" | "assessment-desc" | "knockouts-desc";
+
+export const SORTS: { value: ScreeningSort; label: string }[] = [
+  { value: "newest", label: "Newest first" },
+  { value: "fit-desc", label: "Highest fit score" },
+  { value: "fit-asc", label: "Lowest fit score" },
+  { value: "assessment-desc", label: "Highest assessment score" },
+  { value: "knockouts-desc", label: "Most flagged answers" },
+];
+
+/** What narrows a list by score. All optional, all combined. */
+export type ScoreFilters = {
+  scoreMin?: number;
+  scoreMax?: number;
+  scoreStatus?: ScoreStatus;
+};

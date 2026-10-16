@@ -30,6 +30,13 @@ import {
   useDemoBook,
 } from "@/lib/hiring/pipeline/demo-store";
 import { referenceFor } from "@/lib/hiring/pipeline/reference";
+import { decorateQueue } from "@/lib/hiring/screening/demo-queue";
+import type { ScoreStatus, ScreeningSort } from "@/lib/hiring/screening/model";
+import {
+  compareBySort,
+  matchesScoreFilters,
+  sortParams,
+} from "@/lib/hiring/screening/score";
 import { demoExtrasAt } from "@/lib/hiring/demo-form";
 import { NO_EXTRAS, type ApplicationExtras } from "@/lib/hiring/answers-view";
 import { useRevalidation } from "@/lib/revalidate";
@@ -568,6 +575,13 @@ export type ApplicationFilters = {
   flagged?: boolean;
   /** Only those marked as a likely duplicate of an earlier one. */
   duplicate?: boolean;
+  /** Fit score range, 0 to 100. Only people who have a score are in a range. */
+  scoreMin?: number;
+  scoreMax?: number;
+  /** Only people whose score is in this state. */
+  scoreStatus?: ScoreStatus;
+  /** Newest first unless a score sort is chosen. */
+  sort?: ScreeningSort;
   /** How many a page asks for. Default 50. */
   pageSize?: number;
 };
@@ -598,16 +612,55 @@ export function filterDemoApplications(
       if (filters.source && application.source !== filters.source) return false;
       if (filters.flagged && !(application.knockoutCount ?? 0)) return false;
       if (filters.duplicate && !application.duplicate) return false;
+      if (
+        (filters.scoreMin !== undefined ||
+          filters.scoreMax !== undefined ||
+          filters.scoreStatus !== undefined) &&
+        !(
+          application.screening &&
+          matchesScoreFilters(application.screening, {
+            ...(filters.scoreMin !== undefined
+              ? { scoreMin: filters.scoreMin }
+              : {}),
+            ...(filters.scoreMax !== undefined
+              ? { scoreMax: filters.scoreMax }
+              : {}),
+            ...(filters.scoreStatus
+              ? { scoreStatus: filters.scoreStatus }
+              : {}),
+          })
+        )
+      )
+        return false;
       const day = application.appliedAt.slice(0, 10);
       if (filters.from && day < filters.from) return false;
       if (filters.to && day > filters.to) return false;
       const haystack = `${application.name} ${application.email}`.toLowerCase();
       return words.every((word) => haystack.includes(word));
     })
-    .sort(
-      (a, b) =>
-        b.appliedAt.localeCompare(a.appliedAt) || b.id.localeCompare(a.id),
-    );
+    .sort((a, b) => {
+      if (
+        filters.sort &&
+        filters.sort !== "newest" &&
+        a.screening &&
+        b.screening
+      ) {
+        return compareBySort(
+          filters.sort,
+          { summary: a.screening, at: a.appliedAt, id: a.id },
+          { summary: b.screening, at: b.appliedAt, id: b.id },
+        );
+      }
+      return b.appliedAt.localeCompare(a.appliedAt) || b.id.localeCompare(a.id);
+    });
+}
+
+/** The demo's whole queue: what was done here laid over the seed, with each row's screening. */
+function demoQueueRows(): ApiApplication[] {
+  const { applications } = demoBook();
+  return decorateQueue(
+    overlayQueue(applications, demoPipeline.current().queue),
+  );
 }
 
 /**
@@ -631,6 +684,10 @@ export function useApplications(filters: ApplicationFilters = {}) {
     to,
     flagged,
     duplicate,
+    scoreMin,
+    scoreMax,
+    scoreStatus,
+    sort,
     pageSize = APPLICATIONS_PAGE_SIZE,
   } = filters;
   const online = connected();
@@ -645,31 +702,36 @@ export function useApplications(filters: ApplicationFilters = {}) {
     to,
     flagged,
     duplicate,
+    scoreMin,
+    scoreMax,
+    scoreStatus,
+    sort,
     pageSize,
   ]);
 
   const fetchPage = useCallback(
     async (cursor: string | null, signal: AbortSignal) => {
       if (!online) {
-        const { applications } = demoBook();
         return pageLocally(
-          filterDemoApplications(
-            overlayQueue(applications, demoPipeline.current().queue),
-            {
-              ...(status ? { status } : {}),
-              ...(postingId ? { postingId } : {}),
-              ...(source ? { source } : {}),
-              ...(q ? { q } : {}),
-              ...(from ? { from } : {}),
-              ...(to ? { to } : {}),
-              ...(flagged ? { flagged } : {}),
-              ...(duplicate ? { duplicate } : {}),
-            },
-          ),
+          filterDemoApplications(demoQueueRows(), {
+            ...(status ? { status } : {}),
+            ...(postingId ? { postingId } : {}),
+            ...(source ? { source } : {}),
+            ...(q ? { q } : {}),
+            ...(from ? { from } : {}),
+            ...(to ? { to } : {}),
+            ...(flagged ? { flagged } : {}),
+            ...(duplicate ? { duplicate } : {}),
+            ...(scoreMin !== undefined ? { scoreMin } : {}),
+            ...(scoreMax !== undefined ? { scoreMax } : {}),
+            ...(scoreStatus ? { scoreStatus } : {}),
+            ...(sort ? { sort } : {}),
+          }),
           cursor,
           pageSize,
         );
       }
+      const ordering = sort ? sortParams(sort) : null;
       const params: ApplicationListParams = {
         pageSize,
         ...(cursor ? { cursor } : {}),
@@ -681,6 +743,15 @@ export function useApplications(filters: ApplicationFilters = {}) {
         ...(to ? { to } : {}),
         ...(flagged ? { flagged } : {}),
         ...(duplicate ? { duplicate } : {}),
+        ...(scoreMin !== undefined ? { scoreMin } : {}),
+        ...(scoreMax !== undefined ? { scoreMax } : {}),
+        ...(scoreStatus ? { scoreStatus } : {}),
+        ...(ordering
+          ? {
+              sort: ordering.sort as ApplicationListParams["sort"],
+              order: ordering.order,
+            }
+          : {}),
       };
       const result = await careersApi.listApplications(params, signal);
       return {
@@ -699,6 +770,10 @@ export function useApplications(filters: ApplicationFilters = {}) {
       to,
       flagged,
       duplicate,
+      scoreMin,
+      scoreMax,
+      scoreStatus,
+      sort,
       pageSize,
     ],
   );
@@ -788,24 +863,37 @@ export async function queueMatching(
   limit: number,
   signal: AbortSignal,
 ): Promise<ApiApplication[]> {
-  const { status, postingId, source, q, from, to, flagged, duplicate } =
-    filters;
+  const {
+    status,
+    postingId,
+    source,
+    q,
+    from,
+    to,
+    flagged,
+    duplicate,
+    scoreMin,
+    scoreMax,
+    scoreStatus,
+    sort,
+  } = filters;
   if (!connected()) {
-    const { applications } = demoBook();
-    return filterDemoApplications(
-      overlayQueue(applications, demoPipeline.current().queue),
-      {
-        ...(status ? { status } : {}),
-        ...(postingId ? { postingId } : {}),
-        ...(source ? { source } : {}),
-        ...(q ? { q } : {}),
-        ...(from ? { from } : {}),
-        ...(to ? { to } : {}),
-        ...(flagged ? { flagged } : {}),
-        ...(duplicate ? { duplicate } : {}),
-      },
-    ).slice(0, limit);
+    return filterDemoApplications(demoQueueRows(), {
+      ...(status ? { status } : {}),
+      ...(postingId ? { postingId } : {}),
+      ...(source ? { source } : {}),
+      ...(q ? { q } : {}),
+      ...(from ? { from } : {}),
+      ...(to ? { to } : {}),
+      ...(flagged ? { flagged } : {}),
+      ...(duplicate ? { duplicate } : {}),
+      ...(scoreMin !== undefined ? { scoreMin } : {}),
+      ...(scoreMax !== undefined ? { scoreMax } : {}),
+      ...(scoreStatus ? { scoreStatus } : {}),
+      ...(sort ? { sort } : {}),
+    }).slice(0, limit);
   }
+  const ordering = sort ? sortParams(sort) : null;
   const result = await careersApi.listApplications(
     {
       pageSize: limit,
@@ -817,6 +905,15 @@ export async function queueMatching(
       ...(to ? { to } : {}),
       ...(flagged ? { flagged } : {}),
       ...(duplicate ? { duplicate } : {}),
+      ...(scoreMin !== undefined ? { scoreMin } : {}),
+      ...(scoreMax !== undefined ? { scoreMax } : {}),
+      ...(scoreStatus ? { scoreStatus } : {}),
+      ...(ordering
+        ? {
+            sort: ordering.sort as ApplicationListParams["sort"],
+            order: ordering.order,
+          }
+        : {}),
     },
     signal,
   );

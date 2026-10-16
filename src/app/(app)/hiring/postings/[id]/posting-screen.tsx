@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { ExternalLink, Eye, Lock, Users } from "lucide-react";
 import {
@@ -9,9 +10,11 @@ import {
   Card,
   EmptyState,
   Skeleton,
+  Tabs,
   TextLink,
 } from "@/components/ui";
 import { FormWorkbench } from "@/components/hiring/form-workbench";
+import { ScreeningWorkbench } from "@/components/hiring/screening/screening-workbench";
 import { ShareLinks } from "@/components/hiring/share-links";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -56,7 +59,16 @@ const CRUMBS = [
   { href: "/hiring/postings", label: "Job adverts" },
 ];
 
-export function PostingScreen({ id }: { id: string }) {
+export type PostingTab = "form" | "screening";
+
+export function PostingScreen({
+  id,
+  initialTab = "form",
+}: {
+  id: string;
+  /** Which tab a link asked for: `?tab=screening`. */
+  initialTab?: PostingTab;
+}) {
   const { can, loading } = usePermissions();
 
   if (loading) {
@@ -88,14 +100,15 @@ export function PostingScreen({ id }: { id: string }) {
     );
   }
 
-  return <Posting id={id} />;
+  return <Posting id={id} initialTab={initialTab} />;
 }
 
-function Posting({ id }: { id: string }) {
+function Posting({ id, initialTab }: { id: string; initialTab: PostingTab }) {
   const advert = usePosting(id);
   const settings = useCareersSettings();
   const share = useShareLinks(advert.posting);
   const posting = advert.posting;
+  const [tab, setTab] = useState<PostingTab>(initialTab);
 
   if (advert.loading) {
     return (
@@ -222,47 +235,75 @@ function Posting({ id }: { id: string }) {
           </Callout>
         )}
 
-        <ShareLinks
-          links={share.links}
-          loading={share.loading}
-          error={share.error}
-          onAdd={share.addChannel}
-          title={posting.title}
-        />
-
-        <FormWorkbench
-          postingId={posting.id}
-          roleTitle={posting.title}
-          company={company}
-          live={live}
-        />
-
-        {advert.live && (
-          <Card>
-            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-              <div className="min-w-0">
-                <h3 className="text-body-md font-semibold text-ink">
-                  Everyone who applied, with their answers
-                </h3>
-                <p className="mt-1 text-body-sm text-muted">
-                  A spreadsheet with one column per question. Files are
-                  described, never linked.
-                </p>
-              </div>
-              <ExportButton
-                label="Export applications"
-                download={() =>
-                  fetchFile(
-                    `/careers/postings/${posting.id}/applications.csv`,
-                    `applications-${posting.slug}`,
-                    undefined,
-                    "No spreadsheet was produced.",
-                  )
-                }
+        <Tabs
+          items={[
+            { id: "form", label: "Form and links" },
+            { id: "screening", label: "Screening" },
+          ]}
+          value={tab}
+          onChange={(next) => {
+            const chosen: PostingTab =
+              next === "screening" ? "screening" : "form";
+            setTab(chosen);
+            /* Kept in the address so the tab can be linked to and survives a
+               reload; no navigation, nothing to fetch. */
+            window.history.replaceState(
+              null,
+              "",
+              chosen === "form"
+                ? `/hiring/postings/${posting.id}`
+                : `/hiring/postings/${posting.id}?tab=screening`,
+            );
+          }}
+        >
+          {tab === "screening" ? (
+            <ScreeningWorkbench postingId={posting.id} />
+          ) : (
+            <div className="flex flex-col gap-6">
+              <ShareLinks
+                links={share.links}
+                loading={share.loading}
+                error={share.error}
+                onAdd={share.addChannel}
+                title={posting.title}
               />
+
+              <FormWorkbench
+                postingId={posting.id}
+                roleTitle={posting.title}
+                company={company}
+                live={live}
+              />
+
+              {advert.live && (
+                <Card>
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                    <div className="min-w-0">
+                      <h3 className="text-body-md font-semibold text-ink">
+                        Everyone who applied, with their answers
+                      </h3>
+                      <p className="mt-1 text-body-sm text-muted">
+                        A spreadsheet with one column per question. Files are
+                        described, never linked.
+                      </p>
+                    </div>
+                    <ExportButton
+                      label="Export applications"
+                      download={() =>
+                        fetchFile(
+                          `/careers/postings/${posting.id}/applications.csv`,
+                          `applications-${posting.slug}`,
+                          undefined,
+                          "No spreadsheet was produced.",
+                        )
+                      }
+                    />
+                  </div>
+                </Card>
+              )}
             </div>
-          </Card>
-        )}
+          )}
+        </Tabs>
       </PageBody>
     </>
   );

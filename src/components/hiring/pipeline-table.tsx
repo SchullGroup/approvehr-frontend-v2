@@ -22,6 +22,11 @@ import {
   STALE_AFTER_DAYS,
 } from "@/lib/hiring/pipeline/age";
 import { DeletionLine, ScoreBadge } from "@/components/hiring/card-bits";
+import {
+  AssessmentBadge,
+  BelowBadge,
+  FitBadge,
+} from "@/components/hiring/screening/fit-badge";
 import { columnKeyOf } from "@/lib/hiring/pipeline/columns";
 import { channelLabel } from "@/lib/hiring/pipeline/filters";
 import type { BoardCard, BoardColumn } from "@/lib/hiring/pipeline/model";
@@ -192,6 +197,9 @@ function Section({
         </Badge>
       )}
       <ScoreBadge score={card.score} />
+      {card.screening && <FitBadge fit={card.screening.fit} />}
+      <AssessmentBadge score={card.screening?.assessment} />
+      <BelowBadge below={card.screening?.belowPassMark === true} />
       {card.tags.map((tag) => (
         <Tag key={tag.id}>{tag.name}</Tag>
       ))}

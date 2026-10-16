@@ -27,6 +27,7 @@ import { KanbanBoard } from "@/components/hiring/kanban-board";
 import { MoveEmailDialog } from "@/components/hiring/move-email-dialog";
 import { StageComms } from "@/components/hiring/stage-comms";
 import { PipelineFilters } from "@/components/hiring/pipeline-filters";
+import { useScoreFilterState } from "@/components/hiring/screening/score-filters";
 import { PipelineTable } from "@/components/hiring/pipeline-table";
 import { RejectDialog } from "@/components/hiring/reject-dialog";
 import { noticeSentence } from "@/lib/hiring/comms/status";
@@ -140,12 +141,21 @@ export function PipelineWorkspace({
   const [search, setSearch] = useState("");
   const query = useDebounced(search.trim(), 300);
   const [filters, setFilters] = useState<BoardFilters>({});
+  /* The score filters and the sort. Held here, beside the others, because the
+     board's columns, the table and the "select everyone matching" count all ask
+     the one question. */
+  const score = useScoreFilterState();
   const stale = search.trim() !== query;
 
   /* What is actually asked: the typed search only once it has settled. */
   const asked: BoardFilters = useMemo(
-    () => ({ ...filters, ...(query ? { q: query } : {}) }),
-    [filters, query],
+    () => ({
+      ...filters,
+      ...(query ? { q: query } : {}),
+      ...score.filters,
+      ...(score.sort !== "newest" ? { sort: score.sort } : {}),
+    }),
+    [filters, query, score.filters, score.sort],
   );
 
   const board = useBoard({ gateway, requisitionId, filters: asked });
@@ -457,6 +467,7 @@ export function PipelineWorkspace({
         onChange={setFilters}
         tags={tags.items}
         count={total}
+        score={score}
         actions={
           <SegmentedControl
             label="View"
@@ -525,6 +536,7 @@ export function PipelineWorkspace({
                 onClick={() => {
                   setSearch("");
                   setFilters({});
+                  score.clear();
                 }}
               >
                 Clear the search and filters

@@ -1,4 +1,9 @@
 import type { ApplicationOutcome } from "@/lib/api/recruitment";
+import type {
+  ScoreFilters,
+  ScreeningSort,
+  ScreeningSummary,
+} from "@/lib/hiring/screening/model";
 import type { StageType } from "./stage-types";
 import type { TemplateStage } from "./template-rules";
 
@@ -87,10 +92,21 @@ export type BoardCard = {
   score?: number | null;
   /** For somebody rejected or withdrawn: the day their record is scheduled to be deleted. */
   scheduledDeletionOn?: string | null;
+  /**
+   * Their fit score and its status, assessment score, wrong-answer count and
+   * whether they are below the pass mark. Advice for a person. Absent from an API
+   * that predates screening.
+   */
+  screening?: ScreeningSummary | null;
 };
 
 /** What narrows a board, a table or a bulk selection. */
-export type BoardFilters = {
+export type BoardFilters = ScoreFilters & {
+  /**
+   * How a column is ordered: newest first unless this says otherwise. Not a
+   * narrowing, so it never reaches a bulk selection.
+   */
+  sort?: ScreeningSort;
   /** Every word has to match the name or the email. */
   q?: string;
   tagId?: string;

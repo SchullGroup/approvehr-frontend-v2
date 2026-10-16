@@ -3,6 +3,10 @@
 import { useMemo } from "react";
 import { Checkbox, Field, FilterBar, Input, Select } from "@/components/ui";
 import {
+  ScoreFilterFields,
+  type ScoreFilterState,
+} from "@/components/hiring/screening/score-filters";
+import {
   appliedChips,
   channelLabel,
   rangeIsBackwards,
@@ -44,6 +48,7 @@ export function PipelineFilters({
   tags,
   count,
   actions,
+  score,
 }: {
   search: string;
   onSearchChange: (value: string) => void;
@@ -54,6 +59,8 @@ export function PipelineFilters({
   count?: number | undefined;
   /** Beside the filters: the view toggle and the outcome picker. */
   actions?: React.ReactNode;
+  /** The score filters and the sort, held by the screen that also asks the board. */
+  score?: ScoreFilterState;
 }) {
   const channels = useMemo(() => {
     const list: string[] = [...CHANNELS];
@@ -62,17 +69,20 @@ export function PipelineFilters({
     return list;
   }, [filters.source]);
 
-  const chips = appliedChips(
-    { ...filters, ...(search.trim() ? { q: search.trim() } : {}) },
-    {
-      tags: [...tags],
-      clear: (key) => {
-        const next = { ...filters };
-        delete next[key];
-        onChange(next);
+  const chips = [
+    ...appliedChips(
+      { ...filters, ...(search.trim() ? { q: search.trim() } : {}) },
+      {
+        tags: [...tags],
+        clear: (key) => {
+          const next = { ...filters };
+          delete next[key];
+          onChange(next);
+        },
       },
-    },
-  );
+    ),
+    ...(score ? score.chips : []),
+  ];
   const backwards = rangeIsBackwards(filters);
 
   const set = <K extends keyof BoardFilters>(
@@ -96,6 +106,7 @@ export function PipelineFilters({
       onClearAll={() => {
         onSearchChange("");
         onChange({});
+        score?.clear();
       }}
       count={count}
       noun={["person", "people"]}
@@ -149,6 +160,7 @@ export function PipelineFilters({
           onChange={(event) => set("to", event.target.value)}
         />
       </Field>
+      {score && <ScoreFilterFields state={score} />}
       <div className="flex flex-col justify-end gap-2.5 pb-1.5">
         <Checkbox
           label="Needs a look"

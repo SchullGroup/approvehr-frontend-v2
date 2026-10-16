@@ -39,6 +39,7 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApplicationAnswers } from "@/components/hiring/application-answers";
 import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
 import { StageHistory } from "@/components/hiring/stage-history";
+import { ScreeningCard } from "@/components/hiring/screening/screening-card";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { StagePill, stageLabel } from "@/components/hiring/stage-pill";
 import {
@@ -410,6 +411,18 @@ function Record({ id }: { id: string }) {
                 </CardBody>
               </Card>
             )}
+
+            {/* Their score and why, where they stand against the pass mark, and
+                their assessment score. Staff only: this page needs the hiring
+                permissions, and the narrow views a panelist has show none of it. */}
+            {record ? (
+              <ScreeningCard
+                subject={{ kind: "application", id: record.applicationId }}
+                postingId={record.postingId}
+              />
+            ) : realApp ? (
+              <ScreeningCard subject={{ kind: "pipeline", id: realApp.id }} />
+            ) : null}
 
             {/* The history of an application nobody has screened in — a turn-down,
                 a screen-in that is still resolving. Once there is a pipeline

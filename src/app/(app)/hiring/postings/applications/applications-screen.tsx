@@ -47,6 +47,13 @@ import { EveryoneDialog } from "@/components/hiring/bulk-dialogs";
 import { RejectDialog } from "@/components/hiring/reject-dialog";
 import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
 import { RowAnswers } from "@/components/hiring/row-answers";
+import { ExplanationDisclosure } from "@/components/hiring/screening/explanation-panel";
+import { ScreeningBadges } from "@/components/hiring/screening/fit-badge";
+import { PostingScreeningNote } from "@/components/hiring/screening/posting-note";
+import {
+  ScoreFilterFields,
+  useScoreFilterState,
+} from "@/components/hiring/screening/score-filters";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -235,6 +242,7 @@ function Queue({
   const [search, setSearch] = useState("");
   const [advancing, setAdvancing] = useState<ApiApplication | null>(null);
   const [declining, setDeclining] = useState<ApiApplication | null>(null);
+  const score = useScoreFilterState();
   const [results, setResults] = useState<{
     what: string;
     outcome: BulkOutcome;
@@ -262,6 +270,8 @@ function Queue({
     ...(to && !rangeBackwards ? { to } : {}),
     ...(flagged ? { flagged } : {}),
     ...(duplicate ? { duplicate } : {}),
+    ...score.filters,
+    sort: score.sort,
   });
   /* What narrows the queue, as the one object the list, the "select everyone
      matching" count and the action all read, so they cannot disagree. */
@@ -274,6 +284,8 @@ function Queue({
     ...(to && !rangeBackwards ? { to } : {}),
     ...(flagged ? { flagged } : {}),
     ...(duplicate ? { duplicate } : {}),
+    ...score.filters,
+    sort: score.sort,
   };
   /* A different question is a different list, and a selection belongs to one. */
   const selectionScope = JSON.stringify(queueFilters);
@@ -345,6 +357,7 @@ function Queue({
           },
         ]
       : []),
+    ...score.chips,
   ];
   const narrowed = applied.length > 0 || search.trim() !== "";
   const clearAll = () => {
@@ -355,6 +368,7 @@ function Queue({
     setFlagged(false);
     setDuplicate(false);
     setSearch("");
+    score.clear();
   };
 
   const fail = (error: unknown) =>
@@ -454,6 +468,7 @@ function Queue({
                   onChange={(event) => setTo(event.target.value)}
                 />
               </Field>
+              <ScoreFilterFields state={score} />
               <div className="flex flex-col justify-end gap-2.5 pb-1.5">
                 <Checkbox
                   label="Needs a look"
@@ -469,6 +484,13 @@ function Queue({
                 />
               </div>
             </FilterBar>
+
+            {postingId && (
+              <PostingScreeningNote
+                postingId={postingId}
+                rows={applications.applications}
+              />
+            )}
 
             {results && (
               <BulkResults
@@ -965,6 +987,7 @@ function ApplicationRow({
                   Possible duplicate
                 </Badge>
               )}
+              <ScreeningBadges summary={application.screening} />
             </p>
             <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
               <span>{application.postingTitle}</span>
@@ -1063,6 +1086,13 @@ function ApplicationRow({
         connected={editable}
         canOpenFiles={canOpenFiles}
       />
+
+      {application.screening && (
+        <ExplanationDisclosure
+          subject={{ kind: "application", id: application.id }}
+          criteriaHref={`/hiring/postings/${application.postingId}?tab=screening`}
+        />
+      )}
 
       {waiting && noApprovedRole && (
         <p className="text-body-sm text-warning-text">

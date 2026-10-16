@@ -3,6 +3,10 @@
 import { request, requestPaged, type Paged } from "@/lib/api/client";
 import type { ApiHistoryEvent } from "@/lib/api/application-history";
 import type { QuestionKind } from "@/lib/marketing/apply-form";
+import type {
+  ScoreStatus,
+  ScreeningSummary,
+} from "@/lib/hiring/screening/model";
 
 /**
  * Job adverts and the applications they bring in — `/api/v1/careers`.
@@ -234,6 +238,12 @@ export type ApiApplication = {
   knockoutCount?: number;
   /** Set when an earlier application came from the same email or phone. Not a merge. */
   duplicate?: { ofId: string; reason: string } | null;
+  /**
+   * Where they stand in screening: a fit score and its status, an assessment
+   * score, and whether they are below the pass mark. Advice for a person, never a
+   * decision. Absent from an API that predates screening.
+   */
+  screening?: ScreeningSummary | null;
 };
 
 /** Everything else this email address has applied for. */
@@ -387,8 +397,18 @@ export type PostingListParams = {
 export type ApplicationListParams = {
   page?: number;
   pageSize?: number;
-  /** Allow-list: createdAt | lastName | status | source. Newest first by default. */
-  sort?: "createdAt" | "lastName" | "status" | "source";
+  /**
+   * Allow-list: createdAt | lastName | status | source, and the three screening
+   * sorts. Newest first by default.
+   */
+  sort?:
+    | "createdAt"
+    | "lastName"
+    | "status"
+    | "source"
+    | "fitScore"
+    | "assessmentScore"
+    | "knockoutCount";
   order?: "asc" | "desc";
   status?: ApplicationStatus;
   postingId?: string;
@@ -403,6 +423,11 @@ export type ApplicationListParams = {
   flagged?: boolean;
   /** `true`: only those marked as a likely duplicate of an earlier one. */
   duplicate?: boolean;
+  /** Fit score range, 0 to 100, inclusive. Only people who have a score match. */
+  scoreMin?: number;
+  scoreMax?: number;
+  /** Only people whose score is in this state. */
+  scoreStatus?: ScoreStatus;
   /**
    * The `meta.nextCursor` of the page before. Opaque — hand back what a
    * response gave, never build one. Only with the default newest-first order,
@@ -681,6 +706,9 @@ const applicationQuery = (params: ApplicationListParams) => ({
   flagged: params.flagged === undefined ? undefined : String(params.flagged),
   duplicate:
     params.duplicate === undefined ? undefined : String(params.duplicate),
+  scoreMin: params.scoreMin === undefined ? undefined : String(params.scoreMin),
+  scoreMax: params.scoreMax === undefined ? undefined : String(params.scoreMax),
+  scoreStatus: params.scoreStatus,
   cursor: params.cursor,
 });
 
