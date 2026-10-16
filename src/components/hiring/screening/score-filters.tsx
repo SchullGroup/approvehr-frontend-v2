@@ -140,9 +140,15 @@ export function useScoreFilterState(): ScoreFilterState {
 export function ScoreFilterFields({
   state,
   needsAdvert = false,
+  withSort = true,
+  withStatus = true,
 }: {
   state: ScoreFilterState;
   needsAdvert?: boolean;
+  /** The list can be put in score order. A board's columns cannot, on every server. */
+  withSort?: boolean;
+  /** The list can be narrowed to one score status. */
+  withStatus?: boolean;
 }) {
   const gateway = useScreeningGateway();
   const sorts = SORTS.filter(
@@ -163,29 +169,31 @@ export function ScoreFilterFields({
     "Choose an advert first: a score only means something against one.";
   return (
     <>
-      <Field
-        label="Sort by"
-        {...(needsAdvert
-          ? { help: "Newest first, until you choose an advert." }
-          : state.sort === "fit-asc" && gateway.mode === "api"
-            ? {
-                help: "Only people who have a score are listed. Find the rest by score status.",
-              }
-            : {})}
-      >
-        <Select
-          value={needsAdvert ? "newest" : state.sort}
-          onChange={(event) =>
-            state.setSort(event.target.value as ScreeningSort)
-          }
+      {withSort && (
+        <Field
+          label="Sort by"
+          {...(needsAdvert
+            ? { help: "Newest first, until you choose an advert." }
+            : state.sort === "fit-asc" && gateway.mode === "api"
+              ? {
+                  help: "Only people who have a score are listed. Find the rest by score status.",
+                }
+              : {})}
         >
-          {sorts.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
-      </Field>
+          <Select
+            value={needsAdvert ? "newest" : state.sort}
+            onChange={(event) =>
+              state.setSort(event.target.value as ScreeningSort)
+            }
+          >
+            {sorts.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
       <Field
         label="Fit score from"
         optional
@@ -222,21 +230,23 @@ export function ScoreFilterFields({
           onChange={(event) => state.setMaxText(event.target.value)}
         />
       </Field>
-      <Field label="Score status">
-        <Select
-          value={state.status}
-          onChange={(event) =>
-            state.setStatus(event.target.value as ScoreStatus | "")
-          }
-        >
-          <option value="">Any</option>
-          {statuses.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
-      </Field>
+      {withStatus && (
+        <Field label="Score status">
+          <Select
+            value={state.status}
+            onChange={(event) =>
+              state.setStatus(event.target.value as ScoreStatus | "")
+            }
+          >
+            <option value="">Any</option>
+            {statuses.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
     </>
   );
 }

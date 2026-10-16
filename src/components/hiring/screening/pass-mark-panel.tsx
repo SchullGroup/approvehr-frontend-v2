@@ -11,9 +11,11 @@ import {
   CardBody,
   CardHeader,
   ConfirmDialog,
+  Checkbox,
   Field,
   FieldRow,
   Input,
+  Select,
   Skeleton,
   useToast,
 } from "@/components/ui";
@@ -33,11 +35,19 @@ import {
  * ## It flags. It never rejects.
  *
  * A pass mark here has two independent, optional parts, a fit score and an
- * assessment score, and anybody below either is **flagged** for a person to look
- * at. Knockout answers flag the same way. The flagged people go to one list, and a
- * person confirms there, in bulk and with a reason, before anybody is turned down.
- * The screen says so at the top and again in the confirmation, because the
- * person pressing Save should know what it will and will not do.
+ * assessment result, and anybody below either is **flagged** for a person to look
+ * at. Knockout answers flag the same way, unless somebody turns that off. The
+ * flagged people go to one list, and a person confirms there, in bulk and with a
+ * reason, before anybody is turned down. The screen says so at the top and again in
+ * the confirmation, because the person pressing Save should know what it will and
+ * will not do.
+ *
+ * ## The assessment mark is a percentage, of one test
+ *
+ * A test marked out of 60 and one marked out of 100 are held to the same line
+ * because both are read as a percentage. When an advert has results from more than
+ * one test the mark is told which one to read; with none chosen it reads the one
+ * entered last.
  *
  * ## The number is shown before it is saved
  *
@@ -93,7 +103,7 @@ export function PassMarkPanel({
   }
   return (
     <PassMarkForm
-      key={passMark.mark.version ?? "none"}
+      key={`${String(passMark.mark.version ?? "none")}:${passMark.mark.updatedAt ?? "none"}`}
       postingId={postingId}
       mark={passMark.mark}
       save={passMark.save}
@@ -119,6 +129,8 @@ function PassMarkForm({
   const toast = useToast();
   const [fit, setFit] = useState(show(mark.fitMin));
   const [assessment, setAssessment] = useState(show(mark.assessmentMin));
+  const [test, setTest] = useState(mark.assessmentTest ?? "");
+  const [flagKnockouts, setFlagKnockouts] = useState(mark.flagKnockouts);
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -129,9 +141,27 @@ function PassMarkForm({
   const input = {
     fitMin: fitValue === "bad" ? null : fitValue,
     assessmentMin: assessmentValue === "bad" ? null : assessmentValue,
+    assessmentTest: test === "" ? null : test,
+    flagKnockouts,
   };
   const dirty =
-    input.fitMin !== mark.fitMin || input.assessmentMin !== mark.assessmentMin;
+    input.fitMin !== mark.fitMin ||
+    input.assessmentMin !== mark.assessmentMin ||
+    input.assessmentTest !== mark.assessmentTest ||
+    input.flagKnockouts !== mark.flagKnockouts;
+  /* The saved test is offered even when nobody has a result in it yet. */
+  const tests =
+    mark.assessmentTest !== null &&
+    !mark.tests.some((known) => known.name === mark.assessmentTest)
+      ? [
+          ...mark.tests,
+          {
+            key: mark.assessmentTest,
+            name: mark.assessmentTest,
+            applicants: 0,
+          },
+        ]
+      : mark.tests;
 
   const counted = usePassMarkCount(postingId, input);
 
@@ -160,7 +190,8 @@ function PassMarkForm({
     }
   }
 
-  const none = mark.fitMin === null && mark.assessmentMin === null;
+  const none =
+    mark.fitMin === null && mark.assessmentMin === null && !mark.flagKnockouts;
 
   return (
     <Card>
@@ -203,9 +234,9 @@ function PassMarkForm({
             />
           </Field>
           <Field
-            label="Assessment score, at least"
+            label="Assessment result, at least (%)"
             optional
-            help={`0 to ${String(mark.assessmentMax)}. Leave empty for none.`}
+            help={`0 to ${String(mark.assessmentMax)}, as a percentage of what the test is marked out of. Leave empty for none.`}
             {...(assessmentValue === "bad"
               ? { error: `A number from 0 to ${String(mark.assessmentMax)}.` }
               : {})}
@@ -219,15 +250,39 @@ function PassMarkForm({
           </Field>
         </FieldRow>
 
+        {tests.length > 0 && (
+          <Field
+            label="Which test the assessment mark reads"
+            help="With more than one test on this advert, choose the one the pass mark is about."
+          >
+            <Select
+              value={test}
+              onChange={(event) => setTest(event.target.value)}
+            >
+              <option value="">The one entered last</option>
+              {tests.map((known) => (
+                <option key={known.key} value={known.name}>
+                  {known.name}
+                  {known.applicants > 0
+                    ? ` (${count(known.applicants)} ${known.applicants === 1 ? "result" : "results"})`
+                    : ""}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+
         <div>
           <h4 className="text-body-sm font-semibold text-ink">
             Answers that flag somebody on their own
           </h4>
-          {mark.knockouts.length === 0 ? (
-            <p className="mt-1 text-body-sm text-muted">
-              None. The application form has no knockout questions.
-            </p>
-          ) : (
+          <Checkbox
+            className="mt-1"
+            label="A wrong answer to a knockout question flags somebody"
+            checked={flagKnockouts}
+            onChange={() => setFlagKnockouts((on) => !on)}
+          />
+          {flagKnockouts && mark.knockouts.length > 0 && (
             <ul className="mt-1 list-disc pl-5 text-body-sm text-body">
               {mark.knockouts.map((rule) => (
                 <li key={rule.id}>
@@ -328,6 +383,21 @@ function Count({
         below the pass mark.
       </p>
       {data.below > 0 && <Reasons data={data} />}
+      {data.kept > 0 && (
+        <p className="mt-1 text-meta text-muted">
+          {count(data.kept)} {data.kept === 1 ? "is" : "are"} under it but{" "}
+          {data.kept === 1 ? "has" : "have"} been kept in the running by a
+          person, so {data.kept === 1 ? "is" : "are"} not counted.
+        </p>
+      )}
+      {data.noAssessment > 0 && (
+        <p className="mt-1 text-meta text-muted">
+          {count(data.noAssessment)} {data.noAssessment === 1 ? "has" : "have"}{" "}
+          no assessment result yet. A missing result is not a low one, so{" "}
+          {data.noAssessment === 1 ? "that person is" : "they are"} not counted
+          as below on it.
+        </p>
+      )}
       {data.notScored > 0 && (
         <p className="mt-1 text-meta text-muted">
           {count(data.notScored)} {data.notScored === 1 ? "has" : "have"} no
@@ -337,8 +407,7 @@ function Count({
       )}
       {data.below === 0 && none && (
         <Callout tone="neutral" className="mt-2">
-          There is no pass mark. Nobody is flagged for a score, and only flagged
-          answers send somebody to the list.
+          There is no pass mark. Nobody is flagged for a score or a result.
         </Callout>
       )}
       {!counted.current && <span className="sr-only">Updating the count</span>}

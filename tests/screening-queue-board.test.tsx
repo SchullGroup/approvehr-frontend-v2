@@ -324,6 +324,46 @@ describe("on the board", () => {
     });
   });
 
+  it("narrows to people with flagged answers, and says how many answers", async () => {
+    const user = userEvent.setup();
+    openBoard();
+    await boardReady();
+    const before = within(column("Sourced")).getAllByRole("article").length;
+    await user.click(screen.getByRole("button", { name: /^Filters/ }));
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Flagged answers" }),
+      "1 or more",
+    );
+    await waitFor(() => {
+      const cards = within(column("Sourced")).queryAllByRole("article");
+      expect(cards.length).toBeGreaterThan(0);
+      expect(cards.length).toBeLessThan(before);
+      for (const card of cards) {
+        expect(within(card).getByText(/Needs a look/)).toBeInTheDocument();
+      }
+    });
+    /* The option, and the chip under the bar that says it is on. */
+    expect(screen.getAllByText("1 or more").length).toBeGreaterThan(1);
+  });
+
+  it("narrows to people below the pass mark, in those words", async () => {
+    const user = userEvent.setup();
+    openBoard();
+    await boardReady();
+    await user.click(screen.getByRole("button", { name: /^Filters/ }));
+    await user.click(
+      screen.getByRole("checkbox", { name: /Below the pass mark/ }),
+    );
+    await waitFor(() => {
+      const cards = within(column("Sourced")).queryAllByRole("article");
+      for (const card of cards) {
+        expect(
+          within(card).getByText("Below the pass mark"),
+        ).toBeInTheDocument();
+      }
+    });
+  });
+
   it("shows the same score as a badge in the table", async () => {
     const user = userEvent.setup();
     openBoard();

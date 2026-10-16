@@ -122,7 +122,12 @@ export function FitBar({
   );
 }
 
-/** The assessment score as a badge, or nothing while there is none (never a 0). */
+/**
+ * The assessment result as a badge, or nothing while there is none (never a 0).
+ *
+ * It is a percentage of what the test was marked out of, so tests with different
+ * maximums read the same way.
+ */
 export function AssessmentBadge({
   score,
 }: {
@@ -134,9 +139,9 @@ export function AssessmentBadge({
       tone="info"
       size="sm"
       icon={<ClipboardList />}
-      title="Assessment score, as imported or typed in"
+      title="Assessment result, as a percentage of what the test is marked out of"
     >
-      Assessment {score}
+      Assessment {score}%
     </Badge>
   );
 }

@@ -1,6 +1,8 @@
 import type {
   AssessmentCheck,
-  AssessmentEntry,
+  AssessmentEntryInput,
+  AssessmentFileOptions,
+  AssessmentHistory,
   AssessmentResult,
   BelowCount,
   BelowDecision,
@@ -42,11 +44,20 @@ export type BelowRequest = {
   onProgress: (progress: { done: number; total: number }) => void;
 };
 
+/** One row of a file, as typed: every cell is text until a side reads it. */
 export type AssessmentRowInput = {
   /** 1-based, header excluded: what Excel shows. */
   row: number;
   email: string;
+  /** The reference the applicant was given (APP-…), for a file that has it instead of an email. */
+  reference: string;
   score: string;
+  /** What the test was marked out of. Blank: the score is already a percentage. */
+  max: string;
+  /** The test's name, for a file that holds more than one. Blank: the name chosen on screen. */
+  test: string;
+  /** When it was taken. */
+  date: string;
 };
 
 /**
@@ -63,6 +74,15 @@ export type ScreeningSupport = {
   below: boolean;
   /** The pipeline board's cards carry scores, and it can be sorted and filtered by them. */
   board: boolean;
+  /** The board's columns and table can be put in score order. */
+  boardSort: boolean;
+  /** The board's columns and table can be narrowed to one score status. */
+  boardStatus: boolean;
+  /**
+   * The list below the pass mark holds people who are already in the pipeline as
+   * well as those waiting, so it can be narrowed to one or the other.
+   */
+  belowState: boolean;
   /** The sorts the queue can be asked for. */
   sorts: ScreeningSort[];
 };
@@ -129,24 +149,26 @@ export type ScreeningGateway = {
       postingId: string,
       filename: string,
       rows: AssessmentRowInput[],
+      options: AssessmentFileOptions,
       signal: AbortSignal,
     ): Promise<AssessmentCheck>;
-    /** Saves what the check said was usable, for the same file. */
+    /** Saves what the check said was usable, for the same file and the same options. */
     commit(
       postingId: string,
       check: AssessmentCheck,
       rows: AssessmentRowInput[],
+      options: AssessmentFileOptions,
     ): Promise<AssessmentResult>;
-    /** One person's score typed in by hand. */
+    /** One person's result typed in by hand. */
     enter(
       subject: ScreeningSubject,
-      score: number,
-      note: string | null,
+      input: AssessmentEntryInput,
     ): Promise<void>;
+    /** Each test's result as it stands, and every value ever set. */
     history(
       subject: ScreeningSubject,
       signal: AbortSignal,
-    ): Promise<AssessmentEntry[]>;
+    ): Promise<AssessmentHistory>;
   };
 
   below: {

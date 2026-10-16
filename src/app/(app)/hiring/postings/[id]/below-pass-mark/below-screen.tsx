@@ -14,7 +14,6 @@ import {
   EmptyState,
   Field,
   FilterBar,
-  Input,
   Select,
   Skeleton,
   TextLink,
@@ -49,6 +48,7 @@ import type {
   BelowKind,
   BelowOutcome,
   BelowRow,
+  BelowState,
   BelowTarget,
 } from "@/lib/hiring/screening/model";
 import { count } from "@/lib/hiring/screening/score";
@@ -93,8 +93,13 @@ const BREADCRUMB = [
 
 const REASON_OPTIONS: { value: BelowKind; label: string }[] = [
   { value: "FIT", label: "Fit score" },
-  { value: "ASSESSMENT", label: "Assessment score" },
+  { value: "ASSESSMENT", label: "Assessment result" },
   { value: "KNOCKOUT", label: "A flagged answer" },
+];
+
+const STATE_OPTIONS: { value: BelowState; label: string }[] = [
+  { value: "WAITING", label: "Waiting to be screened" },
+  { value: "IN_PIPELINE", label: "Already in the pipeline" },
 ];
 
 /** One per click. The same key is the same action, so a double click is one. */
@@ -148,15 +153,12 @@ function Below({ id }: { id: string }) {
   const [search, setSearch] = useState("");
   const query = useDebounced(search.trim(), 300);
   const [reason, setReason] = useState<BelowKind | "">("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const backwards = from !== "" && to !== "" && from > to;
+  const [state, setState] = useState<BelowState | "">("");
 
   const filters: BelowFilters = {
     ...(query ? { q: query } : {}),
     ...(reason ? { reason } : {}),
-    ...(from && !backwards ? { from } : {}),
-    ...(to && !backwards ? { to } : {}),
+    ...(state && gateway.supports.belowState ? { state } : {}),
   };
   const list = useBelowList(id, filters);
   const scope = JSON.stringify([id, filters]);
@@ -203,19 +205,21 @@ function Below({ id }: { id: string }) {
           },
         ]
       : []),
-    ...(from
-      ? [{ label: "Applied from", value: from, onClear: () => setFrom("") }]
-      : []),
-    ...(to
-      ? [{ label: "Applied to", value: to, onClear: () => setTo("") }]
+    ...(state && gateway.supports.belowState
+      ? [
+          {
+            label: "Where they are",
+            value: STATE_OPTIONS.find((o) => o.value === state)?.label ?? "",
+            onClear: () => setState(""),
+          },
+        ]
       : []),
   ];
   const narrowed = applied.length > 0 || search.trim() !== "";
   const clearAll = () => {
     setSearch("");
     setReason("");
-    setFrom("");
-    setTo("");
+    setState("");
   };
 
   const offer =
@@ -310,7 +314,8 @@ function Below({ id }: { id: string }) {
   const noPassMark =
     passMark.mark !== null &&
     passMark.mark.fitMin === null &&
-    passMark.mark.assessmentMin === null;
+    passMark.mark.assessmentMin === null &&
+    !passMark.mark.flagKnockouts;
 
   return (
     <>
@@ -340,6 +345,9 @@ function Below({ id }: { id: string }) {
           These people are below the pass mark. Nobody is rejected until you
           confirm. Read their applications, keep in the running anybody who
           should stay, then reject the rest with a reason.
+          {gateway.supports.belowState
+            ? " People who are already in the pipeline are here too, with their stage. Anybody you have moved on since they were flagged is left off."
+            : ""}
         </Callout>
 
         <Card>
@@ -373,31 +381,23 @@ function Below({ id }: { id: string }) {
                   ))}
                 </Select>
               </Field>
-              <Field label="Applied from" optional>
-                <Input
-                  type="date"
-                  value={from}
-                  max={to || undefined}
-                  onChange={(event) => setFrom(event.target.value)}
-                />
-              </Field>
-              <Field
-                label="Applied to"
-                optional
-                {...(backwards
-                  ? {
-                      error:
-                        "That is before the start date, so no dates are applied.",
+              {gateway.supports.belowState && (
+                <Field label="Where they are">
+                  <Select
+                    value={state}
+                    onChange={(event) =>
+                      setState(event.target.value as BelowState | "")
                     }
-                  : {})}
-              >
-                <Input
-                  type="date"
-                  value={to}
-                  min={from || undefined}
-                  onChange={(event) => setTo(event.target.value)}
-                />
-              </Field>
+                  >
+                    <option value="">Anywhere</option>
+                    {STATE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
             </FilterBar>
 
             {results && (
@@ -612,6 +612,11 @@ function BelowRowView({
               <span className="tabular">
                 Applied {formatDateShort(row.appliedAt, "Africa/Lagos")}
               </span>
+              {row.state === "IN_PIPELINE" && (
+                <Badge tone="neutral" size="sm">
+                  In the pipeline{row.stage ? `: ${row.stage}` : ""}
+                </Badge>
+              )}
             </p>
           </div>
         </div>

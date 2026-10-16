@@ -193,6 +193,78 @@ describe("the board", () => {
     expect(board.columns[2]?.stageId).toBeNull();
   });
 
+  it("sends the score range, the flagged-answer count and the pass-mark flag, and never a sort", async () => {
+    calls.board.mockResolvedValue({ columns: [] });
+    await apiGateway.board(
+      {
+        requisitionId: "r1",
+        filters: {
+          scoreMin: 40,
+          scoreMax: 90,
+          knockoutMin: 2,
+          belowCutoff: true,
+          /* The board endpoint has none of these, so they are never sent. */
+          scoreStatus: "SCORED",
+          sort: "fit-desc",
+        },
+        limit: 25,
+      },
+      signal(),
+    );
+    expect(calls.board).toHaveBeenCalledWith(
+      "r1",
+      {
+        scoreMin: 40,
+        scoreMax: 90,
+        knockoutMin: 2,
+        belowCutoff: true,
+        limit: 25,
+      },
+      expect.anything(),
+    );
+  });
+
+  it("puts what the application says on each card, and nothing on one added by hand", async () => {
+    calls.board.mockResolvedValue({
+      columns: [
+        column({
+          count: 2,
+          cards: [
+            card("a", {
+              knockoutCount: 2,
+              jobApplicationId: "ja1",
+              fitScore: 64,
+              scoreStatus: "SCORED",
+              assessment: { percent: 52.5 },
+              belowCutoff: true,
+              keptInRunning: false,
+            }),
+            card("b", {
+              jobApplicationId: null,
+              fitScore: null,
+              scoreStatus: null,
+              assessment: null,
+              belowCutoff: false,
+              keptInRunning: false,
+            }),
+          ],
+        }),
+      ],
+    });
+    const board = await apiGateway.board(
+      { requisitionId: "r1", filters: {}, limit: 25 },
+      signal(),
+    );
+    const [a, b] = board.columns[0]?.cards ?? [];
+    expect(a?.screening).toEqual({
+      fit: { status: "SCORED", score: 64, version: null, stale: false },
+      assessment: 52.5,
+      knockoutCount: 2,
+      belowPassMark: true,
+    });
+    expect(b?.screening).toBeNull();
+  });
+
   it("sends every filter as the API's own words, and nothing that is off", async () => {
     calls.board.mockResolvedValue({ columns: [] });
     await apiGateway.board(

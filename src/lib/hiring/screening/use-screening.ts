@@ -6,7 +6,8 @@ import { usePagedList } from "@/lib/store/paged-list";
 import { useDebounced } from "@/lib/use-debounced";
 import { useLoaded } from "@/lib/use-loaded";
 import type {
-  AssessmentEntry,
+  AssessmentEntryInput,
+  AssessmentHistory,
   BelowCount,
   BelowFilters,
   BelowRow,
@@ -236,19 +237,23 @@ export function usePassMark(postingId: string) {
  */
 export function usePassMarkCount(postingId: string, input: PassMarkInput) {
   const gateway = useScreeningGateway();
-  const live = JSON.stringify([input.fitMin, input.assessmentMin]);
+  const live = JSON.stringify([
+    input.fitMin,
+    input.assessmentMin,
+    input.assessmentTest,
+    input.flagKnockouts,
+  ]);
   const settled = useDebounced(live, 500);
   const loaded = useLoaded<PassMarkCount>(
     `count:${gateway.mode}:${postingId}:${settled}`,
     true,
     (signal) => {
-      const [fitMin, assessmentMin] = JSON.parse(settled) as [
-        number | null,
-        number | null,
-      ];
+      const [fitMin, assessmentMin, assessmentTest, flagKnockouts] = JSON.parse(
+        settled,
+      ) as [number | null, number | null, string | null, boolean];
       return gateway.passMark.count(
         postingId,
-        { fitMin, assessmentMin },
+        { fitMin, assessmentMin, assessmentTest, flagKnockouts },
         signal,
       );
     },
@@ -296,21 +301,22 @@ export function useAssessmentHistory(
   enabled = true,
 ) {
   const gateway = useScreeningGateway();
-  const loaded = useLoaded<AssessmentEntry[]>(
+  const loaded = useLoaded<AssessmentHistory>(
     `assessments:${gateway.mode}:${subject.kind}:${subject.id}`,
     enabled,
     (signal) => gateway.assessment.history(subject, signal),
   );
   const enter = useCallback(
-    async (score: number, note: string | null) => {
-      await gateway.assessment.enter(subject, score, note);
+    async (input: AssessmentEntryInput) => {
+      await gateway.assessment.enter(subject, input);
       loaded.reload();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [gateway, subject.kind, subject.id, loaded.reload],
   );
   return {
-    entries: loaded.data ?? [],
+    current: loaded.data?.current ?? [],
+    entries: loaded.data?.entries ?? [],
     loading: enabled && loaded.loading,
     error: loaded.error,
     reload: loaded.reload,

@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import { belowRow, fakeGateway } from "./screening-helpers";
+import { belowRow, fakeGateway, passMark } from "./screening-helpers";
 
 /**
  * The list of people below the pass mark, where a person confirms.
@@ -161,7 +161,7 @@ describe("what it says", () => {
     open();
     await ready();
     expect(screen.getByText("Fit 31")).toBeInTheDocument();
-    expect(screen.getByText("Assessment 44")).toBeInTheDocument();
+    expect(screen.getByText("Assessment 44%")).toBeInTheDocument();
     expect(await screen.findByText("412 of 4,210 waiting")).toBeInTheDocument();
   });
 
@@ -184,13 +184,14 @@ describe("what it says", () => {
     current.gateway = fakeGateway({
       passMark: {
         ...fakeGateway().passMark,
-        get: vi.fn(async () => ({
-          fitMin: null,
-          assessmentMin: null,
-          assessmentMax: 100,
-          knockouts: [],
-          version: null,
-        })),
+        get: vi.fn(async () =>
+          passMark({
+            fitMin: null,
+            flagKnockouts: false,
+            knockouts: [],
+            version: null,
+          }),
+        ),
       },
       below: {
         ...fakeGateway().below,
@@ -239,6 +240,59 @@ describe("narrowing it", () => {
       ),
     );
     expect(await screen.findByText("Below because of")).toBeInTheDocument();
+  });
+
+  it("asks for people waiting, or people already in the pipeline", async () => {
+    const user = userEvent.setup();
+    open();
+    await ready();
+    await user.click(screen.getByRole("button", { name: /^Filters/ }));
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Where they are" }),
+      "Already in the pipeline",
+    );
+    await waitFor(() =>
+      expect(current.gateway.below.list).toHaveBeenLastCalledWith(
+        expect.objectContaining({ filters: { state: "IN_PIPELINE" } }),
+        expect.anything(),
+      ),
+    );
+  });
+
+  it("does not offer where they are on a server whose list holds only the waiting", async () => {
+    current.gateway = fakeGateway({
+      supports: { ...fakeGateway().supports, belowState: false },
+    });
+    const user = userEvent.setup();
+    open();
+    await ready();
+    await user.click(screen.getByRole("button", { name: /^Filters/ }));
+    expect(
+      screen.queryByRole("combobox", { name: "Where they are" }),
+    ).toBeNull();
+    expect(
+      screen.queryByText(/already in the pipeline are here too/),
+    ).toBeNull();
+  });
+
+  it("says somebody already in the pipeline is, with their stage", async () => {
+    current.gateway.below.list.mockImplementation(async () => ({
+      rows: [
+        belowRow(1, { state: "IN_PIPELINE", stage: "Phone screen" }),
+        belowRow(2),
+      ],
+      total: 2,
+      next: null,
+    }));
+    open();
+    await ready();
+    expect(
+      screen.getByText("In the pipeline: Phone screen"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/In the pipeline/)).toHaveLength(1);
+    expect(
+      screen.getByText(/already in the pipeline are here too/),
+    ).toBeInTheDocument();
   });
 });
 

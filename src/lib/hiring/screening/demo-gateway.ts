@@ -5,7 +5,11 @@ import type { ApiApplication } from "@/lib/api/careers";
 import { demoBook, overlayQueue } from "@/lib/store/careers";
 import { queueDecline } from "@/lib/hiring/pipeline/demo-ops";
 import { demoPipeline, demoRun } from "@/lib/hiring/pipeline/demo-store";
-import { assessmentTemplate, parseScoreCell } from "./assessment-file";
+import {
+  assessmentTemplate,
+  numberOf,
+  parseScoreCell,
+} from "./assessment-file";
 import {
   cleaned,
   validateCriteria,
@@ -25,7 +29,10 @@ import {
 import { FORMULA_LINE } from "./score";
 import {
   addAssessment,
+  assessmentOf,
   belowReasons,
+  currentResults,
+  DEFAULT_TEST,
   demoScreening,
   explanationFor,
   keepOp,
@@ -37,15 +44,20 @@ import {
   savePassMarkOp,
   specialOf,
   summaryFor,
+  testKeyOf,
+  testsAmong,
   type DemoPerson,
   type DemoScreeningBook,
   type ScoringContext,
 } from "./demo-store";
-import type { ScreeningGateway } from "./gateway";
+import type { AssessmentRowInput, ScreeningGateway } from "./gateway";
 import {
   NO_CRITERIA,
   type AssessmentCheck,
+  type AssessmentEntry,
+  type AssessmentFileOptions,
   type AssessmentRow,
+  type PassMark,
   type BelowFilters,
   type BelowRow,
   type CriteriaView,
@@ -129,6 +141,19 @@ function view(postingId: string): CriteriaView {
 const waiting = (rows: Row[]): Row[] =>
   rows.filter((row) => row.application.status === "RECEIVED");
 
+/** The pass mark as saved, with the tests that have a result on this advert. */
+function passMarkView(postingId: string): PassMark {
+  const book = demoScreening.current();
+  return passMarkOf(
+    book,
+    postingId,
+    testsAmong(
+      book,
+      applicantsOf(postingId).map((row) => row.application.email),
+    ),
+  );
+}
+
 /* ------------------------------------------------------------------- below list */
 
 function matchesBelow(
@@ -143,17 +168,15 @@ function matchesBelow(
     !reasons.some((reason) => reason.kind === filters.reason)
   )
     return false;
+  /* Everybody here is waiting: a practice board keeps nobody on the list once they are screened in. */
+  if (filters.state === "IN_PIPELINE") return false;
   const words = (filters.q ?? "")
     .toLowerCase()
     .split(/\s+/)
     .filter((word) => word !== "");
   const haystack =
     `${row.application.name} ${row.application.email}`.toLowerCase();
-  if (!words.every((word) => haystack.includes(word))) return false;
-  const day = row.application.appliedAt.slice(0, 10);
-  if (filters.from && day < filters.from) return false;
-  if (filters.to && day > filters.to) return false;
-  return true;
+  return words.every((word) => haystack.includes(word));
 }
 
 function belowRows(postingId: string, filters: BelowFilters): BelowRow[] {
@@ -172,12 +195,14 @@ function belowRows(postingId: string, filters: BelowFilters): BelowRow[] {
       summary,
       reasons: belowReasons(summary, mark),
       flagged:
-        summary.knockoutCount > 0
+        mark.flagKnockouts && summary.knockoutCount > 0
           ? mark.knockouts.slice(0, summary.knockoutCount).map((rule) => ({
               question: rule.question,
               answer: rule.flagWhen,
             }))
           : [],
+      state: "WAITING",
+      stage: null,
     });
   }
   /* The clearest cases first: the lowest score at the top, and people with no
@@ -188,6 +213,219 @@ function belowRows(postingId: string, filters: BelowFilters): BelowRow[] {
       b.appliedAt.localeCompare(a.appliedAt) ||
       a.id.localeCompare(b.id),
   );
+}
+
+/* ---------------------------------------------------------- reading an assessment file */
+
+/** A result a file or a form would write, once it is known whose it is. */
+type Write = {
+  email: string;
+  test: string;
+  score: number;
+  max: number | null;
+  percent: number;
+  takenOn: string | null;
+};
+
+const DAY_ISO = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_UK = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+
+/** `2026-10-12` or `12/10/2026`, as a day, or `null` when it is not one. */
+function dayOf(text: string): string | null | "bad" {
+  const trimmed = text.trim();
+  if (trimmed === "") return null;
+  if (DAY_ISO.test(trimmed)) return trimmed;
+  const uk = DAY_UK.exec(trimmed);
+  if (!uk) return "bad";
+  const [, d, m, y] = uk;
+  return `${y ?? ""}-${(m ?? "").padStart(2, "0")}-${(d ?? "").padStart(2, "0")}`;
+}
+
+/** A mark and what it is out of, as a percentage, or the sentence saying why not. */
+function percentOf(
+  score: number,
+  max: number | null,
+): { ok: true; percent: number } | { ok: false; problem: string } {
+  if (max !== null) {
+    if (max <= 0)
+      return { ok: false, problem: "The maximum has to be more than zero." };
+    if (score > max)
+      return {
+        ok: false,
+        problem: `${String(score)} is more than the maximum of ${String(max)}.`,
+      };
+    return { ok: true, percent: Math.round((score / max) * 1000) / 10 };
+  }
+  if (score > 100)
+    return {
+      ok: false,
+      problem: `${String(score)} is over 100 and no maximum was given, so it cannot be read as a percentage. Give the maximum the mark is out of.`,
+    };
+  return { ok: true, percent: score };
+}
+
+/**
+ * Whose each row is and what it would do, and the writes that would follow.
+ *
+ * One function for the check and the commit, so the commit can only ever do what
+ * the check said.
+ */
+function evaluate(
+  postingId: string,
+  rows: readonly AssessmentRowInput[],
+  options: AssessmentFileOptions,
+): { rows: AssessmentRow[]; writes: Write[] } {
+  const people = applicantsOf(postingId);
+  const byEmail = new Map<string, Row[]>();
+  const byReference = new Map<string, Row[]>();
+  for (const person of people) {
+    const email = person.application.email.toLowerCase();
+    byEmail.set(email, [...(byEmail.get(email) ?? []), person]);
+    const ref = (person.application.reference ?? "").toUpperCase();
+    if (ref) byReference.set(ref, [...(byReference.get(ref) ?? []), person]);
+  }
+  const book = demoScreening.current();
+  const defaultTest = options.test.trim() || DEFAULT_TEST;
+  const seen = new Map<string, { score: number; max: number | null }>();
+  const writes: Write[] = [];
+
+  const checked = rows.map((input): AssessmentRow => {
+    const email = input.email.trim().toLowerCase();
+    const reference = input.reference.trim().toUpperCase();
+    const base: AssessmentRow = {
+      row: input.row,
+      email: input.email.trim() || input.reference.trim() || null,
+      name: null,
+      score: null,
+      max: null,
+      refusal: null,
+      message: null,
+      effect: null,
+    };
+    const refuse = (
+      refusal: NonNullable<AssessmentRow["refusal"]>,
+      message: string,
+    ): AssessmentRow => ({ ...base, refusal, message });
+
+    if (email === "" && reference === "")
+      return refuse(
+        "blank_email",
+        "There is no email or reference in this row.",
+      );
+    const fromEmail = email === "" ? null : (byEmail.get(email) ?? []);
+    const fromReference =
+      reference === "" ? null : (byReference.get(reference) ?? []);
+    if (fromEmail !== null && fromEmail.length === 0)
+      return refuse(
+        "unmatched_email",
+        "No applicant for this advert has that email.",
+      );
+    if (fromReference !== null && fromReference.length === 0)
+      return refuse(
+        "refused",
+        "No applicant for this advert has that reference.",
+      );
+    if ((fromEmail?.length ?? 0) > 1)
+      return refuse(
+        "ambiguous",
+        "More than one application uses that email, so it is not clear whose score this is.",
+      );
+    const person = fromEmail?.[0] ?? fromReference?.[0];
+    if (!person)
+      return refuse(
+        "blank_email",
+        "There is no email or reference in this row.",
+      );
+    if (
+      fromEmail?.[0] &&
+      fromReference?.[0] &&
+      fromEmail[0] !== fromReference[0]
+    )
+      return refuse(
+        "refused",
+        "The email and the reference point at different applicants.",
+      );
+    const named = { ...base, name: person.application.name };
+
+    const cell = parseScoreCell(input.score);
+    if (cell === null)
+      return {
+        ...named,
+        refusal: "not_a_number",
+        message: `"${input.score}" is not a score. Use a number such as 72, 58.5 or 42/60.`,
+      };
+    const maxCell = input.max.trim() === "" ? null : numberOf(input.max);
+    if (input.max.trim() !== "" && maxCell === null)
+      return {
+        ...named,
+        score: cell.score,
+        refusal: "not_a_number",
+        message: `"${input.max}" is not a number. Say what the test was marked out of, such as 60.`,
+      };
+    const max = maxCell ?? cell.max;
+    const marked = percentOf(cell.score, max);
+    if (!marked.ok)
+      return {
+        ...named,
+        score: cell.score,
+        max,
+        refusal: "out_of_range",
+        message: marked.problem,
+      };
+    const day = dayOf(input.date);
+    if (day === "bad")
+      return {
+        ...named,
+        score: cell.score,
+        max,
+        refusal: "refused",
+        message: "Use a date such as 2026-10-16.",
+      };
+
+    const test = input.test.trim() || defaultTest;
+    const slot = `${person.application.id}|${testKeyOf(test)}`;
+    const earlier = seen.get(slot);
+    if (earlier) {
+      return earlier.score === cell.score && earlier.max === max
+        ? {
+            ...named,
+            score: cell.score,
+            max,
+            effect: "unchanged",
+            message: "The same mark is on an earlier row, so it is saved once.",
+          }
+        : {
+            ...named,
+            score: cell.score,
+            max,
+            refusal: "duplicate_in_file",
+            message:
+              "This person has two different marks for this test in the file. The first row is the one used.",
+          };
+    }
+    seen.set(slot, { score: cell.score, max });
+
+    const current = currentResults(
+      book.assessments[person.application.email.toLowerCase()] ?? [],
+    ).find((result) => testKeyOf(result.test) === testKeyOf(test));
+    const effect =
+      current === undefined
+        ? "new"
+        : current.score === cell.score && current.max === max
+          ? "unchanged"
+          : "replaces";
+    if (effect !== "unchanged")
+      writes.push({
+        email: person.application.email,
+        test,
+        score: cell.score,
+        max,
+        percent: marked.percent,
+        takenOn: day,
+      });
+    return { ...named, score: cell.score, max, effect };
+  });
+  return { rows: checked, writes };
 }
 
 /* --------------------------------------------------------------------- the gateway */
@@ -242,6 +480,9 @@ export const demoScreeningGateway: ScreeningGateway = {
     assessment: true,
     below: true,
     board: true,
+    boardSort: true,
+    boardStatus: true,
+    belowState: false,
     sorts: [
       "newest",
       "fit-desc",
@@ -347,19 +588,37 @@ export const demoScreeningGateway: ScreeningGateway = {
   },
 
   passMark: {
-    get: async (postingId) => passMarkOf(demoScreening.current(), postingId),
+    get: async (postingId) => passMarkView(postingId),
 
     count: async (postingId, input) => {
       const ctx = context(postingId);
       const rows = waiting(applicantsOf(postingId));
       const byReason = { fit: 0, assessment: 0, knockout: 0 };
       let below = 0;
+      let kept = 0;
       let notScored = 0;
+      let noAssessment = 0;
       for (const row of rows) {
-        const summary = summaryFor(ctx, row.person, row.order);
+        const saved = summaryFor(ctx, row.person, row.order);
+        /* The draft may read another test, so the figure is read again for it. */
+        const summary = {
+          ...saved,
+          assessment: assessmentOf(
+            ctx.book,
+            row.application.email,
+            input.assessmentTest,
+          ),
+        };
         if (summary.fit.status !== "SCORED") notScored += 1;
+        if (input.assessmentMin !== null && summary.assessment === null)
+          noAssessment += 1;
         const reasons = belowReasons(summary, input);
-        if (reasons.length > 0) below += 1;
+        if (reasons.length === 0) continue;
+        if (ctx.book.kept[row.application.id] !== undefined) {
+          kept += 1;
+          continue;
+        }
+        below += 1;
         for (const reason of reasons) {
           if (reason.kind === "FIT") byReason.fit += 1;
           else if (reason.kind === "ASSESSMENT") byReason.assessment += 1;
@@ -371,6 +630,8 @@ export const demoScreeningGateway: ScreeningGateway = {
         below,
         byReason,
         notScored,
+        noAssessment,
+        kept,
       };
       return count;
     },
@@ -379,7 +640,7 @@ export const demoScreeningGateway: ScreeningGateway = {
       demoScreening.commit(
         savePassMarkOp(demoScreening.current(), postingId, input, demoNow()),
       );
-      return passMarkOf(demoScreening.current(), postingId);
+      return passMarkView(postingId);
     },
   },
 
@@ -408,147 +669,106 @@ export const demoScreeningGateway: ScreeningGateway = {
   assessment: {
     template: assessmentTemplate,
 
-    check: async (postingId, filename, rows) => {
-      const known = new Map<string, number>();
-      for (const row of applicantsOf(postingId)) {
-        const email = row.application.email.toLowerCase();
-        known.set(email, (known.get(email) ?? 0) + 1);
-      }
-      const names = new Map(
-        applicantsOf(postingId).map((row) => [
-          row.application.email.toLowerCase(),
-          row.application.name,
-        ]),
-      );
-      const seen = new Set<string>();
-      const checked: AssessmentRow[] = rows.map((input) => {
-        const email = input.email.trim().toLowerCase();
-        const base = {
-          row: input.row,
-          email: input.email.trim() || null,
-          name: null as string | null,
-          score: null as number | null,
-          refusal: null as AssessmentRow["refusal"],
-          message: null as string | null,
-        };
-        if (email === "")
-          return {
-            ...base,
-            refusal: "blank_email",
-            message: "There is no email in this row.",
-          };
-        const matches = known.get(email) ?? 0;
-        if (matches === 0)
-          return {
-            ...base,
-            refusal: "unmatched_email",
-            message: "No applicant for this advert has that email.",
-          };
-        if (matches > 1)
-          return {
-            ...base,
-            refusal: "ambiguous",
-            message:
-              "More than one application uses that email, so it is not clear whose score this is.",
-          };
-        if (seen.has(email))
-          return {
-            ...base,
-            refusal: "duplicate_in_file",
-            message:
-              "This email is in the file twice. The first row is the one used.",
-          };
-        seen.add(email);
-        const score = parseScoreCell(input.score);
-        if (score === null)
-          return {
-            ...base,
-            name: names.get(email) ?? null,
-            refusal: "not_a_number",
-            message: `"${input.score}" is not a score. Use a number such as 72 or 58.5.`,
-          };
-        if (score > 100)
-          return {
-            ...base,
-            name: names.get(email) ?? null,
-            score,
-            refusal: "out_of_range",
-            message: "Scores run from 0 to 100.",
-          };
-        return { ...base, name: names.get(email) ?? null, score };
-      });
-      const refused = checked.filter((row) => row.refusal !== null).length;
+    check: async (postingId, filename, rows, options) => {
+      const { rows: checked } = evaluate(postingId, rows, options);
+      const usable = checked.filter((row) => row.refusal === null);
       const check: AssessmentCheck = {
         filename,
-        token: JSON.stringify(rows),
+        token: JSON.stringify([rows, options]),
         total: checked.length,
-        usable: checked.length - refused,
-        refused,
-        max: 100,
+        usable: usable.length,
+        refused: checked.length - usable.length,
+        replacing: usable.filter((row) => row.effect === "replaces").length,
+        unchanged: usable.filter((row) => row.effect === "unchanged").length,
         rows: checked,
       };
       return check;
     },
 
-    commit: async (postingId, check, rows) => {
-      if (check.token !== JSON.stringify(rows)) {
+    commit: async (postingId, check, rows, options) => {
+      if (check.token !== JSON.stringify([rows, options])) {
         throw refuse(
           409,
           "conflict",
           "The file is not the one that was checked. Check it again.",
         );
       }
+      const { rows: checked, writes } = evaluate(postingId, rows, options);
       let book: DemoScreeningBook = demoScreening.current();
       const before = belowCount(postingId);
-      let saved = 0;
-      for (const row of check.rows) {
-        if (row.refusal !== null || row.score === null || row.email === null)
-          continue;
-        book = addAssessment(book, row.email, {
-          id: `imp-${String(demoNow())}-${String(row.row)}`,
+      writes.forEach((write, index) => {
+        book = addAssessment(book, write.email, {
+          id: `imp-${String(demoNow())}-${String(index)}`,
           at: demoStamp(),
           by: "You",
           source: "IMPORT",
-          filename: check.filename,
-          score: row.score,
-          note: null,
+          test: write.test,
+          score: write.score,
+          max: write.max,
+          percent: write.percent,
+          takenOn: write.takenOn,
+          cleared: false,
         });
-        saved += 1;
-      }
+      });
       demoScreening.commit(book);
       const after = belowCount(postingId);
+      const usable = checked.filter((row) => row.refusal === null);
       return {
-        saved,
-        refused: check.refused,
+        saved: writes.length,
+        unchanged: usable.length - writes.length,
+        refused: checked.length - usable.length,
         movedBelow: Math.max(0, after - before),
       };
     },
 
-    enter: async (subject, score, note) => {
+    enter: async (subject, input) => {
       const email = subjectEmail(subject);
       if (!email)
         throw refuse(404, "not_found", "That application is not here.");
-      if (!Number.isFinite(score) || score < 0 || score > 100)
-        throw refuse(400, "validation_failed", "Scores run from 0 to 100.");
+      const test =
+        (input.test ?? "").replace(/\s+/g, " ").trim() || DEFAULT_TEST;
+      if (test.length > 80)
+        throw refuse(
+          400,
+          "validation_failed",
+          "Name the test in up to 80 characters.",
+        );
+      if (!Number.isFinite(input.score) || input.score < 0)
+        throw refuse(400, "validation_failed", "A mark cannot be negative.");
+      const marked = percentOf(input.score, input.max);
+      if (!marked.ok) throw refuse(400, "validation_failed", marked.problem);
+      const day = input.takenOn === null ? null : dayOf(input.takenOn);
+      if (day === "bad")
+        throw refuse(
+          400,
+          "validation_failed",
+          "Use a date such as 2026-10-16.",
+        );
       demoScreening.commit(
         addAssessment(demoScreening.current(), email, {
           id: `man-${String(demoNow())}`,
           at: demoStamp(),
           by: "You",
           source: "MANUAL",
-          filename: null,
-          score,
-          note,
+          test,
+          score: input.score,
+          max: input.max,
+          percent: marked.percent,
+          takenOn: day,
+          cleared: false,
         }),
       );
     },
 
     history: async (subject) => {
       const email = subjectEmail(subject);
-      if (!email) return [];
-      const entries =
+      if (!email) return { current: [], entries: [] };
+      const entries: AssessmentEntry[] =
         demoScreening.current().assessments[email.toLowerCase()] ?? [];
-      return [...entries].reverse();
+      return {
+        current: currentResults(entries),
+        entries: [...entries].reverse(),
+      };
     },
   },
 

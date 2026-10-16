@@ -14,7 +14,9 @@ import {
   type DemoApplicant,
 } from "./demo-engine";
 import type {
+  AssessmentCurrent,
   AssessmentEntry,
+  AssessmentTest,
   BelowReason,
   Criteria,
   Explanation,
@@ -46,6 +48,9 @@ export type DemoPostingState = {
   passMark: {
     fitMin: number | null;
     assessmentMin: number | null;
+    /** The test the assessment mark reads, by name. `null`: the latest entered. */
+    assessmentTest: string | null;
+    flagKnockouts: boolean;
     version: number | null;
   };
   /** A re-score that was started here, and how long ago. */
@@ -75,7 +80,8 @@ export const EMPTY_BOOK: DemoScreeningBook = {
 export const demoScreening = createPersistedState<DemoScreeningBook>({
   key: "approvehr.hiring.screening.store",
   empty: EMPTY_BOOK,
-  version: 1,
+  /* 2: an assessment entry is a mark on a named test, with a maximum. */
+  version: 2,
 });
 
 /** The book, for rendering: re-renders when anything in it changes. */
@@ -110,7 +116,13 @@ function seedFor(postingId: string): DemoPostingState {
     version: null,
     criteria: null,
     prior: null,
-    passMark: { fitMin: null, assessmentMin: null, version: null },
+    passMark: {
+      fitMin: null,
+      assessmentMin: null,
+      assessmentTest: null,
+      flagKnockouts: true,
+      version: null,
+    },
     rescore: null,
     staleEmails: [],
     updatedAt: null,
@@ -152,7 +164,13 @@ function seedFor(postingId: string): DemoPostingState {
         weights: null,
       },
     },
-    passMark: { fitMin: 50, assessmentMin: null, version: 1 },
+    passMark: {
+      fitMin: 50,
+      assessmentMin: null,
+      assessmentTest: null,
+      flagKnockouts: true,
+      version: 1,
+    },
     rescore: null,
     /* One person was scored before the criteria last changed, and is waiting. */
     staleEmails: queueCrowd()
@@ -272,34 +290,97 @@ export function explanationFor(
   });
 }
 
-/** The latest assessment score for an email, or `null`. */
+/** What two spellings of a test's name are matched on. */
+export const testKeyOf = (name: string): string =>
+  name.normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ");
+
+/** The name a result goes under when nobody gave one. */
+export const DEFAULT_TEST = "Assessment";
+
+/**
+ * Each test's result as it stands: the newest entry for the test, unless a person
+ * removed it since. `entries` is oldest first, as the book keeps them.
+ */
+export function currentResults(
+  entries: readonly AssessmentEntry[],
+): AssessmentCurrent[] {
+  const latest = new Map<string, AssessmentEntry>();
+  for (const entry of entries) latest.set(testKeyOf(entry.test), entry);
+  return [...latest.values()]
+    .filter((entry) => !entry.cleared && entry.score !== null)
+    .map((entry) => ({
+      test: entry.test,
+      score: entry.score ?? 0,
+      max: entry.max,
+      percent: entry.percent ?? entry.score ?? 0,
+      takenOn: entry.takenOn,
+      source: entry.source,
+      enteredAt: entry.at,
+    }))
+    .reverse();
+}
+
+/**
+ * The assessment result a pass mark reads for somebody, as a percentage, or `null`.
+ * With a test named it reads that test; with none it reads the one entered last.
+ */
 export function assessmentOf(
   book: DemoScreeningBook,
   email: string,
+  test: string | null = null,
 ): number | null {
-  const entries = book.assessments[email.toLowerCase()] ?? [];
-  const latest = entries[entries.length - 1];
-  return latest ? latest.score : null;
+  const results = currentResults(book.assessments[email.toLowerCase()] ?? []);
+  const wanted = test === null ? null : testKeyOf(test);
+  const found =
+    wanted === null
+      ? results[0]
+      : results.find((result) => testKeyOf(result.test) === wanted);
+  return found ? found.percent : null;
+}
+
+/** The tests with a result on any of these people, and how many have one. */
+export function testsAmong(
+  book: DemoScreeningBook,
+  emails: readonly string[],
+): AssessmentTest[] {
+  const seen = new Map<string, AssessmentTest>();
+  for (const email of emails) {
+    for (const result of currentResults(
+      book.assessments[email.toLowerCase()] ?? [],
+    )) {
+      const key = testKeyOf(result.test);
+      const known = seen.get(key);
+      if (known) known.applicants += 1;
+      else seen.set(key, { key, name: result.test, applicants: 1 });
+    }
+  }
+  return [...seen.values()].sort((a, b) => a.key.localeCompare(b.key));
 }
 
 export function passMarkOf(
   book: DemoScreeningBook,
   postingId: string,
+  tests: AssessmentTest[] = [],
 ): PassMark {
   const state = postingStateOf(book, postingId);
   return {
     fitMin: state.passMark.fitMin,
     assessmentMin: state.passMark.assessmentMin,
     assessmentMax: 100,
+    assessmentTest: state.passMark.assessmentTest,
+    flagKnockouts: state.passMark.flagKnockouts,
+    tests,
     knockouts: knockoutsOf(postingId),
     version: state.passMark.version,
+    updatedAt: state.updatedAt,
+    updatedBy: state.passMark.version === null ? null : "You",
   };
 }
 
 /** Why somebody is below the pass mark, in the words the list shows. */
 export function belowReasons(
   summary: ScreeningSummary,
-  mark: Pick<PassMark, "fitMin" | "assessmentMin">,
+  mark: Pick<PassMark, "fitMin" | "assessmentMin" | "flagKnockouts">,
 ): BelowReason[] {
   const reasons: BelowReason[] = [];
   const { score } = summary.fit;
@@ -316,10 +397,10 @@ export function belowReasons(
   ) {
     reasons.push({
       kind: "ASSESSMENT",
-      text: `Assessment ${String(summary.assessment)}, and the pass mark is ${String(mark.assessmentMin)}`,
+      text: `Assessment ${String(summary.assessment)}%, and the pass mark is ${String(mark.assessmentMin)}%`,
     });
   }
-  if (summary.knockoutCount > 0) {
+  if (mark.flagKnockouts && summary.knockoutCount > 0) {
     reasons.push({
       kind: "KNOCKOUT",
       text:
@@ -343,8 +424,12 @@ export function summaryFor(
   order: number | null,
 ): ScreeningSummary {
   const fit = fitOf(explanationFor(context, person, order));
-  const assessment = assessmentOf(context.book, person.email);
   const mark = passMarkOf(context.book, person.postingId);
+  const assessment = assessmentOf(
+    context.book,
+    person.email,
+    mark.assessmentTest,
+  );
   const base: ScreeningSummary = {
     fit,
     assessment,
@@ -409,7 +494,12 @@ export function saveCriteriaOp(
 export function savePassMarkOp(
   book: DemoScreeningBook,
   postingId: string,
-  input: { fitMin: number | null; assessmentMin: number | null },
+  input: {
+    fitMin: number | null;
+    assessmentMin: number | null;
+    assessmentTest: string | null;
+    flagKnockouts: boolean;
+  },
   now: number,
 ): DemoScreeningBook {
   return withPosting(book, postingId, (current) => ({
@@ -417,6 +507,8 @@ export function savePassMarkOp(
     passMark: {
       fitMin: input.fitMin,
       assessmentMin: input.assessmentMin,
+      assessmentTest: input.assessmentTest,
+      flagKnockouts: input.flagKnockouts,
       version: (current.passMark.version ?? 0) + 1,
     },
     rescore: { startedAt: now, cause: "PASS_MARK" },

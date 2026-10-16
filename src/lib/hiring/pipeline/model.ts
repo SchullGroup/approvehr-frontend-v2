@@ -114,6 +114,10 @@ export type BoardFilters = ScoreFilters & {
   source?: string;
   /** Needs a look: a knockout answer was wrong. */
   flagged?: boolean;
+  /** At least this many wrong knockout answers (1 or more). */
+  knockoutMin?: number;
+  /** Below the advert's pass mark and nobody has said to keep them. */
+  belowCutoff?: boolean;
   duplicate?: boolean;
   /** `YYYY-MM-DD`, inclusive: the day they entered the pipeline. */
   from?: string;

@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/api/client";
 import type { ApiQueuedEmail } from "@/lib/api/candidate-email";
 import { kindInfo } from "@/lib/hiring/comms/fields";
 import type { EmailNotice } from "@/lib/hiring/comms/model";
+import { cardScreeningFromApi } from "@/lib/hiring/screening/wire";
 import { apiComms } from "./api-comms";
 import {
   pipelineApi,
@@ -84,6 +85,7 @@ export function cardFrom(
     rejectionReason: rejectionLine(card),
     score: card.score ?? null,
     scheduledDeletionOn: card.scheduledDeletionOn ?? null,
+    screening: cardScreeningFromApi(card),
   };
 }
 
@@ -123,6 +125,12 @@ const boardParams = (filters: BoardFilters): BoardParams => ({
   ...(filters.tagId ? { tagId: filters.tagId } : {}),
   ...(filters.source ? { source: filters.source } : {}),
   ...(filters.flagged ? { flagged: true } : {}),
+  ...(filters.knockoutMin !== undefined
+    ? { knockoutMin: filters.knockoutMin }
+    : {}),
+  ...(filters.belowCutoff ? { belowCutoff: true } : {}),
+  ...(filters.scoreMin !== undefined ? { scoreMin: filters.scoreMin } : {}),
+  ...(filters.scoreMax !== undefined ? { scoreMax: filters.scoreMax } : {}),
   ...(filters.duplicate ? { duplicate: true } : {}),
   ...(filters.talentPool ? { talentPool: true } : {}),
   ...(filters.from ? { from: filters.from } : {}),
@@ -299,6 +307,30 @@ async function bulk(
   const asked =
     (action.type === "move" && action.sendEmail === true) ||
     (action.type === "reject" && action.sendEmail);
+  return runBulkJobs({ bodies, total, asked, signal, onProgress });
+}
+
+/**
+ * Sends each body as a bulk job, waits for it, and tallies who was and was not done.
+ *
+ * Shared with the list of people below the pass mark, whose rejections are bulk jobs
+ * too, so the two cannot come to disagree about what "done", "skipped" and "refused"
+ * mean or about how an email that was queued is reported.
+ */
+export async function runBulkJobs({
+  bodies,
+  total,
+  asked,
+  signal,
+  onProgress,
+}: {
+  bodies: readonly BulkBody[];
+  total: number;
+  /** Emails were asked for in this action. */
+  asked: boolean;
+  signal: AbortSignal;
+  onProgress: (progress: { done: number; total: number }) => void;
+}): Promise<BulkOutcome> {
   let outcome: BulkOutcome = {
     requested: 0,
     done: 0,

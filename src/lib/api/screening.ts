@@ -1,4 +1,4 @@
-import { request } from "@/lib/api/client";
+import { request, requestPaged, type Paged } from "@/lib/api/client";
 
 /**
  * CV screening — the advert's criteria, its scores, and who is below the pass mark.
@@ -192,6 +192,156 @@ export type ApiScreeningDetail = {
   neverUsed: string[];
 };
 
+/* ---------------------------------------------------------------------- pass mark */
+
+export type ApiCutoffInput = {
+  /** Below this fit score, flagged. `null`: no pass mark on the score. */
+  fitScoreMin?: number | null;
+  /** Below this percentage of the test's maximum, flagged. `null`: none. */
+  assessmentMinPct?: number | null;
+  /** The test the mark reads, by name. `null`: the latest entered. */
+  assessmentTest?: string | null;
+  flagKnockouts?: boolean;
+};
+
+export type ApiCutoffDraft = {
+  fitScoreMin: number | null;
+  assessmentMinPct: number | null;
+  assessmentTest: string | null;
+  flagKnockouts: boolean;
+};
+
+export type ApiLiveCount = {
+  /** Could be flagged: received or screened in, and not declined or withdrawn. */
+  working: number;
+  /** Of those, the ones nobody has decided. */
+  undecided: number;
+  /** Of the undecided, how many would be below the line. */
+  wouldBeBelow: number;
+  byReason: { SCORE: number; ASSESSMENT: number; KNOCKOUT: number };
+  /** Kept in the running by a person, who would otherwise be below. */
+  kept: number;
+  withoutScore: number;
+  withoutAssessment: number;
+  currentlyBelow: number;
+};
+
+export type ApiCutoffView = ApiCutoffDraft & {
+  postingId: string;
+  /** A pass mark has been saved. Without one nothing is flagged. */
+  configured: boolean;
+  updatedAt: string | null;
+  updatedBy: string | null;
+  tests: { key: string; name: string; applicants: number }[];
+  counts: ApiLiveCount;
+  runs?: ApiRun[];
+};
+
+export type ApiCutoffPreview = {
+  postingId: string;
+  draft: ApiCutoffDraft;
+  counts: ApiLiveCount;
+};
+
+export type ApiCutoffSaved = ApiCutoffView & {
+  changed: boolean;
+  /** The pass over everybody's flags, or `null` when nothing changed. */
+  run: ApiRun | null;
+};
+
+/* ------------------------------------------------------------------- confirm list */
+
+export type ApiCutoffReason = "SCORE" | "ASSESSMENT" | "KNOCKOUT";
+
+export type ApiConfirmRow = {
+  id: string;
+  reference: string | null;
+  name: string;
+  email: string;
+  source: string | null;
+  appliedAt: string;
+  state: "WAITING" | "IN_PIPELINE";
+  pipeline: {
+    applicationId: string;
+    requisitionId: string;
+    stage: string | null;
+  } | null;
+  score: number | null;
+  scoreStatus: ApiScoreStatus;
+  assessment: { test: string | null; percent: number } | null;
+  knockoutCount: number;
+  reasons: { code: ApiCutoffReason; text: string }[];
+  flaggedAt: string | null;
+  hasCv: boolean;
+};
+
+export type ApiConfirmMeta = {
+  hasMore: boolean;
+  nextCursor: string | null;
+  counts: {
+    byReason: Record<ApiCutoffReason, number>;
+    byState: { WAITING: number; IN_PIPELINE: number };
+  };
+};
+
+export type ApiConfirmQuery = {
+  reason?: ApiCutoffReason;
+  state?: "WAITING" | "IN_PIPELINE";
+  q?: string;
+  scoreMin?: number;
+  scoreMax?: number;
+  source?: string;
+  sort?: "score" | "assessment" | "applied";
+  pageSize?: number;
+  cursor?: string;
+};
+
+/** The same words as a query, for a bulk selection of everybody the list matches. */
+export type ApiConfirmFilter = Omit<
+  ApiConfirmQuery,
+  "sort" | "pageSize" | "cursor"
+>;
+
+/* ------------------------------------------------------------------- assessments */
+
+export type ApiAssessmentInput = {
+  /** The test's name. Blank: "Assessment". */
+  test?: string;
+  score: number;
+  /** What it was marked out of; `null`: the score is a percentage. */
+  max?: number | null;
+  /** `YYYY-MM-DD`. */
+  takenOn?: string | null;
+};
+
+export type ApiAssessmentCurrent = {
+  test: string;
+  score: number;
+  max: number | null;
+  percent: number;
+  takenOn: string | null;
+  source: "IMPORT" | "MANUAL";
+  enteredAt: string;
+};
+
+export type ApiAssessmentEntry = {
+  test: string;
+  cleared: boolean;
+  score: number | null;
+  max: number | null;
+  percent: number | null;
+  takenOn: string | null;
+  source: "IMPORT" | "MANUAL";
+  importBatchId: string | null;
+  by: string | null;
+  at: string;
+};
+
+export type ApiAssessments = {
+  current: ApiAssessmentCurrent[];
+  history: ApiAssessmentEntry[];
+};
+
 /* ----------------------------------------------------------------------- calls */
 
 const at = (id: string) => `/careers/postings/${id}`;
@@ -231,6 +381,63 @@ export const screeningApi = {
       query: { limit },
       ...(signal ? { signal } : {}),
     }),
+
+  getCutoff: (postingId: string, signal?: AbortSignal) =>
+    request<ApiCutoffView>(`${at(postingId)}/cutoff`, {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** How many would be below an unsaved pass mark. Writes nothing. */
+  previewCutoff: (
+    postingId: string,
+    body: ApiCutoffInput,
+    signal?: AbortSignal,
+  ) =>
+    request<ApiCutoffPreview>(`${at(postingId)}/cutoff/preview`, {
+      method: "POST",
+      body,
+      ...(signal ? { signal } : {}),
+    }),
+
+  putCutoff: (postingId: string, body: ApiCutoffInput) =>
+    request<ApiCutoffSaved>(`${at(postingId)}/cutoff`, {
+      method: "PUT",
+      body,
+    }),
+
+  confirmList: (
+    postingId: string,
+    query: ApiConfirmQuery,
+    signal?: AbortSignal,
+  ): Promise<Paged<ApiConfirmRow, ApiConfirmMeta>> =>
+    requestPaged<ApiConfirmRow, ApiConfirmMeta>(
+      `${at(postingId)}/cutoff/confirm`,
+      {
+        query,
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /** A person has looked: keep them in the running. A reason is required. */
+  keep: (applicationId: string, reason: string) =>
+    request<unknown>(`/careers/applications/${applicationId}/cutoff/keep`, {
+      method: "POST",
+      body: { reason },
+    }),
+
+  assessments: (applicationId: string, signal?: AbortSignal) =>
+    request<ApiAssessments>(
+      `/careers/applications/${applicationId}/assessments`,
+      {
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  putAssessment: (applicationId: string, body: ApiAssessmentInput) =>
+    request<ApiAssessments & { outcome: string }>(
+      `/careers/applications/${applicationId}/assessments`,
+      { method: "PUT", body },
+    ),
 
   /** Score everybody again, for no reason but wanting to (or to retry a stopped pass). */
   rescore: (postingId: string) =>

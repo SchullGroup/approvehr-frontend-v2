@@ -3,12 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import { fakeGateway } from "./screening-helpers";
+import { fakeGateway, passMark, passMarkCount } from "./screening-helpers";
 
 /**
  * The pass mark: where the line is, and what it would do before it is drawn.
  *
- * What these hold: two independent optional figures, the count of who would be
+ * What these hold: two independent optional figures (the assessment one a
+ * percentage of one named test), a switch for flagged answers, the count of who would be
  * below is asked for what is typed and says so when it is still answering an older
  * figure, people with no score are named apart and never counted as below, saving
  * asks first with the same number in the question, and everything says it flags
@@ -45,7 +46,16 @@ const open = () =>
 const fitBox = () =>
   screen.getByRole("textbox", { name: /Fit score, at least/ });
 const assessmentBox = () =>
-  screen.getByRole("textbox", { name: /Assessment score, at least/ });
+  screen.getByRole("textbox", { name: /Assessment result, at least/ });
+
+/** What the panel sends for the boxes as they stand. */
+const asked = (over: Record<string, unknown> = {}) => ({
+  fitMin: 50,
+  assessmentMin: null,
+  assessmentTest: null,
+  flagKnockouts: true,
+  ...over,
+});
 
 /** The count on screen answers what is in the boxes. */
 const settled = () =>
@@ -106,27 +116,50 @@ describe("the pass mark as it stands", () => {
     current.gateway = fakeGateway({
       passMark: {
         ...fakeGateway().passMark,
-        get: vi.fn(async () => ({
-          fitMin: null,
-          assessmentMin: null,
-          assessmentMax: 100,
-          knockouts: [],
-          version: null,
-        })),
-        count: vi.fn(async () => ({
-          total: 4210,
-          below: 0,
-          byReason: { fit: 0, assessment: 0, knockout: 0 },
-          notScored: 0,
-        })),
+        get: vi.fn(async () =>
+          passMark({
+            fitMin: null,
+            flagKnockouts: false,
+            knockouts: [],
+            version: null,
+            updatedAt: null,
+            updatedBy: null,
+          }),
+        ),
+        count: vi.fn(async () =>
+          passMarkCount({
+            below: 0,
+            byReason: { fit: 0, assessment: 0, knockout: 0 },
+            notScored: 0,
+          }),
+        ),
       },
     });
     open();
     expect(
       await screen.findByText(/There is no pass mark/),
     ).toBeInTheDocument();
+  });
+
+  it("says a person kept in the running is not counted, and a missing result is not a low one", async () => {
+    current.gateway = fakeGateway({
+      passMark: {
+        ...fakeGateway().passMark,
+        count: vi.fn(async () =>
+          passMarkCount({ kept: 3, noAssessment: 12, notScored: 0 }),
+        ),
+      },
+    });
+    open();
     expect(
-      screen.getByText(/The application form has no knockout questions/),
+      await screen.findByText(
+        /3 are under it but have been kept in the running by a person, so are not counted/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /12 have no assessment result yet\. A missing result is not a low one/,
+      ),
     ).toBeInTheDocument();
   });
 });
@@ -142,7 +175,7 @@ describe("changing it", () => {
     await waitFor(() =>
       expect(current.gateway.passMark.count).toHaveBeenCalledWith(
         "p1",
-        { fitMin: 65, assessmentMin: null },
+        asked({ fitMin: 65 }),
         expect.anything(),
       ),
     );
@@ -159,10 +192,88 @@ describe("changing it", () => {
     await waitFor(() =>
       expect(current.gateway.passMark.count).toHaveBeenLastCalledWith(
         "p1",
-        { fitMin: null, assessmentMin: 60 },
+        asked({ fitMin: null, assessmentMin: 60 }),
         expect.anything(),
       ),
     );
+  });
+
+  it("offers the tests that have results, and sends the one chosen with the percentage", async () => {
+    current.gateway = fakeGateway({
+      passMark: {
+        ...fakeGateway().passMark,
+        get: vi.fn(async () =>
+          passMark({
+            tests: [
+              { key: "aptitude", name: "Aptitude", applicants: 3000 },
+              { key: "interview task", name: "Interview task", applicants: 41 },
+            ],
+          }),
+        ),
+      },
+    });
+    const user = userEvent.setup();
+    open();
+    await waitFor(() => expect(fitBox()).toHaveValue("50"));
+    const choose = await screen.findByRole("combobox", {
+      name: /Which test the assessment mark reads/,
+    });
+    expect(
+      within(choose).getByRole("option", { name: "The one entered last" }),
+    ).toBeInTheDocument();
+    expect(
+      within(choose).getByRole("option", {
+        name: "Aptitude (3,000 results)",
+      }),
+    ).toBeInTheDocument();
+    await user.selectOptions(choose, "Aptitude");
+    await user.type(assessmentBox(), "60");
+    await waitFor(() =>
+      expect(current.gateway.passMark.count).toHaveBeenLastCalledWith(
+        "p1",
+        asked({ assessmentMin: 60, assessmentTest: "Aptitude" }),
+        expect.anything(),
+      ),
+    );
+  });
+
+  it("says the assessment figure is a percentage of what the test is marked out of", async () => {
+    open();
+    await waitFor(() => expect(fitBox()).toBeInTheDocument());
+    expect(
+      screen.getAllByText(/as a percentage of what the test is marked out of/)
+        .length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("does not offer a test to choose when nobody has a result yet", async () => {
+    open();
+    await waitFor(() => expect(fitBox()).toBeInTheDocument());
+    expect(
+      screen.queryByRole("combobox", {
+        name: /Which test the assessment mark reads/,
+      }),
+    ).toBeNull();
+  });
+
+  it("lets flagged answers be switched off, and sends that", async () => {
+    const user = userEvent.setup();
+    open();
+    await waitFor(() => expect(fitBox()).toHaveValue("50"));
+    const box = screen.getByRole("checkbox", {
+      name: /A wrong answer to a knockout question flags somebody/,
+    });
+    expect(box).toBeChecked();
+    await user.click(box);
+    expect(screen.queryByText(/Right to work in Nigeria\?/)).toBeNull();
+    await waitFor(() =>
+      expect(current.gateway.passMark.count).toHaveBeenLastCalledWith(
+        "p1",
+        asked({ flagKnockouts: false }),
+        expect.anything(),
+      ),
+    );
+    expect(screen.getByText("Not saved")).toBeInTheDocument();
   });
 
   it("says 'if you saved this' while the boxes differ from what is saved", async () => {
@@ -185,12 +296,11 @@ describe("changing it", () => {
     open();
     await waitFor(() => expect(fitBox()).toHaveValue("50"));
     await settled();
-    const answer = {
-      total: 4210,
+    const answer = passMarkCount({
       below: 900,
       byReason: { fit: 900, assessment: 0, knockout: 0 },
       notScored: 0,
-    };
+    });
     current.gateway.passMark.count.mockImplementation(
       async (_id: string, input: { fitMin: number | null }) =>
         input.fitMin === 80
@@ -205,7 +315,7 @@ describe("changing it", () => {
     await waitFor(() =>
       expect(current.gateway.passMark.count).toHaveBeenLastCalledWith(
         "p1",
-        { fitMin: 80, assessmentMin: null },
+        asked({ fitMin: 80 }),
         expect.anything(),
       ),
     );
@@ -254,7 +364,7 @@ describe("saving it", () => {
     await waitFor(() =>
       expect(current.gateway.passMark.count).toHaveBeenLastCalledWith(
         "p1",
-        { fitMin: 70, assessmentMin: null },
+        asked({ fitMin: 70 }),
         expect.anything(),
       ),
     );
@@ -275,10 +385,10 @@ describe("saving it", () => {
       within(dialog).getByRole("button", { name: "Set the pass mark" }),
     );
     await waitFor(() =>
-      expect(current.gateway.passMark.save).toHaveBeenCalledWith("p1", {
-        fitMin: 70,
-        assessmentMin: null,
-      }),
+      expect(current.gateway.passMark.save).toHaveBeenCalledWith(
+        "p1",
+        asked({ fitMin: 70 }),
+      ),
     );
     expect(await screen.findByText("Pass mark saved")).toBeInTheDocument();
   });

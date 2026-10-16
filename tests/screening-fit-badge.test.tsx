@@ -68,11 +68,11 @@ describe("the bar on a board card", () => {
 describe("the other two badges", () => {
   it("shows an assessment score, and nothing at all while there is none", () => {
     const { rerender, container } = render(<AssessmentBadge score={64} />);
-    expect(screen.getByText("Assessment 64")).toBeInTheDocument();
+    expect(screen.getByText("Assessment 64%")).toBeInTheDocument();
     rerender(<AssessmentBadge score={null} />);
     expect(container).toBeEmptyDOMElement();
     rerender(<AssessmentBadge score={0} />);
-    expect(screen.getByText("Assessment 0")).toBeInTheDocument();
+    expect(screen.getByText("Assessment 0%")).toBeInTheDocument();
   });
 
   it("calls the low end 'below the pass mark' and says a person decides", () => {
@@ -95,8 +95,8 @@ describe("the other two badges", () => {
       />,
     );
     const text = document.body.textContent ?? "";
-    expect(text.indexOf("Fit 72")).toBeLessThan(text.indexOf("Assessment 58"));
-    expect(text.indexOf("Assessment 58")).toBeLessThan(
+    expect(text.indexOf("Fit 72")).toBeLessThan(text.indexOf("Assessment 58%"));
+    expect(text.indexOf("Assessment 58%")).toBeLessThan(
       text.indexOf("Below the pass mark"),
     );
   });

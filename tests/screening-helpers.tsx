@@ -11,6 +11,9 @@ import {
   type Explanation,
   type FitSummary,
   type Keyword,
+  type PassMark,
+  type PassMarkCount,
+  type PassMarkInput,
   type ScreeningSummary,
 } from "@/lib/hiring/screening/model";
 
@@ -171,6 +174,38 @@ export const belowRow = (
     { kind: "FIT", text: `Fit ${String(30 + n)}, and the pass mark is 50` },
   ],
   flagged: [],
+  state: "WAITING",
+  stage: null,
+  ...over,
+});
+
+/** A saved pass mark, with everything the screen reads. */
+export const passMark = (over: Partial<PassMark> = {}): PassMark => ({
+  fitMin: 50,
+  assessmentMin: null,
+  assessmentMax: 100,
+  assessmentTest: null,
+  flagKnockouts: true,
+  tests: [],
+  knockouts: [
+    { id: "k1", question: "Right to work in Nigeria?", flagWhen: "No" },
+  ],
+  version: 1,
+  updatedAt: "2026-10-01T09:00:00.000Z",
+  updatedBy: "Fatima Bello",
+  ...over,
+});
+
+/** How many would be below, as the API counts them. */
+export const passMarkCount = (
+  over: Partial<PassMarkCount> = {},
+): PassMarkCount => ({
+  total: 4210,
+  below: 412,
+  byReason: { fit: 400, assessment: 0, knockout: 22 },
+  notScored: 31,
+  noAssessment: 0,
+  kept: 0,
   ...over,
 });
 
@@ -198,6 +233,9 @@ export function fakeGateway(over: Partial<ScreeningGateway> = {}): FakeGateway {
       assessment: true,
       below: true,
       board: true,
+      boardSort: true,
+      boardStatus: true,
+      belowState: true,
       sorts: [
         "newest",
         "fit-desc",
@@ -260,31 +298,10 @@ export function fakeGateway(over: Partial<ScreeningGateway> = {}): FakeGateway {
       })),
     },
     passMark: {
-      get: vi.fn(async () => ({
-        fitMin: 50,
-        assessmentMin: null,
-        assessmentMax: 100,
-        knockouts: [
-          { id: "k1", question: "Right to work in Nigeria?", flagWhen: "No" },
-        ],
-        version: 1,
-      })),
-      count: vi.fn(async () => ({
-        total: 4210,
-        below: 412,
-        byReason: { fit: 400, assessment: 0, knockout: 22 },
-        notScored: 31,
-      })),
-      save: vi.fn(
-        async (
-          _id: string,
-          input: { fitMin: number | null; assessmentMin: number | null },
-        ) => ({
-          ...input,
-          assessmentMax: 100,
-          knockouts: [],
-          version: 2,
-        }),
+      get: vi.fn(async () => passMark()),
+      count: vi.fn(async () => passMarkCount()),
+      save: vi.fn(async (_id: string, input: PassMarkInput) =>
+        passMark({ ...input, knockouts: [], version: 2 }),
       ),
     },
     explanation: vi.fn(async () => explanation()),
@@ -294,7 +311,7 @@ export function fakeGateway(over: Partial<ScreeningGateway> = {}): FakeGateway {
       check: vi.fn(),
       commit: vi.fn(),
       enter: vi.fn(async () => undefined),
-      history: vi.fn(async () => []),
+      history: vi.fn(async () => ({ current: [], entries: [] })),
     },
     below: {
       count: vi.fn(async () => ({ below: 412, total: 4210 })),

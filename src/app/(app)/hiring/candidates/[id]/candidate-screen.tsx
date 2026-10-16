@@ -40,6 +40,7 @@ import { ApplicationAnswers } from "@/components/hiring/application-answers";
 import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
 import { StageHistory } from "@/components/hiring/stage-history";
 import { ScreeningCard } from "@/components/hiring/screening/screening-card";
+import { PipelineAnswers } from "@/components/hiring/screening/pipeline-answers";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { StagePill, stageLabel } from "@/components/hiring/stage-pill";
 import {
@@ -421,7 +422,12 @@ function Record({ id }: { id: string }) {
                 postingId={record.postingId}
               />
             ) : realApp ? (
-              <ScreeningCard subject={{ kind: "pipeline", id: realApp.id }} />
+              <>
+                <ScreeningCard subject={{ kind: "pipeline", id: realApp.id }} />
+                {realApp.screening && (
+                  <PipelineAnswers screening={realApp.screening} />
+                )}
+              </>
             ) : card ? (
               <ScreeningCard
                 subject={{ kind: "pipeline", id: card.id }}

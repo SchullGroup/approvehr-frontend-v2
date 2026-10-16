@@ -8,17 +8,20 @@ import {
   parseScoreCell,
   readAssessmentText,
 } from "@/lib/hiring/screening/assessment-file";
-import type { AssessmentCheck } from "@/lib/hiring/screening/model";
+import type {
+  AssessmentCheck,
+  AssessmentHistory,
+} from "@/lib/hiring/screening/model";
 import { fakeGateway } from "./screening-helpers";
 
 /**
- * Bringing a test's results in, and typing one score by hand.
+ * Bringing a test's results in, and typing one result by hand.
  *
  * What these hold: the file's own headings are found whatever they are called, a
  * wrong file says which column is missing, nothing is saved before the check has
  * said how many rows can be and why the others cannot, every refusal is a sentence
- * on its row, the button says how many it will save, and what was saved is on the
- * person's record with where it came from.
+ * on its row, the button says how many it will save, a mark is read with what it
+ * is out of, and what was saved is on the person's record with where it came from.
  */
 
 const current = { gateway: fakeGateway() };
@@ -55,39 +58,49 @@ const checkOf = (over: Partial<AssessmentCheck> = {}): AssessmentCheck => ({
   total: 4,
   usable: 2,
   refused: 2,
-  max: 100,
+  replacing: 0,
+  unchanged: 0,
   rows: [
     {
       row: 1,
       email: "ada@example.test",
       name: "Ada Okafor",
       score: 72,
+      max: null,
       refusal: null,
       message: null,
+      effect: "new",
     },
     {
       row: 2,
       email: "tunde@example.test",
       name: "Tunde Bello",
       score: 58.5,
+      max: null,
       refusal: null,
       message: null,
+      effect: "new",
     },
     {
       row: 3,
       email: "nobody@example.test",
       name: null,
       score: 40,
+      max: null,
       refusal: "unmatched_email",
       message: "No applicant for this advert has that email.",
+      effect: null,
     },
     {
       row: 4,
       email: "ada@example.test",
       name: null,
       score: 130,
+      max: null,
       refusal: "out_of_range",
-      message: "Scores run from 0 to 100.",
+      message:
+        "130 is over 100 and no maximum was given, so it cannot be read as a percentage.",
+      effect: null,
     },
   ],
   ...over,
@@ -108,6 +121,7 @@ beforeEach(() => {
   current.gateway.assessment.check.mockImplementation(async () => checkOf());
   current.gateway.assessment.commit.mockImplementation(async () => ({
     saved: 2,
+    unchanged: 0,
     refused: 2,
     movedBelow: 5,
   }));
@@ -119,7 +133,37 @@ describe("the file", () => {
     const read = readAssessmentText("E-mail Address;Marks\nada@x.test;72\n");
     expect(read).toMatchObject({ ok: true });
     if (read.ok) {
-      expect(read.rows).toEqual([{ row: 1, email: "ada@x.test", score: "72" }]);
+      expect(read.rows).toEqual([
+        {
+          row: 1,
+          email: "ada@x.test",
+          reference: "",
+          score: "72",
+          max: "",
+          test: "",
+          date: "",
+        },
+      ]);
+    }
+  });
+
+  it("reads an application reference, what it is out of, the test and the day", () => {
+    const read = readAssessmentText(
+      "Reference,Marks,Out of,Test name,Date taken\nAPP-J7ET3745,42,60,Aptitude,2026-10-12\n",
+    );
+    expect(read).toMatchObject({ ok: true });
+    if (read.ok) {
+      expect(read.rows).toEqual([
+        {
+          row: 1,
+          email: "",
+          reference: "APP-J7ET3745",
+          score: "42",
+          max: "60",
+          test: "Aptitude",
+          date: "2026-10-12",
+        },
+      ]);
     }
   });
 
@@ -127,7 +171,7 @@ describe("the file", () => {
     expect(readAssessmentText("Name,Score\nAda,72\n")).toEqual({
       ok: false,
       problem:
-        'There is no column called "Email". Add one, or start from the template.',
+        'There is no column called "Email" or "Reference". Add one, or start from the template.',
     });
     expect(readAssessmentText("Email,Name\nada@x.test,Ada\n")).toEqual({
       ok: false,
@@ -140,19 +184,22 @@ describe("the file", () => {
     });
   });
 
-  it("reads a score as a number from 0 to 100, with a percent sign allowed", () => {
-    expect(parseScoreCell("72")).toBe(72);
-    expect(parseScoreCell(" 58.5 ")).toBe(58.5);
-    expect(parseScoreCell("64%")).toBe(64);
+  it("reads a score as a number, a percentage or a mark out of something", () => {
+    expect(parseScoreCell("72")).toEqual({ score: 72, max: null });
+    expect(parseScoreCell(" 58.5 ")).toEqual({ score: 58.5, max: null });
+    expect(parseScoreCell("64%")).toEqual({ score: 64, max: null });
+    expect(parseScoreCell("42/60")).toEqual({ score: 42, max: 60 });
     expect(parseScoreCell("seven")).toBeNull();
     expect(parseScoreCell("")).toBeNull();
-    expect(parseScoreCell("1,000")).toBeNull();
+    expect(parseScoreCell("4/x")).toBeNull();
   });
 
-  it("has a template with the two columns and an example row", () => {
+  it("has a template with the columns the API reads and an example row", () => {
     const template = assessmentTemplate();
     expect(template.filename).toBe("assessment-scores-template.csv");
-    expect(template.body).toContain("Email,Score");
+    expect(template.body).toContain(
+      "Applicant email,Application reference,Score,Out of,Test,Date taken",
+    );
     expect(template.body).toContain("ada.okafor@example.com");
   });
 });
@@ -168,7 +215,9 @@ describe("the three steps", () => {
       screen.getByRole("button", { name: "Download the template" }),
     );
     expect(downloadCsv).toHaveBeenCalledWith("t.csv", "Email,Score\n");
-    expect(screen.getByText(/A number from 0 to 100/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/read as a percentage, 0 to 100/),
+    ).toBeInTheDocument();
   });
 
   it("checks the file before anything is saved, and says how many can be", async () => {
@@ -184,10 +233,11 @@ describe("the three steps", () => {
       await screen.findByText("bootcamp.csv: 4 rows checked"),
     ).toBeInTheDocument();
     expect(current.gateway.assessment.check).toHaveBeenCalledTimes(1);
-    const [, name, rows] = current.gateway.assessment.check.mock
-      .calls[0] as unknown as [string, string, unknown[]];
+    const [, name, rows, options] = current.gateway.assessment.check.mock
+      .calls[0] as unknown as [string, string, unknown[], { test: string }];
     expect(name).toBe("bootcamp.csv");
     expect(rows).toHaveLength(4);
+    expect(options).toEqual({ test: "" });
     expect(current.gateway.assessment.commit).not.toHaveBeenCalled();
     expect(
       screen.getByText(/2 scores can be saved\. 2 rows cannot/),
@@ -214,6 +264,68 @@ describe("the three steps", () => {
       "No applicant for this advert has that email.",
     );
     expect(rows[1]).toHaveTextContent("The score is outside the range");
+    expect(rows[1]).toHaveTextContent("no maximum was given");
+  });
+
+  it("sends the test's name chosen on screen with both the check and the save", async () => {
+    const user = userEvent.setup();
+    open();
+    await user.type(
+      screen.getByRole("textbox", { name: /Test name/ }),
+      "Aptitude test",
+    );
+    await user.upload(
+      screen.getByLabelText("Assessment scores file"),
+      file("Email,Score\na@x.test,1\n"),
+    );
+    await screen.findByText("bootcamp.csv: 4 rows checked");
+    await user.click(screen.getByRole("button", { name: "Save 2 scores" }));
+    await waitFor(() =>
+      expect(current.gateway.assessment.commit).toHaveBeenCalledTimes(1),
+    );
+    const checked = current.gateway.assessment.check.mock
+      .calls[0] as unknown as [string, string, unknown[], { test: string }];
+    const saved = current.gateway.assessment.commit.mock
+      .calls[0] as unknown as [string, unknown, unknown[], { test: string }];
+    expect(checked[3]).toEqual({ test: "Aptitude test" });
+    expect(saved[3]).toEqual({ test: "Aptitude test" });
+  });
+
+  it("says how many replace a result and how many change nothing", async () => {
+    current.gateway.assessment.check.mockImplementation(async () =>
+      checkOf({
+        usable: 3,
+        refused: 1,
+        replacing: 1,
+        unchanged: 1,
+        rows: [
+          { ...checkOf().rows[0]!, effect: "replaces" as const },
+          {
+            ...checkOf().rows[1]!,
+            max: 60,
+            score: 42,
+            effect: "unchanged" as const,
+          },
+          checkOf().rows[0]!,
+          checkOf().rows[2]!,
+        ].map((row, index) => ({ ...row, row: index + 1 })),
+      }),
+    );
+    const user = userEvent.setup();
+    open();
+    await user.upload(
+      screen.getByLabelText("Assessment scores file"),
+      file("Email,Score\na@x.test,1\n"),
+    );
+    await screen.findByText("bootcamp.csv: 4 rows checked");
+    expect(
+      screen.getByText(/1 replaces a result the person already has/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 is already on file exactly as the file says/),
+    ).toBeInTheDocument();
+    /* The one that changes nothing is not counted in what will be saved. */
+    expect(screen.getByRole("button", { name: "Save 2 scores" })).toBeEnabled();
   });
 
   it("offers the rows to fix as a file", async () => {
@@ -230,7 +342,7 @@ describe("the three steps", () => {
     expect(downloadCsv).toHaveBeenCalledTimes(1);
     const [filename, body] = downloadCsv.mock.calls[0] as [string, string];
     expect(filename).toBe("assessment-rows-to-fix.csv");
-    expect(body).toContain("Row,Email,Score,Problem");
+    expect(body).toContain("Row,Email or reference,Score,Problem");
     expect(body).toContain("nobody@example.test");
   });
 
@@ -296,7 +408,9 @@ describe("the three steps", () => {
       file("Name,Result\nAda,72\n"),
     );
     expect(
-      await screen.findByText(/There is no column called "Email"/),
+      await screen.findByText(
+        /There is no column called "Email" or "Reference"/,
+      ),
     ).toBeInTheDocument();
     expect(current.gateway.assessment.check).not.toHaveBeenCalled();
   });
@@ -339,39 +453,95 @@ describe("the three steps", () => {
   });
 });
 
-describe("a person's assessment score", () => {
+describe("a person's assessment results", () => {
   const subject = { kind: "application" as const, id: "a1" };
 
-  it("shows the newest score and where each one came from", async () => {
-    current.gateway.assessment.history.mockImplementation(async () => [
+  const history = (
+    over: Partial<AssessmentHistory> = {},
+  ): AssessmentHistory => ({
+    current: [
+      {
+        test: "Aptitude test",
+        score: 42,
+        max: 60,
+        percent: 70,
+        takenOn: "2026-10-12",
+        source: "MANUAL",
+        enteredAt: "2026-10-12T09:00:00Z",
+      },
+    ],
+    entries: [
       {
         id: "3",
         at: "2026-10-12T09:00:00Z",
         by: "Fatima Bello",
         source: "MANUAL",
-        filename: null,
-        score: 80,
-        note: "Re-sat the test",
+        test: "Aptitude test",
+        score: 42,
+        max: 60,
+        percent: 70,
+        takenOn: "2026-10-12",
+        cleared: false,
       },
       {
         id: "2",
         at: "2026-10-05T09:00:00Z",
         by: "Fatima Bello",
         source: "IMPORT",
-        filename: "bootcamp.csv",
+        test: "Aptitude test",
         score: 64,
-        note: null,
+        max: null,
+        percent: 64,
+        takenOn: null,
+        cleared: false,
       },
-    ]);
+    ],
+    ...over,
+  });
+
+  it("shows each test's result with what it was out of, and where every value came from", async () => {
+    current.gateway.assessment.history.mockImplementation(async () =>
+      history(),
+    );
     render(
       <ToastProvider>
         <AssessmentRecord subject={subject} canEdit />
       </ToastProvider>,
     );
-    expect(await screen.findByText("80")).toBeInTheDocument();
-    expect(screen.getByText(/from a score typed in/)).toBeInTheDocument();
+    expect(await screen.findByText("42 out of 60 (70%)")).toBeInTheDocument();
+    expect(screen.getByText(/taken 12 Oct 2026, typed in/)).toBeInTheDocument();
     expect(
-      screen.getByText(/64, imported by Fatima Bello/),
+      screen.getByText(/Aptitude test: 64%, imported by Fatima Bello/),
+    ).toBeInTheDocument();
+  });
+
+  it("says a removed result was removed, and shows no result in use", async () => {
+    current.gateway.assessment.history.mockImplementation(async () =>
+      history({
+        current: [],
+        entries: [
+          {
+            id: "4",
+            at: "2026-10-13T09:00:00Z",
+            by: "Fatima Bello",
+            source: "MANUAL",
+            test: "Aptitude test",
+            score: null,
+            max: null,
+            percent: null,
+            takenOn: null,
+            cleared: true,
+          },
+        ],
+      }),
+    );
+    render(
+      <ToastProvider>
+        <AssessmentRecord subject={subject} canEdit />
+      </ToastProvider>,
+    );
+    expect(
+      await screen.findByText(/No result is in use now/),
     ).toBeInTheDocument();
   });
 
@@ -382,59 +552,86 @@ describe("a person's assessment score", () => {
       </ToastProvider>,
     );
     expect(
-      await screen.findByText(/No assessment score yet/),
+      await screen.findByText(/No assessment result yet/),
     ).toBeInTheDocument();
     expect(screen.queryByText(/^0$/)).toBeNull();
   });
 
-  it("types a score in, with a note, and reads it back", async () => {
+  it("types a result in with what it is out of, the test and the day, and reads it back", async () => {
     const user = userEvent.setup();
     render(
       <ToastProvider>
         <AssessmentRecord subject={subject} canEdit />
       </ToastProvider>,
     );
-    await screen.findByText(/No assessment score yet/);
-    const save = screen.getByRole("button", { name: "Save the score" });
+    await screen.findByText(/No assessment result yet/);
+    const save = screen.getByRole("button", { name: "Save the result" });
     expect(save).toBeDisabled();
+    await user.type(screen.getByRole("textbox", { name: /^Score/ }), "42");
+    await user.type(screen.getByRole("textbox", { name: /Out of/ }), "60");
     await user.type(
-      screen.getByRole("textbox", { name: /Type a score/ }),
-      "64",
+      screen.getByRole("textbox", { name: /^Test/ }),
+      "Aptitude test",
     );
-    await user.type(
-      screen.getByRole("textbox", { name: /Note/ }),
-      "Boot camp week 3",
-    );
+    await user.type(screen.getByLabelText(/Date taken/), "2026-10-12");
     await user.click(save);
     await waitFor(() =>
-      expect(current.gateway.assessment.enter).toHaveBeenCalledWith(
-        subject,
-        64,
-        "Boot camp week 3",
-      ),
+      expect(current.gateway.assessment.enter).toHaveBeenCalledWith(subject, {
+        test: "Aptitude test",
+        score: 42,
+        max: 60,
+        takenOn: "2026-10-12",
+      }),
     );
     expect(
-      await screen.findByText("Assessment score saved"),
+      await screen.findByText("Assessment result saved"),
     ).toBeInTheDocument();
     expect(current.gateway.assessment.history).toHaveBeenCalledTimes(2);
   });
 
-  it("refuses a score out of range before asking", async () => {
+  it("sends nothing for the test or the day when they are left empty", async () => {
     const user = userEvent.setup();
     render(
       <ToastProvider>
         <AssessmentRecord subject={subject} canEdit />
       </ToastProvider>,
     );
-    await screen.findByText(/No assessment score yet/);
-    await user.type(
-      screen.getByRole("textbox", { name: /Type a score/ }),
-      "130",
+    await screen.findByText(/No assessment result yet/);
+    await user.type(screen.getByRole("textbox", { name: /^Score/ }), "64");
+    await user.click(screen.getByRole("button", { name: "Save the result" }));
+    await waitFor(() =>
+      expect(current.gateway.assessment.enter).toHaveBeenCalledWith(subject, {
+        test: null,
+        score: 64,
+        max: null,
+        takenOn: null,
+      }),
     );
+  });
+
+  it("refuses a score over 100 with no maximum, and one over its maximum, before asking", async () => {
+    const user = userEvent.setup();
+    render(
+      <ToastProvider>
+        <AssessmentRecord subject={subject} canEdit />
+      </ToastProvider>,
+    );
+    await screen.findByText(/No assessment result yet/);
+    await user.type(screen.getByRole("textbox", { name: /^Score/ }), "130");
     expect(screen.getByText("A number from 0 to 100.")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Save the score" }),
+      screen.getByRole("button", { name: "Save the result" }),
     ).toBeDisabled();
+    await user.type(screen.getByRole("textbox", { name: /Out of/ }), "200");
+    expect(screen.queryByText("A number from 0 to 100.")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Save the result" }),
+    ).toBeEnabled();
+    await user.clear(screen.getByRole("textbox", { name: /Out of/ }));
+    await user.type(screen.getByRole("textbox", { name: /Out of/ }), "100");
+    await user.clear(screen.getByRole("textbox", { name: /^Score/ }));
+    await user.type(screen.getByRole("textbox", { name: /^Score/ }), "130");
+    expect(screen.getByText("A number from 0 to 100.")).toBeInTheDocument();
   });
 
   it("offers no box to somebody who may only read", async () => {
@@ -443,9 +640,9 @@ describe("a person's assessment score", () => {
         <AssessmentRecord subject={subject} canEdit={false} />
       </ToastProvider>,
     );
-    await screen.findByText(/No assessment score yet/);
+    await screen.findByText(/No assessment result yet/);
     expect(
-      screen.queryByRole("button", { name: "Save the score" }),
+      screen.queryByRole("button", { name: "Save the result" }),
     ).not.toBeInTheDocument();
   });
 });

@@ -19,6 +19,8 @@ import {
   CardHeader,
   Disclosure,
   EmptyState,
+  Field,
+  Input,
   Skeleton,
   StepIndicator,
   TBody,
@@ -40,6 +42,7 @@ import {
 import type { AssessmentRowInput } from "@/lib/hiring/screening/gateway";
 import type {
   AssessmentCheck,
+  AssessmentFileOptions,
   AssessmentResult,
 } from "@/lib/hiring/screening/model";
 import { count } from "@/lib/hiring/screening/score";
@@ -50,8 +53,8 @@ import { usePosting } from "@/lib/store/careers-form";
 /**
  * Bring a test's results in.
  *
- * A boot camp runs its own test and sends a spreadsheet back: an email and a
- * score for each person. This screen follows the shape every other import in the
+ * A boot camp runs its own test and sends a spreadsheet back: an email (or the
+ * reference the person was given) and a score for each person. This screen follows the shape every other import in the
  * product has, because people have learned it: **download a template, choose a
  * file, see what will happen before anything is saved, then save**.
  *
@@ -66,8 +69,10 @@ import { usePosting } from "@/lib/store/careers-form";
  * ## What a score does
  *
  * It feeds the sort and the pass mark, and it shows on the person's record with
- * where it came from. It does not move anybody anywhere: people below a pass mark
- * are flagged for a person to confirm.
+ * where it came from. A newer result for the same person and test replaces the one
+ * in use and the older one stays in their history; the same file twice changes
+ * nothing. It does not move anybody anywhere: people below a pass mark are flagged
+ * for a person to confirm.
  */
 
 const BREADCRUMB = [
@@ -128,6 +133,7 @@ function Flow({ id }: { id: string }) {
   const gateway = useScreeningGateway();
   const advert = usePosting(id);
   const [read, setRead] = useState<Read | null>(null);
+  const [testName, setTestName] = useState("");
   const [check, setCheck] = useState<AssessmentCheck | null>(null);
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -161,6 +167,8 @@ function Flow({ id }: { id: string }) {
   ];
   const stepper = useStepper(steps);
 
+  const options: AssessmentFileOptions = { test: testName.trim() };
+
   async function chooseFile(file: File) {
     setProblem(null);
     setCheck(null);
@@ -179,6 +187,7 @@ function Flow({ id }: { id: string }) {
           id,
           file.name,
           parsed.rows,
+          options,
           new AbortController().signal,
         );
         setCheck(checked);
@@ -202,7 +211,12 @@ function Flow({ id }: { id: string }) {
     setBusy("saving");
     setProblem(null);
     try {
-      const saved = await gateway.assessment.commit(id, check, read.rows);
+      const saved = await gateway.assessment.commit(
+        id,
+        check,
+        read.rows,
+        options,
+      );
       setResult(saved);
     } catch (error) {
       setProblem(
@@ -257,6 +271,8 @@ function Flow({ id }: { id: string }) {
         {stepper.index === 0 && (
           <ChooseFile
             busy={busy === "checking"}
+            testName={testName}
+            onTestName={setTestName}
             template={gateway.assessment.template}
             onFile={(file) => void chooseFile(file)}
           />
@@ -283,10 +299,14 @@ function Flow({ id }: { id: string }) {
 
 function ChooseFile({
   busy,
+  testName,
+  onTestName,
   template,
   onFile,
 }: {
   busy: boolean;
+  testName: string;
+  onTestName: (name: string) => void;
   template: () => { filename: string; body: string };
   onFile: (file: File) => void;
 }) {
@@ -301,7 +321,19 @@ function ChooseFile({
           title="Choose your file"
           description="A CSV with an email and a score on each row."
         />
-        <CardBody>
+        <CardBody className="flex flex-col gap-4">
+          <Field
+            label="Test name"
+            optional
+            help="Used for every row that has no Test column. Leave empty for Assessment."
+          >
+            <Input
+              value={testName}
+              maxLength={80}
+              placeholder="Assessment"
+              onChange={(event) => onTestName(event.target.value)}
+            />
+          </Field>
           <div
             onDragOver={(event) => {
               event.preventDefault();
@@ -362,7 +394,7 @@ function ChooseFile({
         <CardHeader
           level={2}
           title="Start with our template"
-          description="The two columns, with an example row."
+          description="The columns, with two example rows."
         />
         <CardBody className="flex flex-col gap-4">
           <div>
@@ -380,21 +412,44 @@ function ChooseFile({
           <ul className="flex flex-col gap-2 text-body-sm text-body">
             <li>
               <code className="rounded bg-sunken px-1.5 py-0.5 text-meta">
-                Email
+                Applicant email
               </code>{" "}
-              The email the person applied with.
+              The email the person applied with, or their{" "}
+              <code className="rounded bg-sunken px-1.5 py-0.5 text-meta">
+                Application reference
+              </code>{" "}
+              (it starts APP-).
             </li>
             <li>
               <code className="rounded bg-sunken px-1.5 py-0.5 text-meta">
                 Score
               </code>{" "}
-              A number from 0 to 100. Decimals are fine.
+              A number. With no Out of, it is read as a percentage, 0 to 100.
+              Decimals are fine, and 42/60 works too.
+            </li>
+            <li>
+              <code className="rounded bg-sunken px-1.5 py-0.5 text-meta">
+                Out of
+              </code>{" "}
+              What the test was marked out of, if it was not 100. Optional.
+            </li>
+            <li>
+              <code className="rounded bg-sunken px-1.5 py-0.5 text-meta">
+                Test
+              </code>
+              ,{" "}
+              <code className="rounded bg-sunken px-1.5 py-0.5 text-meta">
+                Date taken
+              </code>{" "}
+              The test&apos;s name and the day, if the file holds more than one
+              test or you want the date kept. Optional.
             </li>
           </ul>
           <p className="text-meta text-muted">
-            A person who is not in the file keeps whatever score they have.
-            Importing again for the same person adds a new score to their
-            history and the newest one is used.
+            A person who is not in the file keeps whatever result they have. A
+            newer result for the same person and test replaces the one in use
+            and the older one stays in their history. Importing the same file
+            again changes nothing.
           </p>
         </CardBody>
       </Card>
@@ -425,10 +480,10 @@ function CheckReport({
     downloadCsv(
       "assessment-rows-to-fix.csv",
       toCsv(
-        ["Row", "Email", "Score", "Problem"],
+        ["Row", "Email or reference", "Score", "Problem"],
         refused.map((row) => ({
           Row: String(row.row),
-          Email: row.email ?? "",
+          "Email or reference": row.email ?? "",
           Score: row.score === null ? "" : String(row.score),
           Problem:
             row.message ?? (row.refusal ? REFUSAL_WORDS[row.refusal] : ""),
@@ -449,6 +504,14 @@ function CheckReport({
               check.refused > 0
                 ? `. ${count(check.refused)} ${check.refused === 1 ? "row cannot" : "rows cannot"}, and ${check.refused === 1 ? "is" : "are"} listed below with the reason.`
                 : "."
+            }${
+              check.replacing > 0
+                ? ` ${count(check.replacing)} ${check.replacing === 1 ? "replaces" : "replace"} a result the person already has, and the earlier one stays in their history.`
+                : ""
+            }${
+              check.unchanged > 0
+                ? ` ${count(check.unchanged)} ${check.unchanged === 1 ? "is" : "are"} already on file exactly as the file says, so nothing is written for ${check.unchanged === 1 ? "it" : "them"}.`
+                : ""
             }`}
       </Callout>
 
@@ -472,7 +535,7 @@ function CheckReport({
             >
               <THead>
                 <TH>Row</TH>
-                <TH>Email</TH>
+                <TH>Email or reference</TH>
                 <TH>Why not</TH>
               </THead>
               <TBody>
@@ -543,6 +606,12 @@ function CheckReport({
                 </span>
                 <span className="tabular font-medium text-ink">
                   {row.score}
+                  {row.max !== null ? ` of ${String(row.max)}` : ""}
+                  {row.effect === "replaces"
+                    ? ", replaces the one on file"
+                    : row.effect === "unchanged"
+                      ? ", already on file"
+                      : ""}
                 </span>
               </li>
             ))}
@@ -562,10 +631,11 @@ function CheckReport({
         <Button
           variant="accent"
           loading={saving}
-          disabled={check.usable === 0}
+          disabled={check.usable - check.unchanged === 0}
           onClick={onSave}
         >
-          Save {count(check.usable)} {check.usable === 1 ? "score" : "scores"}
+          Save {count(check.usable - check.unchanged)}{" "}
+          {check.usable - check.unchanged === 1 ? "score" : "scores"}
         </Button>
       </div>
     </div>
@@ -591,6 +661,14 @@ function Done({
         icon={<FileSpreadsheet />}
       >
         <div className="flex flex-col gap-2">
+          {result.unchanged > 0 && (
+            <p>
+              {count(result.unchanged)}{" "}
+              {result.unchanged === 1 ? "was" : "were"} already on file exactly
+              as the file says, so nothing was written for{" "}
+              {result.unchanged === 1 ? "it" : "them"}.
+            </p>
+          )}
           {result.refused > 0 && (
             <p>
               {count(result.refused)}{" "}

@@ -46,6 +46,8 @@ export function hasFilters(filters: BoardFilters): boolean {
     Boolean(filters.tagId) ||
     Boolean(filters.source) ||
     Boolean(filters.flagged) ||
+    filters.knockoutMin !== undefined ||
+    Boolean(filters.belowCutoff) ||
     Boolean(filters.duplicate) ||
     Boolean(filters.from) ||
     Boolean(filters.to) ||
@@ -67,6 +69,9 @@ export function cleanFilters(filters: BoardFilters): BoardFilters {
   if (filters.tagId) out.tagId = filters.tagId;
   if (filters.source) out.source = filters.source;
   if (filters.flagged) out.flagged = true;
+  if (filters.knockoutMin !== undefined && filters.knockoutMin >= 1)
+    out.knockoutMin = filters.knockoutMin;
+  if (filters.belowCutoff) out.belowCutoff = true;
   if (filters.duplicate) out.duplicate = true;
   if (filters.talentPool) out.talentPool = true;
   if (!rangeIsBackwards(filters)) {
@@ -112,6 +117,23 @@ export function appliedChips(
       label: "Showing",
       value: "Needs a look",
       onClear: () => context.clear("flagged"),
+    });
+  }
+  if (filters.knockoutMin !== undefined && filters.knockoutMin >= 1) {
+    chips.push({
+      label: "Flagged answers",
+      value:
+        filters.knockoutMin === 1
+          ? "1 or more"
+          : `${String(filters.knockoutMin)} or more`,
+      onClear: () => context.clear("knockoutMin"),
+    });
+  }
+  if (filters.belowCutoff) {
+    chips.push({
+      label: "Showing",
+      value: "Below the pass mark",
+      onClear: () => context.clear("belowCutoff"),
     });
   }
   if (filters.duplicate) {
@@ -197,6 +219,14 @@ export function cardMatches(
     return false;
   if (filters.source && card.source !== filters.source) return false;
   if (filters.flagged && !card.flagged) return false;
+  /* Somebody added by hand has no application, so no answers to be flagged on. */
+  if (
+    filters.knockoutMin !== undefined &&
+    (card.screening?.knockoutCount ?? 0) < filters.knockoutMin
+  )
+    return false;
+  if (filters.belowCutoff && card.screening?.belowPassMark !== true)
+    return false;
   if (filters.duplicate && !card.duplicate) return false;
   if (filters.talentPool && !card.talentPool) return false;
   if (filters.from && enteredOn < filters.from) return false;

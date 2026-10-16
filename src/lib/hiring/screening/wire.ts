@@ -1,7 +1,15 @@
 import type {
+  ApiAssessmentInput,
+  ApiAssessments,
+  ApiConfirmFilter,
+  ApiConfirmRow,
   ApiCriteria,
   ApiCriteriaInput,
   ApiCriteriaView,
+  ApiCutoffInput,
+  ApiCutoffReason,
+  ApiCutoffView,
+  ApiLiveCount,
   ApiPreview,
   ApiRun,
   ApiScoreStatus,
@@ -10,8 +18,17 @@ import type {
   ApiWeights,
 } from "@/lib/api/screening";
 import type { ApiErrorDetail } from "@/lib/api/client";
+import type { ApiRowReport, ImportRow } from "@/lib/api/imports";
+import type { AssessmentRowInput } from "./gateway";
 import { DEFAULT_SCALE, type CriteriaProblems } from "./criteria";
 import type {
+  AssessmentCheck,
+  AssessmentEntryInput,
+  AssessmentHistory,
+  AssessmentRow,
+  BelowFilters,
+  BelowKind,
+  BelowRow,
   Criteria,
   CriteriaPreview,
   CriteriaView,
@@ -21,11 +38,16 @@ import type {
   Extraction,
   FitSummary,
   Keyword,
+  PassMark,
+  PassMarkCount,
+  PassMarkInput,
   RescoreProgress,
+  RowRefusal,
   ScoreStatus,
   ScreeningSummary,
   Suggestion,
 } from "./model";
+import { NO_SCREENING } from "./model";
 import { FORMULA_LINE } from "./score";
 
 /**
@@ -380,5 +402,265 @@ export function suggestionFromApi(suggestions: ApiSuggestions): Suggestion {
       suggestions.readFrom.length > 0
         ? `Read from ${suggestions.readFrom.join(" and ")}. Check every one before you keep it.`
         : "Check every one before you keep it.",
+  };
+}
+
+/* ------------------------------------------------------------------ board cards */
+
+/**
+ * What a board card says about the application the person came through.
+ *
+ * `null` for somebody added by hand (no application, so no score, no answers and no
+ * flags), and for an API that predates screening: nothing is drawn, rather than a
+ * zero that would read as a verdict.
+ */
+export function cardScreeningFromApi(card: {
+  jobApplicationId?: string | null | undefined;
+  fitScore?: number | null | undefined;
+  scoreStatus?: ApiScoreStatus | null | undefined;
+  assessment?: { percent: number } | null | undefined;
+  knockoutCount?: number | undefined;
+  belowCutoff?: boolean | undefined;
+}): ScreeningSummary | null {
+  if (!card.jobApplicationId || !card.scoreStatus) return null;
+  const fit = fitFromRow({
+    score: card.fitScore,
+    scoreStatus: card.scoreStatus,
+  });
+  return {
+    fit: fit ?? NO_SCREENING.fit,
+    assessment: card.assessment?.percent ?? null,
+    knockoutCount: card.knockoutCount ?? 0,
+    belowPassMark: card.belowCutoff === true,
+  };
+}
+
+/* -------------------------------------------------------------------- pass mark */
+
+export function passMarkFromApi(view: ApiCutoffView): PassMark {
+  return {
+    fitMin: view.fitScoreMin,
+    assessmentMin: view.assessmentMinPct,
+    assessmentMax: 100,
+    assessmentTest: view.assessmentTest,
+    flagKnockouts: view.flagKnockouts,
+    tests: view.tests,
+    /* The API does not list the knockout questions; the screen says a wrong answer flags. */
+    knockouts: [],
+    /* A pass mark is not versioned; when it was saved and by whom is what it keeps. */
+    version: null,
+    updatedAt: view.updatedAt,
+    updatedBy: view.updatedBy,
+  };
+}
+
+/** What is sent for a pass mark, or for the count of one that is not saved. */
+export function cutoffToApi(input: PassMarkInput): ApiCutoffInput {
+  return {
+    fitScoreMin: input.fitMin,
+    assessmentMinPct: input.assessmentMin,
+    assessmentTest: input.assessmentTest,
+    flagKnockouts: input.flagKnockouts,
+  };
+}
+
+export function countFromApi(counts: ApiLiveCount): PassMarkCount {
+  return {
+    total: counts.undecided,
+    below: counts.wouldBeBelow,
+    byReason: {
+      fit: counts.byReason.SCORE,
+      assessment: counts.byReason.ASSESSMENT,
+      knockout: counts.byReason.KNOCKOUT,
+    },
+    notScored: counts.withoutScore,
+    noAssessment: counts.withoutAssessment,
+    kept: counts.kept,
+  };
+}
+
+/* ------------------------------------------------------------------- below list */
+
+const KIND_OF_REASON: Record<ApiCutoffReason, BelowKind> = {
+  SCORE: "FIT",
+  ASSESSMENT: "ASSESSMENT",
+  KNOCKOUT: "KNOCKOUT",
+};
+
+const REASON_OF_KIND: Record<BelowKind, ApiCutoffReason> = {
+  FIT: "SCORE",
+  ASSESSMENT: "ASSESSMENT",
+  KNOCKOUT: "KNOCKOUT",
+};
+
+export function belowRowFromApi(row: ApiConfirmRow): BelowRow {
+  const fit = fitFromRow({ score: row.score, scoreStatus: row.scoreStatus });
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    appliedAt: row.appliedAt,
+    summary: {
+      fit: fit ?? NO_SCREENING.fit,
+      assessment: row.assessment?.percent ?? null,
+      knockoutCount: row.knockoutCount,
+      belowPassMark: true,
+    },
+    reasons: row.reasons.map((reason) => ({
+      kind: KIND_OF_REASON[reason.code],
+      text: reason.text,
+    })),
+    /* The API words a flagged answer in the reason itself. */
+    flagged: [],
+    state: row.state,
+    stage: row.pipeline?.stage ?? null,
+  };
+}
+
+/** The list's own words as the API's: what is asked for and what a bulk selection carries. */
+export function confirmFilterToApi(filters: BelowFilters): ApiConfirmFilter {
+  return {
+    ...(filters.q ? { q: filters.q } : {}),
+    ...(filters.reason ? { reason: REASON_OF_KIND[filters.reason] } : {}),
+    ...(filters.state ? { state: filters.state } : {}),
+  };
+}
+
+/* ------------------------------------------------------------------ assessments */
+
+export function historyFromApi(answer: ApiAssessments): AssessmentHistory {
+  return {
+    current: answer.current.map((result) => ({ ...result })),
+    entries: answer.history.map((entry, index) => ({
+      /* The API gives no id for an entry: when and which test is its identity. */
+      id: `${entry.at}:${entry.test}:${String(index)}`,
+      at: entry.at,
+      by: entry.by,
+      source: entry.source,
+      test: entry.test,
+      score: entry.score,
+      max: entry.max,
+      percent: entry.percent,
+      takenOn: entry.takenOn,
+      cleared: entry.cleared,
+    })),
+  };
+}
+
+export function assessmentToApi(
+  input: AssessmentEntryInput,
+): ApiAssessmentInput {
+  return {
+    ...(input.test ? { test: input.test } : {}),
+    score: input.score,
+    max: input.max,
+    takenOn: input.takenOn,
+  };
+}
+
+/**
+ * A file's rows under the headings the API's assessment import is built on, so a
+ * part of it can be checked and later applied byte for byte the same. Blank cells
+ * are left out rather than sent empty.
+ */
+export function importRowsFromFile(
+  rows: readonly AssessmentRowInput[],
+): ImportRow[] {
+  return rows.map((row) => {
+    const out: ImportRow = {};
+    if (row.email) out["Applicant email"] = row.email;
+    if (row.reference) out["Application reference"] = row.reference;
+    out["Score"] = row.score;
+    if (row.max) out["Out of"] = row.max;
+    if (row.test) out["Test"] = row.test;
+    if (row.date) out["Date taken"] = row.date;
+    return out;
+  });
+}
+
+/** The API's refusal of a row, in the nearest of our words. The sentence itself is always kept. */
+export function refusalOf(problem: string): RowRefusal {
+  if (/^Nobody who applied/.test(problem)) return "unmatched_email";
+  if (/nothing to match this row on/.test(problem)) return "blank_email";
+  if (/different result for/.test(problem)) return "duplicate_in_file";
+  if (/is more than the maximum|is over 100/.test(problem))
+    return "out_of_range";
+  if (/is not a number|A score is required/.test(problem))
+    return "not_a_number";
+  return "refused";
+}
+
+/**
+ * What the API said of one row of one checked part, as a row of the check.
+ *
+ * `input` is the row as the person's file had it, so the screen can show what they
+ * wrote beside what the API made of it. `fileRow` is the row's number in the whole
+ * file: a part counts from one.
+ */
+export function checkRowFromReport(
+  report: ApiRowReport,
+  input: AssessmentRowInput,
+  fileRow: number,
+): AssessmentRow {
+  const cell = input.score.trim();
+  const parsed = /^\s*([0-9.,]+)\s*\/\s*([0-9.,]+)\s*$/.exec(cell);
+  const number = (text: string): number | null => {
+    const cleaned = text.replace(/[%,]/g, "").trim();
+    return /^\d+(\.\d+)?$/.test(cleaned) ? Number(cleaned) : null;
+  };
+  const score = number(parsed ? (parsed[1] ?? "") : cell);
+  const max =
+    input.max.trim() !== ""
+      ? number(input.max)
+      : parsed
+        ? number(parsed[2] ?? "")
+        : null;
+  const base = {
+    row: fileRow,
+    email: input.email.trim() || input.reference.trim() || null,
+    name: report.name,
+    score,
+    max,
+  };
+  if (report.action === "skip" || report.errors.length > 0) {
+    const first = report.errors[0];
+    return {
+      ...base,
+      refusal: refusalOf(first?.problem ?? ""),
+      message: report.errors.map((issue) => issue.problem).join(" ") || null,
+      effect: null,
+    };
+  }
+  const settled = report.warnings.some(
+    (issue) =>
+      /^Already recorded/.test(issue.problem) ||
+      /Written once/.test(issue.problem),
+  );
+  return {
+    ...base,
+    refusal: null,
+    message: report.warnings.map((issue) => issue.problem).join(" ") || null,
+    effect: settled
+      ? "unchanged"
+      : report.action === "update"
+        ? "replaces"
+        : "new",
+  };
+}
+
+/** The totals of a check, from its rows. */
+export function tallyCheck(
+  rows: readonly AssessmentRow[],
+): Pick<
+  AssessmentCheck,
+  "total" | "usable" | "refused" | "replacing" | "unchanged"
+> {
+  const usable = rows.filter((row) => row.refusal === null);
+  return {
+    total: rows.length,
+    usable: usable.length,
+    refused: rows.length - usable.length,
+    replacing: usable.filter((row) => row.effect === "replaces").length,
+    unchanged: usable.filter((row) => row.effect === "unchanged").length,
   };
 }

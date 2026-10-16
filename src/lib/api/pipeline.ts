@@ -4,6 +4,7 @@ import { request, requestPaged } from "@/lib/api/client";
 import { fetchFile, type FileDownload } from "@/lib/api/download";
 import type { ApiQueuedEmail } from "@/lib/api/candidate-email";
 import type { ApplicationOutcome } from "@/lib/api/recruitment";
+import type { ApiConfirmFilter, ApiScoreStatus } from "@/lib/api/screening";
 import type { StageType } from "@/lib/hiring/pipeline/stage-types";
 
 /**
@@ -53,6 +54,17 @@ export type ApiBoardCard = {
     reasonLabel: string | null;
     note: string | null;
   } | null;
+  /**
+   * What the public application they came through says. All absent from an API that
+   * predates screening; `jobApplicationId` is `null` for somebody added by hand, who
+   * has no form, no score and no answers.
+   */
+  jobApplicationId?: string | null;
+  fitScore?: number | null;
+  scoreStatus?: ApiScoreStatus | null;
+  assessment?: { percent: number } | null;
+  belowCutoff?: boolean;
+  keptInRunning?: boolean;
 };
 
 export type ApiBoardColumn = {
@@ -99,6 +111,13 @@ export type BoardParams = {
   talentPool?: boolean;
   from?: string;
   to?: string;
+  /** The fit score of the application they came through, 0 to 100. */
+  scoreMin?: number;
+  scoreMax?: number;
+  /** At least this many wrong knockout answers. */
+  knockoutMin?: number;
+  /** Below the advert's pass mark and not kept in the running. */
+  belowCutoff?: boolean;
 };
 
 /* ------------------------------------------------------------------------ bulk */
@@ -125,13 +144,25 @@ export type ApiSelectionFilter = {
   outcome?: ApplicationOutcome;
   /** A board column's `key`. Send it for "select all N in this column". */
   column?: string;
+  scoreMin?: number;
+  scoreMax?: number;
+  knockoutMin?: number;
+  belowCutoff?: boolean;
 };
 
 export type ApiSelection = {
-  requisitionId: string;
+  /** The requisition the applications are in. For `applicationIds` and `filter`. */
+  requisitionId?: string;
   applicationIds?: string[];
   filter?: ApiSelectionFilter;
-  /** The count the person was shown. Required with `filter`. */
+  /**
+   * Public applications on the list of people below the pass mark (`REJECT` only):
+   * the advert they applied to, and either their ids or the list's own filter.
+   */
+  postingId?: string;
+  jobApplicationIds?: string[];
+  confirmList?: ApiConfirmFilter;
+  /** The count the person was shown. Required with `filter` and with `confirmList`. */
   expectedCount?: number;
 };
 

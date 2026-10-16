@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * What these hold: criteria are saved only from the version that was read (a second
  * person's save is a refusal in words, not a quiet win), what is sent is what the
  * API takes, an explanation asks for the other spellings only when they are the
- * right ones, and what the server cannot do yet is said, not faked.
+ * right ones, and what the server offers is what its gateway says it does.
  */
 
 const screening = {
@@ -251,16 +251,23 @@ describe("an explanation", () => {
   });
 });
 
-describe("what the server cannot do yet", () => {
-  it("says so rather than faking it, and offers none of it", async () => {
-    expect(gateway.supports.passMark).toBe(false);
-    await expect(gateway.passMark.get("p1", signal)).rejects.toMatchObject({
-      status: 501,
-      message: expect.stringMatching(/not switched on for this server yet/),
-    });
+describe("what this server can do", () => {
+  it("offers the sorts the queue can take, the assessment one included", () => {
+    expect(gateway.supports.sorts).toEqual([
+      "newest",
+      "fit-desc",
+      "fit-asc",
+      "assessment-desc",
+    ]);
   });
 
-  it("offers the score sorts the queue can take, and no more", () => {
-    expect(gateway.supports.sorts).toEqual(["newest", "fit-desc", "fit-asc"]);
+  it("offers the pass mark, the scores, the list and the board", () => {
+    expect(gateway.supports).toMatchObject({
+      passMark: true,
+      assessment: true,
+      below: true,
+      board: true,
+      belowState: true,
+    });
   });
 });

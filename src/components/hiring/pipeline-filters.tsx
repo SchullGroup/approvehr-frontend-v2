@@ -162,7 +162,37 @@ export function PipelineFilters({
           onChange={(event) => set("to", event.target.value)}
         />
       </Field>
-      {score && gateway.supports.board && <ScoreFilterFields state={score} />}
+      {score && gateway.supports.board && (
+        <ScoreFilterFields
+          state={score}
+          withSort={gateway.supports.boardSort}
+          withStatus={gateway.supports.boardStatus}
+        />
+      )}
+      {gateway.supports.board && (
+        <Field label="Flagged answers">
+          <Select
+            value={
+              filters.knockoutMin === undefined
+                ? ""
+                : String(filters.knockoutMin)
+            }
+            onChange={(event) =>
+              set(
+                "knockoutMin",
+                event.target.value === ""
+                  ? undefined
+                  : Number(event.target.value),
+              )
+            }
+          >
+            <option value="">Any number</option>
+            <option value="1">1 or more</option>
+            <option value="2">2 or more</option>
+            <option value="3">3 or more</option>
+          </Select>
+        </Field>
+      )}
       <div className="flex flex-col justify-end gap-2.5 pb-1.5">
         <Checkbox
           label="Needs a look"
@@ -170,6 +200,14 @@ export function PipelineFilters({
           checked={Boolean(filters.flagged)}
           onChange={(event) => set("flagged", event.target.checked)}
         />
+        {gateway.supports.board && (
+          <Checkbox
+            label="Below the pass mark"
+            description="Flagged for a person to look at. Not rejected."
+            checked={Boolean(filters.belowCutoff)}
+            onChange={(event) => set("belowCutoff", event.target.checked)}
+          />
+        )}
         <Checkbox
           label="Possible duplicates"
           description="Same email or phone as an earlier one."

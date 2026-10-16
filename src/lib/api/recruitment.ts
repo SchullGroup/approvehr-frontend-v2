@@ -3,6 +3,7 @@
 import { request, requestPaged, type Paged } from "@/lib/api/client";
 import type { ApiHistoryEvent } from "@/lib/api/application-history";
 import type { ApiCvLink } from "@/lib/api/careers";
+import type { ApiScoreStatus } from "@/lib/api/screening";
 import type { StageType } from "@/lib/hiring/pipeline/stage-types";
 import type {
   ApiCandidateEmail,
@@ -233,6 +234,36 @@ export type ApiApplicationDetail = ApiApplication & {
   scores?: ApiScoreSummary;
   /** When this person is scheduled to be deleted, or why there is no date. */
   retention?: ApiRetentionNote;
+  /**
+   * What the public application this person came through says: the answers with the
+   * flagged ones marked, the fit score, the assessment result and where they stand
+   * against the pass mark. `null` for somebody added by hand, who has none; absent
+   * from an API that predates screening.
+   */
+  screening?: ApiPipelineScreening | null;
+};
+
+export type ApiPipelineScreening = {
+  /** The public application this record came from. */
+  jobApplicationId: string;
+  /** Where the full record is, relative to the API. */
+  applicationPath: string;
+  reference: string | null;
+  score: number | null;
+  scoreStatus: ApiScoreStatus;
+  assessment: { percent: number } | null;
+  knockoutCount: number;
+  belowCutoff: boolean;
+  cutoffReasons: ("SCORE" | "ASSESSMENT" | "KNOCKOUT")[];
+  keptInRunning: boolean;
+  answers: {
+    id: string;
+    question: string;
+    kind: string;
+    display: string;
+    flagged: boolean;
+    flagReason: string | null;
+  }[];
 };
 
 export type ApiScorecardRating = {

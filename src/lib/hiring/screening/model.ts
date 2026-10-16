@@ -363,26 +363,55 @@ export type KnockoutRule = {
   flagWhen: string;
 };
 
+/** A test somebody has sat for this advert, and how many applicants have a result in it. */
+export type AssessmentTest = {
+  key: string;
+  name: string;
+  applicants: number;
+};
+
 export type PassMark = {
   /** `null` means no threshold on that figure. Two independent, optional inputs. */
   fitMin: number | null;
+  /**
+   * The assessment result a person needs, **as a percentage of what the test is
+   * marked out of**. A test marked out of 60 and a test marked out of 100 can be
+   * held to one pass mark because both are read as a percentage.
+   */
   assessmentMin: number | null;
-  /** The ceiling an assessment score can have (100 unless the API says otherwise). */
+  /** The ceiling of that percentage. Always 100; kept so a screen need not know. */
   assessmentMax: number;
+  /** The test the assessment mark reads, by name. `null`: the latest one entered. */
+  assessmentTest: string | null;
+  /** A wrong answer to a knockout question flags as well. On unless somebody turns it off. */
+  flagKnockouts: boolean;
+  /** The tests with results on this advert, to choose which one the mark reads. */
+  tests: AssessmentTest[];
+  /** The knockout questions, where the screen can list them. Empty where it cannot. */
   knockouts: KnockoutRule[];
   /** `null` until a pass mark has been saved. */
   version: number | null;
+  updatedAt: string | null;
+  updatedBy: string | null;
 };
 
-export type PassMarkInput = Pick<PassMark, "fitMin" | "assessmentMin">;
+export type PassMarkInput = Pick<
+  PassMark,
+  "fitMin" | "assessmentMin" | "assessmentTest" | "flagKnockouts"
+>;
 
 /** "412 of 4,210 would be below the pass mark", worked out before anything is saved. */
 export type PassMarkCount = {
+  /** The people it could apply to: waiting, or in the pipeline and still in progress. */
   total: number;
   below: number;
   byReason: { fit: number; assessment: number; knockout: number };
   /** People with no score yet. They are not counted as below, and the screen says so. */
   notScored: number;
+  /** People with no assessment result yet, when the pass mark asks for one. */
+  noAssessment: number;
+  /** Below the line but kept in the running by a person, so not counted in `below`. */
+  kept: number;
 };
 
 /* ---------------------------------------------------------- assessment scores */
@@ -394,7 +423,12 @@ export type RowRefusal =
   | "out_of_range"
   | "not_a_number"
   | "duplicate_in_file"
-  | "blank_email";
+  | "blank_email"
+  /** The API refused it and said why in its own words (`message`). */
+  | "refused";
+
+/** What a row would do to the person it names. */
+export type RowEffect = "new" | "replaces" | "unchanged";
 
 export type AssessmentRow = {
   /** 1-based, header excluded. */
@@ -403,10 +437,20 @@ export type AssessmentRow = {
   /** Who it matched, when it matched somebody. */
   name: string | null;
   score: number | null;
+  /** What the test was marked out of, when the row said. */
+  max: number | null;
   /** `null` when the row is good. */
   refusal: RowRefusal | null;
   /** A sentence: the API's where it wrote one. */
   message: string | null;
+  /** For a usable row: a first result, a newer one, or the one already on file. */
+  effect: RowEffect | null;
+};
+
+/** What the person chose on screen that the file cannot say. */
+export type AssessmentFileOptions = {
+  /** The test's name when a row does not have one. Blank is the default name. */
+  test: string;
 };
 
 /** What a dry run of a file says before anything is saved. */
@@ -417,27 +461,64 @@ export type AssessmentCheck = {
   total: number;
   usable: number;
   refused: number;
-  max: number;
+  /** Of the usable rows: a newer result for somebody who has one for that test. */
+  replacing: number;
+  /** Of the usable rows: already exactly what is on file, so nothing is written. */
+  unchanged: number;
   rows: AssessmentRow[];
 };
 
 export type AssessmentResult = {
+  /** Results written, new or newer. */
   saved: number;
+  /** Rows that were already exactly as the file says. */
+  unchanged: number;
   refused: number;
   /** How many people's pass-mark standing the new scores moved, when known. */
   movedBelow: number | null;
 };
 
-/** One entry in a person's assessment history. */
+/** One test's result on a person's record, as it stands now. */
+export type AssessmentCurrent = {
+  test: string;
+  score: number;
+  max: number | null;
+  /** 0 to 100, one decimal: what the pass mark reads. */
+  percent: number;
+  takenOn: string | null;
+  source: "IMPORT" | "MANUAL";
+  enteredAt: string;
+};
+
+/** One entry in a person's assessment history: every value ever set, newest first. */
 export type AssessmentEntry = {
   id: string;
   at: string;
   /** Who imported or typed it. */
   by: string | null;
   source: "IMPORT" | "MANUAL";
-  filename: string | null;
+  test: string;
+  score: number | null;
+  max: number | null;
+  percent: number | null;
+  takenOn: string | null;
+  /** A person removed this result. The entry stays, so the history is whole. */
+  cleared: boolean;
+};
+
+export type AssessmentHistory = {
+  current: AssessmentCurrent[];
+  entries: AssessmentEntry[];
+};
+
+/** A result typed on a person's record. */
+export type AssessmentEntryInput = {
+  /** `null` for the default test. */
+  test: string | null;
   score: number;
-  note: string | null;
+  /** What it is marked out of; `null` when the score is already a percentage. */
+  max: number | null;
+  takenOn: string | null;
 };
 
 /* ----------------------------------------------------- below the pass mark */
@@ -450,6 +531,9 @@ export type BelowReason = {
   text: string;
 };
 
+/** Where somebody is: waiting in the queue, or already in the pipeline and in progress. */
+export type BelowState = "WAITING" | "IN_PIPELINE";
+
 export type BelowRow = {
   id: string;
   name: string;
@@ -459,14 +543,17 @@ export type BelowRow = {
   reasons: BelowReason[];
   /** The knockout answers that raised a flag, for the row to show at a glance. */
   flagged: { question: string; answer: string }[];
+  state: BelowState;
+  /** The pipeline stage they are in, for somebody who is in the pipeline. */
+  stage: string | null;
 };
 
 export type BelowFilters = {
   q?: string;
   /** Only those below for this reason. */
   reason?: BelowKind;
-  from?: string;
-  to?: string;
+  /** Only those waiting, or only those already in the pipeline. */
+  state?: BelowState;
 };
 
 export type BelowQuery = {

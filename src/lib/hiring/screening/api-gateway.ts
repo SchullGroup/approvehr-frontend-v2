@@ -2,12 +2,27 @@
 
 import { ApiError } from "@/lib/api/client";
 import { careersApi } from "@/lib/api/careers";
+import type { BulkBody } from "@/lib/api/pipeline";
+import { recruitmentApi } from "@/lib/api/recruitment";
 import { screeningApi } from "@/lib/api/screening";
-import { assessmentTemplate } from "./assessment-file";
-import type { ScreeningGateway } from "./gateway";
 import {
+  runBulkJobs,
+  IDS_PER_REQUEST,
+} from "@/lib/hiring/pipeline/api-gateway";
+import { assessmentTemplate } from "./assessment-file";
+import { checkFile, commitFile } from "./assessment-import";
+import type { ScreeningGateway } from "./gateway";
+import type { ScreeningSubject } from "./model";
+import {
+  assessmentToApi,
+  belowRowFromApi,
+  confirmFilterToApi,
+  countFromApi,
   criteriaToApi,
+  cutoffToApi,
   explanationFromApi,
+  historyFromApi,
+  passMarkFromApi,
   previewFromApi,
   progressFromRuns,
   suggestionFromApi,
@@ -22,21 +37,40 @@ import {
  * threw, so the sentence a screen shows is the one the API wrote.
  */
 
-const unavailable = (what: string): ApiError =>
-  new ApiError(
-    501,
-    "not_available",
-    `${what} is not switched on for this server yet.`,
-  );
+/**
+ * The public application behind a subject: itself, or for a pipeline record the one
+ * it came through. Somebody added by hand has none, and that is said, not guessed.
+ */
+async function applicationOf(
+  subject: ScreeningSubject,
+  signal?: AbortSignal,
+): Promise<string> {
+  if (subject.kind === "application") return subject.id;
+  const record = await recruitmentApi.getApplication(subject.id, signal);
+  const id = record.screening?.jobApplicationId;
+  if (!id) {
+    throw new ApiError(
+      404,
+      "not_found",
+      "This person was added by hand, so there is no application, score or answers to read.",
+    );
+  }
+  return id;
+}
 
 export const apiScreeningGateway: ScreeningGateway = {
   mode: "api",
   supports: {
-    passMark: false,
-    assessment: false,
-    below: false,
-    board: false,
-    sorts: ["newest", "fit-desc", "fit-asc"],
+    passMark: true,
+    assessment: true,
+    below: true,
+    board: true,
+    /* The board endpoint takes a score range, a flagged-answer count and the pass-mark
+       flag; it has no sort, and no status to filter by. */
+    boardSort: false,
+    boardStatus: false,
+    belowState: true,
+    sorts: ["newest", "fit-desc", "fit-asc", "assessment-desc"],
   },
 
   criteria: {
@@ -88,22 +122,29 @@ export const apiScreeningGateway: ScreeningGateway = {
   },
 
   passMark: {
-    get: async () => {
-      throw unavailable("The pass mark");
-    },
-    count: async () => {
-      throw unavailable("The pass mark");
-    },
-    save: async () => {
-      throw unavailable("The pass mark");
-    },
+    get: async (postingId, signal) =>
+      passMarkFromApi(await screeningApi.getCutoff(postingId, signal)),
+
+    count: async (postingId, input, signal) =>
+      countFromApi(
+        (
+          await screeningApi.previewCutoff(
+            postingId,
+            cutoffToApi(input),
+            signal,
+          )
+        ).counts,
+      ),
+
+    save: async (postingId, input) =>
+      passMarkFromApi(
+        await screeningApi.putCutoff(postingId, cutoffToApi(input)),
+      ),
   },
 
   explanation: async (subject, signal) => {
-    if (subject.kind !== "application") {
-      throw unavailable("The explanation on a pipeline record");
-    }
-    const detail = await careersApi.getApplication(subject.id, signal);
+    const id = await applicationOf(subject, signal);
+    const detail = await careersApi.getApplication(id, signal);
     const screening = detail.screening;
     if (!screening) {
       throw new ApiError(
@@ -132,30 +173,109 @@ export const apiScreeningGateway: ScreeningGateway = {
 
   assessment: {
     template: assessmentTemplate,
-    check: async () => {
-      throw unavailable("Importing assessment scores");
+    check: (postingId, filename, rows, options, signal) =>
+      checkFile(postingId, filename, rows, options, signal),
+    commit: (postingId, check, rows, options) =>
+      commitFile(postingId, check, rows, options),
+    enter: async (subject, input) => {
+      await screeningApi.putAssessment(
+        await applicationOf(subject),
+        assessmentToApi(input),
+      );
     },
-    commit: async () => {
-      throw unavailable("Importing assessment scores");
-    },
-    enter: async () => {
-      throw unavailable("Assessment scores");
-    },
-    history: async () => [],
+    history: async (subject, signal) =>
+      historyFromApi(
+        await screeningApi.assessments(
+          await applicationOf(subject, signal),
+          signal,
+        ),
+      ),
   },
 
   below: {
-    count: async () => {
-      throw unavailable("The list below the pass mark");
+    count: async (postingId, signal) => {
+      /* The list's own total, so the number above it can never disagree with it. */
+      const [view, list] = await Promise.all([
+        screeningApi.getCutoff(postingId, signal),
+        screeningApi.confirmList(postingId, { pageSize: 1 }, signal),
+      ]);
+      return { below: list.meta.total, total: view.counts.undecided };
     },
-    list: async () => {
-      throw unavailable("The list below the pass mark");
+
+    list: async (query, signal) => {
+      const page = await screeningApi.confirmList(
+        query.postingId,
+        {
+          ...confirmFilterToApi(query.filters),
+          sort: "score",
+          pageSize: query.pageSize,
+          ...(query.cursor ? { cursor: query.cursor } : {}),
+        },
+        signal,
+      );
+      return {
+        rows: page.data.map(belowRowFromApi),
+        total: page.meta.total,
+        next: page.meta.hasMore ? page.meta.nextCursor : null,
+      };
     },
-    reject: async () => {
-      throw unavailable("The list below the pass mark");
+
+    reject: async ({
+      target,
+      decision,
+      idempotencyKey,
+      signal,
+      onProgress,
+    }) => {
+      const what = {
+        action: "REJECT",
+        reasonId: decision.reasonId,
+        ...(decision.note ? { note: decision.note } : {}),
+        /* Absent is false on the API too: it is only ever sent when ticked. */
+        ...(decision.sendEmails ? { sendEmails: true } : {}),
+      } as const;
+      const bodies: BulkBody[] =
+        target.kind === "filter"
+          ? [
+              {
+                ...what,
+                selection: {
+                  postingId: target.postingId,
+                  confirmList: confirmFilterToApi(target.filters),
+                  expectedCount: target.expected,
+                },
+                idempotencyKey,
+              },
+            ]
+          : chunksOf(target.ids, IDS_PER_REQUEST).map((ids, index, all) => ({
+              ...what,
+              selection: {
+                postingId: target.postingId,
+                jobApplicationIds: ids,
+              },
+              idempotencyKey:
+                all.length === 1
+                  ? idempotencyKey
+                  : `${idempotencyKey}:${String(index)}`,
+            }));
+      return runBulkJobs({
+        bodies,
+        total: target.kind === "filter" ? target.expected : target.ids.length,
+        asked: decision.sendEmails,
+        signal,
+        onProgress,
+      });
     },
-    keep: async () => {
-      throw unavailable("The list below the pass mark");
+
+    keep: async (applicationId, reason) => {
+      await screeningApi.keep(applicationId, reason);
     },
   },
 };
+
+function chunksOf<T>(list: readonly T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let at = 0; at < list.length; at += size)
+    out.push(list.slice(at, at + size));
+  return out;
+}
