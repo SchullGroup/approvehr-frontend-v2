@@ -17,6 +17,7 @@ import { sentenceOf } from "@/lib/hiring/pipeline/errors";
 import type { PipelineTemplate } from "@/lib/hiring/pipeline/model";
 import {
   canRequireScorecards,
+  isTerminalType,
   STAGE_TYPE_HELP,
   STAGE_TYPE_LABEL,
   STAGE_TYPE_TONE,
@@ -88,12 +89,18 @@ export function TemplateEditor({
   open,
   onClose,
   template,
+  emailOptions = [],
   onSave,
 }: {
   open: boolean;
   onClose: () => void;
   /** The template being changed, or `null` for a new one. */
   template: PipelineTemplate | null;
+  /**
+   * The emails a stage can be set to send. Empty, or absent, and the stages offer
+   * no choice about email: a server that sends none has nothing to choose from.
+   */
+  emailOptions?: readonly { id: string; label: string }[];
   /** Rejects with the API's sentence. */
   onSave: (draft: {
     id: string | null;
@@ -292,6 +299,32 @@ export function TemplateEditor({
                   </Badge>
                   {STAGE_TYPE_HELP[stage.type]}
                 </p>
+
+                {emailOptions.length > 0 && !isTerminalType(stage.type) && (
+                  <div className="pl-7">
+                    <Field
+                      label={`Email when somebody is moved into ${stage.name || "this stage"}`}
+                      className="max-w-sm"
+                      help="Choosing one sends nothing. Whoever moves a candidate here is asked whether to send it."
+                    >
+                      <Select
+                        value={stage.emailTemplateId ?? ""}
+                        onChange={(event) =>
+                          patch(stage.id, {
+                            emailTemplateId: event.target.value || null,
+                          })
+                        }
+                      >
+                        <option value="">No email</option>
+                        {emailOptions.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  </div>
+                )}
 
                 {canRequireScorecards(stage.type) && (
                   <div className="pl-7">

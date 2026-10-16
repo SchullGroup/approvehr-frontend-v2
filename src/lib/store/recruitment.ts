@@ -602,9 +602,9 @@ export function useApplicationMutations() {
   const { isConnected } = useSession();
 
   const move = useCallback(
-    async (id: string, stageId: string) => {
+    async (id: string, stageId: string, sendEmail: boolean) => {
       if (!isConnected) throw offlineError("Moving a candidate");
-      return recruitmentApi.moveApplication(id, stageId);
+      return recruitmentApi.moveApplication(id, stageId, sendEmail);
     },
     [isConnected],
   );
@@ -993,9 +993,12 @@ export function useOfferMutations() {
     [isConnected],
   );
   const send = useCallback(
-    async (id: string) => {
+    async (
+      id: string,
+      body: { sendEmail?: boolean; emailTemplateId?: string } = {},
+    ) => {
       if (!isConnected) throw offlineError("Sending an offer");
-      return recruitmentApi.sendOffer(id);
+      return recruitmentApi.sendOffer(id, body);
     },
     [isConnected],
   );

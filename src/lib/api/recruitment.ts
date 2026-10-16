@@ -4,6 +4,13 @@ import { request, requestPaged, type Paged } from "@/lib/api/client";
 import type { ApiHistoryEvent } from "@/lib/api/application-history";
 import type { ApiCvLink } from "@/lib/api/careers";
 import type { StageType } from "@/lib/hiring/pipeline/stage-types";
+import type {
+  ApiCandidateEmail,
+  ApiPanelist,
+  ApiQueuedEmail,
+  ApiRetentionNote,
+  ApiScoreSummary,
+} from "@/lib/api/candidate-email";
 
 /**
  * The internal recruitment pipeline — requisitions, candidates, interviews,
@@ -95,6 +102,11 @@ export type ApiStage = {
    * screen must treat as "not said", not as a type of its own.
    */
   type?: StageType;
+  /**
+   * The email sent to somebody a person moves into this stage, if any. Absent from
+   * an API that predates candidate emails: "not said", not "none".
+   */
+  emailTemplateId?: string | null;
 };
 
 export type ApiRequisitionDetail = ApiRequisition & {
@@ -154,6 +166,11 @@ export type ApiInterviewSummary = {
   status: InterviewStatus;
   location: string | null;
   scorecards: ApiInterviewScorecardRef[];
+  /** The stage it was booked in. Absent from an API that predates panels. */
+  stageId?: string | null;
+  stageName?: string | null;
+  /** Who was invited to score it, and whose scorecard is in. */
+  panelists?: ApiPanelist[];
 };
 
 export type ApiCandidate = {
@@ -190,6 +207,7 @@ export type ApiCandidateApplication = {
 
 export type ApiCandidateDetail = ApiCandidate & {
   applications: ApiCandidateApplication[];
+  retention?: ApiRetentionNote;
 };
 
 export type ApiApplicationDetail = ApiApplication & {
@@ -206,6 +224,15 @@ export type ApiApplicationDetail = ApiApplication & {
   history?: ApiHistoryEvent[];
   interviews: ApiInterviewSummary[];
   offer: ApiOffer | null;
+  /**
+   * Every email this application has had or is owed, oldest first, and why any was
+   * not sent. Absent from an API that predates candidate emails.
+   */
+  emails?: ApiCandidateEmail[];
+  /** The interview score and how it was reached. */
+  scores?: ApiScoreSummary;
+  /** When this person is scheduled to be deleted, or why there is no date. */
+  retention?: ApiRetentionNote;
 };
 
 export type ApiScorecardRating = {
@@ -226,6 +253,8 @@ export type ApiScorecard = {
   submitted: boolean;
   submittedAt: string | null;
   ratings: ApiScorecardRating[];
+  /** The weighted mean of its ratings, 1 to 5. `null` until it is submitted, or when it rated nothing. */
+  composite?: number | null;
 };
 
 export type ApiInterview = {
@@ -242,7 +271,13 @@ export type ApiInterview = {
   scorecardsSubmitted: number;
 };
 
-export type ApiInterviewDetail = ApiInterview & { scorecards: ApiScorecard[] };
+export type ApiInterviewDetail = ApiInterview & {
+  scorecards: ApiScorecard[];
+  /** The stage it was booked in, and who was invited to score it. Absent from an API that predates panels. */
+  stageId?: string | null;
+  stageName?: string | null;
+  panelists?: ApiPanelist[];
+};
 
 export type ApiAnalytics = {
   totals: {
@@ -316,11 +351,14 @@ export type CreateStageBody = {
   requiresScorecards?: boolean;
   order?: number;
   type?: StageType;
+  emailTemplateId?: string | null;
 };
 export type UpdateStageBody = {
   name?: string;
   requiresScorecards?: boolean;
   type?: StageType;
+  /** `null` takes the message off the stage. */
+  emailTemplateId?: string | null;
 };
 
 export type ApplicationListParams = {
@@ -400,6 +438,16 @@ export type ScheduleInterviewBody = {
   scheduledFor: string;
   durationMins?: number;
   location?: string;
+  /** Absent: the stage the application is in now. */
+  stageId?: string;
+  /**
+   * Employees invited to score it. Absent: the stage's panel as it is now. `[]` is
+   * nobody: the old kind of interview, scored by anybody who manages hiring.
+   */
+  panelistIds?: string[];
+  /** Only ever true when the person ticked it. */
+  sendInvite?: boolean;
+  inviteTemplateId?: string;
 };
 
 export type RescheduleInterviewBody = {
@@ -541,11 +589,18 @@ export const recruitmentApi = {
     request<ApiApplicationDetail>(`/recruitment/applications/${id}`, {
       ...(signal ? { signal } : {}),
     }),
-  moveApplication: (id: string, stageId: string) =>
-    request<ApiApplicationDetail>(`/recruitment/applications/${id}/move`, {
-      method: "POST",
-      body: { stageId },
-    }),
+  /**
+   * `sendEmail` is always sent. The API sends a stage's message unless told not to,
+   * so a caller that left it out would be emailing somebody it did not mean to.
+   */
+  moveApplication: (id: string, stageId: string, sendEmail: boolean) =>
+    request<ApiApplicationDetail & { email?: ApiQueuedEmail }>(
+      `/recruitment/applications/${id}/move`,
+      {
+        method: "POST",
+        body: { stageId, sendEmail },
+      },
+    ),
   rejectApplication: (id: string, reason?: string) =>
     request<ApiApplicationDetail>(`/recruitment/applications/${id}/reject`, {
       method: "POST",
@@ -591,7 +646,7 @@ export const recruitmentApi = {
       ...(signal ? { signal } : {}),
     }),
   scheduleInterview: (applicationId: string, body: ScheduleInterviewBody) =>
-    request<ApiInterviewDetail>(
+    request<ApiInterviewDetail & { email?: ApiQueuedEmail }>(
       `/recruitment/applications/${applicationId}/interviews`,
       {
         method: "POST",
@@ -644,8 +699,17 @@ export const recruitmentApi = {
     request<ApiOffer>(`/recruitment/offers/${id}/submit`, { method: "POST" }),
   approveOffer: (id: string) =>
     request<ApiOffer>(`/recruitment/offers/${id}/approve`, { method: "POST" }),
-  sendOffer: (id: string) =>
-    request<ApiOffer>(`/recruitment/offers/${id}/send`, { method: "POST" }),
+  sendOffer: (
+    id: string,
+    body: { sendEmail?: boolean; emailTemplateId?: string } = {},
+  ) =>
+    request<ApiOffer & { email?: ApiQueuedEmail }>(
+      `/recruitment/offers/${id}/send`,
+      {
+        method: "POST",
+        body,
+      },
+    ),
   acceptOffer: (id: string) =>
     request<ApiAcceptOfferResult>(`/recruitment/offers/${id}/accept`, {
       method: "POST",

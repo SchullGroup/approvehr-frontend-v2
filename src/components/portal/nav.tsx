@@ -71,7 +71,7 @@ export type BadgeSource =
  * unanswered fact does not compile. The alternative, a predicate function on
  * the item, would let one be added that nobody ever calls.
  */
-export type NavRowFact = "one-on-ones" | "signatures";
+export type NavRowFact = "one-on-ones" | "signatures" | "interviews";
 
 /**
  * What the sidebar knows that is neither a permission nor a feature flag.
@@ -101,7 +101,7 @@ export type NavFacts = {
  */
 export const NOTHING_ANSWERED_YET: NavFacts = {
   assistantWired: false,
-  rows: { "one-on-ones": false, signatures: false },
+  rows: { "one-on-ones": false, signatures: false, interviews: false },
 };
 
 export type NavItem = {
@@ -655,6 +655,16 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Interviews",
       icon: <CalendarClock aria-hidden="true" />,
       anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
+      feature: "hiring",
+    },
+    {
+      /* The narrow door: an employee on an interview panel, or hiring for a role,
+         sees the interviews that are theirs and nothing else about hiring. No
+         permission can say who that is, so the rows are asked (`rows`). */
+      href: "/hiring/my-interviews",
+      label: "My interviews",
+      icon: <CalendarCheck aria-hidden="true" />,
+      rows: "interviews",
       feature: "hiring",
     },
     {

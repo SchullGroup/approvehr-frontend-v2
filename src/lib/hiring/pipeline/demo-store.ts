@@ -18,6 +18,8 @@ import {
   type DemoTemplate,
   type Op,
 } from "./demo-ops";
+import type { EmailTemplate } from "@/lib/hiring/comms/model";
+import type { DemoComms } from "@/lib/hiring/comms/state";
 import type { RejectionReason, Tag } from "./model";
 import { referenceFor } from "./reference";
 import type { StageType } from "./stage-types";
@@ -209,6 +211,81 @@ export const DEMO_REASONS: RejectionReason[] = !DEMO_ENABLED
       { id: "reason-6", label: "The role has been filled", active: true },
     ];
 
+export const DEMO_EMAIL_TEMPLATES: EmailTemplate[] = !DEMO_ENABLED
+  ? []
+  : [
+      {
+        id: "etpl-1",
+        kind: "STAGE_UPDATE",
+        kindLabel: "Update on their application",
+        name: "Moved to the next stage",
+        subject:
+          "{company_name}: an update on your application for {job_title}",
+        body:
+          "Hello {candidate_first_name},\n\n" +
+          "Your application for {job_title} has moved to the next stage: {stage_name}.\n\n" +
+          "If you have any questions, reply to this email.",
+        isDefault: true,
+        archived: false,
+        usedByStages: 0,
+      },
+      {
+        id: "etpl-2",
+        kind: "INVITE",
+        kindLabel: "Invitation to interview",
+        name: "Interview invitation",
+        subject: "{company_name}: your interview for {job_title}",
+        body:
+          "Hello {candidate_first_name},\n\n" +
+          "We would like to meet you about {job_title}.\n\n" +
+          "When: {interview_time}\nWhere: {interview_location}\n\n" +
+          "If that time does not suit you, reply to this email as soon as you can.",
+        isDefault: true,
+        archived: false,
+        usedByStages: 0,
+      },
+      {
+        id: "etpl-3",
+        kind: "DECLINE",
+        kindLabel: "Not taking them forward",
+        name: "Kind decline",
+        subject: "{company_name}: your application for {job_title}",
+        body:
+          "Hello {candidate_first_name},\n\n" +
+          "Thank you for the time you put into applying for {job_title}. " +
+          "We will not be taking your application further this time, and we wish you well.",
+        isDefault: true,
+        archived: false,
+        usedByStages: 0,
+      },
+    ];
+
+export const DEMO_COMMS: DemoComms = !DEMO_ENABLED
+  ? {
+      emailTemplates: [],
+      emails: [],
+      mail: {
+        enabled: true,
+        replyTo: null,
+        companyName: "Your company",
+        senderName: "Your company",
+      },
+      retention: { months: null, setAt: null },
+      scorecards: [],
+    }
+  : {
+      emailTemplates: DEMO_EMAIL_TEMPLATES,
+      emails: [],
+      mail: {
+        enabled: true,
+        replyTo: "people@schull.io",
+        companyName: "Schull Technologies",
+        senderName: "Schull Technologies",
+      },
+      retention: { months: null, setAt: null },
+      scorecards: [],
+    };
+
 function seedStages(): DemoStage[] {
   return REQUISITIONS.flatMap((requisition) => {
     const used = STAGES.filter((stage) =>
@@ -221,6 +298,12 @@ function seedStages(): DemoStage[] {
       order,
       type: STAGE_TYPE_OF[stage.id],
       requiresScorecards: stage.id === "interview",
+      /* One stage of each kind sends a message, so the move-and-tell choice has
+         something to ask about, and the interview one has a panel to show. */
+      ...(stage.id === "shortlisted" ? { emailTemplateId: "etpl-1" } : {}),
+      ...(stage.id === "interview"
+        ? { emailTemplateId: "etpl-2", panel: ["p-05", "p-01"] }
+        : {}),
     }));
     return [
       ...open,
@@ -345,6 +428,7 @@ function seedApp(
 }
 
 const EMPTY_BOOK: DemoBook = {
+  ...DEMO_COMMS,
   stages: [],
   apps: [],
   tags: [],
@@ -358,6 +442,7 @@ function seedBook(): DemoBook {
   if (!DEMO_ENABLED) return EMPTY_BOOK;
   const stages = seedStages();
   return {
+    ...DEMO_COMMS,
     stages,
     apps: APPLICATIONS.flatMap((application, index) => {
       const app = seedApp(application, index, stages);
@@ -376,7 +461,7 @@ function seedBook(): DemoBook {
 /* -------------------------------------------------------------------- store */
 
 /** Bump when the book's shape changes: an old payload is dropped, not merged. */
-const BOOK_VERSION = 1;
+const BOOK_VERSION = 2;
 
 export const demoPipeline = createPersistedState<DemoBook>({
   key: "approvehr.hiring.pipeline.store",

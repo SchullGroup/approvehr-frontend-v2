@@ -24,10 +24,17 @@ import {
 } from "@/components/hiring/bulk-dialogs";
 import { CandidateTagsDialog } from "@/components/hiring/candidate-tags-dialog";
 import { KanbanBoard } from "@/components/hiring/kanban-board";
+import { MoveEmailDialog } from "@/components/hiring/move-email-dialog";
+import { StageComms } from "@/components/hiring/stage-comms";
 import { PipelineFilters } from "@/components/hiring/pipeline-filters";
 import { PipelineTable } from "@/components/hiring/pipeline-table";
 import { RejectDialog } from "@/components/hiring/reject-dialog";
+import { noticeSentence } from "@/lib/hiring/comms/status";
 import { sentenceOf } from "@/lib/hiring/pipeline/errors";
+import {
+  useEmailReadiness,
+  useStageMail,
+} from "@/lib/hiring/pipeline/use-comms";
 import { downloadCsv } from "@/lib/csv";
 import { usePipelineToday } from "@/lib/hiring/pipeline/age";
 import {
@@ -142,6 +149,11 @@ export function PipelineWorkspace({
   );
 
   const board = useBoard({ gateway, requisitionId, filters: asked });
+  /* Which stages send an email when somebody is moved in, and whether one would
+     actually leave. Asked once, so a move can say so before it is made. */
+  const mail = useStageMail(requisitionId, canManage);
+  const readiness = useEmailReadiness(canManage);
+  const emailsSupported = readiness.data?.supported === true;
   /* Nobody is moved into Hired by hand (an accepted offer puts them there) and
      Rejected has its own action with a reason, so neither is a place to move to. */
   const moveTargets = board.columns
@@ -153,6 +165,11 @@ export function PipelineWorkspace({
   const [everyoneColumn, setEveryoneColumn] = useState<string | null>(null);
 
   const [rejecting, setRejecting] = useState<Rejecting | null>(null);
+  const [moving, setMoving] = useState<{
+    card: BoardCard;
+    stageId: string;
+  } | null>(null);
+  const [moveBusy, setMoveBusy] = useState(false);
   const [rejectBusy, setRejectBusy] = useState(false);
   const [rejectError, setRejectError] = useState<string | null>(null);
   const [tagsFor, setTagsFor] = useState<string | null>(null);
@@ -175,13 +192,32 @@ export function PipelineWorkspace({
 
   /* -------------------------------------------------------- single writes */
 
-  async function move(card: BoardCard, stageId: string) {
+  /**
+   * A card was dropped on a stage. If the stage sends an email, ask first: the API
+   * sends it unless told not to, and nobody should be emailed by a drag. If it is
+   * not known whether the stage sends one, nothing is sent.
+   */
+  function askToMove(card: BoardCard, stageId: string) {
+    if (emailsSupported && mail.known && mail.byStage.has(stageId)) {
+      setMoving({ card, stageId });
+      return;
+    }
+    void move(card, stageId, false);
+  }
+
+  async function move(card: BoardCard, stageId: string, sendEmail: boolean) {
     const to = moveTargets.find((column) => column.stageId === stageId);
+    setMoveBusy(true);
     try {
-      await board.move(card, stageId);
+      const result = await board.move(card, stageId, { sendEmail });
+      const said = noticeSentence(result.email, card.name);
       toast.push({
         title: `${card.name} moved to ${to?.label ?? "the new stage"}`,
-        tone: "success",
+        tone:
+          said && said.tone !== "success" && said.tone !== "info"
+            ? "warning"
+            : "success",
+        ...(said ? { detail: said.text } : {}),
       });
     } catch (error) {
       /* The board has already put the card back. Say why, in the API's words. */
@@ -190,25 +226,34 @@ export function PipelineWorkspace({
         tone: "danger",
         detail: sentenceOf(error),
       });
+    } finally {
+      setMoveBusy(false);
+      setMoving(null);
     }
   }
 
   async function rejectOne(
     card: BoardCard,
-    choice: { reasonId: string; note: string | null },
+    choice: { reasonId: string; note: string | null; sendEmail: boolean },
   ) {
     setRejectBusy(true);
     setRejectError(null);
     try {
-      await board.reject(card, { ...choice, sendEmail: false });
+      const result = await board.reject(card, choice);
       /* The card is already in the Rejected column; a quiet refresh brings the
          reason the API wrote with it. */
       board.reload();
       setRejecting(null);
+      const said = noticeSentence(result.email, card.name);
       toast.push({
         title: `${card.name} rejected`,
-        tone: "info",
-        detail: "The reason is on their record. Nothing was sent to them.",
+        tone:
+          said && (said.tone === "warning" || said.tone === "danger")
+            ? "warning"
+            : "info",
+        detail: said
+          ? `The reason is on their record. ${said.text}`
+          : "The reason is on their record. Nothing was sent to them.",
       });
     } catch (error) {
       setRejectError(sentenceOf(error));
@@ -504,7 +549,7 @@ export function PipelineWorkspace({
             timeZone={timeZone}
             selection={selection}
             moveTargets={moveTargets}
-            onMove={(card, stageId) => void move(card, stageId)}
+            onMove={askToMove}
             onRejectRequest={askToReject}
             onEditTags={(card) => setTagsFor(card.id)}
           />
@@ -518,11 +563,22 @@ export function PipelineWorkspace({
             timeZone={timeZone}
             selection={selection}
             moveTargets={moveTargets}
-            onMove={(card, stageId) => void move(card, stageId)}
+            onMove={askToMove}
             onRejectRequest={askToReject}
             onEditTags={(card) => setTagsFor(card.id)}
           />
         </div>
+      )}
+
+      {canManage && mail.stages && mail.catalog && emailsSupported && (
+        <StageComms
+          requisitionId={requisitionId}
+          gateway={gateway}
+          stages={mail.stages}
+          catalog={mail.catalog}
+          canManage={canManage}
+          onChanged={mail.reload}
+        />
       )}
 
       <RejectDialog
@@ -532,6 +588,19 @@ export function PipelineWorkspace({
         reasons={reasons.items}
         busy={rejectBusy || busy}
         error={rejectError}
+        emailOffer={
+          canManage && emailsSupported
+            ? {
+                label:
+                  rejecting?.kind === "many"
+                    ? "Send a decline email to each person"
+                    : "Send them a decline email",
+                description:
+                  "Off unless you tick it. Rejecting never emails anybody by itself.",
+                blockedBy: readiness.data?.blockedBy ?? [],
+              }
+            : null
+        }
         onConfirm={(choice) => {
           if (rejecting?.kind === "one") void rejectOne(rejecting.card, choice);
           else
@@ -540,11 +609,27 @@ export function PipelineWorkspace({
                 type: "reject",
                 reasonId: choice.reasonId,
                 note: choice.note,
-                sendEmail: false,
+                sendEmail: choice.sendEmail,
               },
               "Rejected",
             );
         }}
+      />
+
+      <MoveEmailDialog
+        open={moving !== null}
+        onClose={() => setMoving(null)}
+        who={moving?.card.name ?? ""}
+        stage={
+          moveTargets.find((column) => column.stageId === moving?.stageId)
+            ?.label ?? "this stage"
+        }
+        mail={(moving && mail.byStage.get(moving.stageId)) || null}
+        readiness={readiness.data}
+        busy={moveBusy}
+        onChoose={(send) =>
+          moving && void move(moving.card, moving.stageId, send)
+        }
       />
 
       <BulkMoveDialog
@@ -552,8 +637,12 @@ export function PipelineWorkspace({
         onClose={() => setDialog(null)}
         count={selection.size}
         targets={moveTargets}
-        onConfirm={(stageId, name) =>
-          void run({ type: "move", stageId }, `Moved to ${name}`)
+        mailOf={(stageId) =>
+          emailsSupported ? (mail.byStage.get(stageId) ?? null) : null
+        }
+        readiness={readiness.data}
+        onConfirm={(stageId, name, sendEmail) =>
+          void run({ type: "move", stageId, sendEmail }, `Moved to ${name}`)
         }
       />
 

@@ -608,6 +608,33 @@ export type ApiCareersSettings = {
     /** Why no confirmation email would go out right now, in words. */
     blockedBy: string[];
   };
+  /**
+   * Emails to candidates beyond the acknowledgement: invitations, declines, offer
+   * notices and stage messages. Only ever sent because a person asked. Absent from
+   * an API that predates them.
+   */
+  candidateEmails?: {
+    enabled: boolean;
+    willSend: boolean;
+    /** Why none would be sent right now, in words. */
+    blockedBy: string[];
+  };
+  /** Whose name those emails are sent in. Always the registered name, or that name with "Careers". */
+  emailSender?: {
+    name: string;
+    source: "registered_name" | "display_name";
+    displayNameAccepted: boolean | null;
+    registeredName: string;
+    note: string | null;
+  };
+  /** How long rejected and withdrawn candidates are kept. `months: null` keeps them. */
+  retention?: {
+    months: number | null;
+    setAt: string | null;
+    /** Nothing is purged before this day, a week after the period was set. */
+    purgeFrom: string | null;
+    graceDays: number;
+  };
   search: { indexable: boolean };
   deployment: { fileUploads: boolean };
 };
@@ -623,6 +650,10 @@ export type UpdateCareersSettingsBody = {
   consentRequired?: boolean;
   ackEmailEnabled?: boolean;
   searchIndexing?: boolean;
+  /** Whether invitations, declines and stage messages may be sent in the company's name. */
+  candidateEmailsEnabled?: boolean;
+  /** Whole months, 1 to 120. `null` keeps rejected candidates. */
+  retentionMonths?: number | null;
 };
 
 /* -------------------------------------------------------------------- calls */

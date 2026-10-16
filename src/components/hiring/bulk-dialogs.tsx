@@ -4,12 +4,14 @@ import { useState } from "react";
 import {
   Button,
   Callout,
+  Checkbox,
   Field,
   Modal,
   Select,
   TextLink,
   type AppliedFilter,
 } from "@/components/ui";
+import type { EmailReadiness } from "@/lib/hiring/comms/model";
 import type { BoardColumn, Tag } from "@/lib/hiring/pipeline/model";
 
 /**
@@ -91,21 +93,32 @@ export function BulkMoveDialog({
   onConfirm,
   count,
   targets,
+  mailOf,
+  readiness = null,
 }: {
   open: boolean;
   onClose: () => void;
-  onConfirm: (stageId: string, name: string) => void;
+  /** `sendEmail` is only ever true when the person ticked it, for a stage that has one. */
+  onConfirm: (stageId: string, name: string, sendEmail: boolean) => void;
   count: number;
   /** The stages people can be moved into. */
   targets: readonly BoardColumn[];
+  /** The email a stage sends to whoever is moved into it, if it sends one. */
+  mailOf?: (stageId: string) => { name: string; kindLabel: string } | null;
+  readiness?: EmailReadiness | null;
 }) {
   const [stageId, setStageId] = useState("");
+  const [sendEmail, setSendEmail] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setStageId("");
+    if (open) {
+      setStageId("");
+      setSendEmail(false);
+    }
   }
   const chosen = targets.find((target) => target.stageId === stageId);
+  const mail = chosen?.stageId && mailOf ? mailOf(chosen.stageId) : null;
 
   return (
     <Modal
@@ -122,26 +135,56 @@ export function BulkMoveDialog({
           <Button
             variant="primary"
             disabled={!chosen}
-            onClick={() => chosen && onConfirm(stageId, chosen.label)}
+            onClick={() =>
+              chosen &&
+              onConfirm(stageId, chosen.label, mail !== null && sendEmail)
+            }
           >
             Move {people(count)}
           </Button>
         </>
       }
     >
-      <Field label="Move to" required>
-        <Select
-          value={stageId}
-          onChange={(event) => setStageId(event.target.value)}
-        >
-          <option value="">Choose a stage</option>
-          {targets.map((target) => (
-            <option key={target.key} value={target.stageId ?? ""}>
-              {target.label}
-            </option>
-          ))}
-        </Select>
-      </Field>
+      <div className="flex flex-col gap-4">
+        <Field label="Move to" required>
+          <Select
+            value={stageId}
+            onChange={(event) => {
+              setStageId(event.target.value);
+              /* A tick belongs to the stage it was made for. */
+              setSendEmail(false);
+            }}
+          >
+            <option value="">Choose a stage</option>
+            {targets.map((target) => (
+              <option key={target.key} value={target.stageId ?? ""}>
+                {target.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        {mail && chosen && (
+          <div className="flex flex-col gap-2 rounded-md border border-line p-3">
+            <Checkbox
+              label={`Send "${mail.name}" to everyone moved`}
+              description={`${chosen.label} has this email set up. It is only sent if you tick this, and then one is queued for each person who is moved.`}
+              checked={sendEmail}
+              onChange={(event) => setSendEmail(event.target.checked)}
+            />
+            {sendEmail && readiness && readiness.blockedBy.length > 0 && (
+              <div className="text-body-sm text-warning-text">
+                <p>They would not be sent right now:</p>
+                <ul className="mt-1 list-disc pl-5">
+                  {readiness.blockedBy.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </Modal>
   );
 }

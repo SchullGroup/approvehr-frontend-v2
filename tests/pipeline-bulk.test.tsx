@@ -215,15 +215,55 @@ describe("rejecting in bulk", () => {
     );
   });
 
-  it("never offers to send an email unless the server can, and says nothing was sent", async () => {
+  it("offers a decline email as a tick that is off, and sends nothing without it", async () => {
     const user = userEvent.setup();
     open();
     await ready();
-    await tick(user, peopleIn("Sourced")[0] as string);
+    const [a, b] = peopleIn("Sourced") as [string, string];
+    await tick(user, a);
+    await tick(user, b);
     await user.click(within(bar()).getByRole("button", { name: "Reject…" }));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
-    expect(dialog).not.toHaveTextContent(/email/i);
+    const email = await within(dialog).findByRole("checkbox", {
+      name: /Send a decline email to each person/,
+    });
+    expect(email).not.toBeChecked();
+    await user.selectOptions(
+      within(dialog).getByRole("combobox", { name: /Reason/ }),
+      "Salary expectation above the band",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Reject" }));
+    expect(await screen.findByText("Rejected: 2 people.")).toBeInTheDocument();
+    /* Not ticked, so not asked for: the result says nothing about emails. */
+    expect(screen.queryByText(/queued to send/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/not queued/i)).not.toBeInTheDocument();
+  });
+
+  it("when the tick is on, says honestly that a practice board sent nothing", async () => {
+    const user = userEvent.setup();
+    open();
+    await ready();
+    const [a, b] = peopleIn("Sourced") as [string, string];
+    await tick(user, a);
+    await tick(user, b);
+    await user.click(within(bar()).getByRole("button", { name: "Reject…" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(
+      await within(dialog).findByRole("checkbox", {
+        name: /Send a decline email to each person/,
+      }),
+    );
+    await user.selectOptions(
+      within(dialog).getByRole("combobox", { name: /Reason/ }),
+      "Salary expectation above the band",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Reject" }));
+    expect(await screen.findByText("Rejected: 2 people.")).toBeInTheDocument();
+    /* Never "sent", never "queued": the book has no mail, and says why. */
+    expect(screen.queryByText(/queued to send/)).not.toBeInTheDocument();
+    expect(
+      await screen.findByText(/nothing is sent from a practice board/i),
+    ).toBeInTheDocument();
   });
 
   it("lists every person it could not do, with the reason, and never hides them in a count", async () => {

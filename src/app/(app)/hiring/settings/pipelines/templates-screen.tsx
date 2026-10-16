@@ -21,6 +21,7 @@ import {
   STAGE_TYPE_LABEL,
   STAGE_TYPE_TONE,
 } from "@/lib/hiring/pipeline/stage-types";
+import { useEmailCatalog } from "@/lib/hiring/pipeline/use-comms";
 import {
   usePipelineGateway,
   useTemplates,
@@ -39,6 +40,7 @@ import { HiringSettingsShell } from "../settings-shell";
 export function TemplatesScreen() {
   const gateway = usePipelineGateway();
   const templates = useTemplates();
+  const emails = useEmailCatalog();
   const toast = useToast();
   const [editing, setEditing] = useState<PipelineTemplate | "new" | null>(null);
   const [removing, setRemoving] = useState<PipelineTemplate | null>(null);
@@ -217,6 +219,12 @@ export function TemplatesScreen() {
         open={editing !== null}
         onClose={() => setEditing(null)}
         template={editing === "new" || editing === null ? null : editing}
+        emailOptions={(emails.data?.templates ?? [])
+          .filter((email) => !email.archived)
+          .map((email) => ({
+            id: email.id,
+            label: `${email.name} (${email.kindLabel.toLowerCase()})`,
+          }))}
         onSave={async (draft) => {
           const saved = await gateway.templates.save(draft);
           templates.reload();

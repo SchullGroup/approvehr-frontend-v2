@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Button,
   Callout,
+  Checkbox,
   Field,
   Modal,
   Select,
@@ -28,12 +29,24 @@ import type { RejectionReason } from "@/lib/hiring/pipeline/model";
  *
  * Rejecting records a decision. It does not email anyone. A decline email is a
  * separate, explicit tick in this dialog — off every time it opens — and it only
- * appears when the server can send one.
+ * appears when the screen offers one (`emailOffer`). When emails could not leave
+ * right now, the tick still appears and says why, in the API's words, so nobody
+ * ticks it believing a person will be told.
  */
 
 export type RejectChoice = {
   reasonId: string;
   note: string | null;
+  /** Only ever true when the person ticked it in this dialog. */
+  sendEmail: boolean;
+};
+
+/** What the decline-email tick says. Absent, there is no tick. */
+export type EmailOffer = {
+  label: string;
+  description: string;
+  /** Why an email asked for now would not be sent, as sentences. */
+  blockedBy: readonly string[];
 };
 
 export function RejectDialog({
@@ -45,6 +58,7 @@ export function RejectDialog({
   error = null,
   onConfirm,
   extra,
+  emailOffer = null,
   title,
   confirmLabel = "Reject",
 }: {
@@ -57,14 +71,17 @@ export function RejectDialog({
   /** The last refusal, in the API's words. */
   error?: string | null;
   onConfirm: (choice: RejectChoice) => void;
-  /** Anything that belongs under the note: the decline-email choice. */
+  /** Anything that belongs under the note. */
   extra?: React.ReactNode;
+  /** The decline-email tick: off every time the dialog opens. */
+  emailOffer?: EmailOffer | null;
   /** The screen's own word for it, where it is not "reject": the queue turns people down. */
   title?: string;
   confirmLabel?: string;
 }) {
   const [reasonId, setReasonId] = useState("");
   const [note, setNote] = useState("");
+  const [sendEmail, setSendEmail] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
 
   /* Each time it opens it starts blank. Derived while rendering rather than in
@@ -74,6 +91,7 @@ export function RejectDialog({
     if (open) {
       setReasonId("");
       setNote("");
+      setSendEmail(false);
     }
   }
 
@@ -100,6 +118,7 @@ export function RejectDialog({
               onConfirm({
                 reasonId,
                 note: note.trim() === "" ? null : note.trim(),
+                sendEmail: emailOffer !== null && sendEmail,
               })
             }
           >
@@ -145,6 +164,31 @@ export function RejectDialog({
             onChange={(event) => setNote(event.target.value)}
           />
         </Field>
+
+        {emailOffer && (
+          <div className="flex flex-col gap-2 rounded-md border border-line p-3">
+            <Checkbox
+              label={emailOffer.label}
+              description={emailOffer.description}
+              checked={sendEmail}
+              onChange={(event) => setSendEmail(event.target.checked)}
+            />
+            {sendEmail && emailOffer.blockedBy.length > 0 && (
+              <div className="text-body-sm text-warning-text">
+                <p>It would not be sent right now:</p>
+                <ul className="mt-1 list-disc pl-5">
+                  {emailOffer.blockedBy.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+                <p className="mt-1">
+                  The rejection is still recorded, and the email is recorded as
+                  not sent.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {extra}
 

@@ -3,6 +3,9 @@ import type { ApplicationOutcome } from "@/lib/api/recruitment";
 import { columnsFor } from "./columns";
 import { referenceFor } from "./reference";
 import { cardMatches } from "./filters";
+import type { DemoComms } from "@/lib/hiring/comms/state";
+import type { MoveResult } from "@/lib/hiring/comms/model";
+import { owe, retentionLine, scoreFor } from "./demo-comms-ops";
 import type {
   BoardCard,
   BoardData,
@@ -49,6 +52,10 @@ export const DEMO_NOW = `${TODAY}T09:00:00.000Z`;
 export type DemoStage = BoardStage & {
   requisitionId: string;
   type: StageType;
+  /** The email a person moving somebody into the stage sends. */
+  emailTemplateId?: string | null;
+  /** Employee ids on an interview stage's panel. */
+  panel?: string[];
 };
 
 export type DemoEvent = {
@@ -91,7 +98,7 @@ export type DemoQueueEntry = {
   tagIds?: string[];
 };
 
-export type DemoBook = {
+export type DemoBook = DemoComms & {
   stages: DemoStage[];
   apps: DemoApp[];
   tags: Tag[];
@@ -145,6 +152,11 @@ export function cardOf(book: DemoBook, app: DemoApp): BoardCard {
         ? `${app.rejection.label}. ${app.rejection.note}`
         : app.rejection.label
       : null,
+    score: scoreFor(app.id),
+    scheduledDeletionOn:
+      app.outcome === "REJECTED" || app.outcome === "WITHDRAWN"
+        ? retentionLine(book, app).scheduledDeletionOn
+        : null,
   };
 }
 
@@ -240,7 +252,12 @@ function replaceApp(book: DemoBook, next: DemoApp): DemoBook {
 const eventId = (app: DemoApp): string =>
   `${app.id}-e${String(app.history.length + 1)}`;
 
-export function moveApp(book: DemoBook, id: string, stageId: string): Op {
+export function moveApp(
+  book: DemoBook,
+  id: string,
+  stageId: string,
+  sendEmail = false,
+): Op<MoveResult> {
   const app = book.apps.find((a) => a.id === id);
   if (!app) return fail("That application is not here any more.");
   const to = book.stages.find((s) => s.id === stageId);
@@ -250,7 +267,8 @@ export function moveApp(book: DemoBook, id: string, stageId: string): Op {
     return fail(
       `${app.name} is no longer in the process, so they cannot be moved.`,
     );
-  if (app.stageId === stageId) return { ok: true, book, value: undefined };
+  if (app.stageId === stageId)
+    return { ok: true, book, value: { email: null } };
   if (to.type === "HIRED")
     return fail(
       "Nobody is moved into Hired directly. Make an offer and record that they accepted it.",
@@ -282,7 +300,22 @@ export function moveApp(book: DemoBook, id: string, stageId: string): Op {
       },
     ],
   };
-  return { ok: true, book: replaceApp(book, moved), value: undefined };
+  const placed = replaceApp(book, moved);
+  /* A person moved them, and said to tell them: that is the one occasion a stage's
+     message is owed. Nothing is owed unless the stage has one. */
+  const template = sendEmail
+    ? book.emailTemplates.find(
+        (t) => t.id === to.emailTemplateId && !t.archived,
+      )
+    : undefined;
+  if (!template) return { ok: true, book: placed, value: { email: null } };
+  const owed = owe(placed, moved, {
+    kind: template.kind,
+    trigger: "STAGE_ENTRY",
+    stageName: to.name,
+    templateId: template.id,
+  });
+  return { ok: true, book: owed.book, value: { email: owed.notice } };
 }
 
 export function rejectApp(
@@ -290,7 +323,8 @@ export function rejectApp(
   id: string,
   reasonId: string,
   note: string | null,
-): Op {
+  sendEmail = false,
+): Op<MoveResult> {
   const app = book.apps.find((a) => a.id === id);
   if (!app) return fail("That application is not here any more.");
   const reason = book.reasons.find((r) => r.id === reasonId);
@@ -327,7 +361,16 @@ export function rejectApp(
       },
     ],
   };
-  return { ok: true, book: replaceApp(book, rejected), value: undefined };
+  const placed = replaceApp(book, rejected);
+  /* Nothing is sent because somebody was rejected: only when the person said so. */
+  if (!sendEmail) return { ok: true, book: placed, value: { email: null } };
+  const owed = owe(placed, rejected, {
+    kind: "DECLINE",
+    trigger: "REJECTION",
+    stageName: from?.name ?? null,
+    templateId: null,
+  });
+  return { ok: true, book: owed.book, value: { email: owed.notice } };
 }
 
 export function setTagged(
@@ -375,17 +418,30 @@ export function applyBulk(
   let done = 0;
   let skipped = 0;
   const refused: BulkRefusal[] = [];
+  let asked = 0;
+  let queued = 0;
+  let firstNote: string | null = null;
+
+  const asksEmail =
+    (action.type === "move" && action.sendEmail === true) ||
+    (action.type === "reject" && action.sendEmail);
 
   for (const id of ids) {
     const app = next.apps.find((a) => a.id === id);
     const name = app?.name ?? "Somebody";
-    let result: Op;
+    let result: Op<MoveResult | undefined>;
     switch (action.type) {
       case "move":
-        result = moveApp(next, id, action.stageId);
+        result = moveApp(next, id, action.stageId, action.sendEmail === true);
         break;
       case "reject":
-        result = rejectApp(next, id, action.reasonId, action.note);
+        result = rejectApp(
+          next,
+          id,
+          action.reasonId,
+          action.note,
+          action.sendEmail,
+        );
         break;
       case "tag":
         result = setTagged(next, id, action.tagId, true);
@@ -398,6 +454,13 @@ export function applyBulk(
         break;
     }
     if (result.ok) {
+      const email = result.value?.email ?? null;
+      if (email) {
+        asked += 1;
+        if (email.status === "PENDING" || email.status === "SENDING")
+          queued += 1;
+        else firstNote ??= email.note;
+      }
       /* A write that changed nothing — already in that stage, already tagged —
          is skipped, not done and not refused. */
       if (result.book === next) skipped += 1;
@@ -415,7 +478,11 @@ export function applyBulk(
       done,
       skipped,
       refused,
-      emailed: null,
+      emailed: asksEmail ? queued : null,
+      emailNote:
+        asksEmail && asked > queued
+          ? (firstNote ?? "Some emails were not queued.")
+          : null,
     },
   };
 }

@@ -45,6 +45,7 @@ import { useUnreadCount } from "@/lib/store/notifications";
 import { useApprovalQueue } from "@/lib/store/approvals-api";
 import { useLeaveRequests } from "@/lib/store/leave-api";
 import { useAttendanceRoster, type RosterState } from "@/lib/store/attendance";
+import { useHaveInterviews } from "@/lib/hiring/pipeline/use-mine";
 import { useAmIInAOneOnOne } from "@/lib/store/one-on-ones";
 import { useHaveIAnySignatures } from "@/lib/store/signatures";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
@@ -160,12 +161,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const canSendForSignature = hasPermission(permissions, "EDIT_RECORDS");
   const haveSignatures = useHaveIAnySignatures(!canSendForSignature);
 
+  /* Interviews: showing to somebody on a panel, invited to one, or hiring for a
+     role. A panelist holds none of the hiring permissions, which is the point of
+     the page, so no permission can answer it: one request per session. */
+  const haveInterviews = useHaveInterviews(true);
+
   const facts: NavFacts = useMemo(
     () => ({
       assistantWired,
       rows: {
         "one-on-ones": isManager || inAOneOnOne,
         signatures: canSendForSignature || haveSignatures,
+        interviews: haveInterviews,
       },
     }),
     [
@@ -174,6 +181,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       inAOneOnOne,
       canSendForSignature,
       haveSignatures,
+      haveInterviews,
     ],
   );
   const billing = useBilling();

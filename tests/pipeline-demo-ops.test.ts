@@ -70,6 +70,16 @@ const app = (n: number, over: Partial<DemoApp> = {}): DemoApp => ({
 });
 
 const book = (apps: DemoApp[]): DemoBook => ({
+  emailTemplates: [],
+  emails: [],
+  mail: {
+    enabled: true,
+    replyTo: "people@example.com",
+    companyName: "Acme",
+    senderName: "Acme",
+  },
+  retention: { months: null, setAt: null },
+  scorecards: [],
   stages: [
     stage("s-applied", "Applied", 0, "APPLIED"),
     stage("s-interview", "Interview", 1, "INTERVIEW", true),

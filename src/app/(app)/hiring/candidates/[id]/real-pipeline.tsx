@@ -10,6 +10,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Checkbox,
   DescriptionList,
   Field,
   Input,
@@ -20,9 +21,17 @@ import {
   Skeleton,
   Textarea,
 } from "@/components/ui";
+import { MoveEmailDialog } from "@/components/hiring/move-email-dialog";
 import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
+import { PeopleEditor, type Person } from "@/components/hiring/people-editor";
+import {
+  DeletionNotice,
+  InterviewScoreCard,
+  RecordEmails,
+} from "@/components/hiring/record-comms";
 import { RecordTags } from "@/components/hiring/record-tags";
 import { RejectDialog } from "@/components/hiring/reject-dialog";
+import { ScorecardDialog } from "@/components/hiring/scorecard-dialog";
 import { StageHistory } from "@/components/hiring/stage-history";
 import { ExportButton } from "@/components/portal/export-button";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -39,13 +48,21 @@ import {
   type ApiStage,
   type InterviewKind,
   type RescheduleInterviewBody,
-  type ScorecardRecommendation,
   type UpdateOfferBody,
 } from "@/lib/api/recruitment";
+import { noticeSentence } from "@/lib/hiring/comms/status";
+import type { ScorecardInput } from "@/lib/hiring/comms/model";
+import { noticeFrom } from "@/lib/hiring/pipeline/api-gateway";
+import { emailLogFrom, scoreFrom } from "@/lib/hiring/pipeline/api-comms";
+import {
+  useEmailReadiness,
+  useStageMail,
+} from "@/lib/hiring/pipeline/use-comms";
 import {
   usePipelineGateway,
   useRejectionReasons,
 } from "@/lib/hiring/pipeline/use-pipeline";
+import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { isTerminalType } from "@/lib/hiring/pipeline/stage-types";
 import { useCan } from "@/lib/permissions";
 import {
@@ -58,6 +75,18 @@ import {
 } from "@/lib/store/recruitment";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatWeekdayTime } from "@/lib/time";
+
+/** What a scorecard form hands over, as the API's body. */
+const scorecardBody = (input: ScorecardInput) => ({
+  recommendation: input.recommendation,
+  ...(input.notes.trim() ? { notes: input.notes.trim() } : {}),
+  ratings: input.ratings.map((rating) => ({
+    competency: rating.competency,
+    score: rating.score,
+    weight: rating.weight,
+    ...(rating.comment.trim() ? { comment: rating.comment.trim() } : {}),
+  })),
+});
 
 const OUTCOME_TONE = {
   IN_PROGRESS: "info",
@@ -181,6 +210,11 @@ export function RealPipeline({
     null,
   );
   const [scoring, setScoring] = useState<string | null>(null);
+  const readiness = useEmailReadiness(canManage);
+  const emailsSupported = readiness.data?.supported === true;
+  const stageMail = useStageMail(application.requisitionId, canManage);
+  const directory = useEmployeeDirectory({ pageSize: 200 });
+  const [movingTo, setMovingTo] = useState<string | null>(null);
   const [openScorecards, setOpenScorecards] = useState<Set<string>>(
     () => new Set(),
   );
@@ -199,11 +233,11 @@ export function RealPipeline({
   const [withdrawingApplication, setWithdrawingApplication] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{
-    tone: "success" | "danger";
+    tone: "success" | "warning" | "danger";
     text: string;
   } | null>(null);
 
-  const say = (tone: "success" | "danger", text: string) =>
+  const say = (tone: "success" | "warning" | "danger", text: string) =>
     setNotice({ tone, text });
   const fail = (error: unknown) =>
     say(
@@ -213,25 +247,57 @@ export function RealPipeline({
         : "Something went wrong. Try again.",
     );
 
-  async function moveTo(stageId: string) {
+  /**
+   * The stage sends an email when somebody is moved into it, so ask first: the API
+   * sends it unless told not to. If it is not known whether the stage sends one,
+   * nothing is sent.
+   */
+  function chooseStage(stageId: string) {
+    if (emailsSupported && stageMail.known && stageMail.byStage.has(stageId)) {
+      setMovingTo(stageId);
+      return;
+    }
+    void moveTo(stageId, false);
+  }
+
+  async function moveTo(stageId: string, sendEmail: boolean) {
     setBusy(true);
     try {
-      await applications.move(application.id, stageId);
-      say("success", "Moved.");
+      const result = await applications.move(
+        application.id,
+        stageId,
+        sendEmail,
+      );
+      const said = noticeSentence(
+        noticeFrom(result.email),
+        application.candidateName,
+      );
+      say(
+        said && (said.tone === "warning" || said.tone === "danger")
+          ? "warning"
+          : "success",
+        said ? `Moved. ${said.text}` : "Moved.",
+      );
+      setMovingTo(null);
       onChanged();
     } catch (error) {
+      setMovingTo(null);
       fail(error);
     } finally {
       setBusy(false);
     }
   }
 
-  /** A reason from the company's list, and an optional note. Nothing is sent. */
-  async function reject(choice: { reasonId: string; note: string | null }) {
+  /** A reason from the company's list, and an optional note. A decline email only if it was ticked. */
+  async function reject(choice: {
+    reasonId: string;
+    note: string | null;
+    sendEmail: boolean;
+  }) {
     setBusy(true);
     setRejectError(null);
     try {
-      await gateway.reject(
+      const result = await gateway.reject(
         {
           id: application.id,
           candidateId: application.candidate.id,
@@ -249,9 +315,15 @@ export function RealPipeline({
           outcome: application.outcome,
           rejectionReason: application.rejectionReason,
         },
-        { ...choice, sendEmail: false },
+        choice,
       );
-      say("success", "Rejected. Nothing was sent to them.");
+      const said = noticeSentence(result.email, application.candidateName);
+      say(
+        said && (said.tone === "warning" || said.tone === "danger")
+          ? "warning"
+          : "success",
+        said ? `Rejected. ${said.text}` : "Rejected. Nothing was sent to them.",
+      );
       setRejecting(false);
       onChanged();
     } catch (error) {
@@ -287,7 +359,13 @@ export function RealPipeline({
       {notice && (
         <Callout
           tone={notice.tone}
-          title={notice.tone === "success" ? "Done" : "Not done"}
+          title={
+            notice.tone === "success"
+              ? "Done"
+              : notice.tone === "warning"
+                ? "Done, with a note"
+                : "Not done"
+          }
         >
           {notice.text}
         </Callout>
@@ -342,7 +420,7 @@ export function RealPipeline({
                   className="w-auto"
                   onChange={(event) => {
                     if (event.currentTarget.value)
-                      void moveTo(event.currentTarget.value);
+                      chooseStage(event.currentTarget.value);
                   }}
                 >
                   <option value="" disabled>
@@ -397,6 +475,8 @@ export function RealPipeline({
           canManage={canManage}
           onChanged={onChanged}
           onNotice={say}
+          emailsSupported={emailsSupported}
+          blockedBy={readiness.data?.blockedBy ?? []}
         />
       ) : application.outcome === "IN_PROGRESS" ? (
         <Card>
@@ -449,7 +529,20 @@ export function RealPipeline({
                     {formatWeekdayTime(iv.scheduledFor, timeZone)} ·{" "}
                     {iv.durationMins} mins
                     {iv.location ? ` · ${iv.location}` : ""}
+                    {iv.stageName ? ` · ${iv.stageName}` : ""}
                   </p>
+                  {iv.panelists && iv.panelists.length > 0 && (
+                    <p className="mt-1 text-meta text-muted">
+                      Invited to score it:{" "}
+                      {iv.panelists.map((person, index) => (
+                        <span key={person.employeeId}>
+                          {index > 0 ? ", " : ""}
+                          <span className="text-body">{person.name}</span>
+                          {person.submitted ? " (scorecard in)" : " (waiting)"}
+                        </span>
+                      ))}
+                    </p>
+                  )}
                 </div>
                 <Badge tone={INTERVIEW_STATUS_TONE[iv.status]} size="sm">
                   {iv.status.replace("_", " ").toLowerCase()}
@@ -471,7 +564,10 @@ export function RealPipeline({
                 ) : (
                   <span className="text-meta text-muted">
                     {iv.scorecards.filter((s) => s.submitted).length} of{" "}
-                    {iv.scorecards.length || 1} scorecards in
+                    {iv.panelists && iv.panelists.length > 0
+                      ? iv.panelists.length
+                      : iv.scorecards.length || 1}{" "}
+                    scorecards in
                   </span>
                 )}
                 <Button
@@ -567,6 +663,23 @@ export function RealPipeline({
       {/* Last, after the live controls: this is the record of what has been
           done, read after the things that can still be done. It comes with the
           application itself, so it refreshes with every `onChanged`. */}
+      {application.scores && (
+        <InterviewScoreCard score={scoreFrom(application.scores)} />
+      )}
+
+      {application.emails && (
+        <RecordEmails
+          emails={emailLogFrom(application.emails)}
+          timeZone={timeZone}
+        />
+      )}
+
+      {application.retention &&
+        (application.outcome === "REJECTED" ||
+          application.outcome === "WITHDRAWN") && (
+          <DeletionNotice line={application.retention} />
+        )}
+
       <StageHistory events={application.history} />
 
       {/* Each dialog below stays mounted regardless of its gating state —
@@ -575,10 +688,37 @@ export function RealPipeline({
       <ScheduleInterviewDialog
         open={scheduling}
         onClose={() => setScheduling(false)}
+        stagePanel={
+          stageMail.stages
+            ?.find((stage) => stage.stageId === application.stageId)
+            ?.panel?.map((member) => ({
+              id: member.employeeId,
+              name: member.name,
+            })) ?? null
+        }
+        people={directory.people.map((person) => ({
+          id: person.id,
+          name: person.fullName,
+          jobTitle: person.jobTitle,
+        }))}
+        peopleLoading={directory.loading}
+        emailsSupported={emailsSupported}
+        blockedBy={readiness.data?.blockedBy ?? []}
         onConfirm={async (body) => {
           try {
-            await interviews.schedule(application.id, body);
+            const booked = await interviews.schedule(application.id, body);
             setScheduling(false);
+            const said = noticeSentence(
+              noticeFrom(booked.email),
+              application.candidateName,
+            );
+            if (said)
+              say(
+                said.tone === "warning" || said.tone === "danger"
+                  ? "warning"
+                  : "success",
+                `Interview booked. ${said.text}`,
+              );
             onChanged();
           } catch (error) {
             fail(error);
@@ -605,15 +745,13 @@ export function RealPipeline({
       <ScorecardDialog
         open={scoring !== null}
         onClose={() => setScoring(null)}
-        onConfirm={async (body) => {
+        onConfirm={async (input) => {
           if (!scoring) return;
-          try {
-            await interviews.submitScorecard(scoring, body);
-            setScoring(null);
-            onChanged();
-          } catch (error) {
-            fail(error);
-          }
+          /* A refusal is thrown to the dialog, which shows it where the
+             person is looking and keeps what they wrote. */
+          await interviews.submitScorecard(scoring, scorecardBody(input));
+          setScoring(null);
+          onChanged();
         }}
       />
 
@@ -641,7 +779,31 @@ export function RealPipeline({
         subject={application.candidateName}
         reasons={reasons.items}
         onClose={() => setRejecting(false)}
+        emailOffer={
+          emailsSupported
+            ? {
+                label: "Send them a decline email",
+                description:
+                  "Off unless you tick it. Rejecting never emails anybody by itself.",
+                blockedBy: readiness.data?.blockedBy ?? [],
+              }
+            : null
+        }
         onConfirm={(choice) => void reject(choice)}
+      />
+
+      <MoveEmailDialog
+        open={movingTo !== null}
+        onClose={() => setMovingTo(null)}
+        who={application.candidateName}
+        stage={
+          stageMail.stages?.find((stage) => stage.stageId === movingTo)?.name ??
+          "this stage"
+        }
+        mail={(movingTo && stageMail.byStage.get(movingTo)) || null}
+        readiness={readiness.data}
+        busy={busy}
+        onChoose={(send) => movingTo && void moveTo(movingTo, send)}
       />
 
       <WithdrawApplicationDialog
@@ -740,20 +902,27 @@ function OfferCard({
   canManage,
   onChanged,
   onNotice,
+  emailsSupported,
+  blockedBy,
 }: {
   offer: NonNullable<ApiApplicationDetail["offer"]>;
   candidateName: string;
   canApprove: boolean;
   canManage: boolean;
+  /** The server can send emails to candidates, so the offer notice is offered. */
+  emailsSupported: boolean;
+  /** Why an email asked for now would not be sent. */
+  blockedBy: readonly string[];
   onChanged: () => void;
   /** Surfaces a fact onto the page's own notice banner — used for accepting,
    *  which can silently reject every other in-progress candidate on the same
    *  requisition (the API fills the role and closes the rest of its own
    *  pipeline in the same transaction) with nothing else on this page ever
    *  saying so. */
-  onNotice: (tone: "success" | "danger", text: string) => void;
+  onNotice: (tone: "success" | "warning" | "danger", text: string) => void;
 }) {
   const offers = useOfferMutations();
+  const [tellThem, setTellThem] = useState(false);
   /* Recording an acceptance **creates the employee**, and `POST /employees` needs
      `EDIT_RECORDS` — so the API now asks for it as well as `MANAGE_HIRING`
      (managing hiring alone used to be a way round the permission that guards
@@ -866,14 +1035,51 @@ function OfferCard({
           {offer.status === "PENDING_APPROVAL" &&
             offer.approvedAt &&
             canManage && (
-              <Button
-                variant="accent"
-                size="sm"
-                loading={busy}
-                onClick={() => void run(() => offers.send(offer.id))}
-              >
-                Send
-              </Button>
+              <>
+                {emailsSupported && (
+                  <div className="flex w-full flex-col gap-1.5">
+                    <Checkbox
+                      label="Also tell them an offer is on its way"
+                      description="A short email with no figure and no letter. Off unless you tick it."
+                      checked={tellThem}
+                      onChange={(event) => setTellThem(event.target.checked)}
+                    />
+                    {tellThem && blockedBy.length > 0 && (
+                      <p className="text-meta text-warning-text">
+                        It would not be sent right now: {blockedBy.join(" ")}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <Button
+                  variant="accent"
+                  size="sm"
+                  loading={busy}
+                  onClick={() =>
+                    void run(() =>
+                      offers.send(
+                        offer.id,
+                        tellThem ? { sendEmail: true } : {},
+                      ),
+                    ).then((sent) => {
+                      if (!sent) return;
+                      const said = noticeSentence(
+                        noticeFrom(sent.email),
+                        candidateName,
+                      );
+                      if (said)
+                        onNotice(
+                          said.tone === "warning" || said.tone === "danger"
+                            ? "warning"
+                            : "success",
+                          `Offer marked as sent. ${said.text}`,
+                        );
+                    })
+                  }
+                >
+                  Send
+                </Button>
+              </>
             )}
           {offer.status === "PENDING_APPROVAL" &&
             offer.approvedAt &&
@@ -1037,6 +1243,11 @@ function ScheduleInterviewDialog({
   open,
   onClose,
   onConfirm,
+  stagePanel,
+  people,
+  peopleLoading,
+  emailsSupported,
+  blockedBy,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1045,13 +1256,41 @@ function ScheduleInterviewDialog({
     scheduledFor: string;
     durationMins?: number;
     location?: string;
+    panelistIds?: string[];
+    sendInvite?: boolean;
   }) => Promise<void>;
+  /** The panel of the stage they are in, when it is an interview stage with one. */
+  stagePanel: Person[] | null;
+  people: Person[];
+  peopleLoading: boolean;
+  emailsSupported: boolean;
+  blockedBy: readonly string[];
 }) {
   const [kind, setKind] = useState<InterviewKind>("SCREEN");
   const [when, setWhen] = useState("");
   const [duration, setDuration] = useState("60");
   const [location, setLocation] = useState("");
+  /* `null` is "whoever is on the stage's panel now", which the API works out; a
+     list is people somebody picked for this one interview. */
+  const [chosen, setChosen] = useState<Person[] | null>(null);
+  const [sendInvite, setSendInvite] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [wasOpen, setWasOpen] = useState(false);
+
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setKind("SCREEN");
+      setWhen("");
+      setDuration("60");
+      setLocation("");
+      setChosen(null);
+      setSendInvite(false);
+      setBusy(false);
+    }
+  }
+
+  const invited = chosen ?? stagePanel ?? [];
 
   return (
     <Modal
@@ -1075,6 +1314,8 @@ function ScheduleInterviewDialog({
                 scheduledFor: new Date(when).toISOString(),
                 durationMins: Number(duration) || 60,
                 ...(location.trim() ? { location: location.trim() } : {}),
+                ...(chosen ? { panelistIds: chosen.map((p) => p.id) } : {}),
+                ...(sendInvite ? { sendInvite: true } : {}),
               }).finally(() => setBusy(false));
             }}
           >
@@ -1118,6 +1359,64 @@ function ScheduleInterviewDialog({
             onChange={(e) => setLocation(e.currentTarget.value)}
           />
         </Field>
+
+        {emailsSupported && (
+          <div className="flex flex-col gap-2 rounded-md border border-line p-3">
+            <p className="text-body-sm font-medium text-ink">Who scores it</p>
+            {chosen === null ? (
+              <>
+                <p className="text-body-sm text-muted">
+                  {invited.length > 0
+                    ? `The stage's panel is invited: ${invited.map((p) => p.name).join(", ")}.`
+                    : "Nobody is invited to score it, so anybody who manages hiring can."}
+                </p>
+                <div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setChosen(stagePanel ?? [])}
+                  >
+                    Choose who is invited
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <PeopleEditor
+                label="Invited to score this interview"
+                empty="Nobody is invited, so anybody who manages hiring can score it."
+                members={chosen}
+                people={people}
+                loading={peopleLoading}
+                addPlaceholder="Invite somebody to score it"
+                onAdd={(person) => setChosen([...chosen, person])}
+                onRemove={(person) =>
+                  setChosen(chosen.filter((p) => p.id !== person.id))
+                }
+              />
+            )}
+          </div>
+        )}
+
+        {emailsSupported && (
+          <div className="flex flex-col gap-2 rounded-md border border-line p-3">
+            <Checkbox
+              label="Email them an invitation"
+              description="Off unless you tick it. Booking an interview never emails anybody by itself."
+              checked={sendInvite}
+              onChange={(event) => setSendInvite(event.target.checked)}
+            />
+            {sendInvite && blockedBy.length > 0 && (
+              <div className="text-body-sm text-warning-text">
+                <p>It would not be sent right now:</p>
+                <ul className="mt-1 list-disc pl-5">
+                  {blockedBy.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </Modal>
   );
@@ -1300,114 +1599,6 @@ function RescheduleInterviewDialog({
             Nothing here differs from what is already booked.
           </p>
         )}
-      </div>
-    </Modal>
-  );
-}
-
-const COMPETENCIES = [
-  "Technical depth",
-  "Communication",
-  "Ownership",
-  "Culture fit",
-];
-
-function ScorecardDialog({
-  open,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: (body: {
-    recommendation?: ScorecardRecommendation | null;
-    notes?: string;
-    ratings: { competency: string; score: number }[];
-  }) => Promise<void>;
-}) {
-  const [recommendation, setRecommendation] = useState<
-    ScorecardRecommendation | ""
-  >("");
-  const [scores, setScores] = useState<Record<string, number>>({});
-  const [notes, setNotes] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      size="md"
-      title="Submit a scorecard"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="accent"
-            loading={busy}
-            onClick={() => {
-              setBusy(true);
-              void onConfirm({
-                ...(recommendation ? { recommendation } : {}),
-                ...(notes.trim() ? { notes: notes.trim() } : {}),
-                ratings: COMPETENCIES.filter((c) => scores[c]).map((c) => ({
-                  competency: c,
-                  score: scores[c]!,
-                })),
-              }).finally(() => setBusy(false));
-            }}
-          >
-            Submit
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        {COMPETENCIES.map((c) => (
-          <Field key={c} label={c} optional>
-            <Select
-              value={scores[c] ? String(scores[c]) : ""}
-              onChange={(e) => {
-                const score = Number(e.currentTarget.value);
-                setScores((s) => ({ ...s, [c]: score }));
-              }}
-              placeholder="Not rated"
-            >
-              {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>
-                  {n} / 5
-                </option>
-              ))}
-            </Select>
-          </Field>
-        ))}
-        <Field label="Recommendation" optional>
-          <Select
-            value={recommendation}
-            onChange={(e) =>
-              setRecommendation(
-                e.currentTarget.value as ScorecardRecommendation,
-              )
-            }
-            placeholder="Not given"
-          >
-            {(
-              Object.keys(RECOMMENDATION_LABEL) as ScorecardRecommendation[]
-            ).map((r) => (
-              <option key={r} value={r}>
-                {RECOMMENDATION_LABEL[r]}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Notes" optional>
-          <Textarea
-            rows={3}
-            value={notes}
-            onChange={(e) => setNotes(e.currentTarget.value)}
-          />
-        </Field>
       </div>
     </Modal>
   );

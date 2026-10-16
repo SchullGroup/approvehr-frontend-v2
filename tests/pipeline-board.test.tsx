@@ -149,6 +149,10 @@ describe("moving with the menu", () => {
       within(cardOf(person)).getByLabelText(`Move ${person} to…`),
       "Shortlisted",
     );
+    /* Shortlisted sends a message to whoever is moved in, so it asks first. */
+    await user.click(
+      await screen.findByRole("button", { name: "Move without emailing" }),
+    );
 
     expect(
       await screen.findByText(`${person} moved to Shortlisted`),
@@ -188,6 +192,9 @@ describe("moving with the menu", () => {
     expect(menu).toHaveFocus();
     await user.keyboard("{ArrowDown}");
     await user.selectOptions(menu, "Interview");
+    await user.click(
+      await screen.findByRole("button", { name: "Move without emailing" }),
+    );
     expect(
       await screen.findByText(`${person} moved to Interview`),
     ).toBeInTheDocument();
@@ -344,7 +351,11 @@ describe("filters", () => {
       screen.getByRole("textbox", { name: /Find a candidate/ }),
       "zzzz",
     );
-    expect(await screen.findByText("Nobody matches")).toBeInTheDocument();
+    /* The search settles after a pause and the board is read again: a busy machine
+       needs longer than the default second. */
+    expect(
+      await screen.findByText("Nobody matches", {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("No candidates yet")).not.toBeInTheDocument();
   });
 });
@@ -406,6 +417,9 @@ describe("the table view", () => {
       .replace(/^Move /, "")
       .replace(/ to…$/, "");
     await user.selectOptions(menu, "Interview");
+    await user.click(
+      await screen.findByRole("button", { name: "Move without emailing" }),
+    );
     expect(
       await screen.findByText(`${person} moved to Interview`),
     ).toBeInTheDocument();

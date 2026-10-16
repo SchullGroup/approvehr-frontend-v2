@@ -28,6 +28,8 @@ export type TemplateStage = {
   name: string;
   type: StageType;
   requiresScorecards: boolean;
+  /** The email sent to somebody a person moves into the stage. Absent: none, or not said. */
+  emailTemplateId?: string | null;
 };
 
 export type TemplateProblems = {

@@ -48,6 +48,30 @@ vi.mock("@/lib/api/pipeline", () => ({
   ),
 }));
 
+/* The email and panel reads are the API's too: this file is about the board, so
+   they answer "this server sends no emails to candidates", which is what a server
+   that predates them would say. `stage-email-moves.test.tsx` holds the rest. */
+vi.mock("@/lib/hiring/pipeline/api-comms", () => ({
+  apiComms: {
+    stages: { list: async () => [] },
+    emails: {
+      catalog: async () => ({
+        fields: [],
+        kinds: [],
+        templates: [],
+        sender: null,
+      }),
+      readiness: async () => ({
+        supported: false,
+        enabled: false,
+        willSend: false,
+        blockedBy: [],
+        sender: null,
+      }),
+    },
+  },
+}));
+
 const { PipelineWorkspace } =
   await import("@/app/(app)/hiring/requisitions/[id]/pipeline-workspace");
 
@@ -241,7 +265,12 @@ describe("moving a card", () => {
     expect(
       await screen.findByText(`${person} moved to Interview`),
     ).toBeInTheDocument();
-    expect(api.move).toHaveBeenCalledWith(expect.stringMatching(/^a0/), "s2");
+    /* Said outright: the API sends a stage's message unless told not to. */
+    expect(api.move).toHaveBeenCalledWith(
+      expect.stringMatching(/^a0/),
+      "s2",
+      false,
+    );
     expect(peopleIn("Interview")).toContain(person);
     expect(
       screen.getByRole("region", { name: "Applied, 59 people" }),

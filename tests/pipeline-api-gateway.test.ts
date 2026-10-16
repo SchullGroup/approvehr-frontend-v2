@@ -305,11 +305,13 @@ describe("the board", () => {
 
 describe("moving, rejecting and tagging one person", () => {
   it("moves by the application's id", async () => {
-    await apiGateway.move({ id: "a1" } as never, "s2");
-    expect(calls.move).toHaveBeenCalledWith("a1", "s2");
+    calls.move.mockResolvedValue({});
+    await apiGateway.move({ id: "a1" } as never, "s2", { sendEmail: false });
+    expect(calls.move).toHaveBeenCalledWith("a1", "s2", false);
   });
 
   it("rejects with a reason's id and the note, and says no email was asked for", async () => {
+    calls.reject.mockResolvedValue({});
     const result = await apiGateway.reject({ id: "a1" } as never, {
       reasonId: "r1",
       note: "Asked for twice the band",
@@ -318,8 +320,9 @@ describe("moving, rejecting and tagging one person", () => {
     expect(calls.reject).toHaveBeenCalledWith("a1", {
       reasonId: "r1",
       note: "Asked for twice the band",
+      sendEmail: false,
     });
-    expect(result.emailed).toBeNull();
+    expect(result.email).toBeNull();
   });
 
   it("a refusal reaches the screen as the API wrote it", async () => {
@@ -330,9 +333,9 @@ describe("moving, rejecting and tagging one person", () => {
         "Nobody is moved into Hired directly.",
       ),
     );
-    await expect(apiGateway.move({ id: "a1" } as never, "h")).rejects.toThrow(
-      "Nobody is moved into Hired directly.",
-    );
+    await expect(
+      apiGateway.move({ id: "a1" } as never, "h", { sendEmail: false }),
+    ).rejects.toThrow("Nobody is moved into Hired directly.");
   });
 
   it("puts a tag on the person, keeping the ones they have", async () => {
@@ -862,5 +865,115 @@ describe("templates, reasons and the talent pool", () => {
       expect.anything(),
     );
     expect(last.next).toBeNull();
+  });
+});
+
+describe("email and the connected gateway", () => {
+  const request = (action: Record<string, unknown>, ids = ["a1", "a2"]) => ({
+    target: { kind: "ids" as const, requisitionId: "r1", ids },
+    action: action as never,
+    idempotencyKey: "k",
+    signal: signal(),
+    onProgress: vi.fn(),
+  });
+  const done = (applied: number) => ({
+    replay: false,
+    job: job({ total: applied, applied }),
+    results: Array.from({ length: applied }, (_, i) =>
+      row(`a${String(i)}`, "APPLIED"),
+    ),
+  });
+
+  it("says outright whether a move sends the stage's email, and reads what the API did", async () => {
+    calls.move.mockResolvedValue({
+      email: { id: "e1", kind: "INVITE", status: "PENDING", note: null },
+    });
+    const result = await apiGateway.move({ id: "a1" } as never, "s2", {
+      sendEmail: true,
+    });
+    expect(calls.move).toHaveBeenCalledWith("a1", "s2", true);
+    expect(result.email).toEqual({
+      status: "PENDING",
+      note: null,
+      kindLabel: "Invitation to interview",
+    });
+  });
+
+  it("reads no email as none, not as a failure", async () => {
+    calls.move.mockResolvedValue({ email: null });
+    expect(
+      (await apiGateway.move({ id: "a1" } as never, "s2", { sendEmail: false }))
+        .email,
+    ).toBeNull();
+  });
+
+  it("never asks a bulk action to send email unless the person ticked it, and says nothing about email then", async () => {
+    calls.bulk.mockResolvedValue(done(2));
+    const quiet = await apiGateway.bulk(
+      request({ type: "move", stageId: "s2" }),
+    );
+    expect(calls.bulk.mock.calls[0]?.[0]).not.toHaveProperty("sendEmails");
+    expect(quiet.emailed).toBeNull();
+
+    await apiGateway.bulk(
+      request({ type: "move", stageId: "s2", sendEmail: false }),
+    );
+    expect(calls.bulk.mock.calls[1]?.[0]).not.toHaveProperty("sendEmails");
+
+    await apiGateway.bulk(
+      request({ type: "reject", reasonId: "r9", note: null, sendEmail: false }),
+    );
+    expect(calls.bulk.mock.calls[2]?.[0]).not.toHaveProperty("sendEmails");
+  });
+
+  it("asks for it when ticked, and counts one queued email for each person it was applied to", async () => {
+    calls.bulk.mockResolvedValue({
+      replay: false,
+      job: job({ total: 3, applied: 2, skipped: 1 }),
+      results: [
+        row("a1", "APPLIED"),
+        row("a2", "APPLIED"),
+        row("a3", "SKIPPED"),
+      ],
+    });
+    const outcome = await apiGateway.bulk(
+      request({ type: "move", stageId: "s2", sendEmail: true }, [
+        "a1",
+        "a2",
+        "a3",
+      ]),
+    );
+    expect(calls.bulk.mock.calls[0]?.[0]).toMatchObject({ sendEmails: true });
+    expect(outcome.emailed).toBe(2);
+
+    calls.bulk.mockResolvedValue(done(4));
+    const rejected = await apiGateway.bulk(
+      request({ type: "reject", reasonId: "r9", note: null, sendEmail: true }, [
+        "a1",
+        "a2",
+        "a3",
+        "a4",
+      ]),
+    );
+    expect(calls.bulk.mock.calls[1]?.[0]).toMatchObject({
+      action: "REJECT",
+      sendEmails: true,
+    });
+    expect(rejected.emailed).toBe(4);
+  });
+
+  it("refuses for the stage with no email in the API's words, and does nothing", async () => {
+    calls.bulk.mockRejectedValue(
+      new ApiError(
+        422,
+        "unprocessable",
+        '"Interview" has no email to send. Set one on the stage, or move people without sending emails.',
+      ),
+    );
+    await expect(
+      apiGateway.bulk(
+        request({ type: "move", stageId: "s2", sendEmail: true }),
+      ),
+    ).rejects.toThrow(/has no email to send/);
   });
 });

@@ -21,6 +21,7 @@ import {
   daysSince,
   STALE_AFTER_DAYS,
 } from "@/lib/hiring/pipeline/age";
+import { DeletionLine, ScoreBadge } from "@/components/hiring/card-bits";
 import { columnKeyOf } from "@/lib/hiring/pipeline/columns";
 import { channelLabel } from "@/lib/hiring/pipeline/filters";
 import type { BoardCard, BoardColumn } from "@/lib/hiring/pipeline/model";
@@ -190,6 +191,7 @@ function Section({
           Talent pool
         </Badge>
       )}
+      <ScoreBadge score={card.score} />
       {card.tags.map((tag) => (
         <Tag key={tag.id}>{tag.name}</Tag>
       ))}
@@ -293,6 +295,10 @@ function Section({
                           {card.rejectionReason}
                         </p>
                       )}
+                      <DeletionLine
+                        day={card.scheduledDeletionOn}
+                        className="mt-0.5 text-meta text-muted"
+                      />
                     </TD>
                     <TD>{chips(card)}</TD>
                     <TD>{card.source ? channelLabel(card.source) : "—"}</TD>
@@ -335,6 +341,7 @@ function Section({
                 {card.rejectionReason && (
                   <p className="text-meta text-muted">{card.rejectionReason}</p>
                 )}
+                <DeletionLine day={card.scheduledDeletionOn} />
                 {moveSelect(card)}
               </li>
             ))}

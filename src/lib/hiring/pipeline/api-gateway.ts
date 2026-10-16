@@ -1,6 +1,10 @@
 "use client";
 
 import { ApiError } from "@/lib/api/client";
+import type { ApiQueuedEmail } from "@/lib/api/candidate-email";
+import { kindInfo } from "@/lib/hiring/comms/fields";
+import type { EmailNotice } from "@/lib/hiring/comms/model";
+import { apiComms } from "./api-comms";
 import {
   pipelineApi,
   type ApiBoardCard,
@@ -78,8 +82,20 @@ export function cardFrom(
     stageEnteredAt: card.stageEnteredAt,
     outcome: card.outcome,
     rejectionReason: rejectionLine(card),
+    score: card.score ?? null,
+    scheduledDeletionOn: card.scheduledDeletionOn ?? null,
   };
 }
+
+/** What the API says about the one email an action owed, or `null` when none was. */
+export const noticeFrom = (queued: ApiQueuedEmail | undefined): EmailNotice =>
+  queued
+    ? {
+        status: queued.status,
+        note: queued.note,
+        kindLabel: kindInfo(queued.kind).label,
+      }
+    : null;
 
 const endsOf = (column: ApiBoardColumn): BoardColumnData["ends"] =>
   column.type === "HIRED" || column.key === "outcome:HIRED"
@@ -125,6 +141,7 @@ const templateFrom = (template: ApiTemplate): PipelineTemplate => ({
       name: stage.name,
       type: stage.type,
       requiresScorecards: stage.requiresScorecards,
+      emailTemplateId: stage.emailTemplateId ?? null,
     })),
 });
 
@@ -165,12 +182,18 @@ const pause = (ms: number, signal: AbortSignal): Promise<void> =>
 const kindOf = (action: Parameters<PipelineGateway["bulk"]>[0]["action"]) => {
   switch (action.type) {
     case "move":
-      return { action: "MOVE", stageId: action.stageId } as const;
+      return {
+        action: "MOVE",
+        stageId: action.stageId,
+        /* Absent is false on the API as well; it is only ever sent when ticked. */
+        ...(action.sendEmail ? { sendEmails: true } : {}),
+      } as const;
     case "reject":
       return {
         action: "REJECT",
         reasonId: action.reasonId,
         ...(action.note ? { note: action.note } : {}),
+        ...(action.sendEmail ? { sendEmails: true } : {}),
       } as const;
     case "tag":
       return { action: "TAG", tagId: action.tagId } as const;
@@ -272,12 +295,16 @@ async function bulk(
         }));
 
   const total = target.kind === "filter" ? target.expected : target.ids.length;
+  /* Emails were asked for in this action, or they were not. */
+  const asked =
+    (action.type === "move" && action.sendEmail === true) ||
+    (action.type === "reject" && action.sendEmail);
   let outcome: BulkOutcome = {
     requested: 0,
     done: 0,
     skipped: 0,
     refused: [],
-    emailed: null,
+    emailed: asked ? 0 : null,
   };
   let finished = 0;
   onProgress({ done: 0, total });
@@ -307,7 +334,8 @@ async function bulk(
         done: outcome.done + job.applied,
         skipped: outcome.skipped + job.skipped,
         refused: [...outcome.refused, ...rows.map(refusalFrom)],
-        emailed: null,
+        /* One email is queued for everybody the action was applied to. */
+        emailed: asked ? (outcome.emailed ?? 0) + job.applied : null,
       };
     } else {
       const counted = tally(rows);
@@ -316,7 +344,7 @@ async function bulk(
         done: outcome.done + counted.done,
         skipped: outcome.skipped + counted.skipped,
         refused: [...outcome.refused, ...counted.refused],
-        emailed: null,
+        emailed: asked ? (outcome.emailed ?? 0) + counted.done : null,
       };
     }
     finished += job.total;
@@ -336,6 +364,7 @@ function chunks<T>(list: readonly T[], size: number): T[][] {
 
 export const apiGateway: PipelineGateway = {
   mode: "api",
+  ...apiComms,
 
   board: async ({ requisitionId, filters, limit }, signal) => {
     const board = await pipelineApi.board(
@@ -361,16 +390,18 @@ export const apiGateway: PipelineGateway = {
     return { cards: mapped.cards, total: mapped.total, next: mapped.next };
   },
 
-  move: async (card, stageId) => {
-    await pipelineApi.move(card.id, stageId);
+  move: async (card, stageId, input) => {
+    const answer = await pipelineApi.move(card.id, stageId, input.sendEmail);
+    return { email: noticeFrom(answer.email) };
   },
 
   reject: async (card, input) => {
-    await pipelineApi.reject(card.id, {
+    const answer = await pipelineApi.reject(card.id, {
       reasonId: input.reasonId,
       note: input.note,
+      sendEmail: input.sendEmail,
     });
-    return { emailed: null, note: null };
+    return { email: noticeFrom(answer.email) };
   },
 
   setTag: async (card, tagId, on) => {
@@ -484,6 +515,9 @@ export const apiGateway: PipelineGateway = {
           name: stage.name,
           type: stage.type,
           requiresScorecards: stage.requiresScorecards,
+          ...(stage.emailTemplateId !== undefined
+            ? { emailTemplateId: stage.emailTemplateId }
+            : {}),
         })),
       };
       return templateFrom(

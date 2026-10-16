@@ -1,3 +1,22 @@
+import type { ApiCvLink } from "@/lib/api/careers";
+import type {
+  EmailCatalog,
+  EmailDraft,
+  EmailPreview,
+  EmailReadiness,
+  EmailTemplate,
+  MoveResult,
+  MyAccess,
+  MyApplication,
+  MyApplicationPage,
+  MyInterviewPage,
+  MyScorecard,
+  PanelMember,
+  PreviewRequest,
+  RetentionReport,
+  ScorecardInput,
+  StageSetting,
+} from "@/lib/hiring/comms/model";
 import type {
   BoardCard,
   BoardData,
@@ -36,14 +55,21 @@ export type RejectInput = {
   sendEmail: boolean;
 };
 
+export type MoveInput = {
+  /**
+   * Whether to send the stage's message to the person moved. Always said, never
+   * defaulted: the API sends one unless told not to, so a caller that did not
+   * decide would be emailing somebody by accident.
+   */
+  sendEmail: boolean;
+};
+
 export type RejectResult = {
   /**
-   * What the API says about the decline email: `true` it was queued, `false` it
-   * was asked for and skipped (the API says why in `note`), `null` it was not
-   * asked for. A screen never claims an email went out on anything but `true`.
+   * What the API says about the decline email, or `null` when none was asked for.
+   * A screen never claims an email went out on anything but a `SENT` status.
    */
-  emailed: boolean | null;
-  note: string | null;
+  email: MoveResult["email"];
 };
 
 export type TemplateDraft = {
@@ -82,7 +108,7 @@ export type PipelineGateway = {
   /** One page of one column, or of the whole role when `column` is `null`. */
   listCards(query: ColumnQuery, signal: AbortSignal): Promise<ColumnPage>;
 
-  move(card: BoardCard, stageId: string): Promise<void>;
+  move(card: BoardCard, stageId: string, input: MoveInput): Promise<MoveResult>;
   reject(card: BoardCard, input: RejectInput): Promise<RejectResult>;
   setTag(card: BoardCard, tagId: string, on: boolean): Promise<void>;
   setTalentPool(card: BoardCard, on: boolean): Promise<void>;
@@ -120,6 +146,73 @@ export type PipelineGateway = {
       id: string,
       change: { label?: string; active?: boolean },
     ): Promise<void>;
+  };
+
+  /** A role's stages as the email and panel settings read them. */
+  stages: {
+    list(requisitionId: string, signal: AbortSignal): Promise<StageSetting[]>;
+    /** `null` takes the message off the stage. */
+    setEmail(
+      requisitionId: string,
+      stageId: string,
+      templateId: string | null,
+    ): Promise<void>;
+    /** Replaces the panel with exactly these employees. */
+    setPanel(
+      requisitionId: string,
+      stageId: string,
+      employeeIds: string[],
+    ): Promise<PanelMember[]>;
+  };
+
+  /** The company's emails to candidates. */
+  emails: {
+    catalog(signal: AbortSignal): Promise<EmailCatalog>;
+    /** Whether an email asked for would actually leave, and in whose name. */
+    readiness(signal: AbortSignal): Promise<EmailReadiness>;
+    create(draft: EmailDraft): Promise<EmailTemplate>;
+    update(
+      id: string,
+      patch: Partial<
+        Pick<EmailDraft, "name" | "subject" | "body" | "isDefault">
+      >,
+    ): Promise<EmailTemplate>;
+    archive(id: string): Promise<EmailTemplate>;
+    restore(id: string): Promise<EmailTemplate>;
+    /** Never throws for a half-typed field: it answers `valid: false` with the problems. */
+    preview(
+      request: PreviewRequest,
+      signal: AbortSignal,
+    ): Promise<EmailPreview>;
+    /** The company's own switch for emails to candidates. */
+    setEnabled(enabled: boolean): Promise<void>;
+  };
+
+  /** How long rejected and withdrawn candidates are kept. */
+  retention: {
+    report(signal: AbortSignal): Promise<RetentionReport>;
+    /** Whole months, 1 to 120. `null` keeps them. */
+    set(months: number | null): Promise<void>;
+  };
+
+  /** What an employee who is on a panel, or hires for a role, can reach: and nothing more. */
+  mine: {
+    access(signal: AbortSignal): Promise<MyAccess>;
+    interviews(
+      query: { awaitingMyScorecard: boolean; page: number; pageSize: number },
+      signal: AbortSignal,
+    ): Promise<MyInterviewPage>;
+    applications(
+      query: { includeClosed: boolean; page: number; pageSize: number },
+      signal: AbortSignal,
+    ): Promise<MyApplicationPage>;
+    application(id: string, signal: AbortSignal): Promise<MyApplication>;
+    submitScorecard(
+      interviewId: string,
+      input: ScorecardInput,
+    ): Promise<MyScorecard>;
+    /** `null` where there are no files to open. */
+    openCv: ((applicationId: string) => Promise<ApiCvLink>) | null;
   };
 
   templates: {

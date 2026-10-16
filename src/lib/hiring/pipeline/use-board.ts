@@ -5,7 +5,13 @@ import { ApiError } from "@/lib/api/client";
 import { useRevalidation } from "@/lib/revalidate";
 import { columnKeyOf } from "./columns";
 import { cleanFilters, filterKey } from "./filters";
-import type { PipelineGateway, RejectInput, RejectResult } from "./gateway";
+import type { MoveResult } from "@/lib/hiring/comms/model";
+import type {
+  MoveInput,
+  PipelineGateway,
+  RejectInput,
+  RejectResult,
+} from "./gateway";
 import type { BoardCard, BoardColumn, BoardFilters } from "./model";
 
 /**
@@ -75,8 +81,15 @@ export type Board = {
   settling: boolean;
   loadMore: (columnKey: string) => void;
   reload: () => void;
-  /** Move a card. Rejects with the API's refusal after putting the card back. */
-  move: (card: BoardCard, stageId: string) => Promise<void>;
+  /**
+   * Move a card. Rejects with the API's refusal after putting the card back. The
+   * answer says what became of the email the move owed, if it owed one.
+   */
+  move: (
+    card: BoardCard,
+    stageId: string,
+    input: MoveInput,
+  ) => Promise<MoveResult>;
   /** Reject a card, with a reason from the company's list. */
   reject: (card: BoardCard, input: RejectInput) => Promise<RejectResult>;
   /** Change a card where it stands: a tag added, the talent pool switched. */
@@ -325,13 +338,17 @@ export function useBoard({
   );
 
   const move = useCallback(
-    async (card: BoardCard, stageId: string): Promise<void> => {
+    async (
+      card: BoardCard,
+      stageId: string,
+      input: MoveInput,
+    ): Promise<MoveResult> => {
       const { gateway: api } = latest.current;
       const now = loadedRef.current;
-      if (!now) return;
+      if (!now) return { email: null };
       const to = now.order.find((column) => column.stageId === stageId);
       const fromKey = columnKeyOf(card, now.order);
-      if (!to || fromKey === to.key) return;
+      if (!to || fromKey === to.key) return { email: null };
 
       const index =
         (fromKey ? now.columns[fromKey] : undefined)?.cards.findIndex(
@@ -349,7 +366,7 @@ export function useBoard({
       );
 
       try {
-        await api.move(card, stageId);
+        return await api.move(card, stageId, input);
       } catch (error) {
         /* Put it back where it was taken from, and take it out of the new place. */
         setLoaded((current) => {

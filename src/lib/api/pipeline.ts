@@ -2,6 +2,7 @@
 
 import { request, requestPaged } from "@/lib/api/client";
 import { fetchFile, type FileDownload } from "@/lib/api/download";
+import type { ApiQueuedEmail } from "@/lib/api/candidate-email";
 import type { ApplicationOutcome } from "@/lib/api/recruitment";
 import type { StageType } from "@/lib/hiring/pipeline/stage-types";
 
@@ -36,6 +37,16 @@ export type ApiBoardCard = {
   talentPool: boolean;
   tags: ApiTagRef[];
   hasCv: boolean;
+  /**
+   * The interview score, 1 to 5 to two places, or `null` while nothing has been
+   * scored. Never 0 for nobody-scored. Absent from an API that predates it.
+   */
+  score?: number | null;
+  /**
+   * For somebody rejected or withdrawn: the day their record is scheduled to be
+   * deleted (`YYYY-MM-DD`), or `null`. Absent from an API that predates it.
+   */
+  scheduledDeletionOn?: string | null;
   /** For somebody rejected or withdrawn: why, as recorded. */
   rejection: {
     reason: string | null;
@@ -131,6 +142,12 @@ export type BulkBody = {
   reasonId?: string;
   note?: string | null;
   tagId?: string;
+  /**
+   * Only ever `true` when the person ticked it in the dialog that asked. Absent is
+   * false: a bulk action never emails anybody by itself.
+   */
+  sendEmails?: boolean;
+  emailTemplateId?: string;
   dryRun?: boolean;
   idempotencyKey?: string;
 };
@@ -153,6 +170,8 @@ export type ApiBulkJob = {
   finishedAt: string | null;
   /** A sentence, on `FAILED`. */
   error: string | null;
+  /** Whether this action was asked to email the people it applied to. */
+  sendEmails?: boolean;
 };
 
 export type ApiBulkRow = {
@@ -202,6 +221,8 @@ export type ApiTemplateStage = {
   typeLabel: string;
   terminal: boolean;
   requiresScorecards: boolean;
+  /** The email sent to somebody a person moves into the stage. */
+  emailTemplateId?: string | null;
 };
 
 export type ApiTemplate = {
@@ -221,7 +242,12 @@ export type ApiTemplate = {
 export type TemplateBody = {
   name?: string;
   description?: string | null;
-  stages?: { name: string; type: StageType; requiresScorecards?: boolean }[];
+  stages?: {
+    name: string;
+    type: StageType;
+    requiresScorecards?: boolean;
+    emailTemplateId?: string | null;
+  }[];
   isDefault?: boolean;
 };
 
@@ -265,22 +291,34 @@ export const pipelineApi = {
       { query: { ...params }, ...(signal ? { signal } : {}) },
     ),
 
-  move: (applicationId: string, stageId: string) =>
-    request<unknown>(`${BASE}/applications/${applicationId}/move`, {
-      method: "POST",
-      body: { stageId },
-    }),
+  /**
+   * `sendEmail` is always sent, never left to the API's default: the API sends a
+   * stage's message unless told not to, and nothing here sends one the person did
+   * not choose.
+   */
+  move: (applicationId: string, stageId: string, sendEmail: boolean) =>
+    request<{ email?: ApiQueuedEmail }>(
+      `${BASE}/applications/${applicationId}/move`,
+      {
+        method: "POST",
+        body: { stageId, sendEmail },
+      },
+    ),
   reject: (
     applicationId: string,
-    body: { reasonId: string; note?: string | null },
+    body: { reasonId: string; note?: string | null; sendEmail?: boolean },
   ) =>
-    request<unknown>(`${BASE}/applications/${applicationId}/reject`, {
-      method: "POST",
-      body: {
-        reasonId: body.reasonId,
-        ...(body.note ? { note: body.note } : {}),
+    request<{ email?: ApiQueuedEmail }>(
+      `${BASE}/applications/${applicationId}/reject`,
+      {
+        method: "POST",
+        body: {
+          reasonId: body.reasonId,
+          ...(body.note ? { note: body.note } : {}),
+          ...(body.sendEmail ? { sendEmail: true } : {}),
+        },
       },
-    }),
+    ),
 
   bulk: (body: BulkBody, signal?: AbortSignal) =>
     request<ApiBulkAnswer>(`${BASE}/bulk`, {

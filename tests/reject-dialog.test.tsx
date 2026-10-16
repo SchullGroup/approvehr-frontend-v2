@@ -74,7 +74,11 @@ describe("the reject dialog", () => {
       "Cannot start in time",
     );
     await user.click(screen.getByRole("button", { name: "Reject" }));
-    expect(confirm).toHaveBeenLastCalledWith({ reasonId: "r2", note: null });
+    expect(confirm).toHaveBeenLastCalledWith({
+      reasonId: "r2",
+      note: null,
+      sendEmail: false,
+    });
 
     await user.type(
       screen.getByRole("textbox", { name: /Note/ }),
@@ -84,6 +88,7 @@ describe("the reject dialog", () => {
     expect(confirm).toHaveBeenLastCalledWith({
       reasonId: "r2",
       note: "Needs three months",
+      sendEmail: false,
     });
   });
 
@@ -181,5 +186,116 @@ describe("the reject dialog", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Ada Okafor is no longer in the process.",
     );
+  });
+  describe("the decline email", () => {
+    const offer = {
+      label: "Send them a decline email",
+      description:
+        "Off unless you tick it. Rejecting never emails anybody by itself.",
+      blockedBy: [] as string[],
+    };
+
+    it("is not offered unless the screen offers it, and nothing is sent", async () => {
+      const user = userEvent.setup();
+      const confirm = vi.fn();
+      render(
+        <RejectDialog
+          open
+          onClose={() => undefined}
+          subject="Ada Okafor"
+          reasons={reasons}
+          onConfirm={confirm}
+        />,
+      );
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+      await user.selectOptions(
+        screen.getByRole("combobox", { name: /Reason/ }),
+        "Cannot start in time",
+      );
+      await user.click(screen.getByRole("button", { name: "Reject" }));
+      expect(confirm).toHaveBeenLastCalledWith(
+        expect.objectContaining({ sendEmail: false }),
+      );
+    });
+
+    it("is off every time the dialog opens, and only a tick sends it", async () => {
+      const user = userEvent.setup();
+      const confirm = vi.fn();
+      const { rerender } = render(
+        <RejectDialog
+          open
+          onClose={() => undefined}
+          subject="Ada Okafor"
+          reasons={reasons}
+          emailOffer={offer}
+          onConfirm={confirm}
+        />,
+      );
+      const tick = screen.getByRole("checkbox", {
+        name: /Send them a decline email/,
+      });
+      expect(tick).not.toBeChecked();
+      await user.click(tick);
+      await user.selectOptions(
+        screen.getByRole("combobox", { name: /Reason/ }),
+        "Cannot start in time",
+      );
+      await user.click(screen.getByRole("button", { name: "Reject" }));
+      expect(confirm).toHaveBeenLastCalledWith(
+        expect.objectContaining({ sendEmail: true }),
+      );
+
+      /* Closed and opened again: the last tick is not remembered. */
+      rerender(
+        <RejectDialog
+          open={false}
+          onClose={() => undefined}
+          subject="Ada Okafor"
+          reasons={reasons}
+          emailOffer={offer}
+          onConfirm={confirm}
+        />,
+      );
+      rerender(
+        <RejectDialog
+          open
+          onClose={() => undefined}
+          subject="Bola Ade"
+          reasons={reasons}
+          emailOffer={offer}
+          onConfirm={confirm}
+        />,
+      );
+      expect(
+        screen.getByRole("checkbox", { name: /Send them a decline email/ }),
+      ).not.toBeChecked();
+    });
+
+    it("says why it would not be sent, in the API's words, once it is ticked", async () => {
+      const user = userEvent.setup();
+      render(
+        <RejectDialog
+          open
+          onClose={() => undefined}
+          subject="Ada Okafor"
+          reasons={reasons}
+          emailOffer={{
+            ...offer,
+            blockedBy: [
+              "Add a reply-to address: replies from candidates have to go somewhere.",
+            ],
+          }}
+          onConfirm={() => undefined}
+        />,
+      );
+      expect(screen.queryByText(/would not be sent/)).not.toBeInTheDocument();
+      await user.click(
+        screen.getByRole("checkbox", { name: /Send them a decline email/ }),
+      );
+      expect(screen.getByText(/It would not be sent right now/)).toBeVisible();
+      expect(
+        screen.getByText(/Add a reply-to address: replies from candidates/),
+      ).toBeVisible();
+    });
   });
 });

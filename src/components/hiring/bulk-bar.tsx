@@ -204,13 +204,14 @@ export function BulkResults({
       <div className="flex flex-col gap-3">
         {outcome.emailed !== null && (
           <p>
-            {outcome.emailed.toLocaleString("en-NG")}{" "}
-            {outcome.emailed === 1
-              ? "decline email was"
-              : "decline emails were"}{" "}
-            queued to send.
+            {outcome.emailed > 0
+              ? `${outcome.emailed.toLocaleString("en-NG")} ${outcome.emailed === 1 ? "email was" : "emails were"} queued to send. Queued is not sent: each one's own status is on the person's record.`
+              : (outcome.emailNote ?? "No emails were queued.")}
           </p>
         )}
+        {outcome.emailed !== null &&
+          outcome.emailed > 0 &&
+          outcome.emailNote && <p>{outcome.emailNote}</p>}
 
         {outcome.refused.length > 0 && (
           <details open={outcome.refused.length <= 5}>

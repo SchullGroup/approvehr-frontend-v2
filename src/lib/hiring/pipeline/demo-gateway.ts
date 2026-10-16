@@ -28,6 +28,7 @@ import {
   usage,
   type Op,
 } from "./demo-ops";
+import { demoComms } from "./demo-comms";
 import { demoPipeline, demoRun } from "./demo-store";
 import { channelLabel } from "./filters";
 import { NO_OUTCOME } from "./bulk";
@@ -82,29 +83,24 @@ function resolve(target: BulkTarget): string[] {
 
 export const demoGateway: PipelineGateway = {
   mode: "demo",
+  ...demoComms,
 
   board: async ({ requisitionId, filters, limit }) =>
     boardOf(demoPipeline.current(), requisitionId, filters, limit),
 
   listCards: async (query) => queryCards(demoPipeline.current(), query),
 
-  move: async (card, stageId) => {
-    unwrap(demoRun((book) => moveApp(book, card.id, stageId)));
-  },
+  move: async (card, stageId, input) =>
+    unwrap(demoRun((book) => moveApp(book, card.id, stageId, input.sendEmail))),
 
-  reject: async (card, input) => {
+  /* A demo has no mail transport, so what comes back for an email that was asked
+     for is "not sent", with the reason, and never anything that says it went. */
+  reject: async (card, input) =>
     unwrap(
-      demoRun((book) => rejectApp(book, card.id, input.reasonId, input.note)),
-    );
-    /* A demo has no mail transport, so nothing is ever sent, and it says so
-       rather than pretending: `false` is "asked for, not sent". */
-    return input.sendEmail
-      ? {
-          emailed: false,
-          note: "Nothing was sent: there is no email in a demo.",
-        }
-      : { emailed: null, note: null };
-  },
+      demoRun((book) =>
+        rejectApp(book, card.id, input.reasonId, input.note, input.sendEmail),
+      ),
+    ),
 
   setTag: async (card, tagId, on) => {
     unwrap(demoRun((book) => setTagged(book, card.id, tagId, on)));
@@ -127,7 +123,11 @@ export const demoGateway: PipelineGateway = {
         done: outcome.done + result.outcome.done,
         skipped: outcome.skipped + result.outcome.skipped,
         refused: [...outcome.refused, ...result.outcome.refused],
-        emailed: null,
+        emailed:
+          result.outcome.emailed === null
+            ? null
+            : (outcome.emailed ?? 0) + result.outcome.emailed,
+        emailNote: result.outcome.emailNote ?? outcome.emailNote ?? null,
       };
       onProgress({ done: at + chunk.length, total: ids.length });
       /* Let the screen paint the bar between chunks. */

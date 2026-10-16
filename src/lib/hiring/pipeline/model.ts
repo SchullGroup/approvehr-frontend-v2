@@ -83,6 +83,10 @@ export type BoardCard = {
   stageEnteredAt: string;
   outcome: ApplicationOutcome;
   rejectionReason: string | null;
+  /** The interview score, 1 to 5 to two places. `null` while nothing is scored; never 0. */
+  score?: number | null;
+  /** For somebody rejected or withdrawn: the day their record is scheduled to be deleted. */
+  scheduledDeletionOn?: string | null;
 };
 
 /** What narrows a board, a table or a bulk selection. */
@@ -204,7 +208,12 @@ export type BulkTarget =
     };
 
 export type BulkAction =
-  | { type: "move"; stageId: string }
+  | {
+      type: "move";
+      stageId: string;
+      /** Only ever true when the person ticked it: send the stage's message to everybody moved. */
+      sendEmail?: boolean;
+    }
   | {
       type: "reject";
       reasonId: string;
@@ -232,8 +241,13 @@ export type BulkOutcome = {
   /** Nothing to do: already in that stage, already tagged. Not a failure. */
   skipped: number;
   refused: BulkRefusal[];
-  /** Decline emails the API says it queued. `null`: none were asked for. */
+  /**
+   * Emails the API says it queued. `null`: none were asked for. Queued is not sent:
+   * each one's own status is on the person's record.
+   */
   emailed: number | null;
+  /** Why none (or fewer) were queued, in a sentence, when emails were asked for. */
+  emailNote?: string | null;
 };
 
 /** What a screen shows while a long selection is worked through. */
