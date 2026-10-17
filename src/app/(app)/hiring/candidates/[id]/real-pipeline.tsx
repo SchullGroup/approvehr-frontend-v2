@@ -21,6 +21,7 @@ import {
   Skeleton,
   Textarea,
 } from "@/components/ui";
+import { AcceptOfferDialog } from "@/components/hiring/hired/accept-offer-dialog";
 import { MoveEmailDialog } from "@/components/hiring/move-email-dialog";
 import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
 import { PeopleEditor, type Person } from "@/components/hiring/people-editor";
@@ -51,6 +52,8 @@ import {
   type UpdateOfferBody,
 } from "@/lib/api/recruitment";
 import { noticeSentence } from "@/lib/hiring/comms/status";
+import { acceptedNotice, whatAcceptingDoes } from "@/lib/hiring/hired/copy";
+import { useHiredSettings } from "@/lib/hiring/hired/use-hired";
 import type { ScorecardInput } from "@/lib/hiring/comms/model";
 import { noticeFrom } from "@/lib/hiring/pipeline/api-gateway";
 import { emailLogFrom, scoreFrom } from "@/lib/hiring/pipeline/api-comms";
@@ -471,6 +474,7 @@ export function RealPipeline({
         <OfferCard
           offer={application.offer}
           candidateName={application.candidateName}
+          requisitionId={application.requisitionId}
           canApprove={canApprove}
           canManage={canManage}
           onChanged={onChanged}
@@ -898,6 +902,7 @@ function InterviewScorecards({ interviewId }: { interviewId: string }) {
 function OfferCard({
   offer,
   candidateName,
+  requisitionId,
   canApprove,
   canManage,
   onChanged,
@@ -907,6 +912,8 @@ function OfferCard({
 }: {
   offer: NonNullable<ApiApplicationDetail["offer"]>;
   candidateName: string;
+  /** The job, for the link to its hires. */
+  requisitionId: string;
   canApprove: boolean;
   canManage: boolean;
   /** The server can send emails to candidates, so the offer notice is offered. */
@@ -923,13 +930,22 @@ function OfferCard({
 }) {
   const offers = useOfferMutations();
   const [tellThem, setTellThem] = useState(false);
-  /* Recording an acceptance **creates the employee**, and `POST /employees` needs
-     `EDIT_RECORDS` — so the API now asks for it as well as `MANAGE_HIRING`
-     (managing hiring alone used to be a way round the permission that guards
-     every other way of putting a person on the payroll). Offering the button to
-     somebody holding only the first is a control whose only outcome is a 403. */
+  /* Recording an acceptance used to **create the employee**, and `POST /employees`
+     needs `EDIT_RECORDS`, so the API asks for it as well as `MANAGE_HIRING`:
+     managing hiring alone was a way round the permission that guards every other
+     way of putting a person on the payroll. It now creates one only where the
+     company's setting says so and it has Core HR. Where that is not known, the
+     stricter rule holds: a control whose only outcome is a 403 is not offered. */
   const canEditPeople = useCan("EDIT_RECORDS");
-  const canRecordAcceptance = canManage && canEditPeople;
+  const hired = useHiredSettings(offer.status === "SENT");
+  const acceptWords = whatAcceptingDoes({
+    setting: hired.settings?.onOfferAccepted ?? null,
+    coreHr: hired.settings?.coreHr ?? null,
+  });
+  const settingKnown = hired.settings !== null;
+  const makesEmployee = !settingKnown || acceptWords.makesEmployee;
+  const canRecordAcceptance = canManage && (!makesEmployee || canEditPeople);
+  const [accepting, setAccepting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -1093,8 +1109,8 @@ function OfferCard({
               {!canRecordAcceptance && (
                 <span className="text-meta text-muted">
                   Recording that they accepted also creates their employee
-                  record, so it needs permission to edit people as well as to
-                  manage hiring.
+                  record here, so it needs permission to edit people as well as
+                  to manage hiring.
                 </span>
               )}
               {canRecordAcceptance && (
@@ -1102,38 +1118,7 @@ function OfferCard({
                   variant="approve"
                   size="sm"
                   loading={busy}
-                  onClick={() =>
-                    void run(() => offers.accept(offer.id)).then((result) => {
-                      if (!result) return;
-                      /* A role with room for more than one hire is not filled by
-                         the first, and nobody else is rejected: say which hire
-                         this was, so "Accepted" is not read as "the role is
-                         done". */
-                      if (
-                        result.rejectedOthers === 0 &&
-                        result.requisitionFilled === false &&
-                        result.hiresSoFar !== undefined &&
-                        result.headcount !== undefined
-                      ) {
-                        onNotice(
-                          "success",
-                          `Accepted. That is hire ${result.hiresSoFar} of ${result.headcount} for this role, so it is still open.`,
-                        );
-                        return;
-                      }
-                      if (result.rejectedOthers === 0) return;
-                      onNotice(
-                        "success",
-                        `Accepted. ${result.rejectedOthers} other ${
-                          result.rejectedOthers === 1
-                            ? "candidate"
-                            : "candidates"
-                        } still in this pipeline ${
-                          result.rejectedOthers === 1 ? "was" : "were"
-                        } automatically rejected — the role is filled.`,
-                      );
-                    })
-                  }
+                  onClick={() => setAccepting(true)}
                 >
                   Record accepted
                 </Button>
@@ -1166,11 +1151,19 @@ function OfferCard({
                 href={`/people/${offer.employeeId}`}
                 className="text-meta text-success-text underline underline-offset-2"
               >
-                Became an employee record.
+                Employee record created.
               </Link>
             ) : (
               <span className="text-meta text-success-text">
-                Became an employee record.
+                On the Hired list. No employee record yet.{" "}
+                {canManage && (
+                  <Link
+                    href={`/hiring/hired?job=${requisitionId}`}
+                    className="underline underline-offset-2"
+                  >
+                    Open the Hired list
+                  </Link>
+                )}
               </span>
             ))}
           {/* Approved, not pending: `approvedAt` is never cleared once set, so
@@ -1197,6 +1190,34 @@ function OfferCard({
       {/* Mounted regardless of `editing`/`redoing` — see the note above
           `ScheduleInterviewDialog` on why these dialogs stay mounted rather
           than being conditionally rendered. */}
+      <AcceptOfferDialog
+        open={accepting}
+        onClose={() => setAccepting(false)}
+        name={candidateName}
+        words={acceptWords}
+        known={settingKnown}
+        busy={busy}
+        onConfirm={() =>
+          void run(() => offers.accept(offer.id)).then((result) => {
+            setAccepting(false);
+            if (!result) return;
+            /* Said from the API's answer: an employee record is claimed only if
+               it came back with one, and a role with room for more says which
+               hire this was, so "accepted" is not read as "the role is done". */
+            onNotice(
+              "success",
+              acceptedNotice(candidateName, {
+                employeeId: result.employeeId ?? null,
+                rejectedOthers: result.rejectedOthers,
+                hiresSoFar: result.hiresSoFar,
+                headcount: result.headcount,
+                requisitionFilled: result.requisitionFilled,
+              }),
+            );
+          })
+        }
+      />
+
       <EditOfferDialog
         open={editing}
         offer={offer}

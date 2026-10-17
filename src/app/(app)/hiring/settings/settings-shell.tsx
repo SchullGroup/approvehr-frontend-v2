@@ -18,6 +18,7 @@ const TABS = [
   { href: "/hiring/settings/pipelines", label: "Pipelines" },
   { href: "/hiring/settings/rejection-reasons", label: "Rejection reasons" },
   { href: "/hiring/settings/tags", label: "Tags" },
+  { href: "/hiring/settings/accepted-offers", label: "Accepted offers" },
   { href: "/hiring/settings/emails", label: "Candidate emails" },
   { href: "/hiring/settings/retention", label: "Data retention" },
 ];
