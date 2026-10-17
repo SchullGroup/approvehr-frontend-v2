@@ -280,7 +280,8 @@ describe("Find", () => {
 
   it("finds every door in a group by the group's name, label matches first", () => {
     const found = names("recruitment");
-    expect(found.filter((n) => n.startsWith("Recruitment ›")).length).toBe(8);
+    /* Eight doors, and Hired (where an accepted offer lands) is the ninth. */
+    expect(found.filter((n) => n.startsWith("Recruitment ›")).length).toBe(9);
   });
 
   it("finds a door added to a group tomorrow, with no change here", () => {
