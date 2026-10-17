@@ -359,6 +359,24 @@ describe("the list", () => {
 
     calls.tree.mockRejectedValue(new ApiError(402, "payment_required", "No."));
     expect((await apiHiredGateway.facets(signal)).departments).toEqual([]);
+
+    /* Without Core HR it does not ask at all. */
+    calls.tree.mockClear();
+    calls.summary.mockResolvedValue({
+      total: 0,
+      byState: { HIRED: 0, EMPLOYEE_CREATED: 0, DID_NOT_JOIN: 0 },
+      jobs: [],
+      coreHr: {
+        available: false,
+        reason: "Your plan does not include Core HR.",
+      },
+      onOfferAccepted: {
+        setting: "HIRED_LIST_ONLY",
+        effective: "HIRED_LIST_ONLY",
+      },
+    });
+    expect((await apiHiredGateway.facets(signal)).departments).toEqual([]);
+    expect(calls.tree).not.toHaveBeenCalled();
   });
 });
 

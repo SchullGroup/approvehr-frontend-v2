@@ -177,8 +177,12 @@ export const apiHiredGateway: HiredGateway = {
   mode: "api",
 
   facets: async (signal) => {
-    const [summary, departments]: [ApiHireSummary, HiredFacets["departments"]] =
-      await Promise.all([hiredApi.summary(signal), departmentsOf(signal)]);
+    const summary: ApiHireSummary = await hiredApi.summary(signal);
+    /* A company without Core HR has no departments to ask for: asking is a request
+       the plan refuses, on every visit to the list. */
+    const departments: HiredFacets["departments"] = summary.coreHr.available
+      ? await departmentsOf(signal)
+      : [];
     return {
       jobs: summary.jobs.map((job) => ({
         id: job.requisitionId,
