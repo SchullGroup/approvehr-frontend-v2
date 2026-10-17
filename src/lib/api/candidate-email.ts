@@ -2,6 +2,7 @@
 
 import { request, requestPaged } from "@/lib/api/client";
 import type { ApiCvLink } from "@/lib/api/careers";
+import type { ApiScoreStatus } from "@/lib/api/screening";
 import type {
   ApplicationOutcome,
   InterviewKind,
@@ -170,7 +171,9 @@ export type ApiScoreSummary = {
 };
 
 export type ApiPanelist = {
-  employeeId: string;
+  /** `null` for an invited account, who has no employee record. */
+  employeeId: string | null;
+  userId?: string | null;
   name: string;
   /** Whether their scorecard is in. */
   submitted: boolean;
@@ -179,9 +182,14 @@ export type ApiPanelist = {
 /* ------------------------------------------------------------------------ panels */
 
 export type ApiPanelMember = {
-  employeeId: string;
+  /** `null` for an invited account (then `userId` names them). */
+  employeeId: string | null;
+  userId?: string | null;
+  /** Absent from an API that predates invited accounts: then it is an employee. */
+  kind?: "EMPLOYEE" | "ACCOUNT";
   name: string;
   jobTitle: string;
+  email?: string | null;
 };
 
 export type ApiStagePanel = {
@@ -214,7 +222,8 @@ export type ApiRetentionReport = {
 
 /* ------------------------------------------------------------- the panelist's door */
 
-export type ApiMyRole = "HIRING_MANAGER" | "STAGE_PANEL" | "INTERVIEW_PANEL";
+export type ApiMyRole =
+  "HIRING_MANAGER" | "RECRUITER" | "STAGE_PANEL" | "INTERVIEW_PANEL";
 
 export type ApiMyAccess = {
   employeeId: string | null;
@@ -274,6 +283,12 @@ export type ApiMyApplicationCard = {
   roles: ApiMyRole[];
   myInterviews: ApiMyInterview[];
   hasCv: boolean;
+  /**
+   * The fit score, only where the job lets this person see scores: **absent**, not
+   * null, otherwise. `null` is somebody with no score yet.
+   */
+  score?: number | null;
+  scoreStatus?: ApiScoreStatus | null;
 };
 
 export type ApiMyScorecard = {
@@ -315,8 +330,18 @@ export type ApiMyApplication = {
     /** Everybody's, for a hiring manager. `null` for a panelist: scoring is blind. */
     scorecards: ApiMyScorecard[] | null;
   }[];
-  /** The score and how it was reached. A hiring manager's; `null` for a panelist. */
+  /** The interview score and how it was reached. A hiring manager's; `null` for a panelist. */
   scores: ApiScoreSummary | null;
+  /**
+   * The fit score and the reasons for it, only where the job lets this person see
+   * scores: **absent** otherwise. `null` is somebody added by hand, who has none.
+   */
+  screening?: {
+    status: ApiScoreStatus;
+    score: number | null;
+    coverage: number | null;
+    reasons: string | null;
+  } | null;
 };
 
 export type MyApplicationsParams = {
@@ -380,10 +405,18 @@ export const candidateEmailApi = {
       `${BASE}/requisitions/${requisitionId}/stages/${stageId}/panel`,
       { ...(signal ? { signal } : {}) },
     ),
-  setPanel: (requisitionId: string, stageId: string, employeeIds: string[]) =>
+  /**
+   * Replaces the panel. Each list that is sent replaces that half (the staff, the
+   * invited accounts) and a list that is left out leaves its half alone.
+   */
+  setPanel: (
+    requisitionId: string,
+    stageId: string,
+    seats: { employeeIds?: string[]; userIds?: string[] },
+  ) =>
     request<ApiStagePanel>(
       `${BASE}/requisitions/${requisitionId}/stages/${stageId}/panel`,
-      { method: "PUT", body: { employeeIds } },
+      { method: "PUT", body: seats },
     ),
 
   retention: (signal?: AbortSignal) =>

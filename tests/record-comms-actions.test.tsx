@@ -17,8 +17,14 @@ vi.mock("@/lib/permissions", () => ({
   useCan: () => true,
   usePermissions: () => ({ can: () => true, loading: false }),
 }));
+const who = vi.hoisted(() => ({ hasRecord: true }));
 vi.mock("@/lib/store/session", () => ({
-  useSession: () => ({ isConnected: true, isLoading: false }),
+  useSession: () => ({
+    isConnected: true,
+    isLoading: false,
+    /* An account with no employee record (a company without Core HR). */
+    ...(who.hasRecord ? {} : { employeeId: null }),
+  }),
   useOrgTimezone: () => "Africa/Lagos",
 }));
 vi.mock("@/lib/store/employees-api", () => ({
@@ -706,6 +712,39 @@ describe("sending an offer", () => {
         name: /Also tell them an offer is on its way/,
       }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("handing in a scorecard from the record, without an employee record", () => {
+  it("offers no form the API would refuse, and says where scorecards are handed in", () => {
+    who.hasRecord = false;
+    try {
+      open(
+        application({
+          interviews: [
+            {
+              id: "i1",
+              kind: "PANEL",
+              scheduledFor: "2026-10-20T09:00:00.000Z",
+              durationMins: 60,
+              status: "COMPLETED",
+              location: null,
+              scorecards: [],
+            },
+          ],
+        }),
+      );
+      expect(
+        screen.queryByRole("button", { name: "Submit a scorecard" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Scorecards are handed in by the people invited to score, from My interviews.",
+        ),
+      ).toBeInTheDocument();
+    } finally {
+      who.hasRecord = true;
+    }
   });
 });
 

@@ -68,8 +68,18 @@ const managed: MyApplication = {
       stageName: "Interview",
       iAmPanelist: false,
       panel: [
-        { employeeId: "e1", name: "Chidi Nwosu", submitted: true },
-        { employeeId: "e2", name: "Emeka Anyanwu", submitted: true },
+        {
+          employeeId: "e1",
+          userId: null,
+          name: "Chidi Nwosu",
+          submitted: true,
+        },
+        {
+          employeeId: "e2",
+          userId: null,
+          name: "Emeka Anyanwu",
+          submitted: true,
+        },
       ],
       mine: null,
       everyones: [

@@ -22,7 +22,8 @@ import {
   STAGE_TYPE_TONE,
   isTerminalType,
 } from "@/lib/hiring/pipeline/stage-types";
-import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { usePanelPeople } from "@/lib/hiring/access/use-panel-people";
+import { seatKey, splitSeats } from "@/lib/hiring/comms/seats";
 
 /**
  * For each stage of a role: which email is sent to whoever is moved into it, and who
@@ -59,7 +60,9 @@ export function StageComms({
   onChanged: () => void;
 }) {
   const toast = useToast();
-  const directory = useEmployeeDirectory({ pageSize: 200 });
+  /* Staff, and the people invited to this job who have an account: a company
+     without Core HR has no staff to choose from. */
+  const directory = usePanelPeople(requisitionId, canManage);
   const [busy, setBusy] = useState<string | null>(null);
 
   const middle = stages.filter((stage) => !isTerminalType(stage.type));
@@ -169,21 +172,17 @@ export function StageComms({
                   <PanelEditor
                     stage={stage}
                     members={stage.panel}
-                    people={directory.people.map((person) => ({
-                      id: person.id,
-                      name: person.fullName,
-                      jobTitle: person.jobTitle,
-                    }))}
+                    people={directory.people}
                     loading={directory.loading}
                     disabled={!canManage || busy !== null}
-                    onChange={(ids, done) =>
+                    onChange={(keys, done) =>
                       run(
                         `panel:${stage.stageId}`,
                         () =>
                           gateway.stages.setPanel(
                             requisitionId,
                             stage.stageId,
-                            ids,
+                            splitSeats(keys),
                           ),
                         done,
                       )
@@ -212,9 +211,10 @@ function PanelEditor({
   people: readonly Person[];
   loading: boolean;
   disabled: boolean;
-  onChange: (employeeIds: string[], done: string) => Promise<void>;
+  /** The seats, as `seatKey`s: staff and invited accounts together. */
+  onChange: (seats: string[], done: string) => Promise<void>;
 }) {
-  const have = members.map((member) => member.employeeId);
+  const have = members.map(seatKey);
   return (
     <div className="flex flex-col gap-2">
       <p className="text-body-sm font-medium text-ink">
@@ -224,7 +224,7 @@ function PanelEditor({
         label={`Panel for ${stage.name}`}
         empty="Nobody is on this panel. An interview booked here is scored by anybody who manages hiring."
         members={members.map((member) => ({
-          id: member.employeeId,
+          id: seatKey(member),
           name: member.name,
         }))}
         people={people}

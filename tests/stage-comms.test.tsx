@@ -56,7 +56,15 @@ const stages: StageSetting[] = [
     order: 1,
     type: "INTERVIEW",
     emailTemplateId: "t1",
-    panel: [{ employeeId: "p1", name: "Chidi Nwosu", jobTitle: "Engineer" }],
+    panel: [
+      {
+        employeeId: "p1",
+        userId: null,
+        kind: "EMPLOYEE",
+        name: "Chidi Nwosu",
+        jobTitle: "Engineer",
+      },
+    ],
   },
   {
     stageId: "s3",
@@ -255,7 +263,10 @@ describe("a stage's panel", () => {
     await user.click(
       await screen.findByRole("option", { name: /Emeka Anyanwu/ }),
     );
-    expect(setPanel).toHaveBeenCalledWith("r1", "s2", ["p1", "p2"]);
+    expect(setPanel).toHaveBeenCalledWith("r1", "s2", {
+      employeeIds: ["p1", "p2"],
+      userIds: [],
+    });
     expect(
       await screen.findByText("Emeka Anyanwu is on the Interview panel"),
     ).toBeInTheDocument();
@@ -284,6 +295,9 @@ describe("a stage's panel", () => {
         name: /Take Chidi Nwosu off: Panel for Interview/,
       }),
     );
-    expect(setPanel).toHaveBeenCalledWith("r1", "s2", []);
+    expect(setPanel).toHaveBeenCalledWith("r1", "s2", {
+      employeeIds: [],
+      userIds: [],
+    });
   });
 });

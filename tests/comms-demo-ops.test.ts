@@ -338,6 +338,8 @@ describe("stages", () => {
     );
     const named = stageSettings(set.book, "req-01", (id) => ({
       employeeId: id,
+      userId: null,
+      kind: "EMPLOYEE" as const,
       name: id,
       jobTitle: "",
     }));
@@ -350,6 +352,8 @@ describe("stages", () => {
     expect(
       stageSettings(cleared.book, "req-01", (id) => ({
         employeeId: id,
+        userId: null,
+        kind: "EMPLOYEE" as const,
         name: id,
         jobTitle: "",
       })).find((s) => s.stageId === "req-01:prescreen")?.emailTemplateId,
@@ -371,6 +375,8 @@ describe("stages", () => {
     );
     const panel = stageSettings(set.book, "req-01", (id) => ({
       employeeId: id,
+      userId: null,
+      kind: "EMPLOYEE" as const,
       name: `Name ${id}`,
       jobTitle: "",
     })).find((s) => s.stageId === "req-01:interview")?.panel;
@@ -380,6 +386,8 @@ describe("stages", () => {
   it("show no panel at all for a stage that is not an interview", () => {
     const named = stageSettings(book, "req-01", (id) => ({
       employeeId: id,
+      userId: null,
+      kind: "EMPLOYEE" as const,
       name: id,
       jobTitle: "",
     }));

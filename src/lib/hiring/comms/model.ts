@@ -1,5 +1,6 @@
 import type { ApplicationOutcome } from "@/lib/api/recruitment";
 import type { StageType } from "@/lib/hiring/pipeline/stage-types";
+import type { FitSummary } from "@/lib/hiring/screening/model";
 
 /**
  * What the email, panel, panelist and retention screens draw, whichever side it
@@ -166,8 +167,12 @@ export type MoveResult = { email: EmailNotice };
 /* --------------------------------------------------------------------- stages */
 
 export type PanelMember = {
-  employeeId: string;
+  /** `null` for an invited account, who has no employee record. */
+  employeeId: string | null;
+  userId: string | null;
+  kind: "EMPLOYEE" | "ACCOUNT";
   name: string;
+  /** Staff only. An invited account has no job title in the company. */
   jobTitle: string;
 };
 
@@ -279,6 +284,11 @@ export type MyApplicationRow = {
   interviewsOfMine: number;
   scorecardsOwed: number;
   hasCv: boolean;
+  /**
+   * The fit score, only where the job lets this person see scores. **Absent**, not
+   * empty, where it does not: nothing is drawn for it.
+   */
+  fit?: FitSummary;
 };
 
 export type MyApplicationPage = { rows: MyApplicationRow[]; total: number };
@@ -317,13 +327,27 @@ export type MyApplication = {
     location: string | null;
     stageName: string | null;
     iAmPanelist: boolean;
-    panel: { employeeId: string; name: string; submitted: boolean }[];
+    panel: {
+      employeeId: string | null;
+      userId: string | null;
+      name: string;
+      submitted: boolean;
+    }[];
     mine: MyScorecard | null;
     /** Everybody's. Only a hiring manager is given them: scoring is blind. */
     everyones: MyScorecard[] | null;
   }[];
   /** Only a hiring manager is given the score. */
   score: ScoreSummary | null;
+  /**
+   * The fit score and the reasons for it, only where the job lets this person see
+   * scores. **Absent** where it does not: nothing is drawn, not even a box.
+   */
+  screening?: {
+    fit: FitSummary;
+    coverage: number | null;
+    reasons: string | null;
+  };
 };
 
 export type ScorecardInput = {

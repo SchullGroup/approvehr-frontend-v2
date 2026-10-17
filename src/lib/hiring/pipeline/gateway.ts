@@ -33,6 +33,7 @@ import type {
   TalentPage,
   TalentQuery,
 } from "./model";
+import type { PanelSeats } from "@/lib/hiring/comms/seats";
 import type { TemplateStage } from "./template-rules";
 
 /**
@@ -157,11 +158,14 @@ export type PipelineGateway = {
       stageId: string,
       templateId: string | null,
     ): Promise<void>;
-    /** Replaces the panel with exactly these employees. */
+    /**
+     * Replaces the panel with exactly these people: the staff and the invited
+     * accounts, each as its own list.
+     */
     setPanel(
       requisitionId: string,
       stageId: string,
-      employeeIds: string[],
+      seats: PanelSeats,
     ): Promise<PanelMember[]>;
   };
 

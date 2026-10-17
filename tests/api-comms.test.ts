@@ -371,13 +371,38 @@ describe("a role's stages", () => {
     mail.getPanel.mockResolvedValue({
       stageId: "s2",
       stageName: "Interview",
-      members: [{ employeeId: "e1", name: "Chidi", jobTitle: "Engineer" }],
+      members: [
+        { employeeId: "e1", name: "Chidi", jobTitle: "Engineer" },
+        {
+          employeeId: null,
+          userId: "u1",
+          kind: "ACCOUNT",
+          name: "Folasade",
+          jobTitle: "",
+          email: "f@example.com",
+        },
+      ],
     });
     const out = await apiComms.stages.list("r", signal());
     expect(out.map((s) => s.stageId)).toEqual(["s1", "s2", "s3"]);
     expect(out[0]).toMatchObject({ emailTemplateId: "t1", panel: null });
+    /* A server that predates invited accounts sends staff only, and no kind. An invited
+       account has no employee record, so `employeeId` is null and `userId` names them. */
     expect(out[1]?.panel).toEqual([
-      { employeeId: "e1", name: "Chidi", jobTitle: "Engineer" },
+      {
+        employeeId: "e1",
+        userId: null,
+        kind: "EMPLOYEE",
+        name: "Chidi",
+        jobTitle: "Engineer",
+      },
+      {
+        employeeId: null,
+        userId: "u1",
+        kind: "ACCOUNT",
+        name: "Folasade",
+        jobTitle: "",
+      },
     ]);
     expect(out[2]?.emailTemplateId).toBeNull();
     expect(mail.getPanel).toHaveBeenCalledTimes(1);
@@ -398,8 +423,14 @@ describe("a role's stages", () => {
       stageName: "i",
       members: [],
     });
-    await apiComms.stages.setPanel("r", "s2", ["e1", "e2"]);
-    expect(mail.setPanel).toHaveBeenCalledWith("r", "s2", ["e1", "e2"]);
+    await apiComms.stages.setPanel("r", "s2", {
+      employeeIds: ["e1", "e2"],
+      userIds: ["u9"],
+    });
+    expect(mail.setPanel).toHaveBeenCalledWith("r", "s2", {
+      employeeIds: ["e1", "e2"],
+      userIds: ["u9"],
+    });
   });
 });
 

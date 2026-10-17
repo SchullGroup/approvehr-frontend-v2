@@ -6,7 +6,9 @@ import {
   type ApiEmailCatalog,
   type ApiEmailTemplate,
   type ApiMyApplication,
+  type ApiMyApplicationCard,
   type ApiMyRole,
+  type ApiPanelMember,
   type ApiMyScorecard,
   type ApiScoreSummary,
 } from "@/lib/api/candidate-email";
@@ -21,9 +23,12 @@ import type {
   EmailTemplate,
   MyApplication,
   MyScorecard,
+  PanelMember,
   ScoreSummary,
   SentEmail,
 } from "@/lib/hiring/comms/model";
+import type { FitSummary } from "@/lib/hiring/screening/model";
+import { fitFromRow } from "@/lib/hiring/screening/wire";
 import { becauseOf } from "@/lib/hiring/comms/status";
 import type { PipelineGateway } from "./gateway";
 
@@ -86,6 +91,7 @@ const kindLabel = (kind: string): string =>
 
 const ROLE_LABEL: Record<ApiMyRole, string> = {
   HIRING_MANAGER: "Hiring manager",
+  RECRUITER: "Recruiter",
   STAGE_PANEL: "On the panel for this stage",
   INTERVIEW_PANEL: "Invited to interview",
 };
@@ -115,6 +121,44 @@ export const scoreFrom = (score: ApiScoreSummary): ScoreSummary => ({
   scorecardsSubmitted: score.scorecardsSubmitted,
 });
 
+/** A seat on a stage's panel. An API that predates invited accounts sends staff only. */
+const panelMemberFrom = (member: ApiPanelMember): PanelMember => ({
+  employeeId: member.employeeId,
+  userId: member.userId ?? null,
+  kind: member.kind ?? (member.employeeId ? "EMPLOYEE" : "ACCOUNT"),
+  name: member.name,
+  jobTitle: member.jobTitle,
+});
+
+/**
+ * What the narrow door says of the fit score. Only where the API sent it, which it
+ * does only where the job lets this person see scores: absent is absent.
+ */
+const fitOfCard = (row: ApiMyApplicationCard): { fit?: FitSummary } => {
+  if (row.scoreStatus === undefined || row.scoreStatus === null) return {};
+  const fit = fitFromRow({ score: row.score, scoreStatus: row.scoreStatus });
+  return fit ? { fit } : {};
+};
+
+const screeningOfApplication = (
+  row: ApiMyApplication,
+): { screening?: NonNullable<MyApplication["screening"]> } => {
+  if (!row.screening) return {};
+  const fit = fitFromRow({
+    score: row.screening.score,
+    scoreStatus: row.screening.status,
+  });
+  return fit
+    ? {
+        screening: {
+          fit,
+          coverage: row.screening.coverage,
+          reasons: row.screening.reasons,
+        },
+      }
+    : {};
+};
+
 const scorecardFrom = (card: ApiMyScorecard): MyScorecard => ({
   id: card.id,
   by: card.interviewerName,
@@ -143,13 +187,19 @@ const applicationFrom = (row: ApiMyApplication): MyApplication => ({
     location: interview.location,
     stageName: interview.stageName,
     iAmPanelist: interview.iAmPanelist,
-    panel: interview.panel,
+    panel: interview.panel.map((seat) => ({
+      employeeId: seat.employeeId,
+      userId: seat.userId ?? null,
+      name: seat.name,
+      submitted: seat.submitted,
+    })),
     mine: interview.myScorecard ? scorecardFrom(interview.myScorecard) : null,
     everyones: interview.scorecards
       ? interview.scorecards.map(scorecardFrom)
       : null,
   })),
   score: row.scores ? scoreFrom(row.scores) : null,
+  ...screeningOfApplication(row),
 });
 
 /* ------------------------------------------------------------------- gateway */
@@ -178,7 +228,7 @@ export const apiComms: Pick<
                     stage.id,
                     signal,
                   )
-                ).members
+                ).members.map(panelMemberFrom)
               : null,
         })),
       );
@@ -188,9 +238,10 @@ export const apiComms: Pick<
         emailTemplateId: templateId,
       });
     },
-    setPanel: async (requisitionId, stageId, employeeIds) =>
-      (await candidateEmailApi.setPanel(requisitionId, stageId, employeeIds))
-        .members,
+    setPanel: async (requisitionId, stageId, seats) =>
+      (
+        await candidateEmailApi.setPanel(requisitionId, stageId, seats)
+      ).members.map(panelMemberFrom),
   },
 
   emails: {
@@ -348,6 +399,7 @@ export const apiComms: Pick<
               (i.status === "SCHEDULED" || i.status === "COMPLETED"),
           ).length,
           hasCv: row.hasCv,
+          ...fitOfCard(row),
         })),
         total: page.meta.total,
       };

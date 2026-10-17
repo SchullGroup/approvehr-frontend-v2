@@ -65,7 +65,8 @@ import {
   usePipelineGateway,
   useRejectionReasons,
 } from "@/lib/hiring/pipeline/use-pipeline";
-import { useEmployeeDirectory } from "@/lib/store/employees-api";
+import { usePanelPeople } from "@/lib/hiring/access/use-panel-people";
+import { seatKey, splitSeats } from "@/lib/hiring/comms/seats";
 import { isTerminalType } from "@/lib/hiring/pipeline/stage-types";
 import { useCan } from "@/lib/permissions";
 import {
@@ -76,7 +77,7 @@ import {
   useOfferMutations,
   useStages,
 } from "@/lib/store/recruitment";
-import { useOrgTimezone } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { formatWeekdayTime } from "@/lib/time";
 
 /** What a scorecard form hands over, as the API's body. */
@@ -207,6 +208,7 @@ export function RealPipeline({
   const canApprove = useCan("APPROVE_HIRING");
   const canManage = useCan("MANAGE_HIRING");
   const timeZone = useOrgTimezone();
+  const { employeeId } = useSession();
 
   const [scheduling, setScheduling] = useState(false);
   const [rescheduling, setRescheduling] = useState<ApiInterviewSummary | null>(
@@ -216,7 +218,8 @@ export function RealPipeline({
   const readiness = useEmailReadiness(canManage);
   const emailsSupported = readiness.data?.supported === true;
   const stageMail = useStageMail(application.requisitionId, canManage);
-  const directory = useEmployeeDirectory({ pageSize: 200 });
+  /* Staff and invited accounts alike: a company without Core HR has no staff list. */
+  const directory = usePanelPeople(application.requisitionId, canManage);
   const [movingTo, setMovingTo] = useState<string | null>(null);
   const [openScorecards, setOpenScorecards] = useState<Set<string>>(
     () => new Set(),
@@ -539,7 +542,7 @@ export function RealPipeline({
                     <p className="mt-1 text-meta text-muted">
                       Invited to score it:{" "}
                       {iv.panelists.map((person, index) => (
-                        <span key={person.employeeId}>
+                        <span key={seatKey(person)}>
                           {index > 0 ? ", " : ""}
                           <span className="text-body">{person.name}</span>
                           {person.submitted ? " (scorecard in)" : " (waiting)"}
@@ -574,13 +577,24 @@ export function RealPipeline({
                     scorecards in
                   </span>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setScoring(iv.id)}
-                >
-                  Submit a scorecard
-                </Button>
+                {employeeId === null ? (
+                  /* A scorecard from this screen is filed under the signed-in person's
+                     employee record, and this account has none (a company without
+                     Core HR, whose people were invited by email). They hand theirs in
+                     from My interviews, once invited to the interview. */
+                  <span className="text-meta text-muted">
+                    Scorecards are handed in by the people invited to score,
+                    from My interviews.
+                  </span>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setScoring(iv.id)}
+                  >
+                    Submit a scorecard
+                  </Button>
+                )}
                 {iv.scorecards.some((s) => s.submitted) && (
                   <Button
                     variant="ghost"
@@ -696,15 +710,11 @@ export function RealPipeline({
           stageMail.stages
             ?.find((stage) => stage.stageId === application.stageId)
             ?.panel?.map((member) => ({
-              id: member.employeeId,
+              id: seatKey(member),
               name: member.name,
             })) ?? null
         }
-        people={directory.people.map((person) => ({
-          id: person.id,
-          name: person.fullName,
-          jobTitle: person.jobTitle,
-        }))}
+        people={directory.people}
         peopleLoading={directory.loading}
         emailsSupported={emailsSupported}
         blockedBy={readiness.data?.blockedBy ?? []}
@@ -1280,6 +1290,7 @@ function ScheduleInterviewDialog({
     durationMins?: number;
     location?: string;
     panelistIds?: string[];
+    panelistUserIds?: string[];
     sendInvite?: boolean;
   }) => Promise<void>;
   /** The panel of the stage they are in, when it is an interview stage with one. */
@@ -1337,7 +1348,15 @@ function ScheduleInterviewDialog({
                 scheduledFor: new Date(when).toISOString(),
                 durationMins: Number(duration) || 60,
                 ...(location.trim() ? { location: location.trim() } : {}),
-                ...(chosen ? { panelistIds: chosen.map((p) => p.id) } : {}),
+                ...(chosen
+                  ? (() => {
+                      const seats = splitSeats(chosen.map((p) => p.id));
+                      return {
+                        panelistIds: seats.employeeIds,
+                        panelistUserIds: seats.userIds,
+                      };
+                    })()
+                  : {}),
                 ...(sendInvite ? { sendInvite: true } : {}),
               }).finally(() => setBusy(false));
             }}

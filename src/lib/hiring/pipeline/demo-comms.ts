@@ -14,6 +14,9 @@ import type {
   PanelMember,
 } from "@/lib/hiring/comms/model";
 import { scoreOfRatings } from "@/lib/hiring/comms/score";
+import { accountSeat } from "@/lib/hiring/comms/seats";
+import { demoAccess } from "@/lib/hiring/access/demo-store";
+import { memberOf } from "@/lib/hiring/access/demo-ops";
 import {
   CANDIDATES,
   INTERVIEWS,
@@ -60,10 +63,37 @@ function unwrap<T>(result: Op<T>): T {
 /** Who the offline panelist screens are for: an employee on two interviews, owing one scorecard. */
 export const DEMO_ME = "p-05";
 
-const person = (id: string): PanelMember => {
+/** An invited account the demo's access book knows, by its sign-in id. */
+function accountOf(userId: string): { name: string } | null {
+  for (const job of Object.values(demoAccess.current().jobs)) {
+    for (const grant of job.grants) {
+      if (memberOf(grant).userId === userId) return { name: grant.name };
+    }
+  }
+  return null;
+}
+
+/**
+ * Somebody on a panel, from the key it is stored under: a raw employee id (how every
+ * panel saved before accounts was written), `u:<id>` for an invited account.
+ */
+const person = (key: string): PanelMember => {
+  if (key.startsWith("u:")) {
+    const userId = key.slice(2);
+    return {
+      employeeId: null,
+      userId,
+      kind: "ACCOUNT",
+      name: accountOf(userId)?.name ?? "A guest",
+      jobTitle: "",
+    };
+  }
+  const id = key.startsWith("e:") ? key.slice(2) : key;
   const found = EMPLOYEES.find((employee) => employee.id === id);
   return {
     employeeId: id,
+    userId: null,
+    kind: "EMPLOYEE",
     name: found ? `${found.firstName} ${found.lastName}` : "A colleague",
     jobTitle: found?.jobTitle ?? "",
   };
@@ -192,9 +222,10 @@ export const demoComms: Pick<
     setEmail: async (_requisitionId, stageId, templateId) => {
       unwrap(demoRun((book) => setStageEmail(book, stageId, templateId)));
     },
-    setPanel: async (_requisitionId, stageId, employeeIds) => {
-      unwrap(demoRun((book) => setStagePanel(book, stageId, employeeIds)));
-      return employeeIds.map(person);
+    setPanel: async (_requisitionId, stageId, seats) => {
+      const keys = [...seats.employeeIds, ...seats.userIds.map(accountSeat)];
+      unwrap(demoRun((book) => setStagePanel(book, stageId, keys)));
+      return keys.map(person);
     },
   },
 
@@ -404,6 +435,7 @@ export const demoComms: Pick<
           iAmPanelist: true,
           panel: interview.interviewerIds.map((employeeId) => ({
             employeeId,
+            userId: null,
             name: person(employeeId).name,
             submitted: cardFor(book, interview.id, id, employeeId) !== null,
           })),
