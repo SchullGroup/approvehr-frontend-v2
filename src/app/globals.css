@@ -871,6 +871,42 @@
   animation: ahr-slide-to-left 0.2s var(--ease-in-soft) both;
 }
 
+/* The sidebar swapping levels. The new list arrives from the side it
+   logically lives on — a level from the right, the top level back from the
+   left — and the old one is simply gone, so there is never a moment with two
+   lists on screen. Short travel, short time: it is chrome people use a dozen
+   times a day. `SidebarNav` also checks `prefers-reduced-motion` itself and
+   leaves the class off, so this is not left to the blanket rule alone. */
+@keyframes ahr-drill-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ahr-drill-back {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-drill-in {
+  animation: ahr-drill-in 0.18s var(--ease-out-soft) both;
+}
+
+@utility animate-drill-back {
+  animation: ahr-drill-back 0.18s var(--ease-out-soft) both;
+}
+
 /* --------------------------------------------------------------------------
    A finished flow (components/ui/success.tsx). The mark pops in, the check
    draws itself, one ring opens out and fades, and the lines of text rise in
