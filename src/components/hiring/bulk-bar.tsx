@@ -6,6 +6,7 @@ import {
   StarOff,
   Tag as TagIcon,
   TagsIcon,
+  UserPlus,
   X,
 } from "lucide-react";
 import { Button, Callout, ProgressMeter } from "@/components/ui";
@@ -37,6 +38,7 @@ export type BulkChoice =
   | "untag"
   | "pool-add"
   | "pool-remove"
+  | "create-employees"
   | "export"
   | "everyone"
   | "clear";
@@ -75,6 +77,11 @@ const BUTTONS: { choice: BulkChoice; label: string; icon?: React.ReactNode }[] =
       choice: "pool-remove",
       label: "Take out of talent pool",
       icon: <StarOff aria-hidden="true" className="size-3.5" />,
+    },
+    {
+      choice: "create-employees",
+      label: "Create employees…",
+      icon: <UserPlus aria-hidden="true" className="size-3.5" />,
     },
     {
       choice: "export",

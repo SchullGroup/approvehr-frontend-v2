@@ -10,6 +10,7 @@ import {
   pipelineApi,
   type ApiBoardCard,
   type ApiBoardColumn,
+  type ApiBulkAnswer,
   type ApiBulkJob,
   type ApiBulkRow,
   type ApiReason,
@@ -317,14 +318,20 @@ async function bulk(
  * too, so the two cannot come to disagree about what "done", "skipped" and "refused"
  * mean or about how an email that was queued is reported.
  */
-export async function runBulkJobs({
+export async function runBulkJobs<Body = BulkBody>({
   bodies,
+  send,
   total,
   asked,
   signal,
   onProgress,
 }: {
-  bodies: readonly BulkBody[];
+  bodies: readonly Body[];
+  /**
+   * How one body is sent. The pipeline's own `POST /bulk` unless a caller has an
+   * endpoint of its own that answers the same job, as the Hired list's does.
+   */
+  send?: (body: Body, signal: AbortSignal) => Promise<ApiBulkAnswer>;
   total: number;
   /** Emails were asked for in this action. */
   asked: boolean;
@@ -342,7 +349,9 @@ export async function runBulkJobs({
   onProgress({ done: 0, total });
 
   for (const body of bodies) {
-    const answer = await pipelineApi.bulk(body, signal);
+    const answer = send
+      ? await send(body, signal)
+      : await pipelineApi.bulk(body as BulkBody, signal);
     let job = answer.job;
     let rows = answer.results;
 

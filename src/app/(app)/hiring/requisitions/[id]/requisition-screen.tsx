@@ -57,6 +57,7 @@ import {
 } from "@/lib/store/recruitment";
 import { useSession } from "@/lib/store/session";
 import type { StageType } from "@/lib/hiring/pipeline/stage-types";
+import { JobHires } from "@/components/hiring/hired/job-hires";
 import { RequisitionScreening, UnknownRequisition } from "./screening";
 import { PipelineWorkspace } from "./pipeline-workspace";
 
@@ -530,6 +531,11 @@ function RealRequisitionDetail({ id }: { id: string }) {
           </Card>
         </div>
 
+        <JobHires
+          requisitionId={requisition.id}
+          headcount={requisition.headcount}
+        />
+
         <RequisitionScreening
           requisitionId={requisition.id}
           roleName={requisition.jobTitle}
@@ -936,6 +942,8 @@ function SeededRequisitionDetail({ id }: { id: string }) {
             </CardBody>
           </Card>
         </div>
+
+        <JobHires requisitionId={req.id} headcount={req.openings} />
 
         <RequisitionScreening requisitionId={req.id} roleName={req.title} />
 

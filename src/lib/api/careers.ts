@@ -670,6 +670,23 @@ export type ApiCareersSettings = {
     purgeFrom: string | null;
     graceDays: number;
   };
+  /**
+   * What accepting an offer does. Absent from an API that predates the Hired list,
+   * which made the employee record at acceptance and had no choice about it.
+   */
+  hiring?: {
+    onOfferAccepted: "HIRED_LIST_ONLY" | "CREATE_EMPLOYEE";
+    /** What will actually happen: the list only, for a company that lost Core HR. */
+    effective: "HIRED_LIST_ONLY" | "CREATE_EMPLOYEE";
+    coreHr: { available: boolean; reason: string | null };
+    options: {
+      value: "HIRED_LIST_ONLY" | "CREATE_EMPLOYEE";
+      label: string;
+      description: string;
+      available: boolean;
+      unavailableReason: string | null;
+    }[];
+  };
   search: { indexable: boolean };
   deployment: { fileUploads: boolean };
 };
@@ -689,6 +706,11 @@ export type UpdateCareersSettingsBody = {
   candidateEmailsEnabled?: boolean;
   /** Whole months, 1 to 120. `null` keeps rejected candidates. */
   retentionMonths?: number | null;
+  /**
+   * What accepting an offer does. `CREATE_EMPLOYEE` needs Core HR and is refused with
+   * a sentence where there is none.
+   */
+  onOfferAccepted?: "HIRED_LIST_ONLY" | "CREATE_EMPLOYEE";
 };
 
 /* -------------------------------------------------------------------- calls */

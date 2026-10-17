@@ -41,6 +41,7 @@ import {
   Target,
   Timer,
   TrendingUp,
+  UserCheck,
   UserRoundPlus,
   Users,
   Wallet,
@@ -672,6 +673,15 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Offers",
       icon: <FileCheck aria-hidden="true" />,
       anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
+      feature: "hiring",
+    },
+    {
+      /* Where an accepted offer lands. An employee is made from here, on request,
+         and only where the company has Core HR. */
+      href: "/hiring/hired",
+      label: "Hired",
+      icon: <UserCheck aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
       feature: "hiring",
     },
     {
