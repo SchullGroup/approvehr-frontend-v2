@@ -277,13 +277,18 @@ export function usePassMarkCount(postingId: string, input: PassMarkInput) {
 
 export function useExplanation(subject: ScreeningSubject, enabled = true) {
   const gateway = useScreeningGateway();
-  const loaded = useLoaded<Explanation>(
+  /* Wrapped, so "the API gave none" is an answer and not the same as "no answer yet". */
+  const loaded = useLoaded<{ explanation: Explanation | null }>(
     `explain:${gateway.mode}:${subject.kind}:${subject.id}`,
     enabled,
-    (signal) => gateway.explanation(subject, signal),
+    async (signal) => ({
+      explanation: await gateway.explanation(subject, signal),
+    }),
   );
   return {
-    explanation: loaded.data,
+    explanation: loaded.data?.explanation ?? null,
+    /** The API sent no explanation at all, so there is nothing to draw. */
+    hidden: loaded.data !== null && loaded.data.explanation === null,
     loading: enabled && loaded.loading,
     error: loaded.error,
     reload: loaded.reload,

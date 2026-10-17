@@ -287,8 +287,12 @@ export type ApiConfirmRow = {
     requisitionId: string;
     stage: string | null;
   } | null;
-  score: number | null;
-  scoreStatus: ApiScoreStatus;
+  /**
+   * Absent (not null) where the viewer may not see scores on this job; `null` is a
+   * person with no score yet.
+   */
+  score?: number | null;
+  scoreStatus?: ApiScoreStatus;
   assessment: { test: string | null; percent: number } | null;
   knockoutCount: number;
   reasons: { code: ApiCutoffReason; text: string }[];

@@ -189,6 +189,15 @@ describe("a preview and a re-score", () => {
   });
 });
 
+/** The explanation, which these tests all expect to have been sent. */
+const explained = async (
+  subject: Parameters<typeof gateway.explanation>[0],
+) => {
+  const found = await gateway.explanation(subject, signal);
+  if (!found) throw new Error("The gateway gave no explanation.");
+  return found;
+};
+
 describe("an explanation", () => {
   const detail = (current: boolean) => ({
     id: "a1",
@@ -225,29 +234,23 @@ describe("an explanation", () => {
   it("marks the other spellings when the score was made under the criteria in force", async () => {
     careers.getApplication.mockResolvedValue(detail(true));
     screening.getCriteria.mockResolvedValue(apiView(3));
-    const e = await gateway.explanation(
-      { kind: "application", id: "a1" },
-      signal,
-    );
+    const e = await explained({ kind: "application", id: "a1" });
     expect(e.items[0]?.evidence[0]?.marks).toEqual(["Payroll", "PAYE"]);
   });
 
   it("does not guess the spellings of an older score, and does not ask for them", async () => {
     careers.getApplication.mockResolvedValue(detail(false));
-    const e = await gateway.explanation(
-      { kind: "application", id: "a1" },
-      signal,
-    );
+    const e = await explained({ kind: "application", id: "a1" });
     expect(screening.getCriteria).not.toHaveBeenCalled();
     expect(e.items[0]?.evidence[0]?.marks).toEqual(["Payroll"]);
     expect(e.stale).toBe(true);
   });
 
-  it("says plainly when the server does not explain scores", async () => {
+  it("gives nothing, not an error, when the server sends no explanation: this person may not see scores on the job, or the server has none", async () => {
     careers.getApplication.mockResolvedValue({ id: "a1", postingId: "p1" });
     await expect(
       gateway.explanation({ kind: "application", id: "a1" }, signal),
-    ).rejects.toMatchObject({ status: 404 });
+    ).resolves.toBeNull();
   });
 });
 

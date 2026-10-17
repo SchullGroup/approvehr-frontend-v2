@@ -49,6 +49,7 @@ import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
 import { RowAnswers } from "@/components/hiring/row-answers";
 import { ExplanationDisclosure } from "@/components/hiring/screening/explanation-panel";
 import { ScreeningBadges } from "@/components/hiring/screening/fit-badge";
+import { scoresAreSent } from "@/lib/hiring/screening/score";
 import { PostingScreeningNote } from "@/components/hiring/screening/posting-note";
 import {
   ScoreFilterFields,
@@ -474,7 +475,15 @@ function Queue({
                   onChange={(event) => setTo(event.target.value)}
                 />
               </Field>
-              <ScoreFilterFields state={score} needsAdvert={postingId === ""} />
+              {scoresAreSent(
+                applications.applications,
+                score.narrowed || score.sort !== "newest",
+              ) && (
+                <ScoreFilterFields
+                  state={score}
+                  needsAdvert={postingId === ""}
+                />
+              )}
               <div className="flex flex-col justify-end gap-2.5 pb-1.5">
                 <Checkbox
                   label="Needs a look"

@@ -521,6 +521,9 @@ export function belowRowFromApi(row: ApiConfirmRow): BelowRow {
     name: row.name,
     email: row.email,
     appliedAt: row.appliedAt,
+    ...(row.scoreStatus === undefined && row.score === undefined
+      ? { fitHidden: true }
+      : {}),
     summary: {
       fit: fit ?? NO_SCREENING.fit,
       assessment: row.assessment?.percent ?? null,

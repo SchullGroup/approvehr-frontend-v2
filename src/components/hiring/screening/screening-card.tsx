@@ -4,6 +4,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui";
 import { AssessmentRecord } from "@/components/hiring/screening/assessment-record";
 import { ExplanationPanel } from "@/components/hiring/screening/explanation-panel";
 import type { ScreeningSubject } from "@/lib/hiring/screening/model";
+import { useExplanation } from "@/lib/hiring/screening/use-screening";
 import { useScreeningGateway } from "@/lib/hiring/screening/use-gateway";
 import { useCan } from "@/lib/permissions";
 
@@ -13,6 +14,11 @@ import { useCan } from "@/lib/permissions";
  *
  * Staff only: this is drawn on the record page, which needs the hiring
  * permissions. It is not on the narrow screens an interview panelist uses.
+ *
+ * ## It is absent, not empty, where the viewer may not see scores
+ *
+ * Who may see a score is set per job. When the API sends none for this person the card
+ * is not drawn at all.
  */
 export function ScreeningCard({
   subject,
@@ -24,6 +30,11 @@ export function ScreeningCard({
 }) {
   const canManage = useCan("MANAGE_HIRING");
   const gateway = useScreeningGateway();
+  const state = useExplanation(subject);
+  /* The API sent no score for this person: they may not see scores on this job. The
+     whole card goes, header and assessment too. A box saying "hidden" would tell them
+     one exists, and an error would tell them something is broken. */
+  if (state.hidden) return null;
   return (
     <Card>
       <CardHeader
@@ -32,6 +43,7 @@ export function ScreeningCard({
       />
       <CardBody className="flex flex-col gap-6">
         <ExplanationPanel
+          state={state}
           subject={subject}
           criteriaHref={
             postingId

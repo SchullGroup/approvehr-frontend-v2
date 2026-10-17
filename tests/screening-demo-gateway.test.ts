@@ -138,11 +138,14 @@ describe("the criteria", () => {
 });
 
 describe("every state of a CV is somewhere", () => {
-  const explain = (pattern: RegExp) =>
-    gateway.explanation(
+  const explain = async (pattern: RegExp) => {
+    const found = await gateway.explanation(
       { kind: "application", id: person(pattern).id },
       signal,
     );
+    if (!found) throw new Error("The demo gave no explanation.");
+    return found;
+  };
 
   it("has a scan that needs a person to read it", async () => {
     const result = await explain(/\.q04@/);
@@ -175,7 +178,7 @@ describe("every state of a CV is somewhere", () => {
       { kind: "application", id: other?.id ?? "" },
       signal,
     );
-    expect(result.status).toBe("NO_CRITERIA");
+    expect(result?.status).toBe("NO_CRITERIA");
   });
 
   it("explains a score with the reasons and where the person stands", async () => {
@@ -186,9 +189,9 @@ describe("every state of a CV is somewhere", () => {
       { kind: "application", id: scored?.id ?? "" },
       signal,
     );
-    expect(result.items.length).toBeGreaterThan(3);
-    expect(result.formula).toMatch(/weight/);
-    expect(result.standing).not.toBeNull();
+    expect(result?.items.length).toBeGreaterThan(3);
+    expect(result?.formula).toMatch(/weight/);
+    expect(result?.standing).not.toBeNull();
   });
 });
 
@@ -226,8 +229,8 @@ describe("re-scoring", () => {
       { kind: "application", id: stale.id },
       signal,
     );
-    expect(after.stale).toBe(false);
-    expect(after.version).toBe(3);
+    expect(after?.stale).toBe(false);
+    expect(after?.version).toBe(3);
   });
 
   it("shows somebody not yet reached as scored with the older version", async () => {
@@ -240,7 +243,7 @@ describe("re-scoring", () => {
       signal,
     );
     /* The last in line has not been reached a moment after the save. */
-    expect(result.stale || result.status !== "SCORED").toBe(true);
+    expect(result?.stale || result?.status !== "SCORED").toBe(true);
   });
 });
 
@@ -410,7 +413,7 @@ describe("deciding", () => {
     expect(after.rows.map((r) => r.id)).not.toContain(id);
     const standing = (
       await gateway.explanation({ kind: "application", id }, signal)
-    ).standing;
+    )?.standing;
     expect(standing?.kept?.reason).toBe("Strong portfolio");
     expect(standing?.below).toBe(false);
   });

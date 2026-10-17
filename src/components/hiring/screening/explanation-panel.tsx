@@ -344,12 +344,22 @@ export function ExplanationPanel({
   subject,
   criteriaHref,
   enabled = true,
+  state: given,
 }: {
   subject: ScreeningSubject;
   criteriaHref?: string | undefined;
   enabled?: boolean;
+  /**
+   * The explanation, when the caller has already asked for it (the record's card does,
+   * so it can leave itself out when there is none). Without it the panel asks.
+   */
+  state?: ReturnType<typeof useExplanation>;
 }) {
-  const state = useExplanation(subject, enabled);
+  const own = useExplanation(subject, enabled && given === undefined);
+  const state = given ?? own;
+
+  /* The API sent none: this person may not see scores here. Nothing is drawn. */
+  if (state.hidden) return null;
 
   if (state.loading) {
     return (
@@ -397,6 +407,11 @@ export function ExplanationDisclosure({
   const asked = useRef(false);
   const [enabled, setEnabled] = useState(false);
   const panelId = `explanation-${subject.kind}-${subject.id}`;
+  const state = useExplanation(subject, enabled);
+
+  /* Asked, and the API sent none: this person may not see scores here. The button
+     that promised an explanation goes too, rather than opening onto nothing. */
+  if (enabled && state.hidden) return null;
 
   return (
     <div>
@@ -425,7 +440,7 @@ export function ExplanationDisclosure({
           <ExplanationPanel
             subject={subject}
             criteriaHref={criteriaHref}
-            enabled={enabled}
+            state={state}
           />
         )}
       </div>

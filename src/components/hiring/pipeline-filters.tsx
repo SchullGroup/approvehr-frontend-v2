@@ -50,6 +50,7 @@ export function PipelineFilters({
   count,
   actions,
   score,
+  scoresShown = true,
 }: {
   search: string;
   onSearchChange: (value: string) => void;
@@ -62,6 +63,11 @@ export function PipelineFilters({
   actions?: React.ReactNode;
   /** The score filters and the sort, held by the screen that also asks the board. */
   score?: ScoreFilterState;
+  /**
+   * The API is sending scores to this person. When it is not, the score range, sort
+   * and status are left out: they would be controls for what cannot be seen.
+   */
+  scoresShown?: boolean;
 }) {
   const gateway = useScreeningGateway();
   const channels = useMemo(() => {
@@ -162,7 +168,7 @@ export function PipelineFilters({
           onChange={(event) => set("to", event.target.value)}
         />
       </Field>
-      {score && gateway.supports.board && (
+      {score && scoresShown && gateway.supports.board && (
         <ScoreFilterFields
           state={score}
           withSort={gateway.supports.boardSort}

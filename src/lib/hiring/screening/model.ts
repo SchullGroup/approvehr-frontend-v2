@@ -540,6 +540,12 @@ export type BelowRow = {
   email: string | null;
   appliedAt: string;
   summary: ScreeningSummary;
+  /**
+   * The API sent no fit score for this person (they may not see scores on this job).
+   * The row draws no fit badge, not one that says "not scored": that would tell them a
+   * score exists to be seen.
+   */
+  fitHidden?: boolean;
   reasons: BelowReason[];
   /** The knockout answers that raised a flag, for the row to show at a glance. */
   flagged: { question: string; answer: string }[];

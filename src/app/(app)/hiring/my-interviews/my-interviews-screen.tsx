@@ -13,6 +13,7 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { FitBadge } from "@/components/hiring/screening/fit-badge";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { useMyAccess } from "@/lib/hiring/pipeline/use-comms";
 import { usePipelineGateway } from "@/lib/hiring/pipeline/use-pipeline";
@@ -207,6 +208,8 @@ export function MyInterviewsScreen() {
                               {role}
                             </Badge>
                           ))}
+                          {/* Only where the job lets this person see scores. */}
+                          {row.fit && <FitBadge fit={row.fit} />}
                           {row.scorecardsOwed > 0 && (
                             <Badge tone="warning" size="sm">
                               {row.scorecardsOwed === 1

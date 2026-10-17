@@ -132,11 +132,18 @@ export type ScreeningGateway = {
     save(postingId: string, input: PassMarkInput): Promise<PassMark>;
   };
 
-  /** Why somebody has the score they have. Staff only. */
+  /**
+   * Why somebody has the score they have. Staff only.
+   *
+   * `null` is **the API did not give one**: a person who may not see scores on this
+   * job is sent none, and neither is a server that predates screening. It is not an
+   * error and nothing is drawn for it, not even a box that says a score is hidden:
+   * a placeholder tells the viewer one exists.
+   */
   explanation(
     subject: ScreeningSubject,
     signal: AbortSignal,
-  ): Promise<Explanation>;
+  ): Promise<Explanation | null>;
 
   /** Ask for a CV to be read again. `null` where the API offers no retry. */
   retryReading: ((subject: ScreeningSubject) => Promise<void>) | null;

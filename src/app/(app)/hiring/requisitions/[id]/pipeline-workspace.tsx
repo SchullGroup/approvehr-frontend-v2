@@ -28,6 +28,7 @@ import { MoveEmailDialog } from "@/components/hiring/move-email-dialog";
 import { StageComms } from "@/components/hiring/stage-comms";
 import { PipelineFilters } from "@/components/hiring/pipeline-filters";
 import { useScoreFilterState } from "@/components/hiring/screening/score-filters";
+import { scoresAreSent } from "@/lib/hiring/screening/score";
 import { PipelineTable } from "@/components/hiring/pipeline-table";
 import { RejectDialog } from "@/components/hiring/reject-dialog";
 import { noticeSentence } from "@/lib/hiring/comms/status";
@@ -468,6 +469,10 @@ export function PipelineWorkspace({
         tags={tags.items}
         count={total}
         score={score}
+        scoresShown={scoresAreSent(
+          cardsOnScreen,
+          score.narrowed || score.sort !== "newest",
+        )}
         actions={
           <SegmentedControl
             label="View"

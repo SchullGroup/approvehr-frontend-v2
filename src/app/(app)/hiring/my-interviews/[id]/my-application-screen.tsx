@@ -18,6 +18,7 @@ import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { OpenCv } from "@/components/hiring/open-cv";
 import { InterviewScoreCard } from "@/components/hiring/record-comms";
+import { FitScoreCard } from "@/components/hiring/screening/fit-score-card";
 import { ScorecardDialog } from "@/components/hiring/scorecard-dialog";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -203,6 +204,10 @@ export function MyApplicationScreen({ id }: { id: string }) {
             Hand them in from the interview below. They are blind: you see only
             your own, and what everybody wrote is for the hiring manager.
           </Callout>
+        )}
+
+        {application.screening && (
+          <FitScoreCard screening={application.screening} />
         )}
 
         {application.score && <InterviewScoreCard score={application.score} />}

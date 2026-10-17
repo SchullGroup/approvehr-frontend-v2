@@ -146,13 +146,9 @@ export const apiScreeningGateway: ScreeningGateway = {
     const id = await applicationOf(subject, signal);
     const detail = await careersApi.getApplication(id, signal);
     const screening = detail.screening;
-    if (!screening) {
-      throw new ApiError(
-        404,
-        "not_found",
-        "This server does not say how a score was worked out.",
-      );
-    }
+    /* Not sent: this person may not see scores here, or the server has none. Said
+       as nothing, never as an error. */
+    if (!screening) return null;
     /* The other spellings of each skill, so the words a match was found under are
        marked too. Only for a score made under the criteria in force now: for an
        older one they could be a different list. */

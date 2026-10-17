@@ -612,7 +612,7 @@ function BelowRowView({
               <TextLink href={`/hiring/candidates/${row.id}`}>
                 {row.name}
               </TextLink>
-              <FitBadge fit={row.summary.fit} />
+              {!row.fitHidden && <FitBadge fit={row.summary.fit} />}
               <AssessmentBadge score={row.summary.assessment} />
               <BelowBadge below />
             </p>

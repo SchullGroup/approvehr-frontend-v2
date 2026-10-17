@@ -249,5 +249,26 @@ export function compareBySort(
   }
 }
 
+/**
+ * Whether this person is being sent scores at all, judged from the rows on screen.
+ *
+ * Who may see a score is the API's to decide, and where it says no it **leaves the
+ * fields out**. A score range, a score sort and a status to pick would then be controls
+ * for something the viewer cannot see, and would tell them it exists, so they go. They
+ * stay while any score control is in use (never take away the control somebody is
+ * holding), and while nothing is loaded (it cannot be known yet).
+ */
+export function scoresAreSent(
+  rows: readonly { screening?: unknown; fit?: unknown }[],
+  inUse: boolean,
+): boolean {
+  if (inUse || rows.length === 0) return true;
+  return rows.some(
+    (row) =>
+      (row.screening !== null && row.screening !== undefined) ||
+      (row.fit !== null && row.fit !== undefined),
+  );
+}
+
 /** "1,240", the way the rest of the product writes a count. */
 export const count = (n: number): string => n.toLocaleString("en-NG");
