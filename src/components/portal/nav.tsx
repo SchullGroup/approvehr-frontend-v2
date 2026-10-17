@@ -43,6 +43,7 @@ import {
   TrendingUp,
   UserRoundPlus,
   Users,
+  UsersRound,
   Wallet,
 } from "lucide-react";
 import type { PermissionKey } from "@/lib/permissions";
@@ -243,10 +244,25 @@ export type NavGroup = {
 
   /**
    * Which paid module this group belongs to, for `visibleNav` to check
-   * against the company's plan. Unset for `PERSONAL` and `COMPANY_WIDE` —
-   * neither is sold separately, so neither can ever be outside the plan.
+   * against the company's plan. Unset for `PERSONAL` and the company-wide
+   * groups (Reports, Settings) — neither is sold separately, so neither can
+   * ever be outside the plan. The sidebar reads "set" as "this is a module".
    */
   billingModule?: BillingModule;
+
+  /**
+   * A stable key for the group, which the sidebar uses to say which drill-down
+   * level it is on. Optional so every fixture that builds a `NavGroup` by hand
+   * still compiles; the sidebar falls back to a slug of `heading`.
+   */
+  id?: string;
+
+  /**
+   * The icon the group's own row wears at the top level of the sidebar, where
+   * the group is one row and its items are a click away. Unset falls back to
+   * a generic one. Never read by `visibleNav`.
+   */
+  icon?: React.ReactNode;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -832,8 +848,12 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
  * Reports reads across all six; Settings and Roles configure all six. Nothing
  * here would be true of one heading and false of the others, which is the test
  * for belonging in this block rather than in a module.
+ *
+ * Two lists rather than one so the sidebar can file each under its own row —
+ * Reports and Settings — instead of four loose rows at the top level. Every
+ * item that was in the single list is in exactly one of these two.
  */
-const COMPANY_WIDE: NavItem[] = [
+const REPORT_ITEMS: NavItem[] = [
   {
     href: "/reports",
     label: "Reports",
@@ -850,6 +870,9 @@ const COMPANY_WIDE: NavItem[] = [
     label: "Explore",
     icon: <Orbit aria-hidden="true" />,
   },
+];
+
+const SETTINGS_ITEMS: NavItem[] = [
   {
     href: "/settings",
     label: "Settings",
@@ -904,14 +927,42 @@ const BILLING_MODULE_OF: Record<ModuleId, BillingModule> = {
   desk: "HELPDESK",
 };
 
+/**
+ * The icon each module's own row wears in the sidebar's top level.
+ *
+ * `Record<ModuleId, …>`, like `MODULE_ITEMS` above, so a seventh module stops
+ * this file compiling until somebody picks one.
+ */
+const MODULE_ICON: Record<ModuleId, React.ReactNode> = {
+  "core-hr": <UsersRound aria-hidden="true" />,
+  payroll: <Banknote aria-hidden="true" />,
+  hiring: <BriefcaseBusiness aria-hidden="true" />,
+  time: <CalendarDays aria-hidden="true" />,
+  performance: <Target aria-hidden="true" />,
+  desk: <LifeBuoy aria-hidden="true" />,
+};
+
 export const NAV: NavGroup[] = [
-  { items: PERSONAL },
+  { id: "home", items: PERSONAL },
   ...MODULES.map((module) => ({
+    id: module.id,
     heading: module.label,
+    icon: MODULE_ICON[module.id],
     billingModule: BILLING_MODULE_OF[module.id],
     items: MODULE_ITEMS[module.id],
   })).sort((a, b) => Number(comingSoon(a)) - Number(comingSoon(b))),
-  { items: COMPANY_WIDE },
+  {
+    id: "reports",
+    heading: "Reports",
+    icon: <ChartNoAxesColumn aria-hidden="true" />,
+    items: REPORT_ITEMS,
+  },
+  {
+    id: "settings",
+    heading: "Settings",
+    icon: <Settings aria-hidden="true" />,
+    items: SETTINGS_ITEMS,
+  },
 ];
 
 /* -------------------------------------------------------------------------- */
