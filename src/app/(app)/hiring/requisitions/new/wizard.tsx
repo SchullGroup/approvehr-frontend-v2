@@ -31,6 +31,7 @@ import {
   Select,
   Skeleton,
   StepIndicator,
+  Switch,
   Textarea,
   TextLink,
   useStepper,
@@ -101,6 +102,8 @@ type Draft = {
   hiringManagerId: string;
   recruiterId: string;
   notes: string;
+  /** A confidential search: only the people on its list can see its applicants. */
+  restricted: boolean;
 };
 
 const EMPTY: Draft = {
@@ -130,6 +133,7 @@ const EMPTY: Draft = {
   hiringManagerId: "",
   recruiterId: "",
   notes: "",
+  restricted: false,
 };
 
 const LOCKED_STAGES: StageId[] = ["sourced", "selection"];
@@ -385,6 +389,9 @@ function Wizard() {
             ? { hiringManagerId: draft.hiringManagerId }
             : {}),
           ...(screening.length > 0 ? { screeningQuestions: screening } : {}),
+          /* Restricted in the same request, with the person making it put on the
+             list, so a confidential search is never open for a moment. */
+          ...(draft.restricted ? { restricted: true } : {}),
           /* The API copies the template's stages onto the role, so none are
              made one at a time here. */
           ...(chosenTemplate ? { pipelineTemplateId: chosenTemplate.id } : {}),
@@ -837,6 +844,15 @@ function Wizard() {
                       </Select>
                     </Field>
                   </>
+                )}
+
+                {isConnected && (
+                  <Switch
+                    label="Confidential search"
+                    description="On: only the people you add to this job, its hiring manager and whoever holds the Restricted jobs permission can see this job, and everybody else is not told it exists. You are added, so you keep access. Off: everybody who can see applicants in Hiring can. You can change it later under Who can see this job."
+                    checked={draft.restricted}
+                    onChange={(e) => set("restricted", e.target.checked)}
+                  />
                 )}
 
                 <Field

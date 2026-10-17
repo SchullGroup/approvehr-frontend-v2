@@ -57,6 +57,7 @@ import {
 } from "@/lib/store/recruitment";
 import { useSession } from "@/lib/store/session";
 import type { StageType } from "@/lib/hiring/pipeline/stage-types";
+import { JobAccessCard } from "@/components/hiring/access/job-access";
 import { JobHires } from "@/components/hiring/hired/job-hires";
 import { RequisitionScreening, UnknownRequisition } from "./screening";
 import { PipelineWorkspace } from "./pipeline-workspace";
@@ -536,6 +537,8 @@ function RealRequisitionDetail({ id }: { id: string }) {
           headcount={requisition.headcount}
         />
 
+        <JobAccessCard requisitionId={requisition.id} canManage={canManage} />
+
         <RequisitionScreening
           requisitionId={requisition.id}
           roleName={requisition.jobTitle}
@@ -653,7 +656,9 @@ function EditRequisitionDialog({
         headcount: Math.max(1, Number(headcount) || 1),
         location: location.trim() || null,
         description: description.trim() || null,
-        hiringManagerId: hiringManagerId || null,
+        ...(!directory.loading && directory.employees.length === 0
+          ? {}
+          : { hiringManagerId: hiringManagerId || null }),
       };
       if (!frozen) {
         body.jobTitle = jobTitle.trim();
@@ -786,19 +791,34 @@ function EditRequisitionDialog({
           />
         </Field>
 
-        <Field label="Hiring manager">
-          <Select
-            value={hiringManagerId}
-            onChange={(e) => setHiringManagerId(e.currentTarget.value)}
+        {/* A company without Core HR has no staff to choose from: say where the
+            hiring manager is set instead, rather than offer a list with nobody in it. */}
+        {!directory.loading && directory.employees.length === 0 ? (
+          <Field
+            label="Hiring manager"
+            help="There is no staff list to choose from. Invite them under Who can see this job, as a hiring manager."
           >
-            <option value="">Not set</option>
-            {directory.employees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {fullName(employee)} — {employee.jobTitle}
+            <Select value="" disabled onChange={() => undefined}>
+              <option value="">
+                {requisition.hiringManagerName ?? "Not set"}
               </option>
-            ))}
-          </Select>
-        </Field>
+            </Select>
+          </Field>
+        ) : (
+          <Field label="Hiring manager">
+            <Select
+              value={hiringManagerId}
+              onChange={(e) => setHiringManagerId(e.currentTarget.value)}
+            >
+              <option value="">Not set</option>
+              {directory.employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {fullName(employee)} — {employee.jobTitle}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
 
         <Field optional label="Description">
           <Textarea
@@ -814,6 +834,7 @@ function EditRequisitionDialog({
 
 /** The seeded requisition, exactly as before this cutover. */
 function SeededRequisitionDetail({ id }: { id: string }) {
+  const canManageSeeded = useCan("MANAGE_HIRING");
   const req = requisitionById(id);
   if (!req) return <UnknownRequisition id={id} />;
 
@@ -944,6 +965,8 @@ function SeededRequisitionDetail({ id }: { id: string }) {
         </div>
 
         <JobHires requisitionId={req.id} headcount={req.openings} />
+
+        <JobAccessCard requisitionId={req.id} canManage={canManageSeeded} />
 
         <RequisitionScreening requisitionId={req.id} roleName={req.title} />
 

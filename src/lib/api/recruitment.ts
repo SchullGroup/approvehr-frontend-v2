@@ -359,6 +359,11 @@ export type CreateRequisitionBody = {
   hiringManagerId?: string | null;
   reference?: string;
   /**
+   * A confidential search from the start: restricted in this same request, with the
+   * person who made it put on the list so they do not lose what they just made.
+   */
+  restricted?: boolean;
+  /**
    * The wizard's screening questions: yes or no, and whether a wrong answer flags
    * the application for a person to look at. Kept on the requisition, and copied
    * onto the form of any advert made for it. `knockout` flags a "No"; it never
@@ -476,6 +481,11 @@ export type ScheduleInterviewBody = {
    * nobody: the old kind of interview, scored by anybody who manages hiring.
    */
   panelistIds?: string[];
+  /**
+   * Invited accounts on the job's access list who may score it too: the only kind of
+   * panelist a company without Core HR has. Naming either list is naming the panel.
+   */
+  panelistUserIds?: string[];
   /** Only ever true when the person ticked it. */
   sendInvite?: boolean;
   inviteTemplateId?: string;

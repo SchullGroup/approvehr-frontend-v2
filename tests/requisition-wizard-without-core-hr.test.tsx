@@ -155,3 +155,58 @@ describe("a company with no departments and no staff on file", () => {
     expect(screen.getByLabelText(/Job title/)).toBeInTheDocument();
   });
 });
+
+describe("a confidential search", () => {
+  const toTeamStep = async (user: ReturnType<typeof userEvent.setup>) => {
+    render(<RequisitionWizard />);
+    await user.type(screen.getByLabelText(/Job title/), "Payroll Analyst");
+    await user.selectOptions(screen.getByLabelText(/Location/), "Lagos, NG");
+    await next(user);
+    await user.type(screen.getByLabelText(/Band minimum/), "650000");
+    await user.type(screen.getByLabelText(/Band maximum/), "900000");
+    await next(user);
+    await next(user);
+    await screen.findByText("There is no staff list to choose from");
+  };
+
+  it("is off unless somebody turns it on, and saying so is sent in the same request that makes the role", async () => {
+    const user = userEvent.setup();
+    await toTeamStep(user);
+    const toggle = screen.getByRole("switch", { name: /Confidential search/ });
+    expect(toggle).not.toBeChecked();
+    await user.click(toggle);
+    expect(toggle).toBeChecked();
+    await next(user);
+    await user.click(
+      screen.getByRole("button", { name: /Save as draft advert/ }),
+    );
+    await waitFor(() => expect(createRequisition).toHaveBeenCalledTimes(1));
+    expect(createRequisition.mock.calls[0]?.[0]).toMatchObject({
+      restricted: true,
+    });
+  });
+
+  it("sends nothing about it when it is left off", async () => {
+    const user = userEvent.setup();
+    await toTeamStep(user);
+    await next(user);
+    await user.click(
+      screen.getByRole("button", { name: /Save as draft advert/ }),
+    );
+    await waitFor(() => expect(createRequisition).toHaveBeenCalledTimes(1));
+    expect(createRequisition.mock.calls[0]?.[0]).not.toHaveProperty(
+      "restricted",
+    );
+  });
+
+  it("says who keeps sight of it and what changing it later involves", async () => {
+    const user = userEvent.setup();
+    await toTeamStep(user);
+    expect(
+      screen.getAllByText(/You are added, so you keep access/).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/under Who can see this job/).length,
+    ).toBeGreaterThan(0);
+  });
+});
