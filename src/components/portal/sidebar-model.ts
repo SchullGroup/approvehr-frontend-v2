@@ -128,6 +128,7 @@ const SECTION_OF: Record<string, string> = {
   "hiring/Interviews": "Interviews and offers",
   "hiring/My interviews": "Interviews and offers",
   "hiring/Offers": "Interviews and offers",
+  "hiring/Hired": "Interviews and offers",
   "hiring/Hiring settings": "Setup",
 };
 
@@ -452,6 +453,7 @@ const KEYWORDS: Record<string, string[]> = {
   "hiring/Interviews": ["schedule", "panel", "interviewing"],
   "hiring/My interviews": ["panel", "feedback", "scorecard"],
   "hiring/Offers": ["offer letter", "job offer"],
+  "hiring/Hired": ["accepted offers", "new hires", "joined", "export"],
   "hiring/Hiring settings": ["pipelines", "stages", "careers page"],
 
   "time/Attendance": [
