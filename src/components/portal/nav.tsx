@@ -92,6 +92,12 @@ export type NavFacts = {
   assistantWired: boolean;
   /** One answer per row-level question. Total, so none can be forgotten. */
   rows: Record<NavRowFact, boolean>;
+  /**
+   * Somebody invited to help hire, with no employee record and no permissions: they
+   * are shown My interviews and nothing else. See `useIsCollaborator`. Defaults to
+   * false (and may be left out), so nobody is narrowed until it is known.
+   */
+  collaborator?: boolean;
 };
 
 /**
@@ -104,6 +110,7 @@ export type NavFacts = {
 export const NOTHING_ANSWERED_YET: NavFacts = {
   assistantWired: false,
   rows: { "one-on-ones": false, signatures: false, interviews: false },
+  collaborator: false,
 };
 
 export type NavItem = {
@@ -1045,6 +1052,12 @@ export function visibleNav(
       const items = group.items.flatMap((item) => {
         if (item.feature !== undefined && features[item.feature] === false) {
           return [];
+        }
+        /* A collaborator is shown the one room that is theirs and no door to any other:
+           not hiring, not employees, not payroll, not even Home. The first question
+           asked, so no later rule can let a row through for them. */
+        if (facts.collaborator) {
+          return item.rows === "interviews" ? [item] : [];
         }
         if (item.assistant && !facts.assistantWired) return [];
         /* Before the permission checks, and before `always`, because it is a

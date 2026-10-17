@@ -31,6 +31,8 @@ import { useUnreadCount } from "@/lib/store/notifications";
 import { useApprovalQueue } from "@/lib/store/approvals-api";
 import { useLeaveRequests } from "@/lib/store/leave-api";
 import { useAttendanceRoster, type RosterState } from "@/lib/store/attendance";
+import { useIsCollaborator } from "@/lib/hiring/access/collaborator";
+import { CollaboratorGate } from "./collaborator-gate";
 import { useHaveInterviews } from "@/lib/hiring/pipeline/use-mine";
 import { useAmIInAOneOnOne } from "@/lib/store/one-on-ones";
 import { useHaveIAnySignatures } from "@/lib/store/signatures";
@@ -57,6 +59,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      sidebar's Find hands over what was typed when it has no page to offer. */
   const [searchSeed, setSearchSeed] = useState("");
   const pathname = usePathname();
+  /* Invited to help hire, with no record in the company and nothing to open but one
+     room. The chrome around that room is theirs too: no people search (the staff
+     directory is not theirs to browse), no tour of a sidebar they do not have. */
+  const collaborator = useIsCollaborator();
   /* One roster read for the whole chrome, handed to both readers.
      `useNavBadges` used to make this call itself; the clock menu needs the
      same answer, and a second call would be a second `GET /attendance/roster`
@@ -68,6 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      already typing somewhere — a `/` in a note or an amount must reach the
      field it was typed into, not hijack the page out from under it. */
   useEffect(() => {
+    if (collaborator) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
         return;
@@ -86,7 +93,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [collaborator]);
 
   /* The sidebar is filtered by who is looking, what the company turned on,
      whether an assistant is answering, and what the rows say. Every hook here
@@ -162,8 +169,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       rows: {
         "one-on-ones": isManager || inAOneOnOne,
         signatures: canSendForSignature || haveSignatures,
-        interviews: haveInterviews,
+        interviews: haveInterviews || collaborator,
       },
+      collaborator,
     }),
     [
       assistantWired,
@@ -172,6 +180,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       canSendForSignature,
       haveSignatures,
       haveInterviews,
+      collaborator,
     ],
   );
   const billing = useBilling();
@@ -236,17 +245,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <CompanySwitcher />
 
-          <button
-            type="button"
-            onClick={() => {
-              setSearchSeed("");
-              setSearchOpen(true);
-            }}
-            data-tour="search"
-            className={cn(
-              "ml-auto hidden items-center gap-2 rounded-md border border-line bg-canvas",
-              "px-3 py-1.5 text-body-sm text-muted transition-colors",
-              /* Three widths rather than one fixed 16rem, and no shrinking.
+          {!collaborator && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchSeed("");
+                setSearchOpen(true);
+              }}
+              data-tour="search"
+              className={cn(
+                "ml-auto hidden items-center gap-2 rounded-md border border-line bg-canvas",
+                "px-3 py-1.5 text-body-sm text-muted transition-colors",
+                /* Three widths rather than one fixed 16rem, and no shrinking.
                  ----------------------------------------------------------
                  It was `md:w-64` and could not give way, so at 768 — the
                  width it first appears at — the row ran 21px past the
@@ -257,23 +267,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                  is narrow. A control that cannot show what it is should get
                  smaller in steps somebody chose, and never below its own
                  name. */
-              "hover:border-control-line hover:text-body md:flex",
-              "md:w-40 lg:w-64",
+                "hover:border-control-line hover:text-body md:flex",
+                "md:w-40 lg:w-64",
+              )}
+            >
+              <Search aria-hidden="true" className="size-3.5 shrink-0" />
+              {/* Short at `md`, where the field is 10rem and the full sentence
+                would be clipped mid-word. */}
+              <span className="flex-1 truncate text-left lg:hidden">
+                Search…
+              </span>
+              <span className="hidden flex-1 truncate text-left lg:block">
+                Search people, roles…
+              </span>
+              <kbd className="rounded-xs border border-line bg-surface px-1.5 py-0.5 text-meta text-faint">
+                /
+              </kbd>
+            </button>
+          )}
+
+          <div
+            className={cn(
+              "ml-auto flex items-center gap-1.5",
+              !collaborator && "md:ml-0",
             )}
           >
-            <Search aria-hidden="true" className="size-3.5 shrink-0" />
-            {/* Short at `md`, where the field is 10rem and the full sentence
-                would be clipped mid-word. */}
-            <span className="flex-1 truncate text-left lg:hidden">Search…</span>
-            <span className="hidden flex-1 truncate text-left lg:block">
-              Search people, roles…
-            </span>
-            <kbd className="rounded-xs border border-line bg-surface px-1.5 py-0.5 text-meta text-faint">
-              /
-            </kbd>
-          </button>
-
-          <div className="ml-auto flex items-center gap-1.5 md:ml-0">
             {/* Hides every money figure on every screen, in one click. Here
                 rather than on each table because the value of the control is
                 that nothing is left showing: a per-table icon would mean a
@@ -289,7 +307,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 — and this is the same one setting, in the chrome. */}
             <ThemeToggle />
 
-            <MoneyPrivacyToggle />
+            {!collaborator && <MoneyPrivacyToggle />}
 
             {/* Clocking in and out without leaving the page you are on.
                 Absent for an account with no employee record, and for a
@@ -341,7 +359,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               pathname={pathname}
               badges={badges}
               onNavigate={() => setOpen(false)}
-              onSearchPeople={searchPeople}
+              onSearchPeople={collaborator ? undefined : searchPeople}
               variant="desktop"
             />
           </div>
@@ -364,7 +382,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 pathname={pathname}
                 badges={badges}
                 onNavigate={() => setOpen(false)}
-                onSearchPeople={searchPeople}
+                onSearchPeople={collaborator ? undefined : searchPeople}
                 onClose={() => setOpen(false)}
                 variant="drawer"
               />
@@ -401,11 +419,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 dismiss shape as InstallPrompt — see the component. */}
             <HolidayBanner />
           </div>
-          <BillingGate>{children}</BillingGate>
+          <CollaboratorGate>
+            <BillingGate>{children}</BillingGate>
+          </CollaboratorGate>
         </main>
       </div>
 
-      {searchOpen && (
+      {searchOpen && !collaborator && (
         <CommandPalette
           initialQuery={searchSeed}
           onClose={() => setSearchOpen(false)}
@@ -416,7 +436,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           chrome, which is the only thing present on every route. It renders
           nothing at all unless the signed-in account has never dismissed it,
           or somebody opens it from the account menu. */}
-      <GuidedTour />
+      {!collaborator && <GuidedTour />}
     </div>
   );
 }
@@ -520,6 +540,9 @@ export { isNavItemActive } from "./sidebar-model";
 function UserMenu() {
   const { displayName, employee, user, mode, signOut } = useSession();
   const [open, setOpen] = useState(false);
+  /* Invited to help hire: no personnel file, so no profile and no documents of their
+     own to open, and no sidebar to take a tour of. */
+  const collaborator = useIsCollaborator();
 
   /* No seed fallback. `UserMenu` only renders behind `AuthGate`, so a missing
      name means the session is mid-load rather than absent — and borrowing a
@@ -619,43 +642,49 @@ function UserMenu() {
              * the importer, all built and all unreachable). The bell in the
              * header already covers /notifications; these two had nothing.
              */}
+            {!collaborator && (
+              <>
+                <Link
+                  href="/profile"
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
+                >
+                  My profile
+                </Link>
+                <Link
+                  href="/documents"
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
+                >
+                  My documents
+                </Link>
+              </>
+            )}
             <Link
-              href="/profile"
+              href={collaborator ? "/settings/security" : "/settings"}
               role="menuitem"
               onClick={() => setOpen(false)}
               className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
             >
-              My profile
-            </Link>
-            <Link
-              href="/documents"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
-            >
-              My documents
-            </Link>
-            <Link
-              href="/settings"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
-            >
-              Settings
+              {collaborator ? "Password and security" : "Settings"}
             </Link>
             {/* Dismissing the tour is not a decision anybody should be stuck
                 with, and this is the only way back to it. */}
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                openTour();
-              }}
-              className="block w-full rounded-md px-2.5 py-2 text-left text-body-sm text-body hover:bg-canvas hover:text-ink"
-            >
-              Take the tour
-            </button>
+            {!collaborator && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  openTour();
+                }}
+                className="block w-full rounded-md px-2.5 py-2 text-left text-body-sm text-body hover:bg-canvas hover:text-ink"
+              >
+                Take the tour
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"

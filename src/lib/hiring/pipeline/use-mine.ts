@@ -29,13 +29,17 @@ const answer = createSharedResource<boolean>(async (key, signal) => {
 });
 
 export function useHaveInterviews(enabled: boolean): boolean {
-  const { isConnected, employeeId } = useSession();
+  const { isConnected, employeeId, user } = useSession();
+  /* An account invited to help hire has no employee record, and is exactly the person
+     this row is for: it is asked by the account's own id. */
   const key = !enabled
     ? null
     : isConnected
       ? employeeId
         ? `api:${employeeId}`
-        : null
+        : user
+          ? `api-account:${user.id}`
+          : null
       : DEMO_ENABLED
         ? "demo"
         : null;

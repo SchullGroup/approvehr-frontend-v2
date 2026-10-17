@@ -1,11 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LayoutGrid } from "lucide-react";
 import { Button, Callout, Card, CardBody, Spinner } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody } from "@/components/portal/shell";
+import {
+  COLLABORATOR_HOME,
+  useIsCollaborator,
+} from "@/lib/hiring/access/collaborator";
 import { useCan, usePermissions } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSessionRoles, roleTier, type RoleTier } from "@/lib/roles";
@@ -79,6 +84,14 @@ export function DashboardScreen() {
   const { permissions, loading: permissionsLoading } = usePermissions();
   const features = useFeatures();
   const roles = useSessionRoles();
+  const router = useRouter();
+
+  /* Somebody invited to help hire has no day to look at: their one room is My
+     interviews. Sent there, and shown nothing of the company's figures meanwhile. */
+  const collaborator = useIsCollaborator();
+  useEffect(() => {
+    if (collaborator) router.replace(COLLABORATOR_HOME);
+  }, [collaborator, router]);
 
   const [customizing, setCustomizing] = useState(false);
 
@@ -123,7 +136,13 @@ export function DashboardScreen() {
   const reports = useReports(undefined, needsReports);
 
   /* One gate. See the header for why the layout is awaited with the data. */
-  if (loading || layout.loading || permissionsLoading || roles.loading) {
+  if (
+    collaborator ||
+    loading ||
+    layout.loading ||
+    permissionsLoading ||
+    roles.loading
+  ) {
     return (
       <>
         <DashboardHeader />
