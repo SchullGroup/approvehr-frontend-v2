@@ -209,7 +209,8 @@ describe("Create employee", () => {
     expect(dialog).toHaveTextContent(
       "An employee record is created for Ngozi Eze",
     );
-    expect(dialog).toHaveTextContent("Onboarding starts for them");
+    expect(dialog).toHaveTextContent("No invitation to sign in is sent");
+    expect(dialog).not.toHaveTextContent("Onboarding starts");
     expect(dialog).toHaveTextContent("sends no email of its own");
 
     await user.click(

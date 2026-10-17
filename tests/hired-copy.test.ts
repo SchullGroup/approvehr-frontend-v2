@@ -55,8 +55,9 @@ describe("what recording an acceptance does, before it is pressed", () => {
       setting: "HIRED_LIST_ONLY",
       coreHr: false,
     });
-    expect(words.headline).toMatch(/No employee record is created yet/);
-    expect(words.detail).toMatch(/does not use Core HR/);
+    expect(words.headline).toMatch(/does not use Core HR/);
+    expect(words.headline).not.toMatch(/yet/);
+    expect(words.detail).toMatch(/Hired list is where they stay/);
     expect(words.detail).toMatch(/export/);
     expect(words.makesEmployee).toBe(false);
   });
@@ -70,6 +71,7 @@ describe("what recording an acceptance does, before it is pressed", () => {
       "They are added to the Hired list and their employee record is created now.",
     );
     expect(words.detail).toMatch(/before the Hired list/);
+    expect(words.detail).toMatch(/your company's setting/);
     expect(words.makesEmployee).toBe(true);
   });
 
@@ -123,6 +125,33 @@ describe("the line shown after an acceptance was recorded", () => {
     expect(none).not.toMatch(/their employee record was created/);
   });
 
+  it("believes the API's employeeCreated over a bare employeeId, and passes its note on", () => {
+    expect(
+      acceptedNotice("Chioma Aduba", {
+        employeeId: null,
+        employeeCreated: true,
+        rejectedOthers: 0,
+      }),
+    ).toMatch(/their employee record was created/);
+    expect(
+      acceptedNotice("Chioma Aduba", {
+        employeeId: "emp-1",
+        employeeCreated: false,
+        rejectedOthers: 0,
+      }),
+    ).toMatch(/No employee record was created/);
+    expect(
+      acceptedNotice("Chioma Aduba", {
+        employeeId: null,
+        employeeCreated: false,
+        note: "Your plan no longer includes Core HR, so only the Hired list was updated.",
+        rejectedOthers: 0,
+      }),
+    ).toBe(
+      "Chioma Aduba is on the Hired list. No employee record was created. Your plan no longer includes Core HR, so only the Hired list was updated.",
+    );
+  });
+
   it("says which hire this was when the role still has room", () => {
     expect(
       acceptedNotice("Chioma Aduba", {
@@ -166,11 +195,13 @@ describe("what Create employee says it will do", () => {
     expect(lines).toEqual(["Makes a probationary employee in Finance."]);
   });
 
-  it("otherwise says what is made, that onboarding starts, and that it sends no email of its own", () => {
+  it("otherwise says what is made, that nobody is invited and no checklist is started, and that it sends no email of its own", () => {
     const lines = createEmployeeLines(person()).join(" ");
     expect(lines).toMatch(/An employee record is created for Chioma Aduba/);
     expect(lines).toMatch(/starting 2 Nov 2026/);
-    expect(lines).toMatch(/Onboarding starts/);
+    expect(lines).toMatch(/No invitation to sign in is sent/);
+    expect(lines).toMatch(/no onboarding checklist is started/);
+    expect(lines).not.toMatch(/Onboarding starts/);
     expect(lines).toMatch(/sends no email of its own/);
   });
 });

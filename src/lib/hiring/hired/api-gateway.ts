@@ -165,6 +165,9 @@ const settingsFrom = (
     coreHr: hiring?.coreHr.available ?? true,
     coreHrReason: hiring?.coreHr.reason ?? null,
     canChange,
+    ...(hiring?.options && hiring.options.length > 0
+      ? { options: hiring.options }
+      : {}),
   };
 };
 

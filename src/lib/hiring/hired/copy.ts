@@ -70,7 +70,7 @@ export function whatAcceptingDoes(context: AcceptContext): AcceptWords {
         headline:
           "They are added to the Hired list and their employee record is created now.",
         detail:
-          "That is how accepting an offer worked before the Hired list, and your company has kept it. You can change it in Hiring settings.",
+          "That is how accepting an offer worked before the Hired list. It is your company's setting, and you can change it in Hiring settings.",
         makesEmployee: true,
       };
     }
@@ -83,12 +83,20 @@ export function whatAcceptingDoes(context: AcceptContext): AcceptWords {
     };
   }
 
+  /* The default. Without Core HR there is nothing to wait for, so it does not say "yet". */
+  if (!coreHr) {
+    return {
+      headline:
+        "They are added to the Hired list. No employee record is created, because your company does not use Core HR.",
+      detail: "The Hired list is where they stay, and you can export it.",
+      makesEmployee: false,
+    };
+  }
   return {
     headline:
       "They are added to the Hired list. No employee record is created yet.",
-    detail: coreHr
-      ? "Create it from the Hired list when you are ready, for one person or for many."
-      : "Your company does not use Core HR, so the Hired list is where they stay. You can export it.",
+    detail:
+      "Create it from the Hired list when you are ready, for one person or for many.",
     makesEmployee: false,
   };
 }
@@ -97,6 +105,10 @@ export function whatAcceptingDoes(context: AcceptContext): AcceptWords {
 export type AcceptResult = {
   /** Set only when the API made an employee record. */
   employeeId: string | null;
+  /** The API's own statement that one was made. Wins over `employeeId` where it is there. */
+  employeeCreated?: boolean | undefined;
+  /** Why what was done is not what the company's setting asked for, when it is not. */
+  note?: string | null | undefined;
   rejectedOthers: number;
   hiresSoFar?: number | undefined;
   headcount?: number | undefined;
@@ -111,11 +123,13 @@ export type AcceptResult = {
  * instead of leaving a person to wonder.
  */
 export function acceptedNotice(name: string, result: AcceptResult): string {
+  const made = result.employeeCreated ?? Boolean(result.employeeId);
   const parts = [
-    result.employeeId
+    made
       ? `${name} is on the Hired list and their employee record was created.`
       : `${name} is on the Hired list. No employee record was created.`,
   ];
+  if (result.note) parts.push(result.note);
 
   if (
     result.rejectedOthers === 0 &&
@@ -165,8 +179,8 @@ export function createEmployeeLines(person: HiredPerson): string[] {
   const start = date(person.startDate);
   return [
     `An employee record is created for ${person.name} from their application and offer${start ? `, starting ${start}` : ""}.`,
-    "Onboarding starts for them, the same as it did when accepting an offer created the record.",
-    "This step sends no email of its own. Whatever a new employee normally receives, they receive.",
+    "It is made active, with the pay from the offer, exactly as accepting an offer made it before the Hired list. No invitation to sign in is sent and no onboarding checklist is started.",
+    "This step sends no email of its own.",
   ];
 }
 
@@ -202,7 +216,7 @@ export const people = (count: number): string =>
 
 export function bulkCreateLines(count: number): string[] {
   return [
-    `Each of the ${people(count)} gets an employee record made from their application and offer, and onboarding starts for them.`,
+    `Each of the ${people(count)} gets an employee record made from their application and offer, active and on the pay from the offer. No invitations to sign in are sent and no onboarding checklists are started.`,
     "Anybody who cannot be done is left as they are and listed afterwards with the reason: they already are an employee, an employee with their email exists, they did not join, or the job already has all its people.",
     "This step sends no email of its own.",
   ];

@@ -250,7 +250,7 @@ describe("the sentence, by the company's setting and Core HR", () => {
     {
       name: "default, without Core HR",
       setting: settings({ coreHr: false, coreHrReason: "No Core HR." }),
-      says: /does not use Core HR, so the Hired list is where they stay/,
+      says: /does not use Core HR[\s\S]*Hired list is where they stay/,
     },
     {
       name: "old behaviour, with Core HR",

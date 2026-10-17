@@ -53,7 +53,7 @@ const OPTIONS: {
     value: "CREATE_EMPLOYEE",
     label: "Create their employee record at once",
     description:
-      "Accepting an offer puts the person on the Hired list and creates their employee record in the same moment, as it did before the Hired list existed. Onboarding starts straight away. Needs Core HR.",
+      "Accepting an offer puts the person on the Hired list and creates their employee record in the same moment, as it did before the Hired list existed. Needs Core HR.",
   },
 ];
 
@@ -110,14 +110,31 @@ export function AcceptedOffersScreen() {
         />
       ) : (
         <>
-          <Callout tone="info" title="This changed">
-            Until now, accepting an offer always created the employee record.
-            Now it puts the person on the Hired list and stops there, unless you
-            choose the second option below. Offers accepted before the change
-            are already on the list, and the people who became employees show as
-            Employee created.{" "}
-            <TextLink href="/hiring/hired">Open the Hired list</TextLink>
-          </Callout>
+          {settings.onOfferAccepted === "CREATE_EMPLOYEE" ? (
+            <Callout
+              tone="info"
+              title="Accepting an offer makes the employee record"
+            >
+              This is how accepting an offer worked before the Hired list
+              existed: the employee record is made at that moment.{" "}
+              {settings.effective === "HIRED_LIST_ONLY"
+                ? "Your plan no longer includes Core HR, though, so for now accepting an offer only adds the person to the Hired list. "
+                : ""}
+              Companies that are new to hiring now start with the Hired list
+              alone, where accepting an offer adds the person and stops there.
+              You can switch to that below.{" "}
+              <TextLink href="/hiring/hired">Open the Hired list</TextLink>
+            </Callout>
+          ) : (
+            <Callout tone="info" title="How accepting an offer works now">
+              Accepting an offer puts the person on the Hired list and stops
+              there. Before the Hired list existed it also created the employee
+              record straight away, and you can choose that again below. Offers
+              accepted before the change are already on the list, and the people
+              who became employees show as Employee created.{" "}
+              <TextLink href="/hiring/hired">Open the Hired list</TextLink>
+            </Callout>
+          )}
 
           <Callout
             tone={settings.coreHr ? "success" : "warning"}
@@ -136,9 +153,22 @@ export function AcceptedOffersScreen() {
                 aria-label="When an offer is accepted"
                 className="grid gap-3 md:grid-cols-2"
               >
-                {OPTIONS.map((option) => {
-                  const unavailable =
-                    option.value === "CREATE_EMPLOYEE" && !settings.coreHr;
+                {OPTIONS.map((fallback) => {
+                  /* The API's own wording and availability win where it sent them. */
+                  const said = settings.options?.find(
+                    (entry) => entry.value === fallback.value,
+                  );
+                  const option = {
+                    value: fallback.value,
+                    label: said?.label ?? fallback.label,
+                    description: said?.description ?? fallback.description,
+                  };
+                  const unavailable = said
+                    ? !said.available
+                    : option.value === "CREATE_EMPLOYEE" && !settings.coreHr;
+                  const why =
+                    said?.unavailableReason ??
+                    "Off for your company, because it does not use Core HR.";
                   return (
                     <RadioCard
                       key={option.value}
@@ -146,7 +176,7 @@ export function AcceptedOffersScreen() {
                       label={option.label}
                       description={
                         unavailable
-                          ? `${option.description} Off for your company, because it does not use Core HR.`
+                          ? `${option.description} ${why}`
                           : option.description
                       }
                       checked={current === option.value}

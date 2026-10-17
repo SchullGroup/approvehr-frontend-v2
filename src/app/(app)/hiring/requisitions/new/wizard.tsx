@@ -291,12 +291,23 @@ function Wizard() {
   const max = Number(draft.salaryMax.replace(/\D/g, "")) || 0;
   const bandInvalid = min > 0 && max > 0 && min > max;
 
+  /* A company without Core HR has no departments and no staff list: it hires with
+     recruitment alone. Neither is asked for where there is nothing to choose from,
+     because a required box with no options is a wizard that cannot be finished. The
+     people who will hire are invited to the role afterwards, by email. */
+  const noDepartments =
+    isConnected && !departments.loading && departments.flat.length === 0;
+  const noStaff =
+    isConnected && !directory.loading && directory.employees.length === 0;
+
   const complete = {
-    role: Boolean(draft.title && draft.departmentId && draft.location),
+    role: Boolean(
+      draft.title && (draft.departmentId || noDepartments) && draft.location,
+    ),
     pay: min > 0 && max > 0 && !bandInvalid,
     process:
       (chosenTemplate !== null || draft.activeStages.length >= 2) && formValid,
-    team: Boolean(draft.hiringManagerId && draft.recruiterId),
+    team: noStaff || Boolean(draft.hiringManagerId && draft.recruiterId),
     review: true,
   };
 
@@ -491,12 +502,16 @@ function Wizard() {
                 <div className="grid gap-5 sm:grid-cols-2">
                   <Field
                     label="Department"
-                    required
-                    {...(departments.error
+                    required={!noDepartments}
+                    {...(noDepartments
                       ? {
-                          help: `${departments.error.message} Departments are unavailable.`,
+                          help: "Your company has no departments set up, so there is nothing to choose. Leave this blank.",
                         }
-                      : {})}
+                      : departments.error
+                        ? {
+                            help: `${departments.error.message} Departments are unavailable.`,
+                          }
+                        : {})}
                   >
                     <Picker
                       value={draft.departmentId}
@@ -770,43 +785,59 @@ function Wizard() {
 
             {stepper.index === 3 && (
               <>
-                <Field
-                  label="Hiring manager"
-                  required
-                  help="Approves the requisition and makes the final call."
-                >
-                  <Select
-                    value={draft.hiringManagerId}
-                    onChange={(e) =>
-                      set("hiringManagerId", e.currentTarget.value)
-                    }
-                    placeholder="Select a hiring manager"
+                {noStaff ? (
+                  <Callout
+                    tone="info"
+                    title="There is no staff list to choose from"
                   >
-                    {directory.employees.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {fullName(e)} — {e.jobTitle}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
+                    The hiring manager and the recruiter are chosen from your
+                    staff, and your company has none on file. Make the role now,
+                    then invite the people who will hire for it, by email, under
+                    Who can see this job on the role&apos;s page.
+                  </Callout>
+                ) : (
+                  <>
+                    <Field
+                      label="Hiring manager"
+                      required
+                      help="Approves the requisition and makes the final call."
+                    >
+                      <Select
+                        value={draft.hiringManagerId}
+                        onChange={(e) =>
+                          set("hiringManagerId", e.currentTarget.value)
+                        }
+                        placeholder="Select a hiring manager"
+                      >
+                        {directory.employees.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {fullName(e)} — {e.jobTitle}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
 
-                <Field
-                  label="Recruiter"
-                  required
-                  help="Runs the pipeline day to day."
-                >
-                  <Select
-                    value={draft.recruiterId}
-                    onChange={(e) => set("recruiterId", e.currentTarget.value)}
-                    placeholder="Select a recruiter"
-                  >
-                    {directory.employees.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {fullName(e)} — {e.jobTitle}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
+                    <Field
+                      label="Recruiter"
+                      required
+                      help="Runs the pipeline day to day."
+                    >
+                      <Select
+                        value={draft.recruiterId}
+                        onChange={(e) =>
+                          set("recruiterId", e.currentTarget.value)
+                        }
+                        placeholder="Select a recruiter"
+                      >
+                        {directory.employees.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {fullName(e)} — {e.jobTitle}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  </>
+                )}
 
                 <Field
                   label="Note for approvers"

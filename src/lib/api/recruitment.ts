@@ -515,6 +515,22 @@ export type ApiAcceptOfferResult = ApiOffer & {
   hiresSoFar?: number;
   headcount?: number;
   requisitionFilled?: boolean;
+  /**
+   * Whether this acceptance made an employee record: the API says so outright. Absent
+   * from an API that predates the Hired list, where `employeeId` was the whole answer.
+   */
+  employeeCreated?: boolean;
+  /** The person's place on the Hired list. */
+  hire?: { id: string; state: "HIRED" | "EMPLOYEE_CREATED" | "DID_NOT_JOIN" };
+  /**
+   * What the company's setting asked for and what was done. They differ when the
+   * company chose to make an employee and has lost Core HR since: `note` says why.
+   */
+  onOfferAccepted?: {
+    setting: "HIRED_LIST_ONLY" | "CREATE_EMPLOYEE";
+    applied: "HIRED_LIST_ONLY" | "CREATE_EMPLOYEE";
+    note: string | null;
+  };
 };
 
 /* -------------------------------------------------------------------- calls */

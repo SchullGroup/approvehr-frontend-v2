@@ -54,12 +54,14 @@ const sentence = () =>
   );
 
 describe("the Accepted offers setting", () => {
-  it("says the default now stops at the Hired list, and what the old behaviour was called", async () => {
+  it("says accepting now stops at the Hired list, and what it used to do", async () => {
     renderInToasts(<AcceptedOffersScreen />);
-    expect(await screen.findByText("This changed")).toBeInTheDocument();
+    expect(
+      await screen.findByText("How accepting an offer works now"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Until now, accepting an offer always created the employee record/,
+        /Before the Hired list existed it also created the employee record straight away/,
       ),
     ).toBeInTheDocument();
     expect(
@@ -74,7 +76,7 @@ describe("the Accepted offers setting", () => {
 
   it("explains both options in full, with the default chosen", async () => {
     renderInToasts(<AcceptedOffersScreen />);
-    await screen.findByText("This changed");
+    await screen.findByText("How accepting an offer works now");
     const list = choice(/Add them to the Hired list/);
     const old = choice(/Create their employee record at once/);
     expect(list).toBeChecked();
@@ -99,7 +101,7 @@ describe("the Accepted offers setting", () => {
   it("changes the sentence as the choice changes, and saves only on Save", async () => {
     const user = userEvent.setup();
     renderInToasts(<AcceptedOffersScreen />);
-    await screen.findByText("This changed");
+    await screen.findByText("How accepting an offer works now");
     const save = screen.getByRole("button", { name: "Save" });
     expect(save).toBeDisabled();
 
@@ -126,13 +128,67 @@ describe("the Accepted offers setting", () => {
   it("discards a change without saving it", async () => {
     const user = userEvent.setup();
     renderInToasts(<AcceptedOffersScreen />);
-    await screen.findByText("This changed");
+    await screen.findByText("How accepting an offer works now");
     await user.click(choice(/Create their employee record at once/));
     await user.click(screen.getByRole("button", { name: "Discard" }));
     expect(choice(/Add them to the Hired list/)).toBeChecked();
     expect(demoHired.current().settings.onOfferAccepted).toBe(
       "HIRED_LIST_ONLY",
     );
+  });
+});
+
+describe("a company that kept the old behaviour", () => {
+  beforeEach(() => {
+    useBook(
+      book({ settings: { onOfferAccepted: "CREATE_EMPLOYEE", coreHr: true } }),
+    );
+  });
+
+  it("is told plainly that accepting an offer still makes the employee record, and what is new for others", async () => {
+    renderInToasts(<AcceptedOffersScreen />);
+    expect(
+      await screen.findByText("Accepting an offer makes the employee record"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("How accepting an offer works now"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Companies that are new to hiring now start with the Hired list alone/,
+      ),
+    ).toBeInTheDocument();
+    expect(choice(/Create their employee record at once/)).toBeChecked();
+    expect(sentence()).toHaveTextContent(
+      "With this choice: They are added to the Hired list and their employee record is created now.",
+    );
+  });
+
+  it("can switch to the Hired list alone", async () => {
+    const user = userEvent.setup();
+    renderInToasts(<AcceptedOffersScreen />);
+    await screen.findByText("Accepting an offer makes the employee record");
+    await user.click(choice(/Add them to the Hired list/));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(
+      await screen.findByText("Accepted offers saved"),
+    ).toBeInTheDocument();
+    expect(demoHired.current().settings.onOfferAccepted).toBe(
+      "HIRED_LIST_ONLY",
+    );
+  });
+
+  it("says what really happens when the plan has since lost Core HR", async () => {
+    useBook(
+      book({ settings: { onOfferAccepted: "CREATE_EMPLOYEE", coreHr: false } }),
+    );
+    renderInToasts(<AcceptedOffersScreen />);
+    await screen.findByText("Accepting an offer makes the employee record");
+    expect(
+      screen.getByText(
+        /no longer includes Core HR, though, so for now accepting an offer only adds the person to the Hired list/,
+      ),
+    ).toBeInTheDocument();
   });
 });
 
@@ -184,7 +240,7 @@ describe("who may change it", () => {
 
   it("has its own tab in Hiring settings", async () => {
     renderInToasts(<AcceptedOffersScreen />);
-    await screen.findByText("This changed");
+    await screen.findByText("How accepting an offer works now");
     const tabs = screen.getAllByRole("link", { name: "Accepted offers" });
     expect(tabs.length).toBeGreaterThan(0);
     expect(

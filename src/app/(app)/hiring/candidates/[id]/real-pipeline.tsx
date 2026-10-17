@@ -1208,6 +1208,8 @@ function OfferCard({
               "success",
               acceptedNotice(candidateName, {
                 employeeId: result.employeeId ?? null,
+                employeeCreated: result.employeeCreated,
+                note: result.onOfferAccepted?.note ?? null,
                 rejectedOthers: result.rejectedOthers,
                 hiresSoFar: result.hiresSoFar,
                 headcount: result.headcount,

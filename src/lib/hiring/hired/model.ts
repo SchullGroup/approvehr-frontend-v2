@@ -37,6 +37,17 @@ export type HiredSettings = {
   coreHrReason: string | null;
   /** Whether the person looking may change the setting. */
   canChange: boolean;
+  /**
+   * The two choices in the API's own words, and whether each is available. Absent
+   * from the demo, and from an API that does not send them: the screen has its own.
+   */
+  options?: {
+    value: OnOfferAccepted;
+    label: string;
+    description: string;
+    available: boolean;
+    unavailableReason: string | null;
+  }[];
 };
 
 /* ------------------------------------------------------------------ people */
