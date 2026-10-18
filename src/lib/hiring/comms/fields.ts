@@ -66,6 +66,54 @@ export const MERGE_FIELDS: readonly MergeField[] = [
     sample: "Our Lagos office, 4th floor",
   },
   {
+    name: "join_link",
+    label:
+      "The link to join an online interview (left out of the line when there is none)",
+    sample: "https://meet.google.com/abc-defg-hij",
+    optional: true,
+  },
+  {
+    name: "interview_date",
+    label: "The day of their interview",
+    sample: "Tuesday 20 October 2026",
+  },
+  {
+    name: "interview_time_zone",
+    label: "The time zone its time is in",
+    sample: "Lagos time (WAT)",
+  },
+  {
+    name: "interview_duration",
+    label: "How long it is expected to take",
+    sample: "1 hour",
+  },
+  {
+    name: "add_to_calendar_link",
+    label: "A link that adds the interview to Google Calendar",
+    sample: "https://calendar.google.com/calendar/render?action=TEMPLATE",
+  },
+  {
+    name: "add_to_outlook_link",
+    label: "A link that adds the interview to Outlook",
+    sample: "https://outlook.live.com/calendar/0/deeplink/compose",
+  },
+  {
+    name: "candidate_name",
+    label: "The candidate's full name (emails to the panel only)",
+    sample: "Ada Okafor",
+  },
+  {
+    name: "panelist_first_name",
+    label: "The panelist's first name (emails to the panel only)",
+    sample: "Chidi",
+  },
+  {
+    name: "scorecard_link",
+    label:
+      "Where the panelist hands in their scorecard (emails to the panel only)",
+    sample: "https://app.example.com/hiring/my-interviews",
+  },
+  {
     name: "recruiter_name",
     label: "The person who sent it",
     sample: "Amina Yusuf",
@@ -78,6 +126,9 @@ export const MERGE_FIELDS: readonly MergeField[] = [
 ];
 
 const NAMES = new Set(MERGE_FIELDS.map((field) => field.name));
+const OPTIONAL = new Set(
+  MERGE_FIELDS.filter((field) => field.optional).map((field) => field.name),
+);
 
 const COMMON = [
   "candidate_first_name",
@@ -86,11 +137,41 @@ const COMMON = [
   "reply_to",
 ] as const;
 
+/** What there is to say about an interview once one is arranged. */
+const INTERVIEW_FACTS = [
+  "interview_time",
+  "interview_date",
+  "interview_time_zone",
+  "interview_location",
+  "interview_duration",
+  "join_link",
+  "add_to_calendar_link",
+  "add_to_outlook_link",
+] as const;
+
+/** What an email to somebody on the panel may say: the candidate by name, and nothing of their contact details. */
+const PANELIST_COMMON = [
+  "panelist_first_name",
+  "candidate_name",
+  "candidate_first_name",
+  "job_title",
+  "company_name",
+  "reply_to",
+  "stage_name",
+  "recruiter_name",
+] as const;
+
+const CALENDAR_LINES =
+  "Add it to your calendar:\n" +
+  "Google Calendar: {add_to_calendar_link}\n" +
+  "Outlook: {add_to_outlook_link}";
+
 export const KINDS: readonly Omit<EmailKindInfo, "defaultTemplateId">[] = [
   {
     kind: "ACKNOWLEDGE",
     label: "Application received",
     when: "Sent when somebody applies, after the form is accepted.",
+    audience: "CANDIDATE",
     fields: [...COMMON, "reference"],
     builtIn: {
       subject:
@@ -104,28 +185,129 @@ export const KINDS: readonly Omit<EmailKindInfo, "defaultTemplateId">[] = [
   {
     kind: "INVITE",
     label: "Invitation to interview",
-    when: "Sent when an interview is arranged, or when somebody is moved into an interview stage.",
+    when: "Sent when an interview is arranged and the person arranging it asks for the candidate to be told, or when somebody is moved into an interview stage. A calendar file is attached when it is for a particular interview.",
+    audience: "CANDIDATE",
     fields: [
       ...COMMON,
       "stage_name",
       "reference",
-      "interview_time",
-      "interview_location",
       "recruiter_name",
+      ...INTERVIEW_FACTS,
     ],
     builtIn: {
       subject: "{company_name}: your interview for {job_title}",
       body:
         "Hello {candidate_first_name},\n\n" +
         "{company_name} would like to meet you about {job_title}.\n\n" +
-        "When: {interview_time}\nWhere: {interview_location}\n\n" +
+        "When: {interview_time}\nWhere: {interview_location}\nJoin online: {join_link}\n\n" +
+        `${CALENDAR_LINES}\n\n` +
         "If that time does not suit you, reply to this email as soon as you can.",
+    },
+  },
+  {
+    kind: "INTERVIEW_UPDATE",
+    label: "Interview changed",
+    when: "Sent when an interview the candidate was invited to is changed (its time, length, place or join link) and the person changing it asks for the candidate to be told. A calendar file with the new details is attached.",
+    audience: "CANDIDATE",
+    fields: [
+      ...COMMON,
+      "stage_name",
+      "reference",
+      "recruiter_name",
+      ...INTERVIEW_FACTS,
+    ],
+    builtIn: {
+      subject: "{company_name}: your interview for {job_title} has changed",
+      body:
+        "Hello {candidate_first_name},\n\n" +
+        "The details of your interview for {job_title} at {company_name} have changed. Please use these new details.\n\n" +
+        "When: {interview_time}\nWhere: {interview_location}\nJoin online: {join_link}\n\n" +
+        `${CALENDAR_LINES}\n\n` +
+        "If the new time does not suit you, reply to this email as soon as you can.",
+    },
+  },
+  {
+    kind: "INTERVIEW_CANCELLED",
+    label: "Interview cancelled",
+    when: "Sent when an interview the candidate was invited to is cancelled and the person cancelling it asks for the candidate to be told. A calendar file that removes it is attached.",
+    audience: "CANDIDATE",
+    fields: [
+      ...COMMON,
+      "stage_name",
+      "reference",
+      "recruiter_name",
+      "interview_time",
+      "interview_date",
+      "interview_time_zone",
+      "interview_location",
+    ],
+    builtIn: {
+      subject:
+        "{company_name}: your interview for {job_title} has been cancelled",
+      body:
+        "Hello {candidate_first_name},\n\n" +
+        "Your interview for {job_title} at {company_name}, which was due on {interview_time}, has been cancelled. We are sorry for the change.\n\n" +
+        "If you have any questions, reply to this email.",
+    },
+  },
+  {
+    kind: "PANELIST_INVITE",
+    label: "Invitation to the panel",
+    when: "Sent to each person on the panel when an interview is arranged and the person arranging it asks for the panel to be told. Their own calendar file is attached.",
+    audience: "PANELIST",
+    fields: [...PANELIST_COMMON, ...INTERVIEW_FACTS, "scorecard_link"],
+    builtIn: {
+      subject:
+        "{company_name}: interview with {candidate_name} for {job_title}",
+      body:
+        "Hello {panelist_first_name},\n\n" +
+        "You have been asked to take part in an interview for {job_title} at {company_name}.\n\n" +
+        "Candidate: {candidate_name}\nWhen: {interview_time}\nWhere: {interview_location}\nJoin online: {join_link}\nLength: {interview_duration}\n\n" +
+        `${CALENDAR_LINES}\n\n` +
+        "Afterwards, hand in your scorecard in ApproveHR: {scorecard_link}",
+    },
+  },
+  {
+    kind: "PANELIST_UPDATE",
+    label: "Interview changed (panel)",
+    when: "Sent to each person on the panel when an interview is changed and the person changing it asks for the panel to be told. Their own calendar file with the new details is attached.",
+    audience: "PANELIST",
+    fields: [...PANELIST_COMMON, ...INTERVIEW_FACTS, "scorecard_link"],
+    builtIn: {
+      subject: "{company_name}: interview with {candidate_name} has changed",
+      body:
+        "Hello {panelist_first_name},\n\n" +
+        "The details of your interview with {candidate_name} for {job_title} have changed. Please use these new details.\n\n" +
+        "When: {interview_time}\nWhere: {interview_location}\nJoin online: {join_link}\nLength: {interview_duration}\n\n" +
+        CALENDAR_LINES,
+    },
+  },
+  {
+    kind: "PANELIST_CANCELLED",
+    label: "Interview cancelled (panel)",
+    when: "Sent to each person on the panel who was told about an interview, when it is cancelled and the person cancelling it asks for the panel to be told. A calendar file that removes it is attached.",
+    audience: "PANELIST",
+    fields: [
+      ...PANELIST_COMMON,
+      "interview_time",
+      "interview_date",
+      "interview_time_zone",
+      "interview_location",
+    ],
+    builtIn: {
+      subject:
+        "{company_name}: interview with {candidate_name} has been cancelled",
+      body:
+        "Hello {panelist_first_name},\n\n" +
+        "The interview with {candidate_name} for {job_title} at {company_name}, which was due on {interview_time}, has been cancelled. " +
+        "You do not need to attend, and there is no scorecard to hand in for it.",
     },
   },
   {
     kind: "DECLINE",
     label: "Not taking them forward",
     when: "Sent when somebody is rejected and the person doing it asks for it to be sent.",
+    audience: "CANDIDATE",
     fields: [...COMMON, "stage_name", "reference", "recruiter_name"],
     builtIn: {
       subject: "{company_name}: your application for {job_title}",
@@ -140,6 +322,7 @@ export const KINDS: readonly Omit<EmailKindInfo, "defaultTemplateId">[] = [
     kind: "OFFER_SENT",
     label: "Offer sent",
     when: "Sent when an offer goes out, if the person sending it asks for it to be.",
+    audience: "CANDIDATE",
     fields: [...COMMON, "reference", "recruiter_name"],
     builtIn: {
       subject: "{company_name}: an update on your application for {job_title}",
@@ -154,6 +337,7 @@ export const KINDS: readonly Omit<EmailKindInfo, "defaultTemplateId">[] = [
     kind: "STAGE_UPDATE",
     label: "Update on their application",
     when: "A message for a stage that is none of the above, sent when somebody is moved into it.",
+    audience: "CANDIDATE",
     fields: [...COMMON, "stage_name", "reference", "recruiter_name"],
     builtIn: {
       subject: "{company_name}: an update on your application for {job_title}",
@@ -203,6 +387,17 @@ export function kindInfo(kind: EmailKind): (typeof KINDS)[number] {
   return found;
 }
 
+/**
+ * What a kind is called, for a kind the API may have added since this was written:
+ * its own name in words when it is not one this screen knows. Never throws.
+ */
+export function kindLabelOf(kind: string): string {
+  const known = KINDS.find((entry) => entry.kind === kind);
+  if (known) return known.label;
+  const words = kind.toLowerCase().replace(/[_-]+/g, " ").trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : "Email";
+}
+
 function problemsIn(
   fieldName: "subject" | "body",
   text: string,
@@ -239,6 +434,13 @@ function problemsIn(
         message:
           `{${token.field}} is not a field you can use. ` +
           `The ones that exist, for this kind of email: ${fieldList(info.fields)}.`,
+      });
+    } else if (fieldName === "subject" && OPTIONAL.has(token.field)) {
+      problems.push({
+        field: fieldName,
+        message:
+          `{${token.field}} cannot be used in a subject. It is empty for some interviews, ` +
+          "and a subject is one line that cannot lose it. Use it in the message instead.",
       });
     } else if (!info.fields.includes(token.field)) {
       const where = KINDS.filter((entry) => entry.fields.includes(token.field))
@@ -318,7 +520,10 @@ function cleanValue(raw: string, max = 200): string {
 
 export type Values = Partial<Record<string, string | null | undefined>>;
 
-/** Puts values in by one pass. A field with no value is reported and left as it was. */
+/**
+ * Puts values in by one pass. A field with no value is reported and left as it was,
+ * except an optional one in a message: the line it was on is left out and the email goes.
+ */
 export function merge(
   text: string,
   values: Values,
@@ -326,19 +531,30 @@ export function merge(
 ): { text: string; used: string[]; missing: string[] } {
   const used = new Set<string>();
   const missing = new Set<string>();
+  /* Stands in for an optional field with no value, so the line it was on can be found
+     and dropped after the pass. `cleanValue` removes it from any value, so it cannot
+     come from one. */
+  const DROP = "\u0000";
   const out = text.replace(/\{([^{}]*)\}/g, (whole, name: string) => {
     if (!NAMES.has(name)) return whole;
     used.add(name);
     const raw = values[name];
     const cleaned = raw ? cleanValue(raw) : "";
     if (cleaned === "") {
+      if (options.multiline && OPTIONAL.has(name)) return DROP;
       missing.add(name);
       return whole;
     }
     return cleaned;
   });
+  const kept = out.includes(DROP)
+    ? out
+        .split("\n")
+        .filter((line) => !line.includes(DROP))
+        .join("\n")
+    : out;
   return {
-    text: options.multiline ? out : out.replace(/\s+/g, " ").trim(),
+    text: options.multiline ? kept : kept.replace(/\s+/g, " ").trim(),
     used: [...used],
     missing: [...missing],
   };

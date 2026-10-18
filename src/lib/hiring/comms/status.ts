@@ -22,7 +22,7 @@ export type EmailLine = {
 };
 
 /** The API writes "not sent: ..." and "waiting: ..."; the label says it already. */
-const withoutLead = (note: string | null): string | null => {
+export const withoutLead = (note: string | null): string | null => {
   if (!note) return null;
   const trimmed = note.replace(/^(not sent|waiting):\s*/i, "").trim();
   if (trimmed === "") return null;

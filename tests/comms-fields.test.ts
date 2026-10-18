@@ -22,7 +22,7 @@ import {
 const ok = { subject: "Hello", body: "Hello {candidate_first_name}" };
 
 describe("the fixed list", () => {
-  it("is nine fields and nothing about pay, phone numbers or notes", () => {
+  it("is eighteen fields and nothing about pay, phone numbers or notes", () => {
     expect(MERGE_FIELDS.map((f) => f.name)).toEqual([
       "candidate_first_name",
       "job_title",
@@ -31,6 +31,15 @@ describe("the fixed list", () => {
       "reference",
       "interview_time",
       "interview_location",
+      "join_link",
+      "interview_date",
+      "interview_time_zone",
+      "interview_duration",
+      "add_to_calendar_link",
+      "add_to_outlook_link",
+      "candidate_name",
+      "panelist_first_name",
+      "scorecard_link",
       "recruiter_name",
       "reply_to",
     ]);
@@ -235,5 +244,108 @@ describe("reading a text", () => {
 
   it("splits a body into paragraphs at blank lines", () => {
     expect(paragraphsOf("a\n\n\nb  \n\nc")).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("the interview emails", () => {
+  const kind = (name: string) => KINDS.find((entry) => entry.kind === name);
+
+  it("has a kind for each message about an interview, for the candidate and for the panel", () => {
+    for (const name of [
+      "INVITE",
+      "INTERVIEW_UPDATE",
+      "INTERVIEW_CANCELLED",
+      "PANELIST_INVITE",
+      "PANELIST_UPDATE",
+      "PANELIST_CANCELLED",
+    ]) {
+      expect(kind(name), name).toBeDefined();
+    }
+    expect(kind("INVITE")?.audience).toBe("CANDIDATE");
+    expect(kind("PANELIST_UPDATE")?.audience).toBe("PANELIST");
+  });
+
+  it("offers the join link, the day, the zone and the calendar links to the candidate's invitation", () => {
+    const fields = kind("INVITE")?.fields ?? [];
+    for (const name of [
+      "join_link",
+      "interview_date",
+      "interview_time_zone",
+      "add_to_calendar_link",
+      "add_to_outlook_link",
+    ]) {
+      expect(fields, name).toContain(name);
+    }
+  });
+
+  it("gives the panel the candidate's name and the scorecard link, and the candidate neither", () => {
+    expect(kind("PANELIST_INVITE")?.fields).toContain("candidate_name");
+    expect(kind("PANELIST_INVITE")?.fields).toContain("scorecard_link");
+    expect(kind("INVITE")?.fields).not.toContain("candidate_name");
+    expect(kind("INVITE")?.fields).not.toContain("scorecard_link");
+  });
+
+  it("refuses a panel field in a candidate's email, naming where it can be used", () => {
+    const problems = validateDraft("INVITE", {
+      subject: "Your interview",
+      body: "Hello, {scorecard_link}",
+    });
+    expect(problems[0]?.field).toBe("body");
+    expect(problems[0]?.message).toContain(
+      '{scorecard_link} cannot be used in a "Invitation to interview" email',
+    );
+    expect(problems[0]?.message).toContain('"Invitation to the panel"');
+  });
+
+  it("refuses an unknown field with the fields that exist for this kind", () => {
+    const problems = validateDraft("INTERVIEW_UPDATE", {
+      subject: "Changed",
+      body: "Your pay is {salary}",
+    });
+    expect(problems[0]?.message).toContain(
+      "{salary} is not a field you can use",
+    );
+    expect(problems[0]?.message).toContain("{join_link}");
+  });
+
+  it("refuses the optional join link in a subject, which is one line and cannot lose it", () => {
+    const problems = validateDraft("INVITE", {
+      subject: "Join at {join_link}",
+      body: "Hello",
+    });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatchObject({ field: "subject" });
+    expect(problems[0]?.message).toContain("cannot be used in a subject");
+  });
+
+  it("leaves out the line an empty join link was on, and still sends the rest", () => {
+    const merged = merge(
+      "When: {interview_time}\nJoin online: {join_link}\nWhere: {interview_location}",
+      {
+        interview_time: "Tuesday at 10:00",
+        interview_location: "Boardroom",
+        join_link: null,
+      },
+      { multiline: true },
+    );
+    expect(merged.text).toBe("When: Tuesday at 10:00\nWhere: Boardroom");
+    expect(merged.missing).toEqual([]);
+  });
+
+  it("still holds back an email when a field that is not optional has no value", () => {
+    const merged = merge(
+      "When: {interview_time}\nWhere: {interview_location}",
+      { interview_time: "Tuesday at 10:00", interview_location: null },
+      { multiline: true },
+    );
+    expect(merged.missing).toEqual(["interview_location"]);
+  });
+
+  it("makes every built-in interview wording valid for its own kind", () => {
+    for (const entry of KINDS.filter((k) =>
+      /INTERVIEW|PANELIST|^INVITE$/.test(k.kind),
+    )) {
+      expect(validateDraft(entry.kind, entry.builtIn), entry.label).toEqual([]);
+    }
   });
 });

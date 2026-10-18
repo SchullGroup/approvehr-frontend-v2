@@ -64,7 +64,10 @@ describe("my interviews", () => {
     expect(screen.queryByText("Your scorecard is in")).not.toBeInTheDocument();
     const row = owed.closest("li") as HTMLElement;
     expect(within(row).getByText("Coming up")).toBeInTheDocument();
-    expect(within(row).getByRole("link", { name: /\w+ \w+/ })).toHaveAttribute(
+    /* The candidate's name, not the link to join the call that is beside it. */
+    expect(
+      within(row).getByRole("link", { name: /^(?!Join)\w+ \w+$/ }),
+    ).toHaveAttribute(
       "href",
       expect.stringMatching(/^\/hiring\/my-interviews\/app-/),
     );
@@ -87,7 +90,8 @@ describe("my interviews", () => {
     expect(screen.getAllByText("Invited to interview").length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByText("1 scorecard owed")).toBeInTheDocument();
+    /* One candidate for the interview still to come, one for the one that took place. */
+    expect(screen.getAllByText("1 scorecard owed")).toHaveLength(2);
   });
 });
 

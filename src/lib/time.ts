@@ -301,3 +301,134 @@ export function hourIn(value: string | Date, timeZone: string): number {
   const date = parse(value);
   return date ? Number(hourFormat(timeZone).format(date)) : 0;
 }
+
+/* -------------------------------------------------------------------------- */
+/* The wall clock in a zone, and back.                                        */
+/*                                                                            */
+/* A time somebody types into a form means "on the company's clock", not "on  */
+/* the clock of the laptop they are typing on". These turn a day and a time   */
+/* read off a wall in `timeZone` into the one instant it names, and an        */
+/* instant into what that wall reads, so a form can show and send the         */
+/* company's time whatever the browser thinks it is.                          */
+/* -------------------------------------------------------------------------- */
+
+const WALL = new Map<string, Intl.DateTimeFormat>();
+
+/** Numeric parts in the zone, 24-hour, so midnight is `00` and never `24`. */
+function wallFormat(timeZone: string): Intl.DateTimeFormat {
+  const cached = WALL.get(timeZone);
+  if (cached) return cached;
+  const made = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  WALL.set(timeZone, made);
+  return made;
+}
+
+/** What the wall clock in `timeZone` reads at `date`, as a UTC millisecond count. */
+function wallAsUtc(date: Date, timeZone: string): number {
+  const parts: Record<string, number> = {};
+  for (const part of wallFormat(timeZone).formatToParts(date)) {
+    if (part.type !== "literal") parts[part.type] = Number(part.value);
+  }
+  return Date.UTC(
+    parts.year ?? 0,
+    (parts.month ?? 1) - 1,
+    parts.day ?? 1,
+    parts.hour ?? 0,
+    parts.minute ?? 0,
+  );
+}
+
+/** `{ day: "2026-10-20", time: "10:00" }` as the wall in `timeZone` reads at the instant. */
+export function wallClockIn(
+  value: string | Date | null | undefined,
+  timeZone: string,
+): { day: string; time: string } | null {
+  const date = parse(value);
+  if (!date) return null;
+  const day = dayFormat(timeZone).format(date);
+  return { day, time: timeFormat(timeZone).format(date) };
+}
+
+/**
+ * The instant at which the wall in `timeZone` reads `day` at `time`, as ISO text.
+ *
+ * `null` for anything that is not a real date and time, and for a wall time that
+ * does not exist in the zone (the hour a clock skips going forward), so a form can
+ * say so instead of quietly booking a different time.
+ */
+export function instantFromWall(
+  day: string,
+  time: string,
+  timeZone: string,
+): string | null {
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  const t = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!d || !t) return null;
+  const [year, month, date] = [Number(d[1]), Number(d[2]), Number(d[3])];
+  const [hour, minute] = [Number(t[1]), Number(t[2])];
+  if (month < 1 || month > 12 || date < 1 || date > 31) return null;
+  if (hour > 23 || minute > 59) return null;
+
+  const wanted = Date.UTC(year, month - 1, date, hour, minute);
+  /* The calendar must agree (31 February is not 3 March). */
+  const check = new Date(wanted);
+  if (check.getUTCMonth() !== month - 1 || check.getUTCDate() !== date)
+    return null;
+
+  /* Start from "the wall is UTC" and correct by how far off the zone made it. A
+     second pass settles the hours around a clock change. */
+  let guess = wanted;
+  for (let pass = 0; pass < 3; pass += 1) {
+    const off = wanted - wallAsUtc(new Date(guess), timeZone);
+    if (off === 0) break;
+    guess += off;
+  }
+  if (wallAsUtc(new Date(guess), timeZone) !== wanted) return null;
+  return new Date(guess).toISOString();
+}
+
+/** What a zone is called when the browser would say "GMT+1". The ones this product's companies live in. */
+const ZONE_ABBREVIATION: Record<string, string> = {
+  "Africa/Lagos": "WAT",
+  "Africa/Abuja": "WAT",
+  "Africa/Accra": "GMT",
+  "Africa/Abidjan": "GMT",
+  "Africa/Dakar": "GMT",
+  "Africa/Freetown": "GMT",
+  "Africa/Nairobi": "EAT",
+  "Africa/Kampala": "EAT",
+  "Africa/Dar_es_Salaam": "EAT",
+  "Africa/Addis_Ababa": "EAT",
+  "Africa/Kigali": "CAT",
+  "Africa/Lusaka": "CAT",
+  "Africa/Harare": "CAT",
+  "Africa/Maputo": "CAT",
+  "Africa/Johannesburg": "SAST",
+  "Africa/Cairo": "EET",
+  "Europe/London": "UK",
+  UTC: "UTC",
+};
+
+/** `Lagos time (WAT)` for the company's zone: the label that goes beside a time on a form. */
+export function zoneLabel(timeZone: string): string {
+  const abbreviation = ZONE_ABBREVIATION[timeZone];
+  if (timeZone === "UTC") return "UTC";
+  const city = (timeZone.split("/").pop() ?? timeZone).replace(/_/g, " ");
+  if (abbreviation) return `${city} time (${abbreviation})`;
+  /* Not one of the known names: the browser's own short form, e.g. "GMT+1". */
+  const name = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    timeZoneName: "short",
+  })
+    .formatToParts(new Date())
+    .find((part) => part.type === "timeZoneName")?.value;
+  return name ? `${city} time (${name})` : `${city} time`;
+}

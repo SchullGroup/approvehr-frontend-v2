@@ -1,15 +1,13 @@
 "use client";
 
 import { ApiError } from "@/lib/api/client";
-import {
-  INTERVIEW_KIND_LABEL,
-  type InterviewKind,
-} from "@/lib/api/recruitment";
+import { INTERVIEW_KIND_LABEL } from "@/lib/api/recruitment";
 import { sampleValues, type Values } from "@/lib/hiring/comms/fields";
 import type {
   MyApplication,
   MyApplicationRow,
   MyInterviewRow,
+  MyNudges,
   MyScorecard,
   PanelMember,
 } from "@/lib/hiring/comms/model";
@@ -17,12 +15,11 @@ import { scoreOfRatings } from "@/lib/hiring/comms/score";
 import { accountSeat } from "@/lib/hiring/comms/seats";
 import { demoAccess } from "@/lib/hiring/access/demo-store";
 import { memberOf } from "@/lib/hiring/access/demo-ops";
-import {
-  CANDIDATES,
-  INTERVIEWS,
-  REQUISITIONS,
-  SCORECARDS,
-} from "@/lib/mock/hiring";
+import { CANDIDATES, REQUISITIONS, SCORECARDS } from "@/lib/mock/hiring";
+import type { DemoInterview } from "@/lib/hiring/interviews/demo-ops";
+import { remindersOf } from "@/lib/hiring/interviews/demo-reminders";
+import { demoInterviews } from "@/lib/hiring/interviews/demo-store";
+import { invitationSent } from "@/lib/hiring/interviews/reminders";
 import { EMPLOYEES } from "@/lib/mock/people";
 import {
   archiveEmailTemplate,
@@ -77,7 +74,7 @@ function accountOf(userId: string): { name: string } | null {
  * Somebody on a panel, from the key it is stored under: a raw employee id (how every
  * panel saved before accounts was written), `u:<id>` for an invited account.
  */
-const person = (key: string): PanelMember => {
+export const person = (key: string): PanelMember => {
   if (key.startsWith("u:")) {
     const userId = key.slice(2);
     return {
@@ -118,27 +115,20 @@ function valuesFor(book: DemoBook, applicationId: string): Values | null {
 
 /* ------------------------------------------------------- my interviews (seed) */
 
-const KIND: Record<string, InterviewKind> = {
-  recruiter_screen: "SCREEN",
-  technical: "TECHNICAL",
-  panel: "PANEL",
-  final: "FINAL",
-};
-const STATUS = {
-  scheduled: "SCHEDULED",
-  completed: "COMPLETED",
-  cancelled: "CANCELLED",
-  no_show: "NO_SHOW",
-} as const;
-
-const kindLabel = (kind: string): string =>
-  INTERVIEW_KIND_LABEL[KIND[kind] ?? "SCREEN"];
-
 const countable = (status: string): boolean =>
-  status === "scheduled" || status === "completed";
+  status === "SCHEDULED" || status === "COMPLETED";
+
+/** The interviews this browser holds, where the person using it is on the panel. */
+const mineSeat = `e:${DEMO_ME}`;
+const mineIn = (): DemoInterview[] =>
+  demoInterviews
+    .current()
+    .interviews.filter(
+      (i) => i.seats.includes(mineSeat) && countable(i.status),
+    );
 
 /** A scorecard the offline book holds: handed in here, or seeded. */
-function cardFor(
+export function cardFor(
   book: DemoBook,
   interviewId: string,
   applicationId: string,
@@ -184,25 +174,46 @@ function cardFor(
   };
 }
 
+/** Where the nudges for this person's scorecard stand, for an interview they still owe. */
+const nudgesOf = (interview: DemoInterview): MyNudges | null => {
+  const book = demoInterviews.current();
+  const plan = remindersOf(interview, book.reminderSettings, DEMO_NOW, true);
+  const nudges = plan.items.filter((item) => item.kind === "SCORECARD_NUDGE");
+  const sent = nudges.filter((item) => item.status === "SENT");
+  const next = nudges.find((item) => item.status === "PLANNED");
+  if (!invitationSent(interview.notices)) return null;
+  return {
+    sent: sent.length,
+    of: book.reminderSettings.nudges.max,
+    lastAt: sent.at(-1)?.at ?? null,
+    nextAt: next?.at ?? null,
+    off: plan.off,
+  };
+};
+
 const mineOf = (book: DemoBook): MyInterviewRow[] =>
-  INTERVIEWS.filter(
-    (i) => i.interviewerIds.includes(DEMO_ME) && countable(i.status),
-  )
+  mineIn()
     .map((i) => {
+      const owes = cardFor(book, i.id, i.applicationId, DEMO_ME) === null;
       const app = book.apps.find((a) => a.id === i.applicationId);
       const role = REQUISITIONS.find((r) => r.id === app?.requisitionId);
       return {
         interviewId: i.id,
         applicationId: i.applicationId,
-        candidateName: app?.name ?? "A candidate",
-        role: role?.title ?? "",
+        candidateName: app?.name ?? i.candidateName,
+        role: role?.title ?? i.role ?? "",
         reference: role?.reference ?? "",
-        kind: kindLabel(i.kind),
+        kind: INTERVIEW_KIND_LABEL[i.kind],
+        kindCode: i.kind,
         scheduledFor: i.scheduledFor,
         durationMins: i.durationMins,
-        status: STATUS[i.status],
-        location: null,
-        scorecardIn: cardFor(book, i.id, i.applicationId, DEMO_ME) !== null,
+        status: i.status,
+        location: i.location,
+        joinUrl: i.joinUrl,
+        timeZone: i.timeZone,
+        sequence: i.sequence,
+        scorecardIn: !owes,
+        ...(owes && i.status === "COMPLETED" ? { nudges: nudgesOf(i) } : {}),
       };
     })
     .sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor));
@@ -399,12 +410,7 @@ export const demoComms: Pick<
     application: async (id): Promise<MyApplication> => {
       const book = demoPipeline.current();
       const app = book.apps.find((a) => a.id === id);
-      const theirs = INTERVIEWS.filter(
-        (i) =>
-          i.applicationId === id &&
-          i.interviewerIds.includes(DEMO_ME) &&
-          countable(i.status),
-      );
+      const theirs = mineIn().filter((i) => i.applicationId === id);
       /* Not theirs is not there: the same `404` the API gives, so what exists
          is not theirs to learn. */
       if (!app || theirs.length === 0)
@@ -425,19 +431,29 @@ export const demoComms: Pick<
         hasCv: false,
         interviews: theirs.map((interview) => ({
           id: interview.id,
-          kind: kindLabel(interview.kind),
+          kind: INTERVIEW_KIND_LABEL[interview.kind],
+          kindCode: interview.kind,
           scheduledFor: interview.scheduledFor,
           durationMins: interview.durationMins,
-          status: STATUS[interview.status],
-          location: null,
+          status: interview.status,
+          location: interview.location,
+          joinUrl: interview.joinUrl,
+          timeZone: interview.timeZone,
+          sequence: interview.sequence,
           stageName:
             book.stages.find((s) => s.id === app.stageId)?.name ?? null,
           iAmPanelist: true,
-          panel: interview.interviewerIds.map((employeeId) => ({
-            employeeId,
-            userId: null,
-            name: person(employeeId).name,
-            submitted: cardFor(book, interview.id, id, employeeId) !== null,
+          ...(cardFor(book, interview.id, id, DEMO_ME) === null &&
+          interview.status === "COMPLETED"
+            ? { nudges: nudgesOf(interview) }
+            : {}),
+          panel: interview.seats.map((seat) => ({
+            employeeId: seat.startsWith("e:") ? seat.slice(2) : null,
+            userId: seat.startsWith("u:") ? seat.slice(2) : null,
+            name: person(seat).name,
+            submitted:
+              seat.startsWith("e:") &&
+              cardFor(book, interview.id, id, seat.slice(2)) !== null,
           })),
           mine: cardFor(book, interview.id, id, DEMO_ME),
           /* Scoring is blind: a panelist is never shown what a colleague wrote. */
@@ -447,8 +463,10 @@ export const demoComms: Pick<
       };
     },
     submitScorecard: async (interviewId, input) => {
-      const interview = INTERVIEWS.find((i) => i.id === interviewId);
-      if (!interview || !interview.interviewerIds.includes(DEMO_ME))
+      const interview = demoInterviews
+        .current()
+        .interviews.find((i) => i.id === interviewId);
+      if (!interview || !interview.seats.includes(mineSeat))
         throw new ApiError(404, "not_found", "That interview was not found.");
       if (!countable(interview.status))
         throw refuse(

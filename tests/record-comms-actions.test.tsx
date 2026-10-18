@@ -1,4 +1,10 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/ui";
@@ -553,21 +559,66 @@ describe("what the record says", () => {
 });
 
 describe("booking an interview", () => {
+  /** What the API answers a booking with: the interview, and what became of each message. */
+  const booked = (over: Record<string, unknown> = {}) => ({
+    id: "iv-1",
+    applicationId: "pa-1",
+    requisitionId: "req-1",
+    requisitionReference: "REQ-1",
+    candidateName: "Chioma Aduba",
+    kind: "SCREEN",
+    scheduledFor: "2026-10-30T09:00:00.000Z",
+    durationMins: 60,
+    status: "SCHEDULED",
+    location: null,
+    joinUrl: null,
+    timeZone: "Africa/Lagos",
+    timeZoneLabel: "Africa/Lagos (GMT+1)",
+    calendarSequence: 0,
+    scorecardsSubmitted: 0,
+    stageId: "s4",
+    stageName: "Interview",
+    panelists: [],
+    scorecards: [],
+    email: null,
+    notified: {
+      asked: false,
+      occasion: null,
+      sendTo: "ALL",
+      candidate: {
+        state: "not_asked",
+        emailId: null,
+        emailKind: null,
+        reason: null,
+      },
+      panelists: [],
+    },
+    ...over,
+  });
+
   const book = async (user: ReturnType<typeof userEvent.setup>) => {
     await user.click(screen.getByRole("button", { name: "Schedule" }));
     const dialog = await screen.findByRole("dialog", {
       name: "Schedule an interview",
     });
-    const when = dialog.querySelector(
-      "input[type=datetime-local]",
-    ) as HTMLInputElement;
-    await user.type(when, "2026-10-30T10:00");
+    fireEvent.change(
+      dialog.querySelector("input[type=date]") as HTMLInputElement,
+      {
+        target: { value: "2026-10-30" },
+      },
+    );
+    fireEvent.change(
+      dialog.querySelector("input[type=time]") as HTMLInputElement,
+      {
+        target: { value: "10:00" },
+      },
+    );
     return dialog;
   };
 
-  it("invites the stage's panel by default, and sends no invitation unless ticked", async () => {
+  it("invites the stage's panel by default, and says outright that no invitation is sent unless chosen", async () => {
     const user = userEvent.setup();
-    rec.scheduleInterview.mockResolvedValue({ email: null });
+    rec.scheduleInterview.mockResolvedValue(booked());
     open(application({ stageId: "s4", stageName: "Interview" }));
     await knowsStages();
     const dialog = await book(user);
@@ -575,23 +626,50 @@ describe("booking an interview", () => {
       "The stage's panel is invited: Chidi Nwosu.",
     );
     expect(
-      within(dialog).getByRole("checkbox", {
-        name: /Email them an invitation/,
-      }),
-    ).not.toBeChecked();
+      within(dialog).getByRole("radio", { name: /^Don't send/ }),
+    ).toBeChecked();
     await user.click(within(dialog).getByRole("button", { name: "Schedule" }));
     await waitFor(() => expect(rec.scheduleInterview).toHaveBeenCalled());
-    const body = rec.scheduleInterview.mock.calls[0]?.[1] as Record<
+    const [applicationId, body] = rec.scheduleInterview.mock.calls[0] as [
       string,
-      unknown
-    >;
+      Record<string, unknown>,
+    ];
+    expect(applicationId).toBe("pa-1");
     expect(body).not.toHaveProperty("panelistIds");
-    expect(body).not.toHaveProperty("sendInvite");
+    expect(body).toMatchObject({
+      sendInvite: false,
+      /* 10:00 on the company's clock, with the clock said outright. */
+      scheduledFor: "2026-10-30T09:00:00.000Z",
+      timeZone: "Africa/Lagos",
+    });
+    const done = await screen.findByRole("dialog", {
+      name: "Interview booked",
+    });
+    expect(done).toHaveTextContent("Nothing was emailed.");
+  });
+
+  it("sends the join link and the place, and only when they were given", async () => {
+    const user = userEvent.setup();
+    rec.scheduleInterview.mockResolvedValue(booked());
+    open(application({ stageId: "s4", stageName: "Interview" }));
+    await knowsStages();
+    const dialog = await book(user);
+    await user.type(
+      within(dialog).getByLabelText(/Join link/),
+      "https://meet.google.com/abc-defg-hij",
+    );
+    await user.type(within(dialog).getByLabelText(/Location/), "Boardroom");
+    await user.click(within(dialog).getByRole("button", { name: "Schedule" }));
+    await waitFor(() => expect(rec.scheduleInterview).toHaveBeenCalled());
+    expect(rec.scheduleInterview.mock.calls[0]?.[1]).toMatchObject({
+      joinUrl: "https://meet.google.com/abc-defg-hij",
+      location: "Boardroom",
+    });
   });
 
   it("names the people when they were chosen for this interview, and sends the whole set", async () => {
     const user = userEvent.setup();
-    rec.scheduleInterview.mockResolvedValue({ email: null });
+    rec.scheduleInterview.mockResolvedValue(booked());
     open(application({ stageId: "s4", stageName: "Interview" }));
     await knowsStages();
     const dialog = await book(user);
@@ -613,17 +691,42 @@ describe("booking an interview", () => {
     });
   });
 
-  it("emails an invitation only when ticked, and says what the API says it did", async () => {
+  it("emails an invitation only when chosen, and says what the API says it did: queued is not sent", async () => {
     const user = userEvent.setup();
-    rec.scheduleInterview.mockResolvedValue({
-      email: { id: "e1", kind: "INVITE", status: "PENDING", note: null },
-    });
+    rec.scheduleInterview.mockResolvedValue(
+      booked({
+        notified: {
+          asked: true,
+          occasion: "INVITE",
+          sendTo: "ALL",
+          candidate: {
+            state: "queued",
+            emailId: "e1",
+            emailKind: "INVITE",
+            reason: null,
+          },
+          panelists: [
+            {
+              state: "skipped",
+              emailId: "e2",
+              emailKind: "PANELIST_INVITE",
+              reason: "not sent: this panelist has no email address",
+              employeeId: "p1",
+              userId: null,
+              seat: "EMPLOYEE",
+              name: "Chidi Nwosu",
+              inApp: "created",
+            },
+          ],
+        },
+      }),
+    );
     open(application({ stageId: "s4", stageName: "Interview" }));
     await knowsStages();
     const dialog = await book(user);
     await user.click(
-      within(dialog).getByRole("checkbox", {
-        name: /Email them an invitation/,
+      within(dialog).getByRole("radio", {
+        name: /^Send the invitation with a calendar file/,
       }),
     );
     await user.click(within(dialog).getByRole("button", { name: "Schedule" }));
@@ -631,11 +734,38 @@ describe("booking an interview", () => {
     expect(rec.scheduleInterview.mock.calls[0]?.[1]).toMatchObject({
       sendInvite: true,
     });
-    expect(
-      await screen.findByText(
-        "Interview booked. The email to Chioma Aduba is queued. It is not sent yet.",
-      ),
-    ).toBeInTheDocument();
+    const done = await screen.findByRole("dialog", {
+      name: "Interview booked",
+    });
+    expect(done).toHaveTextContent("Chioma Aduba: queued.");
+    expect(done).toHaveTextContent(
+      "Chidi Nwosu: skipped. This panelist has no email address.",
+    );
+    expect(done).toHaveTextContent("so it was not sent");
+    expect(done).not.toHaveTextContent("were sent");
+  });
+
+  it("falls back to the candidate's own email when the server says nothing about the panel", async () => {
+    const user = userEvent.setup();
+    rec.scheduleInterview.mockResolvedValue(
+      booked({
+        notified: undefined,
+        email: { id: "e1", kind: "INVITE", status: "PENDING", note: null },
+      }),
+    );
+    open(application({ stageId: "s4", stageName: "Interview" }));
+    await knowsStages();
+    const dialog = await book(user);
+    await user.click(
+      within(dialog).getByRole("radio", {
+        name: /^Send the invitation with a calendar file/,
+      }),
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Schedule" }));
+    const done = await screen.findByRole("dialog", {
+      name: "Interview booked",
+    });
+    expect(done).toHaveTextContent("Chioma Aduba: queued.");
   });
 });
 

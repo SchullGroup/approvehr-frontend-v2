@@ -495,6 +495,63 @@ describe("the panelist's door", () => {
     );
   });
 
+  it("carries the link to join, the zone and the calendar sequence the API gave a panelist, and nothing it did not", async () => {
+    mail.myInterviews.mockResolvedValue({
+      data: [
+        {
+          interviewId: "iv-1",
+          applicationId: "a1",
+          candidateName: "Ada Okafor",
+          requisitionReference: "REQ-1",
+          jobTitle: "Analyst",
+          kind: "TECHNICAL",
+          scheduledFor: "2026-10-20T09:00:00.000Z",
+          durationMins: 60,
+          status: "SCHEDULED",
+          location: "Boardroom",
+          joinUrl: "https://meet.google.com/abc-defg-hij",
+          timeZone: "Africa/Nairobi",
+          calendarSequence: 2,
+          myScorecardSubmitted: false,
+        },
+        {
+          interviewId: "iv-2",
+          applicationId: "a2",
+          candidateName: "Bola Ige",
+          requisitionReference: "REQ-1",
+          jobTitle: "Analyst",
+          kind: "FINAL",
+          scheduledFor: "2026-10-21T09:00:00.000Z",
+          durationMins: 30,
+          status: "SCHEDULED",
+          location: null,
+          myScorecardSubmitted: true,
+        },
+      ],
+      meta: { total: 2 },
+    });
+    const page = await apiComms.mine.interviews(
+      { awaitingMyScorecard: false, page: 1, pageSize: 100 },
+      signal(),
+    );
+    expect(page.rows[0]).toMatchObject({
+      kind: "Technical",
+      kindCode: "TECHNICAL",
+      joinUrl: "https://meet.google.com/abc-defg-hij",
+      timeZone: "Africa/Nairobi",
+      sequence: 2,
+    });
+    /* A server that says nothing of a link or a zone is not made to. */
+    expect(page.rows[1]).toMatchObject({
+      kindCode: "FINAL",
+      joinUrl: null,
+      timeZone: null,
+      sequence: 0,
+    });
+    for (const row of page.rows)
+      expect(JSON.stringify(row)).not.toMatch(/@|salary|phone/i);
+  });
+
   it("counts the scorecards owed on a candidate, only for interviews that count and are theirs", async () => {
     mail.myApplications.mockResolvedValue({
       data: [

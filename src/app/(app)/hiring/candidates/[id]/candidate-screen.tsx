@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Briefcase,
-  CalendarClock,
   Inbox,
   Lock,
   Mail,
@@ -37,6 +36,7 @@ import {
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApplicationAnswers } from "@/components/hiring/application-answers";
+import { InterviewsCard } from "@/components/hiring/interviews/interviews-card";
 import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
 import { StageHistory } from "@/components/hiring/stage-history";
 import { ScreeningCard } from "@/components/hiring/screening/screening-card";
@@ -55,11 +55,12 @@ import {
   APPLICATION_STATUS_TONE,
   type ApplicantRecord,
 } from "@/lib/api/hiring";
-import { usePermissions } from "@/lib/permissions";
+import { useCan, usePermissions } from "@/lib/permissions";
+import { useDemoInterviewViews } from "@/lib/hiring/interviews/use-demo-interviews";
 import { useApplicantRecord, useOfferBands } from "@/lib/store/hiring";
 import { useRealPipelineApplication } from "@/lib/store/recruitment";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { formatDateShort, formatWeekdayTime } from "@/lib/time";
+import { formatDateShort } from "@/lib/time";
 import { STAGES, fullName, type PipelineCard } from "@/lib/types";
 import { daysInStage } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
@@ -1113,43 +1114,7 @@ function Pipeline({ card }: { card: PipelineCard }) {
         </CardBody>
       </Card>
 
-      <Card>
-        <CardHeader title="Interviews" action={<SourceBadge live={false} />} />
-        <CardBody className="flex flex-col gap-2.5">
-          {card.interviews.length === 0 && (
-            <p className="text-body-sm text-muted">Nothing scheduled.</p>
-          )}
-          {card.interviews.map((iv) => (
-            <div
-              key={iv.id}
-              className="flex items-start gap-3 rounded-md border border-line p-3"
-            >
-              <CalendarClock
-                aria-hidden="true"
-                className="mt-0.5 size-4 shrink-0 text-faint"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-body-sm font-medium text-ink">
-                  {INTERVIEW_LABEL[iv.kind] ?? iv.kind}
-                </p>
-                <p className="tabular mt-0.5 text-meta text-muted">
-                  {formatWeekdayTime(iv.scheduledFor, timeZone)} ·{" "}
-                  {iv.durationMins} mins ·{" "}
-                  {iv.interviewerIds
-                    .map((x) => employeeById(x)?.firstName ?? "?")
-                    .join(", ")}
-                </p>
-              </div>
-              <Badge
-                tone={iv.status === "completed" ? "success" : "info"}
-                size="sm"
-              >
-                {iv.status}
-              </Badge>
-            </div>
-          ))}
-        </CardBody>
-      </Card>
+      <DemoInterviews card={card} />
 
       {/* Closed by default — `PARITY.md` Rule 5. A trail of what already
           happened answers a different question from "what do I do with this
@@ -1172,6 +1137,39 @@ function Pipeline({ card }: { card: PipelineCard }) {
         <Timeline entries={activity} />
       </Disclosure>
     </>
+  );
+}
+
+/**
+ * The practice record's interviews: the same card a connected record has, over the book
+ * this browser keeps, so a booked, moved or cancelled interview is still that after a
+ * refresh. It has no scorecard controls: a practice board's scorecards are the seeded
+ * ones, shown above.
+ */
+function DemoInterviews({ card }: { card: PipelineCard }) {
+  const interviews = useDemoInterviewViews(card.id);
+  const canManage = useCan("MANAGE_HIRING");
+  return (
+    <InterviewsCard
+      applicationId={card.id}
+      requisitionId={card.requisitionId}
+      stageId={`${card.requisitionId}:${card.stage}`}
+      stageName={stageLabel(card.stage)}
+      candidateName={fullName(card.candidate)}
+      role={card.requisition.title}
+      interviews={interviews}
+      canManage={canManage}
+      onChanged={() => undefined}
+      badge={<SourceBadge live={false} />}
+      scorecardActions={(iv) => {
+        const owed = iv.panelists.filter((person) => !person.submitted).length;
+        return iv.panelists.length > 0 ? (
+          <span className="text-meta text-muted">
+            {iv.panelists.length - owed} of {iv.panelists.length} scorecards in
+          </span>
+        ) : null;
+      }}
+    />
   );
 }
 

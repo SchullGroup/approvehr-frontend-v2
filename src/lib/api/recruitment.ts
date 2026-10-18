@@ -5,6 +5,7 @@ import type { ApiHistoryEvent } from "@/lib/api/application-history";
 import type { ApiCvLink } from "@/lib/api/careers";
 import type { ApiScoreStatus } from "@/lib/api/screening";
 import type { StageType } from "@/lib/hiring/pipeline/stage-types";
+import type { ApiNotified } from "@/lib/api/interviews";
 import type {
   ApiCandidateEmail,
   ApiPanelist,
@@ -172,6 +173,12 @@ export type ApiInterviewSummary = {
   stageName?: string | null;
   /** Who was invited to score it, and whose scorecard is in. */
   panelists?: ApiPanelist[];
+  /** An https link to join, when a person pasted one. Absent from an API that predates it. */
+  joinUrl?: string | null;
+  /** The calendar sequence. Absent from an API that predates calendar files. */
+  calendarSequence?: number;
+  /** The zone its time is written in. Absent or `null`: the company's own. */
+  timeZone?: string | null;
 };
 
 export type ApiCandidate = {
@@ -300,6 +307,26 @@ export type ApiInterview = {
   status: InterviewStatus;
   location: string | null;
   scorecardsSubmitted: number;
+  /** An https link to join. Absent from an API that predates it. */
+  joinUrl?: string | null;
+  /** The calendar sequence. Absent from an API that predates calendar files. */
+  calendarSequence?: number;
+  /** The zone its time is written in: always a real zone name when it is sent. */
+  timeZone?: string;
+  /** The zone as people read it, with its offset on the day: `Africa/Lagos (GMT+1)`. */
+  timeZoneLabel?: string;
+  /** When it ends, in UTC. */
+  endsAt?: string;
+};
+
+/**
+ * What booking, changing, cancelling or sending an interview answers: the interview, and
+ * what became of each message the person asked for. `notified` is absent from an API that
+ * predates interview invitations, which sent only the candidate's own, as `email`.
+ */
+export type ApiInterviewMutation = ApiInterviewDetail & {
+  email?: ApiQueuedEmail;
+  notified?: ApiNotified;
 };
 
 export type ApiInterviewDetail = ApiInterview & {
@@ -486,7 +513,11 @@ export type ScheduleInterviewBody = {
    * panelist a company without Core HR has. Naming either list is naming the panel.
    */
   panelistUserIds?: string[];
-  /** Only ever true when the person ticked it. */
+  /** Where to join an online interview: an https address, or absent. */
+  joinUrl?: string | null;
+  /** The zone the time was typed in. Absent: the company's own. */
+  timeZone?: string;
+  /** Only ever true when a person chose to send it. */
   sendInvite?: boolean;
   inviteTemplateId?: string;
 };
@@ -496,6 +527,15 @@ export type RescheduleInterviewBody = {
   scheduledFor?: string;
   durationMins?: number;
   location?: string | null;
+  /** `null` clears it. */
+  joinUrl?: string | null;
+  /** Only ever true when a person chose to send an updated invitation. */
+  sendUpdate?: boolean;
+};
+
+export type CancelInterviewBody = {
+  /** Only ever true when a person chose to send a cancellation. */
+  sendCancellation?: boolean;
 };
 
 export type SubmitScorecardBody = {
@@ -703,7 +743,7 @@ export const recruitmentApi = {
       ...(signal ? { signal } : {}),
     }),
   scheduleInterview: (applicationId: string, body: ScheduleInterviewBody) =>
-    request<ApiInterviewDetail & { email?: ApiQueuedEmail }>(
+    request<ApiInterviewMutation>(
       `/recruitment/applications/${applicationId}/interviews`,
       {
         method: "POST",
@@ -711,13 +751,20 @@ export const recruitmentApi = {
       },
     ),
   rescheduleInterview: (id: string, body: RescheduleInterviewBody) =>
-    request<ApiInterviewDetail>(`/recruitment/interviews/${id}`, {
+    request<ApiInterviewMutation>(`/recruitment/interviews/${id}`, {
       method: "PATCH",
       body,
     }),
-  cancelInterview: (id: string) =>
-    request<ApiInterviewDetail>(`/recruitment/interviews/${id}/cancel`, {
+  cancelInterview: (id: string, body: CancelInterviewBody = {}) =>
+    request<ApiInterviewMutation>(`/recruitment/interviews/${id}/cancel`, {
       method: "POST",
+      body,
+    }),
+  /** "Tell them now": the invitation, for an interview booked without one. */
+  notifyInterview: (id: string) =>
+    request<ApiInterviewMutation>(`/recruitment/interviews/${id}/notify`, {
+      method: "POST",
+      body: {},
     }),
   completeInterview: (id: string) =>
     request<ApiInterviewDetail>(`/recruitment/interviews/${id}/complete`, {

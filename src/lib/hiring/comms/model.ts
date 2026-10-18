@@ -1,4 +1,4 @@
-import type { ApplicationOutcome } from "@/lib/api/recruitment";
+import type { ApplicationOutcome, InterviewKind } from "@/lib/api/recruitment";
 import type { StageType } from "@/lib/hiring/pipeline/stage-types";
 import type { FitSummary } from "@/lib/hiring/screening/model";
 
@@ -15,8 +15,23 @@ import type { FitSummary } from "@/lib/hiring/screening/model";
 
 /* ------------------------------------------------------------------ the emails */
 
-export type EmailKind =
-  "ACKNOWLEDGE" | "INVITE" | "DECLINE" | "OFFER_SENT" | "STAGE_UPDATE";
+/**
+ * What a kind of email is called. The ones this screen knows by name are listed; the
+ * API may send more (the editor draws whatever kinds it is given), so any other word
+ * is a kind too and is never refused here.
+ */
+export type KnownEmailKind =
+  | "ACKNOWLEDGE"
+  | "INVITE"
+  | "DECLINE"
+  | "OFFER_SENT"
+  | "STAGE_UPDATE"
+  | "INTERVIEW_UPDATE"
+  | "INTERVIEW_CANCELLED"
+  | "PANELIST_INVITE"
+  | "PANELIST_UPDATE"
+  | "PANELIST_CANCELLED";
+export type EmailKind = KnownEmailKind | (string & Record<never, never>);
 
 /** One of the few words a template may put in curly braces. */
 export type MergeField = {
@@ -26,6 +41,11 @@ export type MergeField = {
   label: string;
   /** What it looks like in a preview made with no real person. */
   sample: string;
+  /**
+   * Empty is allowed: a line of the message that uses it and has no value is left out
+   * and the email still goes. Not for a subject, which is one line and cannot lose it.
+   */
+  optional?: boolean;
 };
 
 /** A kind of email: when it goes, what it may use, and what is sent if the company wrote nothing. */
@@ -34,6 +54,8 @@ export type EmailKindInfo = {
   label: string;
   /** "Sent when somebody applies, after the form is accepted." */
   when: string;
+  /** Who gets it: the candidate, or somebody on an interview's panel. Absent: the candidate. */
+  audience?: "CANDIDATE" | "PANELIST";
   /** The only fields that exist at that moment. */
   fields: string[];
   builtIn: { subject: string; body: string };
@@ -256,6 +278,22 @@ export type MyAccess = {
   interviewsInvitedTo: number;
 };
 
+/**
+ * Where the nudges to hand in a scorecard stand, for a panelist who owes one. Said only
+ * where the API says it: absent is "not said", never "no nudges".
+ */
+export type MyNudges = {
+  /** How many have gone for this interview. */
+  sent: number;
+  /** The most there will be. */
+  of: number;
+  lastAt: string | null;
+  /** When the next is due, if one is. */
+  nextAt: string | null;
+  /** Somebody turned the reminders for this interview off. */
+  off: boolean;
+};
+
 export type MyInterviewRow = {
   interviewId: string;
   applicationId: string;
@@ -263,11 +301,21 @@ export type MyInterviewRow = {
   role: string;
   reference: string;
   kind: string;
+  /** The kind as the API names it, for the calendar entry's title. */
+  kindCode?: InterviewKind;
   scheduledFor: string;
   durationMins: number;
   status: "SCHEDULED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
   location: string | null;
+  /** An https link to join, when the interview is online and a person pasted one. */
+  joinUrl?: string | null;
+  /** The zone its time is written in: absent is the company's own. */
+  timeZone?: string | null;
+  /** The calendar sequence: goes up with each change a calendar is told about. */
+  sequence?: number;
   scorecardIn: boolean;
+  /** The nudges to hand it in, when one is owed. */
+  nudges?: MyNudges | null;
 };
 
 export type MyInterviewPage = { rows: MyInterviewRow[]; total: number };
@@ -321,10 +369,15 @@ export type MyApplication = {
   interviews: {
     id: string;
     kind: string;
+    kindCode?: InterviewKind;
     scheduledFor: string;
     durationMins: number;
     status: "SCHEDULED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
     location: string | null;
+    joinUrl?: string | null;
+    timeZone?: string | null;
+    sequence?: number;
+    nudges?: MyNudges | null;
     stageName: string | null;
     iAmPanelist: boolean;
     panel: {

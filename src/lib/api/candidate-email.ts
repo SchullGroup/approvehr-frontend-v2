@@ -22,16 +22,35 @@ import type { StageType } from "@/lib/hiring/pipeline/stage-types";
 
 /* --------------------------------------------------------------- email templates */
 
+/** The API may send kinds this screen has no name for: they are drawn from the data. */
 export type ApiEmailKind =
-  "ACKNOWLEDGE" | "INVITE" | "DECLINE" | "OFFER_SENT" | "STAGE_UPDATE";
+  | "ACKNOWLEDGE"
+  | "INVITE"
+  | "DECLINE"
+  | "OFFER_SENT"
+  | "STAGE_UPDATE"
+  | "INTERVIEW_UPDATE"
+  | "INTERVIEW_CANCELLED"
+  | "PANELIST_INVITE"
+  | "PANELIST_UPDATE"
+  | "PANELIST_CANCELLED"
+  | (string & Record<never, never>);
 
-export type ApiMergeField = { name: string; label: string; sample: string };
+export type ApiMergeField = {
+  name: string;
+  label: string;
+  sample: string;
+  /** Empty is allowed: the line that uses it is left out and the email goes. */
+  optional?: boolean;
+};
 
 export type ApiEmailKindInfo = {
   kind: ApiEmailKind;
   label: string;
   /** When this kind is sent, in a sentence. */
   when: string;
+  /** Who gets it. Absent from an API that predates interview emails: the candidate. */
+  audience?: "CANDIDATE" | "PANELIST";
   /** The merge fields that exist at that moment: the only ones it may use. */
   fields: string[];
   /** What is sent when the company has not written its own. */
@@ -255,6 +274,12 @@ export type ApiMyInterviewRow = {
   durationMins: number;
   status: InterviewStatus;
   location: string | null;
+  /** Where to join an online interview. Absent from an API that predates it. */
+  joinUrl?: string | null;
+  /** The zone its time is written in. Absent: the company's own. */
+  timeZone?: string;
+  /** The calendar file's sequence. */
+  calendarSequence?: number;
   myScorecardSubmitted: boolean;
 };
 
@@ -265,6 +290,9 @@ export type ApiMyInterview = {
   durationMins: number;
   status: InterviewStatus;
   location: string | null;
+  joinUrl?: string | null;
+  timeZone?: string;
+  calendarSequence?: number;
   stageName: string | null;
   iAmPanelist: boolean;
   myScorecardSubmitted: boolean;
@@ -323,6 +351,9 @@ export type ApiMyApplication = {
     durationMins: number;
     status: InterviewStatus;
     location: string | null;
+    joinUrl?: string | null;
+    timeZone?: string;
+    calendarSequence?: number;
     stageName: string | null;
     iAmPanelist: boolean;
     panel: ApiPanelist[];

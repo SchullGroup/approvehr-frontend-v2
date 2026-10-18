@@ -13,12 +13,17 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { CalendarMenu } from "@/components/hiring/interviews/calendar-menu";
+import { JoinLink } from "@/components/hiring/interviews/join-link";
 import { FitBadge } from "@/components/hiring/screening/fit-badge";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { useInterviewsGateway } from "@/lib/hiring/interviews/use-interviews";
+import { nudgeSentence } from "@/lib/hiring/interviews/reminders";
+import { viewFromMyRow } from "@/lib/hiring/interviews/wire";
 import { useMyAccess } from "@/lib/hiring/pipeline/use-comms";
 import { usePipelineGateway } from "@/lib/hiring/pipeline/use-pipeline";
 import { useOrgTimezone } from "@/lib/store/session";
-import { formatWeekdayTime } from "@/lib/time";
+import { formatWeekdayTime, zoneLabel } from "@/lib/time";
 import { useLoaded } from "@/lib/use-loaded";
 
 /**
@@ -52,6 +57,7 @@ const STATUS_LABEL = {
 
 export function MyInterviewsScreen() {
   const gateway = usePipelineGateway();
+  const interviewsGateway = useInterviewsGateway();
   const access = useMyAccess();
   const timeZone = useOrgTimezone();
   const [which, setWhich] = useState<"waiting" | "all">("waiting");
@@ -76,6 +82,16 @@ export function MyInterviewsScreen() {
   );
 
   const nothing = access.data !== null && !access.data.hasAnyAccess;
+  /* A scorecard is due once the interview is over: took place, or its time has passed. */
+  const now = Date.parse(interviewsGateway.now());
+  const owedNow = (row: {
+    status: string;
+    scheduledFor: string;
+    durationMins: number;
+  }): boolean =>
+    row.status === "COMPLETED" ||
+    (row.status === "SCHEDULED" &&
+      Date.parse(row.scheduledFor) + row.durationMins * 60_000 <= now);
 
   return (
     <>
@@ -150,10 +166,36 @@ export function MyInterviewsScreen() {
                           </p>
                           <p className="tabular mt-0.5 text-meta text-muted">
                             {row.kind} ·{" "}
-                            {formatWeekdayTime(row.scheduledFor, timeZone)} ·{" "}
+                            {formatWeekdayTime(
+                              row.scheduledFor,
+                              row.timeZone ?? timeZone,
+                            )}{" "}
+                            · {zoneLabel(row.timeZone ?? timeZone)} ·{" "}
                             {row.durationMins} mins
                             {row.location ? ` · ${row.location}` : ""}
                           </p>
+                          {!row.scorecardIn && owedNow(row) && row.nudges && (
+                            <p className="mt-1.5 text-meta text-muted">
+                              {nudgeSentence(row.nudges, (iso) =>
+                                formatWeekdayTime(iso, timeZone),
+                              )}
+                            </p>
+                          )}
+                          {row.status === "SCHEDULED" && (
+                            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+                              <JoinLink url={row.joinUrl ?? null} />
+                              <CalendarMenu
+                                interview={viewFromMyRow(row)}
+                                who="panelist"
+                                getFile={() =>
+                                  interviewsGateway.calendarFile(
+                                    viewFromMyRow(row),
+                                    "panelist",
+                                  )
+                                }
+                              />
+                            </div>
+                          )}
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5">
                           <Badge tone={STATUS_TONE[row.status]} size="sm">
@@ -162,6 +204,10 @@ export function MyInterviewsScreen() {
                           {row.scorecardIn ? (
                             <Badge tone="success" size="sm">
                               Your scorecard is in
+                            </Badge>
+                          ) : owedNow(row) ? (
+                            <Badge tone="danger" size="sm">
+                              Scorecard due
                             </Badge>
                           ) : (
                             <Badge tone="warning" size="sm">

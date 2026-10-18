@@ -16,6 +16,8 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { CalendarMenu } from "@/components/hiring/interviews/calendar-menu";
+import { JoinLink } from "@/components/hiring/interviews/join-link";
 import { OpenCv } from "@/components/hiring/open-cv";
 import { InterviewScoreCard } from "@/components/hiring/record-comms";
 import { FitScoreCard } from "@/components/hiring/screening/fit-score-card";
@@ -26,9 +28,12 @@ import {
   type ScorecardRecommendation,
 } from "@/lib/api/recruitment";
 import type { MyApplication, MyScorecard } from "@/lib/hiring/comms/model";
+import { nudgeSentence } from "@/lib/hiring/interviews/reminders";
+import { useInterviewsGateway } from "@/lib/hiring/interviews/use-interviews";
+import { viewFromMyInterview } from "@/lib/hiring/interviews/wire";
 import { usePipelineGateway } from "@/lib/hiring/pipeline/use-pipeline";
 import { useOrgTimezone } from "@/lib/store/session";
-import { formatWeekdayTime } from "@/lib/time";
+import { formatWeekdayTime, zoneLabel } from "@/lib/time";
 import { useLoaded } from "@/lib/use-loaded";
 
 /**
@@ -68,6 +73,7 @@ const recommendation = (code: string | null): string | null =>
 
 export function MyApplicationScreen({ id }: { id: string }) {
   const gateway = usePipelineGateway();
+  const interviewsGateway = useInterviewsGateway();
   const timeZone = useOrgTimezone();
   const toast = useToast();
   const [scoring, setScoring] = useState<string | null>(null);
@@ -225,7 +231,7 @@ export function MyApplicationScreen({ id }: { id: string }) {
             <Card key={interview.id}>
               <CardHeader
                 title={interview.kind}
-                description={`${formatWeekdayTime(interview.scheduledFor, timeZone)} · ${String(interview.durationMins)} mins${interview.location ? ` · ${interview.location}` : ""}${interview.stageName ? ` · ${interview.stageName}` : ""}`}
+                description={`${formatWeekdayTime(interview.scheduledFor, interview.timeZone ?? timeZone)} · ${zoneLabel(interview.timeZone ?? timeZone)} · ${String(interview.durationMins)} mins${interview.location ? ` · ${interview.location}` : ""}${interview.stageName ? ` · ${interview.stageName}` : ""}`}
                 action={
                   <Badge tone={STATUS_TONE[interview.status]} size="sm">
                     {STATUS_LABEL[interview.status]}
@@ -233,6 +239,21 @@ export function MyApplicationScreen({ id }: { id: string }) {
                 }
               />
               <CardBody className="flex flex-col gap-4">
+                {interview.status === "SCHEDULED" && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <JoinLink url={interview.joinUrl ?? null} />
+                    <CalendarMenu
+                      interview={viewFromMyInterview(application, interview)}
+                      who="panelist"
+                      getFile={() =>
+                        interviewsGateway.calendarFile(
+                          viewFromMyInterview(application, interview),
+                          "panelist",
+                        )
+                      }
+                    />
+                  </div>
+                )}
                 {interview.panel.length > 0 && (
                   <p className="text-body-sm text-body">
                     Invited to score it:{" "}
@@ -251,7 +272,17 @@ export function MyApplicationScreen({ id }: { id: string }) {
                 ) : interview.iAmPanelist &&
                   (interview.status === "SCHEDULED" ||
                     interview.status === "COMPLETED") ? (
-                  <div>
+                  <div className="flex flex-col gap-2">
+                    {interview.status === "COMPLETED" && interview.nudges && (
+                      <p className="text-meta text-muted">
+                        <span className="font-medium text-ink">
+                          Scorecard due.{" "}
+                        </span>
+                        {nudgeSentence(interview.nudges, (iso) =>
+                          formatWeekdayTime(iso, timeZone),
+                        )}
+                      </p>
+                    )}
                     <Button
                       variant="accent"
                       size="sm"

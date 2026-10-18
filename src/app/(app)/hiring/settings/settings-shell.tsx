@@ -20,6 +20,7 @@ const TABS = [
   { href: "/hiring/settings/tags", label: "Tags" },
   { href: "/hiring/settings/accepted-offers", label: "Accepted offers" },
   { href: "/hiring/settings/emails", label: "Candidate emails" },
+  { href: "/hiring/settings/interviews", label: "Interview reminders" },
   { href: "/hiring/settings/retention", label: "Data retention" },
 ];
 

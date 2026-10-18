@@ -2,7 +2,7 @@
 
 import { ApiError } from "@/lib/api/client";
 import type { ApiQueuedEmail } from "@/lib/api/candidate-email";
-import { kindInfo } from "@/lib/hiring/comms/fields";
+import { kindLabelOf } from "@/lib/hiring/comms/fields";
 import type { EmailNotice } from "@/lib/hiring/comms/model";
 import { cardScreeningFromApi } from "@/lib/hiring/screening/wire";
 import { apiComms } from "./api-comms";
@@ -96,7 +96,7 @@ export const noticeFrom = (queued: ApiQueuedEmail | undefined): EmailNotice =>
     ? {
         status: queued.status,
         note: queued.note,
-        kindLabel: kindInfo(queued.kind).label,
+        kindLabel: kindLabelOf(queued.kind),
       }
     : null;
 
