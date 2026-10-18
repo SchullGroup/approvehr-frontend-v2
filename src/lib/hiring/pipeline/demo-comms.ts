@@ -7,7 +7,6 @@ import type {
   MyApplication,
   MyApplicationRow,
   MyInterviewRow,
-  MyNudges,
   MyScorecard,
   PanelMember,
 } from "@/lib/hiring/comms/model";
@@ -17,9 +16,7 @@ import { demoAccess } from "@/lib/hiring/access/demo-store";
 import { memberOf } from "@/lib/hiring/access/demo-ops";
 import { CANDIDATES, REQUISITIONS, SCORECARDS } from "@/lib/mock/hiring";
 import type { DemoInterview } from "@/lib/hiring/interviews/demo-ops";
-import { remindersOf } from "@/lib/hiring/interviews/demo-reminders";
 import { demoInterviews } from "@/lib/hiring/interviews/demo-store";
-import { invitationSent } from "@/lib/hiring/interviews/reminders";
 import { EMPLOYEES } from "@/lib/mock/people";
 import {
   archiveEmailTemplate,
@@ -174,23 +171,6 @@ export function cardFor(
   };
 }
 
-/** Where the nudges for this person's scorecard stand, for an interview they still owe. */
-const nudgesOf = (interview: DemoInterview): MyNudges | null => {
-  const book = demoInterviews.current();
-  const plan = remindersOf(interview, book.reminderSettings, DEMO_NOW, true);
-  const nudges = plan.items.filter((item) => item.kind === "SCORECARD_NUDGE");
-  const sent = nudges.filter((item) => item.status === "SENT");
-  const next = nudges.find((item) => item.status === "PLANNED");
-  if (!invitationSent(interview.notices)) return null;
-  return {
-    sent: sent.length,
-    of: book.reminderSettings.nudges.max,
-    lastAt: sent.at(-1)?.at ?? null,
-    nextAt: next?.at ?? null,
-    off: plan.off,
-  };
-};
-
 const mineOf = (book: DemoBook): MyInterviewRow[] =>
   mineIn()
     .map((i) => {
@@ -213,7 +193,6 @@ const mineOf = (book: DemoBook): MyInterviewRow[] =>
         timeZone: i.timeZone,
         sequence: i.sequence,
         scorecardIn: !owes,
-        ...(owes && i.status === "COMPLETED" ? { nudges: nudgesOf(i) } : {}),
       };
     })
     .sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor));
@@ -443,10 +422,6 @@ export const demoComms: Pick<
           stageName:
             book.stages.find((s) => s.id === app.stageId)?.name ?? null,
           iAmPanelist: true,
-          ...(cardFor(book, interview.id, id, DEMO_ME) === null &&
-          interview.status === "COMPLETED"
-            ? { nudges: nudgesOf(interview) }
-            : {}),
           panel: interview.seats.map((seat) => ({
             employeeId: seat.startsWith("e:") ? seat.slice(2) : null,
             userId: seat.startsWith("u:") ? seat.slice(2) : null,

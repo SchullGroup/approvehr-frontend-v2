@@ -2,6 +2,10 @@
 
 import { request, requestPaged, type Paged } from "@/lib/api/client";
 import type { ApiHistoryEvent } from "@/lib/api/application-history";
+import type {
+  ApiReminderChoicesPatch,
+  ApiReminderSettings,
+} from "@/lib/api/interviews";
 import type { QuestionKind } from "@/lib/marketing/apply-form";
 import type { ApiScoreStatus, ApiScreeningDetail } from "@/lib/api/screening";
 import type { ScreeningSummary } from "@/lib/hiring/screening/model";
@@ -653,7 +657,24 @@ export type ApiCareersSettings = {
     willSend: boolean;
     /** Why none would be sent right now, in words. */
     blockedBy: string[];
+    /** What has gone against the daily limit, and what is still to go. Absent from an older API. */
+    usage?: {
+      sentLast24Hours: number;
+      dailyLimit: number;
+      /** Everything not yet sent, reminders planned for later included. */
+      waiting: number;
+      /** Of those, due now and held back. */
+      dueNow: number;
+      /** Reminders and nudges planned for a time that has not come. */
+      remindersPlanned: number;
+    };
   };
+  /**
+   * Reminders before an interview and the nudge after one: this company's choices, what
+   * it gets until it chooses, and the most and least each may be. Absent from an API
+   * that predates them.
+   */
+  interviewReminders?: ApiReminderSettings;
   /** Whose name those emails are sent in. Always the registered name, or that name with "Careers". */
   emailSender?: {
     name: string;
@@ -711,6 +732,8 @@ export type UpdateCareersSettingsBody = {
    * a sentence where there is none.
    */
   onOfferAccepted?: "HIRED_LIST_ONLY" | "CREATE_EMPLOYEE";
+  /** Any part of the reminders: send only what changes. */
+  interviewReminders?: ApiReminderChoicesPatch;
 };
 
 /* -------------------------------------------------------------------- calls */

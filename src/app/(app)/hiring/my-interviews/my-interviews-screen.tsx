@@ -17,8 +17,12 @@ import { CalendarMenu } from "@/components/hiring/interviews/calendar-menu";
 import { JoinLink } from "@/components/hiring/interviews/join-link";
 import { FitBadge } from "@/components/hiring/screening/fit-badge";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import {
+  panelistStatus,
+  scorecardDue,
+  stillToCome,
+} from "@/lib/hiring/interviews/due";
 import { useInterviewsGateway } from "@/lib/hiring/interviews/use-interviews";
-import { nudgeSentence } from "@/lib/hiring/interviews/reminders";
 import { viewFromMyRow } from "@/lib/hiring/interviews/wire";
 import { useMyAccess } from "@/lib/hiring/pipeline/use-comms";
 import { usePipelineGateway } from "@/lib/hiring/pipeline/use-pipeline";
@@ -40,20 +44,6 @@ import { useLoaded } from "@/lib/use-loaded";
  *
  * Which interviews are theirs is the API's answer, never this screen's.
  */
-
-const STATUS_TONE = {
-  SCHEDULED: "info",
-  COMPLETED: "success",
-  CANCELLED: "neutral",
-  NO_SHOW: "danger",
-} as const;
-
-const STATUS_LABEL = {
-  SCHEDULED: "Coming up",
-  COMPLETED: "Took place",
-  CANCELLED: "Cancelled",
-  NO_SHOW: "No show",
-} as const;
 
 export function MyInterviewsScreen() {
   const gateway = usePipelineGateway();
@@ -88,10 +78,7 @@ export function MyInterviewsScreen() {
     status: string;
     scheduledFor: string;
     durationMins: number;
-  }): boolean =>
-    row.status === "COMPLETED" ||
-    (row.status === "SCHEDULED" &&
-      Date.parse(row.scheduledFor) + row.durationMins * 60_000 <= now);
+  }): boolean => scorecardDue(row, now);
 
   return (
     <>
@@ -174,14 +161,7 @@ export function MyInterviewsScreen() {
                             {row.durationMins} mins
                             {row.location ? ` · ${row.location}` : ""}
                           </p>
-                          {!row.scorecardIn && owedNow(row) && row.nudges && (
-                            <p className="mt-1.5 text-meta text-muted">
-                              {nudgeSentence(row.nudges, (iso) =>
-                                formatWeekdayTime(iso, timeZone),
-                              )}
-                            </p>
-                          )}
-                          {row.status === "SCHEDULED" && (
+                          {stillToCome(row, now) && (
                             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                               <JoinLink url={row.joinUrl ?? null} />
                               <CalendarMenu
@@ -198,8 +178,8 @@ export function MyInterviewsScreen() {
                           )}
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge tone={STATUS_TONE[row.status]} size="sm">
-                            {STATUS_LABEL[row.status]}
+                          <Badge tone={panelistStatus(row, now).tone} size="sm">
+                            {panelistStatus(row, now).label}
                           </Badge>
                           {row.scorecardIn ? (
                             <Badge tone="success" size="sm">

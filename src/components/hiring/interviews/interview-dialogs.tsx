@@ -9,6 +9,7 @@ import {
   Input,
   Modal,
   Select,
+  Switch,
   TextLink,
   Textarea,
 } from "@/components/ui";
@@ -125,13 +126,12 @@ function Outcome({
   const headline = outcomeHeadline(result.outcome, done);
   const lines = outcomeLines(result.outcome);
   /* What the change did to the reminders, once the API has said. */
-  const replan =
-    done === "updated" || done === "cancelled"
-      ? replanSentence(
-          done === "updated" ? "rescheduled" : "cancelled",
-          result.outcome.reminders ?? null,
-        )
-      : null;
+  const reminders = result.outcome.reminders ?? null;
+  const replan = replanSentence(
+    done === "updated" ? "rescheduled" : done,
+    reminders,
+    reminders?.paused ?? null,
+  );
   return (
     <div className="flex flex-col gap-3">
       <Callout
@@ -216,6 +216,8 @@ export function ScheduleInterviewDialog({
      list is people somebody picked for this one interview. */
   const [chosen, setChosen] = useState<Person[] | null>(null);
   const [send, setSend] = useState(false);
+  /* The candidate's reminders are on unless somebody switches them off for this one. */
+  const [noCandidateReminders, setNoCandidateReminders] = useState(false);
   const [tried, setTried] = useState(false);
   const [linkTouched, setLinkTouched] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -234,6 +236,7 @@ export function ScheduleInterviewDialog({
       setLocation("");
       setChosen(null);
       setSend(false);
+      setNoCandidateReminders(false);
       setTried(false);
       setLinkTouched(false);
       setBusy(false);
@@ -297,6 +300,7 @@ export function ScheduleInterviewDialog({
         joinUrl: cleanJoinLink(joinUrl),
         panel: chosen ? splitSeats(chosen.map((p) => p.id)) : null,
         sendInvite: send,
+        ...(send && noCandidateReminders ? { candidateReminders: false } : {}),
       });
       setResult(made);
     } catch (error) {
@@ -489,6 +493,18 @@ export function ScheduleInterviewDialog({
               onChange={setSend}
               readiness={readiness}
               explainer={explainer}
+            />
+          )}
+
+          {readiness?.supported && send && (
+            <Switch
+              label="Don't remind the candidate about this interview"
+              description="Reminders go only once an invitation has been sent. The panel's reminders are not changed, and you can change this later on the interview."
+              checked={noCandidateReminders}
+              disabled={busy}
+              onChange={(event) =>
+                setNoCandidateReminders(event.currentTarget.checked)
+              }
             />
           )}
         </div>

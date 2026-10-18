@@ -125,7 +125,7 @@ const fake = (over: Partial<InterviewsGateway> = {}): InterviewsGateway => ({
   }),
   reminderSettings: async () => null,
   saveReminderSettings: vi.fn(),
-  setRemindersOff: vi.fn(),
+  setCandidateReminders: vi.fn(),
   schedule: vi.fn(),
   change: vi.fn(),
   cancel: vi.fn(),

@@ -1,4 +1,4 @@
-import type { InterviewReminders, ReminderSettings } from "./reminders";
+import type { ReminderSettings, ReminderSettingsView } from "./reminders";
 import type {
   CancelInput,
   ChangeInput,
@@ -67,15 +67,21 @@ export type InterviewsGateway = {
    * now stands. Only ever called because somebody pressed a button that said so.
    */
   notify(interview: InterviewView): Promise<ChangeResult>;
-  /** The company's reminder defaults. `null` when this server has none to show. */
-  reminderSettings(signal: AbortSignal): Promise<ReminderSettings | null>;
+  /**
+   * The company's reminder settings, with what it gets until it chooses and the limits on
+   * each. `null` when this server has none to show.
+   */
+  reminderSettings(signal: AbortSignal): Promise<ReminderSettingsView | null>;
   /** Saves them, and answers with what the server kept. Rejects with the API's sentence. */
-  saveReminderSettings(settings: ReminderSettings): Promise<ReminderSettings>;
-  /** Turns the reminders for one interview off or back on. */
-  setRemindersOff(
+  saveReminderSettings(values: ReminderSettings): Promise<ReminderSettingsView>;
+  /**
+   * Turns the candidate's reminders for one interview off or back on. The panel's are the
+   * company's and have no switch. Tells nobody anything.
+   */
+  setCandidateReminders(
     interview: InterviewView,
-    off: boolean,
-  ): Promise<InterviewReminders>;
+    on: boolean,
+  ): Promise<ChangeResult>;
 
   complete(interviewId: string): Promise<void>;
   noShow(interviewId: string): Promise<void>;

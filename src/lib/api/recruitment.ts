@@ -179,6 +179,8 @@ export type ApiInterviewSummary = {
   calendarSequence?: number;
   /** The zone its time is written in. Absent or `null`: the company's own. */
   timeZone?: string | null;
+  /** Whether reminders to the candidate are on. Absent from an API that predates reminders. */
+  candidateReminders?: boolean;
 };
 
 export type ApiCandidate = {
@@ -313,6 +315,11 @@ export type ApiInterview = {
   calendarSequence?: number;
   /** The zone its time is written in: always a real zone name when it is sent. */
   timeZone?: string;
+  /**
+   * Whether reminders to the candidate are on for this interview (`false` is the
+   * per-interview switch). Absent from an API that predates reminders.
+   */
+  candidateReminders?: boolean;
   /** The zone as people read it, with its offset on the day: `Africa/Lagos (GMT+1)`. */
   timeZoneLabel?: string;
   /** When it ends, in UTC. */
@@ -520,6 +527,8 @@ export type ScheduleInterviewBody = {
   /** Only ever true when a person chose to send it. */
   sendInvite?: boolean;
   inviteTemplateId?: string;
+  /** `false` turns reminders to the candidate off for this interview. Absent: on. */
+  candidateReminders?: boolean;
 };
 
 export type RescheduleInterviewBody = {
@@ -531,6 +540,8 @@ export type RescheduleInterviewBody = {
   joinUrl?: string | null;
   /** Only ever true when a person chose to send an updated invitation. */
   sendUpdate?: boolean;
+  /** `false` turns reminders to the candidate off for this interview; `true` turns them back on. */
+  candidateReminders?: boolean;
 };
 
 export type CancelInterviewBody = {

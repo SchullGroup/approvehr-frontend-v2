@@ -9,7 +9,13 @@ import {
 } from "@/lib/api/recruitment";
 import { useLoaded } from "@/lib/use-loaded";
 import type { InterviewNotice, InterviewView } from "./model";
-import { noticeFromRow, viewFromSummary } from "./wire";
+import type { InterviewReminders } from "./reminders";
+import {
+  isReminderRow,
+  noticeFromRow,
+  remindersFromApi,
+  viewFromSummary,
+} from "./wire";
 
 /**
  * A connected record's interviews, with what the application's own answer leaves out.
@@ -22,11 +28,18 @@ import { noticeFromRow, viewFromSummary } from "./wire";
  *
  * A failed read of one interview's messages leaves just that one unknown. An API that has
  * no such route leaves every one unknown, and nothing here pretends otherwise.
+ *
+ * The log holds every email about the interview, reminders included, and the two are read
+ * apart: the messages go on the interview's emails, and what is planned and what became of
+ * each reminder comes from the reminders read, which also says why when none is planned.
  */
 
 type Extras = {
   detail: ApiInterviewDetail | null;
   notices: InterviewNotice[] | null;
+  reminders: InterviewReminders | null;
+  /** The per-interview switch for the candidate's reminders, when either read said it. */
+  candidateReminders: boolean | null;
 };
 
 export function useConnectedInterviews(
@@ -45,9 +58,10 @@ export function useConnectedInterviews(
     async (signal) => {
       const entries = await Promise.all(
         ids.map(async (id): Promise<[string, Extras]> => {
-          const [detail, notices] = await Promise.allSettled([
+          const [detail, notices, reminders] = await Promise.allSettled([
             recruitmentApi.getInterview(id, signal),
             interviewsApi.notices(id, signal),
+            interviewsApi.reminders(id, signal),
           ]);
           return [
             id,
@@ -55,8 +69,20 @@ export function useConnectedInterviews(
               detail: detail.status === "fulfilled" ? detail.value : null,
               notices:
                 notices.status === "fulfilled"
-                  ? notices.value.notices.map(noticeFromRow)
+                  ? notices.value.notices
+                      .filter((row) => !isReminderRow(row))
+                      .map(noticeFromRow)
                   : null,
+              reminders:
+                reminders.status === "fulfilled"
+                  ? remindersFromApi(reminders.value)
+                  : null,
+              candidateReminders:
+                reminders.status === "fulfilled"
+                  ? reminders.value.candidateReminders
+                  : detail.status === "fulfilled"
+                    ? (detail.value.candidateReminders ?? null)
+                    : null,
             },
           ];
         }),
@@ -92,6 +118,10 @@ export function useConnectedInterviews(
               }
             : {}),
           notices: more.notices,
+          reminders: more.reminders,
+          ...(more.candidateReminders !== null
+            ? { candidateReminders: more.candidateReminders }
+            : {}),
         };
       }),
     [summaries, extras, applicationId, candidateName, role],

@@ -1,261 +1,283 @@
 import { describe, expect, it } from "vitest";
 import {
+  SETTLED,
   defaultReminderSettings,
-  plannedCount,
   remindersOf,
+  settledLog,
+  type Plannable,
   type ReminderLogEntry,
 } from "@/lib/hiring/interviews/demo-reminders";
-import type { InterviewNotice } from "@/lib/hiring/interviews/model";
 
 /**
- * The practice board's plan for an interview's reminders.
+ * The practice board's plan for an interview's reminders, by the API's own rules.
  *
- * What it holds: nothing is planned unless the invitation was sent; each reminder is due
- * the company's hours before (or after) and one whose time has passed is not planned late;
- * a nudge is planned only while a scorecard is owed, and no more than the most there are.
+ * What it holds: nothing is planned unless the invitation was sent for the interview as it
+ * stands; each reminder is due the company's time before (or after) and one whose time has
+ * passed is not planned late; a change nobody was told of leaves nobody with reminders; a
+ * change or a cancellation settles what was waiting; and a switch for the candidate takes
+ * only the candidate's.
  */
 
 const NOW = "2026-10-10T09:00:00.000Z";
 const START = "2026-10-20T09:00:00.000Z";
+const nameOf = (seat: string) =>
+  seat === "e:p1" ? "Chidi Nwosu" : "Kemi Outside";
 
-const sentInvite: InterviewNotice = {
-  id: "n",
-  kind: "INVITE",
-  audience: "CANDIDATE",
-  recipient: "Ada Okafor",
-  status: "SENT",
-  note: null,
-  at: "2026-10-09T09:00:00.000Z",
-};
-
-const interview = (over: Partial<Parameters<typeof remindersOf>[0]> = {}) => ({
+const interview = (over: Partial<Plannable> = {}): Plannable => ({
   id: "iv-1",
+  candidateName: "Ada Okafor",
   scheduledFor: START,
   durationMins: 60,
   status: "SCHEDULED",
   seats: ["e:p1"],
-  notices: [sentInvite],
-  remindersOff: false,
-  reminderLog: [] as ReminderLogEntry[],
+  sequence: 0,
+  toldSequence: 0,
+  candidateRemindersOff: false,
+  reminderLog: [],
   ...over,
 });
 
-const kinds = (items: { kind: string }[]) => items.map((i) => i.kind);
+const plan = (
+  over: Partial<Plannable> = {},
+  settings = defaultReminderSettings(),
+  now = NOW,
+) => remindersOf(interview(over), settings, now, nameOf);
+
+const summary = (items: ReturnType<typeof plan>["items"]) =>
+  items.map((i) => [i.slot, i.recipient, i.dueAt, i.status]);
 
 describe("planning", () => {
-  it("plans the candidate's two reminders and the panelist's, at the company's hours", () => {
-    const plan = remindersOf(
-      interview(),
-      defaultReminderSettings(),
-      NOW,
-      false,
+  it("plans what the company asked for, at its times, by the API's defaults", () => {
+    expect(summary(plan().items)).toEqual([
+      ["cand-early", "Ada Okafor", "2026-10-19T09:00:00.000Z", "planned"],
+      ["cand-late", "Ada Okafor", "2026-10-20T08:00:00.000Z", "planned"],
+      ["pan-late", "Chidi Nwosu", "2026-10-20T08:00:00.000Z", "planned"],
+      ["nudge-1", "Chidi Nwosu", "2026-10-21T10:00:00.000Z", "planned"],
+      ["nudge-2", "Chidi Nwosu", "2026-10-23T10:00:00.000Z", "planned"],
+    ]);
+    expect(plan().paused).toBeNull();
+  });
+
+  it("leaves the panelist's earlier reminder off until the company switches it on", () => {
+    expect(plan().items.some((i) => i.slot === "pan-early")).toBe(false);
+    const settings = defaultReminderSettings();
+    settings.panelist.early.enabled = true;
+    expect(
+      plan({}, settings).items.find((i) => i.slot === "pan-early")?.dueAt,
+    ).toBe("2026-10-19T09:00:00.000Z");
+  });
+
+  it("follows the company's times when they change", () => {
+    const settings = defaultReminderSettings();
+    settings.candidate.early.minutesBefore = 2_880;
+    settings.scorecardNudge.firstAfterHours = 2;
+    settings.scorecardNudge.secondAfterHours = null;
+    const items = plan({}, settings).items;
+    expect(items.find((i) => i.slot === "cand-early")?.dueAt).toBe(
+      "2026-10-18T09:00:00.000Z",
     );
-    expect(plan.off).toBe(false);
-    expect(plan.items.map((i) => [i.kind, i.at, i.status])).toEqual([
-      ["CANDIDATE_EARLY", "2026-10-19T09:00:00.000Z", "PLANNED"],
-      ["PANELIST", "2026-10-19T09:00:00.000Z", "PLANNED"],
-      ["CANDIDATE_FINAL", "2026-10-20T08:00:00.000Z", "PLANNED"],
+    expect(items.find((i) => i.slot === "nudge-1")?.dueAt).toBe(
+      "2026-10-20T12:00:00.000Z",
+    );
+    expect(items.some((i) => i.slot === "nudge-2")).toBe(false);
+  });
+
+  it("leaves out what the company switched off", () => {
+    const settings = defaultReminderSettings();
+    settings.candidate.late.enabled = false;
+    settings.scorecardNudge.enabled = false;
+    expect(plan({}, settings).items.map((i) => i.slot)).toEqual([
+      "cand-early",
+      "pan-late",
     ]);
   });
 
-  it("follows the company's hours when they change", () => {
-    const settings = defaultReminderSettings();
-    const early = settings.rules.find((r) => r.kind === "CANDIDATE_EARLY");
-    if (early) early.hours = 48;
-    const plan = remindersOf(interview(), settings, NOW, false);
-    expect(plan.items.find((i) => i.kind === "CANDIDATE_EARLY")?.at).toBe(
-      "2026-10-18T09:00:00.000Z",
+  it("is not tied to the browser's clock: an offset is a length of time before the start", () => {
+    /* Both reminders a day before, across a clock change, are exactly 24 hours before. */
+    const items = plan({ scheduledFor: "2026-10-25T09:00:00.000Z" }).items;
+    expect(items.find((i) => i.slot === "cand-early")?.dueAt).toBe(
+      "2026-10-24T09:00:00.000Z",
     );
-  });
-
-  it("plans nothing when the invitation was not sent, whatever else is true", () => {
-    for (const status of [
-      "NOT_ASKED",
-      "SKIPPED",
-      "PENDING",
-      "FAILED",
-    ] as const) {
-      const plan = remindersOf(
-        interview({ notices: [{ ...sentInvite, status }] }),
-        defaultReminderSettings(),
-        NOW,
-        true,
-      );
-      expect(plan.items, status).toEqual([]);
-    }
-    expect(
-      remindersOf(
-        interview({ notices: [] }),
-        defaultReminderSettings(),
-        NOW,
-        true,
-      ).items,
-    ).toEqual([]);
-  });
-
-  it("plans nothing for a cancelled interview", () => {
-    expect(
-      remindersOf(
-        interview({ status: "CANCELLED" }),
-        defaultReminderSettings(),
-        NOW,
-        true,
-      ).items,
-    ).toEqual([]);
-  });
-
-  it("plans nothing, and says they are off, when somebody turned them off for this interview", () => {
-    const plan = remindersOf(
-      interview({ remindersOff: true }),
-      defaultReminderSettings(),
-      NOW,
-      true,
-    );
-    expect(plan.off).toBe(true);
-    expect(plan.items).toEqual([]);
-  });
-
-  it("leaves out what the company switched off, and the panelist's when nobody is invited", () => {
-    const settings = defaultReminderSettings();
-    for (const r of settings.rules)
-      if (r.kind === "CANDIDATE_FINAL") r.enabled = false;
-    const plan = remindersOf(interview({ seats: [] }), settings, NOW, false);
-    expect(kinds(plan.items)).toEqual(["CANDIDATE_EARLY"]);
   });
 
   it("does not plan a reminder whose time has already passed: sending it late is worse than not", () => {
-    /* Booked a day and a half ahead: the 24-hour one is still to come, the 48 is not. */
+    /* Booked a day and a half ahead: the 24-hour one is still to come, a 48-hour one is not. */
     const settings = defaultReminderSettings();
-    const early = settings.rules.find((r) => r.kind === "CANDIDATE_EARLY");
-    if (early) early.hours = 48;
-    const plan = remindersOf(
-      interview({ scheduledFor: "2026-10-11T21:00:00.000Z" }),
+    settings.candidate.early.minutesBefore = 2_880;
+    const items = plan(
+      { scheduledFor: "2026-10-11T21:00:00.000Z" },
       settings,
-      NOW,
-      false,
-    );
-    expect(kinds(plan.items)).toEqual(["PANELIST", "CANDIDATE_FINAL"]);
+    ).items;
+    expect(items.map((i) => i.slot)).not.toContain("cand-early");
+    expect(items.map((i) => i.slot)).toContain("cand-late");
   });
 
-  it("counts what is still planned", () => {
-    expect(
-      plannedCount(
-        remindersOf(interview(), defaultReminderSettings(), NOW, false),
-      ),
-    ).toBe(3);
+  it("names the panel's people, one reminder for each", () => {
+    const items = plan({ seats: ["e:p1", "e:p2"] }).items.filter(
+      (i) => i.slot === "pan-late",
+    );
+    expect(items.map((i) => i.recipient)).toEqual([
+      "Chidi Nwosu",
+      "Kemi Outside",
+    ]);
   });
 });
 
-describe("the nudges for a scorecard", () => {
-  const after = "2026-10-20T11:00:00.000Z";
+describe("when there is nothing to plan, and why", () => {
+  it("plans nothing, and says so, when the invitation was never sent", () => {
+    const result = plan({ toldSequence: null });
+    expect(result.items).toEqual([]);
+    expect(result.paused?.code).toBe("no_invitation");
+  });
 
-  it("plans each nudge a stretch of hours after the interview ends, up to the most there are", () => {
-    const settings = defaultReminderSettings();
-    settings.nudges.max = 3;
-    const plan = remindersOf(
-      interview({ status: "COMPLETED" }),
-      settings,
-      after,
-      true,
+  it("plans nothing when the interview changed and the change was not sent", () => {
+    const result = plan({ sequence: 1, toldSequence: 0 });
+    expect(result.items).toEqual([]);
+    expect(result.paused?.code).toBe("changed_since_told");
+    expect(result.paused?.reason).toMatch(/Send an update to plan new ones/);
+  });
+
+  it("plans nothing for a cancelled or no-show interview, and says which", () => {
+    for (const status of ["CANCELLED", "NO_SHOW"]) {
+      const result = plan({ status });
+      expect(result.items, status).toEqual([]);
+      expect(result.paused?.code, status).toBe("not_scheduled");
+    }
+    expect(plan({ status: "CANCELLED" }).paused?.reason).toBe(
+      "This interview is cancelled, so no reminders are planned.",
     );
-    expect(
-      plan.items
-        .filter((i) => i.kind === "SCORECARD_NUDGE")
-        .map((i) => [i.nth, i.at]),
-    ).toEqual([
-      [{ n: 1, of: 3 }, "2026-10-21T10:00:00.000Z"],
-      [{ n: 2, of: 3 }, "2026-10-22T10:00:00.000Z"],
-      [{ n: 3, of: 3 }, "2026-10-23T10:00:00.000Z"],
-    ]);
-  });
-
-  it("plans none once the scorecard is in", () => {
-    expect(
-      remindersOf(
-        interview({ status: "COMPLETED" }),
-        defaultReminderSettings(),
-        after,
-        false,
-      ).items,
-    ).toEqual([]);
-  });
-
-  it("plans only what is left after some have gone, and never more than the most", () => {
-    const settings = defaultReminderSettings();
-    settings.nudges.max = 2;
-    const log: ReminderLogEntry[] = [
-      {
-        kind: "SCORECARD_NUDGE",
-        audience: "PANELIST",
-        at: "2026-10-21T10:00:00.000Z",
-        status: "SENT",
-        note: null,
-      },
-    ];
-    const plan = remindersOf(
-      interview({ status: "COMPLETED", reminderLog: log }),
-      settings,
-      "2026-10-21T12:00:00.000Z",
-      true,
+    expect(plan({ status: "NO_SHOW" }).paused?.reason).toBe(
+      "This interview is no show, so no reminders are planned.",
     );
-    const nudges = plan.items.filter((i) => i.kind === "SCORECARD_NUDGE");
-    expect(nudges.map((i) => [i.nth?.n, i.status])).toEqual([
-      [1, "SENT"],
-      [2, "PLANNED"],
-    ]);
   });
 
-  it("is not planned when the company switched the nudge off", () => {
+  it("plans only the nudges for an interview that took place", () => {
+    const result = plan(
+      { status: "COMPLETED" },
+      defaultReminderSettings(),
+      "2026-10-20T11:00:00.000Z",
+    );
+    expect(result.items.map((i) => i.slot)).toEqual(["nudge-1", "nudge-2"]);
+  });
+
+  it("says nothing is waiting when the company switched everything off", () => {
     const settings = defaultReminderSettings();
-    for (const r of settings.rules)
-      if (r.kind === "SCORECARD_NUDGE") r.enabled = false;
-    expect(
-      remindersOf(interview({ status: "COMPLETED" }), settings, after, true)
-        .items,
-    ).toEqual([]);
+    settings.candidate.early.enabled = false;
+    settings.candidate.late.enabled = false;
+    settings.panelist.late.enabled = false;
+    settings.scorecardNudge.enabled = false;
+    const result = plan({}, settings);
+    expect(result.items).toEqual([]);
+    expect(result.paused?.code).toBe("none_planned");
+  });
+
+  it("plans nothing for the candidate when the interview's switch is off, and the panel keeps theirs", () => {
+    const result = plan({ candidateRemindersOff: true });
+    expect(result.items.map((i) => i.slot)).toEqual([
+      "pan-late",
+      "nudge-1",
+      "nudge-2",
+    ]);
+    expect(result.paused).toBeNull();
   });
 });
 
 describe("what already went", () => {
-  it("is kept in the list, whatever happens to the plan, with each reason", () => {
-    const log: ReminderLogEntry[] = [
-      {
-        kind: "CANDIDATE_EARLY",
-        audience: "CANDIDATE",
-        at: "2026-10-19T09:00:00.000Z",
-        status: "SENT",
-        note: null,
-      },
-      {
-        kind: "PANELIST",
-        audience: "PANELIST",
-        at: "2026-10-19T09:00:00.000Z",
-        status: "SKIPPED",
-        note: "not sent: mail not configured",
-      },
-    ];
-    const off = remindersOf(
-      interview({ reminderLog: log, remindersOff: true }),
-      defaultReminderSettings(),
+  const log: ReminderLogEntry[] = [
+    {
+      slot: "cand-early",
+      seat: null,
+      dueAt: "2026-10-19T09:00:00.000Z",
+      sentAt: "2026-10-19T09:01:00.000Z",
+      status: "sent",
+      reason: null,
+      sequence: 0,
+    },
+    {
+      slot: "pan-late",
+      seat: "e:p1",
+      dueAt: "2026-10-20T08:00:00.000Z",
+      sentAt: null,
+      status: "skipped",
+      reason: "not sent: mail not configured",
+      sequence: 0,
+    },
+  ];
+
+  it("is kept in the list, with each reason, and not planned a second time", () => {
+    const items = plan(
+      { reminderLog: log },
+      undefined,
       "2026-10-19T12:00:00.000Z",
-      false,
+    ).items;
+    expect(items.filter((i) => i.slot === "cand-early")).toHaveLength(1);
+    expect(items.find((i) => i.slot === "cand-early")).toMatchObject({
+      status: "sent",
+      sentAt: "2026-10-19T09:01:00.000Z",
+      recipient: "Ada Okafor",
+    });
+    expect(items.find((i) => i.slot === "pan-late")).toMatchObject({
+      status: "skipped",
+      reason: "not sent: mail not configured",
+      recipient: "Chidi Nwosu",
+    });
+    expect(items.find((i) => i.slot === "cand-late")?.status).toBe("planned");
+  });
+
+  it("is not for the interview as it now stands once it has changed", () => {
+    const items = plan({
+      reminderLog: log,
+      sequence: 1,
+      toldSequence: 0,
+    }).items;
+    expect(items.every((i) => !i.current)).toBe(true);
+  });
+});
+
+describe("what a change settles", () => {
+  it("turns what was waiting into skipped reminders that say why", () => {
+    const settled = settledLog(
+      interview(),
+      defaultReminderSettings(),
+      NOW,
+      SETTLED.changed,
     );
-    expect(off.items.map((i) => [i.kind, i.status, i.note])).toEqual([
-      ["CANDIDATE_EARLY", "SENT", null],
-      ["PANELIST", "SKIPPED", "not sent: mail not configured"],
+    expect(settled.map((e) => [e.slot, e.seat, e.status, e.sequence])).toEqual([
+      ["cand-early", null, "skipped", 0],
+      ["cand-late", null, "skipped", 0],
+      ["pan-late", "e:p1", "skipped", 0],
+      ["nudge-1", "e:p1", "skipped", 0],
+      ["nudge-2", "e:p1", "skipped", 0],
     ]);
-    /* Planned again for the one that has not gone yet, and not twice for the ones that have. */
-    const on = remindersOf(
-      interview({ reminderLog: log }),
+    expect(settled[0]?.reason).toBe(SETTLED.changed);
+  });
+
+  it("settles only the candidate's when that is what was switched off", () => {
+    const settled = settledLog(
+      interview(),
       defaultReminderSettings(),
-      "2026-10-19T12:00:00.000Z",
-      false,
+      NOW,
+      SETTLED.candidateOff,
+      "candidate",
     );
-    expect(on.items.filter((i) => i.kind === "CANDIDATE_EARLY")).toHaveLength(
-      1,
-    );
+    expect(settled.map((e) => e.slot)).toEqual(["cand-early", "cand-late"]);
+  });
+
+  it("settles nothing for people who were never told", () => {
     expect(
-      on.items.filter((i) => i.kind === "CANDIDATE_FINAL")[0]?.status,
-    ).toBe("PLANNED");
+      settledLog(
+        interview({ toldSequence: null }),
+        defaultReminderSettings(),
+        NOW,
+        SETTLED.cancelled,
+      ),
+    ).toEqual([]);
+  });
+
+  it("uses the API's own words for why", () => {
+    expect(SETTLED.cancelled).toBe("not sent: the interview was cancelled");
+    expect(SETTLED.candidateOff).toBe(
+      "not sent: reminders to the candidate are turned off for this interview",
+    );
   });
 });

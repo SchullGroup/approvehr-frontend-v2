@@ -304,6 +304,57 @@ export const KINDS: readonly Omit<EmailKindInfo, "defaultTemplateId">[] = [
     },
   },
   {
+    kind: "INTERVIEW_REMINDER_CANDIDATE",
+    label: "Reminder of an interview",
+    when: "Sent shortly before an interview to a candidate who was sent its invitation (at the times set in Hiring settings; 24 hours and 1 hour before unless changed). Never sent as the first email about an interview.",
+    audience: "CANDIDATE",
+    fields: [...COMMON, "recruiter_name", ...INTERVIEW_FACTS],
+    builtIn: {
+      subject: "{company_name}: a reminder of your interview for {job_title}",
+      body:
+        "Hello {candidate_first_name},\n\n" +
+        "This is a reminder of your interview for {job_title} at {company_name}.\n\n" +
+        "When: {interview_time}\nWhere: {interview_location}\nJoin online: {join_link}\n\n" +
+        "If you need to change the time, reply to this email or write to {reply_to}.",
+    },
+  },
+  {
+    kind: "INTERVIEW_REMINDER_PANELIST",
+    label: "Reminder of an interview (panel)",
+    when: "Sent shortly before an interview to a person on its panel who was sent its invitation (an hour before unless changed in Hiring settings; a day before is off unless switched on).",
+    audience: "PANELIST",
+    fields: [...PANELIST_COMMON, ...INTERVIEW_FACTS, "scorecard_link"],
+    builtIn: {
+      subject:
+        "{company_name}: a reminder of your interview with {candidate_name}",
+      body:
+        "Hello {panelist_first_name},\n\n" +
+        "This is a reminder of your interview with {candidate_name} for {job_title} at {company_name}.\n\n" +
+        "When: {interview_time}\nWhere: {interview_location}\nJoin online: {join_link}\nLength: {interview_duration}\n\n" +
+        "Afterwards, hand in your scorecard in ApproveHR: {scorecard_link}",
+    },
+  },
+  {
+    kind: "SCORECARD_NUDGE",
+    label: "Scorecard to hand in",
+    when: "Sent to a person on the panel who has not handed in a scorecard, a day after the interview ends and again at most three days after (the times are set in Hiring settings). Never after they have handed one in, or if the interview was cancelled.",
+    audience: "PANELIST",
+    fields: [
+      ...PANELIST_COMMON,
+      "interview_time",
+      "interview_date",
+      "interview_time_zone",
+      "scorecard_link",
+    ],
+    builtIn: {
+      subject: "{company_name}: your scorecard for {candidate_name}",
+      body:
+        "Hello {panelist_first_name},\n\n" +
+        "Your interview with {candidate_name} for {job_title} was on {interview_date}, and your scorecard has not been handed in yet. You can do it in ApproveHR: {scorecard_link}\n\n" +
+        "If you were not able to take part, reply to this email and say so.",
+    },
+  },
+  {
     kind: "DECLINE",
     label: "Not taking them forward",
     when: "Sent when somebody is rejected and the person doing it asks for it to be sent.",

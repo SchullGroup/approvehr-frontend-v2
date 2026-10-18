@@ -14,7 +14,7 @@ import {
   notify,
   schedule,
   saveReminderSettings,
-  setRemindersOff,
+  setCandidateReminders,
   settle,
   viewOf,
   type MailRules,
@@ -23,7 +23,9 @@ import {
 } from "./demo-ops";
 import { demoInterviews, interviewRun } from "./demo-store";
 import type { InterviewsGateway } from "./gateway";
-import { settingsProblems } from "./reminders";
+import { settingsViewOf } from "./demo-reminders";
+import { draftOf, settingsFromDraft } from "./reminders";
+import { DEMO_BOUNDS } from "./demo-reminders";
 import { INVITE_EXPLAINER } from "./words";
 
 /**
@@ -144,10 +146,13 @@ export const demoInterviewsGateway: InterviewsGateway = {
     return { interview: viewOf(interview, demoRoster(), demoPlan()), outcome };
   },
 
-  reminderSettings: async () => demoInterviews.current().reminderSettings,
+  reminderSettings: async () =>
+    settingsViewOf(demoInterviews.current().reminderSettings),
 
-  saveReminderSettings: async (settings) => {
-    const problems = settingsProblems(settings);
+  saveReminderSettings: async (values) => {
+    /* The same checks, against the same limits, as the API: a practice board cannot keep
+       what the real one would refuse. */
+    const { problems } = settingsFromDraft(draftOf(values), DEMO_BOUNDS);
     if (problems.length > 0)
       throw new ApiError(
         400,
@@ -155,19 +160,18 @@ export const demoInterviewsGateway: InterviewsGateway = {
         "Some fields are not valid.",
         problems,
       );
-    return unwrap(interviewRun((book) => saveReminderSettings(book, settings)));
+    return settingsViewOf(
+      unwrap(interviewRun((book) => saveReminderSettings(book, values))),
+    );
   },
 
-  setRemindersOff: async (was, off) => {
-    const interview = unwrap(
-      interviewRun((book) => setRemindersOff(book, was.id, off)),
+  setCandidateReminders: async (was, on) => {
+    const { interview, outcome } = unwrap(
+      interviewRun((book) =>
+        setCandidateReminders(book, was.id, on, demoRoster(), DEMO_NOW),
+      ),
     );
-    return (
-      viewOf(interview, demoRoster(), demoPlan()).reminders ?? {
-        off,
-        items: [],
-      }
-    );
+    return { interview: viewOf(interview, demoRoster(), demoPlan()), outcome };
   },
 
   complete: async (id) => {

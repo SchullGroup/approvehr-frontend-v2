@@ -6,6 +6,7 @@ import {
   interviewsOf,
   refusal,
   schedule,
+  setCandidateReminders,
   settle,
   viewOf,
   type InterviewBook,
@@ -13,7 +14,10 @@ import {
   type Roster,
 } from "@/lib/hiring/interviews/demo-ops";
 import { KINDS } from "@/lib/hiring/comms/fields";
-import { defaultReminderSettings } from "@/lib/hiring/interviews/demo-reminders";
+import {
+  SETTLED,
+  defaultReminderSettings,
+} from "@/lib/hiring/interviews/demo-reminders";
 import type { ScheduleInput } from "@/lib/hiring/interviews/model";
 
 /**
@@ -491,5 +495,205 @@ describe("reading the book", () => {
       { key: "e:p-05", name: "Fatima Bello", submitted: false },
     ]);
     expect(interviewsOf(second.book, "app-02")).toEqual([]);
+  });
+});
+
+/* ===================================================== reminders on the practice board */
+
+describe("reminders on the practice board", () => {
+  /** A booked interview whose invitation had been sent, as the seed has them. */
+  const told = () => {
+    const made = book();
+    const interview = { ...made.value.interview, toldSequence: 0 };
+    return {
+      ...made.book,
+      interviews: made.book.interviews.map((i) =>
+        i.id === interview.id ? interview : i,
+      ),
+    };
+  };
+  const plan = { settings: defaultReminderSettings(), now: NOW };
+  const slots = (b: InterviewBook) =>
+    viewOf(b.interviews[0]!, roster, plan)
+      .reminders?.items.filter((i) => i.current && i.status === "planned")
+      .map((i) => i.slot);
+
+  it("books with the candidate's reminders on, and off only when that was asked", () => {
+    expect(book().value.interview.candidateRemindersOff).toBe(false);
+    expect(viewOf(book().value.interview, roster).candidateReminders).toBe(
+      true,
+    );
+    const off = book({ sendInvite: true, candidateReminders: false });
+    expect(off.value.interview.candidateRemindersOff).toBe(true);
+    expect(viewOf(off.value.interview, roster).candidateReminders).toBe(false);
+  });
+
+  it("plans none for an interview nobody was sent an invitation for, and says so", () => {
+    const made = book({ sendInvite: true });
+    const view = viewOf(made.value.interview, roster, plan);
+    expect(view.reminders?.items).toEqual([]);
+    expect(view.reminders?.paused?.code).toBe("no_invitation");
+    expect(made.value.outcome.reminders).toBeUndefined();
+  });
+
+  it("plans the reminders the company asked for once the invitation was sent", () => {
+    expect(slots(told())).toEqual([
+      "cand-early",
+      "cand-late",
+      "pan-late",
+      "nudge-1",
+      "nudge-2",
+    ]);
+  });
+
+  it("settles what was planned when the time moves, and plans none until the change is sent", () => {
+    const moved = change(
+      told(),
+      told().interviews[0]!.id,
+      { scheduledFor: "2026-08-26T09:00:00.000Z", sendUpdate: false },
+      mail(),
+      roster,
+      "Africa/Lagos",
+      NOW,
+    );
+    if (!moved.ok) throw new Error(moved.error);
+    const { interview, outcome } = moved.value;
+    expect(interview.sequence).toBe(1);
+    expect(outcome.reminders).toMatchObject({
+      planned: 0,
+      removed: 5,
+      paused: { code: "changed_since_told" },
+    });
+    const view = viewOf(interview, roster, plan);
+    const old = view.reminders?.items.filter((i) => !i.current) ?? [];
+    expect(old).toHaveLength(5);
+    expect(old.every((i) => i.status === "skipped")).toBe(true);
+    expect(old[0]?.reason).toBe(SETTLED.changed);
+    /* Asking to send an update does not change that: a practice board sends nothing. */
+    const asked = change(
+      told(),
+      told().interviews[0]!.id,
+      { scheduledFor: "2026-08-26T09:00:00.000Z", sendUpdate: true },
+      mail(),
+      roster,
+      "Africa/Lagos",
+      NOW,
+    );
+    if (!asked.ok) throw new Error(asked.error);
+    expect(asked.value.outcome.reminders?.planned).toBe(0);
+  });
+
+  it("settles nothing when only the kind changed: a calendar entry shows no kind", () => {
+    const kind = change(
+      told(),
+      told().interviews[0]!.id,
+      { kind: "PANEL", sendUpdate: false },
+      mail(),
+      roster,
+      "Africa/Lagos",
+      NOW,
+    );
+    if (!kind.ok) throw new Error(kind.error);
+    expect(kind.value.interview.sequence).toBe(0);
+    expect(kind.value.outcome.reminders).toMatchObject({
+      planned: 5,
+      removed: 0,
+    });
+  });
+
+  it("takes every planned reminder off when the interview is cancelled, and says which", () => {
+    const gone = cancel(
+      told(),
+      told().interviews[0]!.id,
+      { reason: null, sendCancellation: false },
+      mail(),
+      roster,
+      "Africa/Lagos",
+      NOW,
+    );
+    if (!gone.ok) throw new Error(gone.error);
+    expect(gone.value.outcome.reminders).toMatchObject({
+      planned: 0,
+      removed: 5,
+      paused: { code: "not_scheduled" },
+    });
+    const items = viewOf(gone.value.interview, roster, plan).reminders?.items;
+    expect(items?.every((i) => i.status === "skipped")).toBe(true);
+    expect(items?.[0]?.reason).toBe(SETTLED.cancelled);
+  });
+
+  it("switches the candidate's reminders off, and only theirs", () => {
+    const b = told();
+    const off = setCandidateReminders(
+      b,
+      b.interviews[0]!.id,
+      false,
+      roster,
+      NOW,
+    );
+    if (!off.ok) throw new Error(off.error);
+    expect(off.value.outcome.reminders).toMatchObject({
+      planned: 3,
+      removed: 2,
+    });
+    expect(slots(off.book)).toEqual(["pan-late", "nudge-1", "nudge-2"]);
+    const skipped = viewOf(
+      off.value.interview,
+      roster,
+      plan,
+    ).reminders?.items.filter((i) => i.status === "skipped");
+    expect(skipped?.map((i) => i.slot)).toEqual(["cand-early", "cand-late"]);
+    expect(skipped?.[0]?.reason).toBe(SETTLED.candidateOff);
+  });
+
+  it("puts them back when the switch is turned on again, as the API does", () => {
+    const b = told();
+    const off = setCandidateReminders(
+      b,
+      b.interviews[0]!.id,
+      false,
+      roster,
+      NOW,
+    );
+    if (!off.ok) throw new Error(off.error);
+    const on = setCandidateReminders(
+      off.book,
+      b.interviews[0]!.id,
+      true,
+      roster,
+      NOW,
+    );
+    if (!on.ok) throw new Error(on.error);
+    expect(slots(on.book)).toEqual([
+      "cand-early",
+      "cand-late",
+      "pan-late",
+      "nudge-1",
+      "nudge-2",
+    ]);
+    expect(
+      viewOf(on.value.interview, roster, plan).reminders?.items.some(
+        (i) => i.status === "skipped",
+      ),
+    ).toBe(false);
+  });
+
+  it("refuses the switch for an interview that is over, and when it changes nothing, in the API's words", () => {
+    const b = told();
+    const id = b.interviews[0]!.id;
+    const done = settle(b, id, "COMPLETED");
+    if (!done.ok) throw new Error(done.error);
+    expect(setCandidateReminders(done.book, id, false, roster, NOW)).toEqual({
+      ok: false,
+      error: "Only an interview that has not happened yet can be changed.",
+    });
+    expect(setCandidateReminders(b, id, true, roster, NOW)).toEqual({
+      ok: false,
+      error: "Nothing here differs from what is already booked.",
+    });
+    expect(setCandidateReminders(b, "nope", true, roster, NOW)).toEqual({
+      ok: false,
+      error: "That interview is not here any more.",
+    });
   });
 });

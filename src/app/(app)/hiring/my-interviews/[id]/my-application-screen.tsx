@@ -28,7 +28,11 @@ import {
   type ScorecardRecommendation,
 } from "@/lib/api/recruitment";
 import type { MyApplication, MyScorecard } from "@/lib/hiring/comms/model";
-import { nudgeSentence } from "@/lib/hiring/interviews/reminders";
+import {
+  panelistStatus,
+  scorecardDue,
+  stillToCome,
+} from "@/lib/hiring/interviews/due";
 import { useInterviewsGateway } from "@/lib/hiring/interviews/use-interviews";
 import { viewFromMyInterview } from "@/lib/hiring/interviews/wire";
 import { usePipelineGateway } from "@/lib/hiring/pipeline/use-pipeline";
@@ -54,26 +58,14 @@ import { useLoaded } from "@/lib/use-loaded";
  * deciding between candidates is what they are there for.
  */
 
-const STATUS_TONE = {
-  SCHEDULED: "info",
-  COMPLETED: "success",
-  CANCELLED: "neutral",
-  NO_SHOW: "danger",
-} as const;
-
-const STATUS_LABEL = {
-  SCHEDULED: "Coming up",
-  COMPLETED: "Took place",
-  CANCELLED: "Cancelled",
-  NO_SHOW: "No show",
-} as const;
-
 const recommendation = (code: string | null): string | null =>
   code ? (RECOMMENDATION_LABEL[code as ScorecardRecommendation] ?? code) : null;
 
 export function MyApplicationScreen({ id }: { id: string }) {
   const gateway = usePipelineGateway();
   const interviewsGateway = useInterviewsGateway();
+  /* The time now, on the gateway's clock: a practice board keeps its own. */
+  const clock = Date.parse(interviewsGateway.now());
   const timeZone = useOrgTimezone();
   const toast = useToast();
   const [scoring, setScoring] = useState<string | null>(null);
@@ -233,13 +225,13 @@ export function MyApplicationScreen({ id }: { id: string }) {
                 title={interview.kind}
                 description={`${formatWeekdayTime(interview.scheduledFor, interview.timeZone ?? timeZone)} · ${zoneLabel(interview.timeZone ?? timeZone)} · ${String(interview.durationMins)} mins${interview.location ? ` · ${interview.location}` : ""}${interview.stageName ? ` · ${interview.stageName}` : ""}`}
                 action={
-                  <Badge tone={STATUS_TONE[interview.status]} size="sm">
-                    {STATUS_LABEL[interview.status]}
+                  <Badge tone={panelistStatus(interview, clock).tone} size="sm">
+                    {panelistStatus(interview, clock).label}
                   </Badge>
                 }
               />
               <CardBody className="flex flex-col gap-4">
-                {interview.status === "SCHEDULED" && (
+                {stillToCome(interview, clock) && (
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                     <JoinLink url={interview.joinUrl ?? null} />
                     <CalendarMenu
@@ -273,14 +265,12 @@ export function MyApplicationScreen({ id }: { id: string }) {
                   (interview.status === "SCHEDULED" ||
                     interview.status === "COMPLETED") ? (
                   <div className="flex flex-col gap-2">
-                    {interview.status === "COMPLETED" && interview.nudges && (
+                    {scorecardDue(interview, clock) && (
                       <p className="text-meta text-muted">
                         <span className="font-medium text-ink">
                           Scorecard due.{" "}
                         </span>
-                        {nudgeSentence(interview.nudges, (iso) =>
-                          formatWeekdayTime(iso, timeZone),
-                        )}
+                        The interview is over and yours is not in.
                       </p>
                     )}
                     <Button

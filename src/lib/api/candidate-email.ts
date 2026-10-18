@@ -34,6 +34,9 @@ export type ApiEmailKind =
   | "PANELIST_INVITE"
   | "PANELIST_UPDATE"
   | "PANELIST_CANCELLED"
+  | "INTERVIEW_REMINDER_CANDIDATE"
+  | "INTERVIEW_REMINDER_PANELIST"
+  | "SCORECARD_NUDGE"
   | (string & Record<never, never>);
 
 export type ApiMergeField = {

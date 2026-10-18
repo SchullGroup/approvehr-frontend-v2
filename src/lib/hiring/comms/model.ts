@@ -30,7 +30,10 @@ export type KnownEmailKind =
   | "INTERVIEW_CANCELLED"
   | "PANELIST_INVITE"
   | "PANELIST_UPDATE"
-  | "PANELIST_CANCELLED";
+  | "PANELIST_CANCELLED"
+  | "INTERVIEW_REMINDER_CANDIDATE"
+  | "INTERVIEW_REMINDER_PANELIST"
+  | "SCORECARD_NUDGE";
 export type EmailKind = KnownEmailKind | (string & Record<never, never>);
 
 /** One of the few words a template may put in curly braces. */
@@ -278,22 +281,6 @@ export type MyAccess = {
   interviewsInvitedTo: number;
 };
 
-/**
- * Where the nudges to hand in a scorecard stand, for a panelist who owes one. Said only
- * where the API says it: absent is "not said", never "no nudges".
- */
-export type MyNudges = {
-  /** How many have gone for this interview. */
-  sent: number;
-  /** The most there will be. */
-  of: number;
-  lastAt: string | null;
-  /** When the next is due, if one is. */
-  nextAt: string | null;
-  /** Somebody turned the reminders for this interview off. */
-  off: boolean;
-};
-
 export type MyInterviewRow = {
   interviewId: string;
   applicationId: string;
@@ -314,8 +301,6 @@ export type MyInterviewRow = {
   /** The calendar sequence: goes up with each change a calendar is told about. */
   sequence?: number;
   scorecardIn: boolean;
-  /** The nudges to hand it in, when one is owed. */
-  nudges?: MyNudges | null;
 };
 
 export type MyInterviewPage = { rows: MyInterviewRow[]; total: number };
@@ -377,7 +362,6 @@ export type MyApplication = {
     joinUrl?: string | null;
     timeZone?: string | null;
     sequence?: number;
-    nudges?: MyNudges | null;
     stageName: string | null;
     iAmPanelist: boolean;
     panel: {

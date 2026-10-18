@@ -1,16 +1,28 @@
 "use client";
 
-import { ApiError } from "@/lib/api/client";
+import { careersApi } from "@/lib/api/careers";
 import { interviewsApi } from "@/lib/api/interviews";
 import { candidateEmailApi } from "@/lib/api/candidate-email";
 import {
   recruitmentApi,
   type ApiInterviewMutation,
 } from "@/lib/api/recruitment";
-import type { ChangeResult, InterviewView } from "./model";
+import type {
+  ChangeOutcome,
+  ChangeResult,
+  InterviewView,
+  NoticeKind,
+} from "./model";
 import type { InterviewsGateway } from "./gateway";
+import { replanCounts, type InterviewReminders } from "./reminders";
 import { INVITE_EXPLAINER } from "./words";
-import { outcomeFrom, viewFromMutation } from "./wire";
+import {
+  choicesToPatch,
+  outcomeFrom,
+  reminderSettingsFromApi,
+  remindersFromApi,
+  viewFromMutation,
+} from "./wire";
 
 /**
  * The connected side of the interview screens: the API, in its own words.
@@ -21,16 +33,32 @@ import { outcomeFrom, viewFromMutation } from "./wire";
  * only where the API's own word is.
  */
 
+/**
+ * What is planned for an interview now, read after a change. A failed read is `null`, which
+ * a screen draws as unknown: showing the plan from before the change would show reminders
+ * that were just taken off.
+ */
+const plannedNow = async (id: string): Promise<InterviewReminders | null> => {
+  try {
+    return remindersFromApi(await interviewsApi.reminders(id));
+  } catch {
+    return null;
+  }
+};
+
 const resultFrom = (
   answer: ApiInterviewMutation,
   before: InterviewView | null,
   role: string | null,
   fresh: boolean,
+  after: InterviewReminders | null,
+  /** Which message the request was about, for "not asked" to say which. */
+  occasion: NoticeKind,
 ): ChangeResult => {
   /* An API that predates interview invitations answers with the candidate's own email and
      nothing about the panel: that is all there is to say, and it is said as it came. */
   const outcome = answer.notified
-    ? outcomeFrom(answer.notified, answer.candidateName)
+    ? outcomeFrom(answer.notified, answer.candidateName, occasion)
     : {
         asked: answer.email !== undefined && answer.email !== null,
         notices: answer.email
@@ -47,14 +75,27 @@ const resultFrom = (
             ]
           : [],
       };
+  const counts = replanCounts(
+    fresh ? null : (before?.reminders ?? null),
+    after,
+  );
+  const told: ChangeOutcome = {
+    ...outcome,
+    ...(counts && after
+      ? { reminders: { ...counts, paused: after.paused } }
+      : {}),
+  };
   return {
-    interview: viewFromMutation(
-      answer,
-      { role },
-      fresh ? [] : (before?.notices ?? null),
-      outcome,
-    ),
-    outcome,
+    interview: {
+      ...viewFromMutation(
+        answer,
+        { role },
+        fresh ? [] : (before?.notices ?? null),
+        told,
+      ),
+      reminders: after,
+    },
+    outcome: told,
   };
 };
 
@@ -94,9 +135,19 @@ export const apiInterviewsGateway: InterviewsGateway = {
             }
           : {}),
         sendInvite: input.sendInvite,
+        ...(input.candidateReminders === false
+          ? { candidateReminders: false }
+          : {}),
       },
     );
-    return resultFrom(answer, null, target.role, true);
+    return resultFrom(
+      answer,
+      null,
+      target.role,
+      true,
+      await plannedNow(answer.id),
+      "INVITE",
+    );
   },
 
   change: async (was, input) => {
@@ -105,35 +156,67 @@ export const apiInterviewsGateway: InterviewsGateway = {
       ...fields,
       sendUpdate,
     });
-    return resultFrom(answer, was, was.role, false);
+    return resultFrom(
+      answer,
+      was,
+      was.role,
+      false,
+      await plannedNow(answer.id),
+      "UPDATE",
+    );
   },
 
   cancel: async (was, input) => {
     const answer = await recruitmentApi.cancelInterview(was.id, {
       sendCancellation: input.sendCancellation,
     });
-    return resultFrom(answer, was, was.role, false);
+    return resultFrom(
+      answer,
+      was,
+      was.role,
+      false,
+      await plannedNow(answer.id),
+      "CANCEL",
+    );
   },
 
   notify: async (was) => {
     const answer = await recruitmentApi.notifyInterview(was.id);
-    return resultFrom(answer, was, was.role, false);
-  },
-
-  /* Provisional: the server's reminders are wired once it publishes them. */
-  reminderSettings: async () => null,
-  saveReminderSettings: async () => {
-    throw new ApiError(
-      0,
-      "not_available",
-      "This server does not keep reminder settings yet.",
+    return resultFrom(
+      answer,
+      was,
+      was.role,
+      false,
+      await plannedNow(answer.id),
+      "INVITE",
     );
   },
-  setRemindersOff: async () => {
-    throw new ApiError(
-      0,
-      "not_available",
-      "This server does not keep reminders yet.",
+
+  reminderSettings: async (signal) =>
+    reminderSettingsFromApi(await careersApi.getSettings(signal)),
+
+  saveReminderSettings: async (values) => {
+    const saved = reminderSettingsFromApi(
+      await careersApi.updateSettings({
+        interviewReminders: choicesToPatch(values),
+      }),
+    );
+    if (!saved)
+      throw new Error("The server did not say what it kept for the reminders.");
+    return saved;
+  },
+
+  setCandidateReminders: async (was, on) => {
+    const answer = await recruitmentApi.rescheduleInterview(was.id, {
+      candidateReminders: on,
+    });
+    return resultFrom(
+      answer,
+      was,
+      was.role,
+      false,
+      await plannedNow(answer.id),
+      "UPDATE",
     );
   },
 

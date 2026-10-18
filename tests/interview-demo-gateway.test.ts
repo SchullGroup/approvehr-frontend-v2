@@ -160,3 +160,107 @@ describe("the practice gateway", () => {
     );
   });
 });
+
+describe("the practice gateway's reminders", () => {
+  /** An interview whose invitation was sent, as the seed has them: the practice board sends none. */
+  const toldInterview = async () => {
+    const { interview } = await demoInterviewsGateway.schedule(target, input());
+    const book = demoInterviews.current();
+    demoInterviews.commit({
+      ...book,
+      interviews: book.interviews.map((i) =>
+        i.id === interview.id ? { ...i, toldSequence: 0 } : i,
+      ),
+    });
+    return interview;
+  };
+
+  it("offers the company's choices with what it gets until it chooses, and the API's limits", async () => {
+    const view = await demoInterviewsGateway.reminderSettings(
+      new AbortController().signal,
+    );
+    expect(view?.values.candidate.early).toEqual({
+      enabled: true,
+      minutesBefore: 1_440,
+    });
+    expect(view?.defaults).toEqual(defaultReminderSettings());
+    expect(view?.bounds.earlyMinutes).toEqual({ min: 120, max: 4_320 });
+    /* A practice board says nothing about whether mail would go: there is none. */
+    expect(view?.willSend).toBeNull();
+    expect(view?.usage).toBeNull();
+  });
+
+  it("keeps what was saved, and plans from it", async () => {
+    const values = defaultReminderSettings();
+    values.candidate.early.minutesBefore = 2_880;
+    const kept = await demoInterviewsGateway.saveReminderSettings(values);
+    expect(kept.values.candidate.early.minutesBefore).toBe(2_880);
+    const interview = await toldInterview();
+    const { interview: after } = await demoInterviewsGateway.change(interview, {
+      kind: "TECHNICAL",
+      sendUpdate: false,
+    });
+    expect(
+      after.reminders?.items.find((i) => i.slot === "cand-early")?.dueAt,
+    ).toBe("2026-08-24T09:00:00.000Z");
+  });
+
+  it("refuses what the API would refuse, with the box it is about", async () => {
+    const values = defaultReminderSettings();
+    values.candidate.early.minutesBefore = 60;
+    await expect(
+      demoInterviewsGateway.saveReminderSettings(values),
+    ).rejects.toMatchObject({
+      status: 400,
+      fieldErrors: [
+        {
+          field: "candidate.early",
+          message:
+            "The earlier reminder goes at least 2 hours before the interview.",
+        },
+      ],
+    });
+    expect(
+      demoInterviews.current().reminderSettings.candidate.early.minutesBefore,
+    ).toBe(1_440);
+  });
+
+  it("switches the candidate's reminders off and on, and says what stands", async () => {
+    const interview = await toldInterview();
+    const off = await demoInterviewsGateway.setCandidateReminders(
+      interview,
+      false,
+    );
+    expect(off.interview.candidateReminders).toBe(false);
+    expect(off.outcome.reminders).toMatchObject({ planned: 3, removed: 2 });
+    expect(off.outcome.asked).toBe(false);
+    expect(off.outcome.notices).toEqual([]);
+    const on = await demoInterviewsGateway.setCandidateReminders(
+      off.interview,
+      true,
+    );
+    expect(on.interview.candidateReminders).toBe(true);
+    expect(on.outcome.reminders?.planned).toBe(5);
+  });
+
+  it("refuses the switch for an interview that is over, in the API's sentence", async () => {
+    const interview = await toldInterview();
+    await demoInterviewsGateway.complete(interview.id);
+    await expect(
+      demoInterviewsGateway.setCandidateReminders(interview, false),
+    ).rejects.toMatchObject({
+      message: "Only an interview that has not happened yet can be changed.",
+    });
+  });
+
+  it("books with the candidate's reminders off when asked, and says no reminders until an invitation has been sent", async () => {
+    const { interview, outcome } = await demoInterviewsGateway.schedule(
+      target,
+      input({ sendInvite: true, candidateReminders: false }),
+    );
+    expect(interview.candidateReminders).toBe(false);
+    expect(interview.reminders?.paused?.code).toBe("no_invitation");
+    expect(interview.reminders?.items).toEqual([]);
+    expect(outcome.notices.every((n) => n.status !== "SENT")).toBe(true);
+  });
+});

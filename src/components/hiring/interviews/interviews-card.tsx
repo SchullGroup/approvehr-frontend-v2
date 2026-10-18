@@ -101,12 +101,6 @@ export function InterviewsCard({
     (signal) => gateway.explainer(signal),
   );
 
-  const reminderDefaults = useLoaded(
-    `reminder-settings:${gateway.mode}`,
-    canManage,
-    (signal) => gateway.reminderSettings(signal),
-  );
-
   const [scheduling, setScheduling] = useState(false);
   const [rescheduling, setRescheduling] = useState<InterviewView | null>(null);
   const [cancelling, setCancelling] = useState<InterviewView | null>(null);
@@ -217,33 +211,36 @@ export function InterviewsCard({
     return result;
   };
 
-  /** Turn one interview's reminders off or on: shown at once, put back if refused. */
-  async function remindersOff(iv: InterviewView, off: boolean) {
-    if (!iv.reminders) return;
+  /**
+   * Turn the candidate's reminders for one interview off or on: shown at once, put back
+   * with the API's sentence if it is refused. Turning them off takes what was planned for
+   * the candidate off the list; the API's answer then says what stands.
+   */
+  async function candidateReminders(iv: InterviewView, on: boolean) {
     setBusyId(iv.id);
-    setOverlay({
-      base: interviews,
-      patches: {
-        ...patches,
-        [iv.id]: {
-          reminders: {
-            off,
-            items: off
-              ? iv.reminders.items.filter((item) => item.status !== "PLANNED")
-              : iv.reminders.items,
-          },
-        },
-      },
-    });
     try {
-      const reminders = await gateway.setRemindersOff(iv, off);
-      setOverlay({
-        base: interviews,
-        patches: { ...patches, [iv.id]: { reminders } },
-      });
-      onChanged();
+      await optimistic(
+        iv,
+        {
+          candidateReminders: on,
+          ...(iv.reminders && !on
+            ? {
+                reminders: {
+                  ...iv.reminders,
+                  items: iv.reminders.items.filter(
+                    (item) =>
+                      !(
+                        item.audience === "CANDIDATE" &&
+                        item.status === "planned"
+                      ),
+                  ),
+                },
+              }
+            : {}),
+        },
+        () => gateway.setCandidateReminders(iv, on),
+      );
     } catch (error) {
-      setOverlay({ base: interviews, patches: { ...patches } });
       say(
         "danger",
         error instanceof ApiError
@@ -327,10 +324,12 @@ export function InterviewsCard({
                 <InterviewReminders
                   interview={iv}
                   timeZone={timeZone}
-                  settings={reminderDefaults.data}
+                  now={gateway.now()}
                   canManage={canManage}
                   busy={busyId === iv.id}
-                  onOff={(target, off) => void remindersOff(target, off)}
+                  onCandidateReminders={(target, on) =>
+                    void candidateReminders(target, on)
+                  }
                 />
               }
             />

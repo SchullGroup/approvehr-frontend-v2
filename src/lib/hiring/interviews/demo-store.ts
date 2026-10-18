@@ -97,59 +97,82 @@ const sentInvitations = (
 const NO_REPLY_TO =
   "not sent: no reply-to address is set for this company (Careers settings). We do not send an email whose replies would go nowhere";
 
-/** The reminders the seed says already went. */
+/** The reminders the seed says already went, or were skipped, and why. */
 const LOGS: Record<string, ReminderLogEntry[]> = {
   "int-03": [
     {
-      kind: "CANDIDATE_EARLY",
-      audience: "CANDIDATE",
-      at: "2026-08-12T10:00:00.000Z",
-      status: "SENT",
-      note: null,
+      slot: "cand-early",
+      seat: null,
+      dueAt: "2026-08-12T10:00:00.000Z",
+      sentAt: "2026-08-12T10:01:00.000Z",
+      status: "sent",
+      reason: null,
+      sequence: 0,
     },
     {
-      kind: "PANELIST",
-      audience: "PANELIST",
-      at: "2026-08-12T10:00:00.000Z",
-      status: "SENT",
-      note: null,
+      slot: "cand-late",
+      seat: null,
+      dueAt: "2026-08-13T09:00:00.000Z",
+      sentAt: "2026-08-13T09:01:00.000Z",
+      status: "sent",
+      reason: null,
+      sequence: 0,
     },
     {
-      kind: "CANDIDATE_FINAL",
-      audience: "CANDIDATE",
-      at: "2026-08-13T09:00:00.000Z",
-      status: "SENT",
-      note: null,
+      slot: "pan-late",
+      seat: "e:p-05",
+      dueAt: "2026-08-13T09:00:00.000Z",
+      sentAt: "2026-08-13T09:01:00.000Z",
+      status: "sent",
+      reason: null,
+      sequence: 0,
     },
   ],
   "int-07": [
     {
-      kind: "CANDIDATE_EARLY",
-      audience: "CANDIDATE",
-      at: "2026-08-16T09:00:00.000Z",
-      status: "SENT",
-      note: null,
+      slot: "cand-early",
+      seat: null,
+      dueAt: "2026-08-16T09:00:00.000Z",
+      sentAt: "2026-08-16T09:01:00.000Z",
+      status: "sent",
+      reason: null,
+      sequence: 0,
     },
     {
-      kind: "PANELIST",
-      audience: "PANELIST",
-      at: "2026-08-16T09:00:00.000Z",
-      status: "SKIPPED",
-      note: NO_REPLY_TO,
+      slot: "cand-late",
+      seat: null,
+      dueAt: "2026-08-17T08:00:00.000Z",
+      sentAt: "2026-08-17T08:01:00.000Z",
+      status: "sent",
+      reason: null,
+      sequence: 0,
     },
     {
-      kind: "CANDIDATE_FINAL",
-      audience: "CANDIDATE",
-      at: "2026-08-17T08:00:00.000Z",
-      status: "SENT",
-      note: null,
+      slot: "pan-late",
+      seat: "e:p-05",
+      dueAt: "2026-08-17T08:00:00.000Z",
+      sentAt: "2026-08-17T08:01:00.000Z",
+      status: "sent",
+      reason: null,
+      sequence: 0,
     },
     {
-      kind: "SCORECARD_NUDGE",
-      audience: "PANELIST",
-      at: "2026-08-18T10:00:00.000Z",
-      status: "SENT",
-      note: null,
+      slot: "pan-late",
+      seat: "e:p-04",
+      dueAt: "2026-08-17T08:00:00.000Z",
+      sentAt: null,
+      status: "skipped",
+      reason: NO_REPLY_TO,
+      sequence: 0,
+    },
+    {
+      slot: "nudge-1",
+      seat: "e:p-05",
+      dueAt: "2026-08-18T10:00:00.000Z",
+      sentAt: "2026-08-18T10:01:00.000Z",
+      status: "sent",
+      reason: null,
+      sequence: 0,
     },
   ],
 };
@@ -194,7 +217,8 @@ function seed(): InterviewBook {
           ? sentInvitations(interview.id, name, seats, invited)
           : [],
         cancelReason: null,
-        remindersOff: false,
+        candidateRemindersOff: false,
+        toldSequence: invited ? 0 : null,
         reminderLog: LOGS[interview.id] ?? [],
       },
     ];
@@ -225,7 +249,8 @@ function seed(): InterviewBook {
       sequence: 0,
       notices: sentInvitations("int-07", name, seats, INVITED["int-07"] ?? ""),
       cancelReason: null,
-      remindersOff: false,
+      candidateRemindersOff: false,
+      toldSequence: 0,
       reminderLog: LOGS["int-07"] ?? [],
     });
   }
@@ -237,7 +262,7 @@ function seed(): InterviewBook {
 }
 
 /** Bump when the book's shape changes: an old payload is dropped, not merged. */
-const BOOK_VERSION = 2;
+const BOOK_VERSION = 3;
 
 export const demoInterviews = createPersistedState<InterviewBook>({
   key: "approvehr.hiring.interviews.store",

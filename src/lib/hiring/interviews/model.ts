@@ -1,6 +1,10 @@
 import type { InterviewKind, InterviewStatus } from "@/lib/api/recruitment";
 import type { PanelSeats } from "@/lib/hiring/comms/seats";
-import type { InterviewReminders } from "./reminders";
+import type {
+  InterviewReminders,
+  RemindersPaused,
+  ReplanCounts,
+} from "./reminders";
 
 /**
  * What the interview screens draw, whichever side it came from.
@@ -89,6 +93,11 @@ export type InterviewView = {
   /** Why it was cancelled, when it was. */
   cancelReason: string | null;
   /**
+   * Whether reminders to the candidate are on for this interview: `false` is the
+   * per-interview switch. The panel's reminders are the company's, and have none.
+   */
+  candidateReminders?: boolean;
+  /**
    * What is planned and what went. Absent where the server does not say, which a screen
    * draws as nothing, never as "no reminders".
    */
@@ -111,6 +120,8 @@ export type ScheduleInput = {
   panel: PanelSeats | null;
   /** Only ever true when the person chose to send. */
   sendInvite: boolean;
+  /** `false` turns the candidate's reminders off for this interview. Absent: they are on. */
+  candidateReminders?: boolean;
 };
 
 /** What changed about an interview. Absent is "left alone"; `null` clears. */
@@ -122,6 +133,8 @@ export type ChangeInput = {
   joinUrl?: string | null;
   /** Only ever true when the person chose to send an updated invitation. */
   sendUpdate: boolean;
+  /** `false` turns the candidate's reminders off for this interview; `true` turns them back on. */
+  candidateReminders?: boolean;
 };
 
 export type CancelInput = {
@@ -136,10 +149,11 @@ export type ChangeOutcome = {
   asked: boolean;
   notices: InterviewNotice[];
   /**
-   * What the change did to the reminders, once the API has answered: how many are planned
-   * now, how many were taken away. Absent where the API does not say.
+   * What the change did to the reminders, from what the API reported after it: how many are
+   * planned now, how many were taken off, and its reason when none is planned. Absent
+   * where the API does not say.
    */
-  reminders?: { planned: number; removed: number } | null;
+  reminders?: (ReplanCounts & { paused: RemindersPaused | null }) | null;
 };
 
 export type ChangeResult = { interview: InterviewView; outcome: ChangeOutcome };

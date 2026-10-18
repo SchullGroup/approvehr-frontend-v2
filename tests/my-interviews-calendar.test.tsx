@@ -125,16 +125,15 @@ describe("my interviews: join and calendar", () => {
 });
 
 describe("my interviews: a scorecard that is due", () => {
-  it("says Scorecard due for an interview that took place, with where the nudges stand", async () => {
+  it("says Scorecard due for an interview that took place, and nothing about reminders it cannot know", async () => {
     const user = userEvent.setup();
     renderInToasts(<MyInterviewsScreen />);
     await user.click(await screen.findByRole("radio", { name: "All of mine" }));
     const due = await screen.findByText("Scorecard due");
     const row = due.closest("li") as HTMLElement;
     expect(within(row).getByText("Took place")).toBeInTheDocument();
-    /* The first nudge has gone, the second is due, and the sentence says each in turn. */
-    expect(row).toHaveTextContent("Reminder 1 of 2 sent Tue 18 Aug, 11:00.");
-    expect(row).toHaveTextContent("The next is due Wed 19 Aug, 11:00.");
+    /* The API tells a panelist nothing of what has been sent to them, so nothing here says. */
+    expect(row).not.toHaveTextContent(/reminder|nudge/i);
     expect(
       within(row).queryByRole("button", { name: /Add to calendar/ }),
     ).toBeNull();
@@ -150,15 +149,16 @@ describe("my interviews: a scorecard that is due", () => {
     expect(row).not.toHaveTextContent("Reminder");
   });
 
-  it("says Scorecard due on the candidate's own page too, with the nudge sentence", async () => {
+  it("says Scorecard due on the candidate's own page too, in the same words", async () => {
     renderInToasts(<MyApplicationScreen id="app-11" />);
-    expect(await screen.findByText(/Scorecard due\./)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Reminder 1 of 2 sent Tue 18 Aug, 11:00\./),
-    ).toBeInTheDocument();
+    const due = await screen.findByText(/Scorecard due\./);
+    expect(due.parentElement).toHaveTextContent(
+      "Scorecard due. The interview is over and yours is not in.",
+    );
+    expect(due.parentElement).not.toHaveTextContent(/reminder|nudge/i);
   });
 
-  it("says nothing about nudges for an interview whose scorecard is in", async () => {
+  it("says nothing about a scorecard being due for an interview whose scorecard is in", async () => {
     const user = userEvent.setup();
     renderInToasts(<MyInterviewsScreen />);
     await user.click(await screen.findByRole("radio", { name: "All of mine" }));
@@ -167,5 +167,52 @@ describe("my interviews: a scorecard that is due", () => {
     ) as HTMLElement;
     expect(inRow).not.toHaveTextContent("Reminder");
     expect(inRow).not.toHaveTextContent("Scorecard due");
+  });
+});
+
+describe("my interviews: an interview whose time has passed", () => {
+  const passed = () => {
+    const book = demoInterviews.current();
+    demoInterviews.commit({
+      ...book,
+      interviews: book.interviews.map((i) =>
+        i.id === "int-02"
+          ? {
+              ...i,
+              scheduledFor: "2026-08-17T09:00:00.000Z",
+              status: "SCHEDULED" as const,
+            }
+          : i,
+      ),
+    });
+  };
+
+  it("is not called 'Coming up', says its scorecard is due, and offers no link or calendar for it", async () => {
+    passed();
+    const user = userEvent.setup();
+    renderInToasts(<MyInterviewsScreen />);
+    await user.click(await screen.findByRole("radio", { name: "All of mine" }));
+    const over = (await screen.findByText("Time has passed")).closest(
+      "li",
+    ) as HTMLElement;
+    expect(within(over).getByText("Scorecard due")).toBeInTheDocument();
+    expect(within(over).queryByText("Coming up")).toBeNull();
+    expect(
+      within(over).queryByRole("link", { name: /Join the call/ }),
+    ).toBeNull();
+    expect(
+      within(over).queryByRole("button", { name: /Add to calendar/ }),
+    ).toBeNull();
+  });
+
+  it("is the same on the candidate's own page", async () => {
+    passed();
+    renderInToasts(<MyApplicationScreen id="app-01" />);
+    expect(await screen.findByText("Time has passed")).toBeInTheDocument();
+    expect(screen.queryByText("Coming up")).toBeNull();
+    expect(screen.queryByRole("link", { name: /Join the call/ })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Add to calendar/ }),
+    ).toBeNull();
   });
 });

@@ -1,13 +1,17 @@
 "use client";
 
-import { Badge, Switch, TextLink } from "@/components/ui";
+import { Badge, Switch } from "@/components/ui";
 import type { InterviewView } from "@/lib/hiring/interviews/model";
 import {
-  noRemindersBecause,
+  followsQueuedInvitation,
+  groupReminders,
+  pausedLine,
   reasonOf,
+  recipientsWords,
   reminderStatus,
-  reminderTitle,
-  type ReminderSettings,
+  waiting,
+  whenWords,
+  type ReminderGroup,
 } from "@/lib/hiring/interviews/reminders";
 import { formatWeekdayTime, zoneLabel } from "@/lib/time";
 
@@ -16,112 +20,136 @@ import { formatWeekdayTime, zoneLabel } from "@/lib/time";
  *
  * ## It follows an invitation that was sent
  *
- * A reminder is never the first email a candidate gets, so there are none, and no switch
- * for them, unless the invitation was actually **sent**. Without one this says why in a
- * line: "No reminders: the invitation wasn't sent." Queued is not sent, and it says that
- * too.
+ * A reminder is never the first email anybody gets, so the API plans none until an
+ * invitation has been sent, and says which of its reasons applies when there are none.
+ * This shows that sentence: "No reminders: the invitation wasn't sent." for the plainest.
  *
- * ## Planned, sent and skipped are three different things
+ * ## Planned, sent and skipped are different things
  *
  * A reminder waiting for its time is "Planned", with the day and time on the company's
- * clock. One is "Sent" only where the API says so, and a skipped one says why in the API's
- * own words. When somebody turns reminders off for one interview, what was planned for it
- * is gone, and what already went stays on the list.
+ * clock. One is "Sent" only where the API says so; a skipped one says why in the API's own
+ * words. The people a reminder is for are named, a panel's once with all the names, because
+ * the API writes one row per person.
+ *
+ * ## One switch, and it is the candidate's
+ *
+ * The company decides what the panel is reminded of; one interview can only switch off
+ * the candidate's. The switch says so, and tells nobody anything.
  *
  * Draws nothing at all where the server does not say what is planned: not knowing is never
  * "there are none".
  */
 
+function Rows({
+  groups,
+  zone,
+  now,
+  muted = false,
+}: {
+  groups: ReminderGroup[];
+  zone: string;
+  /** The time now, in milliseconds. */
+  now: number;
+  muted?: boolean;
+}) {
+  const when = (iso: string) =>
+    `${formatWeekdayTime(iso, zone)} · ${zoneLabel(zone)}`;
+  return (
+    <ul className="flex flex-col gap-2">
+      {groups.map((group) => {
+        const status = reminderStatus(group.status);
+        const reason = reasonOf(group.reason);
+        return (
+          <li
+            key={group.key}
+            className={`flex flex-col gap-0.5 rounded-md bg-sunken px-3 py-2 ${muted ? "opacity-80" : ""}`}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-body-sm font-medium text-ink">
+                {group.label}
+              </span>
+              <Badge tone={status.tone} size="sm">
+                {status.label}
+              </Badge>
+            </div>
+            <p className="text-meta text-muted">{recipientsWords(group)}</p>
+            <p className="tabular text-meta text-muted">
+              {whenWords(group, when, now)}
+            </p>
+            {reason && <p className="text-body-sm text-body">{reason}</p>}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function InterviewReminders({
   interview,
   timeZone,
-  settings,
+  now,
   canManage,
   busy = false,
-  onOff,
+  onCandidateReminders,
 }: {
   interview: InterviewView;
   timeZone: string;
-  /** The company's defaults, for the words ("24 hours before"). */
-  settings: ReminderSettings | null;
+  /** The time now, as an ISO instant: the gateway's, so a practice board keeps its own. */
+  now: string;
   canManage: boolean;
   busy?: boolean;
-  onOff: (interview: InterviewView, off: boolean) => void;
+  /** `on` is the new state of the candidate's reminders. */
+  onCandidateReminders: (interview: InterviewView, on: boolean) => void;
 }) {
   const reminders = interview.reminders;
   if (!reminders) return null;
 
-  const because = noRemindersBecause(interview);
   const zone = interview.timeZone ?? timeZone;
-  const planned = reminders.items.filter((item) => item.status === "PLANNED");
+  const groups = groupReminders(reminders.items);
+  const current = groups.filter((g) => g.current);
+  const clock = Date.parse(now);
+  const earlier = groups.filter((g) => !g.current);
+  const line = pausedLine(reminders);
+  const somethingWaits = reminders.items.some(waiting);
+  const candidateOn = interview.candidateReminders !== false;
+  const canSwitch =
+    canManage &&
+    interview.status === "SCHEDULED" &&
+    interview.candidateReminders !== undefined;
 
   return (
     <div className="flex flex-col gap-1.5">
       <p className="text-meta font-semibold text-muted">Reminders</p>
 
-      {because ? (
-        <p className="text-meta text-muted">{because}</p>
-      ) : (
-        <>
-          {interview.status !== "CANCELLED" && canManage && (
-            <Switch
-              label="Don't send reminders for this interview"
-              description="Turns them all off for this one. The company's settings are not changed."
-              checked={reminders.off}
-              disabled={busy}
-              onChange={(event) => onOff(interview, event.target.checked)}
-            />
-          )}
+      {line && <p className="text-meta text-muted">{line}</p>}
 
-          {reminders.off && (
-            <p className="text-meta text-muted">
-              Reminders are off for this interview. Nothing is planned.
-            </p>
-          )}
+      {canSwitch && (
+        <Switch
+          label="Don't remind the candidate about this interview"
+          description="The panel's reminders are not changed."
+          checked={!candidateOn}
+          disabled={busy}
+          onChange={(event) =>
+            onCandidateReminders(interview, !event.target.checked)
+          }
+        />
+      )}
 
-          {!reminders.off &&
-            planned.length === 0 &&
-            interview.status === "SCHEDULED" && (
-              <p className="text-meta text-muted">
-                Nothing is planned. Every reminder time has passed, or they are
-                switched off in{" "}
-                <TextLink href="/hiring/settings/interviews">
-                  the company&apos;s settings
-                </TextLink>
-                .
-              </p>
-            )}
+      {somethingWaits && followsQueuedInvitation(interview.notices) && (
+        <p className="text-meta text-muted">
+          These go only once the invitation has gone. It is queued, not sent.
+        </p>
+      )}
 
-          {reminders.items.length > 0 && (
-            <ul className="flex flex-col gap-2">
-              {reminders.items.map((item) => {
-                const status = reminderStatus(item.status);
-                const reason = reasonOf(item.note);
-                return (
-                  <li
-                    key={item.id}
-                    className="flex flex-col gap-0.5 rounded-md bg-sunken px-3 py-2"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-body-sm font-medium text-ink">
-                        {reminderTitle(item, settings)}
-                      </span>
-                      <Badge tone={status.tone} size="sm">
-                        {status.label}
-                      </Badge>
-                    </div>
-                    <p className="tabular text-meta text-muted">
-                      {formatWeekdayTime(item.at, zone)} · {zoneLabel(zone)}
-                    </p>
-                    {reason && (
-                      <p className="text-body-sm text-body">{reason}</p>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </>
+      {current.length > 0 && <Rows groups={current} zone={zone} now={clock} />}
+
+      {earlier.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-meta text-muted">
+            Planned for an earlier version of this interview
+          </p>
+          <Rows groups={earlier} zone={zone} now={clock} muted />
+        </div>
       )}
     </div>
   );

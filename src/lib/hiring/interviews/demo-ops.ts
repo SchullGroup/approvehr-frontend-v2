@@ -19,11 +19,12 @@ import type {
 } from "./model";
 import { joinLinkProblem } from "./join-link";
 import {
-  plannedCount,
   remindersOf,
+  SETTLED,
+  settledLog,
   type ReminderLogEntry,
 } from "./demo-reminders";
-import { invitationSent, type ReminderSettings } from "./reminders";
+import { replanCounts, type ReminderSettings } from "./reminders";
 
 /**
  * The demo's interviews, as plain functions over a plain object.
@@ -66,9 +67,18 @@ export type DemoInterview = {
   sequence: number;
   notices: InterviewNotice[];
   cancelReason: string | null;
-  /** Somebody turned its reminders off. */
-  remindersOff: boolean;
-  /** The reminders that went, or were skipped: seed data, never written by this board. */
+  /** Somebody turned the candidate's reminders off for this interview. */
+  candidateRemindersOff: boolean;
+  /**
+   * The sequence its invitation was last **sent** for; `null` when it never was. Only a
+   * seeded interview has one: a practice board sends nothing. A change moves the sequence
+   * past it, which is how "the change was not sent to them" is known.
+   */
+  toldSequence: number | null;
+  /**
+   * The reminders that went, or were skipped: seed data, and what a change or a switch
+   * settled. Never a reminder this board "sent".
+   */
   reminderLog: ReminderLogEntry[];
 };
 
@@ -332,9 +342,6 @@ export function viewOf(
   /** The defaults and the time, to say what is planned. Without them nothing is said. */
   plan?: { settings: ReminderSettings; now: string },
 ): InterviewView {
-  const owed = interview.seats.some(
-    (seat) => !roster.submitted(interview, seat),
-  );
   return {
     id: interview.id,
     applicationId: interview.applicationId,
@@ -356,9 +363,15 @@ export function viewOf(
     sequence: interview.sequence,
     notices: interview.notices,
     cancelReason: interview.cancelReason,
+    candidateReminders: !interview.candidateRemindersOff,
     ...(plan
       ? {
-          reminders: remindersOf(interview, plan.settings, plan.now, owed),
+          reminders: remindersOf(
+            interview,
+            plan.settings,
+            plan.now,
+            roster.nameOf,
+          ),
         }
       : {}),
   };
@@ -421,7 +434,8 @@ export function schedule(
     sequence: 0,
     notices: [],
     cancelReason: null,
-    remindersOff: false,
+    candidateRemindersOff: input.candidateReminders === false,
+    toldSequence: null,
     reminderLog: [],
   };
   const made = noticesFor(
@@ -520,6 +534,14 @@ export function change(
   const moved: DemoInterview = {
     ...next,
     sequence: callsForUpdate ? was.sequence + 1 : was.sequence,
+    /* What was waiting belongs to the interview as people last heard of it: a change
+       settles it, and nothing is sent here to plan anything new. */
+    reminderLog: callsForUpdate
+      ? [
+          ...was.reminderLog,
+          ...settledLog(was, book.reminderSettings, at, SETTLED.changed),
+        ]
+      : was.reminderLog,
   };
   const made = noticesFor(
     book,
@@ -552,8 +574,8 @@ export function change(
 }
 
 /**
- * What a reschedule did to the reminders: how many are planned for the new time. `null`
- * when the invitation was never sent, because then there were none to move.
+ * What a change did to the plan, by the same comparison the connected side makes: the plan
+ * before against the plan after.
  */
 function replanned(
   settings: ReminderSettings,
@@ -561,14 +583,11 @@ function replanned(
   now: DemoInterview,
   at: string,
   roster: Roster,
-): { planned: number; removed: number } | null {
-  if (!invitationSent(was.notices)) return null;
-  const owed = (i: DemoInterview) =>
-    i.seats.some((seat) => !roster.submitted(i, seat));
-  return {
-    planned: plannedCount(remindersOf(now, settings, at, owed(now))),
-    removed: plannedCount(remindersOf(was, settings, at, owed(was))),
-  };
+): ChangeOutcome["reminders"] {
+  const before = remindersOf(was, settings, at, roster.nameOf);
+  const after = remindersOf(now, settings, at, roster.nameOf);
+  const counts = replanCounts(before, after);
+  return counts ? { ...counts, paused: after.paused } : null;
 }
 
 export function cancel(
@@ -595,6 +614,10 @@ export function cancel(
     status: "CANCELLED",
     cancelReason: reason,
     sequence: was.sequence + 1,
+    reminderLog: [
+      ...was.reminderLog,
+      ...settledLog(was, book.reminderSettings, at, SETTLED.cancelled),
+    ],
   };
   const made = noticesFor(
     book,
@@ -620,19 +643,7 @@ export function cancel(
       outcome: {
         asked: input.sendCancellation,
         notices: made.notices,
-        reminders: invitationSent(was.notices)
-          ? {
-              planned: 0,
-              removed: plannedCount(
-                remindersOf(
-                  was,
-                  book.reminderSettings,
-                  at,
-                  was.seats.some((seat) => !roster.submitted(was, seat)),
-                ),
-              ),
-            }
-          : null,
+        reminders: replanned(book.reminderSettings, was, interview, at, roster),
       },
     },
   };
@@ -694,21 +705,51 @@ export function notify(
   };
 }
 
-/** Turns the reminders for one interview off or back on. */
-export function setRemindersOff(
+/**
+ * Turns the candidate's reminders for one interview off or back on. What was planned for
+ * them is settled when they go off, and put back when they come on, as the API does it. The
+ * panel's reminders have no switch.
+ */
+export function setCandidateReminders(
   book: InterviewBook,
   interviewId: string,
-  off: boolean,
-): Op<DemoInterview> {
+  on: boolean,
+  roster: Roster,
+  at: string,
+): Op<{ interview: DemoInterview; outcome: ChangeOutcome }> {
   const was = book.interviews.find((i) => i.id === interviewId);
   if (!was) return fail("That interview is not here any more.");
-  if (was.status === "CANCELLED")
-    return fail("That interview is cancelled, so it has no reminders.");
-  if (!invitationSent(was.notices))
-    return fail(
-      "Reminders follow an invitation that was sent, and this interview's was not.",
-    );
-  const interview = { ...was, remindersOff: off };
+  if (was.status !== "SCHEDULED")
+    return fail("Only an interview that has not happened yet can be changed.");
+  if (was.candidateRemindersOff === !on)
+    return fail("Nothing here differs from what is already booked.");
+  const interview: DemoInterview = on
+    ? {
+        ...was,
+        candidateRemindersOff: false,
+        reminderLog: was.reminderLog.filter(
+          (entry) =>
+            !(
+              entry.reason === SETTLED.candidateOff &&
+              entry.sequence === was.sequence &&
+              Date.parse(entry.dueAt) > Date.parse(at)
+            ),
+        ),
+      }
+    : {
+        ...was,
+        candidateRemindersOff: true,
+        reminderLog: [
+          ...was.reminderLog,
+          ...settledLog(
+            was,
+            book.reminderSettings,
+            at,
+            SETTLED.candidateOff,
+            "candidate",
+          ),
+        ],
+      };
   return {
     ok: true,
     book: {
@@ -717,7 +758,14 @@ export function setRemindersOff(
         i.id === interviewId ? interview : i,
       ),
     },
-    value: interview,
+    value: {
+      interview,
+      outcome: {
+        asked: false,
+        notices: [],
+        reminders: replanned(book.reminderSettings, was, interview, at, roster),
+      },
+    },
   };
 }
 

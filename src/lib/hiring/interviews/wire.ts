@@ -6,9 +6,13 @@ import {
 } from "@/lib/api/recruitment";
 import type {
   ApiInterviewNotice,
+  ApiInterviewReminders,
   ApiNoticeResult,
   ApiNotified,
+  ApiReminderChoices,
+  ApiReminderChoicesPatch,
 } from "@/lib/api/interviews";
+import type { ApiCareersSettings } from "@/lib/api/careers";
 import type { MyApplication, MyInterviewRow } from "@/lib/hiring/comms/model";
 import { seatKey } from "@/lib/hiring/comms/seats";
 import type {
@@ -18,6 +22,11 @@ import type {
   NoticeKind,
   NoticeStatus,
 } from "./model";
+import type {
+  InterviewReminders,
+  ReminderSettings,
+  ReminderSettingsView,
+} from "./reminders";
 
 /**
  * The API's interview, as the interview screens draw it.
@@ -55,6 +64,9 @@ export function viewFromSummary(
     sequence: interview.calendarSequence ?? 0,
     notices: null,
     cancelReason: null,
+    ...(interview.candidateReminders !== undefined
+      ? { candidateReminders: interview.candidateReminders }
+      : {}),
   };
 }
 
@@ -152,8 +164,14 @@ const STATE_NOTE: Partial<Record<ApiNoticeResult["state"], string>> = {
 export function outcomeFrom(
   notified: ApiNotified,
   candidateName: string,
+  /**
+   * Which message the request was about, for when the API names none: it says no
+   * occasion for a message nobody asked for, and "not asked" has to say which one it was
+   * (an updated invitation, not an invitation) from what was being done.
+   */
+  asked: NoticeKind = "INVITE",
 ): ChangeOutcome {
-  const fallback: NoticeKind = notified.occasion ?? "INVITE";
+  const fallback: NoticeKind = notified.occasion ?? asked;
   const one = (
     result: ApiNoticeResult,
     audience: InterviewNotice["audience"],
@@ -184,6 +202,14 @@ export function outcomeFrom(
     ],
   };
 }
+
+/**
+ * Whether a row of the log is a reminder or a nudge rather than a message somebody asked
+ * for. The log holds every email about the interview, and the two are read apart: the
+ * messages on the interview's emails, the reminders in its reminders.
+ */
+export const isReminderRow = (row: ApiInterviewNotice): boolean =>
+  (row.slot ?? null) !== null || row.trigger === "REMINDER";
 
 /** One row of the log an interview keeps of what it asked of the mail. */
 export function noticeFromRow(row: ApiInterviewNotice): InterviewNotice {
@@ -239,5 +265,71 @@ export function viewFromMutation(
     sequence: answer.calendarSequence ?? 0,
     notices: before === null ? null : [...before, ...asked],
     cancelReason: null,
+    ...(answer.candidateReminders !== undefined
+      ? { candidateReminders: answer.candidateReminders }
+      : {}),
   };
 }
+
+/* ------------------------------------------------------------------- reminders */
+
+/** What the API says is planned for one interview, as the screens draw it. */
+export function remindersFromApi(
+  answer: ApiInterviewReminders,
+): InterviewReminders {
+  return {
+    items: answer.reminders.map((row) => ({
+      id: row.id,
+      slot: row.slot,
+      label: row.slotLabel,
+      audience: row.audience,
+      recipient: row.recipient.name,
+      dueAt: row.dueAt,
+      sentAt: row.sentAt,
+      status: row.status,
+      reason: row.reason,
+      current: row.current,
+    })),
+    paused: answer.paused,
+  };
+}
+
+const choicesFrom = (choices: ApiReminderChoices): ReminderSettings => ({
+  candidate: {
+    early: { ...choices.candidate.early },
+    late: { ...choices.candidate.late },
+  },
+  panelist: {
+    early: { ...choices.panelist.early },
+    late: { ...choices.panelist.late },
+  },
+  scorecardNudge: { ...choices.scorecardNudge },
+});
+
+/**
+ * The company's reminder settings from its settings view. `null` where the API has none:
+ * an older API says nothing about reminders and a screen does not make up defaults.
+ */
+export function reminderSettingsFromApi(
+  settings: ApiCareersSettings,
+): ReminderSettingsView | null {
+  const reminders = settings.interviewReminders;
+  if (!reminders) return null;
+  return {
+    values: choicesFrom(reminders),
+    defaults: choicesFrom(reminders.defaults),
+    bounds: reminders.bounds,
+    willSend: settings.candidateEmails?.willSend ?? null,
+    blockedBy: settings.candidateEmails?.blockedBy ?? [],
+    usage: settings.candidateEmails?.usage ?? null,
+  };
+}
+
+/** Every choice, as the body of a `PATCH`: what has not changed is not an audit entry. */
+export const choicesToPatch = (
+  values: ReminderSettings,
+): ApiReminderChoicesPatch => ({
+  candidate: { early: values.candidate.early, late: values.candidate.late },
+  panelist: { early: values.panelist.early, late: values.panelist.late },
+  scorecardNudge: values.scorecardNudge,
+});

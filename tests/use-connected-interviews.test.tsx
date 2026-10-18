@@ -13,7 +13,7 @@ import type { ApiInterviewSummary } from "@/lib/api/recruitment";
  */
 
 const rec = vi.hoisted(() => ({ getInterview: vi.fn() }));
-const ivs = vi.hoisted(() => ({ notices: vi.fn() }));
+const ivs = vi.hoisted(() => ({ notices: vi.fn(), reminders: vi.fn() }));
 
 vi.mock("@/lib/api/recruitment", async (original) => {
   const real = await original<typeof import("@/lib/api/recruitment")>();
@@ -67,6 +67,18 @@ function Show({ list }: { list: readonly ApiInterviewSummary[] }) {
               v.notices === null
                 ? null
                 : v.notices.map((n) => [n.audience, n.status]),
+            candidateReminders: v.candidateReminders ?? null,
+            reminders:
+              v.reminders === undefined || v.reminders === null
+                ? null
+                : {
+                    items: v.reminders.items.map((r) => [
+                      r.slot,
+                      r.recipient,
+                      r.status,
+                    ]),
+                    paused: v.reminders.paused?.code ?? null,
+                  },
           })}
         </li>
       ))}
@@ -80,6 +92,9 @@ const read = (id: string) =>
 beforeEach(() => {
   rec.getInterview.mockReset();
   ivs.notices.mockReset();
+  ivs.reminders.mockReset();
+  /* Most of these are about the log: the plan is not read unless a test says it is. */
+  ivs.reminders.mockRejectedValue(new ApiError(404, "not_found", "No route."));
 });
 
 describe("a connected record's interviews", () => {
@@ -133,6 +148,8 @@ describe("a connected record's interviews", () => {
       zone: null,
       seq: 0,
       notices: null,
+      candidateReminders: null,
+      reminders: null,
     });
     await waitFor(() => expect(read("iv-1").notices).not.toBeNull());
     expect(read("iv-1")).toEqual({
@@ -143,6 +160,8 @@ describe("a connected record's interviews", () => {
         ["CANDIDATE", "SENT"],
         ["PANELIST", "PENDING"],
       ],
+      candidateReminders: null,
+      reminders: null,
     });
   });
 
@@ -180,5 +199,138 @@ describe("a connected record's interviews", () => {
     await new Promise((r) => setTimeout(r, 30));
     expect(rec.getInterview).not.toHaveBeenCalled();
     expect(ivs.notices).not.toHaveBeenCalled();
+  });
+});
+
+describe("a connected record's reminders", () => {
+  const noticeRow = (id: string, over: Record<string, unknown> = {}) => ({
+    id,
+    kind: "INVITE",
+    kindLabel: "Invitation",
+    status: "SENT",
+    note: null,
+    subject: null,
+    sentAt: "2026-10-12T09:00:00.000Z",
+    createdAt: "2026-10-12T09:00:00.000Z",
+    audience: "CANDIDATE",
+    recipient: {
+      name: "Chioma Aduba",
+      seat: "CANDIDATE",
+      employeeId: null,
+      userId: null,
+    },
+    inApp: null,
+    ...over,
+  });
+
+  const planned = (over: Record<string, unknown> = {}) => ({
+    interviewId: "iv-1",
+    calendarSequence: 0,
+    status: "SCHEDULED",
+    candidateReminders: false,
+    reminders: [
+      {
+        id: "r1",
+        slot: "pan-late",
+        slotLabel: "Reminder to the panelist (shortly before)",
+        kind: "INTERVIEW_REMINDER_PANELIST",
+        audience: "PANELIST",
+        recipient: {
+          name: "Chidi Nwosu",
+          seat: "EMPLOYEE",
+          employeeId: "p1",
+          userId: null,
+        },
+        dueAt: "2026-10-20T08:00:00.000Z",
+        expiresAt: "2026-10-20T08:55:00.000Z",
+        status: "planned",
+        reason: null,
+        sentAt: null,
+        sequence: 0,
+        current: true,
+      },
+    ],
+    paused: null,
+    ...over,
+  });
+
+  it("joins what is planned on, and the candidate's switch from the same read", async () => {
+    rec.getInterview.mockImplementation(async (id: string) => detail(id));
+    ivs.notices.mockResolvedValue({
+      interviewId: "iv-1",
+      calendarSequence: 0,
+      notices: [],
+    });
+    ivs.reminders.mockResolvedValue(planned());
+    render(<Show list={[summary("iv-1")]} />);
+    await waitFor(() => expect(read("iv-1").reminders).not.toBeNull());
+    expect(read("iv-1").reminders).toEqual({
+      items: [["pan-late", "Chidi Nwosu", "planned"]],
+      paused: null,
+    });
+    expect(read("iv-1").candidateReminders).toBe(false);
+    expect(ivs.reminders).toHaveBeenCalledWith("iv-1", expect.anything());
+  });
+
+  it("keeps the reminders out of the messages on the interview: the log holds both, and they are read apart", async () => {
+    rec.getInterview.mockImplementation(async (id: string) => detail(id));
+    ivs.notices.mockResolvedValue({
+      interviewId: "iv-1",
+      calendarSequence: 0,
+      notices: [
+        noticeRow("e1"),
+        noticeRow("e2", {
+          kind: "INTERVIEW_REMINDER_CANDIDATE",
+          trigger: "REMINDER",
+          slot: "cand-early",
+          dueAt: "2026-10-19T09:00:00.000Z",
+          expiresAt: "2026-10-19T21:00:00.000Z",
+        }),
+        noticeRow("e3", {
+          kind: "SCORECARD_NUDGE",
+          audience: "PANELIST",
+          slot: "nudge-1",
+        }),
+      ],
+    });
+    render(<Show list={[summary("iv-1")]} />);
+    await waitFor(() => expect(read("iv-1").notices).not.toBeNull());
+    expect(read("iv-1").notices).toEqual([["CANDIDATE", "SENT"]]);
+  });
+
+  it("says nothing is known about the plan where it cannot be read, and still draws the rest", async () => {
+    rec.getInterview.mockImplementation(async (id: string) => ({
+      ...detail(id),
+      candidateReminders: true,
+    }));
+    ivs.notices.mockResolvedValue({
+      interviewId: "iv-1",
+      calendarSequence: 0,
+      notices: [],
+    });
+    /* The default for these tests: the route is not there. */
+    render(<Show list={[summary("iv-1")]} />);
+    await waitFor(() => expect(read("iv-1").join).not.toBeNull());
+    expect(read("iv-1").reminders).toBeNull();
+    /* The switch's state still comes from the interview itself, when it says. */
+    expect(read("iv-1").candidateReminders).toBe(true);
+    expect(read("iv-1").notices).toEqual([]);
+  });
+
+  it("reads each interview's plan on its own", async () => {
+    rec.getInterview.mockImplementation(async (id: string) => detail(id));
+    ivs.notices.mockResolvedValue({
+      interviewId: "x",
+      calendarSequence: 0,
+      notices: [],
+    });
+    ivs.reminders.mockImplementation(async (id: string) => {
+      if (id === "bad") throw new ApiError(500, "server", "Down.");
+      return planned({ interviewId: id, candidateReminders: true });
+    });
+    render(<Show list={[summary("bad"), summary("good")]} />);
+    await waitFor(() => expect(read("good").reminders).not.toBeNull());
+    expect(read("bad").reminders).toBeNull();
+    expect(read("good").candidateReminders).toBe(true);
   });
 });
