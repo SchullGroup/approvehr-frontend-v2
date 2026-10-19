@@ -1496,14 +1496,17 @@ export function useMyExit() {
   const matched = fetched !== null && fetched.subject === subject;
   const source: Source = isConnected ? "api" : "demo";
 
+  /* Resolves to the exit that was created, not just its id: the dialog that
+     asked for it says who was told and how long the checklist is, and both are
+     on this. The API answers with it already; the demo serialises its own. */
   const start = useCallback(
-    async (body: Omit<StartExitBody, "employeeId">): Promise<string> => {
+    async (body: Omit<StartExitBody, "employeeId">): Promise<ApiExit> => {
       if (isConnected) {
         const created = await offboardingApi.start(body);
         setAttempt((n) => n + 1);
-        return created.id;
+        return created;
       }
-      return demoStart(body, actingId).id;
+      return serializeExit(demoStart(body, actingId));
     },
     [isConnected, actingId],
   );
@@ -1540,13 +1543,11 @@ export function useStartExit() {
   const { isConnected, actingId } = useSession();
   const source: Source = isConnected ? "api" : "demo";
 
+  /* The created exit, for the same reason as `useMyExit().start`. */
   const start = useCallback(
-    async (body: StartExitBody): Promise<string> => {
-      if (isConnected) {
-        const created = await offboardingApi.start(body);
-        return created.id;
-      }
-      return demoStart(body, actingId).id;
+    async (body: StartExitBody): Promise<ApiExit> => {
+      if (isConnected) return offboardingApi.start(body);
+      return serializeExit(demoStart(body, actingId));
     },
     [isConnected, actingId],
   );

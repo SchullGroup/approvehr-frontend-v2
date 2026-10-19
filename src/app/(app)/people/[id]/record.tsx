@@ -46,7 +46,7 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { EmployeeFileDrawer } from "@/app/(app)/people/documents";
-import { Resign, StartExitDialog } from "@/app/(app)/people/offboarding";
+import { StartExitDialog } from "@/app/(app)/people/offboarding";
 import { PayComponentsPanel } from "@/app/(app)/payroll/pay-setup/pay-components-panel";
 import { RecordHistory } from "@/app/(app)/settings/audit/record-history";
 import { StartPeriodButton } from "@/app/(app)/performance";
@@ -76,6 +76,7 @@ import { EditableSection } from "@/components/people/editable-section";
 import { AccountVerificationHint } from "@/components/payments/account-verification";
 import { NIGERIAN_STATES } from "@/lib/reference/lists";
 import { ConductPanel } from "./conduct";
+import { EmploymentHistoryPanel } from "./employment-history";
 
 /**
  * Employment status, as a chip.
@@ -298,7 +299,11 @@ export function EmployeeRecord({
      `RecordHistory` already make on this page: a control that cannot work is
      worse present than absent. */
   const canEditRecords = useCan("EDIT_RECORDS");
-  const canRecordExit = canEditRecords;
+  /* The Departmental Lead half of the same door — `leadsDepartmentOf` on the
+     API. `canRecordExit` itself is derived below, once `currentDepartment` is
+     in scope: heading a department is a fact about this employee's own
+     department, not a bare permission. */
+  const holdsStartExitDepartment = useCan("START_EXIT_DEPARTMENT");
   /* Issuing a login is its own permission, deliberately split from editing a
      record — see the header of `modules/invites/router.ts`. */
   const canInvite = useCan("INVITE_STAFF");
@@ -369,6 +374,17 @@ export function EmployeeRecord({
   const currentDepartment = departments.flat.find(
     (d) => d.name === employee.department,
   );
+
+  /* Mirrors `leadsDepartmentOf` on the API exactly: `START_EXIT_DEPARTMENT`
+     plus actually heading *this* employee's own department — the same
+     permission-plus-relationship shape `canApproveAsManager` already uses on
+     the exit detail screen for the identical question about releasing a
+     report. A Departmental Lead reaches this door with no `EDIT_RECORDS` at
+     all, so `canRecordExit` has to be the union rather than a further
+     narrowing of it. */
+  const leadsThisDepartment =
+    holdsStartExitDepartment && currentDepartment?.headId === me;
+  const canRecordExit = canEditRecords || leadsThisDepartment;
 
   /* Same reasoning as `currentDepartment`, one field down: `Employee` carries
      the work location's name (`location`), not its id, so the picker below has
@@ -464,14 +480,18 @@ export function EmployeeRecord({
           </CardBody>
 
           {/* Whether they can sign in, and where the invitation got to.
-          
+
               The feedback asks for "Sent / Accepted / In Progress / Expired"
               on the record, and the product could not say: the invite existed,
               the token existed, and no screen read either — so an invitation
               sent six weeks ago and one sent this morning looked identical.
               Beside the record rather than on a separate access screen,
-              because "can this person actually get in" is a fact about them. */}
-          <AccessLine employee={employee} />
+              because "can this person actually get in" is a fact about them.
+
+              `!isSelf`: you already know you can sign in, since you are — a
+              fact about somebody else and a fact restating your own current
+              session read very differently on the same line. */}
+          {!isSelf && <AccessLine employee={employee} />}
 
           {/* A small checklist, not the page's main focus. These never hold
               back a payslip — `payrollGapsFor` says so in `consequence` — so a
@@ -591,13 +611,15 @@ export function EmployeeRecord({
                 blue primary button on every employee record would read as the
                 page's suggestion.
 
-                `!isSelf`: this is the HR door onto somebody else's exit — a
-                kind picker that includes TERMINATION and DEATH_IN_SERVICE,
-                open to anyone holding EDIT_RECORDS. Viewing your own record
-                with that permission must not offer it about yourself; `Resign`
-                below is the one door self-service ever gets, the same "name
-                who can" rule `isSelf` already applies to documents and
-                appraisal history on this page. */}
+                `!isSelf`: this is the door onto somebody else's exit, for
+                whoever holds EDIT_RECORDS (the full kind picker, including
+                TERMINATION and DEATH_IN_SERVICE) or heads this employee's own
+                department (resignation or retirement only — `restrictKinds`
+                below). Viewing your own record with either must not offer it
+                about yourself; `/profile` is the one door self-service ever
+                gets (`Resign`, on its `details` tab), the same "name who
+                can" rule `isSelf` already applies to documents and appraisal
+                history on this page. */}
             {canRecordExit && !hasLeft && !isSelf && (
               <Button
                 variant="secondary"
@@ -612,13 +634,36 @@ export function EmployeeRecord({
           </CardBody>
         </Card>
 
-        {/* The other door onto the same `ExitProcess` lifecycle — self-service,
-            no permission required, resignation/retirement only. `Resign` is
-            the exact component `/profile` already uses; it owns its own
-            `useMyExit()` and renders either an open exit's status (a `Card`)
-            or a closed `Disclosure` to start one, so it sits beside the
-            action-button card rather than inside it. */}
-        {isSelf && <Resign />}
+        {/* This whole page is the HR-facing read of a record — the "Fix it
+            now" callout above and every Edit button on it check
+            EDIT_RECORDS, which a plain member of staff does not hold, so
+            everything below is read-only for them even on their own row.
+            `/profile` is the door they actually have: `MyDetails` there
+            writes through `PATCH /employees/me` with no permission needed,
+            and `Resign` is its own self-service exit. Name it, rather than
+            leaving isSelf to find a blank Edit button and stop looking. */}
+        {isSelf && (
+          <Card>
+            <CardBody className="flex flex-col gap-2">
+              <p className="text-body-sm font-medium text-ink">
+                This is the read-only, company-wide view of your record
+              </p>
+              <p className="text-body-sm text-muted">
+                To update your phone, address, bank account or pension PIN — or
+                to start your own exit — use your profile instead.
+              </p>
+              <ButtonLink
+                href="/profile"
+                variant="secondary"
+                size="sm"
+                className="self-start"
+              >
+                <UserRound aria-hidden="true" className="size-4" />
+                Go to your profile
+              </ButtonLink>
+            </CardBody>
+          </Card>
+        )}
       </aside>
 
       {/* Detail */}
@@ -664,6 +709,7 @@ export function EmployeeRecord({
             { id: "pay", label: "Pay & statutory" },
             { id: "leave", label: "Leave" },
             { id: "conduct", label: "Conduct" },
+            { id: "history", label: "History" },
           ]}
         />
 
@@ -1013,10 +1059,6 @@ export function EmployeeRecord({
                   placeholder: "No manager (reports to the board)",
                   value: employee.managerId ?? "",
                   emptyLabel: "No manager (reports to the board).",
-                  /* The one person at the top of a company has no manager,
-                     which is the ordinary state of a head of the org chart,
-                     not a gap the way an unset bank account is. */
-                  emptyIsNormal: true,
                   format: () =>
                     manager ? (
                       <PersonLink employee={manager} />
@@ -1160,6 +1202,9 @@ export function EmployeeRecord({
                   emptyLabel: isSelf
                     ? "Not on file: your salary has nowhere to go"
                     : "No bank account · payroll blocked",
+                  /* The one field on this page `payrollGapsFor` marks
+                     `blocking: true` — see `emptyIsUrgent`'s own doc comment. */
+                  emptyIsUrgent: true,
                   help: "Ten digits. Payroll cannot pay without this.",
                   digits: 10,
                   format: (v) => (
@@ -1179,9 +1224,13 @@ export function EmployeeRecord({
                   key: "pensionPin",
                   group: "pension",
                   label: "Pension PIN",
+                  /* Matches `payrollGapsFor`'s own consequence for this field:
+                     the remittance schedule is incomplete, pay is not
+                     affected. Neither the colour nor the words should claim
+                     otherwise — see `emptyIsUrgent`. */
                   emptyLabel: isSelf
-                    ? "Not on file: your pension cannot be paid in"
-                    : "No pension PIN · payroll blocked",
+                    ? "Not on file: your pension remittance will be incomplete"
+                    : "No pension PIN · remittance incomplete",
                   help: "PEN followed by 9 to 12 digits.",
                   format: (v) => (
                     <Guarded value={String(v)} canReveal={canReveal} />
@@ -1235,9 +1284,12 @@ export function EmployeeRecord({
                   key: "tin",
                   group: "tax",
                   label: "TIN",
+                  /* Same reasoning as `pensionPin` above: `payrollGapsFor`
+                     says this "does not affect this month's pay", so neither
+                     the label nor the colour should say it does. */
                   emptyLabel: isSelf
-                    ? "Not on file: your tax cannot be filed against you"
-                    : "No TIN · payroll blocked",
+                    ? "Not on file: your tax return cannot be filed"
+                    : "No TIN · filing incomplete",
                   help: "Ten digits.",
                   digits: 10,
                   format: (v) => (
@@ -1310,50 +1362,93 @@ export function EmployeeRecord({
                   </p>
                 </CardBody>
               ) : (
-                <TableWrap className="rounded-none border-0">
-                  <THead>
-                    <TH>Type</TH>
-                    <TH align="right">Entitled</TH>
-                    <TH align="right">Taken</TH>
-                    <TH align="right">Pending</TH>
-                    <TH align="right">Remaining</TH>
-                  </THead>
-                  <TBody>
+                <>
+                  <div className="hidden sm:block">
+                    <TableWrap className="rounded-none border-0">
+                      <THead>
+                        <TH>Type</TH>
+                        <TH align="right">Entitled</TH>
+                        <TH align="right">Taken</TH>
+                        <TH align="right">Pending</TH>
+                        <TH align="right">Remaining</TH>
+                      </THead>
+                      <TBody>
+                        {balances.map((b) => (
+                          <TR key={`${b.leaveType}-${b.year}`}>
+                            <TDPrimary
+                              title={b.leaveType}
+                              {...(b.carriedIn > 0
+                                ? {
+                                    subtitle: `includes ${b.carriedIn} carried in`,
+                                  }
+                                : {})}
+                            />
+                            <TD align="right" className="tabular">
+                              {b.entitled}
+                            </TD>
+                            <TD align="right" className="tabular text-muted">
+                              {b.taken}
+                            </TD>
+                            <TD align="right" className="tabular text-muted">
+                              {b.pending || "—"}
+                            </TD>
+                            {/* The source's own figure, never re-derived here.
+                                Pending is held back on purpose — a day already
+                                asked for is not a day still available. */}
+                            <TD
+                              align="right"
+                              className={cn(
+                                "tabular font-medium",
+                                b.remaining <= 2
+                                  ? "text-warning-text"
+                                  : "text-ink",
+                              )}
+                            >
+                              {b.remaining}
+                            </TD>
+                          </TR>
+                        ))}
+                      </TBody>
+                    </TableWrap>
+                  </div>
+
+                  <ul className="divide-y divide-line sm:hidden">
                     {balances.map((b) => (
-                      <TR key={`${b.leaveType}-${b.year}`}>
-                        <TDPrimary
-                          title={b.leaveType}
-                          {...(b.carriedIn > 0
-                            ? {
-                                subtitle: `includes ${b.carriedIn} carried in`,
-                              }
-                            : {})}
-                        />
-                        <TD align="right" className="tabular">
-                          {b.entitled}
-                        </TD>
-                        <TD align="right" className="tabular text-muted">
-                          {b.taken}
-                        </TD>
-                        <TD align="right" className="tabular text-muted">
-                          {b.pending || "—"}
-                        </TD>
-                        {/* The source's own figure, never re-derived here.
-                            Pending is held back on purpose — a day already
-                            asked for is not a day still available. */}
-                        <TD
-                          align="right"
-                          className={cn(
-                            "tabular font-medium",
-                            b.remaining <= 2 ? "text-warning-text" : "text-ink",
+                      <li
+                        key={`${b.leaveType}-${b.year}`}
+                        className="flex flex-col gap-1 p-4"
+                      >
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="text-body-sm font-medium text-ink">
+                            {b.leaveType}
+                          </span>
+                          <span
+                            className={cn(
+                              "tabular text-body-sm font-medium",
+                              b.remaining <= 2
+                                ? "text-warning-text"
+                                : "text-ink",
+                            )}
+                          >
+                            {b.remaining} left
+                          </span>
+                        </div>
+                        {b.carriedIn > 0 && (
+                          <p className="text-meta text-muted">
+                            includes {b.carriedIn} carried in
+                          </p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                          <span className="tabular">Entitled {b.entitled}</span>
+                          <span className="tabular">Taken {b.taken}</span>
+                          {b.pending > 0 && (
+                            <span className="tabular">Pending {b.pending}</span>
                           )}
-                        >
-                          {b.remaining}
-                        </TD>
-                      </TR>
+                        </div>
+                      </li>
                     ))}
-                  </TBody>
-                </TableWrap>
+                  </ul>
+                </>
               )}
             </Card>
 
@@ -1366,55 +1461,96 @@ export function EmployeeRecord({
                   </p>
                 </CardBody>
               ) : (
-                <TableWrap className="rounded-none border-0">
-                  <THead>
-                    <TH>Type</TH>
-                    <TH>Dates</TH>
-                    <TH align="right">Days</TH>
-                    <TH>Status</TH>
-                    <TH>Decided</TH>
-                  </THead>
-                  <TBody>
+                <>
+                  <div className="hidden sm:block">
+                    <TableWrap className="rounded-none border-0">
+                      <THead>
+                        <TH>Type</TH>
+                        <TH>Dates</TH>
+                        <TH align="right">Days</TH>
+                        <TH>Status</TH>
+                        <TH>Decided</TH>
+                      </THead>
+                      <TBody>
+                        {[...leaveRequests]
+                          .sort((a, b) => b.from.localeCompare(a.from))
+                          .map((r) => (
+                            <TR key={r.id}>
+                              <TDPrimary
+                                title={r.leaveType}
+                                {...((r.reason ?? r.decisionNote)
+                                  ? {
+                                      subtitle:
+                                        r.reason ?? r.decisionNote ?? "",
+                                    }
+                                  : {})}
+                              />
+                              <TD className="tabular whitespace-nowrap">
+                                {r.from} → {r.to}
+                              </TD>
+                              <TD align="right" className="tabular">
+                                {r.days}
+                              </TD>
+                              <TD>
+                                <Badge
+                                  tone={leaveStatusTone(r.status)}
+                                  size="sm"
+                                  dot
+                                >
+                                  {r.status[0].toUpperCase() +
+                                    r.status.slice(1)}
+                                </Badge>
+                              </TD>
+                              <TD className="text-muted">
+                                {r.decidedAt ? shortDate(r.decidedAt) : "—"}
+                              </TD>
+                            </TR>
+                          ))}
+                      </TBody>
+                    </TableWrap>
+                  </div>
+
+                  <ul className="divide-y divide-line sm:hidden">
                     {[...leaveRequests]
                       .sort((a, b) => b.from.localeCompare(a.from))
                       .map((r) => (
-                        <TR key={r.id}>
-                          <TDPrimary
-                            title={r.leaveType}
-                            {...((r.reason ?? r.decisionNote)
-                              ? { subtitle: r.reason ?? r.decisionNote ?? "" }
-                              : {})}
-                          />
-                          <TD className="tabular whitespace-nowrap">
-                            {r.from} → {r.to}
-                          </TD>
-                          <TD align="right" className="tabular">
-                            {r.days}
-                          </TD>
-                          <TD>
+                        <li key={r.id} className="flex flex-col gap-2 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-body-sm font-medium text-ink">
+                                {r.leaveType}
+                              </p>
+                              {(r.reason ?? r.decisionNote) && (
+                                <p className="mt-0.5 text-meta text-muted">
+                                  {r.reason ?? r.decisionNote}
+                                </p>
+                              )}
+                            </div>
                             <Badge
-                              tone={
-                                r.status === "approved"
-                                  ? "success"
-                                  : r.status === "pending"
-                                    ? "warning"
-                                    : r.status === "declined"
-                                      ? "danger"
-                                      : "neutral"
-                              }
+                              tone={leaveStatusTone(r.status)}
                               size="sm"
                               dot
                             >
                               {r.status[0].toUpperCase() + r.status.slice(1)}
                             </Badge>
-                          </TD>
-                          <TD className="text-muted">
-                            {r.decidedAt ? shortDate(r.decidedAt) : "—"}
-                          </TD>
-                        </TR>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                            <span className="tabular">
+                              {r.from} → {r.to}
+                            </span>
+                            <span className="tabular">
+                              {r.days} {r.days === 1 ? "day" : "days"}
+                            </span>
+                            {r.decidedAt && (
+                              <span className="tabular">
+                                Decided {shortDate(r.decidedAt)}
+                              </span>
+                            )}
+                          </div>
+                        </li>
                       ))}
-                  </TBody>
-                </TableWrap>
+                  </ul>
+                </>
               )}
             </Card>
           </div>
@@ -1427,6 +1563,14 @@ export function EmployeeRecord({
             fill the trail that answers "who has been looking at this person's
             warnings" with reads nobody made. */}
         {tab === "conduct" && <ConductPanel employeeId={employee.id} />}
+
+        {/* Its own tab rather than a section under Employment, because it
+            answers a different question. Employment says what is true now and
+            offers to change it; this says how it came to be true and offers
+            nothing — which is exactly why a dispute is read here. */}
+        {tab === "history" && (
+          <EmploymentHistoryPanel employeeId={employee.id} />
+        )}
       </div>
 
       {/* The same file, and the same upload and request flow, as the documents
@@ -1445,6 +1589,7 @@ export function EmployeeRecord({
         open={exitOpen}
         employeeId={employee.id}
         employeeName={name}
+        restrictKinds={!canEditRecords}
         onClose={() => setExitOpen(false)}
         onStarted={() => setExitOpen(false)}
       />
@@ -1453,7 +1598,26 @@ export function EmployeeRecord({
 }
 
 /** The record's tabs. One list, so URL validation and the tab strip agree. */
-const TAB_IDS = ["personal", "employment", "pay", "leave", "conduct"];
+const TAB_IDS = [
+  "personal",
+  "employment",
+  "pay",
+  "leave",
+  "conduct",
+  "history",
+];
+
+/** Shared by the desktop `<TD>` and the mobile `<li>` so a request's badge
+ *  colour cannot read differently on the two. */
+function leaveStatusTone(status: string): BadgeTone {
+  return status === "approved"
+    ? "success"
+    : status === "pending"
+      ? "warning"
+      : status === "declined"
+        ? "danger"
+        : "neutral";
+}
 
 /* -------------------------------------------------------------------------- */
 

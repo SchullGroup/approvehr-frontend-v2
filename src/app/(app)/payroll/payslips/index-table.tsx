@@ -435,117 +435,169 @@ function PayslipIndex() {
           />
         ) : (
           <>
-            <TableWrap className="rounded-none border-x-0 border-b-0">
-              <THead>
-                <SortableTH
-                  column="name"
-                  active={list.sort}
-                  order={list.order}
-                  onSort={list.toggleSort}
-                >
-                  Employee
-                </SortableTH>
-                <SortableTH
-                  column="gross"
-                  active={list.sort}
-                  order={list.order}
-                  onSort={list.toggleSort}
-                  align="right"
-                  startDescending
-                >
-                  Gross
-                </SortableTH>
-                <SortableTH
-                  column="net"
-                  active={list.sort}
-                  order={list.order}
-                  onSort={list.toggleSort}
-                  align="right"
-                  startDescending
-                >
-                  Net pay
-                </SortableTH>
-                <TH>Delivery</TH>
-                <SortableTH
-                  column="emailedAt"
-                  active={list.sort}
-                  order={list.order}
-                  onSort={list.toggleSort}
-                >
-                  Sent
-                </SortableTH>
-                <SortableTH
-                  column="viewedAt"
-                  active={list.sort}
-                  order={list.order}
-                  onSort={list.toggleSort}
-                >
-                  Opened
-                </SortableTH>
-              </THead>
-              <TBody>
-                {page.payslips.map((slip) => {
-                  const state = DELIVERY[deliveryOf(slip)];
-                  const href = `/payroll/payslips/${slip.id}${
-                    run ? `?run=${run.id}` : ""
-                  }`;
-                  return (
-                    /**
-                     * The whole row opens the payslip, and it is still one
-                     * link.
-                     *
-                     * There was an Open button in an Actions column — a
-                     * seventh column, on every row, for the only thing this
-                     * table does. The row is the target now.
-                     *
-                     * `after:absolute after:inset-0` stretches the name's
-                     * existing link across the row rather than putting an
-                     * `onClick` on the `<tr>`. That keeps everything a link
-                     * gives free and a handler does not: middle-click and
-                     * ⌘-click open a payslip in a new tab, the status bar
-                     * shows where the row goes, Tab reaches it, and Enter
-                     * follows it. A clickable `<tr>` would need `role`,
-                     * `tabIndex` and a key handler to get halfway there.
-                     *
-                     * `relative` on the row is what the stretched link is
-                     * measured against — without it the overlay would size
-                     * itself to the nearest positioned ancestor, which is the
-                     * whole table.
-                     */
-                    <TR key={slip.id} interactive className="relative">
-                      <TDPrimary
-                        title={
-                          <Link
-                            href={href}
-                            className="after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
-                          >
-                            {slip.name}
-                          </Link>
-                        }
-                        subtitle={slip.employeeNo}
-                      />
-                      <TD align="right">
+            <div className="hidden sm:block">
+              <TableWrap className="rounded-none border-x-0 border-b-0">
+                <THead>
+                  <SortableTH
+                    column="name"
+                    active={list.sort}
+                    order={list.order}
+                    onSort={list.toggleSort}
+                  >
+                    Employee
+                  </SortableTH>
+                  <SortableTH
+                    column="gross"
+                    active={list.sort}
+                    order={list.order}
+                    onSort={list.toggleSort}
+                    align="right"
+                    startDescending
+                  >
+                    Gross
+                  </SortableTH>
+                  <SortableTH
+                    column="net"
+                    active={list.sort}
+                    order={list.order}
+                    onSort={list.toggleSort}
+                    align="right"
+                    startDescending
+                  >
+                    Net pay
+                  </SortableTH>
+                  <TH>Delivery</TH>
+                  <SortableTH
+                    column="emailedAt"
+                    active={list.sort}
+                    order={list.order}
+                    onSort={list.toggleSort}
+                  >
+                    Sent
+                  </SortableTH>
+                  <SortableTH
+                    column="viewedAt"
+                    active={list.sort}
+                    order={list.order}
+                    onSort={list.toggleSort}
+                  >
+                    Opened
+                  </SortableTH>
+                </THead>
+                <TBody>
+                  {page.payslips.map((slip) => {
+                    const state = DELIVERY[deliveryOf(slip)];
+                    const href = `/payroll/payslips/${slip.id}${
+                      run ? `?run=${run.id}` : ""
+                    }`;
+                    return (
+                      /**
+                       * The whole row opens the payslip, and it is still one
+                       * link.
+                       *
+                       * There was an Open button in an Actions column — a
+                       * seventh column, on every row, for the only thing this
+                       * table does. The row is the target now.
+                       *
+                       * `after:absolute after:inset-0` stretches the name's
+                       * existing link across the row rather than putting an
+                       * `onClick` on the `<tr>`. That keeps everything a link
+                       * gives free and a handler does not: middle-click and
+                       * ⌘-click open a payslip in a new tab, the status bar
+                       * shows where the row goes, Tab reaches it, and Enter
+                       * follows it. A clickable `<tr>` would need `role`,
+                       * `tabIndex` and a key handler to get halfway there.
+                       *
+                       * `relative` on the row is what the stretched link is
+                       * measured against — without it the overlay would size
+                       * itself to the nearest positioned ancestor, which is the
+                       * whole table.
+                       */
+                      <TR key={slip.id} interactive className="relative">
+                        <TDPrimary
+                          title={
+                            <Link
+                              href={href}
+                              className="after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
+                            >
+                              {slip.name}
+                            </Link>
+                          }
+                          subtitle={slip.employeeNo}
+                        />
+                        <TD align="right">
+                          <Money amount={naira(slip.grossKobo)} decimals />
+                        </TD>
+                        <TD align="right">
+                          <Money amount={naira(slip.netKobo)} decimals />
+                        </TD>
+                        <TD>
+                          <Badge tone={state.tone} size="sm" dot>
+                            {state.label}
+                          </Badge>
+                        </TD>
+                        <TD className="tabular text-muted">
+                          {stamp(slip.emailedAt)}
+                        </TD>
+                        <TD className="tabular text-muted">
+                          {stamp(slip.viewedAt)}
+                        </TD>
+                      </TR>
+                    );
+                  })}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
+              {page.payslips.map((slip) => {
+                const state = DELIVERY[deliveryOf(slip)];
+                const href = `/payroll/payslips/${slip.id}${
+                  run ? `?run=${run.id}` : ""
+                }`;
+                return (
+                  <li
+                    key={slip.id}
+                    className="relative flex flex-col gap-2 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <Link
+                          href={href}
+                          className="text-body-sm font-medium text-ink after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
+                        >
+                          {slip.name}
+                        </Link>
+                        <p className="mt-0.5 text-meta text-muted">
+                          {slip.employeeNo}
+                        </p>
+                      </div>
+                      <Badge tone={state.tone} size="sm" dot>
+                        {state.label}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">Gross</span>
+                      <span className="tabular text-body-sm text-body">
                         <Money amount={naira(slip.grossKobo)} decimals />
-                      </TD>
-                      <TD align="right">
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">Net pay</span>
+                      <span className="tabular text-body-sm font-medium text-ink">
                         <Money amount={naira(slip.netKobo)} decimals />
-                      </TD>
-                      <TD>
-                        <Badge tone={state.tone} size="sm" dot>
-                          {state.label}
-                        </Badge>
-                      </TD>
-                      <TD className="tabular text-muted">
-                        {stamp(slip.emailedAt)}
-                      </TD>
-                      <TD className="tabular text-muted">
-                        {stamp(slip.viewedAt)}
-                      </TD>
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </TableWrap>
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-muted">
+                      <span>Sent {stamp(slip.emailedAt)}</span>
+                      <span>Opened {stamp(slip.viewedAt)}</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
 
             <Pagination
               page={list.page}

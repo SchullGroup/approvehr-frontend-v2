@@ -68,6 +68,9 @@ function fromSeed(request: LeaveRequest): LeaveRow {
   const approver = request.approverId
     ? employeeById(request.approverId)
     : undefined;
+  const decider = request.decidedById
+    ? employeeById(request.decidedById)
+    : undefined;
   return {
     id: request.id,
     employeeId: request.employeeId,
@@ -87,6 +90,12 @@ function fromSeed(request: LeaveRequest): LeaveRow {
     requestedAt: request.requestedAt ?? null,
     decidedAt: request.decidedAt ?? null,
     decidedById: request.decidedById ?? null,
+    decidedByName: decider ? fullName(decider) : null,
+    decidedByJobTitle: decider?.jobTitle ?? null,
+    /* The demo has one step, so nobody has given a first approval. */
+    firstApprovedAt: null,
+    firstApprovedByName: null,
+    firstApprovedByJobTitle: null,
     decisionNote: request.decisionNote ?? null,
   };
 }
@@ -412,6 +421,7 @@ export function useLeaveTypes(): LeaveTypesState {
         requiresEvidence: type.requiresEvidence,
         minNoticeDays: type.minNoticeDays,
         isPaid: true,
+        eligibleGender: type.eligibleGender ?? null,
       })),
     [settings.leave.types],
   );
@@ -561,11 +571,18 @@ export type LeaveMutations = {
   create: (
     input: NewLeave,
   ) => Promise<{ request: LeaveRow; warnings: string[] }>;
+  /**
+   * The request as it stands after the decision, or null in demo mode.
+   *
+   * Not always the status that was asked for: with two approval steps, a first
+   * "approve" leaves the request `awaitingHr`. A screen that is about to say
+   * "approved" needs to know which it got, and the API already returns it.
+   */
   decide: (
     id: string,
     decision: "approved" | "declined",
     note?: string,
-  ) => Promise<void>;
+  ) => Promise<LeaveRow | null>;
   reopen: (id: string) => Promise<void>;
   cancel: (id: string) => Promise<void>;
   connected: boolean;
@@ -613,14 +630,15 @@ export function useLeaveMutations(): LeaveMutations {
     async (id: string, decision: "approved" | "declined", note?: string) => {
       if (!isConnected) {
         local.decide(id, decision, note);
-        return;
+        return null;
       }
-      await leaveApi.decide(
+      const decided = await leaveApi.decide(
         id,
         decision === "approved" ? "approve" : "decline",
         note,
       );
       announceApprovalChange();
+      return decided;
     },
     [isConnected, local],
   );
@@ -683,6 +701,12 @@ export type EmployeeBalancesState = {
  */
 export function useEmployeeLeaveBalances(
   employeeId: string | null,
+  /**
+   * The year to read, where it is not this one. A request for January is drawn
+   * from next year's balance, and the API answers for the current year when it
+   * is not asked.
+   */
+  year?: number,
 ): EmployeeBalancesState {
   const { isConnected } = useSession();
   const local = useLeaveBalances();
@@ -698,6 +722,9 @@ export function useEmployeeLeaveBalances(
   } | null>(null);
 
   const active = isConnected && employeeId !== null;
+  /* The year is part of what an answer belongs to, as the employee is. */
+  const key =
+    employeeId === null ? null : `${employeeId}|${String(year ?? "")}`;
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
@@ -711,19 +738,23 @@ export function useEmployeeLeaveBalances(
       try {
         const rows = await leaveApi.balances(
           employeeId,
-          undefined,
+          year,
           controller.signal,
         );
-        if (!cancelled) setFetched({ id: employeeId, rows, error: null });
+        if (!cancelled && key !== null) {
+          setFetched({ id: key, rows, error: null });
+        }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError")
           return;
         if (!cancelled) {
-          setFetched({
-            id: employeeId,
-            rows: [],
-            error: error instanceof ApiError ? error : null,
-          });
+          if (key !== null) {
+            setFetched({
+              id: key,
+              rows: [],
+              error: error instanceof ApiError ? error : null,
+            });
+          }
         }
       }
     })();
@@ -732,7 +763,7 @@ export function useEmployeeLeaveBalances(
       cancelled = true;
       controller.abort();
     };
-  }, [active, employeeId, revalidation]);
+  }, [active, employeeId, year, key, revalidation]);
 
   if (!isConnected) {
     return {
@@ -758,7 +789,7 @@ export function useEmployeeLeaveBalances(
     };
   }
 
-  const matched = fetched !== null && fetched.id === employeeId;
+  const matched = fetched !== null && fetched.id === key;
   return {
     balances: matched ? fetched.rows : [],
     loading: active && !matched,

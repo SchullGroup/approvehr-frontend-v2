@@ -6,13 +6,20 @@ import { useAi2Usage } from "@/lib/store/ai2-usage";
 import { formatDateShort } from "@/lib/time";
 
 /**
- * How much of the assistant's budget this organisation has spent, today and
- * this month. Renders nothing while offline, loading or unreadable — an
- * absent gauge is honest, a `0` one would claim a spend nobody measured.
+ * How much of the assistant's budget this organisation has spent — today and
+ * this month. Reads `useAi2Usage`, which is shared across every mount, so
+ * asking here costs no extra request. Renders nothing while offline, loading,
+ * or unreadable: an absent gauge is honest, a `0` one is a claim about spend
+ * nobody measured.
  *
- * Shows a percentage, never a token count: nobody running a company has an
- * opinion about "1.2M of 2M" tokens. Two windows because a month's budget
- * says nothing about an afternoon that just spent a third of it.
+ * The reading is a **percentage**, never a token count. A token is not a unit
+ * anybody running a company has an opinion about — "1.2M of 2M" says nothing
+ * the bar has not already said — while "61%" is the whole of what the figure
+ * is for. The server rounds it, so both ends show one number.
+ *
+ * Two windows rather than one, because a month's budget says nothing about an
+ * afternoon that spends a third of it, and the day is the window that moves
+ * fast enough to notice.
  */
 
 function toneFor(percent: number): "accent" | "warning" | "danger" {

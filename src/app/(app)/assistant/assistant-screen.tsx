@@ -20,9 +20,9 @@ import { useAssistantActions } from "@/lib/store/ai-chat";
 import { useSession } from "@/lib/store/session";
 
 /**
- * The assistant's own page, with its own address and nav item so it's not
+ * The assistant's own page. Has its own address and nav item so it is not
  * only reachable by scrolling another screen. Answers for itself when no
- * assistant is wired.
+ * assistant is wired, since the nav item is a visibility hint, not the rule.
  */
 export function AssistantScreen() {
   const { available, loading, reason } = useAssistantAvailable();

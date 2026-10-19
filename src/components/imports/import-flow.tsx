@@ -43,6 +43,77 @@ import { CheckReport } from "./check-report";
 import { ImportOutcome } from "./import-result";
 import { MatchColumns } from "./match-columns";
 
+/** A past batch's row-by-row report — one copy shared by the desktop table's
+    colSpan row and the mobile card's expanded panel. */
+function BatchDetail({
+  loading,
+  detail,
+  onChooseFile,
+}: {
+  loading: boolean;
+  detail: ApiImportBatchDetail | undefined;
+  onChooseFile: () => void;
+}) {
+  if (loading) {
+    return (
+      <span className="flex items-center gap-2 text-meta text-muted">
+        <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
+        Loading what went wrong…
+      </span>
+    );
+  }
+  if (!detail) {
+    return (
+      <span className="text-meta text-danger-text">
+        Could not load this report. Try again.
+      </span>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-2">
+        {detail.rows.map((row) => (
+          <li key={row.row} className="text-meta text-body">
+            <span className="tabular font-medium text-ink">Row {row.row}</span>{" "}
+            <span className="text-muted">
+              {row.name ?? row.employeeNo ?? "No name in this row"}
+            </span>
+            <ul className="ml-4 mt-1 flex flex-col gap-0.5">
+              {[...row.errors, ...row.warnings].map((issue, i) => (
+                <li key={i} className="text-muted">
+                  <code className="rounded bg-sunken px-1 py-0.5 text-meta">
+                    {issue.column}
+                  </code>{" "}
+                  {issue.problem}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
+        <p className="flex-1 text-meta text-muted">
+          This one did not keep its rows: it ran before we started keeping them,
+          or everything in it imported. Upload the file again to carry on.
+        </p>
+        <Button variant="secondary" size="sm" onClick={onChooseFile}>
+          <UploadCloud aria-hidden="true" className="size-3.5" />
+          Choose a file
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** What every importer asked until a surface said otherwise. */
+function useImportDataAccess(): boolean {
+  const { can, isConnected } = useSession();
+  return !isConnected || can("IMPORT_DATA");
+}
+
+/** What a surface with no lists of its own passes: nothing, so `useImport`'s default applies. */
+const useNoTemplateLists = (): undefined => undefined;
+
 /**
  * Bring a spreadsheet in. Any spreadsheet, of anything.
  *
@@ -75,13 +146,19 @@ import { MatchColumns } from "./match-columns";
  * - Offer the failures as a file, because they will be fixed in Excel.
  */
 export function ImportFlow({ surface }: { surface: ImportSurface }) {
-  const { can, isConnected } = useSession();
-  const imp = useImport(surface.dictionary);
+  /* `IMPORT_DATA` unless the surface says otherwise: it exists because one
+     careless upload creates or overwrites hundreds of records, and blast radius
+     is what a permission is for. A surface that touches no pay and whose natural
+     author holds no such permission — objectives — names its own rule, and the
+     API holds the matching line. */
+  const useAccess = surface.useAccess ?? useImportDataAccess;
+  const allowed = useAccess();
+  /* The company's own lists for the template's dropdowns, when the surface has
+     any. Always the same hook for a given surface, so it is called
+     unconditionally. */
+  const useTemplateLists = surface.useTemplateLists ?? useNoTemplateLists;
+  const imp = useImport(surface.dictionary, allowed, useTemplateLists());
   const dictionary = surface.dictionary;
-  /* One permission for every import, deliberately: `IMPORT_DATA` exists because
-     one careless upload creates or overwrites hundreds of records, and blast
-     radius is what a permission is for. It is not per-entity. */
-  const allowed = !isConnected || can("IMPORT_DATA");
 
   /* A count on every step, so nobody is ever guessing what is about to happen
      to their data. Each hint is the number that step is about, and before that
@@ -136,8 +213,14 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
           <Card>
             <EmptyState
               icon={<Lock aria-hidden="true" />}
-              title={`You do not have permission to import ${dictionary.noun.many}`}
-              description="An import can create or overwrite hundreds of pay records, so it is kept to specific people. Ask whoever set up your account to add the import permission to your role."
+              title={
+                surface.noAccess?.title ??
+                `You do not have permission to import ${dictionary.noun.many}`
+              }
+              description={
+                surface.noAccess?.description ??
+                "An import can create or overwrite hundreds of pay records, so it is kept to specific people. Ask whoever set up your account to add the import permission to your role."
+              }
             />
           </Card>
         </PageBody>
@@ -157,7 +240,13 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
             </Badge>
           )
         }
-        action={<TemplateButtons onDownload={imp.downloadTemplate} size="sm" />}
+        action={
+          <TemplateButtons
+            onDownload={imp.downloadTemplate}
+            ready={imp.templateReady}
+            size="sm"
+          />
+        }
       />
 
       <PageBody className="flex flex-col gap-6">
@@ -205,6 +294,7 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
               if (ok) stepper.goTo(1);
             }}
             onTemplate={imp.downloadTemplate}
+            templateReady={imp.templateReady}
             onResume={async (batchId) => {
               const ok = await imp.resumeFrom(batchId);
               if (ok) stepper.goTo(1);
@@ -305,15 +395,26 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
 function TemplateButtons({
   onDownload,
   size = "md",
+  ready = true,
 }: {
   onDownload: (format: "csv" | "xlsx") => void;
   size?: "sm" | "md";
+  /**
+   * False while the company's own lists are still arriving.
+   *
+   * Only the workbook waits: it is the one with dropdowns in it, and a CSV has
+   * nowhere to put a list. A workbook downloaded a moment early would have no
+   * dropdown where the company has departments, and look exactly like one that
+   * did.
+   */
+  ready?: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button
         variant="secondary"
         size={size}
+        loading={!ready}
         onClick={() => onDownload("xlsx")}
       >
         <Download aria-hidden="true" className="size-4" />
@@ -341,6 +442,7 @@ function ChooseFile({
   columns,
   onFile,
   onTemplate,
+  templateReady,
   onResume,
 }: {
   surface: ImportSurface;
@@ -349,6 +451,8 @@ function ChooseFile({
   columns: number;
   onFile: (file: File) => void | Promise<void>;
   onTemplate: (format: "csv" | "xlsx") => void;
+  /** False while the company's own template lists are still arriving. */
+  templateReady: boolean;
   /** Pick a past batch up again. Resolves false when its rows are gone. */
   onResume: (batchId: string) => Promise<boolean>;
 }) {
@@ -474,7 +578,7 @@ function ChooseFile({
             description="Every column, with an example row."
           />
           <CardBody className="flex flex-col gap-4">
-            <TemplateButtons onDownload={onTemplate} />
+            <TemplateButtons onDownload={onTemplate} ready={templateReady} />
             <div>
               <p className="text-meta font-semibold text-faint">Required</p>
               <ul className="mt-2 flex flex-wrap gap-1.5">
@@ -487,18 +591,25 @@ function ChooseFile({
                 ))}
               </ul>
             </div>
-            <div>
-              <p className="text-meta font-semibold text-faint">Recommended</p>
-              <ul className="mt-2 flex flex-wrap gap-1.5">
-                {recommended.map((spec) => (
-                  <li key={spec.field}>
-                    <code className="rounded bg-sunken px-1.5 py-0.5 text-meta text-body">
-                      {spec.column}
-                    </code>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {/* Absent for an entity with nothing recommended — objectives has two
+                required columns and everything else optional, and a heading over
+                an empty list reads as something that failed to load. */}
+            {recommended.length > 0 && (
+              <div>
+                <p className="text-meta font-semibold text-faint">
+                  Recommended
+                </p>
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {recommended.map((spec) => (
+                    <li key={spec.field}>
+                      <code className="rounded bg-sunken px-1.5 py-0.5 text-meta text-body">
+                        {spec.column}
+                      </code>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {/* Was three sentences plus a per-entity `keyNote` explaining why
                 the match key is refused rather than generated. Copy that has to
                 explain the design is a sign the design needs no explaining: the
@@ -520,162 +631,201 @@ function ChooseFile({
             title="Imports before this one"
             description="What each file did, and who ran it."
           />
-          <TableWrap
-            className="rounded-none border-0 border-t border-line"
-            caption="Past imports: click a resumable one to carry on, or one with rows skipped to see what went wrong"
-          >
-            <THead>
-              <TH>File</TH>
-              <TH>What it did</TH>
-              <TH>Ran by</TH>
-              <TH>When</TH>
-            </THead>
-            <TBody>
-              {history.rows.map((batch) => {
-                const hasReport = batch.failed > 0;
-                const open = openBatch === batch.id;
-                const detail = details[batch.id];
-                const isResuming = resuming === batch.id;
-                /* Resumable rows act immediately — the long row-by-row report
-                   is what the product owner's own words called out: nobody
-                   wants to read why 30 rows failed on the way to fixing it,
-                   they want the wizard. Everything else still expands, because
-                   there is nothing to jump into and reading why is the only
-                   thing left to offer. */
-                const rowClick = batch.resumable
-                  ? () => {
-                      setResuming(batch.id);
-                      void onResume(batch.id).finally(() => setResuming(null));
-                    }
-                  : hasReport
-                    ? () => toggleBatch(batch.id)
-                    : undefined;
-                return (
-                  <Fragment key={batch.id}>
-                    <TR
-                      interactive={Boolean(rowClick)}
-                      onClick={isResuming ? undefined : rowClick}
-                      aria-expanded={
-                        !batch.resumable && hasReport ? open : undefined
+          <div className="hidden sm:block">
+            <TableWrap
+              className="rounded-none border-0 border-t border-line"
+              caption="Past imports: click a resumable one to carry on, or one with rows skipped to see what went wrong"
+            >
+              <THead>
+                <TH>File</TH>
+                <TH>What it did</TH>
+                <TH>Ran by</TH>
+                <TH>When</TH>
+              </THead>
+              <TBody>
+                {history.rows.map((batch) => {
+                  const hasReport = batch.failed > 0;
+                  const open = openBatch === batch.id;
+                  const detail = details[batch.id];
+                  const isResuming = resuming === batch.id;
+                  /* Resumable rows act immediately — the long row-by-row report
+                     is what the product owner's own words called out: nobody
+                     wants to read why 30 rows failed on the way to fixing it,
+                     they want the wizard. Everything else still expands, because
+                     there is nothing to jump into and reading why is the only
+                     thing left to offer. */
+                  const rowClick = batch.resumable
+                    ? () => {
+                        setResuming(batch.id);
+                        void onResume(batch.id).finally(() =>
+                          setResuming(null),
+                        );
                       }
-                    >
-                      <TDPrimary
-                        title={batch.filename}
-                        subtitle={`${batch.totalRows.toLocaleString("en-NG")} rows`}
-                      />
-                      <TD>
-                        <span className="flex items-center gap-1.5 text-meta text-body">
-                          {isResuming
-                            ? "Picking up where it stopped…"
-                            : batch.summary}
-                          {isResuming ? (
-                            <Loader2
-                              aria-hidden="true"
-                              className="size-3.5 animate-spin text-muted"
-                            />
-                          ) : batch.resumable ? (
-                            <ArrowRight
-                              aria-hidden="true"
-                              className="size-3.5 text-accent-text"
-                            />
-                          ) : (
-                            hasReport && (
-                              <ChevronDown
-                                aria-hidden="true"
-                                className={cn(
-                                  "size-3.5 text-muted transition-transform",
-                                  open && "rotate-180",
-                                )}
-                              />
-                            )
-                          )}
-                        </span>
-                      </TD>
-                      <TD>
-                        <span className="text-meta text-body">{batch.by}</span>
-                      </TD>
-                      <TD>
-                        <span className="flex items-center gap-1.5 text-meta text-muted">
-                          <Clock aria-hidden="true" className="size-3.5" />
-                          {formatDate(batch.createdAt, timeZone)}
-                        </span>
-                      </TD>
-                    </TR>
-                    {/* Never reached for a resumable batch — see `rowClick`. */}
-                    {open && !batch.resumable && (
-                      <TR className="bg-sunken/60">
-                        <TD colSpan={4} className="py-4">
-                          {loadingBatch === batch.id && !detail ? (
-                            <span className="flex items-center gap-2 text-meta text-muted">
+                    : hasReport
+                      ? () => toggleBatch(batch.id)
+                      : undefined;
+                  return (
+                    <Fragment key={batch.id}>
+                      <TR
+                        interactive={Boolean(rowClick)}
+                        onClick={isResuming ? undefined : rowClick}
+                        aria-expanded={
+                          !batch.resumable && hasReport ? open : undefined
+                        }
+                      >
+                        <TDPrimary
+                          title={batch.filename}
+                          subtitle={`${batch.totalRows.toLocaleString("en-NG")} rows`}
+                        />
+                        <TD>
+                          <span className="flex items-center gap-1.5 text-meta text-body">
+                            {isResuming
+                              ? "Picking up where it stopped…"
+                              : batch.summary}
+                            {isResuming ? (
                               <Loader2
                                 aria-hidden="true"
-                                className="size-3.5 animate-spin"
+                                className="size-3.5 animate-spin text-muted"
                               />
-                              Loading what went wrong…
-                            </span>
-                          ) : detail ? (
-                            <div className="flex flex-col gap-3">
-                              <ul className="flex flex-col gap-2">
-                                {detail.rows.map((row) => (
-                                  <li
-                                    key={row.row}
-                                    className="text-meta text-body"
-                                  >
-                                    <span className="tabular font-medium text-ink">
-                                      Row {row.row}
-                                    </span>{" "}
-                                    <span className="text-muted">
-                                      {row.name ??
-                                        row.employeeNo ??
-                                        "No name in this row"}
-                                    </span>
-                                    <ul className="ml-4 mt-1 flex flex-col gap-0.5">
-                                      {[...row.errors, ...row.warnings].map(
-                                        (issue, i) => (
-                                          <li key={i} className="text-muted">
-                                            <code className="rounded bg-sunken px-1 py-0.5 text-meta">
-                                              {issue.column}
-                                            </code>{" "}
-                                            {issue.problem}
-                                          </li>
-                                        ),
-                                      )}
-                                    </ul>
-                                  </li>
-                                ))}
-                              </ul>
-                              <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
-                                <p className="flex-1 text-meta text-muted">
-                                  This one did not keep its rows: it ran before
-                                  we started keeping them, or everything in it
-                                  imported. Upload the file again to carry on.
-                                </p>
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  onClick={() => input.current?.click()}
-                                >
-                                  <UploadCloud
-                                    aria-hidden="true"
-                                    className="size-3.5"
-                                  />
-                                  Choose a file
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-meta text-danger-text">
-                              Could not load this report. Try again.
-                            </span>
-                          )}
+                            ) : batch.resumable ? (
+                              <ArrowRight
+                                aria-hidden="true"
+                                className="size-3.5 text-accent-text"
+                              />
+                            ) : (
+                              hasReport && (
+                                <ChevronDown
+                                  aria-hidden="true"
+                                  className={cn(
+                                    "size-3.5 text-muted transition-transform",
+                                    open && "rotate-180",
+                                  )}
+                                />
+                              )
+                            )}
+                          </span>
+                        </TD>
+                        <TD>
+                          <span className="text-meta text-body">
+                            {batch.by}
+                          </span>
+                        </TD>
+                        <TD>
+                          <span className="flex items-center gap-1.5 text-meta text-muted">
+                            <Clock aria-hidden="true" className="size-3.5" />
+                            {formatDate(batch.createdAt, timeZone)}
+                          </span>
                         </TD>
                       </TR>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </TBody>
-          </TableWrap>
+                      {/* Never reached for a resumable batch — see `rowClick`. */}
+                      {open && !batch.resumable && (
+                        <TR className="bg-sunken/60">
+                          <TD colSpan={4} className="py-4">
+                            <BatchDetail
+                              loading={loadingBatch === batch.id && !detail}
+                              detail={detail}
+                              onChooseFile={() => input.current?.click()}
+                            />
+                          </TD>
+                        </TR>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </TBody>
+            </TableWrap>
+          </div>
+
+          <ul className="divide-y divide-line border-t border-line sm:hidden">
+            {history.rows.map((batch) => {
+              const hasReport = batch.failed > 0;
+              const open = openBatch === batch.id;
+              const detail = details[batch.id];
+              const isResuming = resuming === batch.id;
+              const rowClick = batch.resumable
+                ? () => {
+                    setResuming(batch.id);
+                    void onResume(batch.id).finally(() => setResuming(null));
+                  }
+                : hasReport
+                  ? () => toggleBatch(batch.id)
+                  : undefined;
+              return (
+                <li key={batch.id} className="flex flex-col">
+                  <button
+                    type="button"
+                    disabled={!rowClick || isResuming}
+                    aria-expanded={
+                      !batch.resumable && hasReport ? open : undefined
+                    }
+                    onClick={isResuming ? undefined : rowClick}
+                    className="flex w-full flex-col gap-2 p-4 text-left disabled:cursor-default"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-body-sm font-medium text-ink">
+                        {batch.filename}
+                      </p>
+                      <p className="mt-0.5 text-meta text-muted">
+                        {batch.totalRows.toLocaleString("en-NG")} rows
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-1.5 text-meta text-body">
+                        {isResuming
+                          ? "Picking up where it stopped…"
+                          : batch.summary}
+                        {isResuming ? (
+                          <Loader2
+                            aria-hidden="true"
+                            className="size-3.5 animate-spin text-muted"
+                          />
+                        ) : batch.resumable ? (
+                          <ArrowRight
+                            aria-hidden="true"
+                            className="size-3.5 text-accent-text"
+                          />
+                        ) : (
+                          hasReport && (
+                            <ChevronDown
+                              aria-hidden="true"
+                              className={cn(
+                                "size-3.5 text-muted transition-transform",
+                                open && "rotate-180",
+                              )}
+                            />
+                          )
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-meta text-muted">Ran by</span>
+                      <span className="text-meta text-body">{batch.by}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-meta text-muted">When</span>
+                      <span className="flex items-center gap-1.5 text-meta text-muted">
+                        <Clock aria-hidden="true" className="size-3.5" />
+                        {formatDate(batch.createdAt, timeZone)}
+                      </span>
+                    </div>
+                  </button>
+
+                  {open && !batch.resumable && (
+                    <div className="border-t border-line bg-sunken/60 p-4">
+                      <BatchDetail
+                        loading={loadingBatch === batch.id && !detail}
+                        detail={detail}
+                        onChooseFile={() => input.current?.click()}
+                      />
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         </Card>
       )}
     </div>

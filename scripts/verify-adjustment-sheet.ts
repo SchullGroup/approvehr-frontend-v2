@@ -199,13 +199,15 @@ async function main() {
     );
     check(
       "overtime off drops one column",
-      headings({ overtime: false, bonus: true }).includes("overtime_hours"),
+      headings({ overtime: false, bonus: true }).includes(
+        headingOf("overtime_hours"),
+      ),
       false,
     );
     check(
       "bonus off drops the figure and its reason",
       headings({ overtime: true, bonus: false }).filter((h) =>
-        h.startsWith("bonus"),
+        h.startsWith("Bonus"),
       ),
       [],
     );
@@ -221,7 +223,7 @@ async function main() {
     for (const key of ["staff_no", "monthly_salary", "paye_tax", "deduction"]) {
       check(
         `${key} survives both switches`,
-        headings({ overtime: false, bonus: false }).includes(key),
+        headings({ overtime: false, bonus: false }).includes(headingOf(key)),
         true,
       );
     }
@@ -252,6 +254,59 @@ async function main() {
     check("the bonus still parses", sheet.rows[0]?.bonusKobo, 50_000_00);
     check("so do the hours", sheet.rows[0]?.overtimeHours, 6);
     check("and nothing is reported as ignored", sheet.ignored, []);
+  }
+
+  /* ------------------------------------------------- headings are words */
+
+  console.log("\nHeadings read as words, and the old ones still work");
+  {
+    check(
+      "no heading reads like a field name",
+      SHEET_COLUMNS.filter((c) => /[_]/.test(c.heading)).map((c) => c.key),
+      [],
+    );
+    const own = SHEET_COLUMNS.map((c) => c.heading.toLowerCase());
+    check("every heading is its own", new Set(own).size, own.length);
+
+    /* The reason the keys stay as a second spelling: a sheet downloaded before
+       the headings were reworded says `staff_no` and `paye_tax`, and has to
+       read exactly as one downloaded since. */
+    const old = await csv("staff_no,paye_tax\nAHR-0001,5000\n");
+    const now = await csv(`${STAFF},${PAYE}\nAHR-0001,5000\n`);
+    check("an old sheet and a new one read the same", old.rows, now.rows);
+    check("and carry the same columns", old.carried, now.carried);
+    check(
+      "neither reports anything ignored",
+      [old.ignored, now.ignored],
+      [[], []],
+    );
+    check(
+      "case and spacing do not matter",
+      (await csv("STAFF  NUMBER,paye TAX\nAHR-0001,5000\n")).rows,
+      now.rows,
+    );
+
+    check(
+      "a key we do not know is shown as it came",
+      headingOf("nope"),
+      "nope",
+    );
+
+    const noStaff = await csv(`${PAYE}\n5000\n`);
+    check(
+      "the refusal names the column by its heading",
+      /Staff number/.test(noStaff.problems[0]?.problem ?? "") &&
+        !/staff_no/.test(noStaff.problems[0]?.problem ?? ""),
+      true,
+    );
+    const nothingRead = await csv(`${STAFF},Favourite colour\nAHR-0001,blue\n`);
+    check(
+      "and so does the one about no figures at all",
+      /Monthly pay \(gross\), Overtime hours, Bonus, Deduction, PAYE tax, Pension or NHF/.test(
+        nothingRead.problems[0]?.problem ?? "",
+      ),
+      true,
+    );
   }
 
   console.log(

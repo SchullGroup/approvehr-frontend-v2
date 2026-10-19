@@ -13,6 +13,7 @@ import {
   ProgressMeter,
   Select,
   Skeleton,
+  SuccessMoment,
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
@@ -1231,63 +1232,59 @@ function Done({
 }) {
   return (
     <Frame nudge={nudge}>
-      <span className="flex size-10 items-center justify-center rounded-full bg-success-soft text-success-text">
-        <Check aria-hidden="true" strokeWidth={2.5} className="size-5" />
-      </span>
-
-      <h1 className="mt-5 text-h3 text-ink sm:text-h2">
-        {returning ? "You are set up" : "That is it: you are set up"}
-      </h1>
-      <p className="mt-3 text-lead text-body">
-        Paying people, payslips and leave are on for everybody. You also have:
-      </p>
-
-      <ul className="mt-6 flex flex-col gap-3.5">
-        {flags.map((key) => (
-          <li key={key} className="flex gap-3">
-            <Check
-              aria-hidden="true"
-              strokeWidth={2.5}
-              className="mt-0.5 size-4 shrink-0 text-success-text"
-            />
-            <span className="min-w-0">
-              <span className="block text-body-sm font-medium text-ink">
-                {FEATURE_COPY[key].label}
-                {/* The tick beside this list means "switched on", and for a
-                    module that is not built yet that reads as "here now".
-                    The sidebar has always said Coming soon; this said the
-                    opposite on the screen somebody sees first. */}
-                {FEATURE_COPY[key].soon && (
-                  <span className="ml-1.5 font-normal text-muted">
-                    (coming soon)
-                  </span>
-                )}
-              </span>
-              <span className="mt-0.5 block text-body-sm text-muted">
-                {FEATURE_COPY[key].line}
-              </span>
+      {/* Replaces the whole page, so focus moves to the heading: the button
+          that was pressed to get here is gone. */}
+      <SuccessMoment
+        headingLevel={1}
+        markSize="lg"
+        focusHeading
+        title={returning ? "You are set up" : "That is it: you are set up"}
+        /* "You also have:" introduces the list. With nothing switched on there
+           is no list, and a colon with nothing after it reads as broken. */
+        lead={
+          flags.length > 0
+            ? "Paying people, payslips and leave are on for everybody. You also have:"
+            : "Paying people, payslips and leave are on for everybody."
+        }
+        details={flags.map((key) => (
+          <span key={key} className="block">
+            <span className="block font-medium text-ink">
+              {FEATURE_COPY[key].label}
+              {/* The tick beside this list means "switched on", and for a
+                  module that is not built yet that reads as "here now".
+                  The sidebar has always said Coming soon; this said the
+                  opposite on the screen somebody sees first. */}
+              {FEATURE_COPY[key].soon && (
+                <span className="ml-1.5 font-normal text-muted">
+                  (coming soon)
+                </span>
+              )}
             </span>
-          </li>
+            <span className="mt-0.5 block text-muted">
+              {FEATURE_COPY[key].line}
+            </span>
+          </span>
         ))}
-      </ul>
-
-      <div className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <ButtonLink href="/people/new" variant="accent" size="lg">
-          Add your first employee
-        </ButtonLink>
-        <Link
-          href="/dashboard"
-          className="text-body-sm font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
-        >
-          Go to the dashboard
-        </Link>
-        <Link
-          href="/settings/features"
-          className="text-body-sm font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
-        >
-          Turn on more features
-        </Link>
-      </div>
+        actions={
+          <>
+            <ButtonLink href="/people/new" variant="accent" size="lg">
+              Add your first employee
+            </ButtonLink>
+            <Link
+              href="/dashboard"
+              className="text-body-sm font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
+            >
+              Go to the dashboard
+            </Link>
+            <Link
+              href="/settings/features"
+              className="text-body-sm font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
+            >
+              Turn on more features
+            </Link>
+          </>
+        }
+      />
     </Frame>
   );
 }

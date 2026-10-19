@@ -59,6 +59,20 @@ describe("one label, the destination that belongs to the reader", () => {
     expect(hrefFor("Equipment", EMPLOYEE)).toBe("/equipment");
   });
 
+  it("gives an employee Exit management, which this file's own header names", () => {
+    /* The header above lists Documents, Equipment **and Exit management** as
+       the three that left an employee with no sidebar entry, and this file
+       then fixed and tested two of them. The third kept `permission:
+       "EDIT_RECORDS"` and a tester opening staging as an employee reported
+       "there is no exit management at the employee view" — which was true.
+
+       Same route for both readers, not a `personalHref`: the screen narrows by
+       who is asking (see `offboarding-screen.test.tsx`), so there is no
+       separate employee page to point at. */
+    expect(hrefFor("Exit management", EMPLOYEE)).toBe("/people/offboarding");
+    expect(hrefFor("Exit management", HR)).toBe("/people/offboarding");
+  });
+
   it("does not give HR two rows for one noun", () => {
     /* The obvious alternative — a second "My documents" entry — grows a
        sidebar this product deliberately keeps short, which is the argument
@@ -71,6 +85,7 @@ describe("one label, the destination that belongs to the reader", () => {
     ).flatMap((group) => group.items.map((item) => item.label));
     expect(labels.filter((l) => l === "Documents")).toHaveLength(1);
     expect(labels.filter((l) => l === "Equipment")).toHaveLength(1);
+    expect(labels.filter((l) => l === "Exit management")).toHaveLength(1);
   });
 
   it("still hides the row when the company has the module switched off", () => {

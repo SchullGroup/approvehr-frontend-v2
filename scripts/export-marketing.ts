@@ -126,6 +126,7 @@ const COPY: string[] = [
   "src/app/layout.tsx",
   "src/app/globals.css",
   "src/app/favicon.ico",
+  "src/app/opengraph-image.tsx",
   "src/app/sitemap.ts",
   "src/app/robots.ts",
   "src/app/(marketing)",

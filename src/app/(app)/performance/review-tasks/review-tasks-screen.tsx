@@ -1,6 +1,8 @@
 "use client";
 
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { WorkEvidence } from "@/components/performance/work-evidence";
+import { useSession } from "@/lib/store/session";
 import { MyTasksPanel } from "../my-tasks";
 import { ReviewTasksTab } from "../review-tasks";
 import { StartPeriodButton } from "../start-period";
@@ -18,8 +20,13 @@ import { StartPeriodButton } from "../start-period";
  * `ReviewTasksTab` renders nothing at all when the queue is empty — so for
  * most of the company this page is exactly what it should be, and for a
  * manager it is both jobs in the order they do them.
+ *
+ * Tickets synced from Jira arrive in both halves on their own: as tasks in
+ * your week, waiting on a grade, and in your manager's queue with a one-click
+ * "mark synced tasks done".
  */
 export function ReviewTasksScreen() {
+  const { employeeId } = useSession();
   return (
     <>
       <PageHeader
@@ -29,6 +36,13 @@ export function ReviewTasksScreen() {
       />
       <PageBody className="flex flex-col gap-6">
         <MyTasksPanel />
+        {/* Your own tickets from a connected tool, last 90 days. Renders
+            nothing until the company connects one. */}
+        <WorkEvidence
+          employeeId={employeeId}
+          range={{}}
+          title="Your tickets from connected tools"
+        />
         <ReviewTasksTab />
       </PageBody>
     </>

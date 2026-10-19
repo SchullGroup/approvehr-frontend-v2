@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   Callout,
   Card,
@@ -9,6 +8,7 @@ import {
   CardHeader,
   Spinner,
   Switch,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
@@ -76,12 +76,9 @@ export function ExtrasPanel() {
           level={3}
         />
         <CardBody>
-          <Link
-            href="/settings/bank-accounts"
-            className="text-body-sm font-medium text-accent-text hover:underline underline-offset-4"
-          >
+          <TextLink href="/settings/bank-accounts" className="text-body-sm">
             Open bank accounts
-          </Link>
+          </TextLink>
         </CardBody>
       </Card>
     </div>

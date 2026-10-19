@@ -490,9 +490,23 @@ export function useApplications(filters: ApplicationFilters = {}) {
         body: AdvanceBody = {},
       ): Promise<{ note: string; candidateId: string }> => {
         guard();
-        const result = await careersApi.advance(id, body);
-        await load();
-        return { note: result.note, candidateId: result.candidateId };
+        /* `load()` runs whether this succeeds or refuses. The commonest
+           refusal is somebody else — the requisition's own screening panel,
+           another tab, another recruiter — having already advanced this same
+           application a moment earlier; the API names that in a 409 and both
+           of this action's entry points already show it via `fail()`, but
+           the row that triggered it kept reading "Waiting" with a live
+           Advance button until an unrelated reload, so pressing it again
+           just reproduced the identical refusal. Reloading here reconciles
+           the list with what the server just revealed, on the failure path
+           precisely because that is the path where the local list is now
+           wrong. */
+        try {
+          const result = await careersApi.advance(id, body);
+          return { note: result.note, candidateId: result.candidateId };
+        } finally {
+          await load();
+        }
       },
       [guard, load],
     ),
@@ -500,9 +514,12 @@ export function useApplications(filters: ApplicationFilters = {}) {
     decline: useCallback(
       async (id: string, reason?: string): Promise<{ note: string }> => {
         guard();
-        const result = await careersApi.decline(id, reason);
-        await load();
-        return { note: result.note };
+        try {
+          const result = await careersApi.decline(id, reason);
+          return { note: result.note };
+        } finally {
+          await load();
+        }
       },
       [guard, load],
     ),

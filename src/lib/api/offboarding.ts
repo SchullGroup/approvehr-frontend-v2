@@ -610,8 +610,13 @@ export const EXIT_KINDS: { value: ExitKind; label: string; help: string }[] = [
   },
 ];
 
-/** What an employee may start for themselves. The API enforces the same two. */
-export const SELF_SERVICE_KINDS: ExitKind[] = ["RESIGNATION", "RETIREMENT"];
+/**
+ * What a non-HR starter may record — themselves, or somebody in a department
+ * they head. `offboarding/service.ts#create` applies the identical
+ * restriction to both cases in one guard (`(self || leadsDepartment) &&
+ * !isHr`), so this is one list for both rather than one per caller.
+ */
+export const NON_HR_EXIT_KINDS: ExitKind[] = ["RESIGNATION", "RETIREMENT"];
 
 /** Group labels, for a screen rendering a group that has no tasks in it yet. */
 export const TASK_KIND_LABELS: Record<ExitTaskKind, string> = {

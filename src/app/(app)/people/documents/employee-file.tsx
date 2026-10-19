@@ -1,21 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { FileText, Plus } from "lucide-react";
+import { useMemo, useState } from "react";
+import { FileSignature, FileText, Plus } from "lucide-react";
 import {
+  Badge,
   Button,
   Checkbox,
   ConfirmDialog,
   Drawer,
   EmptyState,
   Spinner,
+  TextLink,
   useToast,
 } from "@/components/ui";
+import { ExportButton } from "@/components/portal/export-button";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
+import { cn } from "@/lib/cn";
 import type { ApiDocument, ApiDocumentRequest } from "@/lib/api/documents";
+import {
+  STATUS_LABELS,
+  signaturesApi,
+  type ApiSignature,
+} from "@/lib/api/signatures";
 import { useEmployeeFile } from "@/lib/store/documents";
+import { useSignatures } from "@/lib/store/signatures";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateShort } from "@/lib/time";
+import { TONE, overdueBy } from "../signatures/signatures-screen";
 import {
   AddDocumentModal,
   AttachDocumentModal,
@@ -36,6 +48,21 @@ import { DocumentRow, RequestRow } from "./document-rows";
  * checked before it renders this. Removing a document needs it even for your
  * own, deliberately: letting somebody archive the certificate they submitted is
  * how proof of a qualification quietly disappears.
+ *
+ * ## A signatures section, read-only, never merged with the documents above
+ *
+ * Signing and filing are different workflows — one tracks expiry, the other
+ * sends a document for a legal, fingerprinted signature — and merging their
+ * screens would force one mental model onto both. What was missing was
+ * cheaper than a merge: this file's own signature requests, so HR looking at
+ * somebody's record does not have to separately remember to check
+ * `/people/signatures` for them. `useSignatures()` with no status filter is
+ * what an `EDIT_RECORDS` holder already gets back as the **whole company's**
+ * list — this drawer is already gated on that permission — so filtering it to
+ * `signerId === employeeId` costs no extra request. Absent, not empty-stated,
+ * when there are none: most files will have zero, and "0 signatures" for
+ * every person who has never been sent a contract is noise the "Still waiting"
+ * and "On file" sections already avoid.
  */
 export function EmployeeFileDrawer({
   employeeId,
@@ -50,6 +77,20 @@ export function EmployeeFileDrawer({
   const [includeArchived, setIncludeArchived] = useState(false);
   const file = useEmployeeFile(employeeId, includeArchived);
   const toast = useToast();
+
+  /* See the header: the whole company's list when connected with
+     EDIT_RECORDS, which this drawer already requires — filtered here rather
+     than asked for narrower, since there is no per-signer query param and
+     asking would be a second permission question this screen has already
+     answered. `null` (not connected, or nothing loaded yet) reads as none. */
+  const signatures = useSignatures();
+  const mySignatures = useMemo(
+    () =>
+      (signatures.data ?? []).filter(
+        (record) => record.signerId === employeeId,
+      ),
+    [signatures.data, employeeId],
+  );
 
   const [adding, setAdding] = useState(false);
   const [attaching, setAttaching] = useState<ApiDocumentRequest | null>(null);
@@ -85,12 +126,12 @@ export function EmployeeFileDrawer({
         footer={
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
             {file.file ? (
-              <Link
+              <TextLink
                 href={`/people/${file.file.employeeId}`}
-                className="text-body-sm text-accent-text underline-offset-4 hover:underline"
+                className="text-body-sm font-normal"
               >
                 Open their record
-              </Link>
+              </TextLink>
             ) : (
               <span />
             )}
@@ -230,6 +271,17 @@ export function EmployeeFileDrawer({
                 ))
               )}
             </section>
+
+            {mySignatures.length > 0 && (
+              <section className="flex flex-col gap-2">
+                <h3 className="text-body-sm font-semibold text-ink">
+                  Signatures
+                </h3>
+                {mySignatures.map((record) => (
+                  <SignatureRow key={record.id} record={record} />
+                ))}
+              </section>
+            )}
           </div>
         )}
       </Drawer>
@@ -304,5 +356,84 @@ export function EmployeeFileDrawer({
         }}
       />
     </>
+  );
+}
+
+/**
+ * One signature request, in the compact row shape `document-rows.tsx` already
+ * established for this drawer — not the full `Card` `/people/signatures`
+ * itself renders, which carries a fingerprint disclosure and dialogs this
+ * read-only list has no use for. Status and dates only; sending a new one, or
+ * acting on a pending one, stays on that screen.
+ */
+function SignatureRow({ record }: { record: ApiSignature }) {
+  const timeZone = useOrgTimezone();
+  const overdueDays = overdueBy(record, timeZone);
+
+  const secondary = [
+    record.status === "SIGNED" && record.signedAt
+      ? `Signed ${formatDateShort(record.signedAt, timeZone)}`
+      : null,
+    record.status === "DECLINED" && record.declineReason
+      ? `Declined: ${record.declineReason}`
+      : null,
+    record.status === "PENDING" && record.dueDate
+      ? `Due ${formatDateShort(record.dueDate, timeZone)}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-3 rounded-md border p-3",
+        overdueDays !== null && overdueDays > 0
+          ? "border-danger-line bg-danger-soft/40"
+          : "border-line",
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sunken text-muted [&>svg]:size-4"
+      >
+        <FileSignature />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+          {record.title}
+          {overdueDays !== null && overdueDays > 0 && (
+            <Badge tone="danger" size="sm" dot>
+              {overdueDays === 0
+                ? "Due today"
+                : `${String(overdueDays)} ${overdueDays === 1 ? "day" : "days"} overdue`}
+            </Badge>
+          )}
+          <Badge tone={TONE[record.status]} size="sm" dot>
+            {STATUS_LABELS[record.status]}
+          </Badge>
+        </p>
+        {secondary && (
+          <p className="mt-0.5 text-body-sm text-muted">{secondary}</p>
+        )}
+      </div>
+      <div className="flex shrink-0 flex-wrap gap-1.5">
+        <ExportButton
+          label="Read"
+          download={() => signaturesApi.document(record.id, record.title)}
+        />
+        {record.status === "SIGNED" && (
+          <ExportButton
+            label="Certificate"
+            download={() =>
+              signaturesApi.certificate(
+                record.id,
+                `certificate-${record.title}`,
+              )
+            }
+          />
+        )}
+      </div>
+    </div>
   );
 }

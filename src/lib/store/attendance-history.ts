@@ -13,7 +13,11 @@ import {
   isWorkingDay,
   rosterFor,
 } from "@/lib/workflows/attendance";
-import { useAttendanceStore, type AttendanceSource } from "./attendance";
+import {
+  useAttendanceStore,
+  useClockGeneration,
+  type AttendanceSource,
+} from "./attendance";
 import { useEmployeeStore } from "./employees";
 import { useLeaveStore } from "./leave";
 import { useOrgTimezone, useSession } from "./session";
@@ -123,6 +127,12 @@ export function useAttendanceMonth(month: string): AttendanceMonthState {
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
   const revalidation = useRevalidation();
+  /* And when a clock or a correction is accepted from anywhere in this browser:
+     a correction typed on this very screen moves a cell of the grid. In the
+     effect's dependency list and not in `key`, so the counts are replaced when
+     they land rather than blanked behind a skeleton — same rule the roster
+     read follows. */
+  const clocked = useClockGeneration();
   useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -159,7 +169,7 @@ export function useAttendanceMonth(month: string): AttendanceMonthState {
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, month, key, revalidation, timeZone]);
+  }, [isConnected, month, key, revalidation, clocked, timeZone]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 

@@ -10,6 +10,7 @@ import {
   RadioCard,
   Select,
   Textarea,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import {
@@ -17,6 +18,7 @@ import {
   ratingWordsFrom,
   weightLabel,
   type ApiAppraiserContext,
+  type AnswerBody,
   type ApiFormQuestion,
   type ApiRatingScale,
 } from "@/lib/api/performance";
@@ -131,6 +133,45 @@ export function filled(question: ApiFormQuestion, held: Draft): boolean {
     default:
       return Boolean(held.text && held.text.trim());
   }
+}
+
+/**
+ * What to send for one question, or null when there is nothing to send.
+ *
+ * Only what has actually been typed. Re-answering replaces on the API side, and
+ * an empty box is not an instruction to clear an answer, so it sends nothing.
+ *
+ * Shared by the popup form and the full-page one, which would otherwise carry
+ * two copies of "how a draft becomes a request" and drift apart.
+ */
+export function answerBodyFor(
+  question: ApiFormQuestion,
+  held: Draft,
+): AnswerBody | null {
+  const body: AnswerBody = { questionId: question.id };
+  if (question.kind === "RATING" && held.rating) {
+    body.ratingValue = Number(held.rating);
+  } else if (question.kind === "CHOICE" && held.choice) {
+    body.choiceValue = held.choice;
+  } else if (question.kind === "BOOLEAN" && held.bool) {
+    body.boolValue = held.bool === "yes";
+  } else if (question.kind === "FILE" && held.file) {
+    /* Only when a file was picked **in this session**. A question whose
+       evidence is already on the record has no `file` in the draft, and
+       re-sending it is not possible — the bytes are behind a download
+       route, not in the browser. So this saves a replacement and leaves
+       an unchanged answer alone, which is what `respond` expects. */
+    body.file = {
+      filename: held.file.filename,
+      contentType: held.file.mimeType,
+      contentBase64: held.file.contentBase64,
+    };
+  } else if (held.text && held.text.trim()) {
+    body.textValue = held.text.trim();
+  } else {
+    return null;
+  }
+  return body;
 }
 
 /** A size somebody can read, for a file they are about to open. */
@@ -287,17 +328,16 @@ export function PeriodFraming({
       )}
       {guideUrl && (
         <p className={cn("text-body-sm", (period || instructions) && "mt-2")}>
-          <a
+          <TextLink
             href={guideUrl}
             target="_blank"
             /* `noreferrer` as well as `noopener`: the guide is a URL somebody
                at the company typed, and it has no business being told which
                appraisal screen the reader came from. */
             rel="noopener noreferrer"
-            className="font-medium text-accent-text underline-offset-2 hover:underline"
           >
             Read the company&apos;s guide
-          </a>
+          </TextLink>
         </p>
       )}
     </div>

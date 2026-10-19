@@ -3,7 +3,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { Pencil, X } from "lucide-react";
 import {
-  Badge,
   Button,
   Card,
   CardBody,
@@ -172,13 +171,17 @@ export type EditableField = {
   /** Rendered when the value is absent and the section is not being edited. */
   emptyLabel?: string;
   /**
-   * The empty state is ordinary, not a gap worth flagging red.
+   * The empty state actually stops something — red rather than the muted
+   * default every other gap gets.
    *
-   * The reporting line is the case this exists for: the one person with no
-   * manager is usually the head of the company, not a record missing
-   * something the way an unset bank account or pension PIN is.
+   * Reserve this for a field `payrollGapsFor` marks `blocking: true` (today,
+   * only `bankAccount`: no account, no payslip). Every other gap on this page
+   * — a pension PIN, a TIN, a date of birth, a home address — is worth
+   * recording but does not stop anybody being paid, and a record with six
+   * fields left blank should not read as six emergencies. Muted is still a
+   * fact worth noticing, not a claim that something is broken.
    */
-  emptyIsNormal?: boolean;
+  emptyIsUrgent?: boolean;
   /** Formats the stored value for display. */
   format?: (v: unknown) => React.ReactNode;
   /**
@@ -494,9 +497,9 @@ export function EditableSection({
             {value === null || value === undefined || value === "" ? (
               <span
                 className={
-                  f.emptyIsNormal
-                    ? "text-muted"
-                    : "font-medium text-danger-text"
+                  f.emptyIsUrgent
+                    ? "font-medium text-danger-text"
+                    : "text-muted"
                 }
               >
                 {f.emptyLabel ?? "Not provided"}
@@ -670,10 +673,6 @@ export function EditableSection({
             {groups.map((group, index) => {
               const own = fields.filter((f) => f.group === group.id);
               if (own.length === 0) return null;
-              const empty = own.filter((f) => {
-                const value = valueOf(f);
-                return value === null || value === undefined || value === "";
-              });
               return (
                 <Disclosure
                   key={group.id}
@@ -687,19 +686,6 @@ export function EditableSection({
                       ) : null}
                       {group.title}
                     </span>
-                  }
-                  meta={
-                    empty.length > 0 ? (
-                      <Badge tone="warning" size="sm">
-                        {empty.map((f) => f.label).join(", ")}
-                      </Badge>
-                    ) : (
-                      <Badge tone="neutral" size="sm">
-                        {own.length === 1
-                          ? "On file"
-                          : `All ${String(own.length)} on file`}
-                      </Badge>
-                    )
                   }
                   {...(group.hint ? { hint: group.hint } : {})}
                 >

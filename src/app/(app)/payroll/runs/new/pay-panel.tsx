@@ -24,7 +24,11 @@ import type { PayrollRunDetail } from "@/lib/api/payroll";
 import { availableFigure } from "@/lib/api/payments";
 import type { PaymentDiscrepancy } from "@/lib/api/payments";
 import { usePaymentActions } from "@/lib/store/payments";
-import { RecordPaidDialog } from "@/components/payroll/record-paid-dialog";
+import {
+  RecordPaidDialog,
+  type RecordedPayment,
+} from "@/components/payroll/record-paid-dialog";
+import { PaymentRecordedMoment } from "@/components/payroll/payment-recorded";
 import { DEMO_NO_BATCH_REASON } from "@/lib/store/payroll";
 import { downloadCsv } from "@/lib/csv";
 import { CopyButton } from "@/app/(app)/settings/webhooks";
@@ -78,6 +82,8 @@ export function PayPanel({
   run,
   problem,
   onChanged,
+  justRecorded = null,
+  onRecorded,
 }: {
   run: PayrollRunDetail;
   /**
@@ -93,6 +99,16 @@ export function PayPanel({
   problem?: string | null;
   /** Re-read the run, so the batch's new state is the one on screen. */
   onChanged: () => void;
+  /**
+   * The recording somebody has just made, held by the caller.
+   *
+   * Not state in here, because `onChanged` re-reads the run and the wizard
+   * unmounts this whole step while it does — anything this panel remembered
+   * would be gone before it could be read. The caller outlives the reload.
+   */
+  justRecorded?: RecordedPayment | null;
+  /** Tell the caller a payment was recorded, before the run is re-read. */
+  onRecorded?: (recorded: RecordedPayment) => void;
 }) {
   const actions = usePaymentActions();
   const { push } = useToast();
@@ -149,7 +165,12 @@ export function PayPanel({
       await actions.release(batch.id);
       /* Unreachable while no provider is wired — `release` throws. If one is
          ever registered this is where success lands. */
-      push({ tone: "success", title: `${formatKobo(run.netKobo)} sent` });
+      push({
+        tone: "success",
+        title: `${formatKobo(run.netKobo)} sent`,
+        detail:
+          "Payment history has what each person was sent and what came back.",
+      });
     } catch (error) {
       setRefused(
         error instanceof ApiError
@@ -282,6 +303,27 @@ export function PayPanel({
      different for each. */
   const recorded = batch.status === "COMPLETED";
 
+  /* Said once, in the place the form was, and only to the person who has just
+     pressed the button. A later visit reads the quiet sentence below instead,
+     which is the record and not the moment. */
+  if (justRecorded && justRecorded.batchId === batch.id) {
+    return (
+      <PaymentRecordedMoment
+        recorded={justRecorded}
+        actions={
+          <>
+            <ButtonLink variant="accent" href="/payroll">
+              Back to payroll
+            </ButtonLink>
+            <ButtonLink variant="ghost" href={`/payroll/payments/${batch.id}`}>
+              See the payment
+            </ButtonLink>
+          </>
+        }
+      />
+    );
+  }
+
   return (
     <Card>
       <CardHeader
@@ -289,7 +331,9 @@ export function PayPanel({
         description={
           settled
             ? "This payment has been sent."
-            : "Two ways out, and both are one press."
+            : recorded
+              ? undefined
+              : "Two ways out, and both are one press."
         }
         action={<Badge tone="neutral">{batch.reference}</Badge>}
       />
@@ -422,8 +466,9 @@ export function PayPanel({
         onClose={() => {
           setRecording(false);
         }}
-        onRecorded={() => {
+        onRecorded={(result) => {
           setRecording(false);
+          onRecorded?.(result);
           onChanged();
         }}
       />
