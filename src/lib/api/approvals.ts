@@ -161,6 +161,8 @@ export type ApprovalSummary = {
   byKind: Partial<Record<ApprovalKind, number>>;
 };
 
+export type ApprovalModule = "payroll" | "leave" | "hiring" | "people";
+
 export type ApprovalListParams = {
   kind?: ApprovalKind;
   status?: ApprovalRowStatus;
@@ -168,6 +170,13 @@ export type ApprovalListParams = {
   movesMoney?: boolean;
   /** Has a deadline, or has been waiting five days or more. */
   overdue?: boolean;
+  /** Which module's approvals. Decided by who acts on them, not by the kind. */
+  module?: ApprovalModule;
+  /** When it was raised, inclusive, `YYYY-MM-DD`. */
+  from?: string;
+  to?: string;
+  /** Only what the caller put away, in place of everything else. */
+  archived?: boolean;
   page?: number;
   pageSize?: number;
 };
@@ -266,6 +275,10 @@ export const approvalsApi = {
         /* The API parses these as the strings "true"/"false", not booleans. */
         movesMoney: params.movesMoney ? "true" : undefined,
         overdue: params.overdue ? "true" : undefined,
+        module: params.module,
+        from: params.from || undefined,
+        to: params.to || undefined,
+        archived: params.archived ? "true" : undefined,
       },
       ...(signal ? { signal } : {}),
     });
@@ -339,6 +352,15 @@ export const approvalsApi = {
       ...(signal ? { signal } : {}),
     });
     return { rows: page.data.map(toRow), total: page.meta.total };
+  },
+
+  /** Put one away for the caller only. It stays pending for everybody else. */
+  archive: async (id: string): Promise<void> => {
+    await request(`/approvals/${id}/archive`, { method: "POST" });
+  },
+
+  unarchive: async (id: string): Promise<void> => {
+    await request(`/approvals/${id}/unarchive`, { method: "POST" });
   },
 
   /** Undo. Reopens the subject too, through the same registry. */
