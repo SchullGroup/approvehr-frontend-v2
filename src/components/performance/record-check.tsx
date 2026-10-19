@@ -59,7 +59,7 @@ export function NotePanel({ state }: { state: SuggestState }) {
     <div className="flex flex-col gap-2 rounded-md border border-line bg-canvas p-3">
       <p className="text-body-sm font-semibold text-ink">{note.title}</p>
       <p className="text-body-sm text-body">{note.detail}</p>
-      <p className="text-meta text-muted">Written by AI. It can be wrong.</p>
+      <p className="text-meta text-muted">Written by AI.</p>
     </div>
   );
 }

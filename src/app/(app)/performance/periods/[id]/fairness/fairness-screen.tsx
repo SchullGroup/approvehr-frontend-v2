@@ -44,7 +44,7 @@ type View = "average" | "bands" | "table";
 export function FairnessScreen({ cycleId }: { cycleId: string }) {
   const allowed = useCan("VIEW_FAIRNESS");
   const [periods, setPeriods] = useState<FairnessPeriods>(1);
-  const [tab, setTab] = useState<Tab>("people");
+  const [tab, setTab] = useState<Tab>("groups");
   const detail = useCycleFairness(cycleId, periods, allowed);
   const data = detail.fairness;
   const review = useReviewFlags(cycleId, allowed);
@@ -120,14 +120,9 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
 
         {data && (
           <>
-            {tab !== "people" && <Summary data={data} periods={periods} />}
+            <Summary data={data} periods={periods} />
             <Tabs
               items={[
-                {
-                  id: "people",
-                  label: "People to review",
-                  count: flaggedCount(review.flags) || undefined,
-                },
                 {
                   id: "groups",
                   label: "Groups",
@@ -135,6 +130,11 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
                 },
                 { id: "managers", label: "Managers" },
                 { id: "calibration", label: "Calibration moves" },
+                {
+                  id: "people",
+                  label: "People to review",
+                  count: flaggedCount(review.flags) || undefined,
+                },
               ]}
               value={tab}
               onChange={(id) => setTab(id as Tab)}
@@ -162,11 +162,11 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
                   <li>
                     A group is flagged when its gap is at least{" "}
                     {pct(data.rules.minGapBp).replace("%", "")} points and the
-                    likely range doesn’t cross zero.
+                    likely range doesn't cross zero.
                   </li>
                   <li>
                     Groups under {data.rules.minGroup} people are hidden.
-                    Religion and state of origin aren’t checked.
+                    Religion and state of origin aren't checked.
                   </li>
                   <li>
                     A manager is flagged at{" "}
@@ -349,7 +349,7 @@ function GroupCard({
                 <TD className="text-right tabular-nums">{group.people}</TD>
                 <TD className="text-right tabular-nums">{pct(group.meanBp)}</TD>
                 <TD className="text-right tabular-nums">
-                  {group.gap ? points(group.gap.gapBp) : "—"}
+                  {group.gap ? points(group.gap.gapBp) : "No gap"}
                 </TD>
                 <TD className="text-right tabular-nums">
                   {Math.round(
@@ -405,7 +405,7 @@ function Managers({ data }: { data: ApiFairness }) {
       ? `${points(m.gap.gapBp)} vs everyone else`
       : m.flags.includes("flat")
         ? `${String(m.sameBandShare)}% in the same band`
-        : "—";
+        : "No flag";
 
   return (
     <div className="flex flex-col gap-4">
@@ -459,11 +459,11 @@ function Managers({ data }: { data: ApiFairness }) {
                   <TD className="text-right tabular-nums">{m.people}</TD>
                   <TD className="text-right tabular-nums">{pct(m.meanBp)}</TD>
                   <TD className="text-right tabular-nums">
-                    {m.gap ? points(m.gap.gapBp) : "—"}
+                    {m.gap ? points(m.gap.gapBp) : "No gap"}
                   </TD>
                   <TD className="text-right tabular-nums">
                     {m.spreadBp === null
-                      ? "—"
+                      ? "No data"
                       : points(m.spreadBp).replace("+", "")}
                   </TD>
                 </TR>
@@ -594,8 +594,8 @@ function Calibration({ data }: { data: ApiFairness }) {
                         ? `${pct(move.computedBp)} (put back)`
                         : pct(move.calibratedBp)}
                     </TD>
-                    <TD>{move.actorName ?? "—"}</TD>
-                    <TD className="text-muted">{move.reason ?? "—"}</TD>
+                    <TD>{move.actorName ?? "Not recorded"}</TD>
+                    <TD className="text-muted">{move.reason ?? "None given"}</TD>
                   </TR>
                 ))}
               </TBody>

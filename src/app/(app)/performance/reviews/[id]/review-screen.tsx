@@ -49,6 +49,7 @@ import {
 import { WorkEvidence } from "@/components/performance/work-evidence";
 import { FinaliseDialog } from "./finalise-dialog";
 import { SignOffDialog } from "./sign-off-dialog";
+import { RecordCheck, StatusBadge } from "@/components/performance/record-check";
 
 /**
  * One appraisal, projected by who is reading it.
@@ -503,51 +504,48 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             />
           )}
 
-<<<<<<< HEAD
-  {
-    review.kind === "MANAGER" && record.flag && (
-      <Card>
-        <CardHeader
-          title="Mark against the evidence"
-          description="Their mark beside what their objectives, peer feedback and past marks suggest. Their manager doesn't see this."
-          action={<StatusBadge status={record.flag.status} />}
-        />
-        <CardBody>
-          <RecordCheck
-            cycleId={review.cycleId}
-            flag={record.flag}
-            claims={record.claims}
-          />
-        </CardBody>
-      </Card>
-    )
-  }
-=======
+          {
+            review.kind === "MANAGER" && record.flag && (
+              <Card>
+                <CardHeader
+                  title="Mark against the evidence"
+                  description="Their mark beside what their objectives, peer feedback and past marks suggest. Their manager doesn't see this."
+                  action={<StatusBadge status={record.flag.status} />}
+                />
+                <CardBody>
+                  <RecordCheck
+                    cycleId={review.cycleId}
+                    flag={record.flag}
+                    claims={record.claims}
+                  />
+                </CardBody>
+              </Card>
+            )
+          }
           {/* ---------------------------------------- tickets from connected tools */}
           <WorkEvidence
             employeeId={review.subjectId}
             range={review.cycleId ? { cycleId: review.cycleId } : {}}
             title="Work from connected tools this cycle"
           />
->>>>>>> f0ff9e84764650b6f26da313d29bca450567edf6
 
-  {/* ------------------------------------------------------------- the form */ }
+          {/* ------------------------------------------------------------- the form */}
           <Card>
             <CardHeader
               title="What was asked, and what was answered"
               description={unansweredLine(review)}
               {...(review.mine && !review.submitted
                 ? {
-                    action: (
-                      <ButtonLink
-                        href={`/performance/reviews/${review.id}/answer`}
-                        variant="accent"
-                        size="sm"
-                      >
-                        Fill it in
-                      </ButtonLink>
-                    ),
-                  }
+                  action: (
+                    <ButtonLink
+                      href={`/performance/reviews/${review.id}/answer`}
+                      variant="accent"
+                      size="sm"
+                    >
+                      Fill it in
+                    </ButtonLink>
+                  ),
+                }
                 : {})}
             />
             {review.questions.length === 0 ? (
@@ -588,36 +586,36 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
         </div >
       </PageBody >
 
-    { signingOff && (
-      <SignOffDialog
+      {signingOff && (
+        <SignOffDialog
+          review={review}
+          ratingLabel={
+            review.rating === null ? null : ratingWords(review.rating)
+          }
+          onClose={() => setSigningOff(false)}
+          onConfirm={async (comment) => {
+            const outcome = await settle(() =>
+              signOff.acknowledge(review, comment),
+            );
+            return outcome.ok
+              ? { at: outcome.value?.acknowledgedAt ?? null }
+              : null;
+          }}
+        />
+      )
+      }
+
+      <FinaliseDialog
+        open={finalising}
         review={review}
-        ratingLabel={
-          review.rating === null ? null : ratingWords(review.rating)
-        }
-        onClose={() => setSigningOff(false)}
-        onConfirm={async (comment) => {
-          const outcome = await settle(() =>
-            signOff.acknowledge(review, comment),
-          );
+        onClose={() => setFinalising(false)}
+        onConfirm={async () => {
+          const outcome = await settle(() => signOff.finalise(review.id));
           return outcome.ok
-            ? { at: outcome.value?.acknowledgedAt ?? null }
+            ? { subjectNotified: outcome.value.subjectNotified }
             : null;
         }}
       />
-    )
-}
-
-<FinaliseDialog
-  open={finalising}
-  review={review}
-  onClose={() => setFinalising(false)}
-  onConfirm={async () => {
-    const outcome = await settle(() => signOff.finalise(review.id));
-    return outcome.ok
-      ? { subjectNotified: outcome.value.subjectNotified }
-      : null;
-  }}
-/>
     </>
   );
 }

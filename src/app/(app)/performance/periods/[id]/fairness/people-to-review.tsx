@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ChevronDown, ChevronUp } from "lucide-react";
 import { Button, Select, Spinner } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { exactPct, exactPoints } from "@/components/performance/record-check";
@@ -80,7 +80,7 @@ export function PeopleToReview({
   };
 
   return (
-    <div className="grid pt-6 lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-14">
+    <div className="grid pt-2 lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-14">
       <nav
         aria-label="People to review"
         className="hidden lg:sticky lg:top-6 lg:block lg:self-start"
@@ -90,8 +90,8 @@ export function PeopleToReview({
           if (!people.length) return null;
           return (
             <div key={dir} className="mb-6">
-              <h3 className="mb-2 px-2.5 text-meta font-semibold uppercase tracking-wide text-faint">
-                {dir === "below" ? "Below the evidence" : "Above the evidence"}
+              <h3 className="mb-2 px-2.5 text-meta font-semibold uppercase tracking-wide text-muted">
+                {dir === "below" ? "Below their record" : "Above their record"}
               </h3>
               <ol className="space-y-1">
                 {people.map((p) => {
@@ -121,7 +121,7 @@ export function PeopleToReview({
         })}
         {flags.counts.unclear > 0 && (
           <p className="px-2.5 text-meta text-muted">
-            {flags.counts.unclear} more can’t be checked — not enough evidence.
+            {flags.counts.unclear} more can’t be checked, not enough evidence.
           </p>
         )}
       </nav>
@@ -208,7 +208,7 @@ function Person({
   const open = shown ?? noSummary;
 
   return (
-    <article className="pt-8">
+    <article className="pt-4">
       <h2 className="text-h3 text-ink">{person.name}</h2>
       <p className="mt-1 text-body-sm text-muted">{role(person)}</p>
 
@@ -241,7 +241,7 @@ function Person({
           <>
             <p className="mt-3 text-body-lg text-ink">{summary.detail}</p>
             <p className="mt-3 text-meta text-muted">
-              Written by AI. It can be wrong.
+              Written by AI
             </p>
           </>
         ) : (
@@ -263,9 +263,12 @@ function Person({
           type="button"
           onClick={() => setShown(!open)}
           aria-expanded={open}
-          className="text-body-sm font-medium text-accent-text hover:underline"
+          className="flex items-center gap-1 text-body-sm font-medium text-accent-text hover:underline"
         >
           {open ? "Hide what this is based on" : "See what this is based on"}
+          {open
+            ? <ChevronUp aria-hidden="true" className="size-3.5" />
+            : <ChevronDown aria-hidden="true" className="size-3.5" />}
         </button>
         {open && <Basis person={person} claims={claims} />}
       </section>
@@ -276,7 +279,7 @@ function Person({
 function Figures({ person }: { person: ApiReviewFlag }) {
   const figure = "mt-1 text-h3 tabular-nums sm:text-h2";
   return (
-    <dl className="mt-8 grid grid-cols-3 gap-8">
+    <dl className="mt-6 grid grid-cols-3 gap-8">
       <div>
         <dt className="text-meta text-muted">Mark</dt>
         <dd className={cn(figure, "text-ink")}>{exactPct(person.markBp)}</dd>
@@ -284,14 +287,19 @@ function Figures({ person }: { person: ApiReviewFlag }) {
       <div>
         <dt className="text-meta text-muted">Evidence suggests</dt>
         <dd className={cn(figure, "text-ink")}>
-          {person.expectedBp === null ? "—" : exactPct(person.expectedBp)}
+          {person.expectedBp === null ? "None" : exactPct(person.expectedBp)}
         </dd>
       </div>
       {person.gapBp !== null && (
         <div>
           <dt className="text-meta text-muted">Gap (points)</dt>
-          <dd className={cn(figure, "text-warning-text")}>
-            {exactPoints(person.gapBp).replace(" pts", "")}
+          <dd className="mt-1">
+            <span className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-h3 tabular-nums sm:text-h2",
+              "bg-warning-subtle text-warning-text",
+            )}>
+              {exactPoints(person.gapBp).replace(" pts", "")}
+            </span>
           </dd>
         </div>
       )}
@@ -321,28 +329,38 @@ function Basis({
     ...(objectives.scoreBp === null
       ? []
       : [
-          [
-            "Objectives",
-            `${exactPct(objectives.scoreBp)} achieved · ${String(objectives.agreed)} agreed, ${String(objectives.measured)} measured by key results`,
-          ] as [string, string],
-        ]),
+        [
+          "Objectives",
+          `${exactPct(objectives.scoreBp)} achieved · ${String(objectives.agreed)} agreed, ${String(objectives.measured)} measured by key results`,
+        ] as [string, string],
+      ]),
     ...(peers?.averageBp != null
       ? [
-          [
-            "Peer feedback",
-            `${exactPct(peers.averageBp)} from ${String(peers.responses)} colleagues`,
-          ] as [string, string],
-        ]
+        [
+          "Peer feedback",
+          `${exactPct(peers.averageBp)} from ${String(peers.responses)} colleagues`,
+        ] as [string, string],
+      ]
       : []),
     ...(history
       ? [
-          [
-            "Previous periods",
-            `${exactPct(history.averageBp)} average over ${String(history.periods)}`,
-          ] as [string, string],
-        ]
+        [
+          "Previous periods",
+          `${exactPct(history.averageBp)} average over ${String(history.periods)}`,
+        ] as [string, string],
+      ]
       : []),
   ];
+
+  const hasContent = person.patterns.length > 0 || written || record.length > 0;
+
+  if (!hasContent) {
+    return (
+      <p className="mt-6 text-body-sm text-muted">
+        No detailed evidence on file for this person yet.
+      </p>
+    );
+  }
 
   return (
     <div className="mt-6 flex max-w-[72ch] flex-col gap-8">
