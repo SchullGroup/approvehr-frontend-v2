@@ -79,6 +79,7 @@ import { QuestionsDialog } from "../../period-dialogs";
 import { SectionsDialog } from "../../sections-dialog";
 import { AppraisersDialog } from "../../appraiser-map";
 import { AskPeersButton } from "./ask-peers";
+import { CalibrationAudit } from "./fairness/calibration-audit";
 
 /**
  * Running one appraisal period.
@@ -754,6 +755,10 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 onAsked={() => detail.reload()}
               />
               <MultiAppraiserReviews participants={detail.participants} />
+              {(period?.stage === "CALIBRATION" ||
+                period?.stage === "PUBLISHED") && (
+                <CalibrationAudit cycleId={cycleId} />
+              )}
             </>
           )}
         </div>

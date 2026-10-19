@@ -38,7 +38,7 @@ import {
 import { BandBars, RangeChart, pct, points } from "./charts";
 import { PeopleToReview, flaggedCount } from "./people-to-review";
 
-type Tab = "groups" | "managers" | "calibration" | "people";
+type Tab = "groups" | "managers" | "people";
 type View = "average" | "bands" | "table";
 
 export function FairnessScreen({ cycleId }: { cycleId: string }) {
@@ -129,7 +129,6 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
                   count: flagCount(data) || undefined,
                 },
                 { id: "managers", label: "Managers" },
-                { id: "calibration", label: "Calibration moves" },
                 {
                   id: "people",
                   label: "People to review",
@@ -141,7 +140,6 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
             >
               {tab === "groups" && <Groups data={data} />}
               {tab === "managers" && <Managers data={data} />}
-              {tab === "calibration" && <Calibration data={data} />}
               {tab === "people" && (
                 <PeopleToReview
                   cycleId={cycleId}
@@ -156,8 +154,8 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
               <Disclosure title="How flags work" region={false}>
                 <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">
                   <li>
-                    Marks are compared before calibration. Calibration moves are
-                    on their own tab.
+                    Marks are compared before calibration. Any moves made during
+                    calibration are shown on the period page.
                   </li>
                   <li>
                     A group is flagged when its gap is at least{" "}
@@ -511,96 +509,6 @@ function Managers({ data }: { data: ApiFairness }) {
               ))}
             </TBody>
           </TableWrap>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-function Calibration({ data }: { data: ApiFairness }) {
-  const { calibration } = data;
-  const date = (iso: string) =>
-    new Date(iso).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-    });
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Marks moved" value={String(calibration.moved)} />
-        <Stat label="Moved up" value={String(calibration.up)} />
-        <Stat label="Moved down" value={String(calibration.down)} />
-      </div>
-
-      <Card>
-        <CardHeader level={3} title="Moves by group" />
-        <TableWrap caption="Calibration moves by group">
-          <THead>
-            <TH>Grouping</TH>
-            <TH>Group</TH>
-            <TH className="text-right">Moves</TH>
-            <TH className="text-right">Average move</TH>
-          </THead>
-          <TBody>
-            {calibration.byGroup.flatMap((dim) =>
-              dim.comparable && dim.groups
-                ? dim.groups.map((g) => (
-                    <TR key={`${dim.key}-${g.label}`}>
-                      <TD>{dim.label}</TD>
-                      <TD>{g.label}</TD>
-                      <TD className="text-right tabular-nums">{g.moves}</TD>
-                      <TD className="text-right tabular-nums">
-                        {points(g.averageMoveBp)}
-                      </TD>
-                    </TR>
-                  ))
-                : [
-                    <TR key={dim.key}>
-                      <TD>{dim.label}</TD>
-                      <TD className="text-muted" colSpan={3}>
-                        Too few moves to compare yet
-                      </TD>
-                    </TR>,
-                  ],
-            )}
-          </TBody>
-        </TableWrap>
-      </Card>
-
-      {calibration.latest && (
-        <Card>
-          <CardHeader level={3} title="Latest moves" />
-          {calibration.latest.length === 0 ? (
-            <CardBody className="text-body-sm text-muted">
-              No marks have been moved in this period.
-            </CardBody>
-          ) : (
-            <TableWrap caption="Latest calibration moves">
-              <THead>
-                <TH>Date</TH>
-                <TH>Employee</TH>
-                <TH className="text-right">Mark</TH>
-                <TH>By</TH>
-                <TH>Reason</TH>
-              </THead>
-              <TBody>
-                {calibration.latest.map((move) => (
-                  <TR key={move.id}>
-                    <TD className="whitespace-nowrap">{date(move.at)}</TD>
-                    <TD>{move.employeeName}</TD>
-                    <TD className="whitespace-nowrap text-right tabular-nums">
-                      {pct(move.previousBp ?? move.computedBp)} →{" "}
-                      {move.calibratedBp === null
-                        ? `${pct(move.computedBp)} (put back)`
-                        : pct(move.calibratedBp)}
-                    </TD>
-                    <TD>{move.actorName ?? "Not recorded"}</TD>
-                    <TD className="text-muted">{move.reason ?? "None given"}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </TableWrap>
-          )}
         </Card>
       )}
     </div>
