@@ -112,6 +112,20 @@ const NO_NUMBERS: HiringNumbers = {
 };
 
 /**
+ * A figure for a `Stat`, honest about a failed fetch.
+ *
+ * `numbers` falls back to `NO_NUMBERS` — all zeros — the moment the read
+ * errors, so a `Stat` printing that count unconditionally would show "0
+ * waiting to be screened" next to a banner saying the real number could not
+ * be loaded. Same rule as every other absence in this codebase: a number
+ * rendered where the server was never actually asked is a wrong claim, not a
+ * cosmetic one.
+ */
+export function countOrDash(error: unknown, value: number): string {
+  return error ? "—" : String(value);
+}
+
+/**
  * Every advertised role, with its screening tally.
  *
  * Two endpoints, and the list is rendered as soon as the list arrives rather

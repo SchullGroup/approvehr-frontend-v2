@@ -1,4 +1,5 @@
 import type { Dictionary } from "./spec";
+import type { TemplateLists } from "./template-file";
 
 /**
  * Everything the four-step import screen needs that is not in the dictionary.
@@ -50,4 +51,40 @@ export type ImportSurface = {
    * zero, and a key the writer did not report is absent rather than none.
    */
   linkedStats?: readonly { key: string; label: string; hint: string }[];
+  /**
+   * Who may use this screen. A hook, because the answer is read off the session.
+   *
+   * Absent means `IMPORT_DATA`, which is what every importer asked until an
+   * entity turned up whose natural author is not an importer: a department head
+   * giving their team its quarter. That permission exists because one careless
+   * upload overwrites hundreds of pay records, and an upload of objectives
+   * touches no pay at all. The API makes the same distinction — this only
+   * decides whether the screen is offered, and the rows still answer to the
+   * uploader's own authority there.
+   *
+   * Always the same hook for a given surface, so it is called unconditionally.
+   */
+  useAccess?: () => boolean;
+  /**
+   * The company's own lists, for the template's dropdowns: its departments, the
+   * appraisal periods still open.
+   *
+   * A hook, because they are read off the same stores the rest of the app reads.
+   * `lists` is keyed by the dictionary field a list fills, and `ready` is false
+   * until every list has answered — one way or the other, so a list that failed
+   * to load is `ready` with nothing in it and the template simply has no
+   * dropdown there. The download waits on `ready`, because a workbook built a
+   * moment early looks exactly like one that was always going to have no list.
+   *
+   * Absent for an entity whose columns are all either free text or a fixed
+   * vocabulary, which is every entity but objectives. Always the same hook for a
+   * given surface, so it is called unconditionally.
+   */
+  useTemplateLists?: () => { lists: TemplateLists; ready: boolean };
+  /**
+   * What somebody without access is told. Absent means the pay-records wording,
+   * which is true of the entities that are gated by `IMPORT_DATA` and false of
+   * the others.
+   */
+  noAccess?: { title: string; description: string };
 };

@@ -162,6 +162,23 @@ export type DashboardData = {
     expensesApprovedUnpaidKobo: number;
     overtimeAwaitingApprovalKobo: number;
   };
+  /** Absent on the same `EDIT_RECORDS` gate as `hiring`. See `ApiWorkforceHeadline`. */
+  workforceHeadline?: ApiWorkforceHeadline;
+};
+
+/**
+ * One sentence picked from the workforce explorer's own lenses — which
+ * department has the most off-track goals, which has gone quiet on task
+ * logging, or who has cleared the promotion bar — in that priority order,
+ * or an honest "nothing stands out". Never a model call.
+ */
+export type ApiWorkforceHeadline = {
+  cycleId: string | null;
+  cycleName: string | null;
+  rule:
+    "off-track-goals" | "task-intensity-outlier" | "promotion-ready" | "none";
+  departments: string[];
+  sentence: string;
 };
 
 export type ReportsData = {
@@ -299,6 +316,15 @@ export const insightsApi = {
     request<ReportsData>(
       period ? `/insights/reports?period=${period}` : "/insights/reports",
     ),
+
+  /**
+   * The same sentence `dashboard().workforceHeadline` carries, on its own —
+   * for a screen that wants it without the rest of the dashboard payload.
+   * `EDIT_RECORDS` directly, unlike `dashboard` itself: there is no
+   * partially-permitted reading of this one.
+   */
+  workforceHeadline: (signal?: AbortSignal): Promise<ApiWorkforceHeadline> =>
+    request<ApiWorkforceHeadline>("/insights/workforce-headline", { signal }),
 };
 
 /** `FULL_TIME` → `Full time`. The API returns the enum; people read words. */

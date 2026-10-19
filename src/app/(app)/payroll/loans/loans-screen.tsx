@@ -2,7 +2,7 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { cn } from "@/lib/cn";
 import { CreditCard, Plus, Wallet } from "lucide-react";
 import {
   Badge,
@@ -19,6 +19,7 @@ import {
   TBody,
   TD,
   TDPrimary,
+  TextLink,
   TH,
   THead,
   TR,
@@ -34,7 +35,6 @@ import {
   type LoanListParams,
   type LoanStatus,
 } from "@/lib/api/loans";
-import { monthLabel } from "@/lib/loans/schedule";
 import {
   LOAN_STATUS_LABEL,
   finishesLabel,
@@ -46,6 +46,7 @@ import { usePermissions } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import { shortDate } from "@/lib/today";
 import { ApplyLoanModal } from "./apply-loan";
+import { ApprovedLoanCard } from "./approved-loan-card";
 import { DeclineLoanModal } from "./decisions";
 
 /**
@@ -114,6 +115,12 @@ export function LoansScreen() {
   const [applying, setApplying] = useState(false);
   const [declining, setDeclining] = useState<ApiLoan | null>(null);
   const [deciding, setDeciding] = useState<string | null>(null);
+  /* The loan just approved, kept above the list until the next decision
+     replaces it or it is closed. `n` makes each approval a new moment. */
+  const [approvedLoan, setApprovedLoan] = useState<{
+    loan: ApiLoan;
+    n: number;
+  } | null>(null);
 
   /**
    * Which endpoint answers.
@@ -183,15 +190,11 @@ export function LoansScreen() {
     setDeciding(loan.id);
     try {
       const approved = await approve(loan.id);
-      toast.push({
-        title: `Approved ${loan.employeeName}'s loan`,
-        tone: "success",
-        detail: approved.startPeriod
-          ? `${formatMoney(naira(approved.monthlyRepaymentKobo), "NGN", {
-              decimals: true,
-            })} a month, first deduction ${monthLabel(approved.startPeriod)}.`
-          : undefined,
-      });
+      /* No toast: the card above the list says what was approved. */
+      setApprovedLoan((current) => ({
+        loan: approved,
+        n: (current?.n ?? 0) + 1,
+      }));
     } catch (error) {
       toast.push({
         title: "Could not approve it",
@@ -238,6 +241,8 @@ export function LoansScreen() {
               items={tabs}
               value={filter}
               onChange={(id) => {
+                /* An approval belongs to the list it was made from. */
+                setApprovedLoan(null);
                 setFilter(id as Filter);
                 setPage(1);
               }}
@@ -306,6 +311,14 @@ export function LoansScreen() {
           </div>
         )}
 
+        {approvedLoan && (
+          <ApprovedLoanCard
+            key={approvedLoan.n}
+            loan={approvedLoan.loan}
+            onDismiss={() => setApprovedLoan(null)}
+          />
+        )}
+
         {list.loading && list.loans.length === 0 ? (
           <div className="flex items-center justify-center py-16">
             <Spinner />
@@ -340,146 +353,202 @@ export function LoansScreen() {
           />
         ) : (
           <>
-            <TableWrap caption="Staff loans, with what is left to repay on each">
-              <THead>
-                <TH>{seeEverybody ? "Who" : "What for"}</TH>
-                {/* Only the columns the API's own allow-list accepts:
+            <div className="hidden sm:block">
+              <TableWrap caption="Staff loans, with what is left to repay on each">
+                <THead>
+                  <TH>{seeEverybody ? "Who" : "What for"}</TH>
+                  {/* Only the columns the API's own allow-list accepts:
                     `createdAt | principal | outstanding | status | startPeriod`.
                     A header offering a column it refuses is one that appears to
                     do nothing. "A month" and "Finishes" are derived from the
                     schedule and are not among them. */}
-                <SortableTH
-                  column="principal"
-                  active={sort}
-                  order={order}
-                  onSort={(column) => toggleSort(column, true)}
-                  align="right"
-                  startDescending
-                >
-                  Borrowed
-                </SortableTH>
-                <SortableTH
-                  column="outstanding"
-                  active={sort}
-                  order={order}
-                  onSort={(column) => toggleSort(column, true)}
-                  align="right"
-                  startDescending
-                >
-                  Left to pay
-                </SortableTH>
-                <TH align="right">A month</TH>
-                <TH>Finishes</TH>
-                <SortableTH
-                  column="status"
-                  active={sort}
-                  order={order}
-                  onSort={(column) => toggleSort(column)}
-                >
-                  Status
-                </SortableTH>
-                <TH>
-                  <span className="sr-only">Decide</span>
-                </TH>
-              </THead>
-              <TBody>
-                {list.loans.map((loan) => {
-                  const own = loan.employeeId === employeeId;
-                  const finishes = finishesLabel(loan);
-                  return (
-                    <TR key={loan.id}>
-                      <TDPrimary
-                        title={
-                          <Link
-                            href={`/payroll/loans/${loan.id}`}
-                            className="text-ink hover:text-accent-text hover:underline"
-                          >
-                            {seeEverybody
-                              ? loan.employeeName
-                              : (loan.reason ?? "Staff loan")}
-                          </Link>
-                        }
-                        subtitle={
-                          seeEverybody
-                            ? `${loan.employeeNo} · ${loan.jobTitle}`
-                            : `Applied ${shortDate(loan.createdAt.slice(0, 10))}`
-                        }
-                      />
-                      <TD align="right">
-                        <Money amount={naira(loan.principalKobo)} decimals />
-                      </TD>
-                      <TD align="right">
-                        {/* Nothing is owed until somebody approves it, and
+                  <SortableTH
+                    column="principal"
+                    active={sort}
+                    order={order}
+                    onSort={(column) => toggleSort(column, true)}
+                    align="right"
+                    startDescending
+                  >
+                    Borrowed
+                  </SortableTH>
+                  <SortableTH
+                    column="outstanding"
+                    active={sort}
+                    order={order}
+                    onSort={(column) => toggleSort(column, true)}
+                    align="right"
+                    startDescending
+                  >
+                    Left to pay
+                  </SortableTH>
+                  <TH align="right">A month</TH>
+                  <TH>Finishes</TH>
+                  <SortableTH
+                    column="status"
+                    active={sort}
+                    order={order}
+                    onSort={(column) => toggleSort(column)}
+                  >
+                    Status
+                  </SortableTH>
+                  <TH>
+                    <span className="sr-only">Decide</span>
+                  </TH>
+                </THead>
+                <TBody>
+                  {list.loans.map((loan) => {
+                    const own = loan.employeeId === employeeId;
+                    const finishes = finishesLabel(loan);
+                    return (
+                      <TR key={loan.id}>
+                        <TDPrimary
+                          title={
+                            <TextLink href={`/payroll/loans/${loan.id}`}>
+                              {seeEverybody
+                                ? loan.employeeName
+                                : (loan.reason ?? "Staff loan")}
+                            </TextLink>
+                          }
+                          subtitle={
+                            seeEverybody
+                              ? `${loan.employeeNo} · ${loan.jobTitle}`
+                              : `Applied ${shortDate(loan.createdAt.slice(0, 10))}`
+                          }
+                        />
+                        <TD align="right">
+                          <Money amount={naira(loan.principalKobo)} decimals />
+                        </TD>
+                        <TD align="right">
+                          {/* Nothing is owed until somebody approves it, and
                             nothing is owed on a decline. Showing the total
                             repayable here would read as a debt that exists,
                             and on an interest-bearing application it would
                             show more than the row says was borrowed. */}
+                          {loan.status === "PENDING" ||
+                          loan.status === "DECLINED" ? (
+                            <span className="text-muted">—</span>
+                          ) : (
+                            <Money
+                              amount={naira(loan.outstandingKobo)}
+                              decimals
+                            />
+                          )}
+                        </TD>
+                        <TD align="right">
+                          <Money
+                            amount={naira(loan.monthlyRepaymentKobo)}
+                            decimals
+                          />
+                        </TD>
+                        <TD>
+                          {finishes ?? (
+                            <span className="text-muted">
+                              {loan.status === "PENDING"
+                                ? "Once approved"
+                                : "—"}
+                            </span>
+                          )}
+                        </TD>
+                        <TD>
+                          <Badge tone={STATUS_TONE[loan.status]} size="sm" dot>
+                            {LOAN_STATUS_LABEL[loan.status]}
+                          </Badge>
+                        </TD>
+                        <TD align="right">
+                          <LoanRowAction
+                            loan={loan}
+                            own={own}
+                            canDecide={canDecide}
+                            deciding={deciding === loan.id}
+                            onDecide={() => void decide(loan)}
+                            onDecline={() => setDeclining(loan)}
+                            className="justify-end"
+                          />
+                        </TD>
+                      </TR>
+                    );
+                  })}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="divide-y divide-line sm:hidden">
+              {list.loans.map((loan) => {
+                const own = loan.employeeId === employeeId;
+                const finishes = finishesLabel(loan);
+                return (
+                  <li key={loan.id} className="flex flex-col gap-2 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <TextLink
+                          href={`/payroll/loans/${loan.id}`}
+                          className="text-body-sm"
+                        >
+                          {seeEverybody
+                            ? loan.employeeName
+                            : (loan.reason ?? "Staff loan")}
+                        </TextLink>
+                        <p className="mt-0.5 text-meta text-muted">
+                          {seeEverybody
+                            ? `${loan.employeeNo} · ${loan.jobTitle}`
+                            : `Applied ${shortDate(loan.createdAt.slice(0, 10))}`}
+                        </p>
+                      </div>
+                      <Badge tone={STATUS_TONE[loan.status]} size="sm" dot>
+                        {LOAN_STATUS_LABEL[loan.status]}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">Borrowed</span>
+                      <span className="tabular text-body-sm text-body">
+                        <Money amount={naira(loan.principalKobo)} decimals />
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">
+                        Left to pay
+                      </span>
+                      <span className="tabular text-body-sm font-medium text-ink">
                         {loan.status === "PENDING" ||
                         loan.status === "DECLINED" ? (
-                          <span className="text-muted">—</span>
+                          "—"
                         ) : (
                           <Money
                             amount={naira(loan.outstandingKobo)}
                             decimals
                           />
                         )}
-                      </TD>
-                      <TD align="right">
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-body-sm text-muted">A month</span>
+                      <span className="tabular text-body-sm text-body">
                         <Money
                           amount={naira(loan.monthlyRepaymentKobo)}
                           decimals
                         />
-                      </TD>
-                      <TD>
-                        {finishes ?? (
-                          <span className="text-muted">
-                            {loan.status === "PENDING" ? "Once approved" : "—"}
-                          </span>
-                        )}
-                      </TD>
-                      <TD>
-                        <Badge tone={STATUS_TONE[loan.status]} size="sm" dot>
-                          {LOAN_STATUS_LABEL[loan.status]}
-                        </Badge>
-                      </TD>
-                      <TD align="right">
-                        {loan.status !== "PENDING" ? null : own ? (
-                          /* Self-approval is refused by the API whatever your
-                             permissions are, so the row does not offer it.
-                             Withdrawing your own is allowed, and is what you
-                             would want from this row. */
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setDeclining(loan)}
-                          >
-                            Withdraw
-                          </Button>
-                        ) : canDecide ? (
-                          <div className="flex justify-end gap-1.5">
-                            <Button
-                              size="sm"
-                              variant="approve"
-                              loading={deciding === loan.id}
-                              onClick={() => void decide(loan)}
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setDeclining(loan)}
-                            >
-                              Decline
-                            </Button>
-                          </div>
-                        ) : null}
-                      </TD>
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </TableWrap>
+                      </span>
+                    </div>
+                    <p className="text-meta text-muted">
+                      Finishes{" "}
+                      {finishes ??
+                        (loan.status === "PENDING" ? "once approved" : "—")}
+                    </p>
+
+                    <LoanRowAction
+                      loan={loan}
+                      own={own}
+                      canDecide={canDecide}
+                      deciding={deciding === loan.id}
+                      onDecide={() => void decide(loan)}
+                      onDecline={() => setDeclining(loan)}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
 
             {/* The shared control, replacing a hand-rolled Showing-x–y-of-z and
                 two default-variant buttons. Two reasons beyond consistency: the
@@ -539,4 +608,54 @@ export function LoansScreen() {
       )}
     </>
   );
+}
+
+/** Shared by the desktop `<TD>` and the mobile `<li>` so the two cannot offer
+ *  different actions for the same loan. */
+function LoanRowAction({
+  loan,
+  own,
+  canDecide,
+  deciding,
+  onDecide,
+  onDecline,
+  className,
+}: {
+  loan: ApiLoan;
+  own: boolean;
+  canDecide: boolean;
+  deciding: boolean;
+  onDecide: () => void;
+  onDecline: () => void;
+  className?: string;
+}) {
+  if (loan.status !== "PENDING") return null;
+  /* Self-approval is refused by the API whatever your permissions are, so the
+     row does not offer it. Withdrawing your own is allowed, and is what you
+     would want from this row. */
+  if (own) {
+    return (
+      <Button size="sm" variant="ghost" onClick={onDecline}>
+        Withdraw
+      </Button>
+    );
+  }
+  if (canDecide) {
+    return (
+      <div className={cn("flex gap-1.5", className)}>
+        <Button
+          size="sm"
+          variant="approve"
+          loading={deciding}
+          onClick={onDecide}
+        >
+          Approve
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDecline}>
+          Decline
+        </Button>
+      </div>
+    );
+  }
+  return null;
 }

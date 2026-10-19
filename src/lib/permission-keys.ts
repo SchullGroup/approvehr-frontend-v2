@@ -43,6 +43,10 @@ export const PERMISSION_KEYS = [
   "EDIT_RECORDS_DEPARTMENT",
   "MANAGE_HIRING",
   "APPROVE_HIRING",
+  /* Signing off a promotion, transfer, regrade or pay change. Separate from
+     EDIT_RECORDS, which proposes one — the proposer is very often the person
+     who gains by it. */
+  "APPROVE_EMPLOYMENT_CHANGE",
   /* Time off */
   "APPROVE_LEAVE",
   "APPROVE_LEAVE_ALL",
@@ -83,6 +87,7 @@ export const PERMISSION_KEYS = [
   "MANAGE_SHIFTS",
   "MANAGE_ROTA",
   "APPROVE_SHIFT_SWAP",
+  "VIEW_FAIRNESS",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -93,6 +98,7 @@ export type PermissionModule =
   | "repairs"
   | "exits"
   | "hiring"
+  | "performance"
   | "leave"
   | "shifts"
   | "payroll"
@@ -165,6 +171,7 @@ export const PERMISSION_SHAPE: Record<
   },
   MANAGE_HIRING: { module: "hiring", action: "manage" },
   APPROVE_HIRING: { module: "hiring", action: "approve" },
+  APPROVE_EMPLOYMENT_CHANGE: { module: "people", action: "approve" },
   APPROVE_LEAVE: { module: "leave", action: "approve", scope: "team" },
   APPROVE_LEAVE_DEPARTMENT: {
     module: "leave",
@@ -175,6 +182,7 @@ export const PERMISSION_SHAPE: Record<
   MANAGE_SHIFTS: { module: "shifts", action: "manage" },
   MANAGE_ROTA: { module: "shifts", action: "assign" },
   APPROVE_SHIFT_SWAP: { module: "shifts", action: "approve" },
+  VIEW_FAIRNESS: { module: "performance", action: "view" },
   MANAGE_SETTINGS: { module: "settings", action: "manage" },
   MANAGE_ROLES: { module: "access", action: "manage" },
   INVITE_STAFF: { module: "access", action: "invite" },

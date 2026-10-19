@@ -33,9 +33,9 @@ export function SectionHeading({
   className?: string;
   /**
    * Every caller but one is a section inside a page that already has its own
-   * `<h1>`, so `h2` is the right default. A page whose hero has no heading of
-   * its own above this one needs `as="h1"` instead, or the page grows a
-   * second top-level heading rather than gaining its first.
+   * `<h1>`, so `h2` is the right default. Pricing's hero is the one page with
+   * no heading of its own above this — pass `as="h1"` there, and nowhere else,
+   * or the page grows a second top-level heading instead of gaining its first.
    */
   as?: "h1" | "h2";
 }) {

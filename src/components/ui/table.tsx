@@ -157,18 +157,21 @@ export function TBody({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Makes a whole row follow its main link, without breaking the row.
+ * Makes a whole row — or, below `sm`, a card standing in for one — follow its
+ * main link, without breaking the row.
  *
  * `TR interactive` only ever added a hover tint and `cursor-pointer`, so every
  * table in the app has been showing a pointer over rows that do nothing — the
  * name inside was the only target. A cursor that promises a click and does not
- * deliver one is worse than a plain row.
+ * deliver one is worse than a plain row. The same is true of the `<li>` cards a
+ * mobile layout stands in for a row with — genericised to `HTMLElement` for
+ * exactly that reuse, rather than kept `TR`-only and duplicated.
  *
  * The row is deliberately **not** made focusable and given a key handler. The
  * link inside it is already a real anchor: it is in the tab order, it is
  * announced as a link, and it right-clicks and middle-clicks into a new tab.
- * Adding `tabIndex` and `role="link"` to the `<tr>` as well would create a
- * second tab stop onto the same destination, which is a worse experience for a
+ * Adding `tabIndex` and `role="link"` to the row as well would create a second
+ * tab stop onto the same destination, which is a worse experience for a
  * keyboard user than no row click at all. So the anchor serves the keyboard and
  * this serves the mouse.
  *
@@ -180,8 +183,10 @@ export function TBody({ children }: { children: React.ReactNode }) {
  * - a click that ends a text selection, so somebody dragging across an account
  *   number to copy it does not get moved to another page instead.
  */
-export function rowClick(navigate: () => void) {
-  return (event: React.MouseEvent<HTMLTableRowElement>) => {
+export function rowClick<T extends HTMLElement = HTMLTableRowElement>(
+  navigate: () => void,
+) {
+  return (event: React.MouseEvent<T>) => {
     const target = event.target as HTMLElement | null;
     if (
       target?.closest(

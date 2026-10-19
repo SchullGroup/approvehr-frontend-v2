@@ -11,7 +11,6 @@ import {
   CardFooter,
   CardHeader,
   Callout,
-  ConfirmDialog,
   Disclosure,
   EmptyState,
   Spinner,
@@ -36,6 +35,7 @@ import {
   useEmployeeScore,
   useRatingScale,
   useReview,
+  useReviewFlag,
   useSignOff,
   useSubjectSelfReview,
 } from "@/lib/store/performance";
@@ -46,7 +46,10 @@ import {
   ReadAnswer,
   draftFrom,
 } from "../../review-parts";
+import { WorkEvidence } from "@/components/performance/work-evidence";
+import { FinaliseDialog } from "./finalise-dialog";
 import { SignOffDialog } from "./sign-off-dialog";
+import { RecordCheck, StatusBadge } from "@/components/performance/record-check";
 
 /**
  * One appraisal, projected by who is reading it.
@@ -57,7 +60,7 @@ import { SignOffDialog } from "./sign-off-dialog";
  * |---|---|
  * | The person it is about | the answer they owe: acknowledge it |
  * | The person who wrote it | the form, and finalising it into the mark of record |
- * | Records permission | both of the above, read-only, plus the employee's answer |
+ * | Records permission | both of the above, read-only, plus recording a dispute if the subject does not accept it |
  *
  * Everything else — the mark, the answers, what the mark is made of — is the same
  * document for all three. The incumbent ships `self-appraisal`,
@@ -75,12 +78,12 @@ import { SignOffDialog } from "./sign-off-dialog";
  * is a person nothing counted for. Printing a zero for either is a claim about
  * somebody that is not true.
  *
- * ## The form is read here and answered in the modal
+ * ## The form is read here and answered on its own page
  *
- * This page is the record. Answering is one implementation, in
- * `ReviewFormModal`, and this opens it rather than growing a second one — a
- * read-only copy of a form drifts until it renders a question the form has
- * stopped asking.
+ * This page is the record. Answering is one implementation — the full-page,
+ * one-question-at-a-time form at `/performance/reviews/[id]/answer` — and this
+ * links to it rather than growing a second one: a read-only copy of a form
+ * drifts until it renders a question the form has stopped asking.
  */
 /**
  * How much of this form is still to do, in a sentence whose noun is true.
@@ -129,7 +132,15 @@ function unansweredLine(review: {
 }
 
 export function ReviewScreen({ reviewId }: { reviewId: string }) {
-  const { review, loading, error, reload } = useReview(reviewId);
+  const { review: fresh, loading, error, reload } = useReview(reviewId);
+  /* The last appraisal that loaded, shown while the next one is on its way.
+     `reload` empties the answer until the new one lands, which blanked the whole
+     page to a spinner — and took the dialog that had just recorded something
+     with it. Only while it is loading: an answer that failed is not papered
+     over with a stale one. */
+  const [kept, setKept] = useState<ApiReviewDetail | null>(null);
+  if (fresh && fresh !== kept) setKept(fresh);
+  const review = fresh ?? (loading && kept?.id === reviewId ? kept : null);
   /* The company's own words. A record of a mark is the last place that should
      be quoting a scale the company renamed — it is the screen somebody reads
      when they are being told what they were marked. */
@@ -137,10 +148,10 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const ratingWords = ratingWordsFrom(scale.levels);
   const { actingId } = useSession();
   const canSeeCompany = useCan("EDIT_RECORDS");
+  const canSeeFairness = useCan("VIEW_FAIRNESS");
   const signOff = useSignOff();
   const toast = useToast();
 
-  const [answering, setAnswering] = useState(false);
   const [signingOff, setSigningOff] = useState(false);
   const [finalising, setFinalising] = useState(false);
 
@@ -158,11 +169,21 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     review?.cycleId ?? null,
     review?.subjectId ?? null,
     review !== null &&
-      review.kind === "MANAGER" &&
-      (isSubject || review.mine || canSeeCompany),
+    review.kind === "MANAGER" &&
+    (isSubject || review.mine || canSeeCompany),
   );
 
-  if (loading) {
+  const record = useReviewFlag(
+    review?.cycleId ?? null,
+    review?.subjectId ?? null,
+    review !== null &&
+    review.kind === "MANAGER" &&
+    canSeeFairness &&
+    !isSubject &&
+    !review.mine,
+  );
+
+  if (loading && !review) {
     return (
       <>
         <PageHeader
@@ -202,13 +223,18 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     );
   }
 
-  const run = async (action: () => Promise<unknown>, success: string) => {
+  /* One write, and no announcement: acknowledging and finalising each turn
+     their own dialog into the statement of what was recorded, so a toast on top
+     of it would say it twice. A failure is still a toast, and leaves the dialog
+     on its question. */
+  const settle = async <T,>(
+    action: () => Promise<T>,
+  ): Promise<{ ok: true; value: T } | { ok: false }> => {
     try {
-      await action();
-      toast.push({ title: success, tone: "success" });
+      const value = await action();
       reload();
       score.reload();
-      return true;
+      return { ok: true, value };
     } catch (caught) {
       toast.push({
         title: "That did not work",
@@ -218,7 +244,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             ? caught.message
             : "Something went wrong. Try again.",
       });
-      return false;
+      return { ok: false };
     }
   };
 
@@ -228,8 +254,11 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     !review.finalised &&
     (review.mine || canSeeCompany);
 
-  /* The subject owes an answer only once the mark is theirs, and only once. */
-  const owesAnswer =
+  /* The subject owes an acknowledgement only once the mark is theirs, and
+     only once. Disputing is no longer something they do here — see the
+     callout below and `assertMayDispute` on the API, which is the actual
+     gate this mirrors. */
+  const owesAcknowledgement =
     isSubject && review.finalised && !review.acknowledged && !review.disputed;
 
   const answered = review.acknowledged || review.disputed;
@@ -303,7 +332,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             </p>
           )}
 
-          {owesAnswer && (
+          {owesAcknowledgement && (
             <Callout
               tone="accent"
               title="This rating is final. It needs your answer"
@@ -317,7 +346,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
                 <strong>Acknowledging is not agreeing.</strong> It records that
                 you were shown this and nothing more.
               </p>
-              <p className="mt-3 flex flex-wrap gap-2">
+              <p className="mt-3">
                 <Button
                   variant="accent"
                   size="sm"
@@ -475,6 +504,31 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             />
           )}
 
+          {
+            review.kind === "MANAGER" && record.flag && (
+              <Card>
+                <CardHeader
+                  title="Mark against the evidence"
+                  description="Their mark beside what their objectives, peer feedback and past marks suggest. Their manager doesn't see this."
+                  action={<StatusBadge status={record.flag.status} />}
+                />
+                <CardBody>
+                  <RecordCheck
+                    cycleId={review.cycleId}
+                    flag={record.flag}
+                    claims={record.claims}
+                  />
+                </CardBody>
+              </Card>
+            )
+          }
+          {/* ---------------------------------------- tickets from connected tools */}
+          <WorkEvidence
+            employeeId={review.subjectId}
+            range={review.cycleId ? { cycleId: review.cycleId } : {}}
+            title="Work from connected tools this cycle"
+          />
+
           {/* ------------------------------------------------------------- the form */}
           <Card>
             <CardHeader
@@ -482,16 +536,16 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               description={unansweredLine(review)}
               {...(review.mine && !review.submitted
                 ? {
-                    action: (
-                      <Button
-                        variant="accent"
-                        size="sm"
-                        onClick={() => setAnswering(true)}
-                      >
-                        Fill it in
-                      </Button>
-                    ),
-                  }
+                  action: (
+                    <ButtonLink
+                      href={`/performance/reviews/${review.id}/answer`}
+                      variant="accent"
+                      size="sm"
+                    >
+                      Fill it in
+                    </ButtonLink>
+                  ),
+                }
                 : {})}
             />
             {review.questions.length === 0 ? (
@@ -529,45 +583,37 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             loading={selfLoading}
             ratingWords={ratingWords}
           />
-        </div>
-      </PageBody>
-
-      {/* Mounted whichever way `answering` is going, so `Modal` can animate
-          its own close off a real `open` — origin/staging's change, kept.
-          `useReview` tolerates a null id, and this screen always has a
-          review, so the id is passed unconditionally exactly as staging
-          passed it. */}
-      <ReviewFormModal
-        reviewId={review.id}
-        open={answering}
-        onClose={() => setAnswering(false)}
-        onDone={reload}
-      />
+        </div >
+      </PageBody >
 
       {signingOff && (
         <SignOffDialog
           review={review}
+          ratingLabel={
+            review.rating === null ? null : ratingWords(review.rating)
+          }
           onClose={() => setSigningOff(false)}
           onConfirm={async (comment) => {
-            const ok = await run(
-              () => signOff.acknowledge(review, comment),
-              "Acknowledgement recorded",
+            const outcome = await settle(() =>
+              signOff.acknowledge(review, comment),
             );
-            if (ok) setSigningOff(false);
+            return outcome.ok
+              ? { at: outcome.value?.acknowledgedAt ?? null }
+              : null;
           }}
         />
-      )}
+      )
+      }
 
       <FinaliseDialog
         open={finalising}
         review={review}
         onClose={() => setFinalising(false)}
         onConfirm={async () => {
-          const ok = await run(
-            () => signOff.finalise(review.id),
-            `${review.subjectName} has been told their rating`,
-          );
-          if (ok) setFinalising(false);
+          const outcome = await settle(() => signOff.finalise(review.id));
+          return outcome.ok
+            ? { subjectNotified: outcome.value.subjectNotified }
+            : null;
         }}
       />
     </>
@@ -576,14 +622,6 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
 
 /* -------------------------------------------------------------------------- */
 
-/**
- * Finalising, behind a confirmation that names what it does.
- *
- * The same shape as approving a payroll run, and for the same reason: after it,
- * what the person is told is fixed. The confirmation names the person and the
- * mark rather than asking "are you sure" — an irreversible act with a generic
- * dialog in front of it is an irreversible act nobody read.
- */
 /**
  * The employee's own account of the period, beside the appraiser's form.
  *
@@ -685,46 +723,6 @@ function TheirOwnAccount({
   );
 }
 
-function FinaliseDialog({
-  open,
-  review,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  review: ApiReviewDetail;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  /* Its own read of the same cached scale rather than a prop. This dialog
-     quotes the mark somebody is about to make final, and quoting it in the
-     default words while the screen behind it uses the company's would be the
-     picker-versus-record split all over again, inside one screen. */
-  const { scale } = useRatingScale();
-  const ratingWords = ratingWordsFrom(scale.levels);
-
-  return (
-    <ConfirmDialog
-      open={open}
-      onClose={onClose}
-      onConfirm={onConfirm}
-      title={`Make this ${review.subjectName}'s rating?`}
-      confirmLabel="Make this the rating"
-      tone="primary"
-      body={
-        <span>
-          {review.subjectName} will be told, and will be asked to acknowledge
-          it.{" "}
-          {review.rating === null
-            ? "This form carries no overall mark, so what they read is the answers."
-            : `The mark of record becomes "${ratingWords(review.rating)}".`}{" "}
-          It cannot be re-marked afterwards.
-        </span>
-      }
-    />
-  );
-}
-
 /**
  * What the composite mark is made of, component by component.
  *
@@ -788,8 +786,15 @@ function ScorePanel({
         <div className="grid gap-4 sm:grid-cols-3">
           <Stat
             label="Composite score"
+            /* An em dash, not a sentence — the reason lives in `hint`
+               already, and a dash reads as the same kind of thing as the
+               percentage it stands in for. */
             value={
-              score.scoreBp === null ? "No mark" : scoreLabel(score.scoreBp)
+              score.scoreBp === null ? (
+                <span className="text-faint">—</span>
+              ) : (
+                scoreLabel(score.scoreBp)
+              )
             }
             hint={
               score.scoreBp === null
@@ -803,9 +808,11 @@ function ScorePanel({
                mark, and rounding it to one would throw a judgement away. */
             label="Appraisers' mark, on the scale"
             value={
-              score.appraiserMark.ratingBp === null
-                ? "None in yet"
-                : scoreLabel(score.appraiserMark.ratingBp)
+              score.appraiserMark.ratingBp === null ? (
+                <span className="text-faint">—</span>
+              ) : (
+                scoreLabel(score.appraiserMark.ratingBp)
+              )
             }
             hint={
               score.appraiserMark.appraisers <= 1

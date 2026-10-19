@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Plus, ReceiptText } from "lucide-react";
 import {
   Button,
@@ -10,6 +9,7 @@ import {
   CardHeader,
   EmptyState,
   Money,
+  TextLink,
   formatMoney,
   useToast,
 } from "@/components/ui";
@@ -144,12 +144,12 @@ export function MyExpenses({ className }: { className?: string }) {
           )}
 
           {mine.claims.length > recent.length && (
-            <Link
+            <TextLink
               href="/payroll/expenses"
-              className="text-body-sm text-accent-text underline-offset-4 hover:underline"
+              className="text-body-sm font-normal"
             >
               See all {mine.claims.length} claims
-            </Link>
+            </TextLink>
           )}
         </CardBody>
       </Card>
@@ -164,9 +164,9 @@ export function MyExpenses({ className }: { className?: string }) {
           types={types.types}
           claim={editing ?? undefined}
           myEmployeeId={mine.myEmployeeId}
+          /* No toast: the form says what was sent, in the dialog, itself. */
           onSubmit={async (input) => {
             await mine.submit(input);
-            toast.push({ title: "Sent for approval", tone: "success" });
           }}
           onEdit={async (id, input) => {
             await mine.edit(id, input);

@@ -1,5 +1,11 @@
 # For the backend: the employee dispute is gone from the product
 
+> **Answered.** The backend took the second option in §1 (keep it, gate it on `EDIT_RECORDS`) in
+> `04451f4` on 2026-09-11, the day this was written, so the sentence below saying nothing has
+> changed on the backend is out of date. The decision is recorded in
+> [ADR-0008](../adr/0008-an-employee-acknowledges-a-rating-and-only-hr-records-a-dispute.md).
+> BE-21 and BE-22 in §4 are still open.
+
 The frontend no longer lets an employee dispute their rating. Everything below
 is what the **API** still does, and the decisions that are yours rather than
 ours. Nothing in this document has been changed on the backend.

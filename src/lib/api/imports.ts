@@ -221,6 +221,8 @@ export type ApiApplyExtras = {
   headsSet?: number;
   /** Employees: invitations sent to a row carrying both a role and an email. */
   invited?: number;
+  /** Objectives: key results created alongside the objectives that named a measure. */
+  measuresAdded?: number;
 };
 
 /** `POST /:entity/:batchId/apply`. */

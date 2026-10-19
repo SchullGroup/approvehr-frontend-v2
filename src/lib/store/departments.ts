@@ -590,3 +590,28 @@ export function useDepartment(id: string | null) {
     loading: active && !matched,
   };
 }
+
+/**
+ * The departments the signed-in person heads, by id.
+ *
+ * Heading a department is a fact on `Department.headId`, not a permission and
+ * not a reporting line — so `useIsManager`, which counts `managerId` reports,
+ * says no for a head whose company sets no managers. The API already treats
+ * such a head as leading everybody in the department (`reviewableTeamOf`);
+ * screens that offer a team view ask this as well.
+ */
+export function useHeadedDepartmentIds(): Set<string> {
+  const { employeeId } = useSession();
+  const { flat } = useDepartments();
+  return useMemo(
+    () =>
+      new Set(
+        employeeId === null
+          ? []
+          : flat
+              .filter((department) => department.headId === employeeId)
+              .map((department) => department.id),
+      ),
+    [flat, employeeId],
+  );
+}

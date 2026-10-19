@@ -159,6 +159,13 @@ const DEMO_COPY: Record<
       "Approve a requisition before it opens, and an offer before it goes out.",
     section: "people",
   },
+  APPROVE_EMPLOYMENT_CHANGE: {
+    label: "Approve promotions and transfers",
+    description:
+      "Sign off a promotion, transfer, regrade or pay change — the point somebody's job, department or salary actually moves.",
+    section: "money",
+    sensitive: true,
+  },
   APPROVE_LEAVE: {
     label: "Approve leave for their team",
     description: "Decide requests from the people who report to them.",
@@ -313,6 +320,12 @@ const DEMO_COPY: Record<
       "Sign off a swap the two employees have already agreed between themselves.",
     section: "timeOff",
   },
+  VIEW_FAIRNESS: {
+    label: "See the fairness check",
+    description:
+      "How an appraisal period's marks compare by gender, age, time at the company, location, contract type and department. Group averages only, never one person's.",
+    section: "people",
+  },
 };
 
 /** Reported, never blocked — a two-person company genuinely has one person doing both. */
@@ -345,6 +358,7 @@ const DEMO_MODULE_TITLES: Record<PermissionModule, string> = {
   repairs: "Equipment repairs",
   exits: "Exits",
   hiring: "Recruitment",
+  performance: "Performance",
   leave: "Leave",
   shifts: "Shifts and the rota",
   payroll: "Payroll",

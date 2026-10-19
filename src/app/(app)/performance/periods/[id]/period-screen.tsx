@@ -39,6 +39,7 @@ import {
   TR,
   TableWrap,
   Textarea,
+  TextLink,
   useToast,
 } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
@@ -70,12 +71,16 @@ import {
   useCycleMutations,
   useCycleRegister,
   useRatingScale,
+  useReviewFlag,
 } from "@/lib/store/performance";
+import { exactPoints } from "@/components/performance/record-check";
 import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
 import { SectionsDialog } from "../../sections-dialog";
 import { AppraisersDialog } from "../../appraiser-map";
 import { AskPeersButton } from "./ask-peers";
+import { CalibrationAudit } from "./fairness/calibration-audit";
+import { FairnessStatus } from "./fairness/fairness-status";
 
 /**
  * Running one appraisal period.
@@ -444,6 +449,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 Nine-box
               </ButtonLink>
             )}
+
             {/* The stage never moved on its own, and nothing moved it: the
                 endpoint has always accepted `MANAGER` and `CALIBRATION`,
                 gated and ordered correctly, and had no caller — so every
@@ -730,6 +736,9 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 rows={outstanding}
                 participants={detail.participants}
               />
+              {period?.stage === "CALIBRATION" && (
+                <FairnessStatus cycleId={cycleId} />
+              )}
               <Register
                 register={detail.register}
                 cycleId={cycleId}
@@ -741,6 +750,10 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 onAsked={() => detail.reload()}
               />
               <MultiAppraiserReviews participants={detail.participants} />
+              {(period?.stage === "CALIBRATION" ||
+                period?.stage === "PUBLISHED") && (
+                <CalibrationAudit cycleId={cycleId} />
+              )}
             </>
           )}
         </div>
@@ -1269,17 +1282,21 @@ function Outstanding({
           <Stat
             label="Self-reviews in"
             value={
-              selfTotal === 0
-                ? "Nobody has a form yet"
-                : `${selfIn} of ${selfTotal}`
+              selfTotal === 0 ? (
+                <span className="text-faint">—</span>
+              ) : (
+                `${selfIn} of ${selfTotal}`
+              )
             }
           />
           <Stat
             label="Manager reviews in"
             value={
-              managerTotal === 0
-                ? "No manager review is due yet"
-                : `${managerIn} of ${managerTotal}`
+              managerTotal === 0 ? (
+                <span className="text-faint">—</span>
+              ) : (
+                `${managerIn} of ${managerTotal}`
+              )
             }
           />
           <Stat label="Forms outstanding" value={String(rows.length)} />
@@ -1305,12 +1322,12 @@ function Outstanding({
                 className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
               >
                 <span className="text-body-sm text-ink">{row.what}</span>
-                <Link
+                <TextLink
                   href={`/performance/reviews/${row.reviewId}`}
-                  className="text-body-sm font-medium text-accent-text underline-offset-2 hover:underline"
+                  className="text-body-sm"
                 >
                   Open it
-                </Link>
+                </TextLink>
               </li>
             ))}
           </ul>
@@ -1379,16 +1396,16 @@ function MultiAppraiserReviews({
                     : ""}
                 </p>
               </div>
-              <Link
+              <TextLink
                 href={`/performance/reviews/${manager.reviewId}`}
-                className="text-body-sm font-medium text-accent-text underline-offset-2 hover:underline"
+                className="text-body-sm"
               >
                 {manager.finalised
                   ? "Open"
                   : manager.submitted
                     ? "Finalise"
                     : "Open"}
-              </Link>
+              </TextLink>
             </div>
           )),
         )}
@@ -1480,33 +1497,59 @@ function Register({
         }
       />
       <CardBody className="p-0">
-        <TableWrap caption="Everybody in this period, their score and their sign-off">
-          <THead>
-            <TH>Person</TH>
-            <TH>Objectives agreed</TH>
-            <TH align="right">Score</TH>
-            <TH>Sign-off</TH>
-            {canAskPeers && <TH>Feedback</TH>}
-            {canCalibrate && <TH>Calibration</TH>}
-            {canRequestRevision && !revisionsUnavailable && <TH>Revision</TH>}
-          </THead>
-          <TBody>
-            {register.rows.map((row) => (
-              <RegisterRow
-                key={row.employeeId}
-                row={row}
-                cycleId={cycleId}
-                canAskPeers={canAskPeers}
-                canCalibrate={canCalibrate}
-                canRequestRevision={canRequestRevision && !revisionsUnavailable}
-                existingRevision={revisionRequests.find(
-                  (request) => request.employeeId === row.employeeId,
-                )}
-                onAsked={onAsked}
-              />
-            ))}
-          </TBody>
-        </TableWrap>
+        {/* Up to seven columns, one of them (Score) already two lines and a
+            breakdown, is unreadable under 375px. Below `sm` this becomes a
+            card per person — `RegisterCard` is `RegisterRow`'s sibling, same
+            `SignOffCell` / `ScoreParts` / action buttons, arranged as a list
+            instead of columns. */}
+        <div className="hidden sm:block">
+          <TableWrap caption="Everybody in this period, their score and their sign-off">
+            <THead>
+              <TH>Person</TH>
+              <TH>Objectives agreed</TH>
+              <TH align="right">Score</TH>
+              <TH>Sign-off</TH>
+              {canAskPeers && <TH>Feedback</TH>}
+              {canCalibrate && <TH>Calibration</TH>}
+              {canRequestRevision && !revisionsUnavailable && <TH>Revision</TH>}
+            </THead>
+            <TBody>
+              {register.rows.map((row) => (
+                <RegisterRow
+                  key={row.employeeId}
+                  row={row}
+                  cycleId={cycleId}
+                  canAskPeers={canAskPeers}
+                  canCalibrate={canCalibrate}
+                  canRequestRevision={
+                    canRequestRevision && !revisionsUnavailable
+                  }
+                  existingRevision={revisionRequests.find(
+                    (request) => request.employeeId === row.employeeId,
+                  )}
+                  onAsked={onAsked}
+                />
+              ))}
+            </TBody>
+          </TableWrap>
+        </div>
+
+        <ul className="divide-y divide-line sm:hidden">
+          {register.rows.map((row) => (
+            <RegisterCard
+              key={row.employeeId}
+              row={row}
+              cycleId={cycleId}
+              canAskPeers={canAskPeers}
+              canCalibrate={canCalibrate}
+              canRequestRevision={canRequestRevision && !revisionsUnavailable}
+              existingRevision={revisionRequests.find(
+                (request) => request.employeeId === row.employeeId,
+              )}
+              onAsked={onAsked}
+            />
+          ))}
+        </ul>
       </CardBody>
     </Card>
   );
@@ -1538,12 +1581,9 @@ function RegisterRow({
         {/* The name is the link to their trend across periods. One mark is a
             snapshot; the argument about a rating is almost always about whether
             it moved. */}
-        <Link
-          href={`/performance/history/${row.employeeId}`}
-          className="font-medium text-ink underline-offset-2 hover:text-accent-text hover:underline"
-        >
+        <TextLink href={`/performance/history/${row.employeeId}`}>
           {row.employeeName}
-        </Link>
+        </TextLink>
         <span className="mt-0.5 block text-meta text-muted">
           {row.jobTitle}
           {row.departmentName ? ` · ${row.departmentName}` : ""}
@@ -1631,6 +1671,108 @@ function RegisterRow({
   );
 }
 
+/** `RegisterRow`'s sibling: the same person, as a card instead of a row. */
+function RegisterCard({
+  row,
+  cycleId,
+  canAskPeers,
+  canCalibrate,
+  canRequestRevision,
+  existingRevision,
+  onAsked,
+}: {
+  row: ApiScoreRow;
+  cycleId: string;
+  canAskPeers: boolean;
+  canCalibrate: boolean;
+  canRequestRevision: boolean;
+  existingRevision: ApiRevisionRequest | undefined;
+  onAsked: () => void;
+}) {
+  return (
+    <li className="flex flex-col gap-2 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Link
+            href={`/performance/history/${row.employeeId}`}
+            className="font-medium text-ink underline-offset-2 hover:text-accent-text hover:underline"
+          >
+            {row.employeeName}
+          </Link>
+          <p className="mt-0.5 text-meta text-muted">
+            {row.jobTitle}
+            {row.departmentName ? ` · ${row.departmentName}` : ""}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          {row.scoreBp === null ? (
+            <span className="text-body-sm text-muted">No mark</span>
+          ) : (
+            <span className="tabular font-medium text-ink">
+              {scoreLabel(row.scoreBp)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {row.scoreBp !== null && (
+        <div>
+          {row.calibration && (
+            <p className="text-meta text-muted" title={row.calibration.reason}>
+              Moved from {scoreLabel(row.calibration.originalBp)}
+            </p>
+          )}
+          <ScoreParts components={row.components} />
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+        <span className="tabular">
+          {row.objectives.agreed} objective
+          {row.objectives.agreed === 1 ? "" : "s"} agreed
+          {row.objectives.awaitingApproval > 0 &&
+            ` · ${row.objectives.awaitingApproval} waiting`}
+        </span>
+      </div>
+
+      <div>
+        <SignOffCell row={row} />
+      </div>
+
+      {(canAskPeers || canCalibrate || canRequestRevision) && (
+        <div className="flex flex-wrap items-center gap-3 border-t border-line pt-2">
+          {canAskPeers && (
+            <AskPeersButton
+              cycleId={cycleId}
+              subjectId={row.employeeId}
+              subjectName={row.employeeName}
+              onAsked={onAsked}
+            />
+          )}
+          {canCalibrate &&
+            (row.scoreBp === null ? (
+              <span className="text-meta text-muted">No mark yet</span>
+            ) : (
+              <CalibrateButton
+                cycleId={cycleId}
+                row={row}
+                onChanged={onAsked}
+              />
+            ))}
+          {canRequestRevision && (
+            <RevisionButton
+              cycleId={cycleId}
+              row={row}
+              existing={existingRevision}
+              onChanged={onAsked}
+            />
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
 /**
  * The sign-off state, in one phrase, ordered by what has to happen next.
  *
@@ -1705,12 +1847,12 @@ function SignOffCell({ row }: { row: ApiScoreRow }) {
           Not answered yet
         </Badge>
         {signOff.reviewId && (
-          <Link
+          <TextLink
             href={`/performance/reviews/${signOff.reviewId}`}
-            className="text-meta font-medium text-accent-text underline-offset-2 hover:underline"
+            className="text-meta"
           >
             Open
-          </Link>
+          </TextLink>
         )}
       </span>
     );
@@ -1722,12 +1864,12 @@ function SignOffCell({ row }: { row: ApiScoreRow }) {
           Written, not final
         </Badge>
         {signOff.reviewId && (
-          <Link
+          <TextLink
             href={`/performance/reviews/${signOff.reviewId}`}
-            className="text-meta font-medium text-accent-text underline-offset-2 hover:underline"
+            className="text-meta"
           >
             Finalise
-          </Link>
+          </TextLink>
         )}
       </span>
     );
@@ -2077,6 +2219,14 @@ function CalibrateButton({
   const [failed, setFailed] = useState<string | null>(null);
 
   const existing = row.calibration;
+  const canSeeFairness = useCan("VIEW_FAIRNESS");
+  const { flag } = useReviewFlag(
+    cycleId,
+    row.employeeId,
+    open && canSeeFairness,
+  );
+  const offRecord =
+    flag && (flag.status === "below" || flag.status === "above") ? flag : null;
 
   const start = () => {
     /* Seeded with what is on screen, so somebody nudging a mark by two points
@@ -2193,6 +2343,19 @@ function CalibrateButton({
         }
       >
         <div className="flex flex-col gap-4">
+          {offRecord &&
+            offRecord.gapBp !== null &&
+            offRecord.expectedBp !== null && (
+              <Callout
+                tone="warning"
+                title="This mark doesn't match the evidence"
+              >
+                The evidence suggests {scoreLabel(offRecord.expectedBp)}, a gap
+                of {exactPoints(offRecord.gapBp)}. Check the evidence on the
+                fairness check before moving it.
+              </Callout>
+            )}
+
           {existing && (
             <Callout tone="neutral" title="It has already been moved">
               Now {scoreLabel(existing.calibratedBp)}, from{" "}

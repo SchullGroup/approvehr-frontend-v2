@@ -98,6 +98,84 @@ function toCreateInput(draft: LocationDraft) {
   };
 }
 
+function ClockingIn({ row }: { row: ApiWorkLocation }) {
+  if (row.remoteAllowed) {
+    return <span className="text-body-sm text-body">From anywhere</span>;
+  }
+  if (row.geofenceEnforced) {
+    return <span className="text-body-sm text-body">On site only</span>;
+  }
+  return (
+    <span className="text-body-sm text-body">Anywhere (no fence set)</span>
+  );
+}
+
+function Geofence({ row }: { row: ApiWorkLocation }) {
+  if (row.radiusMetres === null) {
+    /* Absent, not zero. */
+    return <span className="text-body-sm text-muted">Not checked</span>;
+  }
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span className="tabular flex items-center gap-1.5 text-body-sm text-ink">
+        <MapPin aria-hidden="true" className="size-3.5 text-faint" />
+        {row.radiusMetres.toLocaleString()} m
+      </span>
+      <span className="tabular text-meta text-muted">
+        {row.latitude}, {row.longitude}
+      </span>
+      {!row.geofenceEnforced && (
+        <span className="text-meta text-muted">Set, but not applied</span>
+      )}
+    </span>
+  );
+}
+
+function AssignedCount({ row }: { row: ApiWorkLocation }) {
+  if (row.assigned === null) {
+    /* Absent in demo mode: nothing joins a demo employee's city to a work
+       location, and 0 would read as "nobody works here". */
+    return <span className="text-body-sm text-muted">—</span>;
+  }
+  return <span className="tabular text-body-sm text-ink">{row.assigned}</span>;
+}
+
+/** Turn back on for a switched-off location, or Edit + Switch off — one copy
+    shared by the desktop row and the mobile card. */
+function LocationRowActions({
+  off,
+  busy,
+  onRestore,
+  onEdit,
+  onArchive,
+}: {
+  off: boolean;
+  busy: boolean;
+  onRestore: () => void;
+  onEdit: () => void;
+  onArchive: () => void;
+}) {
+  if (off) {
+    return (
+      <Button variant="secondary" size="sm" disabled={busy} onClick={onRestore}>
+        <RotateCcw aria-hidden="true" className="size-3.5" />
+        Turn back on
+      </Button>
+    );
+  }
+  return (
+    <>
+      <Button variant="ghost" size="sm" onClick={onEdit}>
+        Edit
+      </Button>
+      <Button variant="ghost" size="sm" onClick={onArchive}>
+        <Power aria-hidden="true" className="size-3.5" />
+        Switch off
+      </Button>
+    </>
+  );
+}
+
 export function LocationsScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
   const [showArchived, setShowArchived] = useState(false);
@@ -255,143 +333,140 @@ export function LocationsScreen() {
               }
             />
           ) : (
-            <TableWrap
-              className="rounded-none border-0"
-              caption="Work locations, with the geofence set for each"
-            >
-              <THead>
-                <TH>Location</TH>
-                <TH>Clocking in</TH>
-                <TH>Geofence</TH>
-                <TH align="right">Assigned</TH>
-                {canManage && (
-                  <TH align="right">
-                    <span className="sr-only">Actions</span>
-                  </TH>
-                )}
-              </THead>
-              <TBody>
+            <>
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-none border-0"
+                  caption="Work locations, with the geofence set for each"
+                >
+                  <THead>
+                    <TH>Location</TH>
+                    <TH>Clocking in</TH>
+                    <TH>Geofence</TH>
+                    <TH align="right">Assigned</TH>
+                    {canManage && (
+                      <TH align="right">
+                        <span className="sr-only">Actions</span>
+                      </TH>
+                    )}
+                  </THead>
+                  <TBody>
+                    {list.locations.map((row) => {
+                      const off = row.archivedAt !== null;
+                      return (
+                        <TR key={row.id}>
+                          <TDPrimary
+                            title={
+                              <span className="flex flex-wrap items-center gap-2">
+                                {row.name}
+                                {off && (
+                                  <Badge tone="neutral" size="sm">
+                                    Switched off
+                                  </Badge>
+                                )}
+                              </span>
+                            }
+                            subtitle={row.addressLine ?? undefined}
+                          />
+                          <TD>
+                            <ClockingIn row={row} />
+                          </TD>
+                          <TD>
+                            <Geofence row={row} />
+                          </TD>
+                          <TD align="right">
+                            <AssignedCount row={row} />
+                          </TD>
+                          {canManage && (
+                            <TD align="right">
+                              <div className="flex justify-end gap-1.5">
+                                <LocationRowActions
+                                  off={off}
+                                  busy={busy}
+                                  onRestore={() =>
+                                    void run(
+                                      () => mutations.restore(row.id),
+                                      `${row.name} is back on`,
+                                    )
+                                  }
+                                  onEdit={() => setEditing(row)}
+                                  onArchive={() => setArchiving(row)}
+                                />
+                              </div>
+                            </TD>
+                          )}
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
                 {list.locations.map((row) => {
                   const off = row.archivedAt !== null;
                   return (
-                    <TR key={row.id}>
-                      <TDPrimary
-                        title={
-                          <span className="flex flex-wrap items-center gap-2">
-                            {row.name}
-                            {off && (
-                              <Badge tone="neutral" size="sm">
-                                Switched off
-                              </Badge>
-                            )}
-                          </span>
-                        }
-                        subtitle={row.addressLine ?? undefined}
-                      />
-                      <TD>
-                        {row.remoteAllowed ? (
-                          <span className="text-body-sm text-body">
-                            From anywhere
-                          </span>
-                        ) : row.geofenceEnforced ? (
-                          <span className="text-body-sm text-body">
-                            On site only
-                          </span>
-                        ) : (
-                          <span className="text-body-sm text-body">
-                            Anywhere (no fence set)
-                          </span>
+                    <li key={row.id} className="flex flex-col gap-2 p-4">
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                          {row.name}
+                          {off && (
+                            <Badge tone="neutral" size="sm">
+                              Switched off
+                            </Badge>
+                          )}
+                        </p>
+                        {row.addressLine && (
+                          <p className="mt-0.5 text-meta text-muted">
+                            {row.addressLine}
+                          </p>
                         )}
-                      </TD>
-                      <TD>
-                        {row.radiusMetres === null ? (
-                          /* Absent, not zero. */
-                          <span className="text-body-sm text-muted">
-                            Not checked
-                          </span>
-                        ) : (
-                          <span className="flex flex-col gap-0.5">
-                            <span className="tabular flex items-center gap-1.5 text-body-sm text-ink">
-                              <MapPin
-                                aria-hidden="true"
-                                className="size-3.5 text-faint"
-                              />
-                              {row.radiusMetres.toLocaleString()} m
-                            </span>
-                            <span className="tabular text-meta text-muted">
-                              {row.latitude}, {row.longitude}
-                            </span>
-                            {!row.geofenceEnforced && (
-                              <span className="text-meta text-muted">
-                                Set, but not applied
-                              </span>
-                            )}
-                          </span>
-                        )}
-                      </TD>
-                      <TD align="right">
-                        {row.assigned === null ? (
-                          /* Absent in demo mode: nothing joins a demo employee's
-                             city to a work location, and 0 would read as "nobody
-                             works here". */
-                          <span className="text-body-sm text-muted">—</span>
-                        ) : (
-                          <span className="tabular text-body-sm text-ink">
-                            {row.assigned}
-                          </span>
-                        )}
-                      </TD>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">
+                          Clocking in
+                        </span>
+                        <ClockingIn row={row} />
+                      </div>
+
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-body-sm text-muted">
+                          Geofence
+                        </span>
+                        <div className="text-right">
+                          <Geofence row={row} />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">
+                          Assigned
+                        </span>
+                        <AssignedCount row={row} />
+                      </div>
+
                       {canManage && (
-                        <TD align="right">
-                          <div className="flex justify-end gap-1.5">
-                            {off ? (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                disabled={busy}
-                                onClick={() =>
-                                  void run(
-                                    () => mutations.restore(row.id),
-                                    `${row.name} is back on`,
-                                  )
-                                }
-                              >
-                                <RotateCcw
-                                  aria-hidden="true"
-                                  className="size-3.5"
-                                />
-                                Turn back on
-                              </Button>
-                            ) : (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setEditing(row)}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setArchiving(row)}
-                                >
-                                  <Power
-                                    aria-hidden="true"
-                                    className="size-3.5"
-                                  />
-                                  Switch off
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TD>
+                        <div className="flex flex-wrap gap-1.5">
+                          <LocationRowActions
+                            off={off}
+                            busy={busy}
+                            onRestore={() =>
+                              void run(
+                                () => mutations.restore(row.id),
+                                `${row.name} is back on`,
+                              )
+                            }
+                            onEdit={() => setEditing(row)}
+                            onArchive={() => setArchiving(row)}
+                          />
+                        </div>
                       )}
-                    </TR>
+                    </li>
                   );
                 })}
-              </TBody>
-            </TableWrap>
+              </ul>
+            </>
           )}
         </Card>
 

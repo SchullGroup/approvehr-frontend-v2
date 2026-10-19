@@ -14,6 +14,7 @@ import {
   type CreatePostingBody,
   type EmploymentType,
   type PostingStatus,
+  type RequisitionStatus,
 } from "@/lib/api/careers";
 import type { ApiGrade } from "@/lib/api/grades";
 import type { Band } from "@/lib/grades/band";
@@ -107,6 +108,10 @@ export type RoleRow = {
   declined: number;
   /** True when advancing somebody has a pipeline to put them in. */
   screenable: boolean;
+  /** Null when there is no requisition at all. Present alongside `screenable`
+   *  so a screen can say *why* — filled or cancelled — rather than only that
+   *  it cannot. */
+  requisitionStatus: RequisitionStatus | null;
   /** `/careers/{orgSlug}/{slug}` once prefixed — see `careersPath`. */
   publicPath: string;
 };
@@ -156,6 +161,7 @@ export function toRoleRow(
       posting.requisitionId !== null &&
       posting.requisitionStatus !== "FILLED" &&
       posting.requisitionStatus !== "CANCELLED",
+    requisitionStatus: posting.requisitionStatus,
     publicPath: posting.publicPath,
   };
 }

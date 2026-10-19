@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 import type { BadgeTone } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -17,6 +10,11 @@ import {
   parseMeasure,
   performanceApi,
   type ApiAnswer,
+  type ApiFairness,
+  type ApiClaims,
+  type ApiReviewFlag,
+  type ApiReviewFlags,
+  type FairnessPeriods,
   type ApiCompetency,
   type ApiCycle,
   type ApiCycleParticipants,
@@ -47,12 +45,14 @@ import {
   type ApiScoringWeights,
   type ApiScoringWeightsSaved,
   type ApiTask,
+  type ApiTaskGrade,
   type ApiTaskForGrading,
   type ApiMyTask,
   type ScoreBand,
   type ScoreComponent,
   type AnswerBody,
   type CreateGoalBody,
+  type UpdateGoalBody,
   type CreateKeyResultBody,
   type CreateQuestionBody,
   type ReviewCycleStage,
@@ -70,7 +70,7 @@ import { EMPLOYEES, employeeById } from "@/lib/mock/people";
 import { useIsManager } from "@/lib/permissions";
 import { createPersistedState } from "./persisted";
 import { useSession } from "./session";
-import { useRevalidation } from "@/lib/revalidate";
+import { useFetched } from "@/lib/use-fetched";
 
 /**
  * Performance, in both modes: KPIs, appraisals and skills.
@@ -130,11 +130,13 @@ import { useRevalidation } from "@/lib/revalidate";
  *
  * ## Acknowledging is not agreeing, and the copy has to keep them apart
  *
- * `acknowledge` records "I have seen this". It is not consent, and a screen that
- * lets it read as consent is worth less than nothing to a company defending a
- * decision. `dispute` records "I do not accept this" and **changes no mark** —
- * the rating stands with the dispute beside it, because rewriting it would
- * destroy the evidence of what was originally decided.
+ * `acknowledge` records "I have seen this", and only the subject may send it. It
+ * is not consent, and a screen that lets it read as consent is worth less than
+ * nothing to a company defending a decision. `dispute` records "they do not
+ * accept this" — HR's to file, not the subject's, for the identical reason the
+ * subject cannot finalise their own rating — and **changes no mark**: the
+ * rating stands with the dispute beside it, because rewriting it would destroy
+ * the evidence of what was originally decided.
  *
  * ## `percent` is never computed on this side when connected
  *
@@ -1400,91 +1402,6 @@ export const SCOPE_LABEL: Record<KpiScope, string> = {
 const PAGE = 200;
 
 /**
- * A keyed fetch. The shape every read hook here uses.
- *
- * State is keyed by the request it belongs to, and `loading` is **derived** from
- * whether the stored key still matches. Three things fall out of that: a slow
- * response for a scope you have already switched away from cannot be shown,
- * there is nothing to clear when the key changes, and no `setState` ever runs in
- * an effect body — which is a lint error in this repo and a cascading render
- * everywhere else.
- *
- * `load` **must be stable** — wrap it in `useCallback` at the call site. It is
- * in the effect's dependencies deliberately: a loader that closes over a
- * changing value has to re-run, and hiding it behind a ref is how a stale
- * closure survives a filter change.
- */
-function useFetched<T>(
-  key: string,
-  active: boolean,
-  load: (signal: AbortSignal) => Promise<T>,
-): {
-  data: T | null;
-  loading: boolean;
-  error: ApiError | null;
-  reload: () => void;
-} {
-  const [tick, setTick] = useState(0);
-  const [fetched, setFetched] = useState<{
-    key: string;
-    data: T | null;
-    error: ApiError | null;
-  } | null>(null);
-  const latest = useRef(0);
-  const full = `${key}|${tick}`;
-
-  /* Re-ask when somebody comes back to the window. Not in the key below,
-     so the answer is replaced without the screen flashing a skeleton. */
-  const revalidation = useRevalidation();
-  useEffect(() => {
-    if (!active) return;
-    const ticket = latest.current + 1;
-    latest.current = ticket;
-    const controller = new AbortController();
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const data = await load(controller.signal);
-        if (!cancelled && ticket === latest.current) {
-          setFetched({ key: full, data, error: null });
-        }
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-        if (!cancelled && ticket === latest.current) {
-          setFetched({
-            key: full,
-            data: null,
-            error:
-              error instanceof ApiError
-                ? error
-                : new ApiError(
-                    0,
-                    "unknown",
-                    "Something went wrong. Try again.",
-                  ),
-          });
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [active, full, load, revalidation]);
-
-  const matched = fetched !== null && fetched.key === full;
-  return {
-    data: matched ? fetched.data : null,
-    loading: active && !matched,
-    error: matched ? fetched.error : null,
-    reload: useCallback(() => setTick((n) => n + 1), []),
-  };
-}
-
-/**
  * The cascade, for one scope.
  *
  * `mine` and `team` are fetched alongside the company ladder so the top of the
@@ -1691,6 +1608,14 @@ export function useKpiMutations() {
           "Sharing a goal tells the people it affects, which needs the API.",
         );
         return performanceApi.shareGoal(id);
+      },
+      [guard],
+    ),
+
+    updateGoal: useCallback(
+      async (id: string, body: UpdateGoalBody) => {
+        guard("Editing a goal needs the API.");
+        return performanceApi.updateGoal(id, body);
       },
       [guard],
     ),
@@ -3357,12 +3282,9 @@ export function useTaskActions() {
       [isConnected],
     ),
     gradeTask: useCallback(
-      async (
-        id: string,
-        grade: "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED",
-      ) => {
+      async (id: string, grade: ApiTaskGrade, note?: string) => {
         if (!isConnected) offline(TASK_OFFLINE);
-        return performanceApi.gradeTask(id, grade);
+        return performanceApi.gradeTask(id, grade, note);
       },
       [isConnected],
     ),
@@ -4205,6 +4127,102 @@ export function useCycleReport(
     error: isConnected ? fetched.error : null,
     available: isConnected && enabled,
     refusal: REPORT_OFFLINE,
+    reload: fetched.reload,
+  };
+}
+
+export function useReviewFlags(cycleId: string, enabled: boolean) {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    (signal: AbortSignal) => performanceApi.reviewFlags(cycleId, signal),
+    [cycleId],
+  );
+  const fetched = useFetched<ApiReviewFlags>(
+    `review-flags|${cycleId}`,
+    enabled && isConnected,
+    load,
+  );
+  return {
+    flags: fetched.data,
+    loading: fetched.loading,
+    error: fetched.error,
+    reload: fetched.reload,
+  };
+}
+
+type ReviewFlagDetail = { flag: ApiReviewFlag; claims: ApiClaims };
+
+// A 404 means there is nothing to show this reader about this person, not a failure.
+export function useReviewFlag(
+  cycleId: string | null,
+  employeeId: string | null,
+  enabled: boolean,
+) {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    async (signal: AbortSignal): Promise<ReviewFlagDetail | null> => {
+      try {
+        return await performanceApi.reviewFlag(
+          cycleId ?? "",
+          employeeId ?? "",
+          signal,
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+      }
+    },
+    [cycleId, employeeId],
+  );
+  const fetched = useFetched<ReviewFlagDetail | null>(
+    `review-flag|${cycleId ?? ""}|${employeeId ?? ""}`,
+    enabled && isConnected && cycleId !== null && employeeId !== null,
+    load,
+  );
+  return {
+    flag: fetched.data?.flag ?? null,
+    claims: fetched.data?.claims ?? null,
+    loading: fetched.loading,
+  };
+}
+
+export const FAIRNESS_OFFLINE =
+  "The fairness check needs the API. Its figures are drawn from everybody's mark and records.";
+
+export function useCycleFairness(
+  cycleId: string,
+  periods: FairnessPeriods,
+  enabled: boolean,
+): {
+  fairness: ApiFairness | null;
+  cycle: ApiCycle | null;
+  loading: boolean;
+  error: ApiError | null;
+  available: boolean;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      const [cycle, fairness] = await Promise.all([
+        performanceApi.cycle(cycleId, signal),
+        performanceApi.cycleFairness(cycleId, periods, signal),
+      ]);
+      return { cycle, fairness };
+    },
+    [cycleId, periods],
+  );
+  const fetched = useFetched<{ cycle: ApiCycle; fairness: ApiFairness }>(
+    `cycle-fairness|${cycleId}|${String(periods)}`,
+    enabled && isConnected,
+    load,
+  );
+  return {
+    fairness: isConnected ? (fetched.data?.fairness ?? null) : null,
+    cycle: isConnected ? (fetched.data?.cycle ?? null) : null,
+    loading: isConnected && enabled ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    available: isConnected && enabled,
     reload: fetched.reload,
   };
 }

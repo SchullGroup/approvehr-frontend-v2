@@ -123,9 +123,9 @@ export function PaySetupScreen({ initialTab }: { initialTab: PaySetupTab }) {
             icon={<ShieldAlert aria-hidden="true" />}
             title="You cannot view pay setup"
             description={
-              "Seeing what pay is made of — allowances, deductions and " +
-              "grades — needs the “View salaries” permission. Ask " +
-              "somebody who holds it."
+              "Seeing what pay is made of, including allowances, " +
+              "deductions and grades, needs the “View salaries” " +
+              "permission. Ask somebody who holds it."
             }
           />
         </PageBody>

@@ -7,6 +7,8 @@ import {
   BadgeCheck,
   Banknote,
   CalendarCheck,
+  CalendarClock,
+  TrendingUp,
   CalendarDays,
   Check,
   ClipboardList,
@@ -79,6 +81,8 @@ const ICON: Record<ApprovalKind, React.ReactNode> = {
   expense: <Receipt aria-hidden="true" />,
   record_change: <FileText aria-hidden="true" />,
   loan: <ClipboardList aria-hidden="true" />,
+  confirmation: <CalendarClock aria-hidden="true" />,
+  employment_change: <TrendingUp aria-hidden="true" />,
   holiday: <CalendarCheck aria-hidden="true" />,
 };
 
@@ -90,6 +94,14 @@ const TONE: Record<ApprovalKind, BadgeTone> = {
   expense: "neutral",
   record_change: "neutral",
   loan: "warning",
+  /* Warning rather than neutral: a confirmation carries a real deadline, and
+     an overdue one means somebody is working past the end of a probation
+     nobody decided. */
+  confirmation: "warning",
+  /* Warning for the same reason: the effective date is a real deadline, and a
+     promotion approved after it means somebody was paid the old figure for a
+     month they were owed the new one. */
+  employment_change: "warning",
   holiday: "accent",
 };
 
@@ -170,6 +182,18 @@ export function ApprovalInbox() {
   ) => {
     try {
       const outcome = await queue.decide(item, decision, note);
+      /* A department head's approval of leave is the first of two. It is
+         recorded, HR has it next, and the person who asked is told nothing until
+         HR has decided — so it is not "approved", and the toast must not say so. */
+      if (outcome.halfway) {
+        toast.push({
+          title: `${item.title} is with HR`,
+          tone: "info",
+          detail:
+            "Your approval is recorded. The person is not told until HR has decided.",
+        });
+        return;
+      }
       const copy = decidedCopy(item, decision);
       toast.push({
         title: copy.title,
@@ -383,17 +407,29 @@ export function ApprovalInbox() {
                     Just decided
                   </p>
                   <ul className="mt-3 flex flex-col gap-2">
-                    {queue.decided.map(({ item, decision }) => (
+                    {queue.decided.map(({ item, decision, halfway }) => (
                       <li
                         key={item.id}
                         className="flex items-center gap-3 text-body-sm"
                       >
                         <Badge
-                          tone={decision === "approved" ? "success" : "neutral"}
+                          tone={
+                            halfway
+                              ? "warning"
+                              : decision === "approved"
+                                ? "success"
+                                : "neutral"
+                          }
                           size="sm"
                           dot
                         >
-                          {decision === "approved" ? "Approved" : "Sent back"}
+                          {halfway
+                            ? "With HR"
+                            : decision === "approved"
+                              ? "Approved"
+                              : item.kind === "holiday"
+                                ? "Declined"
+                                : "Sent back"}
                         </Badge>
                         <span className="min-w-0 flex-1 truncate text-body">
                           {item.title}

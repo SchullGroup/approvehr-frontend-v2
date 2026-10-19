@@ -167,7 +167,7 @@ const clockServerSnapshot = () => 0;
  * effect refires, the answer replaces the old one when it lands, and the panel
  * never flashes a skeleton over a row it is already showing.
  */
-function useClockGeneration(): number {
+export function useClockGeneration(): number {
   return useSyncExternalStore(
     subscribeClock,
     clockSnapshot,
@@ -488,6 +488,12 @@ export type RosterState = {
    * render a wall of absences it has been told not to believe.
    */
   tracked: boolean;
+  /**
+   * The caller's most recent earlier day with a clock-in and no clock-out.
+   * See `ApiRoster.earlierOpen`. Always `null` in demo mode, which has no
+   * server to say so, and while the first answer is in flight.
+   */
+  earlierOpen: { date: string; clockIn: string } | null;
   loading: boolean;
   error: ApiError | null;
   source: AttendanceSource;
@@ -542,8 +548,15 @@ export function useAttendanceRoster(
     rows: ApiRosterRow[];
     recorded: number;
     tracked: boolean;
+    earlierOpen: { date: string; clockIn: string } | null;
     error: ApiError | null;
   } | null>(null);
+
+  /* Bumped when the organisation's day turns over under a window that has
+     been left open. In the fetch effect's dependency list and **not** in
+     `key`, for the reason `revalidation` is not: the answer is replaced when
+     it lands, and nothing flashes a skeleton over a card somebody is reading. */
+  const [rolled, setRolled] = useState(0);
 
   const key = `${date ?? ""}|${tick}`;
 
@@ -574,6 +587,7 @@ export function useAttendanceRoster(
             rows: roster.rows,
             recorded: roster.recorded,
             tracked: roster.tracked,
+            earlierOpen: roster.earlierOpen ?? null,
             error: null,
           });
         }
@@ -593,6 +607,7 @@ export function useAttendanceRoster(
             /* A failed read knows nothing, and "not tracked" is the reading that
                claims nothing about anybody. The error is what gets rendered. */
             tracked: false,
+            earlierOpen: null,
             error: error instanceof ApiError ? error : null,
           });
         }
@@ -602,7 +617,34 @@ export function useAttendanceRoster(
       cancelled = true;
       controller.abort();
     };
-  }, [isConnected, enabled, date, key, revalidation, clocked]);
+  }, [isConnected, enabled, date, key, revalidation, clocked, rolled]);
+
+  /* Ask again when the day ends.
+     ----------------------------
+     Nothing else will. There is no polling, and revalidation fires when
+     somebody comes back to the window — so a window that stays open and in
+     focus overnight keeps the previous day's answer indefinitely, and a timer
+     built on it ticks on from a clock-in that is no longer today's.
+
+     Only for a roster of **today** (`date` undefined): a roster of a named day
+     does not go stale at midnight. The delay is worked out from the server's
+     own `HH:MM`, not the browser's calendar, for the reason `DayTimer` gives,
+     and one minute is added because the server's seconds are not known — this
+     can land up to a minute after midnight but never before it, which would
+     only fetch the same day again. */
+  const servedTime =
+    fetched !== null && fetched.error === null ? fetched.time : "";
+  useEffect(() => {
+    if (!isConnected || !enabled || date !== undefined) return;
+    const parts = /^(\d{1,2}):(\d{2})$/.exec(servedTime);
+    if (!parts) return;
+    const minutesIn = Number(parts[1]) * 60 + Number(parts[2]);
+    const id = setTimeout(
+      () => setRolled((n) => n + 1),
+      (1440 - minutesIn + 1) * 60_000,
+    );
+    return () => clearTimeout(id);
+  }, [isConnected, enabled, date, servedTime]);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
 
@@ -656,6 +698,7 @@ export function useAttendanceRoster(
       rows,
       recorded: local.forDate(on).filter((entry) => entry.clockIn).length,
       tracked: firstRecorded !== null && on >= firstRecorded,
+      earlierOpen: null,
       loading: false,
       error: null,
       source: "demo",
@@ -672,6 +715,7 @@ export function useAttendanceRoster(
     rows: matched ? fetched.rows : [],
     recorded: matched ? fetched.recorded : 0,
     tracked: matched ? fetched.tracked : false,
+    earlierOpen: matched ? fetched.earlierOpen : null,
     loading: !matched,
     error: matched ? fetched.error : null,
     source: "api",

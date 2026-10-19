@@ -33,6 +33,10 @@ export type HeadcountBand =
  */
 export const MODULE_FEATURE_KEYS = [
   "departments",
+  /* Ask everybody the same questions and report what came back. Off by
+     default, like every module: a five-person business has no use for an
+     engagement survey and should not be shown one. */
+  "surveys",
   "grades",
   "shifts",
   "loans",
@@ -102,8 +106,28 @@ export const ADVANCED_FEATURE_KEYS = ["multiAppraiser", "twoFactor"] as const;
  * accepts it on `PATCH /setup/features`, and a flag the store does not know
  * about is a flag the store silently drops — which is exactly why the whole
  * two-step workflow shipped with no way to turn it on.
+ *
+ * `probationTracking` is the second member and belongs to the same family: it
+ * decides **whether a new hire gets a probation end date at all**, and whether
+ * anybody is reminded as one approaches. It is off by default, matching the
+ * schema, because a flag that arrived switched on would start dating every new
+ * employee's probation for companies that have never run one.
+ *
+ * It is deliberately not on `/settings/features` either, and — the part worth
+ * not undoing — **the probation screen itself is not gated on it.** The list of
+ * people on a probation nobody dated exists whether the flag is on or off: it
+ * is populated by `modules/imports/employees.ts` mapping a spreadsheet's
+ * "probation" onto `ONBOARDING`, and by anybody created while tracking was off.
+ * A company with the flag off is precisely the company with probations nobody
+ * is reminded about, so hiding the screen behind the flag would hide it from
+ * the only people who need it. Same shape as the performance module's
+ * no-appraiser exception, which is behind no flag while its mapping interface
+ * is behind `multiAppraiser`.
  */
-export const WORKFLOW_FEATURE_KEYS = ["leaveTwoStepApproval"] as const;
+export const WORKFLOW_FEATURE_KEYS = [
+  "leaveTwoStepApproval",
+  "probationTracking",
+] as const;
 
 /** The acts a company can put a code in front of. Mirrors `StepUpAction`. */
 export const STEP_UP_ACTIONS = [
@@ -140,6 +164,16 @@ export type FeaturePatch = {
    * a removal cannot be expressed as a partial list.
    */
   stepUpActions?: StepUpAction[];
+  /**
+   * How long a probation runs here, in months. The second non-boolean.
+   *
+   * Declared beside `stepUpActions` for the same reason and refused the same
+   * way by the compiler. It is a **default**, not a rule: it decides the date
+   * put on somebody the day they are created, and moving it never reaches
+   * anybody already on a probation — their date is a column on their record
+   * from then on. The API clamps it to 1–24.
+   */
+  probationMonths?: number;
 } & {
   [K in FeatureKey]?: boolean;
 } & { headcountBand?: HeadcountBand };
@@ -155,6 +189,8 @@ export type ApiFeatures = {
   grades: boolean;
   /** A clock-in button, today's roster, and a calendar of who came in. */
   attendance: boolean;
+  /** Ask everybody the same questions and report what came back. */
+  surveys: boolean;
   /** PAYE state, TIN and the annual rent declaration. */
   taxSetup: boolean;
   /** RSA PIN, pension fund administrator, NHF number. */
@@ -165,6 +201,10 @@ export type ApiFeatures = {
   multiAppraiser: boolean;
   /** The departmental lead approves before HR. See `WORKFLOW_FEATURE_KEYS`. */
   leaveTwoStepApproval: boolean;
+  /** New hires get a probation end date, and it is chased. Off by default. */
+  probationTracking: boolean;
+  /** The default length, in months. Only read when tracking is on. */
+  probationMonths: number;
   /** Whether a second factor is asked for at all. Off by default. */
   twoFactor: boolean;
   /** Which acts need a code, when `twoFactor` is on. Empty means sign-in only. */

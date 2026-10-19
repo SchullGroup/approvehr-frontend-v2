@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fairness check — layout options</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      main {
+        margin: 0 auto;
+        max-width: 880px;
+        padding: 48px 24px;
+      }
+      h1 {
+        font-size: 28px;
+      }
+      .intro {
+        color: var(--body);
+        font-size: 16px;
+        max-width: 62ch;
+      }
+      ol {
+        list-style: none;
+        padding: 0;
+        margin: 32px 0 0;
+        border-top: 1px solid var(--line);
+      }
+      li a {
+        display: grid;
+        grid-template-columns: 44px 1fr auto;
+        gap: 16px;
+        padding: 22px 4px;
+        border-bottom: 1px solid var(--line);
+        color: inherit;
+        text-decoration: none;
+      }
+      li a:hover {
+        background: var(--canvas);
+      }
+      .k {
+        font-size: 22px;
+        font-weight: 600;
+        color: var(--accent);
+      }
+      .t {
+        font-size: 17px;
+        font-weight: 600;
+      }
+      .d {
+        color: var(--body);
+        margin: 4px 0 0;
+      }
+      .g {
+        font-size: 14px;
+        color: var(--muted);
+        margin: 6px 0 0;
+      }
+      .go {
+        color: var(--faint);
+        align-self: center;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="crumb">ApproveHR · Fairness check</div>
+      <h1>Four ways to lay out the page</h1>
+      <p class="intro">
+        Same data, fonts and colours in each, so only the layout differs. Every
+        one is clickable — open a person, switch tabs, try it on your phone.
+      </p>
+      <ol>
+        <li>
+          <a href="a-table-and-panel.html"
+            ><span class="k">A</span
+            ><span
+              ><div class="t">Table and side panel</div>
+              <p class="d">
+                Tabs per question. People to review is a plain table; clicking a
+                person slides their detail in from the right while the list
+                stays put.
+              </p>
+              <p class="g">
+                Good for: scanning everyone fast, then checking one at a time.
+              </p></span
+            ><span class="go">→</span></a
+          >
+        </li>
+        <li>
+          <a href="b-review-queue.html"
+            ><span class="k">B</span
+            ><span
+              ><div class="t">Review queue</div>
+              <p class="d">
+                One person at a time, full width, with Previous / Next, a
+                progress bar and “Raise at calibration” or “Mark as checked”.
+                Groups and managers move to a separate view.
+              </p>
+              <p class="g">
+                Good for: working through the list in a calibration meeting.
+              </p></span
+            ><span class="go">→</span></a
+          >
+        </li>
+        <li>
+          <a href="c-report.html"
+            ><span class="k">C</span
+            ><span
+              ><div class="t">One-page report</div>
+              <p class="d">
+                No tabs. Opens with four plain findings, then the people (each
+                opens in place), groups, managers and calibration moves, all on
+                one scrolling page.
+              </p>
+              <p class="g">
+                Good for: someone who wants the whole story in one read, or to
+                print.
+              </p></span
+            ><span class="go">→</span></a
+          >
+        </li>
+        <li>
+          <a href="d-chart-first.html"
+            ><span class="k">D</span
+            ><span
+              ><div class="t">Chart first</div>
+              <p class="d">
+                Everyone as one dot: record across, mark up. Dots far from the
+                diagonal are the flagged people; click one to see why beside the
+                chart.
+              </p>
+              <p class="g">
+                Good for: seeing the whole period’s pattern at a glance.
+              </p></span
+            ><span class="go">→</span></a
+          >
+        </li>
+      </ol>
+    </main>
+  </body>
+</html>

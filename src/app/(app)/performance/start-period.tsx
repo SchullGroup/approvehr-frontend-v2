@@ -234,7 +234,7 @@ export function StartPeriodDialog({
         )}
 
         <Field
-          label="What to call it"
+          label="Period name"
           required
           {...(errors["name"] ? { error: errors["name"] } : {})}
         >

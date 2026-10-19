@@ -56,6 +56,19 @@ import type { ApiAttendancePolicy } from "@/lib/api/attendance";
  * of plausible wrong number this codebase exists to refuse. Nothing here is
  * paid on — the timesheet and payroll read the stored entry, computed
  * server-side — but a figure somebody glances at and trusts has to be right.
+ *
+ * ## When the day ends under it
+ *
+ * Every figure here comes from one roster read, and a roster is one day. The
+ * anchor is the server's time at that read plus the browser's stopwatch since,
+ * so in a window nobody touched it runs straight past midnight — and it used
+ * to keep counting, printing "27h 58m" for an 08:26 clock-in the morning after.
+ *
+ * Two things stop that. The exported `DayTimer` is keyed on the roster's own
+ * date and time, so every fresh answer re-anchors it instead of inheriting the
+ * last one. And once the stopwatch passes the end of the organisation's day it
+ * says so rather than ticking on: `useAttendanceRoster` asks again at midnight
+ * and the new answer replaces this one.
  */
 
 /** Minutes since midnight, from `HH:MM`. Null on anything else. */
@@ -93,19 +106,36 @@ function spell(totalMinutes: number): string {
   return `${String(hours)}h ${String(mins)}m`;
 }
 
-export function DayTimer({
+type DayTimerProps = {
   /** `HH:MM` from the roster row. */
-  clockIn,
+  clockIn: string;
   /** `HH:MM` from the roster itself — the server's clock, not the browser's. */
+  serverTime: string;
+  /** `YYYY-MM-DD`, the roster's own day. Used only to tell one day's answer from the next. */
+  date: string;
+  policy: ApiAttendancePolicy | null;
+  className?: string;
+};
+
+export function DayTimer(props: DayTimerProps) {
+  /* A key, not an effect: a new answer is a new anchor, and remounting is the
+     one way to get that which cannot be forgotten by whoever adds the next
+     call site. `date` is in it because `HH:MM` alone repeats every day — the
+     same minute tomorrow would otherwise look like the same answer. */
+  return (
+    <RunningTimer
+      key={`${props.date}|${props.serverTime}|${props.clockIn}`}
+      {...props}
+    />
+  );
+}
+
+function RunningTimer({
+  clockIn,
   serverTime,
   policy,
   className,
-}: {
-  clockIn: string;
-  serverTime: string;
-  policy: ApiAttendancePolicy | null;
-  className?: string;
-}) {
+}: DayTimerProps) {
   /* Thirty seconds, not one. The readout is in minutes, so a per-second timer
      would re-render sixty times to change the display twice — and this sits on
      a screen that also holds a roster and a timesheet. `tick` only ever
@@ -130,10 +160,25 @@ export function DayTimer({
   if (started === null || anchor.server === null) return null;
 
   const nowMinutes = anchor.server + Math.floor((tick - anchor.at) / 60_000);
-  /* Someone who clocked in before midnight and is still on shift. Rare, and a
-     negative elapsed time would be worse than the wrap. */
-  const elapsed =
-    nowMinutes >= started ? nowMinutes - started : nowMinutes + 1440 - started;
+
+  /* The organisation's day ends at 1440. Past it, the roster this was built
+     from describes a day that is over, and today's has no such clock-in.
+     Counting on would print a figure a day wrong — a number worse than none —
+     so this says so and waits for the roster hook's midnight answer. */
+  if (nowMinutes >= 1440) {
+    return (
+      <div className={cn("flex items-center gap-1.5", className)}>
+        <Timer aria-hidden="true" className="size-4 text-muted" />
+        <span className="text-body-sm text-muted">
+          Out of date: a new day has started.
+        </span>
+      </div>
+    );
+  }
+  /* Clocked in later than the server's own clock says it is. Not a state a day
+     can be in, so no figure rather than a made-up one. */
+  if (nowMinutes < started) return null;
+  const elapsed = nowMinutes - started;
 
   const shiftStart = minutesOf(policy?.shiftStart);
   const shiftEnd = minutesOf(policy?.shiftEnd);

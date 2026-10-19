@@ -47,7 +47,11 @@ import {
   exampleRow,
 } from "../src/lib/imports/template-file";
 import { EMPLOYEES } from "../src/lib/imports/employees";
-import { ATTENDANCE_COLUMNS } from "../src/lib/imports/attendance";
+import { DEPARTMENTS } from "../src/lib/imports/departments";
+import { EQUIPMENT } from "../src/lib/imports/equipment";
+import { ATTENDANCE, ATTENDANCE_COLUMNS } from "../src/lib/imports/attendance";
+import { OBJECTIVES, OBJECTIVE_COLUMNS } from "../src/lib/imports/objectives";
+import { normalizeKey, type Dictionary } from "../src/lib/imports/spec";
 import {
   columnIndex,
   columnName,
@@ -296,7 +300,7 @@ async function main(): Promise<void> {
     columns
       .filter((column) => tier(column) === 2)
       .map((column) => column.column)[0],
-    "employee_no",
+    EMPLOYEES.heading.employeeNo,
   );
 
   /* And the example row's values reach the fields they are examples of. */
@@ -326,9 +330,9 @@ async function main(): Promise<void> {
   eq(
     "and it says so from the dictionary's own declaration",
     EMPLOYEE_COLUMNS.filter((spec) => spec.templateExample !== undefined).map(
-      (spec) => spec.column,
+      (spec) => spec.field,
     ),
-    ["first_name", "last_name", "email", "employee_no"],
+    ["firstName", "lastName", "email", "employeeNo"],
   );
 
   /* --- The workbook holds the same two rows --------------------------- */
@@ -468,6 +472,151 @@ async function main(): Promise<void> {
     "ATTENDANCE_COLUMNS",
     ATTENDANCE_COLUMNS,
   );
+  gateMirror(
+    "objectives",
+    "objectives.ts",
+    "OBJECTIVE_COLUMNS",
+    OBJECTIVE_COLUMNS,
+  );
+
+  /* --- Headings are words, and the old ones still match ----------------- */
+
+  /* The headings a customer reads were `gross_monthly`, `held_by_staff_no` and
+     `Owner email`: field names, in a file. They are plain words now, and a file
+     downloaded **before** that still has the old ones in it. Matching ignores
+     everything but letters and digits, so most old headings agree with their
+     replacement by construction — and the few that changed spelling
+     (`gross_monthly` became "Monthly pay (gross)") only still match because the
+     old one was kept as an alias. This is the list that proves it, field by
+     field, so a later tidy of an alias list cannot strand somebody's saved
+     template. It is the headings as they stood, not a derivation of today's. */
+  const WAS: [string, Dictionary<string>, Record<string, string>][] = [
+    [
+      "employees",
+      EMPLOYEES,
+      {
+        employeeNo: "employee_no",
+        firstName: "first_name",
+        lastName: "last_name",
+        middleName: "middle_name",
+        email: "email",
+        canLogin: "can_login",
+        role: "role",
+        phone: "phone",
+        dateOfBirth: "date_of_birth",
+        gender: "gender",
+        jobTitle: "job_title",
+        department: "department",
+        manager: "manager",
+        startDate: "start_date",
+        endDate: "end_date",
+        grossMonthly: "gross_monthly",
+        payFrequency: "pay_frequency",
+        bankName: "bank_name",
+        bankAccount: "account_number",
+        pensionPin: "pension_pin",
+        tin: "tin",
+        annualRent: "annual_rent",
+        nhfNumber: "nhf_number",
+        nextOfKinName: "next_of_kin_name",
+        nextOfKinRelationship: "next_of_kin_relationship",
+        nextOfKinPhone: "next_of_kin_phone",
+        addressLine: "address_line",
+        nin: "nin",
+        stateOfOrigin: "state_of_origin",
+        lgaOfOrigin: "local_government_area",
+        religion: "religion",
+      },
+    ],
+    [
+      "departments",
+      DEPARTMENTS,
+      {
+        name: "name",
+        parent: "parent_department",
+        costCentre: "cost_centre",
+        head: "head_of_department",
+      },
+    ],
+    [
+      "equipment",
+      EQUIPMENT,
+      {
+        kind: "kind",
+        tag: "tag",
+        name: "item",
+        mustReturn: "must_be_returned_on_exit",
+        serialNumber: "serial_number",
+        value: "value",
+        condition: "condition",
+        purchasedOn: "purchased_on",
+        make: "make",
+        model: "model",
+        status: "status",
+        holderEmployeeNo: "held_by_staff_no",
+        holderEmail: "held_by_email",
+        assignedOn: "held_since",
+        notes: "notes",
+      },
+    ],
+    [
+      "attendance",
+      ATTENDANCE,
+      {
+        employee: "employee_no",
+        date: "date",
+        clockIn: "clock_in",
+        clockOut: "clock_out",
+        location: "work_location",
+        note: "note",
+      },
+    ],
+    [
+      "objectives",
+      OBJECTIVES,
+      {
+        title: "Title",
+        quarter: "Quarter",
+        ownerEmail: "Owner email",
+        department: "Department",
+        period: "Appraisal period",
+        parent: "Parent objective",
+        description: "Description",
+        measure: "Measure",
+        start: "Start",
+        target: "Target",
+        unit: "Unit",
+        lowerIsBetter: "Lower is better",
+      },
+    ],
+  ];
+  for (const [slug, dictionary, was] of WAS) {
+    eq(
+      `${slug}: every heading it used to print still maps to the same field`,
+      Object.entries(was).filter(
+        ([field, old]) =>
+          dictionary.lookup.get(normalizeKey(old))?.field !== field,
+      ),
+      [],
+    );
+    eq(
+      `${slug}: and every field it had is still there`,
+      Object.keys(was).filter((field) => !dictionary.byField.has(field)),
+      [],
+    );
+    eq(
+      `${slug}: no heading reads like a field name`,
+      dictionary.columns
+        .map((spec) => spec.column)
+        .filter((heading) => /_/.test(heading)),
+      [],
+    );
+    eq(
+      `${slug}: no two headings are the same once punctuation is ignored`,
+      new Set(dictionary.columns.map((spec) => normalizeKey(spec.column))).size,
+      dictionary.columns.length,
+    );
+  }
 
   /* --- Report --------------------------------------------------------- */
 

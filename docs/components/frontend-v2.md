@@ -38,33 +38,33 @@ there are too many to be useful as a list, and they are always in the file named
 
 The signed-in app's component library. Import from the barrel `@/components/ui`; check `index.ts` for the exported surface before assuming a prop exists.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/components/ui/badge.tsx` | `Badge`, `Tag`, `TierBadge` | — | — | 2 types |
-| `src/components/ui/button.tsx` | `ButtonLink`, `IconButton` | — | — | 1 const · 5 types |
-| `src/components/ui/card.tsx` | `Card`, `CardHeader`, `CardBody`, `CardFooter`, `LinkCard`, `Stat`, `Callout` | — | — | — |
-| `src/components/ui/chart.tsx` | `AreaChart`, `BarChart`, `ColumnChart`, `StackedBar`, `DonutChart`, `Sparkline`, `FunnelChart` | — | `missingCount` | 1 const · 2 types |
-| `src/components/ui/choice.tsx` | `RadioCard` | — | — | 3 const · 3 types |
-| `src/components/ui/disclosure.tsx` | `Disclosure` | — | — | — |
-| `src/components/ui/drag-into.tsx` | `DragGhost` | `useDragInto` | `scrollParent` | 1 type |
-| `src/components/ui/feedback.tsx` | `EmptyState`, `Skeleton`, `SkeletonText`, `Spinner`, `ThinkingState` | — | — | — |
-| `src/components/ui/field.tsx` | `Field`, `FieldSet` | `useFieldContext`, `useFieldControl` | — | 1 type |
-| `src/components/ui/file-field.tsx` | `FileField` | — | — | — |
-| `src/components/ui/filter-bar.tsx` | `FilterBar` | — | — | 1 type |
-| `src/components/ui/input.tsx` | — | — | — | 3 const · 2 types |
-| `src/components/ui/misc.tsx` | `Avatar`, `Timeline`, `FileDrop`, `DescriptionList`, `CheckList` | — | — | 2 types |
-| `src/components/ui/modal.tsx` | `Modal`, `Drawer`, `DrawerSection`, `ConfirmDialog` | — | — | 2 types |
-| `src/components/ui/money-format.ts` | — | — | `formatMoney` | 1 const · 1 type |
-| `src/components/ui/money-privacy-toggle.tsx` | `MoneyPrivacyToggle` | — | — | — |
-| `src/components/ui/money.tsx` | `Money`, `MoneyHidden` | — | — | — |
-| `src/components/ui/pagination.tsx` | `Pagination` | — | — | — |
-| `src/components/ui/picker.tsx` | `Picker` | — | — | 2 types |
-| `src/components/ui/progress.tsx` | `ProgressMeter`, `ScoreRing`, `FactorBars` | — | — | — |
-| `src/components/ui/sortable.tsx` | `SortableHandle`, `Sortable` | — | — | 2 types |
-| `src/components/ui/stepper.tsx` | `StepIndicator`, `StepperModal`, `StepHeader` | `useStepper` | — | 2 types |
-| `src/components/ui/table.tsx` | `TableWrap`, `THead`, `TH`, `SortableTH`, `TBody`, `TR`, `TD`, `TDPrimary` | — | `rowClick` | — |
-| `src/components/ui/tabs.tsx` | `Tabs`, `LinkTabs`, `SegmentedControl`, `Accordion` | — | — | 1 type |
-| `src/components/ui/toast.tsx` | `ToastProvider` | `useToast` | — | — |
+| File                                         | Components                                                                                     | Hooks                                | Functions      | Also              |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------ | -------------- | ----------------- |
+| `src/components/ui/badge.tsx`                | `Badge`, `Tag`, `TierBadge`                                                                    | —                                    | —              | 2 types           |
+| `src/components/ui/button.tsx`               | `ButtonLink`, `IconButton`                                                                     | —                                    | —              | 1 const · 5 types |
+| `src/components/ui/card.tsx`                 | `Card`, `CardHeader`, `CardBody`, `CardFooter`, `LinkCard`, `Stat`, `Callout`                  | —                                    | —              | —                 |
+| `src/components/ui/chart.tsx`                | `AreaChart`, `BarChart`, `ColumnChart`, `StackedBar`, `DonutChart`, `Sparkline`, `FunnelChart` | —                                    | `missingCount` | 1 const · 2 types |
+| `src/components/ui/choice.tsx`               | `RadioCard`                                                                                    | —                                    | —              | 3 const · 3 types |
+| `src/components/ui/disclosure.tsx`           | `Disclosure`                                                                                   | —                                    | —              | —                 |
+| `src/components/ui/drag-into.tsx`            | `DragGhost`                                                                                    | `useDragInto`                        | `scrollParent` | 1 type            |
+| `src/components/ui/feedback.tsx`             | `EmptyState`, `Skeleton`, `SkeletonText`, `Spinner`, `ThinkingState`                           | —                                    | —              | —                 |
+| `src/components/ui/field.tsx`                | `Field`, `FieldSet`                                                                            | `useFieldContext`, `useFieldControl` | —              | 1 type            |
+| `src/components/ui/file-field.tsx`           | `FileField`                                                                                    | —                                    | —              | —                 |
+| `src/components/ui/filter-bar.tsx`           | `FilterBar`                                                                                    | —                                    | —              | 1 type            |
+| `src/components/ui/input.tsx`                | —                                                                                              | —                                    | —              | 3 const · 2 types |
+| `src/components/ui/misc.tsx`                 | `Avatar`, `Timeline`, `FileDrop`, `DescriptionList`, `CheckList`                               | —                                    | —              | 2 types           |
+| `src/components/ui/modal.tsx`                | `Modal`, `Drawer`, `DrawerSection`, `ConfirmDialog`                                            | —                                    | —              | 2 types           |
+| `src/components/ui/money-format.ts`          | —                                                                                              | —                                    | `formatMoney`  | 1 const · 1 type  |
+| `src/components/ui/money-privacy-toggle.tsx` | `MoneyPrivacyToggle`                                                                           | —                                    | —              | —                 |
+| `src/components/ui/money.tsx`                | `Money`, `MoneyHidden`                                                                         | —                                    | —              | —                 |
+| `src/components/ui/pagination.tsx`           | `Pagination`                                                                                   | —                                    | —              | —                 |
+| `src/components/ui/picker.tsx`               | `Picker`                                                                                       | —                                    | —              | 2 types           |
+| `src/components/ui/progress.tsx`             | `ProgressMeter`, `ScoreRing`, `FactorBars`                                                     | —                                    | —              | —                 |
+| `src/components/ui/sortable.tsx`             | `SortableHandle`, `Sortable`                                                                   | —                                    | —              | 2 types           |
+| `src/components/ui/stepper.tsx`              | `StepIndicator`, `StepperModal`, `StepHeader`                                                  | `useStepper`                         | —              | 2 types           |
+| `src/components/ui/table.tsx`                | `TableWrap`, `THead`, `TH`, `SortableTH`, `TBody`, `TR`, `TD`, `TDPrimary`                     | —                                    | `rowClick`     | —                 |
+| `src/components/ui/tabs.tsx`                 | `Tabs`, `LinkTabs`, `SegmentedControl`, `Accordion`                                            | —                                    | —              | 1 type            |
+| `src/components/ui/toast.tsx`                | `ToastProvider`                                                                                | `useToast`                           | —              | —                 |
 
 ---
 
@@ -72,38 +72,38 @@ The signed-in app's component library. Import from the barrel `@/components/ui`;
 
 The shell every signed-in screen sits inside: sidebar, page header, sign-in gate, the shared failure and export controls.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/components/portal/ask-panel.tsx` | `AskPanel` | — | — | — |
-| `src/components/portal/assistant-chat.tsx` | `AssistantChat` | — | — | — |
-| `src/components/portal/assistant-orb.tsx` | `AssistantOrb` | — | — | — |
-| `src/components/portal/auth-gate.tsx` | `AuthGate` | — | — | — |
-| `src/components/portal/auth-shell.tsx` | `AuthShell` | — | — | — |
-| `src/components/portal/auth-visual.tsx` | `AuthVisual` | — | — | — |
-| `src/components/portal/bulk-invite.tsx` | `BulkInviteButton` | — | — | — |
-| `src/components/portal/command-palette.tsx` | `CommandPalette` | — | — | — |
-| `src/components/portal/decline-dialog.tsx` | `DeclineDialog` | — | — | — |
-| `src/components/portal/delivery-note.tsx` | `DeliveryNote` | — | — | — |
-| `src/components/portal/error-reporting.tsx` | `ErrorReporting` | — | — | — |
-| `src/components/portal/export-button.tsx` | `ExportButton` | — | — | — |
-| `src/components/portal/feature-off-line.tsx` | `FeatureOffLine` | — | — | — |
-| `src/components/portal/install-prompt.tsx` | `InstallPrompt` | — | — | — |
-| `src/components/portal/invite-link.tsx` | `InviteLinkButton` | — | — | — |
-| `src/components/portal/load-failure.tsx` | `LoadFailure` | — | `failureMessage` | 1 type |
-| `src/components/portal/my-clock-card.tsx` | `MyClockCard` | — | — | — |
-| `src/components/portal/nav.tsx` | — | — | `visibleNav` | 2 const · 5 types |
-| `src/components/portal/notice-line.tsx` | `NoticeLine` | — | — | 1 const |
-| `src/components/portal/password-field.tsx` | `PasswordField` | — | — | — |
-| `src/components/portal/role-badge.tsx` | `RoleBadge`, `SessionRoleBadge` | — | — | — |
-| `src/components/portal/service-worker.tsx` | `ServiceWorker` | — | — | — |
-| `src/components/portal/setup-gate.tsx` | `SetupGate` | — | — | — |
-| `src/components/portal/shell.tsx` | `AppShell`, `PageHeader`, `PageBody`, `ComingSoon` | — | — | — |
-| `src/components/portal/step-up.tsx` | — | `useStepUp` | — | — |
-| `src/components/portal/theme-effect.tsx` | `ThemeEffect` | — | — | — |
-| `src/components/portal/two-factor-step.tsx` | `TwoFactorStep` | — | — | — |
-| `src/components/portal/verification-banner.tsx` | `VerificationBanner` | — | — | — |
-| `src/components/portal/tour/guided-tour.tsx` | `GuidedTour` | — | `openTour` | — |
-| `src/components/portal/tour/spotlight.tsx` | `Spotlight` | — | `findTarget` | — |
+| File                                            | Components                                         | Hooks       | Functions        | Also              |
+| ----------------------------------------------- | -------------------------------------------------- | ----------- | ---------------- | ----------------- |
+| `src/components/portal/ask-panel.tsx`           | `AskPanel`                                         | —           | —                | —                 |
+| `src/components/portal/assistant-chat.tsx`      | `AssistantChat`                                    | —           | —                | —                 |
+| `src/components/portal/assistant-orb.tsx`       | `AssistantOrb`                                     | —           | —                | —                 |
+| `src/components/portal/auth-gate.tsx`           | `AuthGate`                                         | —           | —                | —                 |
+| `src/components/portal/auth-shell.tsx`          | `AuthShell`                                        | —           | —                | —                 |
+| `src/components/portal/auth-visual.tsx`         | `AuthVisual`                                       | —           | —                | —                 |
+| `src/components/portal/bulk-invite.tsx`         | `BulkInviteButton`                                 | —           | —                | —                 |
+| `src/components/portal/command-palette.tsx`     | `CommandPalette`                                   | —           | —                | —                 |
+| `src/components/portal/decline-dialog.tsx`      | `DeclineDialog`                                    | —           | —                | —                 |
+| `src/components/portal/delivery-note.tsx`       | `DeliveryNote`                                     | —           | —                | —                 |
+| `src/components/portal/error-reporting.tsx`     | `ErrorReporting`                                   | —           | —                | —                 |
+| `src/components/portal/export-button.tsx`       | `ExportButton`                                     | —           | —                | —                 |
+| `src/components/portal/feature-off-line.tsx`    | `FeatureOffLine`                                   | —           | —                | —                 |
+| `src/components/portal/install-prompt.tsx`      | `InstallPrompt`                                    | —           | —                | —                 |
+| `src/components/portal/invite-link.tsx`         | `InviteLinkButton`                                 | —           | —                | —                 |
+| `src/components/portal/load-failure.tsx`        | `LoadFailure`                                      | —           | `failureMessage` | 1 type            |
+| `src/components/portal/my-clock-card.tsx`       | `MyClockCard`                                      | —           | —                | —                 |
+| `src/components/portal/nav.tsx`                 | —                                                  | —           | `visibleNav`     | 2 const · 5 types |
+| `src/components/portal/notice-line.tsx`         | `NoticeLine`                                       | —           | —                | 1 const           |
+| `src/components/portal/password-field.tsx`      | `PasswordField`                                    | —           | —                | —                 |
+| `src/components/portal/role-badge.tsx`          | `RoleBadge`, `SessionRoleBadge`                    | —           | —                | —                 |
+| `src/components/portal/service-worker.tsx`      | `ServiceWorker`                                    | —           | —                | —                 |
+| `src/components/portal/setup-gate.tsx`          | `SetupGate`                                        | —           | —                | —                 |
+| `src/components/portal/shell.tsx`               | `AppShell`, `PageHeader`, `PageBody`, `ComingSoon` | —           | —                | —                 |
+| `src/components/portal/step-up.tsx`             | —                                                  | `useStepUp` | —                | —                 |
+| `src/components/portal/theme-effect.tsx`        | `ThemeEffect`                                      | —           | —                | —                 |
+| `src/components/portal/two-factor-step.tsx`     | `TwoFactorStep`                                    | —           | —                | —                 |
+| `src/components/portal/verification-banner.tsx` | `VerificationBanner`                               | —           | —                | —                 |
+| `src/components/portal/tour/guided-tour.tsx`    | `GuidedTour`                                       | —           | `openTour`       | —                 |
+| `src/components/portal/tour/spotlight.tsx`      | `Spotlight`                                        | —           | `findTarget`     | —                 |
 
 ---
 
@@ -111,19 +111,19 @@ The shell every signed-in screen sits inside: sidebar, page header, sign-in gate
 
 A deliberately separate visual language for the public site. Do not cross-import between this and the design system above.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/components/marketing/chrome.tsx` | `AnnouncementBar`, `MarketingNav`, `MarketingFooter` | — | — | — |
-| `src/components/marketing/legal.tsx` | `LegalDocument` | — | — | — |
-| `src/components/marketing/mockups.tsx` | `Bar`, `Dot`, `PayrollMockup`, `PipelineMockup`, `PayrollCardMockup`, `LeaveMockup`, `RecordMockup`, `ReviewMockup`, `DeskMockup`, `StatutoryMockup` | — | — | — |
-| `src/components/marketing/module-mockups.tsx` | — | — | — | 1 const |
-| `src/components/marketing/motion.tsx` | `Reveal`, `Marquee`, `CountUp` | — | — | — |
-| `src/components/marketing/payroll-figures.tsx` | `PayrollTotalFigure`, `PayrollRowFigures` | — | — | — |
-| `src/components/marketing/pill.tsx` | `Pill`, `PillButton`, `LearnMore` | — | — | — |
-| `src/components/marketing/platform-overview.tsx` | `PlatformOverview` | — | — | — |
-| `src/components/marketing/sections.tsx` | `SectionHeading`, `ModuleCard`, `ModuleGrid`, `ProofRow` | — | — | — |
-| `src/components/marketing/social-proof.tsx` | `ClientLogos`, `Testimonials` | — | — | 1 const |
-| `src/components/marketing/status-page.tsx` | `StatusPage` | — | — | — |
+| File                                             | Components                                                                                                                                           | Hooks | Functions | Also    |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | --------- | ------- |
+| `src/components/marketing/chrome.tsx`            | `AnnouncementBar`, `MarketingNav`, `MarketingFooter`                                                                                                 | —     | —         | —       |
+| `src/components/marketing/legal.tsx`             | `LegalDocument`                                                                                                                                      | —     | —         | —       |
+| `src/components/marketing/mockups.tsx`           | `Bar`, `Dot`, `PayrollMockup`, `PipelineMockup`, `PayrollCardMockup`, `LeaveMockup`, `RecordMockup`, `ReviewMockup`, `DeskMockup`, `StatutoryMockup` | —     | —         | —       |
+| `src/components/marketing/module-mockups.tsx`    | —                                                                                                                                                    | —     | —         | 1 const |
+| `src/components/marketing/motion.tsx`            | `Reveal`, `Marquee`, `CountUp`                                                                                                                       | —     | —         | —       |
+| `src/components/marketing/payroll-figures.tsx`   | `PayrollTotalFigure`, `PayrollRowFigures`                                                                                                            | —     | —         | —       |
+| `src/components/marketing/pill.tsx`              | `Pill`, `PillButton`, `LearnMore`                                                                                                                    | —     | —         | —       |
+| `src/components/marketing/platform-overview.tsx` | `PlatformOverview`                                                                                                                                   | —     | —         | —       |
+| `src/components/marketing/sections.tsx`          | `SectionHeading`, `ModuleCard`, `ModuleGrid`, `ProofRow`                                                                                             | —     | —         | —       |
+| `src/components/marketing/social-proof.tsx`      | `ClientLogos`, `Testimonials`                                                                                                                        | —     | —         | 1 const |
+| `src/components/marketing/status-page.tsx`       | `StatusPage`                                                                                                                                         | —     | —         | —       |
 
 ---
 
@@ -294,17 +294,17 @@ How a screen asks for data. Each hook picks its own source — the API when one 
 
 The day-one dataset for demo mode. Gated out of a production build entirely.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/lib/mock/announcements.ts` | — | — | — | 1 const |
-| `src/lib/mock/attendance.ts` | — | — | `locationById`, `recentWorkingDays` | 3 const · 4 types |
-| `src/lib/mock/demo-payslips.ts` | — | — | `payslipFiguresFor` | 2 const · 1 type |
-| `src/lib/mock/hiring.ts` | — | — | `requisitionById`, `candidateById`, `pipelineCards`, `cardById`, `stageCounts`, `daysInStage` | 5 const |
-| `src/lib/mock/payroll.ts` | — | — | `runPeopleFrom`, `distributionFor` | 4 const · 3 types |
-| `src/lib/mock/people.ts` | — | — | `employeeById`, `directReports`, `entitlementsFor`, `documentsFor` | 4 const · 3 types |
-| `src/lib/mock/roles.ts` | — | — | `seedRolesFor` | 1 const · 1 type |
-| `src/lib/mock/sales-script-qa.ts` | — | — | `findScriptedAnswer` | 1 const · 1 type |
-| `src/lib/mock/workflows.ts` | — | — | `approvalRequester`, `leaveEmployee` | 11 const · 11 types |
+| File                              | Components | Hooks | Functions                                                                                     | Also                |
+| --------------------------------- | ---------- | ----- | --------------------------------------------------------------------------------------------- | ------------------- |
+| `src/lib/mock/announcements.ts`   | —          | —     | —                                                                                             | 1 const             |
+| `src/lib/mock/attendance.ts`      | —          | —     | `locationById`, `recentWorkingDays`                                                           | 3 const · 4 types   |
+| `src/lib/mock/demo-payslips.ts`   | —          | —     | `payslipFiguresFor`                                                                           | 2 const · 1 type    |
+| `src/lib/mock/hiring.ts`          | —          | —     | `requisitionById`, `candidateById`, `pipelineCards`, `cardById`, `stageCounts`, `daysInStage` | 5 const             |
+| `src/lib/mock/payroll.ts`         | —          | —     | `runPeopleFrom`, `distributionFor`                                                            | 4 const · 3 types   |
+| `src/lib/mock/people.ts`          | —          | —     | `employeeById`, `directReports`, `entitlementsFor`, `documentsFor`                            | 4 const · 3 types   |
+| `src/lib/mock/roles.ts`           | —          | —     | `seedRolesFor`                                                                                | 1 const · 1 type    |
+| `src/lib/mock/sales-script-qa.ts` | —          | —     | `findScriptedAnswer`                                                                          | 1 const · 1 type    |
+| `src/lib/mock/workflows.ts`       | —          | —     | `approvalRequester`, `leaveEmployee`                                                          | 11 const · 11 types |
 
 ---
 
@@ -385,18 +385,18 @@ Generic hooks not tied to one data source.
 
 Screen components for the dashboard module, including its dialogs and panels.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/app/(app)/dashboard/announcements-panel.tsx` | `AnnouncementsPanel` | — | — | — |
-| `src/app/(app)/dashboard/appraisals-card.tsx` | `AppraisalsCard` | — | — | — |
-| `src/app/(app)/dashboard/catalogue.ts` | — | — | `widgetById`, `availableWidgets`, `defaultLayout`, `resolveLayout` | 4 const · 5 types |
-| `src/app/(app)/dashboard/customize-drawer.tsx` | `CustomizeDrawer`, `CustomizeButton` | — | — | — |
-| `src/app/(app)/dashboard/dashboard-screen.tsx` | `DashboardScreen` | — | — | — |
-| `src/app/(app)/dashboard/header.tsx` | `DashboardHeader` | — | — | — |
-| `src/app/(app)/dashboard/page.tsx` | `DashboardPage` | — | — | 1 const |
-| `src/app/(app)/dashboard/quick-actions.tsx` | `QuickActions` | — | — | — |
-| `src/app/(app)/dashboard/setup-guide.tsx` | `SetupGuide` | — | — | — |
-| `src/app/(app)/dashboard/widgets.tsx` | — | — | — | 1 const · 1 type |
+| File                                              | Components                           | Hooks | Functions                                                          | Also              |
+| ------------------------------------------------- | ------------------------------------ | ----- | ------------------------------------------------------------------ | ----------------- |
+| `src/app/(app)/dashboard/announcements-panel.tsx` | `AnnouncementsPanel`                 | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/appraisals-card.tsx`     | `AppraisalsCard`                     | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/catalogue.ts`            | —                                    | —     | `widgetById`, `availableWidgets`, `defaultLayout`, `resolveLayout` | 4 const · 5 types |
+| `src/app/(app)/dashboard/customize-drawer.tsx`    | `CustomizeDrawer`, `CustomizeButton` | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/dashboard-screen.tsx`    | `DashboardScreen`                    | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/header.tsx`              | `DashboardHeader`                    | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/page.tsx`                | `DashboardPage`                      | —     | —                                                                  | 1 const           |
+| `src/app/(app)/dashboard/quick-actions.tsx`       | `QuickActions`                       | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/setup-guide.tsx`         | `SetupGuide`                         | —     | —                                                                  | —                 |
+| `src/app/(app)/dashboard/widgets.tsx`             | —                                    | —     | —                                                                  | 1 const · 1 type  |
 
 ---
 
@@ -404,107 +404,107 @@ Screen components for the dashboard module, including its dialogs and panels.
 
 Screen components for the people module, including its dialogs and panels.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/app/(app)/people/directory.tsx` | `Directory` | — | — | — |
-| `src/app/(app)/people/page.tsx` | `PeoplePage` | — | — | 1 const |
-| `src/app/(app)/people/one-on-ones/one-on-ones-screen.tsx` | `OneOnOnesScreen` | — | — | — |
-| `src/app/(app)/people/one-on-ones/page.tsx` | `OneOnOnesPage` | — | — | 1 const |
-| `src/app/(app)/people/one-on-ones/[id]/one-on-one-screen.tsx` | `OneOnOneScreen` | — | — | — |
-| `src/app/(app)/people/one-on-ones/[id]/page.tsx` | `OneOnOnePage` | — | — | 1 const |
-| `src/app/(app)/people/offboarding/offboarding-screen.tsx` | `OffboardingScreen` | — | — | — |
-| `src/app/(app)/people/offboarding/page.tsx` | `OffboardingPage` | — | — | 1 const |
-| `src/app/(app)/people/offboarding/resign.tsx` | `Resign` | — | — | — |
-| `src/app/(app)/people/offboarding/start-exit.tsx` | `StartExitDialog` | — | — | — |
-| `src/app/(app)/people/offboarding/status-tone.ts` | — | — | `statusTone` | — |
-| `src/app/(app)/people/offboarding/[id]/checklist.tsx` | `Checklist` | — | — | — |
-| `src/app/(app)/people/offboarding/[id]/exit-detail-screen.tsx` | `ExitDetailScreen` | — | — | — |
-| `src/app/(app)/people/offboarding/[id]/interview-panel.tsx` | `InterviewPanel` | — | — | — |
-| `src/app/(app)/people/offboarding/[id]/page.tsx` | `ExitPage` | — | — | 1 const |
-| `src/app/(app)/people/offboarding/checklist/checklist-settings.tsx` | `ChecklistSettingsScreen` | — | — | — |
-| `src/app/(app)/people/offboarding/checklist/page.tsx` | `ExitChecklistPage` | — | — | 1 const |
-| `src/app/(app)/people/incomplete/incomplete-records-screen.tsx` | `IncompleteRecordsScreen` | — | — | — |
-| `src/app/(app)/people/incomplete/page.tsx` | `IncompleteRecordsPage` | — | — | 1 const |
-| `src/app/(app)/people/[id]/conduct.tsx` | `ConductPanel` | — | — | — |
-| `src/app/(app)/people/[id]/invite-to-sign-in.tsx` | `InviteToSignIn`, `InviteToSignInButton` | — | — | — |
-| `src/app/(app)/people/[id]/link-existing-account.tsx` | `LinkExistingAccountButton` | — | — | — |
-| `src/app/(app)/people/[id]/page.tsx` | `EmployeePage` | — | `generateStaticParams`, `generateMetadata` | — |
-| `src/app/(app)/people/[id]/record-page.tsx` | `EmployeeRecordPage` | — | — | — |
-| `src/app/(app)/people/[id]/record.tsx` | `EmployeeRecord` | — | `enumKey` | 1 const |
-| `src/app/(app)/people/import/employee-import.tsx` | `EmployeeImport` | — | — | — |
-| `src/app/(app)/people/import/page.tsx` | `ImportPage` | — | — | 1 const |
-| `src/app/(app)/people/import/surface.ts` | — | — | — | 1 const |
-| `src/app/(app)/people/new/form.tsx` | `NewEmployeeForm` | — | — | — |
-| `src/app/(app)/people/new/page.tsx` | `NewEmployeePage` | — | — | 1 const |
-| `src/app/(app)/people/documents/dialogs.tsx` | `AskForDocumentModal`, `AttachDocumentModal`, `AddDocumentModal`, `RemindModal`, `WaiveModal` | — | — | — |
-| `src/app/(app)/people/documents/document-rows.tsx` | `DueChip`, `StatusChip`, `RequestRow`, `DocumentRow` | — | `readableDate` | — |
-| `src/app/(app)/people/documents/documents-screen.tsx` | `DocumentsScreen` | — | — | — |
-| `src/app/(app)/people/documents/employee-file.tsx` | `EmployeeFileDrawer` | — | — | — |
-| `src/app/(app)/people/documents/my-documents.tsx` | `MyDocuments` | — | — | — |
-| `src/app/(app)/people/documents/page.tsx` | `DocumentsPage` | — | — | 1 const |
-| `src/app/(app)/people/attendance/attendance-screen.tsx` | `AttendanceScreen` | — | — | — |
-| `src/app/(app)/people/attendance/day-timer.tsx` | `DayTimer` | — | — | — |
-| `src/app/(app)/people/attendance/invite-staff-dialog.tsx` | `InviteStaffDialog` | — | — | 2 types |
-| `src/app/(app)/people/attendance/my-attendance-history.tsx` | `MyAttendanceHistoryPanel` | — | — | — |
-| `src/app/(app)/people/attendance/page.tsx` | `AttendancePage` | — | — | 1 const |
-| `src/app/(app)/people/attendance/import/attendance-import.tsx` | `AttendanceImport` | — | — | — |
-| `src/app/(app)/people/attendance/import/page.tsx` | `AttendanceImportPage` | — | — | 1 const |
-| `src/app/(app)/people/attendance/import/surface.ts` | — | — | — | 1 const |
-| `src/app/(app)/people/attendance/history/day-holiday.tsx` | `DayHoliday` | — | — | — |
-| `src/app/(app)/people/attendance/history/history-screen.tsx` | `HistoryScreen` | — | — | — |
-| `src/app/(app)/people/attendance/history/month-calendar.tsx` | `MonthCalendar`, `CalendarLegend` | — | `monthLabel`, `shiftMonth` | — |
-| `src/app/(app)/people/attendance/history/page.tsx` | `AttendanceHistoryPage` | — | — | 1 const |
-| `src/app/(app)/people/leave/book-leave.tsx` | `BookLeaveDialog` | — | — | — |
-| `src/app/(app)/people/leave/holiday-calendar.tsx` | `HolidayCalendarCard` | — | — | — |
-| `src/app/(app)/people/leave/leave-screen.tsx` | `LeaveScreen` | — | — | — |
-| `src/app/(app)/people/leave/page.tsx` | `LeavePage` | — | — | 1 const |
-| `src/app/(app)/people/org-chart/chart.tsx` | `OrgChartScreen` | — | — | — |
-| `src/app/(app)/people/org-chart/model.ts` | — | — | `flattenPeople`, `buildModel`, `pruneNode`, `depthLabel`, `subtreeIds` | 3 types |
-| `src/app/(app)/people/org-chart/page.tsx` | `Page` | — | — | 1 const |
-| `src/app/(app)/people/shifts/assign-pattern.tsx` | `AssignPatternModal`, `CycleStrip` | — | — | — |
-| `src/app/(app)/people/shifts/my-rota.tsx` | `MyRota` | — | — | — |
-| `src/app/(app)/people/shifts/page.tsx` | `ShiftsPage` | — | — | 1 const |
-| `src/app/(app)/people/shifts/palette.ts` | — | — | `shiftColours`, `colourFor` | 1 const · 1 type |
-| `src/app/(app)/people/shifts/request-swap.tsx` | `RequestSwapModal` | — | — | — |
-| `src/app/(app)/people/shifts/rota-grid.tsx` | `RotaGrid`, `ShiftLegend` | — | — | — |
-| `src/app/(app)/people/shifts/shift-catalogue.tsx` | `ShiftCatalogue` | — | — | — |
-| `src/app/(app)/people/shifts/shifts-screen.tsx` | `ShiftsScreen` | — | — | — |
-| `src/app/(app)/people/shifts/swaps.tsx` | `SwapPanel`, `DeclineSwapModal` | — | — | — |
-| `src/app/(app)/people/shifts/tabs.ts` | — | — | `isShiftTab` | 1 const · 1 type |
-| `src/app/(app)/people/signatures/page.tsx` | `SignaturesPage` | — | — | 1 const |
-| `src/app/(app)/people/signatures/send-dialog.tsx` | `SendDialog` | — | — | — |
-| `src/app/(app)/people/signatures/signatures-screen.tsx` | `SignaturesScreen` | — | — | — |
-| `src/app/(app)/people/onboarding/onboarding-screen.tsx` | `OnboardingScreen` | — | — | — |
-| `src/app/(app)/people/onboarding/page.tsx` | `OnboardingPage` | — | — | 1 const |
-| `src/app/(app)/people/assets/equipment-screen.tsx` | `EquipmentScreen` | — | — | — |
-| `src/app/(app)/people/assets/fault-queue.tsx` | `FaultQueuePanel` | — | — | — |
-| `src/app/(app)/people/assets/hand-over-dialog.tsx` | `HandOverDialog` | — | — | — |
-| `src/app/(app)/people/assets/item-form.tsx` | `ItemForm` | — | — | — |
-| `src/app/(app)/people/assets/item-panel.tsx` | `ItemPanel` | — | — | 1 const |
-| `src/app/(app)/people/assets/kinds-panel.tsx` | `KindsPanel`, `AddKindDialog` | — | — | — |
-| `src/app/(app)/people/assets/my-equipment.tsx` | `MyAssets` | — | — | — |
-| `src/app/(app)/people/assets/page.tsx` | `EquipmentPage` | — | — | 1 const |
-| `src/app/(app)/people/assets/register-table.tsx` | `RegisterTable` | — | — | — |
-| `src/app/(app)/people/assets/repair-dialog.tsx` | `RepairDialog` | — | — | — |
-| `src/app/(app)/people/assets/repairs-panel.tsx` | `RepairsPanel` | — | — | 1 type |
-| `src/app/(app)/people/assets/report-fault.tsx` | `ReportFaultButton`, `RepairStatusLine` | — | — | — |
-| `src/app/(app)/people/assets/take-back-dialog.tsx` | `TakeBackDialog` | — | — | — |
-| `src/app/(app)/people/assets/team-equipment.tsx` | `TeamEquipment` | — | — | — |
-| `src/app/(app)/people/assets/import/equipment-import.tsx` | `EquipmentImport` | — | — | — |
-| `src/app/(app)/people/assets/import/page.tsx` | `EquipmentImportPage` | — | — | 1 const |
-| `src/app/(app)/people/assets/import/surface.ts` | — | — | — | 1 const |
-| `src/app/(app)/people/overtime/decline-overtime.tsx` | `DeclineOvertimeModal` | — | — | — |
-| `src/app/(app)/people/overtime/my-overtime.tsx` | `MyOvertime` | — | — | — |
-| `src/app/(app)/people/overtime/overtime-screen.tsx` | `OvertimeScreen` | — | — | — |
-| `src/app/(app)/people/overtime/page.tsx` | `OvertimePage` | — | — | 1 const |
-| `src/app/(app)/people/overtime/tone.ts` | — | — | — | 2 const |
-| `src/app/(app)/people/departments/assign-head-dialog.tsx` | `AssignHeadDialog` | — | — | — |
-| `src/app/(app)/people/departments/assign-people-dialog.tsx` | `AssignPeopleDialog` | — | — | 1 type |
-| `src/app/(app)/people/departments/departments-screen.tsx` | `DepartmentsScreen` | — | — | — |
-| `src/app/(app)/people/departments/page.tsx` | `DepartmentsPage` | — | — | 1 const |
-| `src/app/(app)/people/departments/teams-panel.tsx` | `TeamsPanel` | — | — | — |
-| `src/app/(app)/people/departments/[id]/detail-screen.tsx` | `DepartmentDetailScreen` | — | — | — |
-| `src/app/(app)/people/departments/[id]/page.tsx` | `DepartmentPage` | — | — | 1 const |
+| File                                                                | Components                                                                                    | Hooks | Functions                                                              | Also             |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------- | ---------------- |
+| `src/app/(app)/people/directory.tsx`                                | `Directory`                                                                                   | —     | —                                                                      | —                |
+| `src/app/(app)/people/page.tsx`                                     | `PeoplePage`                                                                                  | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/one-on-ones/one-on-ones-screen.tsx`           | `OneOnOnesScreen`                                                                             | —     | —                                                                      | —                |
+| `src/app/(app)/people/one-on-ones/page.tsx`                         | `OneOnOnesPage`                                                                               | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/one-on-ones/[id]/one-on-one-screen.tsx`       | `OneOnOneScreen`                                                                              | —     | —                                                                      | —                |
+| `src/app/(app)/people/one-on-ones/[id]/page.tsx`                    | `OneOnOnePage`                                                                                | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/offboarding/offboarding-screen.tsx`           | `OffboardingScreen`                                                                           | —     | —                                                                      | —                |
+| `src/app/(app)/people/offboarding/page.tsx`                         | `OffboardingPage`                                                                             | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/offboarding/resign.tsx`                       | `Resign`                                                                                      | —     | —                                                                      | —                |
+| `src/app/(app)/people/offboarding/start-exit.tsx`                   | `StartExitDialog`                                                                             | —     | —                                                                      | —                |
+| `src/app/(app)/people/offboarding/status-tone.ts`                   | —                                                                                             | —     | `statusTone`                                                           | —                |
+| `src/app/(app)/people/offboarding/[id]/checklist.tsx`               | `Checklist`                                                                                   | —     | —                                                                      | —                |
+| `src/app/(app)/people/offboarding/[id]/exit-detail-screen.tsx`      | `ExitDetailScreen`                                                                            | —     | —                                                                      | —                |
+| `src/app/(app)/people/offboarding/[id]/interview-panel.tsx`         | `InterviewPanel`                                                                              | —     | —                                                                      | —                |
+| `src/app/(app)/people/offboarding/[id]/page.tsx`                    | `ExitPage`                                                                                    | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/offboarding/checklist/checklist-settings.tsx` | `ChecklistSettingsScreen`                                                                     | —     | —                                                                      | —                |
+| `src/app/(app)/people/offboarding/checklist/page.tsx`               | `ExitChecklistPage`                                                                           | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/incomplete/incomplete-records-screen.tsx`     | `IncompleteRecordsScreen`                                                                     | —     | —                                                                      | —                |
+| `src/app/(app)/people/incomplete/page.tsx`                          | `IncompleteRecordsPage`                                                                       | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/[id]/conduct.tsx`                             | `ConductPanel`                                                                                | —     | —                                                                      | —                |
+| `src/app/(app)/people/[id]/invite-to-sign-in.tsx`                   | `InviteToSignIn`, `InviteToSignInButton`                                                      | —     | —                                                                      | —                |
+| `src/app/(app)/people/[id]/link-existing-account.tsx`               | `LinkExistingAccountButton`                                                                   | —     | —                                                                      | —                |
+| `src/app/(app)/people/[id]/page.tsx`                                | `EmployeePage`                                                                                | —     | `generateStaticParams`, `generateMetadata`                             | —                |
+| `src/app/(app)/people/[id]/record-page.tsx`                         | `EmployeeRecordPage`                                                                          | —     | —                                                                      | —                |
+| `src/app/(app)/people/[id]/record.tsx`                              | `EmployeeRecord`                                                                              | —     | `enumKey`                                                              | 1 const          |
+| `src/app/(app)/people/import/employee-import.tsx`                   | `EmployeeImport`                                                                              | —     | —                                                                      | —                |
+| `src/app/(app)/people/import/page.tsx`                              | `ImportPage`                                                                                  | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/import/surface.ts`                            | —                                                                                             | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/new/form.tsx`                                 | `NewEmployeeForm`                                                                             | —     | —                                                                      | —                |
+| `src/app/(app)/people/new/page.tsx`                                 | `NewEmployeePage`                                                                             | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/documents/dialogs.tsx`                        | `AskForDocumentModal`, `AttachDocumentModal`, `AddDocumentModal`, `RemindModal`, `WaiveModal` | —     | —                                                                      | —                |
+| `src/app/(app)/people/documents/document-rows.tsx`                  | `DueChip`, `StatusChip`, `RequestRow`, `DocumentRow`                                          | —     | `readableDate`                                                         | —                |
+| `src/app/(app)/people/documents/documents-screen.tsx`               | `DocumentsScreen`                                                                             | —     | —                                                                      | —                |
+| `src/app/(app)/people/documents/employee-file.tsx`                  | `EmployeeFileDrawer`                                                                          | —     | —                                                                      | —                |
+| `src/app/(app)/people/documents/my-documents.tsx`                   | `MyDocuments`                                                                                 | —     | —                                                                      | —                |
+| `src/app/(app)/people/documents/page.tsx`                           | `DocumentsPage`                                                                               | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/attendance/attendance-screen.tsx`             | `AttendanceScreen`                                                                            | —     | —                                                                      | —                |
+| `src/app/(app)/people/attendance/day-timer.tsx`                     | `DayTimer`                                                                                    | —     | —                                                                      | —                |
+| `src/app/(app)/people/attendance/invite-staff-dialog.tsx`           | `InviteStaffDialog`                                                                           | —     | —                                                                      | 2 types          |
+| `src/app/(app)/people/attendance/my-attendance-history.tsx`         | `MyAttendanceHistoryPanel`                                                                    | —     | —                                                                      | —                |
+| `src/app/(app)/people/attendance/page.tsx`                          | `AttendancePage`                                                                              | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/attendance/import/attendance-import.tsx`      | `AttendanceImport`                                                                            | —     | —                                                                      | —                |
+| `src/app/(app)/people/attendance/import/page.tsx`                   | `AttendanceImportPage`                                                                        | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/attendance/import/surface.ts`                 | —                                                                                             | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/attendance/history/day-holiday.tsx`           | `DayHoliday`                                                                                  | —     | —                                                                      | —                |
+| `src/app/(app)/people/attendance/history/history-screen.tsx`        | `HistoryScreen`                                                                               | —     | —                                                                      | —                |
+| `src/app/(app)/people/attendance/history/month-calendar.tsx`        | `MonthCalendar`, `CalendarLegend`                                                             | —     | `monthLabel`, `shiftMonth`                                             | —                |
+| `src/app/(app)/people/attendance/history/page.tsx`                  | `AttendanceHistoryPage`                                                                       | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/leave/book-leave.tsx`                         | `BookLeaveDialog`                                                                             | —     | —                                                                      | —                |
+| `src/app/(app)/people/leave/holiday-calendar.tsx`                   | `HolidayCalendarCard`                                                                         | —     | —                                                                      | —                |
+| `src/app/(app)/people/leave/leave-screen.tsx`                       | `LeaveScreen`                                                                                 | —     | —                                                                      | —                |
+| `src/app/(app)/people/leave/page.tsx`                               | `LeavePage`                                                                                   | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/org-chart/chart.tsx`                          | `OrgChartScreen`                                                                              | —     | —                                                                      | —                |
+| `src/app/(app)/people/org-chart/model.ts`                           | —                                                                                             | —     | `flattenPeople`, `buildModel`, `pruneNode`, `depthLabel`, `subtreeIds` | 3 types          |
+| `src/app/(app)/people/org-chart/page.tsx`                           | `Page`                                                                                        | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/shifts/assign-pattern.tsx`                    | `AssignPatternModal`, `CycleStrip`                                                            | —     | —                                                                      | —                |
+| `src/app/(app)/people/shifts/my-rota.tsx`                           | `MyRota`                                                                                      | —     | —                                                                      | —                |
+| `src/app/(app)/people/shifts/page.tsx`                              | `ShiftsPage`                                                                                  | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/shifts/palette.ts`                            | —                                                                                             | —     | `shiftColours`, `colourFor`                                            | 1 const · 1 type |
+| `src/app/(app)/people/shifts/request-swap.tsx`                      | `RequestSwapModal`                                                                            | —     | —                                                                      | —                |
+| `src/app/(app)/people/shifts/rota-grid.tsx`                         | `RotaGrid`, `ShiftLegend`                                                                     | —     | —                                                                      | —                |
+| `src/app/(app)/people/shifts/shift-catalogue.tsx`                   | `ShiftCatalogue`                                                                              | —     | —                                                                      | —                |
+| `src/app/(app)/people/shifts/shifts-screen.tsx`                     | `ShiftsScreen`                                                                                | —     | —                                                                      | —                |
+| `src/app/(app)/people/shifts/swaps.tsx`                             | `SwapPanel`, `DeclineSwapModal`                                                               | —     | —                                                                      | —                |
+| `src/app/(app)/people/shifts/tabs.ts`                               | —                                                                                             | —     | `isShiftTab`                                                           | 1 const · 1 type |
+| `src/app/(app)/people/signatures/page.tsx`                          | `SignaturesPage`                                                                              | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/signatures/send-dialog.tsx`                   | `SendDialog`                                                                                  | —     | —                                                                      | —                |
+| `src/app/(app)/people/signatures/signatures-screen.tsx`             | `SignaturesScreen`                                                                            | —     | —                                                                      | —                |
+| `src/app/(app)/people/onboarding/onboarding-screen.tsx`             | `OnboardingScreen`                                                                            | —     | —                                                                      | —                |
+| `src/app/(app)/people/onboarding/page.tsx`                          | `OnboardingPage`                                                                              | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/assets/equipment-screen.tsx`                  | `EquipmentScreen`                                                                             | —     | —                                                                      | —                |
+| `src/app/(app)/people/assets/fault-queue.tsx`                       | `FaultQueuePanel`                                                                             | —     | —                                                                      | —                |
+| `src/app/(app)/people/assets/hand-over-dialog.tsx`                  | `HandOverDialog`                                                                              | —     | —                                                                      | —                |
+| `src/app/(app)/people/assets/item-form.tsx`                         | `ItemForm`                                                                                    | —     | —                                                                      | —                |
+| `src/app/(app)/people/assets/item-panel.tsx`                        | `ItemPanel`                                                                                   | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/assets/kinds-panel.tsx`                       | `KindsPanel`, `AddKindDialog`                                                                 | —     | —                                                                      | —                |
+| `src/app/(app)/people/assets/my-equipment.tsx`                      | `MyAssets`                                                                                    | —     | —                                                                      | —                |
+| `src/app/(app)/people/assets/page.tsx`                              | `EquipmentPage`                                                                               | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/assets/register-table.tsx`                    | `RegisterTable`                                                                               | —     | —                                                                      | —                |
+| `src/app/(app)/people/assets/repair-dialog.tsx`                     | `RepairDialog`                                                                                | —     | —                                                                      | —                |
+| `src/app/(app)/people/assets/repairs-panel.tsx`                     | `RepairsPanel`                                                                                | —     | —                                                                      | 1 type           |
+| `src/app/(app)/people/assets/report-fault.tsx`                      | `ReportFaultButton`, `RepairStatusLine`                                                       | —     | —                                                                      | —                |
+| `src/app/(app)/people/assets/take-back-dialog.tsx`                  | `TakeBackDialog`                                                                              | —     | —                                                                      | —                |
+| `src/app/(app)/people/assets/team-equipment.tsx`                    | `TeamEquipment`                                                                               | —     | —                                                                      | —                |
+| `src/app/(app)/people/assets/import/equipment-import.tsx`           | `EquipmentImport`                                                                             | —     | —                                                                      | —                |
+| `src/app/(app)/people/assets/import/page.tsx`                       | `EquipmentImportPage`                                                                         | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/assets/import/surface.ts`                     | —                                                                                             | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/overtime/decline-overtime.tsx`                | `DeclineOvertimeModal`                                                                        | —     | —                                                                      | —                |
+| `src/app/(app)/people/overtime/my-overtime.tsx`                     | `MyOvertime`                                                                                  | —     | —                                                                      | —                |
+| `src/app/(app)/people/overtime/overtime-screen.tsx`                 | `OvertimeScreen`                                                                              | —     | —                                                                      | —                |
+| `src/app/(app)/people/overtime/page.tsx`                            | `OvertimePage`                                                                                | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/overtime/tone.ts`                             | —                                                                                             | —     | —                                                                      | 2 const          |
+| `src/app/(app)/people/departments/assign-head-dialog.tsx`           | `AssignHeadDialog`                                                                            | —     | —                                                                      | —                |
+| `src/app/(app)/people/departments/assign-people-dialog.tsx`         | `AssignPeopleDialog`                                                                          | —     | —                                                                      | 1 type           |
+| `src/app/(app)/people/departments/departments-screen.tsx`           | `DepartmentsScreen`                                                                           | —     | —                                                                      | —                |
+| `src/app/(app)/people/departments/page.tsx`                         | `DepartmentsPage`                                                                             | —     | —                                                                      | 1 const          |
+| `src/app/(app)/people/departments/teams-panel.tsx`                  | `TeamsPanel`                                                                                  | —     | —                                                                      | —                |
+| `src/app/(app)/people/departments/[id]/detail-screen.tsx`           | `DepartmentDetailScreen`                                                                      | —     | —                                                                      | —                |
+| `src/app/(app)/people/departments/[id]/page.tsx`                    | `DepartmentPage`                                                                              | —     | —                                                                      | 1 const          |
 
 ---
 
@@ -512,61 +512,61 @@ Screen components for the people module, including its dialogs and panels.
 
 Screen components for the payroll module, including its dialogs and panels.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/app/(app)/payroll/page.tsx` | `PayrollPage` | — | — | 1 const |
-| `src/app/(app)/payroll/payroll-screen.tsx` | `PayrollScreen` | — | — | — |
-| `src/app/(app)/payroll/expenses/approval-queue.tsx` | `ApprovalQueue`, `ReceiptCell` | — | — | — |
-| `src/app/(app)/payroll/expenses/claim-form.tsx` | `ClaimForm` | — | `parseAmount` | — |
-| `src/app/(app)/payroll/expenses/claims-register.tsx` | `StatusBadge`, `ClaimsRegister` | — | — | — |
-| `src/app/(app)/payroll/expenses/expense-types.tsx` | `ExpenseTypes` | — | — | — |
-| `src/app/(app)/payroll/expenses/expenses-screen.tsx` | `ExpensesScreen` | — | — | — |
-| `src/app/(app)/payroll/expenses/my-expenses.tsx` | `MyExpenses` | — | — | — |
-| `src/app/(app)/payroll/expenses/page.tsx` | `ExpensesPage` | — | — | 1 const |
-| `src/app/(app)/payroll/payslips/index-table.tsx` | `PayslipRoute` | — | — | — |
-| `src/app/(app)/payroll/payslips/my-payslip-index.tsx` | `MyPayslipIndex` | — | — | — |
-| `src/app/(app)/payroll/payslips/page.tsx` | `PayslipsPage` | — | — | 1 const |
-| `src/app/(app)/payroll/payslips/send-panel.tsx` | `SendPayslips` | — | — | — |
-| `src/app/(app)/payroll/payslips/[id]/page.tsx` | `PayslipPage` | — | `generateStaticParams` | 1 const |
-| `src/app/(app)/payroll/payslips/[id]/view.tsx` | `PayslipView` | — | — | — |
-| `src/app/(app)/payroll/runs/new/inline-edit.tsx` | `InlineMoney`, `InlineHours` | — | — | — |
-| `src/app/(app)/payroll/runs/new/lines-dialog.tsx` | `LinesDialog` | — | — | — |
-| `src/app/(app)/payroll/runs/new/page.tsx` | `NewPayrollRunPage` | — | — | 1 const |
-| `src/app/(app)/payroll/runs/new/pay-panel.tsx` | `PayPanel`, `WalletStrip`, `FundingAccounts`, `WalletFigures` | — | — | 1 const |
-| `src/app/(app)/payroll/runs/new/sheet-panel.tsx` | `SheetPanel` | — | — | — |
-| `src/app/(app)/payroll/runs/new/wizard.tsx` | `PayrollRunWizard` | — | — | 2 types |
-| `src/app/(app)/payroll/pay-setup/assign-to-many-dialog.tsx` | `AssignComponentToManyDialog` | — | — | — |
-| `src/app/(app)/payroll/pay-setup/band-position.tsx` | `BandPosition`, `BandMeter` | — | — | 1 type |
-| `src/app/(app)/payroll/pay-setup/benefits-panel.tsx` | `BenefitsPanel` | — | — | — |
-| `src/app/(app)/payroll/pay-setup/components-panel.tsx` | `ComponentsPanel` | — | — | — |
-| `src/app/(app)/payroll/pay-setup/extras-panel.tsx` | `ExtrasPanel` | — | — | — |
-| `src/app/(app)/payroll/pay-setup/grades-panel.tsx` | `GradesPanel` | — | — | — |
-| `src/app/(app)/payroll/pay-setup/page.tsx` | `PaySetupPage` | — | — | 1 const |
-| `src/app/(app)/payroll/pay-setup/pay-components-panel.tsx` | `PayComponentsPanel` | — | — | — |
-| `src/app/(app)/payroll/pay-setup/pay-setup-screen.tsx` | `PaySetupScreen` | — | — | — |
-| `src/app/(app)/payroll/pay-setup/tabs.ts` | — | — | `isPaySetupTab` | 1 const · 1 type |
-| `src/app/(app)/payroll/loans/apply-loan.tsx` | `ApplyLoanModal` | — | — | — |
-| `src/app/(app)/payroll/loans/decisions.tsx` | `DeclineLoanModal`, `CounterOfferModal`, `PayInstalmentModal`, `WaiveInstalmentModal` | — | — | — |
-| `src/app/(app)/payroll/loans/loans-screen.tsx` | `LoansScreen` | — | — | — |
-| `src/app/(app)/payroll/loans/my-loans.tsx` | `MyLoans` | — | — | — |
-| `src/app/(app)/payroll/loans/page.tsx` | `LoansPage` | — | — | 1 const |
-| `src/app/(app)/payroll/loans/[id]/loan-detail-screen.tsx` | `LoanDetailScreen` | — | — | — |
-| `src/app/(app)/payroll/loans/[id]/page.tsx` | `LoanPage` | — | — | 1 const |
-| `src/app/(app)/payroll/statutory/page.tsx` | `StatutoryPage` | — | — | 1 const |
-| `src/app/(app)/payroll/statutory/schedules-table.tsx` | `SchedulesTable` | — | — | — |
-| `src/app/(app)/payroll/statutory/statutory-screen.tsx` | `StatutoryScreen` | — | — | — |
-| `src/app/(app)/payroll/advances/advances-screen.tsx` | `AdvancesScreen` | — | — | — |
-| `src/app/(app)/payroll/advances/page.tsx` | `AdvancesPage` | — | — | 1 const |
-| `src/app/(app)/payroll/payments/format.ts` | — | — | `longDate`, `longDateTime`, `monthLabel`, `people` | — |
-| `src/app/(app)/payroll/payments/ledger-panel.tsx` | `LedgerPanel` | — | — | — |
-| `src/app/(app)/payroll/payments/page.tsx` | `PaymentsPage` | — | — | 1 const |
-| `src/app/(app)/payroll/payments/payments-screen.tsx` | `PaymentsScreen` | — | — | — |
-| `src/app/(app)/payroll/payments/[id]/batch-detail-screen.tsx` | `BatchDetailScreen` | — | — | — |
-| `src/app/(app)/payroll/payments/[id]/check-panel.tsx` | `CheckPanel` | — | — | — |
-| `src/app/(app)/payroll/payments/[id]/page.tsx` | `PaymentBatchPage` | — | — | 1 const |
-| `src/app/(app)/payroll/payments/[id]/release-panel.tsx` | `ReleasePanel` | — | — | — |
-| `src/app/(app)/payroll/payments/history/history-screen.tsx` | `PaymentHistoryScreen` | — | — | — |
-| `src/app/(app)/payroll/payments/history/page.tsx` | `PaymentHistoryPage` | — | — | 1 const |
+| File                                                          | Components                                                                            | Hooks | Functions                                          | Also             |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ----- | -------------------------------------------------- | ---------------- |
+| `src/app/(app)/payroll/page.tsx`                              | `PayrollPage`                                                                         | —     | —                                                  | 1 const          |
+| `src/app/(app)/payroll/payroll-screen.tsx`                    | `PayrollScreen`                                                                       | —     | —                                                  | —                |
+| `src/app/(app)/payroll/expenses/approval-queue.tsx`           | `ApprovalQueue`, `ReceiptCell`                                                        | —     | —                                                  | —                |
+| `src/app/(app)/payroll/expenses/claim-form.tsx`               | `ClaimForm`                                                                           | —     | `parseAmount`                                      | —                |
+| `src/app/(app)/payroll/expenses/claims-register.tsx`          | `StatusBadge`, `ClaimsRegister`                                                       | —     | —                                                  | —                |
+| `src/app/(app)/payroll/expenses/expense-types.tsx`            | `ExpenseTypes`                                                                        | —     | —                                                  | —                |
+| `src/app/(app)/payroll/expenses/expenses-screen.tsx`          | `ExpensesScreen`                                                                      | —     | —                                                  | —                |
+| `src/app/(app)/payroll/expenses/my-expenses.tsx`              | `MyExpenses`                                                                          | —     | —                                                  | —                |
+| `src/app/(app)/payroll/expenses/page.tsx`                     | `ExpensesPage`                                                                        | —     | —                                                  | 1 const          |
+| `src/app/(app)/payroll/payslips/index-table.tsx`              | `PayslipRoute`                                                                        | —     | —                                                  | —                |
+| `src/app/(app)/payroll/payslips/my-payslip-index.tsx`         | `MyPayslipIndex`                                                                      | —     | —                                                  | —                |
+| `src/app/(app)/payroll/payslips/page.tsx`                     | `PayslipsPage`                                                                        | —     | —                                                  | 1 const          |
+| `src/app/(app)/payroll/payslips/send-panel.tsx`               | `SendPayslips`                                                                        | —     | —                                                  | —                |
+| `src/app/(app)/payroll/payslips/[id]/page.tsx`                | `PayslipPage`                                                                         | —     | `generateStaticParams`                             | 1 const          |
+| `src/app/(app)/payroll/payslips/[id]/view.tsx`                | `PayslipView`                                                                         | —     | —                                                  | —                |
+| `src/app/(app)/payroll/runs/new/inline-edit.tsx`              | `InlineMoney`, `InlineHours`                                                          | —     | —                                                  | —                |
+| `src/app/(app)/payroll/runs/new/lines-dialog.tsx`             | `LinesDialog`                                                                         | —     | —                                                  | —                |
+| `src/app/(app)/payroll/runs/new/page.tsx`                     | `NewPayrollRunPage`                                                                   | —     | —                                                  | 1 const          |
+| `src/app/(app)/payroll/runs/new/pay-panel.tsx`                | `PayPanel`, `WalletStrip`, `FundingAccounts`, `WalletFigures`                         | —     | —                                                  | 1 const          |
+| `src/app/(app)/payroll/runs/new/sheet-panel.tsx`              | `SheetPanel`                                                                          | —     | —                                                  | —                |
+| `src/app/(app)/payroll/runs/new/wizard.tsx`                   | `PayrollRunWizard`                                                                    | —     | —                                                  | 2 types          |
+| `src/app/(app)/payroll/pay-setup/assign-to-many-dialog.tsx`   | `AssignComponentToManyDialog`                                                         | —     | —                                                  | —                |
+| `src/app/(app)/payroll/pay-setup/band-position.tsx`           | `BandPosition`, `BandMeter`                                                           | —     | —                                                  | 1 type           |
+| `src/app/(app)/payroll/pay-setup/benefits-panel.tsx`          | `BenefitsPanel`                                                                       | —     | —                                                  | —                |
+| `src/app/(app)/payroll/pay-setup/components-panel.tsx`        | `ComponentsPanel`                                                                     | —     | —                                                  | —                |
+| `src/app/(app)/payroll/pay-setup/extras-panel.tsx`            | `ExtrasPanel`                                                                         | —     | —                                                  | —                |
+| `src/app/(app)/payroll/pay-setup/grades-panel.tsx`            | `GradesPanel`                                                                         | —     | —                                                  | —                |
+| `src/app/(app)/payroll/pay-setup/page.tsx`                    | `PaySetupPage`                                                                        | —     | —                                                  | 1 const          |
+| `src/app/(app)/payroll/pay-setup/pay-components-panel.tsx`    | `PayComponentsPanel`                                                                  | —     | —                                                  | —                |
+| `src/app/(app)/payroll/pay-setup/pay-setup-screen.tsx`        | `PaySetupScreen`                                                                      | —     | —                                                  | —                |
+| `src/app/(app)/payroll/pay-setup/tabs.ts`                     | —                                                                                     | —     | `isPaySetupTab`                                    | 1 const · 1 type |
+| `src/app/(app)/payroll/loans/apply-loan.tsx`                  | `ApplyLoanModal`                                                                      | —     | —                                                  | —                |
+| `src/app/(app)/payroll/loans/decisions.tsx`                   | `DeclineLoanModal`, `CounterOfferModal`, `PayInstalmentModal`, `WaiveInstalmentModal` | —     | —                                                  | —                |
+| `src/app/(app)/payroll/loans/loans-screen.tsx`                | `LoansScreen`                                                                         | —     | —                                                  | —                |
+| `src/app/(app)/payroll/loans/my-loans.tsx`                    | `MyLoans`                                                                             | —     | —                                                  | —                |
+| `src/app/(app)/payroll/loans/page.tsx`                        | `LoansPage`                                                                           | —     | —                                                  | 1 const          |
+| `src/app/(app)/payroll/loans/[id]/loan-detail-screen.tsx`     | `LoanDetailScreen`                                                                    | —     | —                                                  | —                |
+| `src/app/(app)/payroll/loans/[id]/page.tsx`                   | `LoanPage`                                                                            | —     | —                                                  | 1 const          |
+| `src/app/(app)/payroll/statutory/page.tsx`                    | `StatutoryPage`                                                                       | —     | —                                                  | 1 const          |
+| `src/app/(app)/payroll/statutory/schedules-table.tsx`         | `SchedulesTable`                                                                      | —     | —                                                  | —                |
+| `src/app/(app)/payroll/statutory/statutory-screen.tsx`        | `StatutoryScreen`                                                                     | —     | —                                                  | —                |
+| `src/app/(app)/payroll/advances/advances-screen.tsx`          | `AdvancesScreen`                                                                      | —     | —                                                  | —                |
+| `src/app/(app)/payroll/advances/page.tsx`                     | `AdvancesPage`                                                                        | —     | —                                                  | 1 const          |
+| `src/app/(app)/payroll/payments/format.ts`                    | —                                                                                     | —     | `longDate`, `longDateTime`, `monthLabel`, `people` | —                |
+| `src/app/(app)/payroll/payments/ledger-panel.tsx`             | `LedgerPanel`                                                                         | —     | —                                                  | —                |
+| `src/app/(app)/payroll/payments/page.tsx`                     | `PaymentsPage`                                                                        | —     | —                                                  | 1 const          |
+| `src/app/(app)/payroll/payments/payments-screen.tsx`          | `PaymentsScreen`                                                                      | —     | —                                                  | —                |
+| `src/app/(app)/payroll/payments/[id]/batch-detail-screen.tsx` | `BatchDetailScreen`                                                                   | —     | —                                                  | —                |
+| `src/app/(app)/payroll/payments/[id]/check-panel.tsx`         | `CheckPanel`                                                                          | —     | —                                                  | —                |
+| `src/app/(app)/payroll/payments/[id]/page.tsx`                | `PaymentBatchPage`                                                                    | —     | —                                                  | 1 const          |
+| `src/app/(app)/payroll/payments/[id]/release-panel.tsx`       | `ReleasePanel`                                                                        | —     | —                                                  | —                |
+| `src/app/(app)/payroll/payments/history/history-screen.tsx`   | `PaymentHistoryScreen`                                                                | —     | —                                                  | —                |
+| `src/app/(app)/payroll/payments/history/page.tsx`             | `PaymentHistoryPage`                                                                  | —     | —                                                  | 1 const          |
 
 ---
 
@@ -616,6 +616,9 @@ Screen components for the performance module, including its dialogs and panels.
 | `src/app/(app)/performance/periods/[id]/period-screen.tsx` | `PeriodScreen` | — | — | — |
 | `src/app/(app)/performance/periods/[id]/nine-box/nine-box-screen.tsx` | `NineBoxScreen` | — | — | — |
 | `src/app/(app)/performance/periods/[id]/nine-box/page.tsx` | `NineBoxPage` | — | — | 1 const |
+| `src/app/(app)/performance/periods/[id]/fairness/charts.tsx` | `RangeChart`, `BandBars` | — | `pct`, `points` | 2 const · 1 type |
+| `src/app/(app)/performance/periods/[id]/fairness/fairness-screen.tsx` | `FairnessScreen` | — | — | — |
+| `src/app/(app)/performance/periods/[id]/fairness/page.tsx` | `FairnessPage` | — | — | 1 const |
 | `src/app/(app)/performance/periods/[id]/report/page.tsx` | `PeriodReportPage` | — | — | 1 const |
 | `src/app/(app)/performance/periods/[id]/report/report-screen.tsx` | `PeriodReportScreen` | — | — | — |
 | `src/app/(app)/performance/periods/new/draft-wizard.tsx` | `DraftPeriodWizard` | — | — | — |
@@ -633,33 +636,33 @@ Screen components for the performance module, including its dialogs and panels.
 
 Screen components for the hiring module, including its dialogs and panels.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/app/(app)/hiring/hiring-screen.tsx` | `HiringScreen` | — | — | — |
-| `src/app/(app)/hiring/layout.tsx` | `HiringLayout` | — | — | — |
-| `src/app/(app)/hiring/page.tsx` | `HiringPage` | — | — | 1 const |
-| `src/app/(app)/hiring/recruitment-coming-soon.tsx` | `RecruitmentComingSoon` | — | — | — |
-| `src/app/(app)/hiring/postings/page.tsx` | `PostingsPage` | — | — | 1 const |
-| `src/app/(app)/hiring/postings/posting-editor.tsx` | `PostingEditor` | — | — | — |
-| `src/app/(app)/hiring/postings/postings-screen.tsx` | `PostingsScreen` | — | — | — |
-| `src/app/(app)/hiring/postings/applications/applications-screen.tsx` | `ApplicationsScreen` | — | — | — |
-| `src/app/(app)/hiring/postings/applications/page.tsx` | `ApplicationsPage` | — | — | 1 const |
-| `src/app/(app)/hiring/offers/approvals.tsx` | `OfferApprovals` | — | — | — |
-| `src/app/(app)/hiring/offers/page.tsx` | `OffersPage` | — | — | 1 const |
-| `src/app/(app)/hiring/offers/real-approvals.tsx` | `RealApprovals` | — | — | — |
-| `src/app/(app)/hiring/requisitions/[id]/page.tsx` | `RequisitionPage` | — | `generateStaticParams`, `generateMetadata` | — |
-| `src/app/(app)/hiring/requisitions/[id]/real-workspace.tsx` | `RealRequisitionWorkspace` | — | — | — |
-| `src/app/(app)/hiring/requisitions/[id]/requisition-screen.tsx` | `RequisitionScreen` | — | — | — |
-| `src/app/(app)/hiring/requisitions/[id]/screening.tsx` | `RequisitionScreening`, `UnknownRequisition` | — | — | — |
-| `src/app/(app)/hiring/requisitions/[id]/workspace.tsx` | `RequisitionWorkspace` | — | — | — |
-| `src/app/(app)/hiring/requisitions/new/page.tsx` | `NewRequisitionPage` | — | — | 1 const |
-| `src/app/(app)/hiring/requisitions/new/wizard.tsx` | `RequisitionWizard` | — | — | — |
-| `src/app/(app)/hiring/interviews/interviews-screen.tsx` | `InterviewsScreen` | — | — | — |
-| `src/app/(app)/hiring/interviews/page.tsx` | `InterviewsPage` | — | — | 1 const |
-| `src/app/(app)/hiring/interviews/real-diary.tsx` | `RealDiary` | — | — | — |
-| `src/app/(app)/hiring/candidates/[id]/candidate-screen.tsx` | `CandidateScreen` | — | — | — |
-| `src/app/(app)/hiring/candidates/[id]/page.tsx` | `CandidatePage` | — | `generateStaticParams`, `generateMetadata` | — |
-| `src/app/(app)/hiring/candidates/[id]/real-pipeline.tsx` | `RealRole`, `RealPipeline` | — | `realOutcomeBadge` | — |
+| File                                                                 | Components                                   | Hooks | Functions                                  | Also    |
+| -------------------------------------------------------------------- | -------------------------------------------- | ----- | ------------------------------------------ | ------- |
+| `src/app/(app)/hiring/hiring-screen.tsx`                             | `HiringScreen`                               | —     | —                                          | —       |
+| `src/app/(app)/hiring/layout.tsx`                                    | `HiringLayout`                               | —     | —                                          | —       |
+| `src/app/(app)/hiring/page.tsx`                                      | `HiringPage`                                 | —     | —                                          | 1 const |
+| `src/app/(app)/hiring/recruitment-coming-soon.tsx`                   | `RecruitmentComingSoon`                      | —     | —                                          | —       |
+| `src/app/(app)/hiring/postings/page.tsx`                             | `PostingsPage`                               | —     | —                                          | 1 const |
+| `src/app/(app)/hiring/postings/posting-editor.tsx`                   | `PostingEditor`                              | —     | —                                          | —       |
+| `src/app/(app)/hiring/postings/postings-screen.tsx`                  | `PostingsScreen`                             | —     | —                                          | —       |
+| `src/app/(app)/hiring/postings/applications/applications-screen.tsx` | `ApplicationsScreen`                         | —     | —                                          | —       |
+| `src/app/(app)/hiring/postings/applications/page.tsx`                | `ApplicationsPage`                           | —     | —                                          | 1 const |
+| `src/app/(app)/hiring/offers/approvals.tsx`                          | `OfferApprovals`                             | —     | —                                          | —       |
+| `src/app/(app)/hiring/offers/page.tsx`                               | `OffersPage`                                 | —     | —                                          | 1 const |
+| `src/app/(app)/hiring/offers/real-approvals.tsx`                     | `RealApprovals`                              | —     | —                                          | —       |
+| `src/app/(app)/hiring/requisitions/[id]/page.tsx`                    | `RequisitionPage`                            | —     | `generateStaticParams`, `generateMetadata` | —       |
+| `src/app/(app)/hiring/requisitions/[id]/real-workspace.tsx`          | `RealRequisitionWorkspace`                   | —     | —                                          | —       |
+| `src/app/(app)/hiring/requisitions/[id]/requisition-screen.tsx`      | `RequisitionScreen`                          | —     | —                                          | —       |
+| `src/app/(app)/hiring/requisitions/[id]/screening.tsx`               | `RequisitionScreening`, `UnknownRequisition` | —     | —                                          | —       |
+| `src/app/(app)/hiring/requisitions/[id]/workspace.tsx`               | `RequisitionWorkspace`                       | —     | —                                          | —       |
+| `src/app/(app)/hiring/requisitions/new/page.tsx`                     | `NewRequisitionPage`                         | —     | —                                          | 1 const |
+| `src/app/(app)/hiring/requisitions/new/wizard.tsx`                   | `RequisitionWizard`                          | —     | —                                          | —       |
+| `src/app/(app)/hiring/interviews/interviews-screen.tsx`              | `InterviewsScreen`                           | —     | —                                          | —       |
+| `src/app/(app)/hiring/interviews/page.tsx`                           | `InterviewsPage`                             | —     | —                                          | 1 const |
+| `src/app/(app)/hiring/interviews/real-diary.tsx`                     | `RealDiary`                                  | —     | —                                          | —       |
+| `src/app/(app)/hiring/candidates/[id]/candidate-screen.tsx`          | `CandidateScreen`                            | —     | —                                          | —       |
+| `src/app/(app)/hiring/candidates/[id]/page.tsx`                      | `CandidatePage`                              | —     | `generateStaticParams`, `generateMetadata` | —       |
+| `src/app/(app)/hiring/candidates/[id]/real-pipeline.tsx`             | `RealRole`, `RealPipeline`                   | —     | `realOutcomeBadge`                         | —       |
 
 ---
 
@@ -667,17 +670,17 @@ Screen components for the hiring module, including its dialogs and panels.
 
 Screen components for the help module, including its dialogs and panels.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/app/(app)/help/help-screen.tsx` | `HelpScreen` | — | — | — |
-| `src/app/(app)/help/page.tsx` | `HelpPage` | — | — | 1 const |
-| `src/app/(app)/help/ticket-labels.tsx` | `TicketClockBadge`, `InternalBadge` | — | — | 3 const |
-| `src/app/(app)/help/ticket-thread.tsx` | `TicketThread` | — | — | — |
-| `src/app/(app)/help/kb/kb-screen.tsx` | `KbScreen` | — | — | — |
-| `src/app/(app)/help/kb/kb-search.tsx` | `KbSearch` | — | — | — |
-| `src/app/(app)/help/kb/page.tsx` | `KbPage` | — | — | 1 const |
-| `src/app/(app)/help/kb/[slug]/article-screen.tsx` | `ArticleScreen` | — | — | — |
-| `src/app/(app)/help/kb/[slug]/page.tsx` | `KbArticlePage` | — | — | 1 const |
+| File                                              | Components                          | Hooks | Functions | Also    |
+| ------------------------------------------------- | ----------------------------------- | ----- | --------- | ------- |
+| `src/app/(app)/help/help-screen.tsx`              | `HelpScreen`                        | —     | —         | —       |
+| `src/app/(app)/help/page.tsx`                     | `HelpPage`                          | —     | —         | 1 const |
+| `src/app/(app)/help/ticket-labels.tsx`            | `TicketClockBadge`, `InternalBadge` | —     | —         | 3 const |
+| `src/app/(app)/help/ticket-thread.tsx`            | `TicketThread`                      | —     | —         | —       |
+| `src/app/(app)/help/kb/kb-screen.tsx`             | `KbScreen`                          | —     | —         | —       |
+| `src/app/(app)/help/kb/kb-search.tsx`             | `KbSearch`                          | —     | —         | —       |
+| `src/app/(app)/help/kb/page.tsx`                  | `KbPage`                            | —     | —         | 1 const |
+| `src/app/(app)/help/kb/[slug]/article-screen.tsx` | `ArticleScreen`                     | —     | —         | —       |
+| `src/app/(app)/help/kb/[slug]/page.tsx`           | `KbArticlePage`                     | —     | —         | 1 const |
 
 ---
 
@@ -685,12 +688,12 @@ Screen components for the help module, including its dialogs and panels.
 
 Screen components for the reports module, including its dialogs and panels.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/app/(app)/reports/page.tsx` | `ReportsPage` | — | — | 1 const |
-| `src/app/(app)/reports/reports-screen.tsx` | `ReportsScreen` | — | — | — |
-| `src/app/(app)/reports/builder/builder-screen.tsx` | `ReportBuilderScreen` | — | — | — |
-| `src/app/(app)/reports/builder/page.tsx` | `ReportBuilderPage` | — | — | 1 const |
+| File                                               | Components            | Hooks | Functions | Also    |
+| -------------------------------------------------- | --------------------- | ----- | --------- | ------- |
+| `src/app/(app)/reports/page.tsx`                   | `ReportsPage`         | —     | —         | 1 const |
+| `src/app/(app)/reports/reports-screen.tsx`         | `ReportsScreen`       | —     | —         | —       |
+| `src/app/(app)/reports/builder/builder-screen.tsx` | `ReportBuilderScreen` | —     | —         | —       |
+| `src/app/(app)/reports/builder/page.tsx`           | `ReportBuilderPage`   | —     | —         | 1 const |
 
 ---
 
@@ -698,85 +701,85 @@ Screen components for the reports module, including its dialogs and panels.
 
 Screen components for the settings module, including its dialogs and panels.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/app/(app)/settings/checklist.ts` | — | — | `checklistRows`, `checklistProgress` | 2 types |
-| `src/app/(app)/settings/page.tsx` | `SettingsPage` | — | — | 1 const |
-| `src/app/(app)/settings/settings-screen.tsx` | `SettingsScreen` | — | — | — |
-| `src/app/(app)/settings/bank-accounts/account-form.tsx` | `AccountForm` | — | — | — |
-| `src/app/(app)/settings/bank-accounts/bank-accounts-screen.tsx` | `BankAccountsScreen` | — | — | — |
-| `src/app/(app)/settings/bank-accounts/page.tsx` | `BankAccountsPage` | — | — | 1 const |
-| `src/app/(app)/settings/locations/location-form.tsx` | `LocationForm` | — | — | 1 type |
-| `src/app/(app)/settings/locations/locations-screen.tsx` | `LocationsScreen` | — | — | — |
-| `src/app/(app)/settings/locations/page.tsx` | `WorkLocationsPage` | — | — | 1 const |
-| `src/app/(app)/settings/appearance/appearance-screen.tsx` | `AppearanceScreen` | — | — | — |
-| `src/app/(app)/settings/appearance/page.tsx` | `AppearanceSettingsPage` | — | — | 1 const |
-| `src/app/(app)/settings/helpdesk/helpdesk-screen.tsx` | `HelpdeskSettingsScreen` | — | — | — |
-| `src/app/(app)/settings/helpdesk/page.tsx` | `HelpdeskSettingsPage` | — | — | 1 const |
-| `src/app/(app)/settings/ai/ai-screen.tsx` | `AiScreen` | — | — | — |
-| `src/app/(app)/settings/ai/page.tsx` | `AiSettingsPage` | — | — | 1 const |
-| `src/app/(app)/settings/integrations/list.tsx` | `IntegrationsList` | — | — | — |
-| `src/app/(app)/settings/integrations/page.tsx` | `IntegrationsPage` | — | — | 1 const |
-| `src/app/(app)/settings/security/page.tsx` | `SecuritySettingsPage` | — | — | 1 const |
-| `src/app/(app)/settings/security/security-screen.tsx` | `SecurityScreen` | — | — | — |
-| `src/app/(app)/settings/attendance/form.tsx` | `AttendancePolicyForm` | — | — | — |
-| `src/app/(app)/settings/attendance/page.tsx` | `AttendancePolicyPage` | — | — | 1 const |
-| `src/app/(app)/settings/performance/page.tsx` | `PerformanceSettingsPage` | — | — | 1 const |
-| `src/app/(app)/settings/performance/scale-form.tsx` | `RatingScaleForm` | — | `scaleProblem` | — |
-| `src/app/(app)/settings/performance/weights-form.tsx` | `ScoringWeightsForm` | — | — | — |
-| `src/app/(app)/settings/devices/device-form.tsx` | `DeviceForm` | — | — | 1 type |
-| `src/app/(app)/settings/devices/devices-screen.tsx` | `DevicesScreen` | — | — | — |
-| `src/app/(app)/settings/devices/enrolments-drawer.tsx` | `EnrolmentsDrawer` | — | — | — |
-| `src/app/(app)/settings/devices/page.tsx` | `AttendanceDevicesPage` | — | — | 1 const |
-| `src/app/(app)/settings/devices/secret-panel.tsx` | `SecretPanel` | — | — | — |
-| `src/app/(app)/settings/webhooks/add-webhook.tsx` | `AddWebhookModal`, `EventPicker` | — | — | — |
-| `src/app/(app)/settings/webhooks/code.tsx` | `CopyButton`, `CodeBlock`, `CodeInline`, `PayloadBlock` | — | — | — |
-| `src/app/(app)/settings/webhooks/page.tsx` | `WebhooksPage` | — | — | 1 const |
-| `src/app/(app)/settings/webhooks/signature-doc.tsx` | `SignatureDoc` | — | — | — |
-| `src/app/(app)/settings/webhooks/webhooks-screen.tsx` | `WebhooksScreen` | — | — | — |
-| `src/app/(app)/settings/webhooks/[id]/detail-screen.tsx` | `WebhookDetailScreen` | — | — | — |
-| `src/app/(app)/settings/webhooks/[id]/log.tsx` | `DeliveryLog` | — | — | 1 type |
-| `src/app/(app)/settings/webhooks/[id]/page.tsx` | `WebhookPage` | — | — | 1 const |
-| `src/app/(app)/settings/webhooks/[id]/test-panel.tsx` | `TestPanel` | — | — | — |
-| `src/app/(app)/settings/payroll/form.tsx` | `PayrollSettingsForm` | — | — | — |
-| `src/app/(app)/settings/payroll/page.tsx` | `PayrollSettingsPage` | — | — | 1 const |
-| `src/app/(app)/settings/roles/add-people.tsx` | `AddPeopleDialog` | — | — | — |
-| `src/app/(app)/settings/roles/create-role.tsx` | `CreateRoleDialog` | — | — | — |
-| `src/app/(app)/settings/roles/page.tsx` | `RolesPage` | — | — | 1 const |
-| `src/app/(app)/settings/roles/permission-matrix.tsx` | `PermissionMatrix` | — | — | — |
-| `src/app/(app)/settings/roles/role-editor.tsx` | `RoleEditor` | — | — | — |
-| `src/app/(app)/settings/roles/roles-screen.tsx` | `RolesScreen` | — | — | — |
-| `src/app/(app)/settings/roles/send-invite.tsx` | `SendInviteDialog` | — | — | — |
-| `src/app/(app)/settings/roles/unlinked-accounts.tsx` | `UnlinkedAccountsPanel` | — | — | — |
-| `src/app/(app)/settings/leave/form.tsx` | `LeavePolicyForm` | — | — | — |
-| `src/app/(app)/settings/leave/holiday-form.tsx` | `HolidayForm` | — | — | — |
-| `src/app/(app)/settings/leave/holidays-panel.tsx` | `HolidaysPanel` | — | — | — |
-| `src/app/(app)/settings/leave/page.tsx` | `LeavePolicyPage` | — | — | 1 const |
-| `src/app/(app)/settings/knowledge/article-form.tsx` | `ArticleForm` | — | — | — |
-| `src/app/(app)/settings/knowledge/knowledge-screen.tsx` | `KnowledgeScreen` | — | — | — |
-| `src/app/(app)/settings/knowledge/page.tsx` | `KnowledgeSettingsPage` | — | — | 1 const |
-| `src/app/(app)/settings/knowledge/sections-panel.tsx` | `SectionsPanel` | — | — | — |
-| `src/app/(app)/settings/company/form.tsx` | `CompanyProfileForm` | — | — | — |
-| `src/app/(app)/settings/company/logo-card.tsx` | `CompanyLogoCard` | — | — | — |
-| `src/app/(app)/settings/company/page.tsx` | `CompanyProfilePage` | — | — | 1 const |
-| `src/app/(app)/settings/notifications/page.tsx` | `NotificationsPage` | — | — | 1 const |
-| `src/app/(app)/settings/notifications/push-panel.tsx` | `PushPanel` | — | — | — |
-| `src/app/(app)/settings/notifications/settings.tsx` | `NotificationSettings` | — | — | — |
-| `src/app/(app)/settings/policies/my-policies.tsx` | `MyPolicies` | — | — | — |
-| `src/app/(app)/settings/policies/page.tsx` | `PoliciesPage` | — | — | 1 const |
-| `src/app/(app)/settings/policies/policies-screen.tsx` | `PoliciesScreen` | — | — | — |
-| `src/app/(app)/settings/policies/policy-drawer.tsx` | `PolicyDrawer` | — | — | — |
-| `src/app/(app)/settings/features/features-screen.tsx` | `FeaturesScreen` | — | — | — |
-| `src/app/(app)/settings/features/page.tsx` | `FeaturesPage` | — | — | 1 const |
-| `src/app/(app)/settings/overtime/form.tsx` | `OvertimePolicyForm` | — | — | — |
-| `src/app/(app)/settings/overtime/page.tsx` | `OvertimePolicyPage` | — | — | 1 const |
-| `src/app/(app)/settings/audit/audit-screen.tsx` | `AuditScreen` | — | — | — |
-| `src/app/(app)/settings/audit/entry.tsx` | `TrailEntry`, `Changes` | — | — | — |
-| `src/app/(app)/settings/audit/page.tsx` | `AuditPage` | — | — | 1 const |
-| `src/app/(app)/settings/audit/record-history.tsx` | `RecordHistory` | — | — | 1 type |
-| `src/app/(app)/settings/announcements/announcement-form.tsx` | `AnnouncementForm` | — | — | 1 type |
-| `src/app/(app)/settings/announcements/announcements-screen.tsx` | `AnnouncementsScreen` | — | — | — |
-| `src/app/(app)/settings/announcements/page.tsx` | `AnnouncementsSettingsPage` | — | — | 1 const |
+| File                                                            | Components                                              | Hooks | Functions                            | Also    |
+| --------------------------------------------------------------- | ------------------------------------------------------- | ----- | ------------------------------------ | ------- |
+| `src/app/(app)/settings/checklist.ts`                           | —                                                       | —     | `checklistRows`, `checklistProgress` | 2 types |
+| `src/app/(app)/settings/page.tsx`                               | `SettingsPage`                                          | —     | —                                    | 1 const |
+| `src/app/(app)/settings/settings-screen.tsx`                    | `SettingsScreen`                                        | —     | —                                    | —       |
+| `src/app/(app)/settings/bank-accounts/account-form.tsx`         | `AccountForm`                                           | —     | —                                    | —       |
+| `src/app/(app)/settings/bank-accounts/bank-accounts-screen.tsx` | `BankAccountsScreen`                                    | —     | —                                    | —       |
+| `src/app/(app)/settings/bank-accounts/page.tsx`                 | `BankAccountsPage`                                      | —     | —                                    | 1 const |
+| `src/app/(app)/settings/locations/location-form.tsx`            | `LocationForm`                                          | —     | —                                    | 1 type  |
+| `src/app/(app)/settings/locations/locations-screen.tsx`         | `LocationsScreen`                                       | —     | —                                    | —       |
+| `src/app/(app)/settings/locations/page.tsx`                     | `WorkLocationsPage`                                     | —     | —                                    | 1 const |
+| `src/app/(app)/settings/appearance/appearance-screen.tsx`       | `AppearanceScreen`                                      | —     | —                                    | —       |
+| `src/app/(app)/settings/appearance/page.tsx`                    | `AppearanceSettingsPage`                                | —     | —                                    | 1 const |
+| `src/app/(app)/settings/helpdesk/helpdesk-screen.tsx`           | `HelpdeskSettingsScreen`                                | —     | —                                    | —       |
+| `src/app/(app)/settings/helpdesk/page.tsx`                      | `HelpdeskSettingsPage`                                  | —     | —                                    | 1 const |
+| `src/app/(app)/settings/ai/ai-screen.tsx`                       | `AiScreen`                                              | —     | —                                    | —       |
+| `src/app/(app)/settings/ai/page.tsx`                            | `AiSettingsPage`                                        | —     | —                                    | 1 const |
+| `src/app/(app)/settings/integrations/list.tsx`                  | `IntegrationsList`                                      | —     | —                                    | —       |
+| `src/app/(app)/settings/integrations/page.tsx`                  | `IntegrationsPage`                                      | —     | —                                    | 1 const |
+| `src/app/(app)/settings/security/page.tsx`                      | `SecuritySettingsPage`                                  | —     | —                                    | 1 const |
+| `src/app/(app)/settings/security/security-screen.tsx`           | `SecurityScreen`                                        | —     | —                                    | —       |
+| `src/app/(app)/settings/attendance/form.tsx`                    | `AttendancePolicyForm`                                  | —     | —                                    | —       |
+| `src/app/(app)/settings/attendance/page.tsx`                    | `AttendancePolicyPage`                                  | —     | —                                    | 1 const |
+| `src/app/(app)/settings/performance/page.tsx`                   | `PerformanceSettingsPage`                               | —     | —                                    | 1 const |
+| `src/app/(app)/settings/performance/scale-form.tsx`             | `RatingScaleForm`                                       | —     | `scaleProblem`                       | —       |
+| `src/app/(app)/settings/performance/weights-form.tsx`           | `ScoringWeightsForm`                                    | —     | —                                    | —       |
+| `src/app/(app)/settings/devices/device-form.tsx`                | `DeviceForm`                                            | —     | —                                    | 1 type  |
+| `src/app/(app)/settings/devices/devices-screen.tsx`             | `DevicesScreen`                                         | —     | —                                    | —       |
+| `src/app/(app)/settings/devices/enrolments-drawer.tsx`          | `EnrolmentsDrawer`                                      | —     | —                                    | —       |
+| `src/app/(app)/settings/devices/page.tsx`                       | `AttendanceDevicesPage`                                 | —     | —                                    | 1 const |
+| `src/app/(app)/settings/devices/secret-panel.tsx`               | `SecretPanel`                                           | —     | —                                    | —       |
+| `src/app/(app)/settings/webhooks/add-webhook.tsx`               | `AddWebhookModal`, `EventPicker`                        | —     | —                                    | —       |
+| `src/app/(app)/settings/webhooks/code.tsx`                      | `CopyButton`, `CodeBlock`, `CodeInline`, `PayloadBlock` | —     | —                                    | —       |
+| `src/app/(app)/settings/webhooks/page.tsx`                      | `WebhooksPage`                                          | —     | —                                    | 1 const |
+| `src/app/(app)/settings/webhooks/signature-doc.tsx`             | `SignatureDoc`                                          | —     | —                                    | —       |
+| `src/app/(app)/settings/webhooks/webhooks-screen.tsx`           | `WebhooksScreen`                                        | —     | —                                    | —       |
+| `src/app/(app)/settings/webhooks/[id]/detail-screen.tsx`        | `WebhookDetailScreen`                                   | —     | —                                    | —       |
+| `src/app/(app)/settings/webhooks/[id]/log.tsx`                  | `DeliveryLog`                                           | —     | —                                    | 1 type  |
+| `src/app/(app)/settings/webhooks/[id]/page.tsx`                 | `WebhookPage`                                           | —     | —                                    | 1 const |
+| `src/app/(app)/settings/webhooks/[id]/test-panel.tsx`           | `TestPanel`                                             | —     | —                                    | —       |
+| `src/app/(app)/settings/payroll/form.tsx`                       | `PayrollSettingsForm`                                   | —     | —                                    | —       |
+| `src/app/(app)/settings/payroll/page.tsx`                       | `PayrollSettingsPage`                                   | —     | —                                    | 1 const |
+| `src/app/(app)/settings/roles/add-people.tsx`                   | `AddPeopleDialog`                                       | —     | —                                    | —       |
+| `src/app/(app)/settings/roles/create-role.tsx`                  | `CreateRoleDialog`                                      | —     | —                                    | —       |
+| `src/app/(app)/settings/roles/page.tsx`                         | `RolesPage`                                             | —     | —                                    | 1 const |
+| `src/app/(app)/settings/roles/permission-matrix.tsx`            | `PermissionMatrix`                                      | —     | —                                    | —       |
+| `src/app/(app)/settings/roles/role-editor.tsx`                  | `RoleEditor`                                            | —     | —                                    | —       |
+| `src/app/(app)/settings/roles/roles-screen.tsx`                 | `RolesScreen`                                           | —     | —                                    | —       |
+| `src/app/(app)/settings/roles/send-invite.tsx`                  | `SendInviteDialog`                                      | —     | —                                    | —       |
+| `src/app/(app)/settings/roles/unlinked-accounts.tsx`            | `UnlinkedAccountsPanel`                                 | —     | —                                    | —       |
+| `src/app/(app)/settings/leave/form.tsx`                         | `LeavePolicyForm`                                       | —     | —                                    | —       |
+| `src/app/(app)/settings/leave/holiday-form.tsx`                 | `HolidayForm`                                           | —     | —                                    | —       |
+| `src/app/(app)/settings/leave/holidays-panel.tsx`               | `HolidaysPanel`                                         | —     | —                                    | —       |
+| `src/app/(app)/settings/leave/page.tsx`                         | `LeavePolicyPage`                                       | —     | —                                    | 1 const |
+| `src/app/(app)/settings/knowledge/article-form.tsx`             | `ArticleForm`                                           | —     | —                                    | —       |
+| `src/app/(app)/settings/knowledge/knowledge-screen.tsx`         | `KnowledgeScreen`                                       | —     | —                                    | —       |
+| `src/app/(app)/settings/knowledge/page.tsx`                     | `KnowledgeSettingsPage`                                 | —     | —                                    | 1 const |
+| `src/app/(app)/settings/knowledge/sections-panel.tsx`           | `SectionsPanel`                                         | —     | —                                    | —       |
+| `src/app/(app)/settings/company/form.tsx`                       | `CompanyProfileForm`                                    | —     | —                                    | —       |
+| `src/app/(app)/settings/company/logo-card.tsx`                  | `CompanyLogoCard`                                       | —     | —                                    | —       |
+| `src/app/(app)/settings/company/page.tsx`                       | `CompanyProfilePage`                                    | —     | —                                    | 1 const |
+| `src/app/(app)/settings/notifications/page.tsx`                 | `NotificationsPage`                                     | —     | —                                    | 1 const |
+| `src/app/(app)/settings/notifications/push-panel.tsx`           | `PushPanel`                                             | —     | —                                    | —       |
+| `src/app/(app)/settings/notifications/settings.tsx`             | `NotificationSettings`                                  | —     | —                                    | —       |
+| `src/app/(app)/settings/policies/my-policies.tsx`               | `MyPolicies`                                            | —     | —                                    | —       |
+| `src/app/(app)/settings/policies/page.tsx`                      | `PoliciesPage`                                          | —     | —                                    | 1 const |
+| `src/app/(app)/settings/policies/policies-screen.tsx`           | `PoliciesScreen`                                        | —     | —                                    | —       |
+| `src/app/(app)/settings/policies/policy-drawer.tsx`             | `PolicyDrawer`                                          | —     | —                                    | —       |
+| `src/app/(app)/settings/features/features-screen.tsx`           | `FeaturesScreen`                                        | —     | —                                    | —       |
+| `src/app/(app)/settings/features/page.tsx`                      | `FeaturesPage`                                          | —     | —                                    | 1 const |
+| `src/app/(app)/settings/overtime/form.tsx`                      | `OvertimePolicyForm`                                    | —     | —                                    | —       |
+| `src/app/(app)/settings/overtime/page.tsx`                      | `OvertimePolicyPage`                                    | —     | —                                    | 1 const |
+| `src/app/(app)/settings/audit/audit-screen.tsx`                 | `AuditScreen`                                           | —     | —                                    | —       |
+| `src/app/(app)/settings/audit/entry.tsx`                        | `TrailEntry`, `Changes`                                 | —     | —                                    | —       |
+| `src/app/(app)/settings/audit/page.tsx`                         | `AuditPage`                                             | —     | —                                    | 1 const |
+| `src/app/(app)/settings/audit/record-history.tsx`               | `RecordHistory`                                         | —     | —                                    | 1 type  |
+| `src/app/(app)/settings/announcements/announcement-form.tsx`    | `AnnouncementForm`                                      | —     | —                                    | 1 type  |
+| `src/app/(app)/settings/announcements/announcements-screen.tsx` | `AnnouncementsScreen`                                   | —     | —                                    | —       |
+| `src/app/(app)/settings/announcements/page.tsx`                 | `AnnouncementsSettingsPage`                             | —     | —                                    | 1 const |
 
 ---
 
@@ -784,10 +787,10 @@ Screen components for the settings module, including its dialogs and panels.
 
 Screen components for the approvals module, including its dialogs and panels.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/app/(app)/approvals/inbox.tsx` | `ApprovalInbox` | — | — | 1 const |
-| `src/app/(app)/approvals/page.tsx` | `ApprovalsPage` | — | — | 1 const |
+| File                                | Components      | Hooks | Functions | Also    |
+| ----------------------------------- | --------------- | ----- | --------- | ------- |
+| `src/app/(app)/approvals/inbox.tsx` | `ApprovalInbox` | —     | —         | 1 const |
+| `src/app/(app)/approvals/page.tsx`  | `ApprovalsPage` | —     | —         | 1 const |
 
 ---
 
@@ -795,10 +798,10 @@ Screen components for the approvals module, including its dialogs and panels.
 
 Screen components for the assistant module, including its dialogs and panels.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/app/(app)/assistant/assistant-screen.tsx` | `AssistantScreen` | — | — | — |
-| `src/app/(app)/assistant/page.tsx` | `AssistantPage` | — | — | 1 const |
+| File                                           | Components        | Hooks | Functions | Also    |
+| ---------------------------------------------- | ----------------- | ----- | --------- | ------- |
+| `src/app/(app)/assistant/assistant-screen.tsx` | `AssistantScreen` | —     | —         | —       |
+| `src/app/(app)/assistant/page.tsx`             | `AssistantPage`   | —     | —         | 1 const |
 
 ---
 
@@ -806,19 +809,19 @@ Screen components for the assistant module, including its dialogs and panels.
 
 Everything else under `src/app/(app)`.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/app/(app)/error.tsx` | `AppError` | — | — | — |
-| `src/app/(app)/layout.tsx` | `AppLayout` | — | — | — |
-| `src/app/(app)/loading.tsx` | `AppLoading` | — | — | — |
-| `src/app/(app)/profile/my-details.tsx` | `MyDetails` | — | — | — |
-| `src/app/(app)/profile/page.tsx` | `ProfilePage` | — | — | 1 const |
-| `src/app/(app)/profile/profile-screen.tsx` | `ProfileScreen` | — | — | — |
-| `src/app/(app)/profile/tabs.ts` | — | — | `isProfileTab` | 1 const · 1 type |
-| `src/app/(app)/equipment/page.tsx` | `MyEquipmentPage` | — | — | 1 const |
-| `src/app/(app)/documents/page.tsx` | `MyDocumentsPage` | — | — | 1 const |
-| `src/app/(app)/notifications/inbox.tsx` | `NotificationsInbox` | — | — | — |
-| `src/app/(app)/notifications/page.tsx` | `NotificationsPage` | — | — | 1 const |
+| File                                       | Components           | Hooks | Functions      | Also             |
+| ------------------------------------------ | -------------------- | ----- | -------------- | ---------------- |
+| `src/app/(app)/error.tsx`                  | `AppError`           | —     | —              | —                |
+| `src/app/(app)/layout.tsx`                 | `AppLayout`          | —     | —              | —                |
+| `src/app/(app)/loading.tsx`                | `AppLoading`         | —     | —              | —                |
+| `src/app/(app)/profile/my-details.tsx`     | `MyDetails`          | —     | —              | —                |
+| `src/app/(app)/profile/page.tsx`           | `ProfilePage`        | —     | —              | 1 const          |
+| `src/app/(app)/profile/profile-screen.tsx` | `ProfileScreen`      | —     | —              | —                |
+| `src/app/(app)/profile/tabs.ts`            | —                    | —     | `isProfileTab` | 1 const · 1 type |
+| `src/app/(app)/equipment/page.tsx`         | `MyEquipmentPage`    | —     | —              | 1 const          |
+| `src/app/(app)/documents/page.tsx`         | `MyDocumentsPage`    | —     | —              | 1 const          |
+| `src/app/(app)/notifications/inbox.tsx`    | `NotificationsInbox` | —     | —              | —                |
+| `src/app/(app)/notifications/page.tsx`     | `NotificationsPage`  | —     | —              | 1 const          |
 
 ---
 
@@ -826,49 +829,49 @@ Everything else under `src/app/(app)`.
 
 `src/app/(marketing)`, `src/app/(auth)`, `src/app/(setup)` and the root files.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/app/error.tsx` | `Error` | — | — | — |
-| `src/app/global-error.tsx` | `GlobalError` | — | — | — |
-| `src/app/layout.tsx` | `RootLayout` | — | — | 2 const |
-| `src/app/manifest.ts` | — | — | `manifest` | — |
-| `src/app/not-found.tsx` | `NotFound` | — | — | 1 const |
-| `src/app/robots.ts` | — | — | `robots` | — |
-| `src/app/sitemap.ts` | — | — | `sitemap` | — |
-| `src/app/offline/page.tsx` | `OfflinePage` | — | — | 1 const |
-| `src/app/(auth)/layout.tsx` | `AuthLayout` | — | — | — |
-| `src/app/(auth)/register/page.tsx` | `RegisterPage` | — | — | 1 const |
-| `src/app/(auth)/register/register-screen.tsx` | `RegisterScreen` | — | — | — |
-| `src/app/(auth)/accept-invite/accept-invite-screen.tsx` | `AcceptInviteScreen` | — | — | — |
-| `src/app/(auth)/accept-invite/page.tsx` | `AcceptInvitePage` | — | — | 1 const |
-| `src/app/(auth)/forgot-password/forgot-password-screen.tsx` | `ForgotPasswordScreen` | — | — | — |
-| `src/app/(auth)/forgot-password/page.tsx` | `ForgotPasswordPage` | — | — | 1 const |
-| `src/app/(auth)/verify-email/page.tsx` | `VerifyEmailPage` | — | — | 1 const |
-| `src/app/(auth)/verify-email/verify-email-screen.tsx` | `VerifyEmailScreen` | — | — | — |
-| `src/app/(auth)/reset-password/page.tsx` | `ResetPasswordPage` | — | — | 1 const |
-| `src/app/(auth)/reset-password/reset-password-screen.tsx` | `ResetPasswordScreen` | — | — | — |
-| `src/app/(setup)/layout.tsx` | `SetupLayout` | — | — | — |
-| `src/app/(setup)/setup/page.tsx` | `SetupPage` | — | — | 1 const |
-| `src/app/(setup)/setup/verification-nudge.tsx` | `VerificationNudge` | — | — | — |
-| `src/app/(setup)/setup/wizard.tsx` | `SetupWizard` | — | — | — |
-| `src/app/(marketing)/layout.tsx` | `MarketingLayout` | — | — | — |
-| `src/app/(marketing)/page.tsx` | `HomePage` | — | — | 1 const |
-| `src/app/(marketing)/security/page.tsx` | `Page` | — | — | 1 const |
-| `src/app/(marketing)/dpa/page.tsx` | `Page` | — | — | 1 const |
-| `src/app/(marketing)/careers/[org]/page.tsx` | `CareersListingPage` | — | — | 2 const |
-| `src/app/(marketing)/careers/[org]/[role]/apply-form.tsx` | `ApplyForm` | — | — | — |
-| `src/app/(marketing)/careers/[org]/[role]/page.tsx` | `RolePage` | — | `generateMetadata` | 1 const |
-| `src/app/(marketing)/demo/form.tsx` | `DemoForm` | — | — | — |
-| `src/app/(marketing)/demo/page.tsx` | `DemoPage` | — | — | 1 const |
-| `src/app/(marketing)/terms/page.tsx` | `Page` | — | — | 1 const |
-| `src/app/(marketing)/product/[module]/page.tsx` | `ModulePage` | — | `generateStaticParams`, `generateMetadata` | — |
-| `src/app/(marketing)/privacy/page.tsx` | `Page` | — | — | 1 const |
-| `src/app/(marketing)/pricing/calculator.tsx` | `PricingCalculator` | — | — | — |
-| `src/app/(marketing)/pricing/page.tsx` | `PricingPage` | — | — | 1 const |
-| `src/app/design-system/layout.tsx` | `DesignSystemLayout` | — | — | — |
-| `src/app/design-system/page.tsx` | `DesignSystemPage` | — | — | 1 const |
-| `src/app/design-system/sections.tsx` | `ButtonsDemo`, `FormsDemo`, `TableDemo`, `ChartsDemo`, `StatsDemo`, `SparklineDemo`, `FeedbackDemo`, `NavigationDemo`, `PeopleDemo`, `CardsDemo` | — | — | — |
-| `src/app/design-system/tokens.ts` | — | — | — | 7 const · 1 type |
+| File                                                        | Components                                                                                                                                       | Hooks | Functions                                  | Also             |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | ------------------------------------------ | ---------------- |
+| `src/app/error.tsx`                                         | `Error`                                                                                                                                          | —     | —                                          | —                |
+| `src/app/global-error.tsx`                                  | `GlobalError`                                                                                                                                    | —     | —                                          | —                |
+| `src/app/layout.tsx`                                        | `RootLayout`                                                                                                                                     | —     | —                                          | 2 const          |
+| `src/app/manifest.ts`                                       | —                                                                                                                                                | —     | `manifest`                                 | —                |
+| `src/app/not-found.tsx`                                     | `NotFound`                                                                                                                                       | —     | —                                          | 1 const          |
+| `src/app/robots.ts`                                         | —                                                                                                                                                | —     | `robots`                                   | —                |
+| `src/app/sitemap.ts`                                        | —                                                                                                                                                | —     | `sitemap`                                  | —                |
+| `src/app/offline/page.tsx`                                  | `OfflinePage`                                                                                                                                    | —     | —                                          | 1 const          |
+| `src/app/(auth)/layout.tsx`                                 | `AuthLayout`                                                                                                                                     | —     | —                                          | —                |
+| `src/app/(auth)/register/page.tsx`                          | `RegisterPage`                                                                                                                                   | —     | —                                          | 1 const          |
+| `src/app/(auth)/register/register-screen.tsx`               | `RegisterScreen`                                                                                                                                 | —     | —                                          | —                |
+| `src/app/(auth)/accept-invite/accept-invite-screen.tsx`     | `AcceptInviteScreen`                                                                                                                             | —     | —                                          | —                |
+| `src/app/(auth)/accept-invite/page.tsx`                     | `AcceptInvitePage`                                                                                                                               | —     | —                                          | 1 const          |
+| `src/app/(auth)/forgot-password/forgot-password-screen.tsx` | `ForgotPasswordScreen`                                                                                                                           | —     | —                                          | —                |
+| `src/app/(auth)/forgot-password/page.tsx`                   | `ForgotPasswordPage`                                                                                                                             | —     | —                                          | 1 const          |
+| `src/app/(auth)/verify-email/page.tsx`                      | `VerifyEmailPage`                                                                                                                                | —     | —                                          | 1 const          |
+| `src/app/(auth)/verify-email/verify-email-screen.tsx`       | `VerifyEmailScreen`                                                                                                                              | —     | —                                          | —                |
+| `src/app/(auth)/reset-password/page.tsx`                    | `ResetPasswordPage`                                                                                                                              | —     | —                                          | 1 const          |
+| `src/app/(auth)/reset-password/reset-password-screen.tsx`   | `ResetPasswordScreen`                                                                                                                            | —     | —                                          | —                |
+| `src/app/(setup)/layout.tsx`                                | `SetupLayout`                                                                                                                                    | —     | —                                          | —                |
+| `src/app/(setup)/setup/page.tsx`                            | `SetupPage`                                                                                                                                      | —     | —                                          | 1 const          |
+| `src/app/(setup)/setup/verification-nudge.tsx`              | `VerificationNudge`                                                                                                                              | —     | —                                          | —                |
+| `src/app/(setup)/setup/wizard.tsx`                          | `SetupWizard`                                                                                                                                    | —     | —                                          | —                |
+| `src/app/(marketing)/layout.tsx`                            | `MarketingLayout`                                                                                                                                | —     | —                                          | —                |
+| `src/app/(marketing)/page.tsx`                              | `HomePage`                                                                                                                                       | —     | —                                          | 1 const          |
+| `src/app/(marketing)/security/page.tsx`                     | `Page`                                                                                                                                           | —     | —                                          | 1 const          |
+| `src/app/(marketing)/dpa/page.tsx`                          | `Page`                                                                                                                                           | —     | —                                          | 1 const          |
+| `src/app/(marketing)/careers/[org]/page.tsx`                | `CareersListingPage`                                                                                                                             | —     | —                                          | 2 const          |
+| `src/app/(marketing)/careers/[org]/[role]/apply-form.tsx`   | `ApplyForm`                                                                                                                                      | —     | —                                          | —                |
+| `src/app/(marketing)/careers/[org]/[role]/page.tsx`         | `RolePage`                                                                                                                                       | —     | `generateMetadata`                         | 1 const          |
+| `src/app/(marketing)/demo/form.tsx`                         | `DemoForm`                                                                                                                                       | —     | —                                          | —                |
+| `src/app/(marketing)/demo/page.tsx`                         | `DemoPage`                                                                                                                                       | —     | —                                          | 1 const          |
+| `src/app/(marketing)/terms/page.tsx`                        | `Page`                                                                                                                                           | —     | —                                          | 1 const          |
+| `src/app/(marketing)/product/[module]/page.tsx`             | `ModulePage`                                                                                                                                     | —     | `generateStaticParams`, `generateMetadata` | —                |
+| `src/app/(marketing)/privacy/page.tsx`                      | `Page`                                                                                                                                           | —     | —                                          | 1 const          |
+| `src/app/(marketing)/pricing/calculator.tsx`                | `PricingCalculator`                                                                                                                              | —     | —                                          | —                |
+| `src/app/(marketing)/pricing/page.tsx`                      | `PricingPage`                                                                                                                                    | —     | —                                          | 1 const          |
+| `src/app/design-system/layout.tsx`                          | `DesignSystemLayout`                                                                                                                             | —     | —                                          | —                |
+| `src/app/design-system/page.tsx`                            | `DesignSystemPage`                                                                                                                               | —     | —                                          | 1 const          |
+| `src/app/design-system/sections.tsx`                        | `ButtonsDemo`, `FormsDemo`, `TableDemo`, `ChartsDemo`, `StatsDemo`, `SparklineDemo`, `FeedbackDemo`, `NavigationDemo`, `PeopleDemo`, `CardsDemo` | —     | —                                          | —                |
+| `src/app/design-system/tokens.ts`                           | —                                                                                                                                                | —     | —                                          | 7 const · 1 type |
 
 ---
 
@@ -876,6 +879,6 @@ Everything else under `src/app/(app)`.
 
 Files outside `src/app`, `src/lib`, `src/components` and `src/hooks`.
 
-| File | Components | Hooks | Functions | Also |
-|---|---|---|---|---|
-| `src/proxy.ts` | — | — | `proxy` | 1 const |
+| File           | Components | Hooks | Functions | Also    |
+| -------------- | ---------- | ----- | --------- | ------- |
+| `src/proxy.ts` | —          | —     | `proxy`   | 1 const |

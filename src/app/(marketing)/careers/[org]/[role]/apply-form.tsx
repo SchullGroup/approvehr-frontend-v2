@@ -154,7 +154,7 @@ export function ApplyForm({
             value={form.firstName}
             {...(errors.firstName ? { error: errors.firstName } : {})}
             onChange={(value) => set("firstName", value)}
-            placeholder="Amara"
+            placeholder="Chioma"
           />
           <TextField
             id="lastName"
@@ -163,7 +163,7 @@ export function ApplyForm({
             value={form.lastName}
             {...(errors.lastName ? { error: errors.lastName } : {})}
             onChange={(value) => set("lastName", value)}
-            placeholder="Nwachukwu"
+            placeholder="Aduba"
           />
         </div>
 

@@ -30,9 +30,10 @@ import {
   priceLoan,
 } from "@/lib/loans/schedule";
 import { employeeById } from "@/lib/mock/people";
+import { todayIn } from "@/lib/time";
 import { TODAY } from "@/lib/today";
 import { createPersistedState } from "./persisted";
-import { useSession } from "./session";
+import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
 
 /**
@@ -758,6 +759,29 @@ export function useLoanSummary(enabled = true): {
     loading: active && !matched,
     error: matched ? fetched.error : null,
   };
+}
+
+/* --------------------------------------------------------------- the clock */
+
+/**
+ * The day the loan forms count months from: `YYYY-MM-DD`.
+ *
+ * Connected, that is the company's own day. The API refuses a first deduction
+ * in any month before the real current one ("Deductions cannot start in a month
+ * that has already been paid"), so a form that offered months counted from the
+ * demo's `TODAY` handed a real employee three options of which only the last
+ * could be sent, and defaulted to one that could not. Demo mode keeps `TODAY`,
+ * so the seeded book (loans started in July, a run mid-approval in August)
+ * stays on the one calendar.
+ *
+ * Month boundaries are the company's zone, not the browser's, like every other
+ * screen. The API's check is UTC; Africa/Lagos is ahead of it, so the company's
+ * month can only be the same or a few hours further on, never behind it.
+ */
+export function useLoanToday(): string {
+  const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
+  return isConnected ? todayIn(timeZone) : TODAY;
 }
 
 /* --------------------------------------------------------------- the writes */
