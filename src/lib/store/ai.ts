@@ -19,6 +19,7 @@ import {
   type ApiAnswer,
   type ApiSuggestOutcome,
 } from "@/lib/api/ai";
+import { performanceApi } from "@/lib/api/performance";
 import { useSession } from "./session";
 import { findScriptedAnswer } from "@/lib/mock/sales-script-qa";
 import { salesScriptAssistantName, scriptedFallback } from "@/lib/sales-script";
@@ -212,6 +213,76 @@ export const usePeriodGoalDraft = () =>
 
 export const usePeriodQuestionDraft = () =>
   useSuggestion<{ text: string; count?: number }>(draftPeriodQuestions);
+
+// Kept for the session so reopening a person doesn't spend another model call.
+const reviewNotes = new Map<string, ApiSuggestOutcome>();
+
+/**
+ * Writes the note on its own once `active`, and never again unless `retry` is
+ * pressed. Deliberately not revalidated on focus: each ask is a model call.
+ */
+export function useAutoReviewNote(
+  cycleId: string,
+  employeeId: string,
+  active: boolean,
+): SuggestState & { retry: () => void } {
+  const { available } = useAssistantAvailable();
+  const [tick, setTick] = useState(0);
+  const key = `${cycleId}|${employeeId}`;
+  const full = `${key}|${String(tick)}`;
+  const [settled, setSettled] = useState<{
+    key: string;
+    outcome: ApiSuggestOutcome | null;
+    error: string | null;
+  } | null>(null);
+  const cached = tick === 0 ? reviewNotes.get(key) : undefined;
+  const run = active && available && !cached;
+
+  useEffect(() => {
+    if (!run) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const outcome = await performanceApi.reviewNote({
+          cycleId,
+          employeeId,
+        });
+        if (outcome.available) reviewNotes.set(key, outcome);
+        if (!cancelled) setSettled({ key: full, outcome, error: null });
+      } catch (caught) {
+        if (!cancelled)
+          setSettled({
+            key: full,
+            outcome: null,
+            error:
+              caught instanceof ApiError
+                ? caught.message
+                : "Could not write a note just now.",
+          });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [run, full, key, cycleId, employeeId]);
+
+  const retry = useCallback(() => {
+    reviewNotes.delete(key);
+    setTick((n) => n + 1);
+  }, [key]);
+
+  if (cached) return { outcome: cached, loading: false, error: null, retry };
+  const matched = settled?.key === full ? settled : null;
+  return {
+    outcome: matched?.outcome ?? null,
+    loading: run && !matched,
+    error: matched?.error ?? null,
+    retry,
+  };
+}
+
+export const useReviewBriefing = () =>
+  useSuggestion<{ cycleId: string }>(performanceApi.reviewBriefing);
 
 /** Asking a question about the company's records. Each answer replaces the last. */
 export function useAsk(): {
