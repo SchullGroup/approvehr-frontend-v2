@@ -17,7 +17,10 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
-import type { ApiAttendanceDevice } from "@/lib/api/attendance";
+import {
+  deviceUserLabel,
+  type ApiAttendanceDevice,
+} from "@/lib/api/attendance";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
   useDeviceEnrolments,
@@ -264,6 +267,45 @@ export function EnrolmentsDrawer({
           </DrawerSection>
         )}
 
+        {list.unmapped.length > 0 && (
+          <DrawerSection
+            title={`Waiting to be mapped (${String(list.unmapped.length)})`}
+          >
+            <ul className="flex flex-col divide-y divide-line">
+              {list.unmapped.map((row) => (
+                <li
+                  key={row.deviceUserId}
+                  className="flex items-center justify-between gap-3 py-3"
+                >
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="truncate text-body-sm font-medium text-ink">
+                      {deviceUserLabel(row.deviceUserId)}
+                    </span>
+                    <span className="text-meta text-muted">
+                      {row.deviceUserName
+                        ? `Smart Life calls them ${row.deviceUserName}`
+                        : "No name on the device"}
+                      {" · "}
+                      {row.punches === 1
+                        ? "1 scan"
+                        : `${String(row.punches)} scans`}
+                    </span>
+                  </span>
+                  {canManage && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeviceUserId(row.deviceUserId)}
+                    >
+                      Map this one
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </DrawerSection>
+        )}
+
         <DrawerSection title={`Mapped (${String(list.enrolments.length)})`}>
           {list.loading ? (
             <div className="flex justify-center py-8">
@@ -288,7 +330,9 @@ export function EnrolmentsDrawer({
                         {row.employeeName}
                       </span>
                       <Badge tone="neutral" size="sm">
-                        User {row.deviceUserId}
+                        {row.deviceUserId.includes(":")
+                          ? deviceUserLabel(row.deviceUserId)
+                          : `User ${row.deviceUserId}`}
                       </Badge>
                     </span>
                     <span className="text-meta text-muted">

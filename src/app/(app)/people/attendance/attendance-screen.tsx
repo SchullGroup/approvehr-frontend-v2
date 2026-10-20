@@ -50,6 +50,7 @@ import {
 import { useSession } from "@/lib/store/session";
 import { shortDate } from "@/lib/today";
 import { AttendanceSettingsButton } from "./capability-bar";
+import { AfterHoursPanel } from "./after-hours-panel";
 import { CorrectionDialog } from "./correction-dialog";
 import { MyAttendanceHistoryPanel } from "./my-attendance-history";
 
@@ -61,7 +62,25 @@ import { MyAttendanceHistoryPanel } from "./my-attendance-history";
  */
 const TIMESHEET_DAYS = 15;
 
-type View = "today" | "timesheet";
+type View = "today" | "timesheet" | "after-hours";
+
+/**
+ * The view toggle's options. "After hours" is door scans waiting for a
+ * decision about somebody's pay, so it is `EDIT_RECORDS` only — a manager
+ * who can see the roster still cannot count a scan.
+ */
+export function attendanceViews(canEditRecords: boolean): {
+  value: View;
+  label: string;
+}[] {
+  return [
+    { value: "today", label: "Today" },
+    { value: "timesheet", label: "Timesheet" },
+    ...(canEditRecords
+      ? [{ value: "after-hours" as const, label: "After hours" }]
+      : []),
+  ];
+}
 
 /**
  * Attendance.
@@ -184,10 +203,7 @@ export function AttendanceScreen() {
                   label="View"
                   value={view}
                   onChange={setView}
-                  options={[
-                    { value: "today", label: "Today" },
-                    { value: "timesheet", label: "Timesheet" },
-                  ]}
+                  options={attendanceViews(canEditRecords)}
                 />
               )}
               {canImport && (
@@ -227,7 +243,9 @@ export function AttendanceScreen() {
             see "Who sees the roster" on this component. A plain employee
             gets their own recent attendance instead of the company's. */}
             {canSeeRoster ? (
-              view === "today" ? (
+              view === "after-hours" && canEditRecords ? (
+                <AfterHoursPanel />
+              ) : view === "today" || view === "after-hours" ? (
                 roster.date ? (
                   <TodayView
                     roster={roster}
