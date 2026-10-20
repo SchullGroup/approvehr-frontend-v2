@@ -3,15 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  Bell,
-  ChevronDown,
-  ChevronLeft,
-  Lock,
-  Menu,
-  Search,
-  X,
-} from "lucide-react";
+import { Bell, ChevronDown, ChevronLeft, Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useCanGoBack } from "@/lib/nav-history";
 import { Logo } from "@/components/brand/logo";
@@ -24,14 +16,8 @@ import {
 import { CommandPalette } from "./command-palette";
 import { ClockMenu } from "./clock-menu";
 import { GuidedTour, openTour } from "./tour/guided-tour";
-import {
-  NAV,
-  visibleNav,
-  type BadgeSource,
-  type NavFacts,
-  type NavGroup,
-  type NavItem,
-} from "./nav";
+import { NAV, visibleNav, type BadgeSource, type NavFacts } from "./nav";
+import { SidebarNav } from "./sidebar";
 import { SessionRoleBadge } from "./role-badge";
 import {
   hasAnyPermission,
@@ -45,6 +31,9 @@ import { useUnreadCount } from "@/lib/store/notifications";
 import { useApprovalQueue } from "@/lib/store/approvals-api";
 import { useLeaveRequests } from "@/lib/store/leave-api";
 import { useAttendanceRoster, type RosterState } from "@/lib/store/attendance";
+import { useIsCollaborator } from "@/lib/hiring/access/collaborator";
+import { CollaboratorGate } from "./collaborator-gate";
+import { useHaveInterviews } from "@/lib/hiring/pipeline/use-mine";
 import { useAmIInAOneOnOne } from "@/lib/store/one-on-ones";
 import { useHaveIAnySignatures } from "@/lib/store/signatures";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
@@ -66,7 +55,14 @@ import { useBilling } from "@/lib/billing";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  /* What the header search opens with. Empty from the button and from `/`; the
+     sidebar's Find hands over what was typed when it has no page to offer. */
+  const [searchSeed, setSearchSeed] = useState("");
   const pathname = usePathname();
+  /* Invited to help hire, with no record in the company and nothing to open but one
+     room. The chrome around that room is theirs too: no people search (the staff
+     directory is not theirs to browse), no tour of a sidebar they do not have. */
+  const collaborator = useIsCollaborator();
   /* One roster read for the whole chrome, handed to both readers.
      `useNavBadges` used to make this call itself; the clock menu needs the
      same answer, and a second call would be a second `GET /attendance/roster`
@@ -78,6 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      already typing somewhere — a `/` in a note or an amount must reach the
      field it was typed into, not hijack the page out from under it. */
   useEffect(() => {
+    if (collaborator) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
         return;
@@ -91,11 +88,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           target.isContentEditable);
       if (typing) return;
       event.preventDefault();
+      setSearchSeed("");
       setSearchOpen(true);
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [collaborator]);
 
   /* The sidebar is filtered by who is looking, what the company turned on,
      whether an assistant is answering, and what the rows say. Every hook here
@@ -160,13 +158,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const canSendForSignature = hasPermission(permissions, "EDIT_RECORDS");
   const haveSignatures = useHaveIAnySignatures(!canSendForSignature);
 
+  /* Interviews: showing to somebody on a panel, invited to one, or hiring for a
+     role. A panelist holds none of the hiring permissions, which is the point of
+     the page, so no permission can answer it: one request per session. */
+  const haveInterviews = useHaveInterviews(true);
+
   const facts: NavFacts = useMemo(
     () => ({
       assistantWired,
       rows: {
         "one-on-ones": isManager || inAOneOnOne,
         signatures: canSendForSignature || haveSignatures,
+        interviews: haveInterviews || collaborator,
       },
+      collaborator,
     }),
     [
       assistantWired,
@@ -174,6 +179,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       inAOneOnOne,
       canSendForSignature,
       haveSignatures,
+      haveInterviews,
+      collaborator,
     ],
   );
   const billing = useBilling();
@@ -182,14 +189,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     [permissions, features, facts, billing],
   );
 
-  const nav = (
-    <SidebarNav
-      groups={groups}
-      pathname={pathname}
-      badges={badges}
-      onNavigate={() => setOpen(false)}
-    />
-  );
+  /* Find's last resort, when no page matches what was typed: the header's
+     people search, opened with the same words so nobody types them twice. */
+  const searchPeople = (typed: string) => {
+    setOpen(false);
+    setSearchSeed(typed);
+    setSearchOpen(true);
+  };
 
   return (
     <div className="flex min-h-dvh flex-col bg-canvas">
@@ -239,14 +245,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <CompanySwitcher />
 
-          <button
-            type="button"
-            onClick={() => setSearchOpen(true)}
-            data-tour="search"
-            className={cn(
-              "ml-auto hidden items-center gap-2 rounded-md border border-line bg-canvas",
-              "px-3 py-1.5 text-body-sm text-muted transition-colors",
-              /* Three widths rather than one fixed 16rem, and no shrinking.
+          {!collaborator && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchSeed("");
+                setSearchOpen(true);
+              }}
+              data-tour="search"
+              className={cn(
+                "ml-auto hidden items-center gap-2 rounded-md border border-line bg-canvas",
+                "px-3 py-1.5 text-body-sm text-muted transition-colors",
+                /* Three widths rather than one fixed 16rem, and no shrinking.
                  ----------------------------------------------------------
                  It was `md:w-64` and could not give way, so at 768 — the
                  width it first appears at — the row ran 21px past the
@@ -257,23 +267,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                  is narrow. A control that cannot show what it is should get
                  smaller in steps somebody chose, and never below its own
                  name. */
-              "hover:border-control-line hover:text-body md:flex",
-              "md:w-40 lg:w-64",
+                "hover:border-control-line hover:text-body md:flex",
+                "md:w-40 lg:w-64",
+              )}
+            >
+              <Search aria-hidden="true" className="size-3.5 shrink-0" />
+              {/* Short at `md`, where the field is 10rem and the full sentence
+                would be clipped mid-word. */}
+              <span className="flex-1 truncate text-left lg:hidden">
+                Search…
+              </span>
+              <span className="hidden flex-1 truncate text-left lg:block">
+                Search people, roles…
+              </span>
+              <kbd className="rounded-xs border border-line bg-surface px-1.5 py-0.5 text-meta text-faint">
+                /
+              </kbd>
+            </button>
+          )}
+
+          <div
+            className={cn(
+              "ml-auto flex items-center gap-1.5",
+              !collaborator && "md:ml-0",
             )}
           >
-            <Search aria-hidden="true" className="size-3.5 shrink-0" />
-            {/* Short at `md`, where the field is 10rem and the full sentence
-                would be clipped mid-word. */}
-            <span className="flex-1 truncate text-left lg:hidden">Search…</span>
-            <span className="hidden flex-1 truncate text-left lg:block">
-              Search people, roles…
-            </span>
-            <kbd className="rounded-xs border border-line bg-surface px-1.5 py-0.5 text-meta text-faint">
-              /
-            </kbd>
-          </button>
-
-          <div className="ml-auto flex items-center gap-1.5 md:ml-0">
             {/* Hides every money figure on every screen, in one click. Here
                 rather than on each table because the value of the control is
                 that nothing is left showing: a per-table icon would mean a
@@ -289,7 +307,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 — and this is the same one setting, in the chrome. */}
             <ThemeToggle />
 
-            <MoneyPrivacyToggle />
+            {!collaborator && <MoneyPrivacyToggle />}
 
             {/* Clocking in and out without leaving the page you are on.
                 Absent for an account with no employee record, and for a
@@ -326,13 +344,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <div className="flex flex-1">
-        {/* Sidebar */}
+        {/* Sidebar. Find stays pinned at the top; the list under it is the part
+            that scrolls, and at the top level it rarely has to. Two instances
+            of one list: this column is always mounted and hidden below `lg`
+            by CSS, the drawer below exists only while it is open. Each keeps
+            its own Find text and drill state, both derived from the route. */}
         <aside
           data-tour="nav"
           className="no-print sidebar-surface hidden w-60 shrink-0 border-r border-line lg:block"
         >
-          <div className="scrollbar-slim sticky top-14 max-h-[calc(100dvh-3.5rem)] overflow-y-auto px-3 py-4">
-            {nav}
+          <div className="sticky top-14 flex h-[calc(100dvh-3.5625rem)] flex-col">
+            <SidebarNav
+              groups={groups}
+              pathname={pathname}
+              badges={badges}
+              onNavigate={() => setOpen(false)}
+              onSearchPeople={collaborator ? undefined : searchPeople}
+              variant="desktop"
+            />
           </div>
         </aside>
 
@@ -346,9 +375,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             />
             <div
               id="portal-nav"
-              className="sidebar-surface absolute inset-y-0 left-0 w-72 overflow-y-auto px-3 py-4 shadow-xl"
+              className="sidebar-surface absolute inset-y-0 left-0 flex w-72 max-w-full flex-col shadow-xl"
             >
-              {nav}
+              <SidebarNav
+                groups={groups}
+                pathname={pathname}
+                badges={badges}
+                onNavigate={() => setOpen(false)}
+                onSearchPeople={collaborator ? undefined : searchPeople}
+                onClose={() => setOpen(false)}
+                variant="drawer"
+              />
             </div>
           </div>
         )}
@@ -382,17 +419,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 dismiss shape as InstallPrompt — see the component. */}
             <HolidayBanner />
           </div>
-          <BillingGate>{children}</BillingGate>
+          <CollaboratorGate>
+            <BillingGate>{children}</BillingGate>
+          </CollaboratorGate>
         </main>
       </div>
 
-      {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
+      {searchOpen && !collaborator && (
+        <CommandPalette
+          initialQuery={searchSeed}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
 
       {/* Mounted here rather than on a page: it points at this shell's own
           chrome, which is the only thing present on every route. It renders
           nothing at all unless the signed-in account has never dismissed it,
           or somebody opens it from the account menu. */}
-      <GuidedTour />
+      {!collaborator && <GuidedTour />}
     </div>
   );
 }
@@ -464,186 +508,11 @@ function useNavBadges(roster: RosterState): Record<BadgeSource, number> {
   };
 }
 
-/**
- * The single nav item that matches the current path.
- *
- * A plain prefix test lights up every ancestor: on `/people/attendance` both
- * "Employees" (`/people`, a prefix) and "Attendance" (an exact match) were
- * highlighted, which makes the sidebar look broken and tells you nothing about
- * where you are.
- *
- * So the **longest** matching href wins, and only that one. `/people` still
- * highlights for `/people/p-01`, because a record page genuinely belongs to the
- * directory and has no nav item of its own — but the moment a more specific item
- * exists, it takes the highlight outright.
- */
-function resolveActiveHref(
-  groups: NavGroup[],
-  pathname: string,
-): string | null {
-  let best: string | null = null;
-  for (const group of groups) {
-    for (const item of group.items) {
-      const matches =
-        pathname === item.href ||
-        /* `/dashboard` is the app root and must not claim every path under it. */
-        (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
-      if (!matches) continue;
-      if (best === null || item.href.length > best.length) best = item.href;
-    }
-  }
-  return best;
-}
-
-/**
- * Whether one row in `SidebarNav` renders as the current page.
- *
- * Pulled out of the render, and exported, so the one rule it encodes —
- * **a locked item is never active** — can be asserted directly rather than by
- * rendering the whole shell. `resolveActiveHref` above exists to stop two
- * *different* hrefs from both lighting up; this stops a multi-active bug that
- * reaches the same symptom through the opposite cause. `visibleNav` maps every
- * surviving item in a locked group to the identical href `/billing/pay` (see
- * `nav.tsx`), so without the `!item.locked` guard, standing on that page would
- * light up every locked row in every locked group at once — `item.href ===
- * activeHref` is true for all of them simultaneously, because they are all
- * the same string.
- */
-export function isNavItemActive(
-  item: Pick<NavItem, "href" | "locked">,
-  activeHref: string | null,
-): boolean {
-  return item.href === activeHref && !item.locked;
-}
-
-function SidebarNav({
-  groups,
-  pathname,
-  badges,
-  onNavigate,
-}: {
-  groups: NavGroup[];
-  pathname: string;
-  badges: Record<BadgeSource, number>;
-  onNavigate: () => void;
-}) {
-  const activeHref = resolveActiveHref(groups, pathname);
-
-  return (
-    <nav aria-label="Main" className="flex flex-col gap-6">
-      {groups.map((group, gi) => (
-        <div key={group.heading ?? `g${gi}`}>
-          {group.heading && (
-            <h2 className="mb-1.5 px-2.5 text-meta font-semibold text-faint">
-              {group.heading}
-            </h2>
-          )}
-          <ul className="flex flex-col gap-0.5">
-            {group.items.map((item) => {
-              const active = isNavItemActive(item, activeHref);
-
-              const count =
-                item.badgeSource !== undefined
-                  ? badges[item.badgeSource]
-                  : item.badge;
-
-              return (
-                /* `item.label` rather than `item.href`: a locked group maps
-                   every surviving item's href to the same `/billing/pay`
-                   (see `visibleNav`), which would collide as a React key —
-                   labels stay unique within one group's own item list. */
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    aria-label={
-                      item.locked
-                        ? `${item.label} (not in your plan)`
-                        : undefined
-                    }
-                    /* The guided tour points at items by route, so it can only
-                     ever highlight one this company actually has — the list
-                     here is already filtered by permission and feature. */
-                    data-tour={`nav-item:${item.href}`}
-                    onClick={onNavigate}
-                    className={cn(
-                      "group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-body-sm font-medium",
-                      "transition-colors duration-150",
-                      active
-                        ? "bg-accent-soft text-accent-text"
-                        : "text-body hover:bg-surface hover:text-ink",
-                    )}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "shrink-0 [&>svg]:size-4",
-                        active
-                          ? "text-accent-text"
-                          : "text-faint group-hover:text-muted",
-                      )}
-                    >
-                      {item.icon}
-                    </span>
-                    <span
-                      className={cn(
-                        "min-w-0 flex-1 truncate",
-                        item.locked && "text-faint",
-                      )}
-                    >
-                      {item.label}
-                    </span>
-
-                    {item.soon && !item.locked && (
-                      <span className="shrink-0 text-meta font-normal text-faint">
-                        Coming soon
-                      </span>
-                    )}
-                    {/* The lock takes the same trailing slot a badge count or
-                        "Coming soon" would otherwise use — see `NavItem.locked`.
-                        A group only ever locks as a whole, so this and `soon`
-                        never actually compete on one item today, but the
-                        `!item.soon`/`!item.locked` guards keep it that way
-                        rather than relying on it. */}
-                    {item.locked && (
-                      <Lock
-                        aria-hidden="true"
-                        className="size-3.5 shrink-0 text-faint"
-                      />
-                    )}
-                    {/* Deliberately hand-rolled, not `Badge`: the active state
-                        is a solid accent fill with no matching tone today, and
-                        every existing tone is a soft/tinted fill by design (see
-                        `button.tsx`'s note on keeping solid colour rare). Adding
-                        a one-off "solid accent" tone for this single nav pill
-                        would be a wider API change for a bespoke bit of chrome
-                        that belongs to the sidebar's own active/inactive
-                        language, not to Badge's status vocabulary. */}
-                    {count !== undefined &&
-                      count > 0 &&
-                      !item.soon &&
-                      !item.locked && (
-                        <span
-                          className={cn(
-                            "tabular shrink-0 rounded-full px-1.5 py-0.5 text-meta font-semibold",
-                            active
-                              ? "bg-accent text-white"
-                              : "bg-sunken text-muted",
-                          )}
-                        >
-                          {count}
-                        </span>
-                      )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
-    </nav>
-  );
-}
+/* `resolveActiveHref` and `isNavItemActive` moved to `sidebar-model.ts` with the
+   rest of the sidebar's logic, so the level the sidebar opens on and the row it
+   lights are decided by one rule. Re-exported because the tests, and anything
+   that wanted "is this row the current page", import it from here. */
+export { isNavItemActive } from "./sidebar-model";
 
 /* -------------------------------------------------------------------------- */
 
@@ -671,6 +540,9 @@ function SidebarNav({
 function UserMenu() {
   const { displayName, employee, user, mode, signOut } = useSession();
   const [open, setOpen] = useState(false);
+  /* Invited to help hire: no personnel file, so no profile and no documents of their
+     own to open, and no sidebar to take a tour of. */
+  const collaborator = useIsCollaborator();
 
   /* No seed fallback. `UserMenu` only renders behind `AuthGate`, so a missing
      name means the session is mid-load rather than absent — and borrowing a
@@ -770,43 +642,49 @@ function UserMenu() {
              * the importer, all built and all unreachable). The bell in the
              * header already covers /notifications; these two had nothing.
              */}
+            {!collaborator && (
+              <>
+                <Link
+                  href="/profile"
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
+                >
+                  My profile
+                </Link>
+                <Link
+                  href="/documents"
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
+                >
+                  My documents
+                </Link>
+              </>
+            )}
             <Link
-              href="/profile"
+              href={collaborator ? "/settings/security" : "/settings"}
               role="menuitem"
               onClick={() => setOpen(false)}
               className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
             >
-              My profile
-            </Link>
-            <Link
-              href="/documents"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
-            >
-              My documents
-            </Link>
-            <Link
-              href="/settings"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="block rounded-md px-2.5 py-2 text-body-sm text-body hover:bg-canvas hover:text-ink"
-            >
-              Settings
+              {collaborator ? "Password and security" : "Settings"}
             </Link>
             {/* Dismissing the tour is not a decision anybody should be stuck
                 with, and this is the only way back to it. */}
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                openTour();
-              }}
-              className="block w-full rounded-md px-2.5 py-2 text-left text-body-sm text-body hover:bg-canvas hover:text-ink"
-            >
-              Take the tour
-            </button>
+            {!collaborator && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  openTour();
+                }}
+                className="block w-full rounded-md px-2.5 py-2 text-left text-body-sm text-body hover:bg-canvas hover:text-ink"
+              >
+                Take the tour
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"

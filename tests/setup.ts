@@ -10,3 +10,12 @@ import { afterEach } from "vitest";
  * like a bug in the component rather than in the harness.
  */
 afterEach(cleanup);
+
+/**
+ * jsdom has no layout, so it has no `scrollIntoView`. `Tabs` calls it to bring the
+ * selected tab into view, and a screen with tabs would otherwise throw as soon as
+ * it mounted. A no-op is the honest stand-in: there is nothing to scroll.
+ */
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => undefined;
+}

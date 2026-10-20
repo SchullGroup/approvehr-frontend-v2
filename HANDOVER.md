@@ -312,6 +312,27 @@ storage directly in the hook body — but prefer the factory to copying.
   fields on old payloads, but a full shape change (like the overrides→store
   rename this session) orphans old data. Consider a version field in the
   persisted payload if you change the shape again.
+- **A native date or time input on an iPhone ignores `width: 100%`, and
+  Chrome will not show you.** iOS Safari paints `type="date"`, `time`,
+  `datetime-local`, `month` and `week` through the platform theme, which sizes
+  the box itself: a time input in a 161px column rendered 187px wide, and two
+  of them in a `grid-cols-2` ran off a 375px screen (the attendance
+  correction sheet — "Clock out should be" could not be reached). Only
+  `appearance: none` hands the sizing back; `globals.css` does that behind
+  `@supports (-webkit-touch-callout: none)`, which only iPhone and iPad
+  answer, so desktop is untouched. Use `Input` (never a raw `<input>`) and
+  `FieldRow` (never a hand-written `grid-cols-2` around fields — a test
+  refuses it). A jsdom test cannot see this and neither can a desktop
+  browser's device mode: open the iOS Simulator and read
+  `getBoundingClientRect` on the thing, or you are guessing.
+- **A page that is wider than the phone widens every sheet opened from it.**
+  A mobile browser answers overflow by growing the layout viewport, so a
+  bottom sheet opened on a 1,563px-wide page comes up at its desktop width.
+  The usual causes are all one shape — something that may not shrink in a grid
+  or flex item (`Card` and `Field` are `min-w-0` for that reason), a
+  `shrink-0` action without `max-w-full`, and an `sr-only` (absolutely
+  positioned) label inside a scroller that is not itself positioned (`scroll-x`
+  is `position: relative` for that reason).
 
 ## Route map (52 routes, all currently building clean)
 

@@ -399,6 +399,56 @@
     margin: 0;
   }
 
+  /* Native date and time pickers obey the width they are given.
+     ---------------------------------------------------------------------
+     iPhone Safari paints these through the platform theme, and the theme
+     sizes the box itself: a `<input type="time">` set to `width: 100%` in a
+     161px grid column rendered 187px wide, with a computed `min-width` of
+     62px that an author `min-width: 0` could not override. Two of them in a
+     two-column row therefore ran past the right edge of the screen — the
+     "Ask for a correction" sheet on a 375px phone — and the second field
+     could not be reached at all. Measured in iOS 26 Safari, not guessed:
+     `appearance: none` is the one property that hands the sizing back to
+     CSS (`display` and `min-width` alone changed nothing).
+
+     Scoped to iOS WebKit with the `-webkit-touch-callout` support probe,
+     which only iPhone and iPad Safari answer. Desktop Safari, Chrome, Firefox
+     and Android keep the native control exactly as it was; the picker itself
+     still opens on tap here, only the sizing and paint come back to us.
+
+     `min-width: 0` and `max-width: 100%` are the same promise for every
+     engine, and cover a raw `<input type="date">` that never went through
+     the shared `Input`. */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="month"],
+  input[type="week"] {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  @supports (-webkit-touch-callout: none) {
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"],
+    input[type="month"],
+    input[type="week"] {
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    /* Once the theme stops drawing the value, WebKit centres it. Every other
+       control in the product reads from the left. */
+    input[type="date"]::-webkit-date-and-time-value,
+    input[type="time"]::-webkit-date-and-time-value,
+    input[type="datetime-local"]::-webkit-date-and-time-value,
+    input[type="month"]::-webkit-date-and-time-value,
+    input[type="week"]::-webkit-date-and-time-value {
+      text-align: left;
+    }
+  }
+
   body {
     background-color: var(--color-surface);
     color: var(--color-body);
@@ -516,8 +566,18 @@
   padding-inline: 1.25rem;
 }
 
-/* Wide content scrolls inside its own box so the page never does. */
+/* Wide content scrolls inside its own box so the page never does.
+
+   `position: relative` is what makes that true for everything inside it. A
+   box is only clipped by an overflow ancestor if that ancestor is, or sits
+   inside, its containing block — so a visually hidden label (`sr-only` is
+   `position: absolute`) in the far column of a wide table was laid out at
+   x=1500 against the page, ignored the scroller, and made the whole page
+   1,563px wide. Measured on /performance/skills: the layout viewport grew to
+   1500px and every dialog opened from that screen came up at its desktop
+   width on a phone. */
 @utility scroll-x {
+  position: relative;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
@@ -809,6 +869,42 @@
 
 @utility animate-slide-to-left {
   animation: ahr-slide-to-left 0.2s var(--ease-in-soft) both;
+}
+
+/* The sidebar swapping levels. The new list arrives from the side it
+   logically lives on — a level from the right, the top level back from the
+   left — and the old one is simply gone, so there is never a moment with two
+   lists on screen. Short travel, short time: it is chrome people use a dozen
+   times a day. `SidebarNav` also checks `prefers-reduced-motion` itself and
+   leaves the class off, so this is not left to the blanket rule alone. */
+@keyframes ahr-drill-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ahr-drill-back {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-drill-in {
+  animation: ahr-drill-in 0.18s var(--ease-out-soft) both;
+}
+
+@utility animate-drill-back {
+  animation: ahr-drill-back 0.18s var(--ease-out-soft) both;
 }
 
 /* --------------------------------------------------------------------------

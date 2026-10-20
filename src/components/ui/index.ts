@@ -1,7 +1,7 @@
 export { Button, ButtonLink, IconButton, TextLink } from "./button";
 export type { ButtonProps, ButtonVariant, ButtonSize } from "./button";
 
-export { Field, FieldSet, useFieldControl } from "./field";
+export { Field, FieldRow, FieldSet, useFieldControl } from "./field";
 export { FileField } from "./file-field";
 export { Input, Textarea, Select } from "./input";
 export { Picker, type PickerOption, type PickerProps } from "./picker";

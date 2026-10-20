@@ -9,6 +9,7 @@ import {
   CardBody,
   CardHeader,
   Field,
+  FieldRow,
   Input,
   Modal,
   Picker,
@@ -326,7 +327,7 @@ function CreateRecord({
           The work email stays {account.email}: that is what this account signs
           in with, and this form does not change it.
         </p>
-        <div className="grid grid-cols-2 gap-3">
+        <FieldRow phone="pair">
           <Field label="First name" required>
             <Input
               value={firstName}
@@ -339,14 +340,14 @@ function CreateRecord({
               onChange={(e) => setLastName(e.target.value)}
             />
           </Field>
-        </div>
+        </FieldRow>
         <Field label="Job title" required>
           <Input
             value={jobTitle}
             onChange={(e) => setJobTitle(e.target.value)}
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <FieldRow>
           <Field label="Start date" required>
             <Input
               type="date"
@@ -367,7 +368,7 @@ function CreateRecord({
               placeholder="₦"
             />
           </Field>
-        </div>
+        </FieldRow>
       </div>
     </Modal>
   );

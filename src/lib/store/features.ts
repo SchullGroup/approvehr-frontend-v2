@@ -127,6 +127,9 @@ const BASE_FLAGS: FeatureFlags = {
   departments: false,
   /* Off, like every module. */
   surveys: false,
+  /* Off, like every module: a company that has not asked for a tracker keeps a
+     sidebar without one. */
+  projects: false,
   grades: false,
   shifts: false,
   loans: false,
@@ -241,6 +244,10 @@ export const FEATURE_COPY: Record<
   appraisals: {
     label: "Appraisals",
     line: "Scored reviews inside an appraisal period, on top of shared goals.",
+  },
+  projects: {
+    label: "Projects",
+    line: "Plan work as projects with issues, sprints and a board, and let people track it together.",
   },
   hiring: {
     label: "Hiring",
@@ -611,7 +618,11 @@ function demoApply(state: DemoState, patch: FeaturePatch): DemoState {
  */
 function demoDefaults(): DemoState {
   const base: DemoState = {
-    flags: BASE_FLAGS,
+    /* Projects is on in the demo, unlike every other module: a demonstration is
+       the one place where "off until you ask" would mean nobody ever sees it,
+       and the sample project it opens with is the point. Settings → Features
+       still turns it off, which is how the switched-off screen is shown. */
+    flags: { ...BASE_FLAGS, projects: true },
     headcountBand: "UNDER_10",
     setupStep: 0,
     /* `null` for the self-serve demo — a genuinely new company should meet the
@@ -696,6 +707,9 @@ function fromApi(features: ApiFeatures): State {
     flags: {
       departments: features.departments,
       surveys: features.surveys,
+      /* Optional on the wire, and a company that was never asked is a company
+         without it. */
+      projects: features.projects ?? false,
       twoFactor: features.twoFactor,
       grades: features.grades,
       shifts: features.shifts,
@@ -904,6 +918,7 @@ export function useFeatureSettings() {
         return {
           departments: features.departments,
           surveys: features.surveys,
+          projects: features.projects ?? false,
           twoFactor: features.twoFactor,
           grades: features.grades,
           shifts: features.shifts,

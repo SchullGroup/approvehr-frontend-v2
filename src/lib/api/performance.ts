@@ -1417,6 +1417,20 @@ export type ApiRevisionRequest = {
 export type ApiTaskGrade =
   "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED" | "REJECTED";
 
+/**
+ * Where a weekly task came from, when a finished Projects issue filed it.
+ *
+ * `null`, or absent on an API that predates the field, for a task somebody typed
+ * in and for one a Jira ticket filed. `projectId` is `null` once the issue or its
+ * project has been deleted: the tag keeps its text and loses its link. Whether
+ * the viewer may open the project is not in here — see `ProjectSourceTag`.
+ */
+export type ApiProjectSource = {
+  /** `CHK-2`. */
+  key: string;
+  projectId: string | null;
+};
+
 /** One task logged against an objective, within one open week. */
 export type ApiTask = {
   id: string;
@@ -1431,6 +1445,7 @@ export type ApiTask = {
   gradedById: string | null;
   gradedAt: string | null;
   createdAt: string;
+  projectSource?: ApiProjectSource | null;
 };
 
 /**
@@ -1466,6 +1481,7 @@ export type ApiMyTask = {
   weekStart: string;
   weekEnd: string;
   createdAt: string;
+  projectSource?: ApiProjectSource | null;
 };
 
 /**
@@ -1495,6 +1511,7 @@ export type ApiTaskForGrading = {
    * that predates the field simply leaves it out, and absent means open.
    */
   weekClosed?: boolean;
+  projectSource?: ApiProjectSource | null;
 };
 
 /* -------------------------------------------------------------------- bodies */

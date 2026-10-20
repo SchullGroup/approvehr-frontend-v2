@@ -2,17 +2,24 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, MapPin } from "lucide-react";
-import { Pill } from "@/components/marketing/pill";
+import { CareersBrand } from "@/components/marketing/careers-brand";
+import { CareersNotice } from "@/components/marketing/careers-notice";
 import { Reveal } from "@/components/marketing/motion";
 import {
-  listRoles,
   payRange,
   readableDate,
   workTypeLabel,
   type PublicRole,
-  type ReadFailure,
 } from "@/lib/marketing/careers";
+import { listRoles } from "@/lib/marketing/careers-read";
 
+/**
+ * The company's name in the tab, once the page has read it.
+ *
+ * A list read costs one request against the visitor's allowance and
+ * `generateMetadata` would make a second, so the title is the generic one. The
+ * company's name is on the page itself, in the brand header.
+ */
 export const metadata: Metadata = {
   title: "Open roles",
   description: "Every job this company is hiring for, and how to apply.",
@@ -35,14 +42,14 @@ export const dynamic = "force-dynamic";
  * page is how somebody spends an evening applying for a role that closed last
  * week, so this is dynamic and the fetch is `no-store`.
  *
- * ## The heading does not name the company, and that is deliberate
+ * ## The company is named only when the API says its name
  *
- * The list endpoint knows the company's name but the paged response envelope
- * carries `data` and `meta` only, so the name does not survive the wire. Rather
- * than guess it from the URL slug — "acme-ltd" is not reliably "Acme Ltd" — the
- * heading says what is true, and the role page, which *is* served the name, uses
- * it. Inventing an employer's name on their own careers page is not a small
- * mistake.
+ * The list response carries the company's name and branding in `meta`, and when
+ * it does the page opens with the same brand header an advert has. When it does
+ * not — an API that predates it — the heading says what is true and nothing more:
+ * the URL slug is not reliably the company's name ("acme-ltd" is not "Acme
+ * Ltd"), and inventing an employer's name on their own careers page is not a
+ * small mistake.
  */
 export default async function CareersListingPage({
   params,
@@ -60,6 +67,12 @@ export default async function CareersListingPage({
   return (
     <section className="px-4 pb-28 pt-16 sm:pt-24">
       <div className="container-page">
+        {result.ok && result.value.company && (
+          <CareersBrand
+            company={result.value.company}
+            branding={result.value.branding ?? undefined}
+          />
+        )}
         <Reveal>
           <header className="max-w-3xl">
             <p className="mb-3 text-meta font-semibold text-slate-muted">
@@ -74,8 +87,17 @@ export default async function CareersListingPage({
         </Reveal>
 
         {!result.ok ? (
-          <Unavailable reason={result.reason} />
-        ) : result.value.length === 0 ? (
+          <div className="mt-14">
+            <CareersNotice
+              reason={result.reason}
+              retryAfterSeconds={result.retryAfterSeconds}
+              message={result.message}
+              subject="roles"
+              backHref="/"
+              backLabel="Back to the homepage"
+            />
+          </div>
+        ) : result.value.roles.length === 0 ? (
           <Reveal delay={80}>
             <div className="mt-14 rounded-3xl border border-sand-line bg-white/70 p-10 sm:p-14">
               <h2 className="text-h3 text-slate">Nothing open right now</h2>
@@ -87,7 +109,7 @@ export default async function CareersListingPage({
           </Reveal>
         ) : (
           <ul className="mt-14 flex list-none flex-col gap-4">
-            {result.value.map((role, index) => (
+            {result.value.roles.map((role, index) => (
               <Reveal key={role.slug} as="li" delay={Math.min(index, 3) * 70}>
                 <RoleCard org={org} role={role} />
               </Reveal>
@@ -153,33 +175,5 @@ function RoleCard({ org, role }: { org: string; role: PublicRole }) {
         </span>
       </Link>
     </article>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-/**
- * What to say when the list could not be read.
- *
- * Two different facts, and neither of them is "no roles". Saying "nothing open"
- * when the truth is "we could not ask" would send somebody away from a job they
- * could have had.
- */
-function Unavailable({ reason }: { reason: ReadFailure }) {
-  const line =
-    reason === "unconfigured"
-      ? "This site is not connected to a careers system, so there are no roles to show."
-      : "We could not load the roles just now.";
-
-  return (
-    <div className="mt-14 rounded-3xl border border-sand-line bg-white/70 p-10 sm:p-14">
-      <h2 className="text-h3 text-slate">Roles are not showing</h2>
-      <p className="mt-3 max-w-md text-body leading-relaxed">{line}</p>
-      <div className="mt-8">
-        <Pill href="/" variant="dark" arrow>
-          Back to the homepage
-        </Pill>
-      </div>
-    </div>
   );
 }

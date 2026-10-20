@@ -18,6 +18,7 @@ import {
 import { LoadFailure } from "@/components/portal/load-failure";
 import { TaskSource } from "@/components/performance/task-source";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
+import { ProjectSourceTag } from "@/components/projects/project-source-tag";
 import { ApiError } from "@/lib/api/client";
 import type { ApiGoal, ApiMyTask } from "@/lib/api/performance";
 import { dayOf } from "@/lib/api/performance";
@@ -243,8 +244,9 @@ export function MyTasksPanel() {
                         <span className="text-body-sm text-body">
                           <LinkedText>{task.description}</LinkedText>
                         </span>
-                        <span className="text-meta text-muted">
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
                           {task.goalTitle}
+                          <ProjectSourceTag source={task.projectSource} />
                         </span>
                         <TaskSource source={task.source} />
                         {task.gradeNote && (

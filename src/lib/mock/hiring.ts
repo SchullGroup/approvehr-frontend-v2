@@ -19,6 +19,7 @@ import type {
   StageId,
 } from "@/lib/types";
 import { STAGE_IDS } from "@/lib/types";
+import { crowdFor } from "@/lib/mock/hiring-crowd";
 
 /* ------------------------------------------------------------ Requisitions */
 
@@ -345,6 +346,8 @@ export const CANDIDATES: Candidate[] = DEMO_ENABLED
         noticePeriodWeeks: 1,
         cvFileName: "daniel-okafor-cv.pdf",
       },
+      /* Seventy more for the first role, so a column pages. See the crowd. */
+      ...crowdFor("req-01").candidates,
     ]
   : [];
 
@@ -491,6 +494,7 @@ export const APPLICATIONS: Application[] = DEMO_ENABLED
         stageEnteredAt: "2026-08-18",
         rating: null,
       },
+      ...crowdFor("req-01").applications,
     ]
   : [];
 
