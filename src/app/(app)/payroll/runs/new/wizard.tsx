@@ -1284,12 +1284,20 @@ export function PayrollRunWizard() {
 
           {/* Footer */}
           <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface px-1 py-3">
-            <Button variant="ghost" onClick={() => router.push("/payroll")}>
+            <Button
+              variant="ghost"
+              className="max-sm:min-h-11"
+              onClick={() => router.push("/payroll")}
+            >
               Save &amp; exit
             </Button>
             <div className="flex items-center gap-2">
               {!stepper.isFirst && (
-                <Button variant="secondary" onClick={stepper.back}>
+                <Button
+                  variant="secondary"
+                  className="max-sm:min-h-11"
+                  onClick={stepper.back}
+                >
                   <ArrowLeft aria-hidden="true" className="size-4" />
                   Back
                 </Button>
@@ -1316,6 +1324,7 @@ export function PayrollRunWizard() {
               ) : missingPayStatus ? (
                 <Button
                   variant="accent"
+                  className="max-sm:min-h-11"
                   onClick={() => void missingPayRef.current?.save()}
                   loading={missingPayStatus.saving}
                   disabled={!missingPayStatus.ready}
@@ -1344,6 +1353,7 @@ export function PayrollRunWizard() {
                   )}
                   <Button
                     variant="accent"
+                    className="max-sm:min-h-11"
                     onClick={stepper.next}
                     disabled={!canContinue}
                   >
