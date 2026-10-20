@@ -562,7 +562,13 @@ function PersonRow({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-3 rounded-md border p-3",
+        /* A grid, not a wrapping flex row. The person block was `flex-1` with
+           nothing to stop it shrinking, and the "Assign an appraiser" select
+           sizes itself to its longest option, so on a tablet the select took
+           what it wanted and left the name and the note a column about 60px
+           wide, one word to a line. Here the person always gets the first
+           column in full, and the control takes a row of its own on a phone. */
+        "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2.5 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto_auto]",
         worst === "BLOCKER"
           ? "border-danger-line bg-danger-soft"
           : worst === "WARNING"
@@ -570,7 +576,7 @@ function PersonRow({
             : "border-line",
       )}
     >
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0">
         <p className="text-body-sm font-medium text-ink">{row.employeeName}</p>
         <p className="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
           <span>{row.jobTitle}</span>
@@ -589,7 +595,7 @@ function PersonRow({
             {row.appraisers.map((one) => (
               <li
                 key={one.assignmentId}
-                className="flex items-center gap-2 rounded-md border border-line bg-surface px-2.5 py-1.5"
+                className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-line bg-surface px-2.5 py-1.5"
               >
                 {/* Submitted or not is a shape as well as a colour: a filled dot
                     for in, a ring for outstanding. */}
@@ -602,7 +608,7 @@ function PersonRow({
                       : "border border-line-strong bg-transparent",
                   )}
                 />
-                <span className="text-meta text-ink">
+                <span className="min-w-0 break-words text-meta text-ink">
                   {one.appraiserName}
                   <span className="text-muted">
                     {" · "}
@@ -630,7 +636,7 @@ function PersonRow({
         {row.appraisers.length > 1 && <ShareBar appraisers={row.appraisers} />}
       </div>
 
-      <div className="shrink-0 text-right">
+      <div className="text-right">
         <p className="text-meta text-faint">Mark</p>
         <p className="tabular text-body-sm font-medium text-ink">
           {row.weightedRating === null ? "—" : row.weightedRating}
@@ -643,48 +649,58 @@ function PersonRow({
       </div>
 
       {row.appraisers.length > 0 ? (
-        <Button variant="secondary" size="sm" onClick={onEdit}>
-          Change
-        </Button>
+        <div className="col-span-2 flex justify-end md:col-span-1">
+          <Button variant="secondary" size="sm" onClick={onEdit}>
+            Change
+          </Button>
+        </div>
       ) : (
-        <div className="flex flex-col items-end gap-1">
-          <div className="flex items-center gap-2">
+        <div className="col-span-2 flex flex-col gap-1 md:col-span-1 md:items-end">
+          <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-nowrap">
             {/* The subject is filtered out here rather than left for the API to
                 refuse: appraising yourself is not an option worth offering. */}
-            <Select
-              aria-label={`Appraiser for ${row.employeeName}`}
-              className="min-w-[13rem]"
-              disabled={assigning}
-              value=""
-              onChange={(event) => {
-                const appraiserId = event.target.value;
-                if (!appraiserId) return;
-                setAssigning(true);
-                setQuickFailed(null);
-                void onQuickAssign(appraiserId)
-                  .catch((error: unknown) => {
-                    setQuickFailed(
-                      error instanceof ApiError
-                        ? error.message
-                        : "That did not save. Try again.",
-                    );
-                  })
-                  .finally(() => {
-                    setAssigning(false);
-                  });
-              }}
-            >
-              <option value="">
-                {assigning ? "Saving…" : "Assign an appraiser"}
-              </option>
-              {people
-                .filter((person) => person.id !== row.employeeId)
-                .map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name} — {person.jobTitle}
-                  </option>
-                ))}
-            </Select>
+            {/* The width lives on this wrapper: `Select` puts its own `className`
+                on the <select>, and the select sizes itself to its longest
+                option ("Name — Job title"), which is what pushed "More
+                options" out of the card on a phone. `basis-48` is the least
+                it will be squeezed to: below that the button drops to its own
+                line and the select takes the whole row, rather than the
+                placeholder reading "Assign an ap". */}
+            <div className="min-w-0 flex-1 basis-48 md:w-56 md:flex-none md:basis-auto">
+              <Select
+                aria-label={`Appraiser for ${row.employeeName}`}
+                disabled={assigning}
+                value=""
+                onChange={(event) => {
+                  const appraiserId = event.target.value;
+                  if (!appraiserId) return;
+                  setAssigning(true);
+                  setQuickFailed(null);
+                  void onQuickAssign(appraiserId)
+                    .catch((error: unknown) => {
+                      setQuickFailed(
+                        error instanceof ApiError
+                          ? error.message
+                          : "That did not save. Try again.",
+                      );
+                    })
+                    .finally(() => {
+                      setAssigning(false);
+                    });
+                }}
+              >
+                <option value="">
+                  {assigning ? "Saving…" : "Assign an appraiser"}
+                </option>
+                {people
+                  .filter((person) => person.id !== row.employeeId)
+                  .map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.name} — {person.jobTitle}
+                    </option>
+                  ))}
+              </Select>
+            </div>
             <Button variant="ghost" size="sm" onClick={onEdit}>
               More options
             </Button>

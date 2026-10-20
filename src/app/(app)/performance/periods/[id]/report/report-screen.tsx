@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import {
   Badge,
+  BarChart,
   ButtonLink,
   Callout,
   Card,
@@ -562,19 +563,39 @@ function Distribution({ report }: { report: ApiCycleReport }) {
             show.
           </p>
         ) : (
-          <ColumnChart
-            height={160}
-            points={distribution.bands.map((band) => ({
-              label: band.label,
-              value: band.people,
-            }))}
-            /* The badge tones, so a reader who has learnt amber-means-partially
+          <>
+            {/* Columns need a column's width per band label. At five bands and
+                a phone's width each gets about 55px, and "Outstanding" or
+                "Partially meets expectations" does not fit in 55px, so the
+                labels were drawn over each other and the last ran out of the
+                card. Below `sm` the same data is drawn as bars with the label
+                on its own line; the two are never both in the page, so a
+                screen reader meets one table, not two. */}
+            <ColumnChart
+              className="hidden sm:block"
+              height={160}
+              points={distribution.bands.map((band) => ({
+                label: band.label,
+                value: band.people,
+              }))}
+              /* The badge tones, so a reader who has learnt amber-means-partially
                -meets on the register does not learn it again here. Never the
                only cue: every column carries its count and its band name. */
-            tones={distribution.bands.map((band) => BAND_FILL[band.band])}
-            format={(n) => `${String(n)}`}
-            caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "mark" : "marks"} across the five bands.`}
-          />
+              tones={distribution.bands.map((band) => BAND_FILL[band.band])}
+              format={(n) => `${String(n)}`}
+              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "mark" : "marks"} across the five bands.`}
+            />
+            <BarChart
+              className="sm:hidden"
+              points={distribution.bands.map((band) => ({
+                label: band.label,
+                value: band.people,
+              }))}
+              tones={distribution.bands.map((band) => BAND_FILL[band.band])}
+              format={(n) => `${String(n)}`}
+              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "mark" : "marks"} across the five bands.`}
+            />
+          </>
         )}
 
         {distribution.scored > 0 && (
