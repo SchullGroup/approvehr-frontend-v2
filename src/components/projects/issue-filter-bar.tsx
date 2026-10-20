@@ -49,7 +49,7 @@ export function IssueFilterBar({ extra }: { extra?: React.ReactNode }) {
           aria-label="Filter issues by key, title or label"
           autoComplete="off"
           className={cn(
-            "h-10 w-full rounded-md border border-field-line bg-surface pl-9 pr-9 text-body-sm text-ink placeholder:text-muted",
+            "h-10 w-full rounded-md border border-field-line bg-surface pl-9 pr-9 text-body-sm pointer-coarse:text-body-md text-ink placeholder:text-muted",
             "transition-[border-color,box-shadow] duration-150 hover:border-ink-soft",
             "focus:border-accent-text focus:outline-none focus:ring-3 focus:ring-accent/25",
           )}

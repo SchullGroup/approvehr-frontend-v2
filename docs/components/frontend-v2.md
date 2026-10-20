@@ -15,7 +15,7 @@ there are too many to be useful as a list, and they are always in the file named
 | [API wrappers — `src/lib/api`](#api-wrappers-src-lib-api) | 48 | 0 | 0 | 161 |
 | [Data hooks — `src/lib/store`](#data-hooks-src-lib-store) | 66 | 0 | 257 | 64 |
 | [Seed data — `src/lib/mock`](#seed-data-src-lib-mock) | 9 | 0 | 0 | 19 |
-| [Domain helpers — `src/lib/*`](#domain-helpers-src-lib) | 53 | 0 | 11 | 172 |
+| [Domain helpers — `src/lib/*`](#domain-helpers-src-lib) | 54 | 0 | 11 | 173 |
 | [Standalone hooks — `src/hooks`](#standalone-hooks-src-hooks) | 2 | 0 | 2 | 1 |
 | [Screens — `/dashboard`](#screens-dashboard) | 10 | 9 | 0 | 4 |
 | [Screens — `/people`](#screens-people) | 104 | 105 | 0 | 15 |
@@ -30,7 +30,7 @@ there are too many to be useful as a list, and they are always in the file named
 | [Screens — the rest of the signed-in app](#screens-the-rest-of-the-signed-in-app) | 11 | 10 | 0 | 1 |
 | [Screens — public site, auth and setup](#screens-public-site-auth-and-setup) | 42 | 47 | 0 | 6 |
 | [Everything else](#everything-else) | 1 | 0 | 0 | 1 |
-| **Total** | **660** | **578** | **276** | **478** |
+| **Total** | **661** | **578** | **276** | **479** |
 
 ---
 
@@ -333,6 +333,7 @@ Pure logic with no React in it: payroll settings, the import framework, CSV and 
 | `src/lib/pending-email-verification.ts`  | —          | —                                          | `stashPendingVerification`, `takePendingVerification`                                                                                                                                                                       | 1 type                                 |
 | `src/lib/permission-keys.ts`             | —          | —                                          | —                                                                                                                                                                                                                           | 2 const · 4 types                      |
 | `src/lib/permissions.ts`                 | —          | `usePermissions`, `useCan`, `useIsManager` | `hasPermission`, `hasAnyPermission`, `requiresStrongPassword`, `toPermissionSet`, `can`, `Can`                                                                                                                              | 2 const · 2 types                      |
+| `src/lib/place-tooltip.ts` | — | — | `placeTooltip` | 2 consts · 2 types |
 | `src/lib/report-error.ts`                | —          | —                                          | `registerErrorReporter`, `errorReportingConfigured`, `reportError`                                                                                                                                                          | 2 types                                |
 | `src/lib/revalidate.ts`                  | —          | `useRevalidation`                          | `subscribeToRevalidation`, `revalidationCount`                                                                                                                                                                              | 1 const                                |
 | `src/lib/roles.ts`                       | —          | `useSessionRoles`                          | `roleTier`, `rankRoles`                                                                                                                                                                                                     | 3 types                                |

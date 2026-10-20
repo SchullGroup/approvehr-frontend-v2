@@ -8570,6 +8570,11 @@ against a development build: 1,350 ms a key. Three causes, all fixed:
 2. **Every field carried a tooltip that measures the page when it mounts.** `InfoTooltip` runs a
    layout read per field, so fifty cards were six hundred forced layouts. The help is identical on
    every card, so only the first card carries it.
+   > **The first half is out of date.** `InfoTooltip` no longer measures when it mounts: it renders
+   > its button and nothing else until it is opened, and measures then (see "Fields are 16px under a
+   > finger, and the help icon opens on a tap"). Only the first card still carries the help, which is
+   > still right, since the sentence is identical on every card and saying it fifty times is noise.
+   > It is just no longer what keeps a keystroke cheap.
 3. **Every text control with suggestions wrote its own `<datalist>`.** Two hundred addresses times
    fifty cards is ten thousand `<option>`s. One list per column now, for the whole window.
 
@@ -8737,3 +8742,127 @@ decided or genuinely pending is untouched.
   leave request, a cancelled requisition and a dismissed record change are different
   acts), and it needs that decided per kind first.
 - **Renaming "Send back" on `/people/leave`.** Same decision, different screen.
+
+---
+
+# Fields are 16px under a finger, and the help icon opens on a tap
+
+A review of the Performance module on phones found two defects in shared form components. The layout
+change (#424) left both alone on purpose: each is a change to something every form in the product uses.
+
+## Sixteen pixels, keyed on the finger and not on the width
+
+iOS Safari zooms the whole page when a text field whose computed size is under 16px takes focus, and it
+does not zoom back. Every `Input`, `Select` and `Textarea` was 15px (`text-body-sm`), and the viewport
+allows zoom on purpose (`layout.tsx`: a payroll figure somebody cannot enlarge is one they misread), so
+there is no meta tag to switch it off with.
+
+`pointer-coarse:text-body-md` is in `CONTROL` in `components/ui/input.tsx`, which the three share. A touch
+screen gets 16px and a mouse keeps 15px. Three decisions in it:
+
+- **The pointer, not the width.** An iPhone held sideways is 667 to 932px wide, which is large to every
+  width breakpoint and is still an iPhone. `pointer-coarse:` is true for a finger and false for a mouse. A
+  touchscreen laptop whose main pointer is a mouse stays at 15px, and nothing zooms there.
+- **In `CONTROL`, not beside each size.** A caller that passes its own size (`text-meta` on a compact
+  select) changes what a mouse sees and cannot take the finger's 16px away, because `tailwind-merge` keeps a
+  variant apart from the unprefixed size. Checked with the real `cn`.
+- **`text-body-md`, because `text-body` is a colour** (see the type scale entry).
+
+Seven files wrote a raw `<input>`, `<select>` or `<textarea>` at 15px or smaller and carry the class
+themselves: the picker's search box, the bulk-create table cell, the invitation link, three in Projects
+(the issue filter, the mention composer, quick add) and the two marketing calculator fields.
+
+`tests/text-fields-are-16px-on-touch.test.ts` stops the next one. It reads every `.tsx` under `src` with the
+TypeScript compiler, follows same-file `const` class strings and `cn()` calls, maps each size class to
+pixels, and fails for an `input`, `select` or `textarea` whose size on a touch screen is under 16px. A
+control with no size class inherits 16px and passes. It is the technique of `no-unsafe-form-rows.test.ts`,
+and it is what found the seven files. It only parses a file that writes one of the three tags (36 of the 664):
+parsing them all is what made it time out in a full run on a busy machine.
+
+On a touch screen a three-row textarea is about 10px taller, because the 16px size carries a line height of
+1.6 where the 15px one has 1.5. Nothing else moved.
+
+## The help icon
+
+`InfoTooltip` (in `components/ui/field.tsx`, the icon beside every label that has `help`) had three faults.
+The first two were measured in a browser rather than read:
+
+1. **The panel was clipped inside any dialog.** It was an absolutely positioned child of the icon, so the
+   dialog's scroll area cut it off. For the first field in a dialog it opened upward and 55 of its 71px were
+   hidden, on a laptop as much as on a phone.
+2. **It could not be opened on an iPhone.** It was shown by `group-hover` and `group-focus-within` alone, on
+   the reasoning that tapping a button focuses it. That is true in Chrome and false in Safari, which does not
+   give a button focus when it is pressed (on a Mac as well as an iPhone), and a phone cannot hover.
+3. **It was a 14px target with no focus ring.** `focus:outline-none` had replaced the ring with a colour
+   change, which is not a focus indicator.
+
+It now has three states: `closed`, `peek` and `pinned`. A mouse or pen resting on the icon, or a keyboard
+focusing it (`:focus-visible`, so a click that happens to focus it does not count), **peeks**; a press or a
+tap **pins**. A touch pointer never peeks: a finger has no "over", and the mouse events a browser fires
+after a tap would show the panel for as long as the finger was down and then take it away. It closes on the
+icon again, a press anywhere else, a press on the panel, Escape, and the icon losing focus.
+
+- **A portal to `document.body`, at `z-[60]`.** `position: fixed` alone would not escape the dialog: `Modal`
+  and `Drawer` animate in with a transform that is left on afterwards (`animation-fill-mode: both`), and a
+  transformed element is the containing block for its fixed descendants. The body is where `Modal`, `Drawer`,
+  the toasts and the tour already put themselves, and `z-[60]` is the tier above a dialog (`globals.css` lists
+  the help panel there now).
+- **Placement is measured when it opens**, by `placeTooltip` in `lib/place-tooltip.ts`, a pure function of
+  three rectangles: above if it fits, else below, else the larger side with a capped height. It is written
+  straight to the node in a layout effect, as `Spotlight` does, so there is no frame at the wrong place and no
+  state per scroll frame. It is measured against `visualViewport` where there is one, so with the keyboard
+  up the panel lands where the person is looking. An `IntersectionObserver` hides it when the icon is
+  scrolled out of its scroller and shows it again when the icon returns.
+- **The first Escape closes the hint and the second closes the dialog.** `useFocusTrap` listens on `document`
+  in the capture phase; the hint listens on `window`, which comes first, and stops the event. One keystroke
+  must not discard a form to dismiss a sentence.
+- **A press on the panel keeps focus on the icon** (`onMouseDown` cancels it). The icon closes the panel when
+  it loses focus, and Chrome moves focus off a button when a press lands on nothing focusable, so without it
+  the panel was gone before the click that ends the press. Tamper-tested in a browser: with the handler
+  stopped, focus goes to the body and the panel goes with it.
+- **The description for assistive technology did not move.** The `sr-only` span that `aria-describedby` names
+  is still always in the DOM; the visible panel is `aria-hidden` and `role="presentation"`, so nobody hears
+  the sentence twice. The icon has no `aria-expanded` for the same reason: it controls a copy that assistive
+  technology is not shown.
+- **Closed, it costs a button.** Nothing is mounted, measured or listened to until it opens. That is why the
+  bulk-create entry's reason for carrying the help on the first card only is out of date, though not wrong.
+
+## Found, and not changed
+
+- **`cn` drops `text-body-md`.** `FONT_SIZES` in `lib/cn.ts` does not list `body-md`, so
+  `cn("text-body-md font-semibold", "text-ink")` returns `"font-semibold text-ink"`: `tailwind-merge` reads
+  the unregistered size as a colour and the later colour wins. (`cn("text-body-sm", "text-body-md")` keeps
+  both.) Wherever a `text-body-md` string reaches `cn` together with a text colour, the size is silently gone.
+  It is invisible today because 16px is the inherited size. Registering it would also bring the 1.6 line
+  height the token carries to those places, which is a visible change, so it is a decision of its own.
+  Nothing here depends on it: the touch size is written `pointer-coarse:text-body-md`, which `cn` keeps.
+- **jsdom answers `:focus-visible` with false**, for everything. A test of keyboard behaviour that does not
+  stub `Element.prototype.matches` (see `info-tooltip.test.tsx`) will find that focus never opens the panel.
+- **A dev server on `127.0.0.1` never hydrates.** Next 16 blocks `/_next/*` dev resources from an origin that
+  is not in `allowedDevOrigins`, and the page stays on its spinner. A browser script against `next dev` has
+  to use `localhost`, or a production build; it cost an hour here before the log line was read.
+
+## Verified
+
+On a production build, in Chromium with touch emulation, against a seeded scratch company, the original
+build against this one:
+
+- **The panel**, in "New objective" and "Start an appraisal period", at 320x568, 375x812, 812x375,
+  768x1024 and 1366x768. Before, the first icon's panel was 25% visible at every size, the second 50% at
+  812x375, and the period dialog's 90% at 812x375, 768 and 1366. After, 100% visible and inside the screen in
+  all fifteen cases, with every label row still 22.5px high and no sideways overflow.
+- **Behaviour, 26 checks:** a tap opens it, a second tap closes it, a tap elsewhere closes it and leaves the
+  dialog open, a tap on the panel closes it and does not reach what is under it; a mouse peeks, a click pins,
+  the pin survives the mouse leaving, the first Escape closes only the hint and the second closes the dialog;
+  Tab reaches the icon, shows the panel and draws a 2px solid ring; a press on the panel is not undone by the
+  focus change. The icon is a 26x26 target.
+- **Scrolling**, at 812x375 and 320x568, where the dialog scrolls: the panel opens inside the screen, hides when
+  its icon is scrolled out, comes back with it, and follows it while it moves.
+- **Field sizes**, 82 screens at 375px with touch (`(pointer: coarse)` matched): every text field 15px before
+  and 16px after. At 1366px with a mouse: 15px before and after. The counts of fields differ from run to run
+  (121 and 141 on the phone) because screens finish loading at different moments; the sizes are the finding.
+
+**Not verified: iOS Safari, or any real device.** There is no Safari here. The zoom itself, and Safari not
+focusing a button on a press (the reason the panel opens on a click), are both known behaviour and neither was
+reproduced; Chromium was made to behave like a phone, which is not the same. The on-screen keyboard
+(`visualViewport` shrinking under the panel) was not exercised either.
