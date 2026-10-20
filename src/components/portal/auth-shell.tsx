@@ -35,10 +35,18 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
         <footer className="bg-surface">
           <div className="flex h-14 flex-wrap items-center gap-x-5 gap-y-1 px-5 text-body-sm text-muted lg:px-10">
             <span>Schull Technologies</span>
-            <Link href="/privacy" className="transition-colors hover:text-ink">
+            <Link
+              href="/privacy"
+              prefetch={false}
+              className="transition-colors hover:text-ink"
+            >
               Privacy
             </Link>
-            <Link href="/terms" className="transition-colors hover:text-ink">
+            <Link
+              href="/terms"
+              prefetch={false}
+              className="transition-colors hover:text-ink"
+            >
               Terms
             </Link>
           </div>

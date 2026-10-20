@@ -739,39 +739,52 @@ export function LeaveScreen() {
                 ) : undefined
               }
             />
-            <CardBody className="grid gap-x-8 gap-y-3.5 sm:grid-cols-2 lg:grid-cols-3">
-              {balances.loading && (
-                <p className="text-body-sm text-muted">Loading balances…</p>
-              )}
-              {shown.length === 0 && !balances.loading && (
-                <p className="text-body-sm text-muted">
-                  {onlyMine
-                    ? "You have not booked any annual leave yet."
-                    : "Nobody has booked leave yet."}
-                </p>
-              )}
-              {shown.map((person) => {
-                const balance = balances.of(person.id);
-                if (!balance) return null;
-                return (
-                  <div key={person.id}>
-                    <div className="mb-1 flex items-baseline justify-between gap-2">
-                      <span className="truncate text-body-sm text-body">
-                        {person.name}
-                      </span>
-                      <span
-                        className={cn(
-                          "tabular shrink-0 text-meta",
-                          balance.remaining <= 3
-                            ? "text-warning-text"
-                            : "text-muted",
-                        )}
-                      >
-                        {balance.remaining} left
-                        {balance.pending > 0 && ` · ${balance.pending} pending`}
-                      </span>
-                    </div>
-                    {/* Taken **and** pending, on one track.
+            <CardBody>
+              {/* Said, not skipped. When the balances read fails — the batch
+                  route is one some API revisions do not have, and then every
+                  row below used to vanish with no explanation — this is the
+                  whole card, with a way to try again. `module` because a 404
+                  here means the service has not been released with it, which is
+                  a different sentence from "it was deleted". */}
+              <LoadState
+                loading={balances.loading}
+                error={balances.error}
+                subject="the leave balance panel"
+                missingMeans="module"
+                onRetry={balances.reload}
+                skeleton="list"
+              >
+                <div className="grid gap-x-8 gap-y-3.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {shown.length === 0 && (
+                    <p className="text-body-sm text-muted">
+                      {onlyMine
+                        ? "You have not booked any annual leave yet."
+                        : "Nobody has booked leave yet."}
+                    </p>
+                  )}
+                  {shown.map((person) => {
+                    const balance = balances.of(person.id);
+                    if (!balance) return null;
+                    return (
+                      <div key={person.id}>
+                        <div className="mb-1 flex items-baseline justify-between gap-2">
+                          <span className="truncate text-body-sm text-body">
+                            {person.name}
+                          </span>
+                          <span
+                            className={cn(
+                              "tabular shrink-0 text-meta",
+                              balance.remaining <= 3
+                                ? "text-warning-text"
+                                : "text-muted",
+                            )}
+                          >
+                            {balance.remaining} left
+                            {balance.pending > 0 &&
+                              ` · ${balance.pending} pending`}
+                          </span>
+                        </div>
+                        {/* Taken **and** pending, on one track.
                       ------------------------------------
                       A `ProgressMeter` filled by `taken` alone said 12 of 20
                       while three more days were already held back — the bar and
@@ -787,30 +800,32 @@ export function LeaveScreen() {
                       `remaining` genuinely goes negative when somebody is
                       approved beyond their entitlement, and this screen already
                       has the sentence for it. */}
-                    <StackedBar
-                      total={balance.entitled}
-                      format={(n) => `${String(n)}`}
-                      segments={[
-                        {
-                          label: "Taken",
-                          value: balance.taken,
-                          color: "var(--color-accent)",
-                        },
-                        ...(balance.pending > 0
-                          ? [
-                              {
-                                label: "Pending",
-                                value: balance.pending,
-                                color: "var(--color-warning)",
-                              },
-                            ]
-                          : []),
-                      ]}
-                      caption={`${person.name}: ${String(balance.taken)} days taken, ${String(balance.pending)} pending, of ${String(balance.entitled)} entitled.`}
-                    />
-                  </div>
-                );
-              })}
+                        <StackedBar
+                          total={balance.entitled}
+                          format={(n) => `${String(n)}`}
+                          segments={[
+                            {
+                              label: "Taken",
+                              value: balance.taken,
+                              color: "var(--color-accent)",
+                            },
+                            ...(balance.pending > 0
+                              ? [
+                                  {
+                                    label: "Pending",
+                                    value: balance.pending,
+                                    color: "var(--color-warning)",
+                                  },
+                                ]
+                              : []),
+                          ]}
+                          caption={`${person.name}: ${String(balance.taken)} days taken, ${String(balance.pending)} pending, of ${String(balance.entitled)} entitled.`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </LoadState>
             </CardBody>
           </Card>
         </LoadState>

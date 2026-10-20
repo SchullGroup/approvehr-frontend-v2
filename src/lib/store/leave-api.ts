@@ -441,6 +441,18 @@ export type BalanceLookup = {
   of: (employeeId: string) => LeaveBalanceRow | undefined;
   loading: boolean;
   connected: boolean;
+  /**
+   * Why there are no balances, when the read failed.
+   *
+   * `of` still answers `undefined` for everybody in that case, so a card is not
+   * blanked by it — but "undefined" is also what it says for a person who has no
+   * balance of this type, and a screen that cannot tell those apart renders the
+   * failure as a row that silently is not there. This is the thing that tells
+   * them apart.
+   */
+  error: unknown;
+  /** Ask again. */
+  reload: () => void;
 };
 
 const demoYear = (): number => new Date(TODAY).getUTCFullYear();
@@ -448,10 +460,16 @@ const demoYear = (): number => new Date(TODAY).getUTCFullYear();
 /**
  * One leave type's balance for several people at once.
  *
- * Connected, this is one request per person: the API has no bulk balance
- * endpoint, and inventing a client-side sum from the request list would be a
- * second implementation of the arithmetic that decides whether somebody may
- * take a day off. Callers pass the handful of people actually on screen.
+ * Connected, this is **one** request for everybody on screen —
+ * `GET /leave/balances?employeeIds=a,b,c` — and a client-side sum from the
+ * request list is not the alternative: that would be a second implementation of
+ * the arithmetic that decides whether somebody may take a day off.
+ *
+ * **That route is this build's assumption, and an API revision may not have it.**
+ * `staging` and `main` of the API define only `GET /leave/balances/:id`, so
+ * against them this read 404s. It used to do so in silence, and every card that
+ * showed a balance simply had none; the failure is carried out as `error` now so
+ * a screen can say so.
  *
  * Demo mode goes through `useLeaveBalances`, which is the only sanctioned local
  * source — it closes over the company policy as well as the requests, and the
@@ -472,7 +490,11 @@ export function useLeaveBalancesFor(
   const [fetched, setFetched] = useState<{
     key: string;
     rows: Record<string, LeaveBalanceRow[]>;
+    error: unknown;
   } | null>(null);
+  /* Bumped by `reload`. Not part of the key, so the answer is replaced in place. */
+  const [attempt, setAttempt] = useState(0);
+  const reload = useCallback(() => setAttempt((n) => n + 1), []);
 
   /* Re-ask when somebody comes back to the window. Not in the key below,
      so the answer is replaced without the screen flashing a skeleton. */
@@ -488,17 +510,19 @@ export function useLeaveBalancesFor(
            answer at eleven people and a request per employee at eleven
            thousand — see the header of `balancesForMany`. */
         const rows = await leaveApi.balancesForMany(ids);
-        if (!cancelled) setFetched({ key, rows });
-      } catch {
+        if (!cancelled) setFetched({ key, rows, error: null });
+      } catch (caught) {
         /* The read failing must not blank the whole card. Every id resolves to
            an empty list, which the `of` below already treats as "no balance to
-           show" rather than as a balance of nothing. */
+           show" rather than as a balance of nothing — and the reason travels
+           beside it, so the card can say so instead of rendering without them. */
         if (!cancelled) {
           setFetched({
             key,
             rows: Object.fromEntries(
               ids.map((id) => [id, [] as LeaveBalanceRow[]]),
             ),
+            error: caught,
           });
         }
       }
@@ -506,7 +530,7 @@ export function useLeaveBalancesFor(
     return () => {
       cancelled = true;
     };
-  }, [isConnected, key, revalidation]);
+  }, [isConnected, key, revalidation, attempt]);
 
   const matched = fetched !== null && fetched.key === key;
 
@@ -536,6 +560,8 @@ export function useLeaveBalancesFor(
     of,
     loading: isConnected && key !== "" && !matched,
     connected: isConnected,
+    error: matched ? fetched.error : null,
+    reload,
   };
 }
 
