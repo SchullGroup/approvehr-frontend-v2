@@ -21,6 +21,7 @@
     "verify-typescale": "tsx scripts/verify-typescale.ts",
     "verify-capability-mockups": "tsx scripts/verify-capability-mockups.ts",
     "refresh:banks": "tsx scripts/refresh-banks.mts",
+    "docs": "tsx scripts/generate-docs.ts",
     "verify-demo": "tsx scripts/verify-demo.ts",
     "verify-demo:build": "cp tsconfig.json .tsconfig.verify.bak && NEXT_DIST_DIR=.next-verify NEXT_PUBLIC_DEMO=off next build; mv .tsconfig.verify.bak tsconfig.json && NEXT_DIST_DIR=.next-verify tsx scripts/verify-demo.ts",
     "verify-public-demo-build": "cp tsconfig.json .tsconfig.verify.bak; tsx scripts/verify-public-demo-build.ts; s=$?; mv .tsconfig.verify.bak tsconfig.json; exit $s",
