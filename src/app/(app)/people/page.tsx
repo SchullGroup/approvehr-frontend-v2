@@ -3,6 +3,7 @@ import { FileUp, Plus } from "lucide-react";
 import { ButtonLink } from "@/components/ui";
 import { BulkInviteButton } from "@/components/portal/bulk-invite";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { Can } from "@/lib/permissions";
 import { Directory } from "./directory";
 
 export const metadata: Metadata = {
@@ -37,11 +38,16 @@ export default async function PeoplePage({
                 place, then a confirmation in numbers — and the Directory, which
                 is where anybody looks for it, pointed at none of it. The nav's
                 own Import item is gated on IMPORT_DATA, so for anybody without
-                that permission the feature did not appear to exist at all. */}
-            <ButtonLink href="/people/import" variant="secondary" size="sm">
-              <FileUp aria-hidden="true" className="size-4" />
-              Import from spreadsheet
-            </ButtonLink>
+                that permission the feature did not appear to exist at all — and
+                the same gate is on this button, because a header button that
+                opens a screen which then refuses is the dead end the nav was
+                written to avoid. */}
+            <Can permission="IMPORT_DATA">
+              <ButtonLink href="/people/import" variant="secondary" size="sm">
+                <FileUp aria-hidden="true" className="size-4" />
+                Import from spreadsheet
+              </ButtonLink>
+            </Can>
             {/* Adding somebody creates a **record**, not an account — most of a
                 payroll never signs in, and the importer only invites a row that
                 carries a `role`. So a company that imports three hundred people
@@ -51,10 +57,12 @@ export default async function PeoplePage({
                 "Why has nobody got a login" is asked here, on the Directory,
                 where the people are. Absent for anybody without INVITE_STAFF. */}
             <BulkInviteButton />
-            <ButtonLink href="/people/new" variant="accent" size="sm">
-              <Plus aria-hidden="true" className="size-4" />
-              Add employee
-            </ButtonLink>
+            <Can permission="EDIT_RECORDS">
+              <ButtonLink href="/people/new" variant="accent" size="sm">
+                <Plus aria-hidden="true" className="size-4" />
+                Add employee
+              </ButtonLink>
+            </Can>
           </div>
         }
       />
