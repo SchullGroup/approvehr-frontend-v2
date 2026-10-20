@@ -74,11 +74,7 @@ export function manualOvertimeHours(slip: Payslip): number | null {
 
 /** What each hand-entered figure is called in a sentence. */
 export type AdjustmentKind =
-  | "overtime"
-  | "bonus"
-  | "paye"
-  | "statutory"
-  | "deductions";
+  "overtime" | "bonus" | "paye" | "statutory" | "deductions";
 
 export const ADJUSTMENT_LABEL: Record<AdjustmentKind, string> = {
   overtime: "overtime",
@@ -200,8 +196,7 @@ const SORT_VALUE: Record<
   /* A payroll that does not operate PAYE has no figure to sort on. Putting those
      below every real one keeps "highest first" meaning highest, rather than
      mixing a missing figure in as though it were a zero. */
-  paye: (slip) =>
-    wasDeducted(slip.operates, "paye") ? slip.payeKobo : -1,
+  paye: (slip) => (wasDeducted(slip.operates, "paye") ? slip.payeKobo : -1),
   deductions: (slip) => deductionTotal(slip),
   net: (slip) => slip.netKobo,
 };

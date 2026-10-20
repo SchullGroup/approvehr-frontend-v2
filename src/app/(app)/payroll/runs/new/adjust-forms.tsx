@@ -82,8 +82,8 @@ export function HoursForm({
 
       <div className="flex flex-col gap-4">
         <p className="text-body-sm leading-relaxed text-body">
-          Enter the hours {name} worked beyond their normal day. They are paid at
-          the company&rsquo;s weekday overtime rate, on top of gross. Hours
+          Enter the hours {name} worked beyond their normal day. They are paid
+          at the company&rsquo;s weekday overtime rate, on top of gross. Hours
           entered here replace any overtime already clocked for {periodLabel}:
           the clocked records are kept, not deleted.
         </p>

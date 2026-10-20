@@ -2,13 +2,7 @@
 
 import { useState } from "react";
 import { Pencil } from "lucide-react";
-import {
-  Badge,
-  Button,
-  ButtonLink,
-  Callout,
-  Drawer,
-} from "@/components/ui";
+import { Badge, Button, ButtonLink, Callout, Drawer } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -200,7 +194,8 @@ export function AdjustDrawer({
   const payeOn = wasDeducted(person.operates, "paye");
   const pensionOn = wasDeducted(person.operates, "pension");
   const nhfOn = wasDeducted(person.operates, "nhf");
-  const typedLines = typedDeduction !== undefined && typedDeduction.state !== "none";
+  const typedLines =
+    typedDeduction !== undefined && typedDeduction.state !== "none";
   const firstName = person.name.split(" ")[0] ?? person.name;
 
   const canEditOvertime =
@@ -259,8 +254,8 @@ export function AdjustDrawer({
         <div className="flex flex-col gap-5">
           {refreshing && (
             <p role="status" className="text-body-sm text-muted">
-              Recalculating the payroll. The figures below are the previous
-              ones until it finishes.
+              Recalculating the payroll. The figures below are the previous ones
+              until it finishes.
             </p>
           )}
 
@@ -309,7 +304,7 @@ export function AdjustDrawer({
             />
             {showOvertime && (
               <Line
-              editColumn={editable}
+                editColumn={editable}
                 label="Overtime"
                 note={
                   manualOvertime
@@ -334,7 +329,7 @@ export function AdjustDrawer({
             )}
             {showBonus && (
               <Line
-              editColumn={editable}
+                editColumn={editable}
                 label="Bonus"
                 note={
                   bonus?.reason
@@ -359,7 +354,7 @@ export function AdjustDrawer({
             <SectionHead>Taken off</SectionHead>
             {payeOn ? (
               <Line
-              editColumn={editable}
+                editColumn={editable}
                 label="PAYE"
                 note={
                   person.payeOverridden
@@ -382,7 +377,7 @@ export function AdjustDrawer({
               />
             ) : (
               <Line
-              editColumn={editable}
+                editColumn={editable}
                 label="PAYE"
                 note="This payroll does not deduct it"
                 value="Not operated"
@@ -390,7 +385,7 @@ export function AdjustDrawer({
             )}
             {pensionOn && (
               <Line
-              editColumn={editable}
+                editColumn={editable}
                 label="Pension"
                 note="The employee's share, taken before tax"
                 value={minus(person.pensionEmployeeKobo)}
@@ -408,7 +403,7 @@ export function AdjustDrawer({
             )}
             {nhfOn && (
               <Line
-              editColumn={editable}
+                editColumn={editable}
                 label="Housing fund"
                 note="Taken before tax"
                 value={minus(person.nhfKobo)}
@@ -530,9 +525,9 @@ export function AdjustDrawer({
           label={`PAYE for ${periodLabel}`}
           intro={
             <>
-              This replaces the tax worked out from the bands, for{" "}
-              {periodLabel} only. Net pay moves with what you enter; pension and
-              the housing fund do not.
+              This replaces the tax worked out from the bands, for {periodLabel}{" "}
+              only. Net pay moves with what you enter; pension and the housing
+              fund do not.
             </>
           }
           now={
@@ -708,11 +703,7 @@ function Line({
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-ink">
           {label}
           {marked && (
-            <Badge
-              tone="accent"
-              size="sm"
-              icon={<Pencil aria-hidden="true" />}
-            >
+            <Badge tone="accent" size="sm" icon={<Pencil aria-hidden="true" />}>
               Entered by hand
             </Badge>
           )}

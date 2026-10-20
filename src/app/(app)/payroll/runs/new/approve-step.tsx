@@ -93,24 +93,22 @@ export function ApproveStep({
         {/* The answer to the click comes first, and only while it is still true
             that nobody has been paid. Recording a payment ends it: the pay card
             below then says so in its own moment. */}
-        {settled &&
-          approvedNow?.runId === run.id &&
-          stillUnpaid(run.batch) && (
-            <ApprovedMoment
-              facts={approvedNow}
-              batch={run.batch}
-              onChoosePayment={() => {
-                /* The card itself takes focus, not its first button. That
+        {settled && approvedNow?.runId === run.id && stillUnpaid(run.batch) && (
+          <ApprovedMoment
+            facts={approvedNow}
+            batch={run.batch}
+            onChoosePayment={() => {
+              /* The card itself takes focus, not its first button. That
                    button is the one that moves money, and a keyboard reader who
                    presses Enter twice on "Choose how to pay" must not land on
                    it. Tab goes from here to it. */
-                const card = payPanel.current;
-                if (!card) return;
-                card.scrollIntoView({ block: "start" });
-                card.focus({ preventScroll: true });
-              }}
-            />
-          )}
+              const card = payPanel.current;
+              if (!card) return;
+              card.scrollIntoView({ block: "start" });
+              card.focus({ preventScroll: true });
+            }}
+          />
+        )}
 
         {settled && (
           <div

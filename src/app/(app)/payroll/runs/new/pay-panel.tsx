@@ -530,7 +530,10 @@ export function WalletStrip({ run }: { run: PayrollRunDetail }) {
             negative balance. `afterKobo` is the API's own answer, and it is
             exactly the last line: held, less promised, less this payroll. */}
         <dl className="flex flex-col gap-2.5">
-          <WalletLine label="In the wallet" value={formatKobo(wallet.balanceKobo)} />
+          <WalletLine
+            label="In the wallet"
+            value={formatKobo(wallet.balanceKobo)}
+          />
           {promised && (
             <WalletLine
               label="Already promised to payments that have not gone out"

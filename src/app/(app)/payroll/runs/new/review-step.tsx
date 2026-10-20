@@ -147,7 +147,8 @@ export function ReviewStep({
     let cancelled = false;
     lineSummary(run.id)
       .then((result) => {
-        if (!cancelled) setTyped({ key: lineKey, deductions: result.deductions });
+        if (!cancelled)
+          setTyped({ key: lineKey, deductions: result.deductions });
       })
       .catch(() => {
         if (!cancelled) setTyped({ key: lineKey, deductions: null });
@@ -212,7 +213,10 @@ export function ReviewStep({
     onViewChange(next);
   };
 
-  const onSort = (column: SortColumn, startDescending = false) => {
+  /* `SortableTH` names its column with a plain string. Every header below passes
+     one of `SortColumn`'s members, which is the only thing the sort understands. */
+  const onSort = (name: string, startDescending = false) => {
+    const column = name as SortColumn;
     const current = view.sort;
     const order =
       current?.column === column
@@ -309,7 +313,9 @@ export function ReviewStep({
               <Select
                 aria-label="Sort payslips"
                 className="max-sm:h-11"
-                value={view.sort ? `${view.sort.column}:${view.sort.order}` : ""}
+                value={
+                  view.sort ? `${view.sort.column}:${view.sort.order}` : ""
+                }
                 onChange={(event) => {
                   const [column, order] = event.target.value.split(":") as [
                     SortColumn,
@@ -327,7 +333,9 @@ export function ReviewStep({
                 <option value="net:asc">Net pay, lowest first</option>
                 <option value="gross:desc">Gross, highest first</option>
                 <option value="paye:desc">PAYE, highest first</option>
-                <option value="deductions:desc">Deductions, highest first</option>
+                <option value="deductions:desc">
+                  Deductions, highest first
+                </option>
                 {showOvertime && (
                   <option value="overtime:desc">Overtime, highest first</option>
                 )}
@@ -351,8 +359,8 @@ export function ReviewStep({
               {typedUnknown && !refreshing && (
                 <>
                   {narrowed ? " " : ""}
-                  Deductions typed by hand could not be checked, so
-                  &ldquo;With adjustments&rdquo; may miss some.
+                  Deductions typed by hand could not be checked, so &ldquo;With
+                  adjustments&rdquo; may miss some.
                 </>
               )}
             </p>
@@ -517,7 +525,7 @@ function ReviewHead({
   anyUnpaid,
 }: {
   view: ReviewView;
-  onSort: (column: SortColumn, startDescending?: boolean) => void;
+  onSort: (column: string, startDescending?: boolean) => void;
   showOvertime: boolean;
   showBonus: boolean;
   anyUnpaid: boolean;
@@ -541,12 +549,7 @@ function ReviewHead({
         <td colSpan={2} />
       </tr>
       <tr>
-        <SortableTH
-          column="name"
-          active={active}
-          order={order}
-          onSort={onSort}
-        >
+        <SortableTH column="name" active={active} order={order} onSort={onSort}>
           Employee
         </SortableTH>
         {anyUnpaid && (
@@ -892,7 +895,10 @@ function Figure({
     <span className="inline-flex items-center justify-end gap-1.5">
       {marked && (
         <>
-          <Pencil aria-hidden="true" className="size-3 shrink-0 text-accent-text" />
+          <Pencil
+            aria-hidden="true"
+            className="size-3 shrink-0 text-accent-text"
+          />
           <span className="sr-only">Entered by hand: </span>
         </>
       )}
