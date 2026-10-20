@@ -28,7 +28,7 @@ import {
   SegmentedControl,
   FilterBar,
   Select,
-  Spinner,
+  LoadState,
   Stat,
   Textarea,
   useToast,
@@ -712,11 +712,12 @@ export function KpisTab({
           </CardBody>
         )}
         {kpis.loading ? (
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading KPIs
+          <CardBody>
+            <LoadState loading error={null} subject="the KPIs" skeleton="list">
+              {null}
+            </LoadState>
           </CardBody>
-        ) : narrowing && matching.length === 0 ? (
+        ) : kpis.error ? null : narrowing && matching.length === 0 ? (
           /* Distinct from "No KPIs yet". Nothing matching a search is not a
              company with no objectives, and offering "New objective" to
              somebody who mistyped a name would answer a question they did not

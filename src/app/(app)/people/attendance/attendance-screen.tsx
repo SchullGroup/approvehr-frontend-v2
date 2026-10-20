@@ -220,7 +220,7 @@ export function AttendanceScreen() {
                 inline here and no longer is. Its own settings are reachable
                 from `AttendanceSettingsButton` in the header rather than a
                 second bar repeated inline here. */}
-            <MyClockCard />
+            <MyClockCard showFailure={false} />
 
             {/* Everybody clocks in above. Everybody else's day is a different
             question, and only a manager or `EDIT_RECORDS` gets to ask it —

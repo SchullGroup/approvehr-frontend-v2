@@ -28,6 +28,7 @@ import {
   DrawerSection,
   EmptyState,
   IconButton,
+  LoadState,
   ProgressMeter,
   StackedBar,
   SegmentedControl,
@@ -41,11 +42,11 @@ import {
   TR,
   TableWrap,
   TextLink,
+  useHasAnswered,
   useToast,
   type BadgeTone,
 } from "@/components/ui";
 import { DeclineDialog } from "@/components/portal/decline-dialog";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { daysLabel, type LeaveRow, type LeaveRowStatus } from "@/lib/api/leave";
@@ -194,6 +195,11 @@ export function LeaveScreen() {
        real one rather than the length of a page filtered afterwards. */
     ...(onlyMine && employeeId ? { employeeId } : {}),
   });
+
+  /* Whether the requests have answered once. The Everyone / Mine switch and the
+     sort change the request, and a screen that read that as "nothing yet" would
+     collapse to skeletons and take the control somebody is pressing with it. */
+  const answered = useHasAnswered(loading);
 
   /* An account with no employee record has no leave of its own, and must not be
      shown everybody else's as a consolation. */
@@ -407,12 +413,6 @@ export function LeaveScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <LoadFailure
-          subject="the leave requests"
-          error={error}
-          onRetry={reload}
-        />
-
         {noRecord && (
           <Callout tone="info" title="This account has no employee record">
             Leave belongs to a person on the payroll, and this sign-in is not
@@ -429,288 +429,299 @@ export function LeaveScreen() {
           />
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat
-            label="Waiting on a decision"
-            value={String(waiting.count)}
-            hint={
-              waiting.oldestDays !== null
-                ? `oldest ${daysLabel(waiting.oldestDays)}`
-                : undefined
-            }
-          />
-          <Stat
-            label="Away in the next month"
-            value={String(monthAhead.length)}
-            hint="approved, starting within 31 days"
-          />
-          {/* Not "Days approved" — read on a plain employee's own screen, that
+        {/* Everything from the counts down is a statement about the company's
+            leave, so none of it is said until the requests have answered. It
+            used to open on zero counts and "Nobody has booked leave yet" while
+            they were still on their way, and after a failure it showed the
+            failure callout *and then* "No leave booked yet" with a Book leave
+            button under it. */}
+        <LoadState
+          loading={loading}
+          error={error}
+          subject="the leave requests"
+          onRetry={reload}
+          hasData={answered}
+          className="flex flex-col gap-6"
+        >
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Stat
+              label="Waiting on a decision"
+              value={String(waiting.count)}
+              hint={
+                waiting.oldestDays !== null
+                  ? `oldest ${daysLabel(waiting.oldestDays)}`
+                  : undefined
+              }
+            />
+            <Stat
+              label="Away in the next month"
+              value={String(monthAhead.length)}
+              hint="approved, starting within 31 days"
+            />
+            {/* Not "Days approved" — read on a plain employee's own screen, that
               sounds like an action they took ("did I approve my own leave?"),
               when it is a fact about their leave: days of theirs an approver
               has signed off this year. "Taken" matches "Annual leave used" /
               "Annual days left" beside it, and cannot be misread either way. */}
-          <Stat label="Days taken this year" value={String(daysBooked)} />
-          <Stat
-            label="Annual leave used"
-            value={utilisation === null ? "—" : `${utilisation}%`}
-            trend={
-              utilisation !== null && utilisation < 50
-                ? { direction: "down", label: "Accruing liability" }
-                : undefined
-            }
-            hint="of entitlement, people shown below"
-          />
-        </div>
-
-        <Card className="min-w-0">
-          <CardHeader
-            title="Requests"
-            description={
-              sort === null
-                ? "Waiting first, then by start date."
-                : "In the order you asked for, across every request — not just this page."
-            }
-            action={
-              <div className="flex items-center gap-3">
-                {loading && (
-                  <span className="text-meta text-muted">Loading…</span>
-                )}
-                {/* Offered only to somebody who can see everybody's. For
-                      anyone else there is nothing to switch between. */}
-                {canDecide && (
-                  <SegmentedControl
-                    label="Whose leave to show"
-                    value={scope}
-                    onChange={setScope}
-                    options={[
-                      { value: "everyone", label: "Everyone" },
-                      { value: "mine", label: "Mine" },
-                    ]}
-                  />
-                )}
-              </div>
-            }
-          />
-          {requests.length === 0 && !loading ? (
-            <EmptyState
-              icon={<CalendarDays aria-hidden="true" />}
-              title={
-                onlyMine ? "You have no leave booked" : "No leave booked yet"
+            <Stat label="Days taken this year" value={String(daysBooked)} />
+            <Stat
+              label="Annual leave used"
+              value={utilisation === null ? "—" : `${utilisation}%`}
+              trend={
+                utilisation !== null && utilisation < 50
+                  ? { direction: "down", label: "Accruing liability" }
+                  : undefined
               }
-              description="Book leave and it appears here, and in the approvals inbox, straight away."
+              hint="of entitlement, people shown below"
+            />
+          </div>
+
+          <Card className="min-w-0">
+            <CardHeader
+              title="Requests"
+              description={
+                sort === null
+                  ? "Waiting first, then by start date."
+                  : "In the order you asked for, across every request — not just this page."
+              }
               action={
-                <Button
-                  variant="accent"
-                  size="sm"
-                  onClick={() => setBooking(true)}
-                >
-                  <Plus aria-hidden="true" className="size-4" />
-                  Book leave
-                </Button>
+                <div className="flex items-center gap-3">
+                  {/* Offered only to somebody who can see everybody's. For
+                      anyone else there is nothing to switch between. */}
+                  {canDecide && (
+                    <SegmentedControl
+                      label="Whose leave to show"
+                      value={scope}
+                      onChange={setScope}
+                      options={[
+                        { value: "everyone", label: "Everyone" },
+                        { value: "mine", label: "Mine" },
+                      ]}
+                    />
+                  )}
+                </div>
               }
             />
-          ) : (
-            <>
-              {/* Eight columns of a request — employee, type, dates, days,
+            {requests.length === 0 ? (
+              <EmptyState
+                icon={<CalendarDays aria-hidden="true" />}
+                title={
+                  onlyMine ? "You have no leave booked" : "No leave booked yet"
+                }
+                description="Book leave and it appears here, and in the approvals inbox, straight away."
+                action={
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => setBooking(true)}
+                  >
+                    <Plus aria-hidden="true" className="size-4" />
+                    Book leave
+                  </Button>
+                }
+              />
+            ) : (
+              <>
+                {/* Eight columns of a request — employee, type, dates, days,
                   approver, status, decision, open — is a lot to keep readable
                   under 375px, so below `sm` this becomes one card per request
                   instead of a table nobody can read a row of without scrolling
                   it sideways. Same data, same actions, same `requests` map —
                   never two competing reads of "what a request is". */}
-              <div className="hidden sm:block">
-                <TableWrap className="rounded-none border-0">
-                  <THead>
-                    <TH>Employee</TH>
-                    <TH>Type</TH>
-                    {/* `startDate` — the API's allow-list name, not the column's
+                <div className="hidden sm:block">
+                  <TableWrap className="rounded-none border-0">
+                    <THead>
+                      <TH>Employee</TH>
+                      <TH>Type</TH>
+                      {/* `startDate` — the API's allow-list name, not the column's
                         label. A name it does not recognise falls back to the queue,
                         which is a header that appears to do nothing. */}
-                    <SortableTH
-                      column="startDate"
-                      active={sort ?? ""}
-                      order={order}
-                      onSort={(column) => toggleSort(column, true)}
-                      startDescending
-                    >
-                      Dates
-                    </SortableTH>
-                    <SortableTH
-                      column="days"
-                      active={sort ?? ""}
-                      order={order}
-                      onSort={(column) => toggleSort(column, true)}
-                      align="right"
-                      startDescending
-                    >
-                      Days
-                    </SortableTH>
-                    <TH>Approver</TH>
-                    <SortableTH
-                      column="status"
-                      active={sort ?? ""}
-                      order={order}
-                      onSort={(column) => toggleSort(column)}
-                    >
-                      Status
-                    </SortableTH>
-                    <TH align="right">Decision</TH>
-                    <TH align="right">
-                      <span className="sr-only">Open</span>
-                    </TH>
-                  </THead>
-                  <TBody>
-                    {requests.map((r) => (
-                      <TR key={r.id}>
-                        <TDPrimary
-                          title={
-                            <TextLink href={`/people/${r.employeeId}`}>
-                              {r.employeeName}
-                            </TextLink>
-                          }
-                          subtitle={r.reason ?? r.decisionNote ?? undefined}
-                        />
-                        <TD>{r.leaveType}</TD>
-                        <TD className="tabular whitespace-nowrap">
-                          {r.from} → {r.to}
-                        </TD>
-                        <TD
-                          align="right"
-                          className="tabular font-medium text-ink"
-                        >
-                          {r.days}
-                        </TD>
-                        <TD>
-                          {r.decidedByName ? (
-                            <>
-                              {r.decidedByName}
-                              {r.decidedByJobTitle && (
-                                <span className="mt-0.5 block text-meta text-faint">
-                                  {r.decidedByJobTitle}
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            (r.approverName ?? "—")
+                      <SortableTH
+                        column="startDate"
+                        active={sort ?? ""}
+                        order={order}
+                        onSort={(column) => toggleSort(column, true)}
+                        startDescending
+                      >
+                        Dates
+                      </SortableTH>
+                      <SortableTH
+                        column="days"
+                        active={sort ?? ""}
+                        order={order}
+                        onSort={(column) => toggleSort(column, true)}
+                        align="right"
+                        startDescending
+                      >
+                        Days
+                      </SortableTH>
+                      <TH>Approver</TH>
+                      <SortableTH
+                        column="status"
+                        active={sort ?? ""}
+                        order={order}
+                        onSort={(column) => toggleSort(column)}
+                      >
+                        Status
+                      </SortableTH>
+                      <TH align="right">Decision</TH>
+                      <TH align="right">
+                        <span className="sr-only">Open</span>
+                      </TH>
+                    </THead>
+                    <TBody>
+                      {requests.map((r) => (
+                        <TR key={r.id}>
+                          <TDPrimary
+                            title={
+                              <TextLink href={`/people/${r.employeeId}`}>
+                                {r.employeeName}
+                              </TextLink>
+                            }
+                            subtitle={r.reason ?? r.decisionNote ?? undefined}
+                          />
+                          <TD>{r.leaveType}</TD>
+                          <TD className="tabular whitespace-nowrap">
+                            {r.from} → {r.to}
+                          </TD>
+                          <TD
+                            align="right"
+                            className="tabular font-medium text-ink"
+                          >
+                            {r.days}
+                          </TD>
+                          <TD>
+                            {r.decidedByName ? (
+                              <>
+                                {r.decidedByName}
+                                {r.decidedByJobTitle && (
+                                  <span className="mt-0.5 block text-meta text-faint">
+                                    {r.decidedByJobTitle}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              (r.approverName ?? "—")
+                            )}
+                          </TD>
+                          <TD>
+                            <Badge tone={STATUS[r.status].tone} size="sm" dot>
+                              {STATUS[r.status].label}
+                            </Badge>
+                            {r.decidedAt && r.status !== "pending" && (
+                              <span className="mt-0.5 block text-meta text-faint">
+                                {shortDate(r.decidedAt)}
+                              </span>
+                            )}
+                          </TD>
+                          <TD align="right">
+                            <RowActions
+                              request={r}
+                              actions={actionsFor(r)}
+                              onApprove={approve}
+                              onSendBack={setDeclining}
+                              onUndo={undo}
+                              className="justify-end"
+                              empty={
+                                <span className="text-meta text-faint">—</span>
+                              }
+                            />
+                          </TD>
+                          <TD align="right">
+                            <IconButton
+                              label={`Open ${r.employeeName}'s ${r.leaveType} request`}
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setOpenId(r.id)}
+                            >
+                              <ChevronRight
+                                aria-hidden="true"
+                                className="size-4"
+                              />
+                            </IconButton>
+                          </TD>
+                        </TR>
+                      ))}
+                    </TBody>
+                  </TableWrap>
+                </div>
+
+                <ul className="divide-y divide-line sm:hidden">
+                  {requests.map((r) => (
+                    <li key={r.id} className="flex flex-col gap-2 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <TextLink href={`/people/${r.employeeId}`}>
+                            {r.employeeName}
+                          </TextLink>
+                          {(r.reason ?? r.decisionNote) && (
+                            <p className="mt-0.5 text-body-sm text-muted">
+                              {r.reason ?? r.decisionNote}
+                            </p>
                           )}
-                        </TD>
-                        <TD>
+                        </div>
+                        <IconButton
+                          label={`Open ${r.employeeName}'s ${r.leaveType} request`}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setOpenId(r.id)}
+                        >
+                          <ChevronRight aria-hidden="true" className="size-4" />
+                        </IconButton>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                        <span>{r.leaveType}</span>
+                        <span className="tabular whitespace-nowrap">
+                          {r.from} → {r.to}
+                        </span>
+                        <span className="tabular">{daysLabel(r.days)}</span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
                           <Badge tone={STATUS[r.status].tone} size="sm" dot>
                             {STATUS[r.status].label}
                           </Badge>
                           {r.decidedAt && r.status !== "pending" && (
-                            <span className="mt-0.5 block text-meta text-faint">
+                            <span className="ml-2 text-meta text-faint">
                               {shortDate(r.decidedAt)}
                             </span>
                           )}
-                        </TD>
-                        <TD align="right">
-                          <RowActions
-                            request={r}
-                            actions={actionsFor(r)}
-                            onApprove={approve}
-                            onSendBack={setDeclining}
-                            onUndo={undo}
-                            className="justify-end"
-                            empty={
-                              <span className="text-meta text-faint">—</span>
-                            }
-                          />
-                        </TD>
-                        <TD align="right">
-                          <IconButton
-                            label={`Open ${r.employeeName}'s ${r.leaveType} request`}
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setOpenId(r.id)}
-                          >
-                            <ChevronRight
-                              aria-hidden="true"
-                              className="size-4"
-                            />
-                          </IconButton>
-                        </TD>
-                      </TR>
-                    ))}
-                  </TBody>
-                </TableWrap>
-              </div>
-
-              <ul className="divide-y divide-line sm:hidden">
-                {requests.map((r) => (
-                  <li key={r.id} className="flex flex-col gap-2 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <TextLink href={`/people/${r.employeeId}`}>
-                          {r.employeeName}
-                        </TextLink>
-                        {(r.reason ?? r.decisionNote) && (
-                          <p className="mt-0.5 text-body-sm text-muted">
-                            {r.reason ?? r.decisionNote}
-                          </p>
-                        )}
+                        </div>
+                        <RowActions
+                          request={r}
+                          actions={actionsFor(r)}
+                          onApprove={approve}
+                          onSendBack={setDeclining}
+                          onUndo={undo}
+                        />
                       </div>
-                      <IconButton
-                        label={`Open ${r.employeeName}'s ${r.leaveType} request`}
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setOpenId(r.id)}
-                      >
-                        <ChevronRight aria-hidden="true" className="size-4" />
-                      </IconButton>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
-                      <span>{r.leaveType}</span>
-                      <span className="tabular whitespace-nowrap">
-                        {r.from} → {r.to}
-                      </span>
-                      <span className="tabular">{daysLabel(r.days)}</span>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <Badge tone={STATUS[r.status].tone} size="sm" dot>
-                          {STATUS[r.status].label}
-                        </Badge>
-                        {r.decidedAt && r.status !== "pending" && (
-                          <span className="ml-2 text-meta text-faint">
-                            {shortDate(r.decidedAt)}
-                          </span>
-                        )}
-                      </div>
-                      <RowActions
-                        request={r}
-                        actions={actionsFor(r)}
-                        onApprove={approve}
-                        onSendBack={setDeclining}
-                        onUndo={undo}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-          {/* The API caps a page at 200 requests. Saying so beats a total
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {/* The API caps a page at 200 requests. Saying so beats a total
                 that quietly disagrees with the rows above it. Skipped for a
                 signed-in account with no employee record: the callout above
                 already explains why the table is empty, and `total` there
                 describes everybody's requests, not this account's. */}
-          {!noRecord && total > requests.length && (
-            <CardFooter>
-              <p className="text-body-sm text-muted">
-                The first {requests.length} of {total} requests are shown, and
-                the figures above cover those.
-              </p>
-            </CardFooter>
-          )}
-        </Card>
+            {!noRecord && total > requests.length && (
+              <CardFooter>
+                <p className="text-body-sm text-muted">
+                  The first {requests.length} of {total} requests are shown, and
+                  the figures above cover those.
+                </p>
+              </CardFooter>
+            )}
+          </Card>
 
-        <Card>
-          <CardHeader
-            title="Annual leave left"
-            description="Pending days are already held back."
-            /* The number on this card is a company setting — `entitledDays` on
+          <Card>
+            <CardHeader
+              title="Annual leave left"
+              description="Pending days are already held back."
+              /* The number on this card is a company setting — `entitledDays` on
                the leave type — and until now nothing on the screen said so.
                Somebody looking at "20 left" and wondering where 20 came from
                had to already know `/settings/leave` exists.
@@ -719,47 +730,47 @@ export function LeaveScreen() {
                from the screen where somebody reads it. Behind `MANAGE_SETTINGS`
                because the API is: an employee reading their own balance is not
                being kept from anything they could act on. */
-            action={
-              canManageSettings ? (
-                <ButtonLink href="/settings/leave" variant="ghost" size="sm">
-                  Set the entitlements
-                </ButtonLink>
-              ) : undefined
-            }
-          />
-          <CardBody className="grid gap-x-8 gap-y-3.5 sm:grid-cols-2 lg:grid-cols-3">
-            {balances.loading && (
-              <p className="text-body-sm text-muted">Loading balances…</p>
-            )}
-            {shown.length === 0 && !balances.loading && (
-              <p className="text-body-sm text-muted">
-                {onlyMine
-                  ? "You have not booked any annual leave yet."
-                  : "Nobody has booked leave yet."}
-              </p>
-            )}
-            {shown.map((person) => {
-              const balance = balances.of(person.id);
-              if (!balance) return null;
-              return (
-                <div key={person.id}>
-                  <div className="mb-1 flex items-baseline justify-between gap-2">
-                    <span className="truncate text-body-sm text-body">
-                      {person.name}
-                    </span>
-                    <span
-                      className={cn(
-                        "tabular shrink-0 text-meta",
-                        balance.remaining <= 3
-                          ? "text-warning-text"
-                          : "text-muted",
-                      )}
-                    >
-                      {balance.remaining} left
-                      {balance.pending > 0 && ` · ${balance.pending} pending`}
-                    </span>
-                  </div>
-                  {/* Taken **and** pending, on one track.
+              action={
+                canManageSettings ? (
+                  <ButtonLink href="/settings/leave" variant="ghost" size="sm">
+                    Set the entitlements
+                  </ButtonLink>
+                ) : undefined
+              }
+            />
+            <CardBody className="grid gap-x-8 gap-y-3.5 sm:grid-cols-2 lg:grid-cols-3">
+              {balances.loading && (
+                <p className="text-body-sm text-muted">Loading balances…</p>
+              )}
+              {shown.length === 0 && !balances.loading && (
+                <p className="text-body-sm text-muted">
+                  {onlyMine
+                    ? "You have not booked any annual leave yet."
+                    : "Nobody has booked leave yet."}
+                </p>
+              )}
+              {shown.map((person) => {
+                const balance = balances.of(person.id);
+                if (!balance) return null;
+                return (
+                  <div key={person.id}>
+                    <div className="mb-1 flex items-baseline justify-between gap-2">
+                      <span className="truncate text-body-sm text-body">
+                        {person.name}
+                      </span>
+                      <span
+                        className={cn(
+                          "tabular shrink-0 text-meta",
+                          balance.remaining <= 3
+                            ? "text-warning-text"
+                            : "text-muted",
+                        )}
+                      >
+                        {balance.remaining} left
+                        {balance.pending > 0 && ` · ${balance.pending} pending`}
+                      </span>
+                    </div>
+                    {/* Taken **and** pending, on one track.
                       ------------------------------------
                       A `ProgressMeter` filled by `taken` alone said 12 of 20
                       while three more days were already held back — the bar and
@@ -775,32 +786,33 @@ export function LeaveScreen() {
                       `remaining` genuinely goes negative when somebody is
                       approved beyond their entitlement, and this screen already
                       has the sentence for it. */}
-                  <StackedBar
-                    total={balance.entitled}
-                    format={(n) => `${String(n)}`}
-                    segments={[
-                      {
-                        label: "Taken",
-                        value: balance.taken,
-                        color: "var(--color-accent)",
-                      },
-                      ...(balance.pending > 0
-                        ? [
-                            {
-                              label: "Pending",
-                              value: balance.pending,
-                              color: "var(--color-warning)",
-                            },
-                          ]
-                        : []),
-                    ]}
-                    caption={`${person.name}: ${String(balance.taken)} days taken, ${String(balance.pending)} pending, of ${String(balance.entitled)} entitled.`}
-                  />
-                </div>
-              );
-            })}
-          </CardBody>
-        </Card>
+                    <StackedBar
+                      total={balance.entitled}
+                      format={(n) => `${String(n)}`}
+                      segments={[
+                        {
+                          label: "Taken",
+                          value: balance.taken,
+                          color: "var(--color-accent)",
+                        },
+                        ...(balance.pending > 0
+                          ? [
+                              {
+                                label: "Pending",
+                                value: balance.pending,
+                                color: "var(--color-warning)",
+                              },
+                            ]
+                          : []),
+                      ]}
+                      caption={`${person.name}: ${String(balance.taken)} days taken, ${String(balance.pending)} pending, of ${String(balance.entitled)} entitled.`}
+                    />
+                  </div>
+                );
+              })}
+            </CardBody>
+          </Card>
+        </LoadState>
 
         {/* Full width rather than in the 340px column it used to hold a
             four-line list in: twelve months do not fit in a rail, and the reason

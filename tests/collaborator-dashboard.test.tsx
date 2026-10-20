@@ -59,7 +59,7 @@ describe("the dashboard, for a collaborator", () => {
     state.collaborator = true;
     render(<DashboardScreen />);
     expect(replace).toHaveBeenCalledWith("/hiring/my-interviews");
-    expect(screen.getByText("Loading your day…")).toBeInTheDocument();
+    expect(screen.getByText("Loading your day")).toBeInTheDocument();
     expect(screen.queryByText(/did not load/)).not.toBeInTheDocument();
   });
 

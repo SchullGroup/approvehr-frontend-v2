@@ -15,6 +15,7 @@ import {
   EmptyState,
   Field,
   FilterBar,
+  LoadState,
   Money,
   Pagination,
   SegmentedControl,
@@ -28,6 +29,7 @@ import {
   THead,
   TR,
   TableWrap,
+  loadPhase,
   type AppliedFilter,
   type BadgeTone,
 } from "@/components/ui";
@@ -129,7 +131,9 @@ export function PayslipRoute() {
 
   if (loading) {
     return (
-      <p className="px-1 text-body-sm text-muted">Finding your payslips…</p>
+      <LoadState loading error={null} subject="your payslips" skeleton="page">
+        {null}
+      </LoadState>
     );
   }
 
@@ -141,7 +145,8 @@ export function PayslipRoute() {
 }
 
 function PayslipIndex() {
-  const { runs, loading, error, connected } = usePayrollRuns();
+  const runsState = usePayrollRuns();
+  const { runs, loading, error, connected } = runsState;
   /* Both, matching the API's own gate exactly. `EXPORT_DATA` alone gets the
      staff register; a payslip file is money and needs the money permission
      too. */
@@ -217,7 +222,27 @@ function PayslipIndex() {
       : []),
   ];
 
-  if (!loading && runs.length === 0) {
+  /* The read that says which months exist. Until it has answered there is no
+     run to ask about, and `page` below is idle — so "nothing here" would be the
+     answer to a question nobody had asked yet. After a failure the same
+     emptiness would carry a Run payroll button. Neither is said. */
+  const { reload } = runsState;
+  const phase = loadPhase({ loading, error, hasData: runs.length > 0 });
+  if (phase !== "ready") {
+    return (
+      <LoadState
+        loading={loading}
+        error={error}
+        subject="the payslips"
+        onRetry={reload}
+        hasData={runs.length > 0}
+      >
+        {null}
+      </LoadState>
+    );
+  }
+
+  if (runs.length === 0) {
     return (
       <div className="flex flex-col gap-6">
         <SourceBadge connected={connected} loading={loading} error={error} />
@@ -255,7 +280,11 @@ function PayslipIndex() {
       />
 
       {(error ?? page.error) && (
-        <LoadFailure subject="payslips" error={(error ?? page.error)!} />
+        <LoadFailure
+          subject="payslips"
+          error={(error ?? page.error)!}
+          onRetry={page.error ? page.reload : reload}
+        />
       )}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
@@ -422,7 +451,7 @@ function PayslipIndex() {
           />
         </CardBody>
 
-        {page.payslips.length === 0 && !page.loading ? (
+        {page.error ? null : page.payslips.length === 0 && !page.loading ? (
           <EmptyState
             compact
             icon={<Mail aria-hidden="true" />}
