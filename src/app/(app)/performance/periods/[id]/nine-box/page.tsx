@@ -4,7 +4,7 @@ import { NineBoxScreen } from "./nine-box-screen";
 export const metadata: Metadata = {
   title: "Nine-box",
   description:
-    "Performance against potential for one appraisal period, with everybody the grid cannot place named rather than assumed.",
+    "Performance against potential for one appraisal period, with anyone the grid cannot place listed by name.",
 };
 
 /**

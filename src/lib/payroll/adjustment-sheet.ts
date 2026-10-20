@@ -101,31 +101,31 @@ export const CARRIES_ALL: SheetCarries = { overtime: true, bonus: true };
 export const SHEET_COLUMNS: readonly SheetColumn[] = [
   {
     key: "staff_no",
-    heading: "staff_no",
+    heading: "Staff number",
     note: "Who the row is about. Do not change it: it is how the upload finds them.",
     entered: false,
   },
   {
     key: "name",
-    heading: "name",
+    heading: "Name",
     note: "For reading. Not read back.",
     entered: false,
   },
   {
     key: "email",
-    heading: "email",
+    heading: "Work email",
     note: "For reading. Not read back.",
     entered: false,
   },
   {
     key: "phone",
-    heading: "phone",
+    heading: "Phone number",
     note: "For reading. Not read back.",
     entered: false,
   },
   {
     key: "department",
-    heading: "department",
+    heading: "Department",
     note: "For reading. Not read back.",
     entered: false,
   },
@@ -143,13 +143,13 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
      BLOCKER on the run, and this is the column that finds those people. */
   {
     key: "bank_account",
-    heading: "bank_account",
+    heading: "Bank account on file",
     note: "Whether an account is on file. Not read back.",
     entered: false,
   },
   {
     key: "monthly_salary",
-    heading: "monthly_salary",
+    heading: "Monthly pay (gross)",
     note:
       "Naira. Changes their record from now on, not just this payroll. " +
       "Leaving it blank changes nothing: there is no such thing as no salary.",
@@ -157,7 +157,7 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
   },
   {
     key: "overtime_hours",
-    heading: "overtime_hours",
+    heading: "Overtime hours",
     note:
       "Hours only. The rate is the company's own weekday rate, worked out from " +
       "their salary. Empty this cell to take hand-entered overtime off.",
@@ -166,7 +166,7 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
   },
   {
     key: "bonus",
-    heading: "bonus",
+    heading: "Bonus",
     note:
       `Naira, this month only. Empty this cell to take a bonus off. If this ` +
       `shows "${AMBIGUOUS_LINES_MARKER}", this person has more than one bonus: ` +
@@ -176,14 +176,14 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
   },
   {
     key: "bonus_reason",
-    heading: "bonus_reason",
+    heading: "Bonus reason",
     note: "What the bonus is for. Optional: the bonus still saves without one.",
     entered: true,
     needs: "bonus",
   },
   {
     key: "deduction",
-    heading: "deduction",
+    heading: "Deduction",
     note:
       "Naira, this month only. A staff purchase, a damaged tool, a salary " +
       "advance settled outside the loans module — not a statutory deduction, " +
@@ -194,13 +194,13 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
   },
   {
     key: "deduction_reason",
-    heading: "deduction_reason",
+    heading: "Deduction reason",
     note: "What the deduction is for. Optional, and worth filling in: an unexplained deduction is the line an employee asks about first.",
     entered: true,
   },
   {
     key: "paye_tax",
-    heading: "paye_tax",
+    heading: "PAYE tax",
     note:
       "Naira. Only fill this in to override the tax the system worked out. " +
       "Empty this cell to go back to the computed figure.",
@@ -208,7 +208,7 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
   },
   {
     key: "pension",
-    heading: "pension",
+    heading: "Pension",
     note:
       "Naira, this month only. Fill this in to deduct a different amount from " +
       "this person: 0 deducts nothing from them. That is not the same as your " +
@@ -218,7 +218,7 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
   },
   {
     key: "nhf",
-    heading: "nhf",
+    heading: "NHF",
     note:
       "Naira, this month only. Same rule as pension: 0 deducts nothing from " +
       "this person, and emptying the cell goes back to the computed figure.",
@@ -259,7 +259,7 @@ export function sheetColumnsFor(
 export const SHEET_BLANK_RULE =
   "This sheet comes filled in with what is on the payroll now. Emptying a cell " +
   "takes that figure off; deleting a whole column leaves it alone. Monthly " +
-  "salary is the exception: an empty cell there changes nothing.";
+  "pay is the exception: an empty cell there changes nothing.";
 
 export const SHEET_LEGEND: readonly string[] = [
   SHEET_BLANK_RULE,
@@ -383,7 +383,10 @@ export function buildSheet(
   const sheets: SheetSpec[] = [
     {
       name: "Payroll",
-      rows: [headings, ...rows.map((row) => headings.map((h) => row[h] ?? ""))],
+      rows: [
+        headings,
+        ...rows.map((row) => columns.map((c) => row[c.key] ?? "")),
+      ],
       boldRows: [0],
       freezeFirstRow: true,
       widths: headings.map((h) => Math.min(34, Math.max(14, h.length + 4))),
@@ -396,7 +399,12 @@ export function buildSheet(
   ];
 
   return {
-    csv: toCsv(headings, rows),
+    csv: toCsv(
+      headings,
+      rows.map((row) =>
+        Object.fromEntries(columns.map((c) => [c.heading, row[c.key] ?? ""])),
+      ),
+    ),
     xlsx: writeXlsx(sheets),
     csvFilename: `${basename}.csv`,
     xlsxFilename: `${basename}.xlsx`,
@@ -435,6 +443,31 @@ export type ParsedRow = {
 };
 
 export type SheetProblem = { row: number; column: string; problem: string };
+
+/**
+ * What a column is called on the sheet, for a message a person reads.
+ *
+ * Keys are how this file and the API refer to a column — `staff_no`,
+ * `overtime_hours` — and they are stable on purpose: the API echoes them back in
+ * its refusals and writes them into the audit trail. They are not words. Anything
+ * that reaches a screen goes through here, and a key this file does not know
+ * (the API adds a column before this does) is shown as it came rather than
+ * hidden.
+ */
+export function headingOf(key: string): string {
+  return SHEET_COLUMNS.find((column) => column.key === key)?.heading ?? key;
+}
+
+/** The figures a file can carry, in the order a message names them. */
+const READ_BACK_KEYS = [
+  "monthly_salary",
+  "overtime_hours",
+  "bonus",
+  "deduction",
+  "paye_tax",
+  "pension",
+  "nhf",
+] as const;
 
 export type ParsedSheet = {
   rows: readonly ParsedRow[];
@@ -509,11 +542,19 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
     );
   }
 
+  /* A sheet downloaded before the headings were reworded still says `staff_no`,
+     one downloaded since says "Staff number", and both are the same column: each
+     is looked up by what it normalises to, and the key is the answer either way. */
+  const keyOf = new Map<string, string>();
+  for (const c of SHEET_COLUMNS) {
+    keyOf.set(normalise(c.key), c.key);
+    keyOf.set(normalise(c.heading), c.key);
+  }
   const index = new Map<string, number>();
   const ignored: string[] = [];
   headings.forEach((heading, at) => {
-    const key = normalise(heading);
-    if (SHEET_COLUMNS.some((c) => c.key === key)) index.set(key, at);
+    const key = keyOf.get(normalise(heading));
+    if (key !== undefined) index.set(key, at);
     else if (heading.trim() !== "") ignored.push(heading);
   });
 
@@ -523,8 +564,9 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
       row: 0,
       column: "staff_no",
       problem:
-        "That file has no staff_no column, so there is no way to tell whose " +
-        "figures are whose. Download the sheet again and fill that one in.",
+        `That file has no ${headingOf("staff_no")} column, so there is no way ` +
+        "to tell whose figures are whose. Download the sheet again and fill " +
+        "that one in.",
     });
     return { rows: [], problems, ignored, carried: [] };
   }
@@ -537,9 +579,10 @@ export async function parseSheet(file: File): Promise<ParsedSheet> {
       row: 0,
       column: "monthly_salary",
       problem:
-        "That file has none of the columns this reads: monthly_salary, " +
-        "overtime_hours, bonus, deduction, paye_tax, pension or nhf. Nothing " +
-        "in it can be applied.",
+        "That file has none of the columns this reads: " +
+        `${READ_BACK_KEYS.slice(0, -1).map(headingOf).join(", ")} or ` +
+        `${headingOf(READ_BACK_KEYS[READ_BACK_KEYS.length - 1] ?? "")}. ` +
+        "Nothing in it can be applied.",
     });
     return { rows: [], problems, ignored, carried };
   }

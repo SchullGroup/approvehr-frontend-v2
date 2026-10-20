@@ -1,6 +1,7 @@
 "use client";
 
 import { askAi2Stream, type Ai2Event, type Ai2Message } from "@/lib/api/ai2";
+import type { ApiProposedAction } from "@/lib/api/ai";
 
 /**
  * One streamed turn, as a thing a store can await. Shared by the assistant
@@ -36,9 +37,11 @@ export type Live = {
 
 export const EMPTY_LIVE: Live = { text: "", steps: [], usage: null };
 
-/** How a turn ended. Exactly one of `text` and `declined` is set. */
+/** How a turn ended. Exactly one of `text`, `proposed` and `declined` is set. */
 export type TurnResult = {
   text: string | null;
+  /** A change the person can confirm. Nothing has happened yet. */
+  proposed: ApiProposedAction | null;
   declined: string | null;
   steps: Step[];
   usage: Usage | null;
@@ -61,6 +64,7 @@ export async function runAi2Turn(
   let text = "";
   let steps: Step[] = [];
   let answered: string | null = null;
+  let proposed: ApiProposedAction | null = null;
   let declined: string | null = null;
   let usage: Usage | null = null;
 
@@ -120,6 +124,19 @@ export async function runAi2Turn(
         publish();
         return;
 
+      case "proposed":
+        /* Whatever prose was streaming was the model talking its way towards
+           this; the card describes the change from real rows, so the draft
+           goes. */
+        proposed = {
+          action: event.action,
+          args: event.args,
+          proposal: event.proposal,
+        };
+        text = "";
+        publish();
+        return;
+
       case "usage":
         usage = {
           promptTokens: event.promptTokens,
@@ -139,6 +156,7 @@ export async function runAi2Turn(
 
   return {
     text: answered !== null && answered !== "" ? answered : null,
+    proposed,
     declined,
     steps,
     usage,

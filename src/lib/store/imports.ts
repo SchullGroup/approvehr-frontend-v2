@@ -17,13 +17,13 @@ import {
 import {
   downloadCsv,
   fileFromRecords,
-  parseCsv,
   toCsv,
   type CsvFile,
   type CsvRow,
 } from "@/lib/csv";
 import { checkMappedRows } from "@/lib/imports/check";
 import { EMPLOYEES, MAX_ROWS_PER_BATCH } from "@/lib/imports/employees";
+import { readImportFile } from "@/lib/imports/read-file";
 import {
   guessMapping,
   ignoredHeadings,
@@ -37,9 +37,11 @@ import {
   buildTemplateFiles,
   columnsFromApi,
   columnsFromDictionary,
+  withLists,
   type TemplateColumn,
+  type TemplateLists,
 } from "@/lib/imports/template-file";
-import { downloadXlsx, isXlsxName, readXlsx } from "@/lib/xlsx";
+import { downloadXlsx } from "@/lib/xlsx";
 import { useOrgTimezone, useSession } from "./session";
 import { useRevalidation } from "@/lib/revalidate";
 
@@ -408,7 +410,28 @@ const messageOf = (error: unknown): string =>
 
 /* --------------------------------------------------------------------- hook */
 
-export function useImport(dictionary: Dictionary<string>, allowed?: boolean) {
+/**
+ * What an entity with no live lists passes: nothing to add, nothing to wait for.
+ * A module constant so the default is the same object on every render.
+ */
+const NO_TEMPLATE_LISTS = { lists: {}, ready: true } as const;
+
+export function useImport(
+  dictionary: Dictionary<string>,
+  allowed?: boolean,
+  templateLists: {
+    /** Lists that belong to this company, by dictionary field. */
+    lists: TemplateLists;
+    /**
+     * False until every list has answered, one way or the other.
+     *
+     * A template downloaded in that gap would have no dropdown where the company
+     * has departments, and nothing on screen would say so — a file that looks
+     * finished and is missing the half that stops the typo.
+     */
+    ready: boolean;
+  } = NO_TEMPLATE_LISTS,
+) {
   const { isConnected, can } = useSession();
   const timeZone = useOrgTimezone();
   /**
@@ -589,74 +612,14 @@ export function useImport(dictionary: Dictionary<string>, allowed?: boolean) {
       setSelection(null);
       mapped.current = [];
 
-      if (chosen.size > 25_000_000) {
-        setError(
-          "That file is bigger than 25MB. Split it in two and import each half: each one reports its own numbers.",
-        );
+      /* The reading, and every refusal in it, is `readImportFile` — the window
+         that adds several records by hand reads files the same way. */
+      const read = await readImportFile(chosen);
+      if (!read.ok) {
+        setError(read.message);
         return false;
       }
-
-      /* The older binary formats, and the two that are not spreadsheets we can
-       open. `.xls` is a completely different container from `.xlsx` and `.numbers`
-       is a package; both convert in one menu item, and the message says which. */
-      if (/\.(xls|xlsm|xlsb|numbers|ods)$/i.test(chosen.name)) {
-        setError(
-          "We can read .xlsx and .csv. In Excel or Numbers: File, then Save As or Export, and choose Excel Workbook (.xlsx) or CSV, then upload that.",
-        );
-        return false;
-      }
-
-      let csv: CsvFile;
-      if (isXlsxName(chosen.name)) {
-        /* An Excel file, which is what our own template hands them. Reading it is
-         not a nicety: offering a .xlsx template and then refusing .xlsx uploads
-         would be a trap of our own making. */
-        try {
-          const workbook = await readXlsx(await chosen.arrayBuffer());
-          /* The first sheet with more than a heading row in it. A workbook whose
-           first tab is a cover note is common, and so is our own template's
-           second tab — picking sheet one blindly imports the guide. */
-          const useful =
-            workbook.sheets.find((sheet) => sheet.grid.length > 1) ??
-            workbook.sheets[0];
-          if (!useful) {
-            setError("There are no sheets in that workbook.");
-            return false;
-          }
-          const notes = [...workbook.notes];
-          if (workbook.sheets.length > 1) {
-            notes.push(
-              `That workbook has ${workbook.sheets.length} sheets. We read "${useful.name}", the first one with rows in it.`,
-            );
-          }
-          csv = fileFromRecords(useful.grid, { notes });
-        } catch {
-          setError(
-            "That .xlsx could not be opened. If it came from another system, open it in Excel and save it again, or save it as CSV and upload that.",
-          );
-          return false;
-        }
-      } else {
-        let text: string;
-        try {
-          text = await chosen.text();
-        } catch {
-          setError("That file could not be read. Try saving it again as CSV.");
-          return false;
-        }
-        csv = parseCsv(text);
-      }
-
-      if (csv.headers.length === 0) {
-        setError("That file is empty: there is no heading row in it.");
-        return false;
-      }
-      if (csv.rows.length === 0) {
-        setError(
-          "That file has headings but nobody in it. Check you saved the sheet the data is on.",
-        );
-        return false;
-      }
+      const { csv } = read;
 
       setFile({ name: chosen.name, size: chosen.size, csv });
       setMapping(guessMapping(dictionary, csv.headers));
@@ -1107,10 +1070,15 @@ export function useImport(dictionary: Dictionary<string>, allowed?: boolean) {
    * legend and one example row. Two builders would drift, and the file a
    * customer fills in is the last place that can afford to.
    */
+  const { lists: liveLists, ready: templateReady } = templateLists;
   const templateColumns = useCallback((): TemplateColumn[] => {
-    if (!template) return columnsFromDictionary(dictionary);
-    return columnsFromApi(template.columns, dictionary);
-  }, [dictionary, template]);
+    const columns = template
+      ? columnsFromApi(template.columns, dictionary)
+      : columnsFromDictionary(dictionary);
+    /* The company's own lists go in last, so they are what the file carries
+       and not something the API's copy of the dictionary could have known. */
+    return withLists(columns, dictionary, liveLists);
+  }, [dictionary, template, liveLists]);
 
   const downloadTemplate = useCallback(
     (format: "csv" | "xlsx" = "xlsx") => {
@@ -1245,6 +1213,8 @@ export function useImport(dictionary: Dictionary<string>, allowed?: boolean) {
     decideAll,
     seedDecisions,
     downloadTemplate,
+    /** False while the company's own lists are still on their way. */
+    templateReady,
     downloadRowsToFix,
     downloadNotImported,
     dismissError: useCallback(() => setError(null), []),

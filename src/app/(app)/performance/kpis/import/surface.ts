@@ -1,18 +1,19 @@
 import { OBJECTIVES } from "@/lib/imports/objectives";
 import type { ImportSurface } from "@/lib/imports/surface";
 import { useCanUploadObjectives } from "./access";
+import { useObjectiveTemplateLists } from "./lists";
 
 /**
  * What the import screen says when the thing being imported is an objective.
  *
- * The only objectives-specific file in this route besides the access rule. The
- * dictionary (`lib/imports/objectives.ts`) is the data contract; this is the
- * copy — the page title, where the objectives are once they are in, and where the
- * things a row can name get made.
+ * The only objectives-specific files in this route besides the access rule and
+ * the template lists. The dictionary (`lib/imports/objectives.ts`) is the data
+ * contract; this is the copy — the page title, where the objectives are once
+ * they are in, and where the things a row can name get made.
  *
  * `prerequisites` is keyed by the `missing` keys the API returns: `people`,
- * `departments` and `parents`. Parents have no screen of their own — a parent is
- * an objective, so the link is the KPIs screen where one is added.
+ * `departments`, `periods` and `parents`. Parents have no screen of their own —
+ * a parent is an objective, so the link is the KPIs screen where one is added.
  */
 export const OBJECTIVES_IMPORT_SURFACE: ImportSurface = {
   dictionary: OBJECTIVES,
@@ -23,6 +24,7 @@ export const OBJECTIVES_IMPORT_SURFACE: ImportSurface = {
   ],
   home: { href: "/performance/kpis", label: "See the objectives" },
   useAccess: useCanUploadObjectives,
+  useTemplateLists: useObjectiveTemplateLists,
   noAccess: {
     title: "Uploading objectives is for people who lead a team",
     description:
@@ -30,15 +32,22 @@ export const OBJECTIVES_IMPORT_SURFACE: ImportSurface = {
   },
   prerequisites: {
     people: {
-      title: "Some owner emails match nobody",
+      title: "Some work emails match nobody on your staff list",
       consequence:
-        "will be skipped. The owner has to be on your staff list, by work email.",
+        "will be skipped. The person an objective is assigned to has to be on your staff list, by work email.",
       action: { href: "/people", label: "Check your staff list" },
     },
     departments: {
       title: "Some departments do not exist yet",
       consequence: "will be skipped until they exist.",
       action: { href: "/people/departments", label: "Add the departments" },
+    },
+    /* No link: a department head, who is who this screen is for, cannot make a
+       period, and the Periods tab is not theirs to open. Naming it is the help. */
+    periods: {
+      title: "Some appraisal periods do not exist",
+      consequence:
+        "will be skipped. Name a period that is still open, or leave the cell blank — whoever runs appraisals can tell you what they are called.",
     },
     parents: {
       title: "Some parent objectives do not exist yet",

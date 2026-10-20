@@ -28,6 +28,7 @@ import {
   reverseHeadings,
 } from "../src/lib/imports/mapping";
 import { EMPLOYEES } from "../src/lib/imports/employees";
+import { normalizeKey } from "../src/lib/imports/spec";
 import {
   checkMappedRows,
   parseImportDate,
@@ -280,6 +281,24 @@ eq(
   "₦162,632.00",
 );
 
+/* The engine keys every mapped row by the dictionary's own heading, and those
+   are plain words now ("First name", "Monthly pay (gross)"). The rows below are
+   written with the snake_case names this file has always used, so each is
+   re-keyed through the dictionary's own lookup before it is checked — the same
+   way a file downloaded under the old headings is read. Which heading a field
+   has is then the dictionary's business and not a string repeated here. */
+const H = EMPLOYEES.heading;
+const asMapped = (
+  row: Record<string, string | undefined>,
+): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(row).flatMap(([key, value]) => {
+      if (value === undefined) return [];
+      const field = EMPLOYEES.lookup.get(normalizeKey(key))?.field;
+      return [[field === undefined ? key : EMPLOYEES.heading[field], value]];
+    }),
+  );
+
 /* --- Column matching ---------------------------------------------------- */
 
 const guessed = guessMapping(EMPLOYEES, [
@@ -330,18 +349,18 @@ eq(
     { employee_id: " EMP-1 ", salary: "162,632.00", favourite_food: "jollof" },
     guessed,
   ),
-  { employee_no: "EMP-1", gross_monthly: "162,632.00" },
+  asMapped({ employee_no: "EMP-1", gross_monthly: "162,632.00" }),
 );
 
 eq(
   "an empty cell is left out of the payload entirely",
   mapRow(EMPLOYEES, { employee_id: "EMP-1", salary: "   " }, guessed),
-  { employee_no: "EMP-1" },
+  asMapped({ employee_no: "EMP-1" }),
 );
 
 eq(
   "and the file's own heading can be found again from ours",
-  reverseHeadings(EMPLOYEES, guessed)["gross_monthly"],
+  reverseHeadings(EMPLOYEES, guessed)[H.grossMonthly],
   "salary",
 );
 
@@ -471,7 +490,7 @@ const report = checkMappedRows(
       start_date: "2019-01-15",
       gross_monthly: "90000",
     },
-  ],
+  ].map(asMapped),
   { presentFields: present, timeZone: "Africa/Lagos" },
 );
 
@@ -488,7 +507,7 @@ eq(
 );
 eq(
   "the impossible birthday is reported against its own column",
-  report.rows[1]?.errors.some((issue) => issue.column === "date_of_birth"),
+  report.rows[1]?.errors.some((issue) => issue.column === H.dateOfBirth),
   true,
 );
 eq(
@@ -520,14 +539,18 @@ eq(
   [1, 2, 3],
 );
 
-const noColumn = checkMappedRows(EMPLOYEES, [{ first_name: "Ngozi" }], {
-  presentFields: new Set(["firstName"] as const),
-  timeZone: "Africa/Lagos",
-});
+const noColumn = checkMappedRows(
+  EMPLOYEES,
+  [asMapped({ first_name: "Ngozi" })],
+  {
+    presentFields: new Set(["firstName"] as const),
+    timeZone: "Africa/Lagos",
+  },
+);
 eq(
   "a required column the file does not have says so instead of blaming the cell",
   noColumn.rows[0]?.errors.some((issue) =>
-    issue.problem.includes("has no start_date column"),
+    issue.problem.includes(`has no ${H.startDate} column`),
   ),
   true,
 );
@@ -556,7 +579,7 @@ const sameEmail = checkMappedRows(
       gross_monthly: "150000",
       email: "ADA@company.test",
     },
-  ],
+  ].map(asMapped),
   {
     presentFields: new Set(["employeeNo", "email"] as const),
     timeZone: "Africa/Lagos",

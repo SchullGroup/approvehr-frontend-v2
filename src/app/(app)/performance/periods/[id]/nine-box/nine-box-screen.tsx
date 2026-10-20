@@ -98,8 +98,9 @@ export function NineBoxScreen({ cycleId }: { cycleId: string }) {
         title="Nine-box"
         meta={
           <span className="text-meta text-faint">
-            Where people are delivering, against how far they could go. Both
-            halves are recorded; neither is worked out from the other.
+            Where people are delivering, against how far they could go. Each
+            half is recorded on its own, and neither is worked out from the
+            other.
           </span>
         }
       />
@@ -107,11 +108,11 @@ export function NineBoxScreen({ cycleId }: { cycleId: string }) {
         {!canSeeCompany ? (
           <EmptyState
             icon={<Lock aria-hidden="true" />}
-            title="Not yours to read"
-            description="A nine-box covers everybody in the company, so it needs the permission to see everybody's record."
+            title="Not available to you"
+            description="The nine-box covers everyone in the company, so it is only open to people who can see every employee's record."
           />
         ) : !detail.available ? (
-          <Callout tone="info" title="This needs the API">
+          <Callout tone="info" title="This needs a connection to the server">
             {detail.refusal}
           </Callout>
         ) : detail.error ? (
@@ -121,7 +122,7 @@ export function NineBoxScreen({ cycleId }: { cycleId: string }) {
             onRetry={detail.reload}
           />
         ) : detail.loading || !grid ? (
-          <Spinner label="Working out the grid" />
+          <Spinner label="Loading the grid" />
         ) : (
           <Grid grid={grid} onPlace={setPlacing} />
         )}
@@ -170,23 +171,29 @@ function Grid({
           value={String(grid.counts.unplaced)}
           hint={
             grid.counts.unplaced === 0
-              ? "Everybody has both halves"
-              : "Named below, with the half that is missing"
+              ? "Everyone has both halves"
+              : "Listed below, with the half that is missing"
           }
         />
         <Stat
           label="People"
           value={String(grid.counts.people)}
-          hint="Everybody the period covers"
+          hint="Everyone in the period"
         />
       </div>
 
       {/* Horizontal scroll rather than a card-per-row stack: a nine-box read one
-          box at a time is a list, and the whole point is seeing the spread. */}
+          box at a time is a list, and the whole point is seeing the spread.
+
+          44rem, not 52: at 52rem an iPad held upright (768, so about 712 of
+          content) showed two and a half columns and cut the third mid-word with
+          nothing to say it scrolled. 44rem fits that width exactly; below it the
+          grid scrolls, and the row labels stay put (`sticky`) so that what each
+          row is stays on screen while the columns move under it. */}
       <div className="overflow-x-auto">
-        <div className="min-w-[52rem]">
-          <div className="grid grid-cols-[9rem_repeat(3,1fr)] gap-2">
-            <div />
+        <div className="min-w-[44rem]">
+          <div className="grid grid-cols-[8rem_repeat(3,minmax(0,1fr))] gap-2">
+            <div className="sticky left-0 z-10 bg-canvas" />
             {AXES.map((axis) => (
               <div key={axis} className="px-1 pb-1">
                 <p className="text-meta font-medium text-body">
@@ -225,7 +232,7 @@ function RowOfThree({
 }) {
   return (
     <>
-      <div className="flex flex-col gap-1 py-2 pr-2">
+      <div className="sticky left-0 z-10 flex flex-col gap-1 bg-canvas py-2 pr-2">
         <Badge tone={ROW_TONE[level]} size="sm">
           {POTENTIAL_LABELS[level]}
         </Badge>
@@ -308,22 +315,22 @@ function Unplaced({
   }[] = [
     {
       key: "noPotential",
-      title: "Nobody has assessed their potential",
-      note: "They have a mark for this period. Recording where they sit puts them on the grid.",
+      title: "Potential not assessed yet",
+      note: "They have a mark for this period. Record their potential to put them on the grid.",
       people: grid.unplaced.noPotential,
       placeable: true,
     },
     {
       key: "noPerformance",
       title: "No mark in this period",
-      note: "Their potential is recorded and nothing has been scored yet, so there is no column to put them in.",
+      note: "Their potential is recorded but they have no mark yet, so there is no column to put them in.",
       people: grid.unplaced.noPerformance,
       placeable: false,
     },
     {
       key: "neither",
       title: "Neither half recorded",
-      note: "No mark and no assessment. They are not at the bottom of the grid; they are not on it.",
+      note: "No mark and no assessment yet, so they are not on the grid at all.",
       people: grid.unplaced.neither,
       placeable: false,
     },
@@ -336,7 +343,7 @@ function Unplaced({
          reader on the absence of a problem — the thing people learn to dismiss
          without reading, and then the one that mattered goes with it. */
       <NoticeLine tone="muted">
-        Everybody this period covers has both a mark and a recorded potential.
+        Everyone in this period has both a mark and a recorded potential.
       </NoticeLine>
     );
   }
@@ -346,7 +353,7 @@ function Unplaced({
       <CardHeader
         level={2}
         title="Not on the grid"
-        description="Named rather than assumed. An absence is not the bottom of a scale."
+        description="These people are left off rather than placed at the bottom, because having no mark is not the same as a low one."
         action={
           <Badge tone="warning" size="sm" dot>
             {grid.counts.unplaced} of {grid.counts.people}
@@ -487,7 +494,7 @@ function PlaceDialog({
         <p className="text-body-sm text-muted">
           {person.band
             ? `Performance this period: ${person.bandLabel ?? ""}.`
-            : "No mark in this period yet, so recording potential will not place them on the grid — it will be waiting when the period is scored."}
+            : "No mark in this period yet. You can record potential now, and they will appear on the grid once they have a mark."}
         </p>
 
         <Field label="How far could they go?">
@@ -527,7 +534,7 @@ function PlaceDialog({
 
         {person.potential && (
           <p className="text-meta text-faint">
-            Taking the placement off returns them to the not-placed list. It
+            Taking them off the grid puts them back on the not-placed list. It
             does not move them to the bottom row.
           </p>
         )}

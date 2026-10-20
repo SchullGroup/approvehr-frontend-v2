@@ -125,7 +125,7 @@ export function AppraiserMapTab() {
 
   if (!editable) {
     return (
-      <Callout tone="warning" title="The mapping needs the API">
+      <Callout tone="warning" title="This needs a connection to the server">
         {refusal}
       </Callout>
     );
@@ -135,7 +135,7 @@ export function AppraiserMapTab() {
     return (
       <p className="flex items-center gap-2 text-body-sm text-muted">
         <Spinner size="sm" />
-        Reading the appraisal periods
+        Loading the appraisal periods
       </p>
     );
   }
@@ -145,7 +145,7 @@ export function AppraiserMapTab() {
       <EmptyState
         icon={<Network aria-hidden="true" />}
         title="No appraisal periods yet"
-        description="A mapping belongs to one appraisal period: who was best placed to judge somebody last half is not who is best placed this half. Start a period first."
+        description="Who appraises whom is set for one appraisal period at a time, because the best person to judge someone can change from one half to the next. Start a period first."
       />
     );
   }
@@ -242,7 +242,7 @@ export function AppraiserMapTab() {
 
         <div className="flex flex-wrap items-center gap-3">
           <Switch
-            label="Only what is wrong"
+            label="Only problems"
             checked={exceptionsOnly}
             onChange={(event) => setExceptionsOnly(event.target.checked)}
           />
@@ -254,7 +254,7 @@ export function AppraiserMapTab() {
             onClick={() => void autoAssign()}
           >
             <Wand2 aria-hidden="true" className="size-4" />
-            Fill in the obvious
+            Fill in from the reporting line
           </Button>
         </div>
       </div>
@@ -301,14 +301,14 @@ export function AppraiserMapTab() {
             title={
               blockers.length > 0
                 ? blockers.length === 1
-                  ? "1 thing will produce a mark nobody can defend"
-                  : `${blockers.length} things will produce marks nobody can defend`
+                  ? "1 thing will leave someone with no mark"
+                  : `${blockers.length} things will leave people with no mark`
                 : "Worth a look"
             }
             description={
               map?.started
-                ? "This period is running, so these are live."
-                : "Nothing has started yet, so none of this is final."
+                ? "This period is running, so these need fixing now."
+                : "The period has not started, so you have time to sort these out."
             }
           />
           <CardBody className="flex flex-col gap-2">
@@ -397,23 +397,21 @@ export function AppraiserMapTab() {
       <Card>
         <CardHeader
           title="Who appraises whom"
-          description="One line manager at 100% is the ordinary answer. Change it for the people a project lead or another department's manager actually judges."
+          description="One line manager at 100% is the usual setup. Change it for people whose work is really judged by a project lead or another department's manager."
         />
         {loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
-            Reading the mapping
+            Loading the list
           </CardBody>
         ) : !map || map.rows.length === 0 ? (
           <EmptyState
             compact
             icon={<Network aria-hidden="true" />}
-            title={
-              exceptionsOnly ? "Nothing is wrong" : "Nobody in this period"
-            }
+            title={exceptionsOnly ? "No problems" : "Nobody in this period"}
             description={
               exceptionsOnly
-                ? "Everybody has an appraiser and every set of weights makes 100%."
+                ? "Everyone has an appraiser and every set of weights adds up to 100%."
                 : "A period covers everybody who is still employed. Add people first."
             }
           />
@@ -564,7 +562,13 @@ function PersonRow({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-3 rounded-md border p-3",
+        /* A grid, not a wrapping flex row. The person block was `flex-1` with
+           nothing to stop it shrinking, and the "Assign an appraiser" select
+           sizes itself to its longest option, so on a tablet the select took
+           what it wanted and left the name and the note a column about 60px
+           wide, one word to a line. Here the person always gets the first
+           column in full, and the control takes a row of its own on a phone. */
+        "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2.5 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto_auto]",
         worst === "BLOCKER"
           ? "border-danger-line bg-danger-soft"
           : worst === "WARNING"
@@ -572,7 +576,7 @@ function PersonRow({
             : "border-line",
       )}
     >
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0">
         <p className="text-body-sm font-medium text-ink">{row.employeeName}</p>
         <p className="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
           <span>{row.jobTitle}</span>
@@ -591,7 +595,7 @@ function PersonRow({
             {row.appraisers.map((one) => (
               <li
                 key={one.assignmentId}
-                className="flex items-center gap-2 rounded-md border border-line bg-surface px-2.5 py-1.5"
+                className="flex min-w-0 max-w-full items-center gap-2 rounded-md border border-line bg-surface px-2.5 py-1.5"
               >
                 {/* Submitted or not is a shape as well as a colour: a filled dot
                     for in, a ring for outstanding. */}
@@ -604,7 +608,7 @@ function PersonRow({
                       : "border border-line-strong bg-transparent",
                   )}
                 />
-                <span className="text-meta text-ink">
+                <span className="min-w-0 break-words text-meta text-ink">
                   {one.appraiserName}
                   <span className="text-muted">
                     {" · "}
@@ -632,7 +636,7 @@ function PersonRow({
         {row.appraisers.length > 1 && <ShareBar appraisers={row.appraisers} />}
       </div>
 
-      <div className="shrink-0 text-right">
+      <div className="text-right">
         <p className="text-meta text-faint">Mark</p>
         <p className="tabular text-body-sm font-medium text-ink">
           {row.weightedRating === null ? "—" : row.weightedRating}
@@ -645,48 +649,58 @@ function PersonRow({
       </div>
 
       {row.appraisers.length > 0 ? (
-        <Button variant="secondary" size="sm" onClick={onEdit}>
-          Change
-        </Button>
+        <div className="col-span-2 flex justify-end md:col-span-1">
+          <Button variant="secondary" size="sm" onClick={onEdit}>
+            Change
+          </Button>
+        </div>
       ) : (
-        <div className="flex flex-col items-end gap-1">
-          <div className="flex items-center gap-2">
+        <div className="col-span-2 flex flex-col gap-1 md:col-span-1 md:items-end">
+          <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-nowrap">
             {/* The subject is filtered out here rather than left for the API to
                 refuse: appraising yourself is not an option worth offering. */}
-            <Select
-              aria-label={`Appraiser for ${row.employeeName}`}
-              className="min-w-[13rem]"
-              disabled={assigning}
-              value=""
-              onChange={(event) => {
-                const appraiserId = event.target.value;
-                if (!appraiserId) return;
-                setAssigning(true);
-                setQuickFailed(null);
-                void onQuickAssign(appraiserId)
-                  .catch((error: unknown) => {
-                    setQuickFailed(
-                      error instanceof ApiError
-                        ? error.message
-                        : "That did not save. Try again.",
-                    );
-                  })
-                  .finally(() => {
-                    setAssigning(false);
-                  });
-              }}
-            >
-              <option value="">
-                {assigning ? "Saving…" : "Assign an appraiser"}
-              </option>
-              {people
-                .filter((person) => person.id !== row.employeeId)
-                .map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name} — {person.jobTitle}
-                  </option>
-                ))}
-            </Select>
+            {/* The width lives on this wrapper: `Select` puts its own `className`
+                on the <select>, and the select sizes itself to its longest
+                option ("Name — Job title"), which is what pushed "More
+                options" out of the card on a phone. `basis-48` is the least
+                it will be squeezed to: below that the button drops to its own
+                line and the select takes the whole row, rather than the
+                placeholder reading "Assign an ap". */}
+            <div className="min-w-0 flex-1 basis-48 md:w-56 md:flex-none md:basis-auto">
+              <Select
+                aria-label={`Appraiser for ${row.employeeName}`}
+                disabled={assigning}
+                value=""
+                onChange={(event) => {
+                  const appraiserId = event.target.value;
+                  if (!appraiserId) return;
+                  setAssigning(true);
+                  setQuickFailed(null);
+                  void onQuickAssign(appraiserId)
+                    .catch((error: unknown) => {
+                      setQuickFailed(
+                        error instanceof ApiError
+                          ? error.message
+                          : "That did not save. Try again.",
+                      );
+                    })
+                    .finally(() => {
+                      setAssigning(false);
+                    });
+                }}
+              >
+                <option value="">
+                  {assigning ? "Saving…" : "Assign an appraiser"}
+                </option>
+                {people
+                  .filter((person) => person.id !== row.employeeId)
+                  .map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.name} — {person.jobTitle}
+                    </option>
+                  ))}
+              </Select>
+            </div>
             <Button variant="ghost" size="sm" onClick={onEdit}>
               More options
             </Button>
@@ -816,7 +830,7 @@ export function AppraisersDialog({
   /* Every one of these is the API's rule, checked here so it lands while the row
      is still on screen. The server is where each of them is real. */
   const localProblem = duplicated
-    ? "The same person is listed twice. One appraiser, one row, one role."
+    ? "The same person is listed twice. Each appraiser should appear once, with one role."
     : lineManagers > 1
       ? "Only one person can be the line manager. Make the others functional managers or project leads."
       : missingSubmitted.length > 0
@@ -825,9 +839,9 @@ export function AppraisersDialog({
             .map((one) => one.appraiserName)
             .join(
               ", ",
-            )} already sent their review. Change their weight rather than taking them off.`
+            )} already sent their review. Change their weight instead of taking them off.`
         : entries.some((entry) => entry.weightBp < 1)
-          ? "An appraiser with no weight is not an appraiser. Remove the row instead."
+          ? "An appraiser needs some weight. Remove them instead."
           : weightIssue;
 
   const setRow = (index: number, patch: Partial<DraftRow>) =>
@@ -950,9 +964,8 @@ export function AppraisersDialog({
 
         {rows.length === 0 && (
           <Callout tone="warning" title="Nobody would appraise them">
-            Saving with an empty list is allowed and it is a real state: it is
-            how you undo a mapping. They will finish the period with no mark,
-            and the period will say so by name.
+            You can save with an empty list. It is how you undo a mapping. They
+            will finish the period with no mark, and the period will name them.
           </Callout>
         )}
 

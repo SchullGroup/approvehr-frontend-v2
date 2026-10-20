@@ -234,7 +234,7 @@ export function StartPeriodDialog({
         )}
 
         <Field
-          label="What to call it"
+          label="Period name"
           required
           {...(errors["name"] ? { error: errors["name"] } : {})}
         >
@@ -451,9 +451,9 @@ export function StartPeriodDialog({
           </div>
           <p className="mt-2 text-meta text-muted">
             This decides whose performance is judged, not who does the judging.
-            Somebody left out here still writes their own team&rsquo;s reviews,
-            and still signs them off — they simply get no form of their own, so
-            they do not finish the period counted as unscored.
+            Anyone left out here still writes their own team&rsquo;s reviews and
+            signs them off. They just do not get a form of their own, so they
+            are not left with no mark.
           </p>
         </Disclosure>
       </div>

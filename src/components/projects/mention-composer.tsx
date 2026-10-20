@@ -155,7 +155,7 @@ export function MentionComposer({
             }
           }}
           className={cn(
-            "w-full resize-y rounded-md border border-field-line bg-surface px-3 py-2.5 text-body-sm text-ink placeholder:text-muted",
+            "w-full resize-y rounded-md border border-field-line bg-surface px-3 py-2.5 text-body-sm pointer-coarse:text-body-md text-ink placeholder:text-muted",
             "transition-[border-color,box-shadow] duration-150 hover:border-ink-soft",
             "focus:border-accent-text focus:outline-none focus:ring-3 focus:ring-accent/25",
             "disabled:cursor-not-allowed disabled:bg-sunken",

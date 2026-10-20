@@ -173,7 +173,7 @@ export function AskPeersDialog({
         {loading ? (
           <span className="flex items-center gap-2 py-6 text-body-sm text-muted">
             <Spinner size="sm" />
-            Reading the directory
+            Loading the directory
           </span>
         ) : candidates.length === 0 ? (
           <p className="py-6 text-body-sm text-body">

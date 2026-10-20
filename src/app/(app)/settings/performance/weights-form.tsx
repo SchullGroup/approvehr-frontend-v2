@@ -366,9 +366,16 @@ export function ScoringWeightsForm() {
                     aria-hidden="true"
                     className="mt-0.5 size-4 shrink-0 text-faint"
                   />
-                  A period screen says whether its weights are frozen, and{" "}
-                  <TextLink href="/performance">the appraisals tab</TextLink> is
-                  where appraisal periods are started.
+                  {/* One element, not loose text and a link. The paragraph is a
+                      flex row so the lock sits beside the words, and a flex row
+                      turns every direct child into its own column: the sentence
+                      used to render as three blocks side by side, with the link
+                      alone in the middle one. */}
+                  <span className="min-w-0">
+                    A period screen says whether its weights are frozen, and{" "}
+                    <TextLink href="/performance">the appraisals tab</TextLink>{" "}
+                    is where appraisal periods are started.
+                  </span>
                 </p>
               </CardBody>
             </Card>
@@ -388,7 +395,10 @@ export function ScoringWeightsForm() {
                     </p>
                   )}
                 </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
+                {/* No `shrink-0`: it held this group at its full width, so on a
+                    320px phone the two buttons ran 23px out of the card instead
+                    of the second one wrapping under the first. */}
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="secondary"
                     disabled={!dirty || saving}

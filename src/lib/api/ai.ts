@@ -117,19 +117,17 @@ export const ask = (question: string): Promise<ApiAnswer> =>
 /* ------------------------------------------------------------------ the chat */
 
 /**
- * `/ai/chat` proposes. `/ai/actions/:name` performs. Never the same press.
+ * The ai2 turn proposes; `/ai/actions/:name` performs — never the same press.
+ * A turn only returns a `proposed` block, and nothing writes until an
+ * explicit click posts `proposed.args` back verbatim via `runAssistantAction`.
  *
- * `chat()` can only ever come back with a `proposed` block: a description of
- * a change plus the arguments that would make it. Nothing is written until a
- * click calls `runAssistantAction` with `proposed.args` posted back verbatim.
- *
- * - Never call `runAssistantAction` except from an explicit click.
+ * - Never call `runAssistantAction` except from that click.
  * - Never edit `args` — they are the server's own resolved ids.
- * - Render `proposal.summary`/`details`/`irreversible` verbatim; never write
- *   a button label that describes the act.
+ * - Render `proposal.summary`/`details`/`irreversible` verbatim, never a
+ *   button label describing the act.
  *
- * Nothing is stored on either side. The API keeps no transcript, so
- * `lib/store/ai-chat.ts` holds the conversation in component state only.
+ * No transcript is stored; `lib/store/ai-chat.ts` keeps the conversation in
+ * component state only.
  */
 
 export type ApiChatRole = "user" | "assistant";

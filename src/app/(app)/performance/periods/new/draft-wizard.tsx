@@ -181,7 +181,7 @@ function DraftingPanel({
     "Aligning review questions with your competency framework.",
     "Every suggestion is a starting point, not a final decision.",
     "Measures are left blank on purpose: targets are yours to set.",
-    "Goals are drafted to what the whole company could be held to.",
+    "Goals are drafted so that the whole company could be held to them.",
   ];
   const insightIndex = Math.floor(tick / 8) % INSIGHTS.length;
 
@@ -518,7 +518,7 @@ export function DraftPeriodWizard() {
                 />
               ) : (
                 <>
-                  <Field label="What to call it" required>
+                  <Field label="Period name" required>
                     <Input
                       value={name}
                       onChange={(event) => setName(event.target.value)}
@@ -586,7 +586,7 @@ export function DraftPeriodWizard() {
           <Card>
             <CardHeader
               title="The company goals"
-              description="Edit anything. Delete what you would not have written. Each measure needs a target from you: one without a figure is not created, because a target nobody set is not a target."
+              description="Edit anything. Delete what you would not have written. Each measure needs a target from you. A measure without a figure is not created."
             />
             <CardBody className="flex flex-col gap-4">
               {goalDraft.outcome?.available === false ? (

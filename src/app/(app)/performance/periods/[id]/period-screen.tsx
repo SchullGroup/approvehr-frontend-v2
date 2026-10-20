@@ -151,6 +151,7 @@ const STAGE_NEXT_LABEL: Record<string, string> = {
 export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const router = useRouter();
   const canSeeCompany = useCan("EDIT_RECORDS");
+  const canSeeFairness = useCan("VIEW_FAIRNESS");
   const canManage = useCan("MANAGE_SETTINGS");
   const detail = useCycleRegister(cycleId, canSeeCompany);
   const periods = useCycleMutations();
@@ -237,7 +238,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
       toast.push({
         title: `${period.name} started`,
         tone: "success",
-        detail: `${result.reviewsCreated} ${result.reviewsCreated === 1 ? "form" : "forms"} written · ${result.notified} told in the app. Nothing here sends email.`,
+        detail: `${result.reviewsCreated} ${result.reviewsCreated === 1 ? "form" : "forms"} created · ${result.notified} told in the app. No emails are sent from here.`,
       });
       setNoAppraiser(
         result.withoutAppraiser.length > 0 ? result.withoutAppraiser : null,
@@ -269,7 +270,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
       toast.push({
         title: `${period.name} deleted`,
         tone: "success",
-        detail: "Nothing was ever sent, so there is nothing to undo.",
+        detail: "Nobody had been sent anything, so there is nothing to undo.",
       });
       router.push("/performance/periods");
     } catch (error) {
@@ -291,7 +292,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         detail:
           nextStage === "MANAGER"
             ? "Managers write their reviews now. Self-reviews already in are kept."
-            : "Marks are in. Nothing else is asked for until you publish.",
+            : "Marks are in. Nothing more is asked of anyone until you publish.",
       });
       detail.reload();
     } catch (error) {
@@ -311,7 +312,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         detail:
           result.unscored.length > 0
             ? `${result.unscored.length} ${result.unscored.length === 1 ? "person finishes" : "people finish"} with no mark: ${result.unscored.join(", ")}.`
-            : "Every manager's review is now readable by the person it is about.",
+            : "People can now read what their manager wrote about them.",
       });
       detail.reload();
     } catch (error) {
@@ -328,7 +329,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
       toast.push({
         title:
           result.outstanding === 0
-            ? "Nobody owes anything"
+            ? "Nobody is late"
             : `Nudged ${result.reminded} ${result.reminded === 1 ? "person" : "people"}`,
         tone: "success",
         /* The count that does not add up is the useful one: somebody with no
@@ -336,7 +337,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
            that quietly disagrees with the outstanding list. */
         ...(result.noAccount > 0
           ? {
-              detail: `${result.noAccount} ${result.noAccount === 1 ? "person has" : "people have"} no sign-in, so they were not reached. Nothing here sends email.`,
+              detail: `${result.noAccount} ${result.noAccount === 1 ? "person has" : "people have"} no sign-in, so the reminder did not reach them. No emails are sent from here.`,
             }
           : {}),
       });
@@ -443,6 +444,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 href={`/performance/periods/${cycleId}/nine-box`}
               >
                 Nine-box
+              </ButtonLink>
+            )}
+            {canSeeFairness && !draft && (
+              <ButtonLink
+                size="sm"
+                variant="secondary"
+                href={`/performance/periods/${cycleId}/fairness`}
+              >
+                Fairness check
               </ButtonLink>
             )}
             {/* The stage never moved on its own, and nothing moved it: the
@@ -624,8 +634,8 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             <Card>
               <EmptyState
                 icon={<Users aria-hidden="true" />}
-                title="This page is a company-wide view"
-                description="Your own review and objectives are on the performance screen."
+                title="This page covers the whole company"
+                description="Your own review and objectives are on your Performance page."
                 action={
                   <ButtonLink href="/performance" variant="accent" size="sm">
                     Go to your performance
@@ -671,8 +681,8 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 value={String(period.questionCount)}
                 hint={
                   period.questionCount === 0
-                    ? "A form with no questions asks nobody anything"
-                    : "Asked across the self and manager forms"
+                    ? "No questions yet, so nobody would be asked anything"
+                    : "Used on both the self and manager forms"
                 }
               />
               <Stat
@@ -682,7 +692,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               />
               <Stat
                 label="Scoring weights"
-                value={period.scoringFrozen ? "Frozen" : "Live"}
+                value={period.scoringFrozen ? "Locked in" : "Can still change"}
                 hint={
                   period.scoringFrozen
                     ? "A later change to the company's weights cannot move these marks"
@@ -696,8 +706,8 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                          useful thing to say about it is that a change now
                          still lands. */
                       period.stage === "DRAFT"
-                      ? "Whatever they are when this period starts is what it keeps"
-                      : "This period started before weights were frozen onto a period"
+                      ? "Whatever the weights are when the period starts is what it keeps"
+                      : "This period started before weights were locked in, so it uses the company's current weights"
                 }
               />
             </div>
@@ -707,7 +717,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             <Card>
               <CardBody className="flex items-center gap-2 text-body-sm text-muted">
                 <Spinner size="sm" />
-                Reading the period
+                Loading the period
               </CardBody>
             </Card>
           )}
@@ -837,7 +847,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           title="Start the period?"
           confirmLabel="Start it"
           tone="primary"
-          body="Everybody gets their form today, and the questions are fixed the moment it starts — add any more first."
+          body="Everyone gets their form today, and the questions cannot be changed once it starts, so add any more first."
         />
       )}
 
@@ -850,7 +860,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           title="Delete this period?"
           confirmLabel="Delete it"
           tone="danger"
-          body={`Nothing has been sent for ${period.name}, so nothing is lost by deleting it — the questions go with it, and this cannot be undone.`}
+          body={`Nobody has been sent anything for ${period.name} yet. Deleting it removes its questions too, and this cannot be undone.`}
         />
       )}
     </>
@@ -996,7 +1006,7 @@ function NobodyAppraising({
         title="Who is appraising whom"
         description={
           exceptions.counts.unassigned === 0
-            ? "What is wrong with the mapping, by name."
+            ? "Anyone who is missing an appraiser, by name."
             : draft
               ? /* The sentence this replaced said only "set a manager on their
                    record, or assign an appraiser" — true, and it invited
@@ -1004,8 +1014,8 @@ function NobodyAppraising({
                    everybody at once. On a draft that is a hundred clicks
                    offered in place of one, and it was reported as exactly
                    that. */
-                "Starting the period gives everybody their line manager automatically — nobody here needs assigning by hand first. Do it now with the button below if you would rather see the mapping before you start, and assign anybody the reporting line cannot cover."
-              : "Somebody with no appraiser finishes this period with no mark. Set a manager on their record, or assign an appraiser."
+                "Starting the period gives everyone their line manager as their appraiser, so you do not need to assign anyone first. Use the button below if you want to see the list before you start, and assign anyone the reporting line cannot cover."
+              : "Anyone without an appraiser finishes this period with no mark. Set a manager on their record or assign an appraiser."
         }
         action={
           <Badge
@@ -1014,7 +1024,7 @@ function NobodyAppraising({
             icon={<UserX aria-hidden="true" />}
           >
             {blockerCount > 0
-              ? `${blockerCount} ${blockerCount === 1 ? "blocker" : "blockers"}`
+              ? `${blockerCount} to fix`
               : `${warningCount} to look at`}
           </Badge>
         }
@@ -1259,7 +1269,7 @@ function Outstanding({
     <Card>
       <CardHeader
         title="Still to come in"
-        description="A form somebody has not got round to. Different from nobody being asked at all, which is above."
+        description="Forms that were asked for and have not been sent yet. People nobody asked are listed above."
       />
       <CardBody className="flex flex-col gap-4">
         {/* A period nobody is in yet has no ratio to state. "0 of 0" reads as
@@ -1360,7 +1370,7 @@ function MultiAppraiserReviews({
     <Card>
       <CardHeader
         title="Manager reviews, by appraiser"
-        description="More than one manager appraises some of these people. Every one of their reviews is listed here, not only the one picked as the mark of record."
+        description="Some of these people have more than one appraiser. Every review is listed here, including the ones that are not the main rating."
       />
       <CardBody className="flex flex-col gap-2">
         {rows.flatMap((row) =>
@@ -1449,7 +1459,7 @@ function Register({
           compact
           icon={<UserX aria-hidden="true" />}
           title="Nobody is in this period"
-          description="Starting a period creates a form for every employee who is not archived or exited."
+          description="Starting a period gives every current employee a form."
         />
       </Card>
     );
@@ -1462,7 +1472,7 @@ function Register({
         description={
           register.weightsFrom === "snapshot"
             ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these marks.`
-            : `Scored on the company's weights as they stand today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own copy, so changing the company's weights would recalculate every mark here, including ones already given.`
+            : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every mark here, including ones already given.`
         }
         action={
           <span className="flex flex-wrap gap-2">
@@ -2155,8 +2165,8 @@ function AppraiseLeadersToggle({
       />
       <p className="text-meta text-muted">
         Off for both by default. Whoever is left out still appraises their own
-        team &mdash; they simply get no form of their own, so they do not finish
-        the period counted as unscored.
+        team. They just do not get a form of their own, so they are not left
+        with no mark.
       </p>
     </div>
   );
@@ -2240,7 +2250,7 @@ function CalibrateButton({
       toast.push({
         title: `${row.employeeName}'s mark is now ${String(value)}%`,
         tone: "success",
-        detail: "What the answers produced is kept beside it.",
+        detail: "The mark the answers produced is kept beside it.",
       });
       setOpen(false);
       onChanged();
@@ -2248,7 +2258,7 @@ function CalibrateButton({
       setFailed(
         caught instanceof ApiError
           ? caught.message
-          : "Could not move that mark.",
+          : "Could not change that mark.",
       );
     } finally {
       setBusy(false);
@@ -2280,7 +2290,7 @@ function CalibrateButton({
   return (
     <>
       <Button variant="secondary" size="sm" onClick={start}>
-        {existing ? "Change it" : "Move the mark"}
+        {existing ? "Change it" : "Change the mark"}
       </Button>
 
       {/* No open-gating here: `Modal` decides whether to render from its own
@@ -2289,8 +2299,8 @@ function CalibrateButton({
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={`Move ${row.employeeName}'s mark`}
-        description={`The answers produced ${scoreLabel(row.computedBp ?? row.scoreBp ?? 0)}.`}
+        title={`Change ${row.employeeName}'s mark`}
+        description={`The answers gave ${scoreLabel(row.computedBp ?? row.scoreBp ?? 0)}.`}
         size="sm"
         footer={
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2324,7 +2334,7 @@ function CalibrateButton({
       >
         <div className="flex flex-col gap-4">
           {existing && (
-            <Callout tone="neutral" title="It has already been moved">
+            <Callout tone="neutral" title="This mark has already been changed">
               Now {scoreLabel(existing.calibratedBp)}, from{" "}
               {scoreLabel(existing.originalBp)}
               {existing.calibratedByName
@@ -2335,7 +2345,7 @@ function CalibrateButton({
           )}
 
           <Field
-            label="Mark it as"
+            label="New mark"
             required
             {...(failed ? { error: failed } : {})}
           >
@@ -2363,13 +2373,13 @@ function CalibrateButton({
               rows={3}
               value={reason}
               disabled={busy}
-              placeholder="Moderated at the calibration meeting: the team's targets were set higher than the rest of the department."
+              placeholder="Agreed at the review meeting: this team's targets were set higher than the rest of the department."
               onChange={(event) => setReason(event.target.value)}
             />
           </Field>
 
           <p className="text-meta text-muted">
-            What the answers produced is kept beside this, not replaced.
+            The mark the answers produced is kept beside this one, not replaced.
           </p>
         </div>
       </Modal>
@@ -2470,7 +2480,7 @@ function RevisionButton({
         className="text-meta text-muted"
         title={`${existing.targetStage === "SELF" ? "Self-appraisal" : "Manager review"} — ${existing.reason}`}
       >
-        Sent back, awaiting resubmission
+        Sent back, waiting for them to send it again
       </span>
     );
   }
@@ -2488,7 +2498,7 @@ function RevisionButton({
         open={open}
         onClose={() => setOpen(false)}
         title={`Send ${row.employeeName}'s review back`}
-        description="Reopens that one review so they can redo it. Nobody else's review moves."
+        description="Opens that one review again so they can redo it. Nobody else's review changes."
         size="sm"
         footer={
           <div className="flex justify-end gap-2">

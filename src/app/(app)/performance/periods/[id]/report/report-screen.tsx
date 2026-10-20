@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import {
   Badge,
+  BarChart,
   ButtonLink,
   Callout,
   Card,
@@ -142,7 +143,7 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
              the register of who still owes a form — and "run" is the product's
              word for nothing at all. */
           <ButtonLink size="sm" href={`/performance/periods/${cycleId}`}>
-            See the register
+            See everyone&apos;s marks
           </ButtonLink>
         }
       />
@@ -160,8 +161,8 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
           <Card>
             <EmptyState
               icon={<Users aria-hidden="true" />}
-              title="This page is a company-wide view"
-              description="A distribution of marks is an aggregate over every employee, which needs the records permission."
+              title="This page covers the whole company"
+              description="It shows everyone's marks together, so it is only open to people who can see every employee's record."
               action={
                 <ButtonLink href="/performance" variant="secondary">
                   Your own rating
@@ -185,7 +186,7 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
           <Card>
             <CardBody className="flex items-center gap-2 text-body-sm text-muted">
               <Spinner size="sm" />
-              Working out the report
+              Loading the report
             </CardBody>
           </Card>
         )}
@@ -197,7 +198,7 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
               compact
               icon={<UserX aria-hidden="true" />}
               title="Nobody is in this period"
-              description="Starting a period creates a form for every employee who is not archived or exited."
+              description="Starting a period gives every current employee a form."
             />
           </Card>
         )}
@@ -213,23 +214,23 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
             <WhatCameIn report={report} />
             <Parts report={report} />
             <NamedList
-              title="Nobody marked them"
-              description="They finish this period with no mark. Not a mark of nought: nothing was recorded that counts."
+              title="No mark"
+              description="These people will finish the period with no mark. That is not the same as a mark of 0: nothing was recorded for them."
               empty="Everybody in this period has a mark."
               rows={report.unscored}
               tone="danger"
             />
             <NamedList
-              title="Written, not finalised"
-              description="A rating exists and the person has not been told it. Finalising is what makes it theirs to answer."
-              empty="Every rating written has been finalised."
+              title="Written, not final yet"
+              description="A rating has been written but the person has not been told. Making it final is what tells them."
+              empty="Every rating that has been written is final."
               rows={report.unfinalised}
               tone="warning"
             />
             <NamedList
               title="Told, and no answer yet"
-              description="Silence is not acceptance. Each of these is somebody who has neither acknowledged nor disputed."
-              empty="Everybody told their rating has answered."
+              description="They have been told their rating and have not replied. Not replying is not the same as agreeing."
+              empty="Everybody who has been told their rating has replied."
               rows={report.awaitingAcknowledgement}
               tone="warning"
             />
@@ -259,7 +260,7 @@ function Headline({ report }: { report: ApiCycleReport }) {
       <Stat
         label="People in this period"
         value={String(marks.people)}
-        hint="Everybody not archived or exited"
+        hint="Everyone currently employed"
       />
       <Stat
         label="With a mark"
@@ -267,7 +268,7 @@ function Headline({ report }: { report: ApiCycleReport }) {
         hint={
           distribution.unscored === 0
             ? "Everybody has one"
-            : `${distribution.unscored} ${distribution.unscored === 1 ? "person has" : "people have"} nothing recorded that counts`
+            : `${distribution.unscored} ${distribution.unscored === 1 ? "person has" : "people have"} no mark`
         }
       />
       <Stat
@@ -282,19 +283,19 @@ function Headline({ report }: { report: ApiCycleReport }) {
         }
         hint={
           distribution.meanBp === null
-            ? "Nothing has been recorded that counts towards a mark"
-            : `Over the ${distribution.scored} ${distribution.scored === 1 ? "mark" : "marks"} that exist, and nothing else`
+            ? "No marks yet, so there is no average"
+            : `Across the ${distribution.scored} ${distribution.scored === 1 ? "mark" : "marks"} given. People with no mark are not counted.`
         }
       />
       <Stat
         label="Weights used"
         value={
-          report.weightsFrom === "snapshot" ? "Frozen" : "Company's current"
+          report.weightsFrom === "snapshot" ? "Locked in" : "Company's current"
         }
         hint={
           report.weightsFrom === "snapshot"
-            ? `Copied onto this period when it started, totalling ${weightLabel(report.weightsTotalBp)}`
-            : `This period has no frozen set, so a change to the company's weights would move these marks`
+            ? `Set when the period started, adding up to ${weightLabel(report.weightsTotalBp)}`
+            : `This period never locked in its own weights, so changing the company's weights would change these marks`
         }
       />
     </div>
@@ -546,8 +547,8 @@ function Distribution({ report }: { report: ApiCycleReport }) {
         title="The spread of marks"
         description={
           distribution.scored === 0
-            ? "Nothing to spread yet."
-            : `${distribution.scored} ${distribution.scored === 1 ? "mark" : "marks"}, banded by the API. The bands are the midpoints of the 1-5 scale.`
+            ? "Nothing to show yet."
+            : `${distribution.scored} ${distribution.scored === 1 ? "mark" : "marks"}, sorted into five bands.`
         }
       />
       <CardBody className="flex flex-col gap-4">
@@ -558,24 +559,43 @@ function Distribution({ report }: { report: ApiCycleReport }) {
             copy — the chart is `aria-hidden`. */}
         {distribution.scored === 0 ? (
           <p className="text-body-sm text-muted">
-            No mark has been recorded in this period, so there is no
-            distribution. An empty distribution is stated rather than drawn as
-            five zeroes.
+            No marks have been given in this period yet, so there is nothing to
+            show.
           </p>
         ) : (
-          <ColumnChart
-            height={160}
-            points={distribution.bands.map((band) => ({
-              label: band.label,
-              value: band.people,
-            }))}
-            /* The badge tones, so a reader who has learnt amber-means-partially
+          <>
+            {/* Columns need a column's width per band label. At five bands and
+                a phone's width each gets about 55px, and "Outstanding" or
+                "Partially meets expectations" does not fit in 55px, so the
+                labels were drawn over each other and the last ran out of the
+                card. Below `sm` the same data is drawn as bars with the label
+                on its own line; the two are never both in the page, so a
+                screen reader meets one table, not two. */}
+            <ColumnChart
+              className="hidden sm:block"
+              height={160}
+              points={distribution.bands.map((band) => ({
+                label: band.label,
+                value: band.people,
+              }))}
+              /* The badge tones, so a reader who has learnt amber-means-partially
                -meets on the register does not learn it again here. Never the
                only cue: every column carries its count and its band name. */
-            tones={distribution.bands.map((band) => BAND_FILL[band.band])}
-            format={(n) => `${String(n)}`}
-            caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "mark" : "marks"} across the five bands.`}
-          />
+              tones={distribution.bands.map((band) => BAND_FILL[band.band])}
+              format={(n) => `${String(n)}`}
+              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "mark" : "marks"} across the five bands.`}
+            />
+            <BarChart
+              className="sm:hidden"
+              points={distribution.bands.map((band) => ({
+                label: band.label,
+                value: band.people,
+              }))}
+              tones={distribution.bands.map((band) => BAND_FILL[band.band])}
+              format={(n) => `${String(n)}`}
+              caption={`The spread of ${String(distribution.scored)} ${distribution.scored === 1 ? "mark" : "marks"} across the five bands.`}
+            />
+          </>
         )}
 
         {distribution.scored > 0 && (
@@ -594,13 +614,12 @@ function Distribution({ report }: { report: ApiCycleReport }) {
                 {distribution.unscored === 1 ? "person" : "people"}
               </span>
               <Badge tone="neutral" size="sm">
-                Not a band
+                Not scored
               </Badge>
             </div>
             <p className="mt-1 text-meta text-muted">
-              Deliberately outside the bands. &quot;Nothing was recorded&quot;
-              and &quot;scored nought&quot; are different claims, and only one
-              of them is true here. They are named further down.
+              These people sit outside the bands because they have no mark. That
+              is different from a low mark. Their names are further down.
             </p>
           </div>
         )}
@@ -663,7 +682,7 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
       <Card>
         <CardHeader
           title="Forms"
-          description={`Over the ${forms.people} ${forms.people === 1 ? "person" : "people"} who have a form in this cycle.`}
+          description={`Out of the ${forms.people} ${forms.people === 1 ? "person" : "people"} who have a form in this period.`}
         />
         <CardBody>
           <DescriptionList
@@ -713,7 +732,7 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
       <Card>
         <CardHeader
           title="Sign-off"
-          description={`Over the ${marks.people} ${marks.people === 1 ? "person" : "people"} in the cycle. Four separate facts, not one.`}
+          description={`Out of the ${marks.people} ${marks.people === 1 ? "person" : "people"} in this period.`}
         />
         <CardBody>
           <DescriptionList
@@ -724,7 +743,7 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
                 value: `${marks.written} of ${marks.people}`,
               },
               {
-                term: "Finalised (the person was told)",
+                term: "Made final (the person was told)",
                 value: `${marks.finalised} of ${marks.people}`,
               },
               {
@@ -746,21 +765,18 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
                 value:
                   marks.awaitingAnswer === 0
                     ? "None outstanding"
-                    : `${marks.awaitingAnswer} neither acknowledged nor disputed`,
+                    : `${marks.awaitingAnswer} have not replied`,
               },
               {
                 term: "Disputed",
-                value:
-                  marks.disputed === 0
-                    ? "None"
-                    : `${marks.disputed} on the record`,
+                value: marks.disputed === 0 ? "None" : String(marks.disputed),
               },
               {
                 term: "No manager review at all",
                 value:
                   marks.noReview === 0
                     ? "None"
-                    : `${marks.noReview} (nobody was asked, which is a different problem)`,
+                    : `${marks.noReview} (nobody was asked to write one)`,
               },
             ]}
           />
@@ -782,7 +798,7 @@ function Parts({ report }: { report: ApiCycleReport }) {
     <Card>
       <CardHeader
         title="The parts of the mark"
-        description="Each part, the weight it carried, and every reason it was left out, with the API's own wording."
+        description="Each part of the mark, how much it counts for, and who it was left out for and why."
         action={
           <ButtonLink size="sm" href="/settings/performance">
             Change the weights
@@ -791,12 +807,12 @@ function Parts({ report }: { report: ApiCycleReport }) {
       />
       <CardBody className="p-0">
         <div className="hidden sm:block">
-          <TableWrap caption="Each scoring component across this period">
+          <TableWrap caption="Each part of the mark across this period">
             <THead>
               <TH>Part</TH>
               <TH align="right">Weight</TH>
               <TH align="right">Counted for</TH>
-              <TH align="right">Average over those people</TH>
+              <TH align="right">Average for those people</TH>
               <TH>Left out because</TH>
             </THead>
             <TBody>
@@ -818,7 +834,7 @@ function Parts({ report }: { report: ApiCycleReport }) {
                   <TD align="right">
                     {/* Absent is absent: nothing counted is not an average of 0. */}
                     {part.meanBp === null ? (
-                      <span className="text-muted">Counted for nobody</span>
+                      <span className="text-muted">Nothing to average</span>
                     ) : (
                       <span className="tabular font-medium text-ink">
                         {scoreLabel(part.meanBp)}
@@ -828,7 +844,7 @@ function Parts({ report }: { report: ApiCycleReport }) {
                   <TD>
                     {part.excluded.length === 0 ? (
                       <span className="text-body-sm text-muted">
-                        Counted for everybody
+                        Nobody left out
                       </span>
                     ) : (
                       <ul className="flex flex-col gap-1">
@@ -868,7 +884,7 @@ function Parts({ report }: { report: ApiCycleReport }) {
                   Counted for {part.includedPeople} of {report.marks.people}
                 </span>
                 {part.meanBp === null ? (
-                  <span>Counted for nobody</span>
+                  <span>Nothing to average</span>
                 ) : (
                   <span className="tabular font-medium text-ink">
                     Average {scoreLabel(part.meanBp)}
@@ -1001,11 +1017,11 @@ function Disputes({ report }: { report: ApiCycleReport }) {
       <Card>
         <CardHeader
           title="Disputed ratings"
-          description="A dispute opens a record to answer, not an argument to win."
+          description="A dispute is recorded next to the mark. It does not change it."
         />
         <CardBody className="flex items-center gap-2 text-body-sm text-body">
           <CheckCheck aria-hidden="true" className="size-4 text-success-text" />
-          Nobody has disputed their rating in this cycle.
+          Nobody has disputed their rating in this period.
         </CardBody>
       </Card>
     );
@@ -1015,7 +1031,7 @@ function Disputes({ report }: { report: ApiCycleReport }) {
     <Card>
       <CardHeader
         title="Disputed ratings"
-        description="The mark stands and the dispute stands beside it. Rewriting the mark would destroy the evidence of what was decided."
+        description="The mark stays as it was and the dispute is recorded beside it, so there is always a record of what was decided."
         action={
           <Badge tone="danger" size="sm" dot>
             {rows.length} {rows.length === 1 ? "dispute" : "disputes"}

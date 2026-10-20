@@ -253,7 +253,7 @@ except the name is optional and can be filled in later.
 | **Where** | `/performance` or `/performance/periods` |
 | **Who** | HR / Owner |
 | **Click** | **Start an appraisal period** — top right of either screen |
-| **You'll see** | A dialog with **What to call it**, the dates, **Answers due by**, and three collapsed sections |
+| **You'll see** | A dialog with **Period name**, the dates, **Answers due by**, and three collapsed sections |
 
 The five collapsed sections, in the order you meet them:
 
@@ -343,17 +343,31 @@ person's objectives under those. You can start anywhere.
 | **Where**      | `/performance/kpis`                                                                                        |
 | **Who**        | Line manager · HR / Owner · anyone, for themselves                                                         |
 | **Click**      | **New objective**, which opens it, with **Add a KPI under this** waiting in it                             |
-| **You'll see** | Four fields: **What is being aimed at**, **Whose objective is this**, **Due by the end of**, **Scored in** |
+| **You'll see** | Four fields: **Objective title**, **Assigned to**, **Due quarter**, **Appraisal period** |
 
-> 🛑 **The field everybody misses.** **Scored in** is what files the objective against a period.
+> 🛑 **The field everybody misses.** **Appraisal period** is what files the objective against a period.
 > Leave it as _Not part of an appraisal period_ and the objective is a perfectly good tracker that
 > **counts towards nobody's mark**. It will not warn you.
 
-> ⚠️ **Who you can pick under "Whose objective is this."** Yourself, plus each department you head.
+> ⚠️ **Who you can pick under "Assigned to."** Yourself, plus each department you head.
 > The whole company, and every department, only if you hold the records permission. To put a KPI on
 > somebody else, open the objective and use **Give a KPI to people**. **Add a KPI under this** has a
-> "Whose KPI is this" list of your direct reports, plus everybody in a department you head. If
+> "Assigned to" list of your direct reports, plus everybody in a department you head. If
 > somebody you expect is missing from that list, that is why.
+
+#### 9b. _Optional_ — change or delete an objective before it is agreed
+
+| | |
+|---|---|
+| **Who** | Whoever can write the objective: its owner, their line manager, a department head, HR / Owner |
+| **Click** | Open the objective, then **Edit** or **Delete** (at the end of the buttons) |
+| **You'll see** | **Edit** opens **Objective title** (**KPI title** on a personal one), **Due quarter**, **Appraisal period** and **Description**; **Save changes** stays off until something differs. **Delete** asks "Delete this KPI?" and says it also removes the objective's measures |
+
+> ⚠️ **Neither is offered once it is agreed.** An agreed target is the record of what two people
+> agreed, so **Edit** is replaced by **Reopen the target**, and **Delete** by **Stop this KPI**. The
+> card says "Not deletable" and why, in one line. The same goes for a finished or refused one, and
+> for one that other objectives ladder up to (move or delete those first). **Who it is assigned to**
+> is not in Edit: handing an objective to somebody else is a separate act.
 
 #### 10. Put a number on it
 
@@ -365,11 +379,61 @@ at the end.
 | **Where**      | `/performance/kpis` → open the card                                   |
 | **Who**        | Line manager · the owner                                              |
 | **Click**      | **Add a measure**                                                     |
-| **You'll see** | **What are you counting**, **Starting at**, **Aiming at**, and a unit |
+| **You'll see** | **Measure**, **Starting value**, **Target value**, and a unit |
 
 > 💡 **For things that should go down** — cost, days-to-hire, complaints. Tick **This number should
 > go down** and progress becomes how far it has fallen. Without the tick, a target below the start is
 > refused with an explanation rather than silently scored backwards.
+
+#### 10. _Optional_ — add several objectives in one go
+
+For a team's quarter. It does what **Upload objectives** does, with the rows typed in instead of
+read from Excel: the same checks, with each row judged on your own authority, and everything arrives
+as a draft for whoever it is assigned to.
+
+|                |                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/performance/kpis`, beside **Upload objectives**                                                                |
+| **Who**        | Line manager · department head · HR / Owner. A plain employee adds their own, one at a time                      |
+| **Click**      | **Add multiple**                                                                                                 |
+| **You'll see** | A window called **Add several objectives**, with a switch for how the list looks: **Stacked**, **Page by page**, **Table** |
+
+The three layouts hold the same list, so switching never loses anything you typed.
+
+- **Stacked** — every objective is a card, one above the other.
+- **Page by page** — one objective at a time, with back and forward arrows and a numbered chip for each.
+  A chip turns red when that objective needs a change.
+- **Table** — one row each, like Excel. You can paste a block of cells copied from a spreadsheet and it
+  fills down and across; **Enter** and the arrow keys move between cells.
+
+Under the switch: **Load from a file** (an .xlsx or .csv; its rows are added after what you have typed,
+never over it), **Download draft** (**Excel (.xlsx)** keeps your dropdowns, **CSV** is plain text), and
+**Set one value for every objective** for filling one column on everything at once. **Add another**
+adds a blank one and **Clear all** empties the window.
+
+Then **Check and review**:
+
+1. If a row is refused, you stay on the form. The top of the window says **1 objective needs a change**
+   and lists each one with the reason; each is on its field too. Nothing is created until every row
+   passes.
+2. If they all pass, the same window turns **read only**: **Review 3 objectives**, with **Read only.
+   Nothing is created until you confirm.** The inputs are gone and the cards have a dashed border.
+   **Edit again** brings the inputs back with everything you typed, and the next check starts afresh.
+3. **Create 3 objectives** makes them. The window says **3 objectives created**. If some did not go in it
+   says **1 objective did not go in** with the reason, and **Fix the 1 objective that did not go in** brings
+   back only that one, so pressing again cannot create the others twice.
+
+> ⚠️ **Fifty at a time.** The window refuses a fifty-first, or a file that would make one, and says
+> where to go instead: **Upload objectives**.
+
+> ⚠️ **Assigned to is a typed work email**, as it is in the spreadsheet, because two people can share
+> a name. Somebody with the records permission is offered each person's address while typing. A
+> department head is not: the staff list a head can read carries no emails.
+
+> 🛑 **Nothing is saved.** Closing with objectives typed asks **Close without creating 3 objectives?**
+> with **Keep editing**, **Download Excel draft**, **Download CSV draft** and **Discard**. The download
+> is how to carry on later: it opens in Excel, and loads back into this window. The only thing this
+> browser remembers is which layout you chose.
 
 #### 10. *Optional* — give the same objective to several people at once
 
@@ -540,7 +604,7 @@ built from their objectives alone.
 | **Click**      | **Record a level** → who, which skill, where they are now, where they should be |
 | **You'll see** | The _Below target_ count and the department heatmap both move as you record     |
 
-> 🛑 **The same trap as step 9.** **Scored in** is on this dialog too. Leave it blank and the level is
+> 🛑 **The same trap as step 9.** **Appraisal period** is on this dialog too. Leave it blank and the level is
 > recorded but counts towards no period's mark.
 
 #### 20. *Optional* — ask colleagues for feedback
@@ -565,7 +629,7 @@ the thing a person is told.
 | **Where**      | `/performance/periods/{id}`                                                                                   |
 | **Who**        | HR / Owner                                                                                                    |
 | **Click**      | **Move to calibration**                                                                                       |
-| **You'll see** | _"Marks are in. Nothing else is asked for until you publish."_ A _Calibration_ column appears on the register |
+| **You'll see** | _"Marks are in. Nothing more is asked of anyone until you publish."_ A _Calibration_ column appears on the register |
 
 > 💡 **This is what unlocks finalising.** Ratings to be made final only appear in a manager's
 > **Waiting on you** once the period is at calibration. If a manager tells you they cannot see
@@ -580,7 +644,7 @@ record rather than in a corridor.
 | -------------- | ------------------------------------------------------------------------------- |
 | **Where**      | `/performance/periods/{id}` → **Where the marks stand**                         |
 | **Who**        | HR / Owner                                                                      |
-| **Click**      | **Move the mark** on the row → new percentage → **Why**                         |
+| **Click**      | **Change the mark** on the row → new percentage → **Why**                         |
 | **You'll see** | The row shows both figures: what the answers produced, and what it was moved to |
 
 > ⚠️ **The reason is not optional and not a formality.** It is kept with the mark and it is what
@@ -601,7 +665,7 @@ is a judgement somebody records here.
 
 > ✅ **Worth pointing out to a stakeholder.** Anybody missing either half is **named underneath the
 > grid** with which half is missing, rather than being dropped into the bottom-left box. As the screen
-> puts it: an absence is not the bottom of a scale. Most nine-box tools get this wrong.
+> puts it: having no mark is not the same as a low one. Most nine-box tools get this wrong.
 
 #### 25. Make a rating final
 
@@ -612,10 +676,10 @@ tells the person.
 | -------------- | ----------------------------------------------------------------------------------------- |
 | **Where**      | `/performance/reviews/{id}` — reached from **Waiting on you**                             |
 | **Who**        | Line manager · HR / Owner                                                                 |
-| **Click**      | **Make this the rating**, then confirm                                                    |
+| **Click**      | **Make it final**, then confirm                                                           |
 | **You'll see** | A _Final_ badge, and the row moves to **Waiting on somebody else** — it is their move now |
 
-> 🛑 **It cannot be re-marked afterwards.** The confirmation says so. Once final, the mark cannot be
+> 🛑 **It cannot be changed afterwards.** The confirmation says so. Once final, the mark cannot be
 > changed, and the person has been told. If a review genuinely needs redoing after this, the only
 > route is step 27.
 
@@ -631,7 +695,7 @@ deliberately not one of the options.
 | **Where**      | `/performance/reviews/{id}` — reached from **Waiting on you**                       |
 | **Who**        | The person                                                                          |
 | **Click**      | **I have seen this** or **I do not accept it**                                      |
-| **You'll see** | A banner reading _"This rating is final. It needs your answer."_ above both buttons |
+| **You'll see** | A banner reading _"Your rating is final and needs your response."_ above both buttons |
 
 ```mermaid
 flowchart TD
@@ -654,7 +718,7 @@ else's review moves.
 | **Where**      | `/performance/periods/{id}` → the _Revision_ column                                     |
 | **Who**        | HR / Owner                                                                              |
 | **Click**      | **Send back** → choose **Manager review** or **Self-appraisal** → **Why**               |
-| **You'll see** | The row reads _Sent back, awaiting resubmission_, and the reason is shown to the person |
+| **You'll see** | The row reads _Sent back, waiting for them to send it again_, and the reason is shown to the person |
 
 > 💡 **It asks which review rather than guessing.** Self-appraisal and manager review are two
 > different documents by two different people. Reopening the wrong one would send the wrong person
@@ -751,7 +815,7 @@ who reports to you.
 2. Set objectives _for_ your reports on **KPIs**.
 3. Write a review of each report when the period reaches manager review, and record their competency
    levels.
-4. At calibration, press **Make this the rating** on each one.
+4. At calibration, press **Make it final** on each one.
 
 > ⚠️ **Being a department head widens this** to everybody in your department, not only your direct
 > reports. Being given the "Department Manager" role does not — that role is about leave and equipment
@@ -797,7 +861,7 @@ on purpose — they are the arguments the module is built on.
 | **An agreed objective cannot be edited.** | Not the title, not the period, not any target, and no new measure — because adding one changes what delivering it means. **Reopen the target** is the only way through and it records who, when and why. |
 | **A refusal is final.** | A refused objective cannot be resubmitted. The answer to a refused objective is a *different* objective, so the refusal stays on the record instead of being written over. |
 | **Changing the weights does not move a running period.** | A period keeps the weights and the scale words it started with. Otherwise a mark somebody was told in March would quietly become a different mark in June. |
-| **"Finalise" only appears at calibration.** | A manager at the manager-review stage has nothing to finalise and correctly sees no such button. Move the period to calibration and the rows appear. |
+| **"Make it final" only appears at calibration.** | A manager at the manager-review stage has nothing to make final and correctly sees no such button. Move the period to calibration and the rows appear. |
 
 ---
 
@@ -833,15 +897,15 @@ seeded accounts to use.
 | 1   | **HR** — `/settings/performance`. Show the five weights totalling 100%, then drag one so it does not.                       | Save goes dead and the product tells you how much to add. A mark that cannot fail to add up.                                       |
 | 2   | **HR** — **Start an appraisal period**. Name it, set a due date, open _What to tell people_, type two sentences. Create it. | Nobody has been told anything yet. Say so.                                                                                         |
 | 3   | **HR** — **Write the questions**. Add one for the person and one for their manager.                                         | _Filed under_. And Start is dead until at least one question exists, and says why.                                                 |
-| 4   | **Employee** — `/performance/kpis`. **New objective**, set _Scored in_ to the new period, add a measure, **Send to be agreed**.   | Their Overview now shows it under _Waiting on somebody else_.                                                                      |
+| 4   | **Employee** — `/performance/kpis`. **New objective**, set _Appraisal period_ to the new period, add a measure, **Send to be agreed**.   | Their Overview now shows it under _Waiting on somebody else_.                                                                      |
 | 5   | **Manager** — `/performance`. The same objective is in **Waiting on you**. Open the queue and agree it.                     | Both sides of one action, thirty seconds apart. **This is the moment the demo lands.**                                             |
 | 6   | **Manager** — go back to KPIs and try to change the target you just agreed.                                                 | The controls are gone and a sentence above says why. Not a refusal after the click — the offer was never made.                     |
 | 7   | **HR** — **Start the period**. Confirm, then read the result out loud.                                                      | How many forms, how many told, and any names it gives you. "Nobody is appraising them" if it appears.                              |
 | 8   | **Employee** — **Fill it in**. Answer, leave the overall mark blank on purpose, send it.                                    | Blank is a choice, and nothing downstream reads it as zero.                                                                        |
 | 9   | **HR** — **Move to manager review**.                                                                                        | Self-reviews already in are kept. Say it; people assume otherwise.                                                                 |
 | 10  | **Manager** — write the review. Type _"Chidera is quite disorganised"_ and press Send.                                      | It quotes the phrase back at you and the button becomes **Send anyway**. It never blocks — and nothing you typed left the product. |
-| 11  | **HR** — **Move to calibration**, then **Move the mark** on one person with a reason.                                       | The row keeps both figures: what the answers produced, and what it was moved to.                                                   |
-| 12  | **Manager** — **Make this the rating**. Read the confirmation aloud before pressing it.                                     | This is the one-way door and the moment the person is told.                                                                        |
+| 11  | **HR** — **Move to calibration**, then **Change the mark** on one person with a reason.                                       | The row keeps both figures: what the answers produced, and what it was moved to.                                                   |
+| 12  | **Manager** — **Make it final**. Read the confirmation aloud before pressing it.                                     | This is the one-way door and the moment the person is told.                                                                        |
 | 13  | **Employee** — answer it. **I have seen this**.                                                                             | The sentence saying acknowledging is not agreeing. Then show the other button is now gone. One answer, once.                       |
 | 14  | **HR** — **See the report**. Finish here.                                                                                   | The two headcounts, and the three lists of names: nobody marked them, written but not finalised, told and no answer yet.           |
 

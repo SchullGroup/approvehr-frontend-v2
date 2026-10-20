@@ -87,7 +87,7 @@ export function QuickAdd({
           void add();
         }}
         className={cn(
-          "h-9 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2.5 text-body-sm text-ink placeholder:text-muted",
+          "h-9 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2.5 text-body-sm pointer-coarse:text-body-md text-ink placeholder:text-muted",
           "hover:border-field-line focus:border-accent-text focus:bg-surface focus:outline-none focus:ring-3 focus:ring-accent/25",
         )}
       />

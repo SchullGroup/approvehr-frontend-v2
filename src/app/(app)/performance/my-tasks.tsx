@@ -16,6 +16,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { TaskSource } from "@/components/performance/task-source";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { ProjectSourceTag } from "@/components/projects/project-source-tag";
 import { ApiError } from "@/lib/api/client";
@@ -247,6 +248,7 @@ export function MyTasksPanel() {
                           {task.goalTitle}
                           <ProjectSourceTag source={task.projectSource} />
                         </span>
+                        <TaskSource source={task.source} />
                         {task.gradeNote && (
                           <span className="mt-1 text-body-sm text-body">
                             <span className="font-medium text-ink">

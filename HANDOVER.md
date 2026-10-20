@@ -8409,3 +8409,460 @@ breaks `no-clock-derived-today` and `no-raw-date-formatting` on `dev`, `test` an
 **Not exercised:** the tester's own staging deployment. Nothing reachable from
 here carries its credentials, so this is verified against `origin/dev`'s frontend
 and `origin/staging`'s backend on a local stack.
+
+---
+
+# Spreadsheet headings are words, and the old ones still match
+
+Every spreadsheet we hand a customer — the five importer templates and the
+payroll adjustment sheet — printed field names in its header row:
+`gross_monthly`, `held_by_staff_no`, `must_be_returned_on_exit`, `staff_no`,
+`paye_tax`. The objectives sheet had words ("Owner email") and the rest did not.
+The product owner's request was to humanise display text, with "instead of owner
+email, use assigned to" as the example, so all six now print plain headings:
+"Assigned to (work email)", "Monthly pay (gross)", "Tax ID (TIN)", "Staff number
+or work email". Statutory names (PAYE, TIN, NIN, NHF) stay as they are.
+
+## The rule that makes renaming safe
+
+**A heading is only ever matched by what is left after removing everything but
+letters and digits**, on both sides (`normalizeKey`). So "First name",
+`first_name` and "FIRST  NAME" are one column, and most old headings equal their
+replacement without anybody doing anything. The ones that changed spelling —
+`gross_monthly` became "Monthly pay (gross)" — keep the old heading as an
+accepted alias, because `buildDictionary` reads `[column, ...aliases]`. That is
+what lets a template downloaded last month still upload.
+
+**If you rename a heading, put the old one in `aliases`.** Do not rely on
+remembering: `tests/imports-headings.test.ts` (backend) and the `WAS` table in
+`scripts/verify-template.ts` (frontend) list the headings as they stood, field by
+field, and fail if one stops mapping. Add the new column's old name there only if
+it ever shipped under another one.
+
+Two things that look like duplication and are not:
+
+- **`column` is the heading, `field` is the identity.** Nothing branches on the
+  heading; renaming one cannot change what a column means. It can only strand a
+  file, which is what the aliases and the two tables above are for.
+- **The adjustment sheet keeps its keys.** `SHEET_COLUMNS` has a `key`
+  (`staff_no`, `paye_tax`) and a `heading` ("Staff number", "PAYE tax"). The keys
+  are what the API echoes in its refusals and what the audit trail records, so
+  they do not change; anything a person reads goes through `headingOf`. The
+  reader accepts both spellings.
+
+## Both repos, and which one wins
+
+The API's dictionary (`modules/imports/*.ts`) is what answers when it is up and
+the frontend's mirror (`lib/imports/*.ts`) is what answers offline, so both were
+changed together and `verify-template` compares every heading between them. It
+only does that when a sibling folder named `approvehr-api` exists (item 38 in
+`out/tasks/`); on a layout that names it `approvehr-backend` it prints `skip` and
+compares nothing. Merge the backend first.
+
+## Not changed, on purpose
+
+The **exports** (`staff.csv`, `payslips.csv`, `attendance.csv`), the **statutory
+schedules** and the **bank register** still print snake_case headings. Other
+people's tools read those files and a schedule may have to match a filing
+format, so renaming them is a separate decision. Importing an export still works,
+because the old headings are accepted.
+
+## Verified
+
+Backend: the 18 test files that touch headings, imports, exports, payments,
+employment changes or the payroll sheet (462 tests, scratch database), `tsc`,
+ESLint and Prettier. The **whole** backend suite was not finished locally (201
+files; it was stopped after about an hour), so CI is its first full run.
+Frontend `npm run check` and `npm run build`; `verify-template` 73
+assertions (was 38) run against the real backend copy through a temporary
+`approvehr-api` symlink, and tamper-tested by changing one backend heading.
+In a browser against a scratch API: the objectives and employees uploads read a
+file headed with the **old** words and one headed with the **new** ones, each
+matching every column and passing the check; the downloaded workbooks were read
+back with openpyxl.
+
+---
+
+# Adding several records at once is one window, and objectives is the first
+
+The product owner's rule is that anywhere a person can add several of something there is a bulk
+way to do it. The spreadsheet upload was the only one. This is the second: a window on the KPIs
+screen, **Add multiple**, beside **Upload objectives**. Objectives only for now, and built so the
+next kind of record is a configuration rather than a copy.
+
+## What it is
+
+One window, three layouts of one list, a read-only review, and a way in and out of Excel.
+
+| File | What and why |
+| ---- | ------------ |
+| `components/bulk-create/bulk-create-dialog.tsx` | The window: toolbar, check, review, result, the question asked before closing. Knows nothing about objectives. |
+| `components/bulk-create/layouts.tsx` | **Stacked** (a card each), **Page by page** (arrows and a chip per item), **Table** (Excel-like; paste, Enter and arrow keys). |
+| `components/bulk-create/field-control.tsx` | One field in four forms: on a card, read-only, a table cell, a table cell read-only. Every layout reads a field's control from the surface, so a dropdown is a dropdown in all three. |
+| `lib/bulk-create/model.ts`, `report.ts`, `draft-file.ts`, `surface.ts` | Pure: drafts and their conversions, the check's answer put back on the right item, the downloaded file, and what a surface must say. |
+| `lib/store/bulk-create.ts` | The state machine: `edit`, `checking`, `review`, `applying`, `done`. |
+| `app/(app)/performance/add-multiple-objectives.tsx` | The only objectives-specific file: groups, controls, where the options come from. |
+
+## Decisions worth not undoing
+
+- **It goes through the importer, not through "create" in a loop.** The window posts what it holds
+  to `POST /imports/objectives/validate` and then `/apply`, exactly as an upload does. Same rules,
+  same refusals, and each row is judged on the author's own authority. A loop over `POST
+  /performance/goals` would be N requests, a half-saved result when the fourth fails, and a second
+  opinion about the rules.
+- **A draft is a row, held by dictionary field.** That is why a downloaded draft goes straight back
+  through **Upload objectives**, and why a file can be loaded in. Nothing about objectives is in the
+  model.
+- **The check is all-or-nothing, and the importer's is not.** An upload imports the good rows and
+  reports the rest. Here a row that fails keeps you on the form and nothing is created until every
+  row passes. A window of five items is one thought, and "four of your five went in" is a worse
+  place to be than "fix this one". A failure *at apply* (rare: the world changed between the two
+  presses) is reported by name, and **Fix the N that did not go in** brings back only those. The ones
+  that landed are removed from the window, because leaving them would let the next press create
+  them twice.
+- **The review is a phase of the same window, not a screen.** The person asked for the same window
+  read-only, and that is what it is: same layout, inputs gone, a dashed border. **Edit again** throws
+  the check away, so what is sent is always what was checked: the API fingerprints the validated
+  rows and refuses an apply whose rows differ, so `apply` sends the rows captured at the check and
+  never a re-read of the drafts.
+- **Nothing is kept in the browser except which layout you chose.** Closing with something typed asks
+  first, and the answer that keeps it is the download (`.xlsx` with the company's dropdowns, or
+  `.csv`). A draft that saved itself would be one the person could not see or carry away. The layout
+  preference lives in `createPersistedState`, which also keeps it **in module memory**: a test that
+  picks Table leaves every later test in Table, and clearing storage does not clear memory. The
+  tests choose their layout explicitly for that reason.
+- **Fifty, and a file that would make fifty-one is refused whole.** Not 500, which is the API's cap:
+  cards and pages are for a few, and a person typing fifty has already outgrown them. The refusal
+  says where to go instead (**Upload objectives**) rather than just stopping.
+- **Loading a file adds to what is typed and never replaces it.** Replacing would silently discard
+  work; the way to start over is **Clear all**, which asks.
+- **The server's backend has to know the headings the window sends, and the window stops when it
+  does not.** The window sends the headings from the frontend's copy of the dictionary. A backend a
+  deploy behind does not know a renamed one: `origin/staging`'s objectives dictionary has "Owner
+  email", not "Assigned to (work email)", so against it the owner would be silently dropped and
+  every row would pass. The API reports columns it did not recognise (`unmappedColumns`), and the
+  window treats that as a refusal: it names the column, says the server is a version behind, and
+  creates nothing. A test pins it and was shown to fail without it. The clean answer is still
+  order: **the backend headings change reaches `staging` before this frontend reaches `test`.** The
+  existing upload page has the same exposure and only prints a note.
+- **Assigned to is a typed work email.** The importer takes an email because two people can share a
+  name. A department head's staff list is a *lookup* row (`DirectoryPerson`), which has no email at
+  all, so for them there is nothing to suggest and the box is a plain email box, as the spreadsheet
+  column is. With `EDIT_RECORDS` the full rows carry addresses and each person is offered by name.
+  A real picker for heads needs the API to accept something else (a staff number) or to expose
+  emails to leaders: a backend decision, not made here.
+- **Department and Appraisal period are the upload template's own lists** (`useObjectiveTemplateLists`),
+  not a wider set. A dropdown that offers what the check then refuses puts the refusal further from
+  its cause.
+- **"Set one value for every objective" touches only items with something typed in them.** Filling a
+  column on an empty card would make it a row with no title.
+
+## The keystroke that took 1.3 seconds
+
+With fifty stacked cards every keystroke re-rendered six hundred fields. Measured in a real browser
+against a development build: 1,350 ms a key. Three causes, all fixed:
+
+1. **Nothing was memoised.** Cards and table rows are `memo`, which only works while props are equal,
+   and a handler written in a component is new on every render. `useStableCallback` hands the memo a
+   handler whose identity never changes and which always calls the latest. The new test counts
+   `itemName` calls (once per rendered card) after one keystroke among twelve cards, allows 3, and
+   fails with 12 when the `memo` is taken off.
+2. **Every field carried a tooltip that measures the page when it mounts.** `InfoTooltip` runs a
+   layout read per field, so fifty cards were six hundred forced layouts. The help is identical on
+   every card, so only the first card carries it.
+   > **The first half is out of date.** `InfoTooltip` no longer measures when it mounts: it renders
+   > its button and nothing else until it is opened, and measures then (see "Fields are 16px under a
+   > finger, and the help icon opens on a tap"). Only the first card still carries the help, which is
+   > still right, since the sentence is identical on every card and saying it fifty times is noise.
+   > It is just no longer what keeps a keystroke cheap.
+3. **Every text control with suggestions wrote its own `<datalist>`.** Two hundred addresses times
+   fifty cards is ten thousand `<option>`s. One list per column now, for the whole window.
+
+After: ~100 ms in the development build (React's dev build is the rest) and **about 6 ms a key in the
+production build, in every layout, at fifty items**. Fifty stacked cards appear in about a second.
+**Measure this against a production build.** The development figure is a poor guide, and the first
+instinct on seeing 100 ms is to start optimising something that is already fine.
+
+## Defects found by running it, and what class each is
+
+- **State set inside a state updater, with the return value computed there too.** The first `add`,
+  `paste` and `fill` set React state inside the `setDrafts` callback and read a variable assigned
+  there. React runs that callback later, so the function returned the wrong answer. They now read
+  the render's `drafts` and set the whole next list: they are event handlers, so that render is the
+  one the person was looking at.
+- **The "did not go in" list read its reasons from the wrong place.** It used the reports from the
+  *check*, which had passed and been cleared; the reasons came with the *apply*. Found by a test,
+  and invisible to the types: both are `Record<string, ItemReport>`.
+- **The "set one value" bar had labels tied to nothing.** `<label>` around a control that is not
+  inside it. A test could not find the control, which is what a screen reader would have said.
+- **A browser walk that passed once and failed on the next run** was the walk's fault: the
+  importer reports a title it already has as an error ("This objective has already been created, so
+  it is skipped rather than added twice"), and the first run had created them. The walk
+  suffixes its titles now. Worth knowing for anyone re-running one against the same company.
+
+## Pulled out so two screens do not hold two copies
+
+- `lib/imports/read-file.ts`: reading a chosen `.csv` or `.xlsx`, with every refusal, was inside the
+  import store's `chooseFile`. The window needs the identical reading, so the store now calls it.
+- `dropdownSheets` and `marked` in `lib/imports/template-file.ts`: the hidden `Lists` sheet and the
+  dropdown cells. The template and a downloaded draft both need them, and a draft that lost its
+  dropdowns on the way to Excel would invite the typo they exist to stop.
+- `quarterOptions` and `quarterText` are exported from `goal-dialogs.tsx`.
+
+## Verified
+
+`tests/bulk-create-model.test.ts` (21) and `tests/bulk-create-dialog.test.tsx` (24): the rows keyed by
+the template's headings, loading with old headings and aliases, the ceiling at 50 and 51, a paste
+that fills down and across and counts what did not fit, the draft going back through CSV and Excel
+unchanged, switching layouts without losing a character, the review having no inputs, **Edit again**
+restoring them, the same rows being checked and created, a refusal staying on the form with its
+reason, a part-failed apply naming what did not land, a column the server did not recognise stopping
+the check, and closing with work asking first. The ceiling, the heading keys, the memoisation and the
+unrecognised-column stop were each broken on purpose to see the test catch it. The whole suite
+(78 files, 763 tests) and all 22 gates of `npm run check` pass.
+
+In a browser against the real API on a scratch stack, signed in as the seeded administrator, on a
+production build: **27 of 27**. Add multiple on the KPIs screen; all three layouts keeping the
+typed title; a block pasted into the table adding rows; a refused row staying on the form with the
+API's own sentence; the review with no inputs; **Edit again**; both draft downloads; the discard
+question; the Excel draft loading back; **3 objectives created** with the measure counted; and the
+three objectives on the KPIs screen behind. The Excel draft was read back with openpyxl: the hidden
+`Lists` sheet, and dropdowns on Department, Appraisal period and Lower is better pointing at the
+right ranges. The Appraisal period dropdown appears once the company has a period that is not
+published, and not before.
+
+**Not exercised:** the QA site itself (this is verified against a local stack), demo mode in a
+browser, and a department head's view: their staff list has no emails, so the Assigned to box has
+no suggestions, which the unit tests cover and no browser walk has seen.
+
+## Deliberately not done
+
+- **Other kinds of record.** Departments, equipment and employees fit directly: a dictionary and a
+  config, no new window. **Payroll adjustments and attendance do not**: they are one row per
+  existing person, often hundreds, which wants a grid over a known list rather than cards over a
+  blank one. Decide that when it comes up.
+- **A sticky toolbar.** The layout switch scrolls away with fifty stacked cards. Switching to Table
+  is the answer today.
+- **The default quarter follows `TODAY`**, the demo's pinned "now", as the New objective form does,
+  so it can read a quarter behind the real date. Same source, so the two forms agree; fixing one
+  means fixing both.
+
+# Objectives can be edited and deleted before they are agreed
+
+`updateGoal` and `deleteGoal` existed on the API and in `performanceApi` for a long time, and
+`useKpiMutations().deleteGoal` was wired to nothing: no screen could change an objective's words or remove
+one made by mistake (the only exit was Stop, which keeps it on the list as off track). That is the fifth
+instance in this file of a route with no caller. It came up when 53 test objectives from a bulk upload had to
+be cleared from the QA site and the only way was the API.
+
+## What it offers, and when
+
+**Edit** and **Delete** sit at the end of the buttons on an objective's detail window, each only where the
+API will take it, so neither comes back as a refusal.
+
+- **Edit** (`EditGoalDialog`): title, due quarter, appraisal period, description. Offered while the target is
+  not frozen (`mayEditGoal`: not agreed, not done). Only what changed is sent, and Save stays off until
+  something differs. A cleared description goes as `null`. A published appraisal period is not offered to move
+  into. **Who it is assigned to is not in it**: handing an objective to somebody else has its own permission
+  rules, and a form that did both would make the rarer one easy to do by accident.
+- **Delete** (`DeleteGoalDialog`): offered when `deleteBlocker` is null, the same four refusals as `removeGoal`
+  on the API: done, agreed, refused, or something laddering up to it. The dialog says what goes with it (its
+  measures) and that it cannot be undone. When there is a reason it is not offered, one line under the buttons
+  says why ("Not deletable: Agreed, so it is the record of that agreement. Stop it instead of deleting it."),
+  so the missing button is not a mystery.
+
+**`deleteBlocker` mirrors a rule on the backend.** If `removeGoal` in `approvehr-backend` changes, change it
+here too; the server is the authority, and a drifted copy shows as a Delete that is refused (the refusal
+arrives as the API's own sentence).
+
+Demo mode refuses both with the usual "needs the API" message: a local edit or delete of a goal would not match
+anything else the demo shows.
+
+## Verified
+
+`npm run check` passes; `tests/goal-edit-delete.test.tsx` (13) covers when each is offered, what Save sends,
+and the confirmation. In a browser against a local API: Edit renamed a draft and the card updated, Delete
+removed the other and said what it would do first, and an agreed objective showed neither and the sentence why.
+
+# The bulk window says a wrong email once
+
+The "Add several objectives" check showed a red box naming the objective and the email nobody has, and an amber
+box naming the same email again. Names an item's own error already quotes are now left out of the amber box and
+its link ("Check your staff list") moves into the red one; an amber box remains only for a name no item
+mentions. `tests/bulk-create-dialog.test.tsx` has two cases (one tamper-tested against the old code).
+
+
+---
+
+# An approval you could see and never decide
+
+A tester told every employee to update their bank details, and they did, up to eight
+times each. The approvals inbox then held eight entries for one change. Only the newest
+could be approved. Approving any other answered "That was already withdrawn", and so did
+sending it back, and the entry stayed. Nothing in `tsc`, lint or 780 tests could see it,
+because each half was correct on its own.
+
+## The cause was on the backend, in a rule that was right
+
+`updateOwnRecord` supersedes rather than queues: a second request for the same field
+marks the first `WITHDRAWN`, because two pending account numbers is a question nobody
+can answer. It did not close the first request's inbox entry (`ApprovalRequest`), which
+stayed `PENDING` for ever. The inbox is sorted oldest first, so the dead entries sat on
+top. Attendance corrections superseded the same way and had the same defect. Every other
+kind that can end without a decision (leave, exits, offers, payroll, loans) already
+mirrors its entry.
+
+> A request and its inbox entry are two rows. Whatever ends one has to end the other in
+> the same transaction. `mirrorApprovalDecision` exists for that; the two paths that
+> skipped it were the two that supersede.
+
+The fix is in `approvehr-backend`, with a data-only migration that closes the entries
+already stuck. It closes only an entry whose own request is `WITHDRAWN`, so anything
+decided or genuinely pending is untouched.
+
+## What changed on this side
+
+- **"Send back" is "Reject".** On the approvals inbox only. The dialog still requires a
+  reason, and now says the person sees it, which is true: the backend notifies the
+  requester of an approval and of a rejection, with the reason. Before, the reason was
+  kept on the request and nothing ever delivered it. `/people/leave` and the objective
+  approvals keep "Send back", where the thing really does go back for revision.
+- **A failed rejection no longer closes its dialog.** `decide` caught the error, showed a
+  toast and returned normally, so `DeclineDialog` believed it had worked, cleared the
+  reason and closed. `decide` now takes `{ throwOnFailure }`; the rejection dialog uses
+  it and shows the server's sentence in its own field, with what was typed still there.
+- **A stale row refreshes the queue.** A 409 or 404 on approve or reject means the row is
+  not what the list says it is, so the inbox asks again and the row leaves, rather than
+  waiting there to fail a second time.
+
+## Deliberately not done
+
+- **A Close or Discard action** for an entry that is neither approved nor rejected. The
+  tester asked; it was left out. What closing would mean differs by kind (a withdrawn
+  leave request, a cancelled requisition and a dismissed record change are different
+  acts), and it needs that decided per kind first.
+- **Renaming "Send back" on `/people/leave`.** Same decision, different screen.
+
+---
+
+# Fields are 16px under a finger, and the help icon opens on a tap
+
+A review of the Performance module on phones found two defects in shared form components. The layout
+change (#424) left both alone on purpose: each is a change to something every form in the product uses.
+
+## Sixteen pixels, keyed on the finger and not on the width
+
+iOS Safari zooms the whole page when a text field whose computed size is under 16px takes focus, and it
+does not zoom back. Every `Input`, `Select` and `Textarea` was 15px (`text-body-sm`), and the viewport
+allows zoom on purpose (`layout.tsx`: a payroll figure somebody cannot enlarge is one they misread), so
+there is no meta tag to switch it off with.
+
+`pointer-coarse:text-body-md` is in `CONTROL` in `components/ui/input.tsx`, which the three share. A touch
+screen gets 16px and a mouse keeps 15px. Three decisions in it:
+
+- **The pointer, not the width.** An iPhone held sideways is 667 to 932px wide, which is large to every
+  width breakpoint and is still an iPhone. `pointer-coarse:` is true for a finger and false for a mouse. A
+  touchscreen laptop whose main pointer is a mouse stays at 15px, and nothing zooms there.
+- **In `CONTROL`, not beside each size.** A caller that passes its own size (`text-meta` on a compact
+  select) changes what a mouse sees and cannot take the finger's 16px away, because `tailwind-merge` keeps a
+  variant apart from the unprefixed size. Checked with the real `cn`.
+- **`text-body-md`, because `text-body` is a colour** (see the type scale entry).
+
+Seven files wrote a raw `<input>`, `<select>` or `<textarea>` at 15px or smaller and carry the class
+themselves: the picker's search box, the bulk-create table cell, the invitation link, three in Projects
+(the issue filter, the mention composer, quick add) and the two marketing calculator fields.
+
+`tests/text-fields-are-16px-on-touch.test.ts` stops the next one. It reads every `.tsx` under `src` with the
+TypeScript compiler, follows same-file `const` class strings and `cn()` calls, maps each size class to
+pixels, and fails for an `input`, `select` or `textarea` whose size on a touch screen is under 16px. A
+control with no size class inherits 16px and passes. It is the technique of `no-unsafe-form-rows.test.ts`,
+and it is what found the seven files. It only parses a file that writes one of the three tags (36 of the 664):
+parsing them all is what made it time out in a full run on a busy machine.
+
+On a touch screen a three-row textarea is about 10px taller, because the 16px size carries a line height of
+1.6 where the 15px one has 1.5. Nothing else moved.
+
+## The help icon
+
+`InfoTooltip` (in `components/ui/field.tsx`, the icon beside every label that has `help`) had three faults.
+The first two were measured in a browser rather than read:
+
+1. **The panel was clipped inside any dialog.** It was an absolutely positioned child of the icon, so the
+   dialog's scroll area cut it off. For the first field in a dialog it opened upward and 55 of its 71px were
+   hidden, on a laptop as much as on a phone.
+2. **It could not be opened on an iPhone.** It was shown by `group-hover` and `group-focus-within` alone, on
+   the reasoning that tapping a button focuses it. That is true in Chrome and false in Safari, which does not
+   give a button focus when it is pressed (on a Mac as well as an iPhone), and a phone cannot hover.
+3. **It was a 14px target with no focus ring.** `focus:outline-none` had replaced the ring with a colour
+   change, which is not a focus indicator.
+
+It now has three states: `closed`, `peek` and `pinned`. A mouse or pen resting on the icon, or a keyboard
+focusing it (`:focus-visible`, so a click that happens to focus it does not count), **peeks**; a press or a
+tap **pins**. A touch pointer never peeks: a finger has no "over", and the mouse events a browser fires
+after a tap would show the panel for as long as the finger was down and then take it away. It closes on the
+icon again, a press anywhere else, a press on the panel, Escape, and the icon losing focus.
+
+- **A portal to `document.body`, at `z-[60]`.** `position: fixed` alone would not escape the dialog: `Modal`
+  and `Drawer` animate in with a transform that is left on afterwards (`animation-fill-mode: both`), and a
+  transformed element is the containing block for its fixed descendants. The body is where `Modal`, `Drawer`,
+  the toasts and the tour already put themselves, and `z-[60]` is the tier above a dialog (`globals.css` lists
+  the help panel there now).
+- **Placement is measured when it opens**, by `placeTooltip` in `lib/place-tooltip.ts`, a pure function of
+  three rectangles: above if it fits, else below, else the larger side with a capped height. It is written
+  straight to the node in a layout effect, as `Spotlight` does, so there is no frame at the wrong place and no
+  state per scroll frame. It is measured against `visualViewport` where there is one, so with the keyboard
+  up the panel lands where the person is looking. An `IntersectionObserver` hides it when the icon is
+  scrolled out of its scroller and shows it again when the icon returns.
+- **The first Escape closes the hint and the second closes the dialog.** `useFocusTrap` listens on `document`
+  in the capture phase; the hint listens on `window`, which comes first, and stops the event. One keystroke
+  must not discard a form to dismiss a sentence.
+- **A press on the panel keeps focus on the icon** (`onMouseDown` cancels it). The icon closes the panel when
+  it loses focus, and Chrome moves focus off a button when a press lands on nothing focusable, so without it
+  the panel was gone before the click that ends the press. Tamper-tested in a browser: with the handler
+  stopped, focus goes to the body and the panel goes with it.
+- **The description for assistive technology did not move.** The `sr-only` span that `aria-describedby` names
+  is still always in the DOM; the visible panel is `aria-hidden` and `role="presentation"`, so nobody hears
+  the sentence twice. The icon has no `aria-expanded` for the same reason: it controls a copy that assistive
+  technology is not shown.
+- **Closed, it costs a button.** Nothing is mounted, measured or listened to until it opens. That is why the
+  bulk-create entry's reason for carrying the help on the first card only is out of date, though not wrong.
+
+## Found, and not changed
+
+- **`cn` drops `text-body-md`.** `FONT_SIZES` in `lib/cn.ts` does not list `body-md`, so
+  `cn("text-body-md font-semibold", "text-ink")` returns `"font-semibold text-ink"`: `tailwind-merge` reads
+  the unregistered size as a colour and the later colour wins. (`cn("text-body-sm", "text-body-md")` keeps
+  both.) Wherever a `text-body-md` string reaches `cn` together with a text colour, the size is silently gone.
+  It is invisible today because 16px is the inherited size. Registering it would also bring the 1.6 line
+  height the token carries to those places, which is a visible change, so it is a decision of its own.
+  Nothing here depends on it: the touch size is written `pointer-coarse:text-body-md`, which `cn` keeps.
+- **jsdom answers `:focus-visible` with false**, for everything. A test of keyboard behaviour that does not
+  stub `Element.prototype.matches` (see `info-tooltip.test.tsx`) will find that focus never opens the panel.
+- **A dev server on `127.0.0.1` never hydrates.** Next 16 blocks `/_next/*` dev resources from an origin that
+  is not in `allowedDevOrigins`, and the page stays on its spinner. A browser script against `next dev` has
+  to use `localhost`, or a production build; it cost an hour here before the log line was read.
+
+## Verified
+
+On a production build, in Chromium with touch emulation, against a seeded scratch company, the original
+build against this one:
+
+- **The panel**, in "New objective" and "Start an appraisal period", at 320x568, 375x812, 812x375,
+  768x1024 and 1366x768. Before, the first icon's panel was 25% visible at every size, the second 50% at
+  812x375, and the period dialog's 90% at 812x375, 768 and 1366. After, 100% visible and inside the screen in
+  all fifteen cases, with every label row still 22.5px high and no sideways overflow.
+- **Behaviour, 26 checks:** a tap opens it, a second tap closes it, a tap elsewhere closes it and leaves the
+  dialog open, a tap on the panel closes it and does not reach what is under it; a mouse peeks, a click pins,
+  the pin survives the mouse leaving, the first Escape closes only the hint and the second closes the dialog;
+  Tab reaches the icon, shows the panel and draws a 2px solid ring; a press on the panel is not undone by the
+  focus change. The icon is a 26x26 target.
+- **Scrolling**, at 812x375 and 320x568, where the dialog scrolls: the panel opens inside the screen, hides when
+  its icon is scrolled out, comes back with it, and follows it while it moves.
+- **Field sizes**, 82 screens at 375px with touch (`(pointer: coarse)` matched): every text field 15px before
+  and 16px after. At 1366px with a mouse: 15px before and after. The counts of fields differ from run to run
+  (121 and 141 on the phone) because screens finish loading at different moments; the sizes are the finding.
+
+**Not verified: iOS Safari, or any real device.** There is no Safari here. The zoom itself, and Safari not
+focusing a button on a press (the reason the panel opens on a click), are both known behaviour and neither was
+reproduced; Chromium was made to behave like a phone, which is not the same. The on-screen keyboard
+(`visualViewport` shrinking under the panel) was not exercised either.

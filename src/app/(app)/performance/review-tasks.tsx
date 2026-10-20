@@ -6,6 +6,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   LinkedText,
   Spinner,
   TBody,
@@ -18,12 +19,15 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { TaskSource } from "@/components/performance/task-source";
 import { ProjectSourceTag } from "@/components/projects/project-source-tag";
 import { ApiError } from "@/lib/api/client";
 import type { ApiTaskForGrading, ApiTaskGrade } from "@/lib/api/performance";
 import { dayOf } from "@/lib/api/performance";
 import { cn } from "@/lib/cn";
+import { confirmInBatches, workTrackersApi } from "@/lib/api/work-trackers";
 import { useTaskActions, useTasksForGrading } from "@/lib/store/performance";
+import { useAction } from "@/lib/use-action";
 import { TaskGradeDialog, type GradeRequest } from "./task-grade-dialog";
 
 /**
@@ -66,6 +70,13 @@ export function ReviewTasksTab() {
      clearing the request does not unmount the dialog before it can leave. */
   const [request, setRequest] = useState<GradeRequest | null>(null);
   const [asking, setAsking] = useState(false);
+  const confirming = useAction();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  /* Synced from a work tracker and still gradeable. A finished ticket is a
+     strong hint of Done, so these can be confirmed together; the API still
+     runs each one through the same who-may and open-week checks. */
+  const imported = tasks.filter((t) => t.source && !t.weekClosed);
 
   /**
    * Tasks by the day they were logged, oldest day first.
@@ -172,6 +183,19 @@ export function ReviewTasksTab() {
              the other would be a guess — a task logged on Monday can be for
              the week before. See BE-38. */
           description="Grouped by the day each task was logged, longest wait first. This is not the week the task covers."
+          action={
+            imported.length > 0 ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                loading={confirming.pending}
+                onClick={() => setConfirmOpen(true)}
+              >
+                Mark {imported.length} synced{" "}
+                {imported.length === 1 ? "task" : "tasks"} done
+              </Button>
+            ) : undefined
+          }
         />
         {loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
@@ -224,6 +248,7 @@ export function ReviewTasksTab() {
                                 <ProjectSourceTag source={task.projectSource} />
                               </div>
                             )}
+                            <TaskSource source={task.source} />
                           </TD>
                           <TD align="right">
                             <GradeActions
@@ -272,6 +297,7 @@ export function ReviewTasksTab() {
                             <ProjectSourceTag source={task.projectSource} />
                           </div>
                         )}
+                        <TaskSource source={task.source} />
                         <GradeActions
                           task={task}
                           busy={grading === task.id}
@@ -288,6 +314,54 @@ export function ReviewTasksTab() {
           </>
         )}
       </Card>
+
+      {/* One click grades every synced task on the page, so it asks first and
+          says what it will do. They are all finished tickets (only a Done
+          ticket becomes a weekly task), but the grade is still the manager's:
+          it is recorded as given by them, and it counts. */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        tone="primary"
+        title={`Mark ${imported.length} synced ${imported.length === 1 ? "task" : "tasks"} done?`}
+        confirmLabel="Mark done"
+        loading={confirming.pending}
+        body={
+          <p>
+            {imported.length === 1
+              ? "This is a finished ticket from a connected tool. "
+              : `These are finished tickets from a connected tool, for ${new Set(imported.map((t) => t.employeeId)).size} ${new Set(imported.map((t) => t.employeeId)).size === 1 ? "person" : "people"}. `}
+            Marking {imported.length === 1 ? "it" : "them"} done grades{" "}
+            {imported.length === 1 ? "it" : "each one"} Completed, recorded as
+            graded by you, and counts {imported.length === 1 ? "it" : "them"}{" "}
+            towards the objective
+            {imported.length === 1 ? "" : "s"}{" "}
+            {imported.length === 1 ? "it belongs" : "they belong"} to. A task
+            you are not allowed to grade is skipped, and named.
+          </p>
+        }
+        onConfirm={() =>
+          void confirming.run(
+            () =>
+              confirmInBatches(
+                workTrackersApi.confirm,
+                imported.map((t) => t.id),
+              ),
+            {
+              subject: "the imported tasks",
+              success: "Imported tasks marked done",
+              notice: (result) =>
+                result.skipped.length > 0
+                  ? `${result.skipped.length} could not be graded: ${result.skipped[0]!.reason}`
+                  : null,
+              onDone: () => {
+                setConfirmOpen(false);
+                reload();
+              },
+            },
+          )
+        }
+      />
 
       <TaskGradeDialog
         request={request}

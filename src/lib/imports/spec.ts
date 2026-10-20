@@ -324,9 +324,11 @@ export type ColumnSpec<Field extends string = string> = {
    * The exact values this column accepts, when it is a fixed, universal
    * vocabulary — so the downloaded Excel template can turn the column into a
    * real dropdown cell. Deliberately narrow: a company's own departments or
-   * salary grades are not this — see the API's `MIGRATION_ONLY_COLUMNS`
-   * header for why those were removed from the importer rather than given a
-   * dropdown. Absent means plain text.
+   * salary grades are not this, and a copy compiled in here would be somebody
+   * else's list. A column that needs one gets it from the screen at the moment
+   * of download — see `TemplateLists` in `template-file.ts` — which is why the
+   * API's `MIGRATION_ONLY_COLUMNS` reasoning (a spelling nobody controls) does
+   * not apply to it: the list is typed for them. Absent means plain text.
    */
   dropdown?: readonly string[];
 };
