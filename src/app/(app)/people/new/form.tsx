@@ -975,7 +975,7 @@ export function NewEmployeeForm() {
   const showResume = Boolean(drafts.saved) && !resumeHidden && !finished;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
       <div className="flex flex-col gap-5">
         {/* In production this always saves to the API — there is no other
             destination — so the badge said nothing a reader didn't already

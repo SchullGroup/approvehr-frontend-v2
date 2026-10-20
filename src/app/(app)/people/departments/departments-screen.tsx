@@ -767,7 +767,10 @@ function DepartmentRow({
         </div>
 
         {(canAssign || canManage) && (
-          <div className="flex shrink-0 items-center gap-1.5">
+          /* `flex-wrap max-w-full`: the row above wraps these onto a line of
+             their own on a phone, and the line was 385px of unbreakable
+             buttons in a 335px card — the whole page grew a sideways scroll. */
+          <div className="flex max-w-full shrink-0 flex-wrap items-center gap-1.5">
             {canAssign && (
               <Button
                 variant="secondary"

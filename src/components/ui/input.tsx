@@ -13,8 +13,19 @@ import { useFieldControl } from "./field";
  * moments the field is meant to stand out.
  */
 
+/*
+ * `min-w-0 max-w-full` on every control, not only the date and time ones.
+ *
+ * A control is a flex or grid item far more often than not — it sits in a
+ * `Field`, which sits in a two-column row — and an item's automatic minimum
+ * size is its content's, so a control that cannot shrink below its own
+ * intrinsic width pushes the whole row wider than the screen. `w-full` says
+ * how wide it wants to be; these two say it may always be less. See the base
+ * rule in `globals.css` for the iPhone date/time case, which needs more than
+ * this.
+ */
 const CONTROL =
-  "w-full bg-surface text-ink placeholder:text-muted " +
+  "w-full min-w-0 max-w-full bg-surface text-ink placeholder:text-muted " +
   "border border-field-line rounded-md " +
   "transition-[border-color,box-shadow] duration-150 " +
   "hover:border-ink-soft " +
@@ -111,7 +122,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   if (!icon && !shownSuffix) return control;
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       {icon && (
         <span
           aria-hidden="true"
@@ -162,7 +173,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   function Select({ className, children, placeholder, ...props }, ref) {
     const field = useFieldControl();
     return (
-      <div className="relative">
+      <div className="relative min-w-0">
         <select
           ref={ref}
           className={cn(

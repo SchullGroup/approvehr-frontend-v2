@@ -53,7 +53,7 @@ const facts = (inIt: boolean): NavFacts => ({
   /* Signatures stays on throughout: this file is about one-to-ones, and a row
      hidden for an unrelated reason would be a false negative. Its own rule is
      asserted in `signatures-by-role.test.ts`. */
-  rows: { "one-on-ones": inIt, signatures: true },
+  rows: { "one-on-ones": inIt, signatures: true, interviews: true },
 });
 
 const labels = (

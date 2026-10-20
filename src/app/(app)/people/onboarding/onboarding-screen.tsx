@@ -161,7 +161,11 @@ export function OnboardingScreen() {
             </Badge>
           )}
           {!connected && (
-            <Badge tone="neutral" size="sm">
+            <Badge
+              tone="neutral"
+              size="sm"
+              className="max-w-full whitespace-normal"
+            >
               Ticks you make here are saved in this browser
             </Badge>
           )}
@@ -415,7 +419,10 @@ function StepRow({
           </span>
           <span
             className={cn(
-              "min-w-0 flex-1 truncate text-body-sm",
+              /* `relative`: the screen-reader suffix inside is absolutely
+                 positioned, and only a positioned ancestor clips it — without
+                 one it sat past the end of a long label and widened the page. */
+              "relative min-w-0 flex-1 truncate text-body-sm",
               done ? "text-muted line-through" : "text-ink",
             )}
           >

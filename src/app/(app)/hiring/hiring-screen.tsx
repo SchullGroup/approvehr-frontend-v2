@@ -7,6 +7,8 @@ import {
   Lock,
   Megaphone,
   Plus,
+  Settings,
+  Star,
   TriangleAlert,
 } from "lucide-react";
 import {
@@ -53,9 +55,10 @@ import { fullName } from "@/lib/types";
  *
  * The top of this screen is live when the API is up: adverts, how many people
  * applied, how many are waiting to be screened, and how many have been screened
- * in all come from `/careers/postings` and `/careers/analytics`. The bottom —
- * interviews and offers — has no endpoint in this API, so it is the seeded demo
- * data in both modes and says so on each card.
+ * in all come from `/careers/postings` and `/careers/analytics`. The interviews
+ * and offers cards are live too when somebody is signed in
+ * (`LiveInterviewsCard`, `LiveOffersCard`, from `/recruitment`); with no session
+ * they show the demo seed and say so on each card.
  *
  * Splitting the badge per panel rather than per page is the honest version. A
  * single "Live from the API" at the top of a page whose lower half is a fixture
@@ -125,6 +128,22 @@ function Overview() {
             <ButtonLink href="/hiring/postings" variant="secondary" size="sm">
               <Megaphone aria-hidden="true" className="size-4" />
               Job adverts
+            </ButtonLink>
+            <ButtonLink
+              href="/hiring/talent-pool"
+              variant="secondary"
+              size="sm"
+            >
+              <Star aria-hidden="true" className="size-4" />
+              Talent pool
+            </ButtonLink>
+            <ButtonLink
+              href="/hiring/settings/pipelines"
+              variant="secondary"
+              size="sm"
+            >
+              <Settings aria-hidden="true" className="size-4" />
+              Settings
             </ButtonLink>
             <ButtonLink
               href="/hiring/requisitions/new"

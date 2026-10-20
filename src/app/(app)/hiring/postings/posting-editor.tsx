@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Link2 } from "lucide-react";
 import {
   Button,
+  ButtonLink,
   Field,
   Input,
   Modal,
@@ -73,6 +74,7 @@ type Draft = {
   salaryMax: string;
   closesOn: string;
   requisitionId: string;
+  remote: boolean;
 };
 
 const blank = (): Draft => ({
@@ -87,6 +89,7 @@ const blank = (): Draft => ({
   salaryMax: "",
   closesOn: "",
   requisitionId: "",
+  remote: false,
 });
 
 const fromPosting = (posting: ApiPosting): Draft => ({
@@ -103,6 +106,7 @@ const fromPosting = (posting: ApiPosting): Draft => ({
     posting.salaryMaxKobo === null ? "" : String(naira(posting.salaryMaxKobo)),
   closesOn: posting.closesOn ?? "",
   requisitionId: posting.requisitionId ?? "",
+  remote: posting.remote ?? false,
 });
 
 /** Naira typed into a box. Blank and nonsense both mean "not set". */
@@ -227,7 +231,14 @@ export function PostingEditor({
         const body: UpdatePostingBody = {
           title: draft.title.trim(),
           summary: draft.summary.trim(),
-          description: draft.description.trim(),
+          /* Only when the words changed. Sent alone, `description` stores plain
+             text and clears the formatted version, so saving an advert that was
+             written with formatting, without touching its text, must not send
+             it. */
+          ...(draft.description.trim() === posting.description.trim()
+            ? {}
+            : { description: draft.description.trim() }),
+          remote: draft.remote,
           location: draft.location.trim() === "" ? null : draft.location.trim(),
           employmentType: draft.employmentType,
           showSalary: draft.showSalary,
@@ -252,6 +263,7 @@ export function PostingEditor({
           title: draft.title.trim(),
           summary: draft.summary.trim(),
           description: draft.description.trim(),
+          ...(draft.remote ? { remote: true } : {}),
           ...(draft.slug ? { slug: draft.slug } : {}),
           ...(draft.location.trim() ? { location: draft.location.trim() } : {}),
           employmentType: draft.employmentType,
@@ -283,6 +295,15 @@ export function PostingEditor({
       }
       footer={
         <>
+          {posting && (
+            <ButtonLink
+              href={`/hiring/postings/${posting.id}`}
+              variant="ghost"
+              className="mr-auto"
+            >
+              Form and links
+            </ButtonLink>
+          )}
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
@@ -319,7 +340,11 @@ export function PostingEditor({
         <Field
           label="The full advert"
           required
-          help="What the work involves, who they report to, and what you need from them."
+          help={
+            posting?.descriptionHtml
+              ? "This advert has formatting. Changing the text here replaces it with plain text. A blank line starts a paragraph and a line beginning with - is a bullet."
+              : "What the work involves, who they report to, and what you need from them. A blank line starts a paragraph and a line beginning with - is a bullet."
+          }
           error={problemFor("description")}
         >
           <Textarea
@@ -353,6 +378,13 @@ export function PostingEditor({
             </Select>
           </Field>
         </div>
+
+        <Switch
+          label="The work can be done from anywhere"
+          description="Tells search engines the job is remote. It changes nothing else on the advert."
+          checked={draft.remote}
+          onChange={(event) => set("remote", event.target.checked)}
+        />
 
         {/* ---------------------------------------------------------- money */}
 

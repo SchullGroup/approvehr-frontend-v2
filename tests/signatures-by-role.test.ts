@@ -60,7 +60,7 @@ const facts = (has: boolean): NavFacts => ({
   assistantWired: true,
   /* One-to-ones on throughout — this file is about signatures, and a row
      hidden for an unrelated reason would be a false negative. */
-  rows: { "one-on-ones": true, signatures: has },
+  rows: { "one-on-ones": true, signatures: has, interviews: true },
 });
 
 const labels = (

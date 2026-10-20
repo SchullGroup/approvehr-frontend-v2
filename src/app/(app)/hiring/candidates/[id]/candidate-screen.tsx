@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Briefcase,
-  CalendarClock,
   Inbox,
   Lock,
   Mail,
@@ -36,6 +35,12 @@ import {
   type TimelineEntry,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { ApplicationAnswers } from "@/components/hiring/application-answers";
+import { InterviewsCard } from "@/components/hiring/interviews/interviews-card";
+import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
+import { StageHistory } from "@/components/hiring/stage-history";
+import { ScreeningCard } from "@/components/hiring/screening/screening-card";
+import { PipelineAnswers } from "@/components/hiring/screening/pipeline-answers";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { StagePill, stageLabel } from "@/components/hiring/stage-pill";
 import {
@@ -43,16 +48,19 @@ import {
   ScreenInDialog,
 } from "@/components/hiring/screening-dialogs";
 import { BandPosition } from "@/app/(app)/payroll/pay-setup/band-position";
+import { hasExtras } from "@/lib/hiring/answers-view";
 import { ApiError } from "@/lib/api/client";
+import { careersApi } from "@/lib/api/careers";
 import {
   APPLICATION_STATUS_TONE,
   type ApplicantRecord,
 } from "@/lib/api/hiring";
-import { usePermissions } from "@/lib/permissions";
+import { useCan, usePermissions } from "@/lib/permissions";
+import { useDemoInterviewViews } from "@/lib/hiring/interviews/use-demo-interviews";
 import { useApplicantRecord, useOfferBands } from "@/lib/store/hiring";
 import { useRealPipelineApplication } from "@/lib/store/recruitment";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
-import { formatDateShort, formatWeekdayTime } from "@/lib/time";
+import { formatDateShort } from "@/lib/time";
 import { STAGES, fullName, type PipelineCard } from "@/lib/types";
 import { daysInStage } from "@/lib/mock/hiring";
 import { employeeById } from "@/lib/mock/people";
@@ -175,6 +183,7 @@ function queueStatusFor(record: ApplicantRecord | null): string {
 
 function Record({ id }: { id: string }) {
   const view = useApplicantRecord(id);
+  const canOpenCv = useCanOpenCv();
   const { isConnected } = useSession();
   const real = useRealPipelineApplication(id, view.record?.candidateId ?? null);
   const [screening, setScreening] = useState(false);
@@ -365,6 +374,7 @@ function Record({ id }: { id: string }) {
                 record={record}
                 live={view.live}
                 editable={view.editable}
+                canOpenCv={canOpenCv}
                 matchedByEmail={view.matchedBy === "email"}
                 onScreenIn={() => setScreening(true)}
                 onDecline={() => setDeclining(true)}
@@ -403,6 +413,34 @@ function Record({ id }: { id: string }) {
                 </CardBody>
               </Card>
             )}
+
+            {/* Their score and why, where they stand against the pass mark, and
+                their assessment score. Staff only: this page needs the hiring
+                permissions, and the narrow views a panelist has show none of it. */}
+            {record ? (
+              <ScreeningCard
+                subject={{ kind: "application", id: record.applicationId }}
+                postingId={record.postingId}
+              />
+            ) : realApp ? (
+              <>
+                <ScreeningCard subject={{ kind: "pipeline", id: realApp.id }} />
+                {realApp.screening && (
+                  <PipelineAnswers screening={realApp.screening} />
+                )}
+              </>
+            ) : card ? (
+              <ScreeningCard
+                subject={{ kind: "pipeline", id: card.id }}
+                postingId={`demo-advert-${card.requisitionId}`}
+              />
+            ) : null}
+
+            {/* The history of an application nobody has screened in — a turn-down,
+                a screen-in that is still resolving. Once there is a pipeline
+                record its history (which includes these events) sits with the
+                pipeline, so this one steps aside rather than listing it twice. */}
+            {!realApp && record && <StageHistory events={record.history} />}
 
             {realApp && (
               <RealScreening application={realApp} onChanged={real.reload} />
@@ -448,10 +486,10 @@ function Record({ id }: { id: string }) {
                 />
                 <CardBody className="flex flex-col items-start gap-3">
                   <p className="text-body-sm text-body">
-                    The stage they are in, their interviews, their scorecards
-                    and any offer were written by the API and cannot be read
-                    back: the pipeline has no endpoint yet. The application
-                    above is everything this page can show for certain.
+                    Demo mode keeps no pipeline record for this person. Sign in
+                    to a connected workspace to see the stage they are in, their
+                    interviews, their scorecards and any offer. The application
+                    above is everything this page can show here.
                   </p>
                   <ButtonLink href="/hiring" variant="secondary" size="sm">
                     Back to hiring
@@ -501,7 +539,8 @@ function Record({ id }: { id: string }) {
             toast.push({
               title: `${record.name} turned down`,
               tone: "success",
-              detail: "Nothing was sent to them. Write to them yourself.",
+              detail:
+                "Nothing was sent to them: ApproveHR does not email applicants yet. Write to them yourself.",
             });
             setDeclining(false);
           } catch (error) {
@@ -707,6 +746,7 @@ function Application({
   record,
   live,
   editable,
+  canOpenCv,
   matchedByEmail,
   onScreenIn,
   onDecline,
@@ -715,6 +755,8 @@ function Application({
   record: ApplicantRecord;
   live: boolean;
   editable: boolean;
+  /** Whether this person may ask for the CV. The API refuses everybody else. */
+  canOpenCv: boolean;
   /** True when this was joined to the pipeline candidate by email, not by id. */
   matchedByEmail: boolean;
   onScreenIn: () => void;
@@ -758,21 +800,49 @@ function Application({
           <p className="text-body-sm text-muted">They sent no covering note.</p>
         )}
 
-        {/* The CV. `cvUrl` is null in every environment while no object store is
-            wired, and the API's own sentence explains why rather than this
-            screen inventing one. */}
+        {/* What they answered, agreed to and were flagged for. A flag is a prompt
+            to look, drawn calmly and never as a rejection; a possible duplicate
+            is a marker with a link, never a merge. */}
+        {hasExtras(record.extras) && (
+          <ApplicationAnswers
+            extras={record.extras}
+            {...(editable && canOpenCv
+              ? {
+                  openFile: (answerId: string) =>
+                    careersApi.openAnswerFile(record.applicationId, answerId),
+                }
+              : {})}
+          />
+        )}
+
+        {/* The CV. Never a link: opening it asks the API for one short-lived
+            address and the API records who asked. Offered to whoever may ask,
+            only when there is a file, and only connected — the demo's CVs are a
+            filename and nothing more. */}
         <div className="flex flex-wrap items-center gap-2.5 rounded-md border border-line p-3">
           <Paperclip
             aria-hidden="true"
             className="size-4 shrink-0 text-faint"
           />
-          {record.cvUrl ? (
-            <TextLink href={record.cvUrl} className="text-body-sm">
-              Open their CV
-            </TextLink>
+          {!record.hasCv ? (
+            <span className="min-w-0 flex-1 text-body-sm text-body">
+              No CV is attached to this application.
+            </span>
+          ) : record.cvFlagged ? (
+            <span className="min-w-0 flex-1 text-body-sm text-danger-text">
+              The virus check flagged this file, so it cannot be opened. Ask the
+              applicant for another copy.
+            </span>
+          ) : editable && canOpenCv ? (
+            <OpenCv
+              open={() => careersApi.openCv(record.applicationId)}
+              label="Open their CV"
+            />
           ) : (
             <span className="min-w-0 flex-1 text-body-sm text-body">
-              {record.cvNote ?? "No CV is attached to this application."}
+              {editable
+                ? "A CV is attached. Opening it is kept to whoever hires or approves hiring."
+                : "A CV is attached in the real record. Demo mode has no file to open."}
             </span>
           )}
         </div>
@@ -1044,43 +1114,7 @@ function Pipeline({ card }: { card: PipelineCard }) {
         </CardBody>
       </Card>
 
-      <Card>
-        <CardHeader title="Interviews" action={<SourceBadge live={false} />} />
-        <CardBody className="flex flex-col gap-2.5">
-          {card.interviews.length === 0 && (
-            <p className="text-body-sm text-muted">Nothing scheduled.</p>
-          )}
-          {card.interviews.map((iv) => (
-            <div
-              key={iv.id}
-              className="flex items-start gap-3 rounded-md border border-line p-3"
-            >
-              <CalendarClock
-                aria-hidden="true"
-                className="mt-0.5 size-4 shrink-0 text-faint"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-body-sm font-medium text-ink">
-                  {INTERVIEW_LABEL[iv.kind] ?? iv.kind}
-                </p>
-                <p className="tabular mt-0.5 text-meta text-muted">
-                  {formatWeekdayTime(iv.scheduledFor, timeZone)} ·{" "}
-                  {iv.durationMins} mins ·{" "}
-                  {iv.interviewerIds
-                    .map((x) => employeeById(x)?.firstName ?? "?")
-                    .join(", ")}
-                </p>
-              </div>
-              <Badge
-                tone={iv.status === "completed" ? "success" : "info"}
-                size="sm"
-              >
-                {iv.status}
-              </Badge>
-            </div>
-          ))}
-        </CardBody>
-      </Card>
+      <DemoInterviews card={card} />
 
       {/* Closed by default — `PARITY.md` Rule 5. A trail of what already
           happened answers a different question from "what do I do with this
@@ -1103,6 +1137,39 @@ function Pipeline({ card }: { card: PipelineCard }) {
         <Timeline entries={activity} />
       </Disclosure>
     </>
+  );
+}
+
+/**
+ * The practice record's interviews: the same card a connected record has, over the book
+ * this browser keeps, so a booked, moved or cancelled interview is still that after a
+ * refresh. It has no scorecard controls: a practice board's scorecards are the seeded
+ * ones, shown above.
+ */
+function DemoInterviews({ card }: { card: PipelineCard }) {
+  const interviews = useDemoInterviewViews(card.id);
+  const canManage = useCan("MANAGE_HIRING");
+  return (
+    <InterviewsCard
+      applicationId={card.id}
+      requisitionId={card.requisitionId}
+      stageId={`${card.requisitionId}:${card.stage}`}
+      stageName={stageLabel(card.stage)}
+      candidateName={fullName(card.candidate)}
+      role={card.requisition.title}
+      interviews={interviews}
+      canManage={canManage}
+      onChanged={() => undefined}
+      badge={<SourceBadge live={false} />}
+      scorecardActions={(iv) => {
+        const owed = iv.panelists.filter((person) => !person.submitted).length;
+        return iv.panelists.length > 0 ? (
+          <span className="text-meta text-muted">
+            {iv.panelists.length - owed} of {iv.panelists.length} scorecards in
+          </span>
+        ) : null;
+      }}
+    />
   );
 }
 

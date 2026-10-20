@@ -25,7 +25,11 @@ export function Card({
      library-managed-attributes machinery, so it never hits that collapse. */
   return createElement(As, {
     className: cn(
-      "rounded-lg border border-line bg-surface",
+      /* `min-w-0`: a card is very often a grid or flex item, and an item's
+         automatic minimum width is its content's. One row with a no-wrap
+         progress bar made a card 510px wide inside a 335px column and the
+         whole onboarding page scroll sideways on a phone. */
+      "min-w-0 rounded-lg border border-line bg-surface",
       "transition-shadow duration-200",
       className,
     ),
@@ -79,7 +83,11 @@ export function CardHeader({
           </p>
         )}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {/* `max-w-full`: `shrink-0` alone let a wide action — a four-option
+          SegmentedControl is the case that found this — claim more than the
+          card has, and the page grew a sideways scrollbar at 320px. Capped at
+          the header's own width, the action wraps inside it instead. */}
+      {action && <div className="max-w-full shrink-0">{action}</div>}
     </div>
   );
 }
