@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import {
+  Ban,
   FileQuestion,
   Lock,
   MapPin,
   Megaphone,
+  Pause,
   Pencil,
   Users,
 } from "lucide-react";
@@ -29,10 +31,6 @@ import {
   formatMoney,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import {
-  RequisitionStages,
-  type StageBody,
-} from "@/components/hiring/requisition-stages";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -59,8 +57,21 @@ import { useSession } from "@/lib/store/session";
 import type { StageType } from "@/lib/hiring/pipeline/stage-types";
 import { JobAccessCard } from "@/components/hiring/access/job-access";
 import { JobHires } from "@/components/hiring/hired/job-hires";
-import { RequisitionScreening, UnknownRequisition } from "./screening";
+import { useRoleQueue } from "@/lib/store/hiring";
+import {
+  RequisitionScreening,
+  ScreeningCard,
+  UnknownRequisition,
+} from "./screening";
 import { PipelineWorkspace } from "./pipeline-workspace";
+import {
+  RequisitionWorkspace,
+  RoleGlance,
+  type Fact,
+  type WorkspaceTab,
+} from "./requisition-workspace";
+import { RowMenu, type RowMenuEntry } from "./row-menu";
+import { StageEditor, type StageBody } from "./stage-editor";
 
 /**
  * One role — gated.
@@ -214,6 +225,7 @@ function RealRequisitionDetail({ id }: { id: string }) {
   const canManage = useCan("MANAGE_HIRING");
   const toast = useToast();
   const [editingRole, setEditingRole] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [busy, setBusy] = useState(false);
 
   if (loading) {
@@ -341,6 +353,37 @@ function RealRequisitionDetail({ id }: { id: string }) {
     await run(() => stageMutations.remove(id, stage.id));
   }
 
+  const closed =
+    requisition.status === "FILLED" || requisition.status === "CANCELLED";
+
+  /* Everything that is not the next step lives in one menu. The next step for
+     each status is the button beside it, as it was in the old Lifecycle card;
+     what is new is that Cancel is no longer one click beside Mark filled, and
+     says what it does before it does it. */
+  const menu: RowMenuEntry[] = [
+    ...(requisition.status === "OPEN"
+      ? [
+          {
+            label: "Put on hold",
+            icon: <Pause />,
+            onSelect: () => void run(() => mutations.hold(id)),
+          },
+        ]
+      : []),
+    { label: "Job adverts", icon: <Megaphone />, href: "/hiring/postings" },
+    ...(closed
+      ? []
+      : [
+          "separator" as const,
+          {
+            label: "Cancel requisition",
+            icon: <Ban />,
+            tone: "danger" as const,
+            onSelect: () => setCancelling(true),
+          },
+        ]),
+  ];
+
   return (
     <>
       <PageHeader
@@ -363,200 +406,97 @@ function RealRequisitionDetail({ id }: { id: string }) {
           </>
         }
         action={
-          <ButtonLink href="/hiring/postings" variant="secondary" size="sm">
-            <Megaphone aria-hidden="true" className="size-3.5" />
-            Job adverts
-          </ButtonLink>
+          <>
+            {requisition.status === "DRAFT" && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="max-sm:h-11"
+                loading={busy}
+                onClick={() => void run(() => mutations.submit(id))}
+              >
+                Submit
+              </Button>
+            )}
+            {(requisition.status === "DRAFT" ||
+              requisition.status === "PENDING_APPROVAL") &&
+              canApprove && (
+                <Button
+                  size="sm"
+                  variant="approve"
+                  className="max-sm:h-11"
+                  loading={busy}
+                  onClick={() => void run(() => mutations.approve(id))}
+                >
+                  Approve
+                </Button>
+              )}
+            {requisition.status === "OPEN" && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="max-sm:h-11"
+                loading={busy}
+                onClick={() => void run(() => mutations.fill(id))}
+              >
+                Mark filled
+              </Button>
+            )}
+            {requisition.status === "ON_HOLD" && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="max-sm:h-11"
+                loading={busy}
+                onClick={() => void run(() => mutations.reopen(id))}
+              >
+                Reopen
+              </Button>
+            )}
+            {/* The one way to change the role. Offered only to whoever can
+                manage hiring, and not at all once the role is filled or
+                cancelled — the API refuses every field at that point, so there
+                is nothing an edit control here could honestly do. See
+                `updateRequisition`'s own refusal, which this note echoes
+                rather than paraphrases differently. */}
+            {canManage &&
+              (closed ? (
+                <span className="text-meta text-muted">
+                  {requisition.status === "FILLED" ? "Filled" : "Cancelled"} —
+                  part of the record now.
+                </span>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="max-sm:h-11"
+                  onClick={() => setEditingRole(true)}
+                >
+                  <Pencil aria-hidden="true" className="size-3.5" />
+                  Edit role
+                </Button>
+              ))}
+            <RowMenu
+              label={`More actions for ${requisition.reference}`}
+              items={menu}
+              disabled={busy}
+            />
+          </>
         }
       />
 
-      <PageBody className="flex flex-col gap-6">
-        <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-          <Card>
-            {/* Offered only to whoever can manage hiring, and not at all once
-                the role is filled or cancelled — the API refuses every field
-                at that point, so there is nothing an edit control here could
-                honestly do. See `updateRequisition`'s own refusal, which this
-                note echoes rather than paraphrases differently. */}
-            {canManage && (
-              <CardHeader
-                title="Role details"
-                action={
-                  requisition.status === "FILLED" ||
-                  requisition.status === "CANCELLED" ? (
-                    <span className="text-meta text-muted">
-                      {requisition.status === "FILLED" ? "Filled" : "Cancelled"}{" "}
-                      — part of the record now.
-                    </span>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setEditingRole(true)}
-                    >
-                      <Pencil aria-hidden="true" className="size-3.5" />
-                      Edit
-                    </Button>
-                  )
-                }
-              />
-            )}
-            <CardBody className="flex flex-col gap-4">
-              <div className="flex flex-wrap gap-x-6 gap-y-3 text-body-sm">
-                <Fact label="Salary band">
-                  <span className="tabular whitespace-nowrap">
-                    {requisition.bandMinKobo != null &&
-                    requisition.bandMaxKobo != null
-                      ? band(
-                          naira(requisition.bandMinKobo),
-                          naira(requisition.bandMaxKobo),
-                        )
-                      : "Not set"}
-                  </span>
-                </Fact>
-                <Fact label="Location">
-                  {requisition.location ? (
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin
-                        aria-hidden="true"
-                        className="size-3.5 text-faint"
-                      />
-                      {requisition.location}
-                    </span>
-                  ) : (
-                    "Not set"
-                  )}
-                </Fact>
-                <Fact label="Type">
-                  {EMPLOYMENT_TYPE_LABELS[requisition.employmentType]}
-                </Fact>
-                <Fact label="Headcount">{requisition.headcount}</Fact>
-                {requisition.departmentName && (
-                  <Fact label="Department">{requisition.departmentName}</Fact>
-                )}
-              </div>
-              {requisition.description && (
-                <p className="whitespace-pre-line border-t border-line pt-4 text-body-sm text-body">
-                  {requisition.description}
-                </p>
-              )}
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardBody className="flex flex-col gap-3.5">
-              <h3 className="text-meta font-semibold text-muted">Lifecycle</h3>
-              <Person
-                label="Hiring manager"
-                name={requisition.hiringManagerName ?? "Not set"}
-              />
-              {requisition.approvedByName && (
-                <Person label="Approved by" name={requisition.approvedByName} />
-              )}
-              <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
-                {(requisition.status === "DRAFT" ||
-                  requisition.status === "PENDING_APPROVAL") && (
-                  <>
-                    {requisition.status === "DRAFT" && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        loading={busy}
-                        onClick={() => void run(() => mutations.submit(id))}
-                      >
-                        Submit
-                      </Button>
-                    )}
-                    {canApprove && (
-                      <Button
-                        size="sm"
-                        variant="approve"
-                        loading={busy}
-                        onClick={() => void run(() => mutations.approve(id))}
-                      >
-                        Approve
-                      </Button>
-                    )}
-                  </>
-                )}
-                {requisition.status === "OPEN" && (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      loading={busy}
-                      onClick={() => void run(() => mutations.hold(id))}
-                    >
-                      Put on hold
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      loading={busy}
-                      onClick={() => void run(() => mutations.fill(id))}
-                    >
-                      Mark filled
-                    </Button>
-                  </>
-                )}
-                {requisition.status === "ON_HOLD" && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    loading={busy}
-                    onClick={() => void run(() => mutations.reopen(id))}
-                  >
-                    Reopen
-                  </Button>
-                )}
-                {requisition.status !== "FILLED" &&
-                  requisition.status !== "CANCELLED" && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      loading={busy}
-                      onClick={() => void run(() => mutations.cancel(id))}
-                    >
-                      Cancel
-                    </Button>
-                  )}
-              </div>
-              <div className="border-t border-line pt-3 text-body-sm">
-                <p className="tabular flex flex-wrap gap-x-3 gap-y-1 text-meta text-muted">
-                  <span>{requisition.applications.inProgress} in progress</span>
-                  <span>{requisition.applications.offerMade} offered</span>
-                  <span>{requisition.applications.hired} hired</span>
-                </p>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-
-        <JobHires
-          requisitionId={requisition.id}
-          headcount={requisition.headcount}
-        />
-
-        <JobAccessCard requisitionId={requisition.id} canManage={canManage} />
-
-        <RequisitionScreening
-          requisitionId={requisition.id}
-          roleName={requisition.jobTitle}
-        />
-
-        <RequisitionStages
-          stages={requisition.stages}
+      <PageBody>
+        <RealWorkspace
+          requisition={requisition}
           canManage={canManage}
           busy={busy}
-          onAdd={addStage}
-          onUpdate={updateStage}
-          onMove={moveStage}
-          onRemove={removeStage}
+          stageActions={{
+            onAdd: addStage,
+            onUpdate: updateStage,
+            onMove: moveStage,
+            onRemove: removeStage,
+          }}
         />
-
-        <div className="flex flex-col gap-4">
-          <PipelineWorkspace requisitionId={requisition.id} />
-        </div>
       </PageBody>
 
       {editingRole && (
@@ -569,7 +509,178 @@ function RealRequisitionDetail({ id }: { id: string }) {
           }}
         />
       )}
+
+      <Modal
+        open={cancelling}
+        onClose={() => setCancelling(false)}
+        title={`Cancel ${requisition.reference}?`}
+        description={requisition.jobTitle}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCancelling(false)}>
+              Keep this requisition
+            </Button>
+            <Button
+              variant="danger"
+              loading={busy}
+              onClick={() =>
+                void run(() => mutations.cancel(id)).finally(() =>
+                  setCancelling(false),
+                )
+              }
+            >
+              Cancel requisition
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body-sm leading-relaxed text-body">
+          It is marked cancelled and its details can no longer be edited. The
+          people already in its pipeline stay on record. If the role has only
+          changed, edit it instead; if it is a different role, open a new
+          requisition.
+        </p>
+      </Modal>
     </>
+  );
+}
+
+/**
+ * The glance and the four tabs of a real role.
+ *
+ * A component of its own for one reason: the Applicants tab shows how many people
+ * are waiting on a first look, which means asking the queue here rather than inside
+ * the tab, and a hook cannot sit below `RealRequisitionDetail`'s early returns.
+ */
+function RealWorkspace({
+  requisition,
+  canManage,
+  busy,
+  stageActions,
+}: {
+  requisition: ApiRequisitionDetail;
+  canManage: boolean;
+  busy: boolean;
+  stageActions: {
+    onAdd: (body: {
+      name: string;
+      type: StageType;
+      requiresScorecards: boolean;
+    }) => Promise<boolean>;
+    onUpdate: (stage: ApiStage, body: StageBody) => Promise<boolean>;
+    onMove: (stageId: string, delta: -1 | 1) => Promise<void>;
+    onRemove: (stage: ApiStage) => Promise<void>;
+  };
+}) {
+  const queue = useRoleQueue(requisition.id);
+  /* Shown only when it is a number above nothing. Not loaded yet is not "none
+     waiting", and a badge that says 0 on a tab that is fine is noise. */
+  const waiting =
+    queue.waiting !== null && queue.waiting > 0 ? queue.waiting : undefined;
+
+  const facts: Fact[] = [
+    {
+      label: "Salary band",
+      value: (
+        <span className="tabular whitespace-nowrap">
+          {requisition.bandMinKobo != null && requisition.bandMaxKobo != null
+            ? band(
+                naira(requisition.bandMinKobo),
+                naira(requisition.bandMaxKobo),
+              )
+            : "Not set"}
+        </span>
+      ),
+    },
+    {
+      label: "Location",
+      value: requisition.location ? (
+        <span className="inline-flex items-center gap-1">
+          <MapPin aria-hidden="true" className="size-3.5 text-faint" />
+          {requisition.location}
+        </span>
+      ) : (
+        "Not set"
+      ),
+    },
+    {
+      label: "Type",
+      value: EMPLOYMENT_TYPE_LABELS[requisition.employmentType],
+    },
+    { label: "Headcount", value: requisition.headcount },
+    ...(requisition.departmentName
+      ? [{ label: "Department", value: requisition.departmentName }]
+      : []),
+    {
+      label: "Hiring manager",
+      value: requisition.hiringManagerName ?? "Not set",
+    },
+    ...(requisition.approvedByName
+      ? [{ label: "Approved by", value: requisition.approvedByName }]
+      : []),
+  ];
+
+  const tabs: WorkspaceTab[] = [
+    {
+      id: "pipeline",
+      label: "Pipeline",
+      content: (
+        <>
+          <PipelineWorkspace requisitionId={requisition.id} />
+          <JobHires
+            requisitionId={requisition.id}
+            headcount={requisition.headcount}
+          />
+        </>
+      ),
+    },
+    {
+      id: "applicants",
+      label: "Applicants",
+      count: waiting,
+      tone: "warning",
+      content: <ScreeningCard queue={queue} roleName={requisition.jobTitle} />,
+    },
+    {
+      id: "stages",
+      label: "Stages",
+      count: requisition.stages.length,
+      content: (
+        <StageEditor
+          stages={requisition.stages}
+          canManage={canManage}
+          busy={busy}
+          {...stageActions}
+        />
+      ),
+    },
+    {
+      id: "access",
+      label: "Access",
+      content: (
+        <JobAccessCard requisitionId={requisition.id} canManage={canManage} />
+      ),
+    },
+  ];
+
+  return (
+    <RequisitionWorkspace
+      tabs={tabs}
+      glance={
+        <RoleGlance
+          facts={facts}
+          description={requisition.description}
+          figures={
+            <>
+              <span>{requisition.applications.inProgress} in progress</span>
+              <span>{requisition.applications.offerMade} offered</span>
+              <span>{requisition.applications.hired} hired</span>
+            </>
+          }
+        />
+      }
+    />
   );
 }
 
@@ -841,101 +952,89 @@ function SeededRequisitionDetail({ id }: { id: string }) {
   const manager = employeeById(req.hiringManagerId);
   const recruiter = employeeById(req.recruiterId);
 
-  return (
-    <>
-      <PageHeader
-        breadcrumb={[
-          { href: "/hiring", label: "Hiring" },
-          { href: `/hiring/requisitions/${req.id}`, label: req.reference },
-        ]}
-        title={req.title}
-        meta={
-          <>
-            <Badge tone={STATUS_TONE[req.status]} dot>
-              {STATUS_LABEL[req.status]}
-            </Badge>
-            <Badge tone="neutral" size="sm">
-              {req.reference}
-            </Badge>
-          </>
-        }
-        action={
-          <ButtonLink href="/hiring/postings" variant="secondary" size="sm">
-            <Megaphone aria-hidden="true" className="size-3.5" />
-            Job adverts
-          </ButtonLink>
-        }
-      />
+  const facts: Fact[] = [
+    {
+      label: "Salary band",
+      value: (
+        <span className="tabular whitespace-nowrap">
+          {band(req.salaryMin, req.salaryMax)}
+        </span>
+      ),
+    },
+    {
+      label: "Location",
+      value: (
+        <span className="inline-flex items-center gap-1">
+          <MapPin aria-hidden="true" className="size-3.5 text-faint" />
+          {req.location}
+        </span>
+      ),
+    },
+    {
+      label: "Type",
+      value: `${TYPE[req.employmentType]} · ${WORK_MODE[req.workMode]}`,
+    },
+    { label: "Opened", value: req.openedAt },
+  ];
 
-      <PageBody className="flex flex-col gap-6">
-        {/* Role facts. Kept above the pipeline because a recruiter screening a
-            CV needs the band and the must-haves in the same glance. */}
-        {/* Scoped to the two cards it sits above. The panels further down carry
-            their own badge — the applications one is live when the API is up,
-            and a note here claiming that would be wrong in demo mode. */}
-        <SourceBadge live={false} note="The role's own details." />
-
+  const tabs: WorkspaceTab[] = [
+    {
+      id: "pipeline",
+      label: "Pipeline",
+      content: (
+        <>
+          <SourceBadge live={false} note="The pipeline board." />
+          <PipelineWorkspace requisitionId={req.id} />
+          <JobHires requisitionId={req.id} headcount={req.openings} />
+        </>
+      ),
+    },
+    {
+      id: "applicants",
+      label: "Applicants",
+      content: (
+        <RequisitionScreening requisitionId={req.id} roleName={req.title} />
+      ),
+    },
+    {
+      id: "role",
+      label: "Role",
+      content: (
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <Card>
-            <CardBody className="flex flex-col gap-4">
-              <div className="flex flex-wrap gap-x-6 gap-y-3 text-body-sm">
-                <Fact label="Salary band">
-                  <span className="tabular whitespace-nowrap">
-                    {band(req.salaryMin, req.salaryMax)}
-                  </span>
-                </Fact>
-                <Fact label="Location">
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin
-                      aria-hidden="true"
-                      className="size-3.5 text-faint"
-                    />
-                    {req.location}
-                  </span>
-                </Fact>
-                <Fact label="Type">
-                  {TYPE[req.employmentType]} · {WORK_MODE[req.workMode]}
-                </Fact>
-                <Fact label="Opened">{req.openedAt}</Fact>
+            <CardBody className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <h3 className="mb-2 text-meta font-semibold text-muted">
+                  Must have
+                </h3>
+                <ul className="flex flex-col gap-1.5">
+                  {req.mustHaves.map((m) => (
+                    <li key={m} className="flex gap-2 text-body-sm text-body">
+                      <span aria-hidden="true" className="text-success-text">
+                        ✓
+                      </span>
+                      {m}
+                    </li>
+                  ))}
+                </ul>
               </div>
-
-              <div className="grid gap-5 border-t border-line pt-4 sm:grid-cols-2">
+              {req.niceToHaves.length > 0 && (
                 <div>
                   <h3 className="mb-2 text-meta font-semibold text-muted">
-                    Must have
+                    Nice to have
                   </h3>
                   <ul className="flex flex-col gap-1.5">
-                    {req.mustHaves.map((m) => (
+                    {req.niceToHaves.map((m) => (
                       <li key={m} className="flex gap-2 text-body-sm text-body">
-                        <span aria-hidden="true" className="text-success-text">
-                          ✓
+                        <span aria-hidden="true" className="text-faint">
+                          +
                         </span>
                         {m}
                       </li>
                     ))}
                   </ul>
                 </div>
-                {req.niceToHaves.length > 0 && (
-                  <div>
-                    <h3 className="mb-2 text-meta font-semibold text-muted">
-                      Nice to have
-                    </h3>
-                    <ul className="flex flex-col gap-1.5">
-                      {req.niceToHaves.map((m) => (
-                        <li
-                          key={m}
-                          className="flex gap-2 text-body-sm text-body"
-                        >
-                          <span aria-hidden="true" className="text-faint">
-                            +
-                          </span>
-                          {m}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
+              )}
             </CardBody>
           </Card>
 
@@ -963,34 +1062,59 @@ function SeededRequisitionDetail({ id }: { id: string }) {
             </CardBody>
           </Card>
         </div>
-
-        <JobHires requisitionId={req.id} headcount={req.openings} />
-
+      ),
+    },
+    {
+      id: "access",
+      label: "Access",
+      content: (
         <JobAccessCard requisitionId={req.id} canManage={canManageSeeded} />
+      ),
+    },
+  ];
 
-        <RequisitionScreening requisitionId={req.id} roleName={req.title} />
+  return (
+    <>
+      <PageHeader
+        breadcrumb={[
+          { href: "/hiring", label: "Hiring" },
+          { href: `/hiring/requisitions/${req.id}`, label: req.reference },
+        ]}
+        title={req.title}
+        meta={
+          <>
+            <Badge tone={STATUS_TONE[req.status]} dot>
+              {STATUS_LABEL[req.status]}
+            </Badge>
+            <Badge tone="neutral" size="sm">
+              {req.reference}
+            </Badge>
+          </>
+        }
+        action={
+          <ButtonLink
+            href="/hiring/postings"
+            variant="secondary"
+            size="sm"
+            className="max-sm:h-11"
+          >
+            <Megaphone aria-hidden="true" className="size-3.5" />
+            Job adverts
+          </ButtonLink>
+        }
+      />
 
-        <div className="flex flex-col gap-4">
-          <SourceBadge live={false} note="The pipeline board." />
-          <PipelineWorkspace requisitionId={req.id} />
-        </div>
+      <PageBody className="flex flex-col gap-5">
+        {/* Scoped to the glance it sits above. The panels in the tabs carry their
+            own badge — the applications one is live when the API is up, and a
+            note here claiming that would be wrong in demo mode. */}
+        <SourceBadge live={false} note="The role's own details." />
+        <RequisitionWorkspace
+          tabs={tabs}
+          glance={<RoleGlance facts={facts} />}
+        />
       </PageBody>
     </>
-  );
-}
-
-function Fact({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <dt className="text-meta text-faint">{label}</dt>
-      <dd className="mt-0.5 font-medium text-ink">{children}</dd>
-    </div>
   );
 }
 
