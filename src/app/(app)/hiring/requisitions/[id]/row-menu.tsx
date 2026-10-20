@@ -134,16 +134,22 @@ export function RowMenu({
     const onFocusIn = (event: FocusEvent) => {
       if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
     };
-    const onViewportChange = () => setOpen(false);
+    /* Closed when the width changes (a rotation) and not otherwise. The panel is
+       positioned inside the page, so it scrolls with it and a scroll cannot
+       strand it; closing on scroll is what made a menu that had to be scrolled
+       to vanish under a thumb. The height changes whenever a phone's address
+       bar slides away, so a resize that kept the width is not an event. */
+    const width = window.innerWidth;
+    const onResize = () => {
+      if (window.innerWidth !== width) setOpen(false);
+    };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("focusin", onFocusIn);
-    window.addEventListener("resize", onViewportChange);
-    window.addEventListener("scroll", onViewportChange, true);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("focusin", onFocusIn);
-      window.removeEventListener("resize", onViewportChange);
-      window.removeEventListener("scroll", onViewportChange, true);
+      window.removeEventListener("resize", onResize);
     };
   }, [open]);
 

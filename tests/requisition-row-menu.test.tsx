@@ -174,6 +174,45 @@ describe("the row menu", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
+  it("stays open while the page scrolls: it moves with the page, so a scroll cannot strand it", async () => {
+    const user = userEvent.setup();
+    render(<RowMenu label="Actions for Applied" items={items()} />);
+    await user.click(trigger());
+    fireEvent.scroll(window);
+    fireEvent.scroll(document.body);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
+
+  it("closes when the width changes, and not when only the height does (a phone's address bar)", async () => {
+    const user = userEvent.setup();
+    render(<RowMenu label="Actions for Applied" items={items()} />);
+    await user.click(trigger());
+
+    const height = window.innerHeight;
+    Object.defineProperty(window, "innerHeight", {
+      value: height - 80,
+      configurable: true,
+    });
+    fireEvent(window, new Event("resize"));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    Object.defineProperty(window, "innerHeight", {
+      value: height,
+      configurable: true,
+    });
+
+    const width = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", {
+      value: width + 100,
+      configurable: true,
+    });
+    fireEvent(window, new Event("resize"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    Object.defineProperty(window, "innerWidth", {
+      value: width,
+      configurable: true,
+    });
+  });
+
   it("cannot be opened while the row is busy", async () => {
     const user = userEvent.setup();
     render(<RowMenu label="Actions for Applied" items={items()} disabled />);
