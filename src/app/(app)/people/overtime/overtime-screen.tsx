@@ -44,7 +44,7 @@ import {
   useOvertime,
   type OvertimeRow,
 } from "@/lib/store/overtime";
-import { TODAY } from "@/lib/today";
+import { useToday } from "@/lib/use-today";
 import { DeclineOvertimeModal } from "./decline-overtime";
 import { MyOvertime } from "./my-overtime";
 import { KIND_TONE, STATUS_TONE } from "./tone";
@@ -135,7 +135,8 @@ function AllOvertime() {
   const { permissions } = usePermissions();
   const toast = useToast();
 
-  const [period, setPeriod] = useState(currentPeriod);
+  const today = useToday();
+  const [period, setPeriod] = useState(() => currentPeriod(today));
   const [status, setStatus] = useState<OvertimeStatus | "ALL">("ALL");
   const [working, setWorking] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -170,8 +171,8 @@ function AllOvertime() {
     permissions.has("RUN_PAYROLL") && (!overtime.policyKnown || policy.enabled);
   const canDecide = permissions.has("APPROVE_LEAVE_ALL");
 
-  const periods = useMemo(() => recentPeriods(TODAY, 12), []);
-  const thisMonth = currentPeriod();
+  const periods = useMemo(() => recentPeriods(today, 12), [today]);
+  const thisMonth = currentPeriod(today);
 
   /** Every failure shows the API's own words — they name who and what. */
   const run = async (action: () => Promise<unknown>, done: string) => {
