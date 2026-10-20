@@ -304,7 +304,7 @@ function Figures({ person }: { person: ApiReviewFlag }) {
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-h3 tabular-nums sm:text-h2",
-                "bg-warning-subtle text-warning-text",
+                "bg-warning-soft text-warning-text",
               )}
             >
               {exactPoints(person.gapBp).replace(" pts", "")}

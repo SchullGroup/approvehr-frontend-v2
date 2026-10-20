@@ -43,7 +43,7 @@ export function FairnessStatus({ cycleId }: { cycleId: string }) {
 
   if (flagged > 0) {
     return (
-      <div className="flex items-start gap-4 rounded-lg border border-warning-border bg-warning-subtle px-5 py-4">
+      <div className="flex items-start gap-4 rounded-lg border border-warning-line bg-warning-soft px-5 py-4">
         <Scale
           aria-hidden="true"
           className="mt-0.5 size-4 shrink-0 text-warning-text"
@@ -73,7 +73,7 @@ export function FairnessStatus({ cycleId }: { cycleId: string }) {
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-success-border bg-success-subtle px-5 py-4">
+    <div className="flex items-center gap-3 rounded-lg border border-success-line bg-success-soft px-5 py-4">
       <CheckCircle2
         aria-hidden="true"
         className="size-4 shrink-0 text-success-text"
