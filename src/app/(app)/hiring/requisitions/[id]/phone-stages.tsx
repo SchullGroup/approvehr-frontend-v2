@@ -197,14 +197,18 @@ function StageList({
       aria-label={`${column.label}, ${String(total)} ${total === 1 ? "person" : "people"}`}
     >
       {canManage && cards.length > 0 && (
-        <Checkbox
-          className="min-h-11 items-center"
-          label={`Select everyone shown in ${column.label}`}
-          checked={selection.allOf(ids)}
-          indeterminate={selection.someOf(ids)}
-          disabled={Boolean(selection.everyone)}
-          onChange={() => selection.toggleMany(ids)}
-        />
+        /* The whole row is the press: the tick is 18px and the words beside it
+           are 20px tall, neither of which is a thumb's target on its own. */
+        <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-body-sm text-ink">
+          <Checkbox
+            hiddenLabel={`Select everyone shown in ${column.label}`}
+            checked={selection.allOf(ids)}
+            indeterminate={selection.someOf(ids)}
+            disabled={Boolean(selection.everyone)}
+            onChange={() => selection.toggleMany(ids)}
+          />
+          Select everyone shown in {column.label}
+        </label>
       )}
 
       <ul className="flex flex-col gap-3">
