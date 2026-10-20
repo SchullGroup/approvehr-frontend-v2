@@ -238,6 +238,13 @@ function Adverts() {
         action={
           <>
             <ButtonLink
+              href="/hiring/postings/settings"
+              variant="secondary"
+              size="sm"
+            >
+              Careers page settings
+            </ButtonLink>
+            <ButtonLink
               href="/hiring/postings/applications"
               variant="secondary"
               size="sm"
@@ -651,6 +658,13 @@ function AdvertRow({
 
       <TD align="right">
         <div className="flex justify-end gap-1.5">
+          <ButtonLink
+            href={`/hiring/postings/${posting.id}`}
+            variant="ghost"
+            size="sm"
+          >
+            Form and links
+          </ButtonLink>
           {isLive && (
             <Button variant="ghost" size="sm" onClick={onCopy}>
               {copied ? (
@@ -804,6 +818,13 @@ function AdvertCard({
       )}
 
       <div className="flex flex-wrap gap-1.5">
+        <ButtonLink
+          href={`/hiring/postings/${posting.id}`}
+          variant="ghost"
+          size="sm"
+        >
+          Form and links
+        </ButtonLink>
         {isLive && (
           <Button variant="ghost" size="sm" onClick={onCopy}>
             {copied ? (

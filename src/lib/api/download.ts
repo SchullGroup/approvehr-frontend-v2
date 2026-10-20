@@ -52,12 +52,24 @@ export async function fetchFile(
   query?: Record<string, string | number | boolean | undefined>,
   /** What to say when the server produced nothing and said nothing about why. */
   nothingProduced = "No file was produced.",
+  /**
+   * A body to send, which makes it a POST. An export of a selection of people
+   * carries the selection — ids, or a filter and the count somebody confirmed —
+   * and a list of two thousand ids does not belong in a URL.
+   */
+  post?: unknown,
 ): Promise<FileDownload> {
   const access = tokens.access();
   let response: Response;
   try {
     response = await fetch(buildUrl(path, query), {
-      headers: access ? { Authorization: `Bearer ${access}` } : {},
+      ...(post !== undefined
+        ? { method: "POST", body: JSON.stringify(post) }
+        : {}),
+      headers: {
+        ...(access ? { Authorization: `Bearer ${access}` } : {}),
+        ...(post !== undefined ? { "Content-Type": "application/json" } : {}),
+      },
       /* A register moves the moment somebody is added. A cached spreadsheet is
          the kind of wrong that gets emailed to an accountant. */
       cache: "no-store",

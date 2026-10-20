@@ -398,7 +398,7 @@ export function PayrollSettingsForm() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
       <div className="flex flex-col gap-5">
         {issues.length > 0 && (
           <Callout
@@ -467,7 +467,13 @@ export function PayrollSettingsForm() {
               </Badge>
             ) : (
               <>
-                <Badge tone="neutral" size="sm">
+                {/* These two summaries are the longest badges in the product;
+                    `whitespace-nowrap` made them wider than a 320px card. */}
+                <Badge
+                  tone="neutral"
+                  size="sm"
+                  className="max-w-full whitespace-normal"
+                >
                   {deducted.length === 0
                     ? "Nothing is deducted"
                     : deducted
@@ -571,7 +577,11 @@ export function PayrollSettingsForm() {
           title="Salary structure"
           meta={
             <>
-              <Badge tone="neutral" size="sm">
+              <Badge
+                tone="neutral"
+                size="sm"
+                className="max-w-full whitespace-normal"
+              >
                 {Math.round(draft.salarySplit.basic * 100)} /{" "}
                 {Math.round(draft.salarySplit.housing * 100)} /{" "}
                 {Math.round(draft.salarySplit.transport * 100)} basic, housing,

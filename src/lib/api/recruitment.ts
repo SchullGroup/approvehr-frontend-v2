@@ -1,6 +1,18 @@
 "use client";
 
 import { request, requestPaged, type Paged } from "@/lib/api/client";
+import type { ApiHistoryEvent } from "@/lib/api/application-history";
+import type { ApiCvLink } from "@/lib/api/careers";
+import type { ApiScoreStatus } from "@/lib/api/screening";
+import type { StageType } from "@/lib/hiring/pipeline/stage-types";
+import type { ApiNotified } from "@/lib/api/interviews";
+import type {
+  ApiCandidateEmail,
+  ApiPanelist,
+  ApiQueuedEmail,
+  ApiRetentionNote,
+  ApiScoreSummary,
+} from "@/lib/api/candidate-email";
 
 /**
  * The internal recruitment pipeline — requisitions, candidates, interviews,
@@ -87,6 +99,16 @@ export type ApiStage = {
   name: string;
   order: number;
   requiresScorecards: boolean;
+  /**
+   * What the stage is for. Absent from an API that predates stage types, which a
+   * screen must treat as "not said", not as a type of its own.
+   */
+  type?: StageType;
+  /**
+   * The email sent to somebody a person moves into this stage, if any. Absent from
+   * an API that predates candidate emails: "not said", not "none".
+   */
+  emailTemplateId?: string | null;
 };
 
 export type ApiRequisitionDetail = ApiRequisition & {
@@ -146,6 +168,19 @@ export type ApiInterviewSummary = {
   status: InterviewStatus;
   location: string | null;
   scorecards: ApiInterviewScorecardRef[];
+  /** The stage it was booked in. Absent from an API that predates panels. */
+  stageId?: string | null;
+  stageName?: string | null;
+  /** Who was invited to score it, and whose scorecard is in. */
+  panelists?: ApiPanelist[];
+  /** An https link to join, when a person pasted one. Absent from an API that predates it. */
+  joinUrl?: string | null;
+  /** The calendar sequence. Absent from an API that predates calendar files. */
+  calendarSequence?: number;
+  /** The zone its time is written in. Absent or `null`: the company's own. */
+  timeZone?: string | null;
+  /** Whether reminders to the candidate are on. Absent from an API that predates reminders. */
+  candidateReminders?: boolean;
 };
 
 export type ApiCandidate = {
@@ -161,6 +196,12 @@ export type ApiCandidate = {
   currentSalaryKobo: number | null;
   expectedSalaryKobo: number | null;
   rightToWork: boolean | null;
+  /** Kept on file for another role. Absent from an API that predates the pool. */
+  talentPool?: boolean;
+  talentPoolSince?: string | null;
+  talentPoolNote?: string | null;
+  /** The company's tags on this person. Absent from an API that predates them. */
+  tags?: { id: string; name: string; color: string | null }[];
   createdAt: string;
   updatedAt: string;
 };
@@ -176,14 +217,62 @@ export type ApiCandidateApplication = {
 
 export type ApiCandidateDetail = ApiCandidate & {
   applications: ApiCandidateApplication[];
+  retention?: ApiRetentionNote;
 };
 
 export type ApiApplicationDetail = ApiApplication & {
   requisitionReference: string;
   requisitionJobTitle: string;
   candidate: ApiCandidate;
+  /**
+   * Every move this application has made — and the events on the public
+   * application it came from — oldest first. Empty for one that has not moved
+   * since the API began keeping it: there is no backfill. Absent altogether from
+   * an API that predates it, which a screen must treat as "unknown", not as
+   * "nothing happened".
+   */
+  history?: ApiHistoryEvent[];
   interviews: ApiInterviewSummary[];
   offer: ApiOffer | null;
+  /**
+   * Every email this application has had or is owed, oldest first, and why any was
+   * not sent. Absent from an API that predates candidate emails.
+   */
+  emails?: ApiCandidateEmail[];
+  /** The interview score and how it was reached. */
+  scores?: ApiScoreSummary;
+  /** When this person is scheduled to be deleted, or why there is no date. */
+  retention?: ApiRetentionNote;
+  /**
+   * What the public application this person came through says: the answers with the
+   * flagged ones marked, the fit score, the assessment result and where they stand
+   * against the pass mark. `null` for somebody added by hand, who has none; absent
+   * from an API that predates screening.
+   */
+  screening?: ApiPipelineScreening | null;
+};
+
+export type ApiPipelineScreening = {
+  /** The public application this record came from. */
+  jobApplicationId: string;
+  /** Where the full record is, relative to the API. */
+  applicationPath: string;
+  reference: string | null;
+  score: number | null;
+  scoreStatus: ApiScoreStatus;
+  assessment: { percent: number } | null;
+  knockoutCount: number;
+  belowCutoff: boolean;
+  cutoffReasons: ("SCORE" | "ASSESSMENT" | "KNOCKOUT")[];
+  keptInRunning: boolean;
+  answers: {
+    id: string;
+    question: string;
+    kind: string;
+    display: string;
+    flagged: boolean;
+    flagReason: string | null;
+  }[];
 };
 
 export type ApiScorecardRating = {
@@ -204,6 +293,8 @@ export type ApiScorecard = {
   submitted: boolean;
   submittedAt: string | null;
   ratings: ApiScorecardRating[];
+  /** The weighted mean of its ratings, 1 to 5. `null` until it is submitted, or when it rated nothing. */
+  composite?: number | null;
 };
 
 export type ApiInterview = {
@@ -218,9 +309,40 @@ export type ApiInterview = {
   status: InterviewStatus;
   location: string | null;
   scorecardsSubmitted: number;
+  /** An https link to join. Absent from an API that predates it. */
+  joinUrl?: string | null;
+  /** The calendar sequence. Absent from an API that predates calendar files. */
+  calendarSequence?: number;
+  /** The zone its time is written in: always a real zone name when it is sent. */
+  timeZone?: string;
+  /**
+   * Whether reminders to the candidate are on for this interview (`false` is the
+   * per-interview switch). Absent from an API that predates reminders.
+   */
+  candidateReminders?: boolean;
+  /** The zone as people read it, with its offset on the day: `Africa/Lagos (GMT+1)`. */
+  timeZoneLabel?: string;
+  /** When it ends, in UTC. */
+  endsAt?: string;
 };
 
-export type ApiInterviewDetail = ApiInterview & { scorecards: ApiScorecard[] };
+/**
+ * What booking, changing, cancelling or sending an interview answers: the interview, and
+ * what became of each message the person asked for. `notified` is absent from an API that
+ * predates interview invitations, which sent only the candidate's own, as `email`.
+ */
+export type ApiInterviewMutation = ApiInterviewDetail & {
+  email?: ApiQueuedEmail;
+  notified?: ApiNotified;
+};
+
+export type ApiInterviewDetail = ApiInterview & {
+  scorecards: ApiScorecard[];
+  /** The stage it was booked in, and who was invited to score it. Absent from an API that predates panels. */
+  stageId?: string | null;
+  stageName?: string | null;
+  panelists?: ApiPanelist[];
+};
 
 export type ApiAnalytics = {
   totals: {
@@ -270,6 +392,24 @@ export type CreateRequisitionBody = {
   description?: string | null;
   hiringManagerId?: string | null;
   reference?: string;
+  /**
+   * A confidential search from the start: restricted in this same request, with the
+   * person who made it put on the list so they do not lose what they just made.
+   */
+  restricted?: boolean;
+  /**
+   * The wizard's screening questions: yes or no, and whether a wrong answer flags
+   * the application for a person to look at. Kept on the requisition, and copied
+   * onto the form of any advert made for it. `knockout` flags a "No"; it never
+   * rejects anyone.
+   */
+  screeningQuestions?: { id?: string; question: string; knockout: boolean }[];
+  /**
+   * The pipeline template the role copies its stages from: a template's id, or
+   * `"default"` for the company's. The stages are copied, so the role owns them
+   * from then on. Absent, no stages are made.
+   */
+  pipelineTemplateId?: string;
 };
 
 export type UpdateRequisitionBody = Partial<
@@ -280,16 +420,45 @@ export type CreateStageBody = {
   name: string;
   requiresScorecards?: boolean;
   order?: number;
+  type?: StageType;
+  emailTemplateId?: string | null;
 };
-export type UpdateStageBody = { name?: string; requiresScorecards?: boolean };
+export type UpdateStageBody = {
+  name?: string;
+  requiresScorecards?: boolean;
+  type?: StageType;
+  /** `null` takes the message off the stage. */
+  emailTemplateId?: string | null;
+};
 
 export type ApplicationListParams = {
   page?: number;
   pageSize?: number;
   outcome?: ApplicationOutcome;
   stageId?: string;
+  /** Where the candidate came from, exactly as recorded. */
+  source?: string;
+  /** Every word has to match the candidate's name or email. */
+  q?: string;
+  /** `YYYY-MM-DD`, inclusive: the day they entered the pipeline. */
+  from?: string;
+  to?: string;
   sort?: string;
+  /**
+   * **Oldest first is the API's default for this list**, as it always was.
+   * Every screen that shows it sends `desc`, because a recruiter wants the
+   * newest applicant, not the first one ever received — and a page of the
+   * oldest two hundred is what the board showed for a company with more.
+   */
   order?: "asc" | "desc";
+  /** The `meta.nextCursor` of the page before. Opaque. */
+  cursor?: string;
+};
+
+/** What a keyset-paged list adds to the usual envelope. */
+export type CursorMeta = {
+  /** `null` on the last page. */
+  nextCursor: string | null;
 };
 
 export type CandidateListParams = {
@@ -339,6 +508,27 @@ export type ScheduleInterviewBody = {
   scheduledFor: string;
   durationMins?: number;
   location?: string;
+  /** Absent: the stage the application is in now. */
+  stageId?: string;
+  /**
+   * Employees invited to score it. Absent: the stage's panel as it is now. `[]` is
+   * nobody: the old kind of interview, scored by anybody who manages hiring.
+   */
+  panelistIds?: string[];
+  /**
+   * Invited accounts on the job's access list who may score it too: the only kind of
+   * panelist a company without Core HR has. Naming either list is naming the panel.
+   */
+  panelistUserIds?: string[];
+  /** Where to join an online interview: an https address, or absent. */
+  joinUrl?: string | null;
+  /** The zone the time was typed in. Absent: the company's own. */
+  timeZone?: string;
+  /** Only ever true when a person chose to send it. */
+  sendInvite?: boolean;
+  inviteTemplateId?: string;
+  /** `false` turns reminders to the candidate off for this interview. Absent: on. */
+  candidateReminders?: boolean;
 };
 
 export type RescheduleInterviewBody = {
@@ -346,6 +536,17 @@ export type RescheduleInterviewBody = {
   scheduledFor?: string;
   durationMins?: number;
   location?: string | null;
+  /** `null` clears it. */
+  joinUrl?: string | null;
+  /** Only ever true when a person chose to send an updated invitation. */
+  sendUpdate?: boolean;
+  /** `false` turns reminders to the candidate off for this interview; `true` turns them back on. */
+  candidateReminders?: boolean;
+};
+
+export type CancelInterviewBody = {
+  /** Only ever true when a person chose to send a cancellation. */
+  sendCancellation?: boolean;
 };
 
 export type SubmitScorecardBody = {
@@ -368,7 +569,30 @@ export type OfferListParams = {
 
 export type CreateOfferBody = { grossMonthlyKobo: number; startDate: string };
 export type UpdateOfferBody = Partial<CreateOfferBody>;
-export type ApiAcceptOfferResult = ApiOffer & { rejectedOthers: number };
+export type ApiAcceptOfferResult = ApiOffer & {
+  /** Zero until the role fills: others are rejected only with the last hire. */
+  rejectedOthers: number;
+  /** Absent from an API that predates headcount-aware acceptance. */
+  hiresSoFar?: number;
+  headcount?: number;
+  requisitionFilled?: boolean;
+  /**
+   * Whether this acceptance made an employee record: the API says so outright. Absent
+   * from an API that predates the Hired list, where `employeeId` was the whole answer.
+   */
+  employeeCreated?: boolean;
+  /** The person's place on the Hired list. */
+  hire?: { id: string; state: "HIRED" | "EMPLOYEE_CREATED" | "DID_NOT_JOIN" };
+  /**
+   * What the company's setting asked for and what was done. They differ when the
+   * company chose to make an employee and has lost Core HR since: `note` says why.
+   */
+  onOfferAccepted?: {
+    setting: "HIRED_LIST_ONLY" | "CREATE_EMPLOYEE";
+    applied: "HIRED_LIST_ONLY" | "CREATE_EMPLOYEE";
+    note: string | null;
+  };
+};
 
 /* -------------------------------------------------------------------- calls */
 
@@ -462,7 +686,7 @@ export const recruitmentApi = {
     params: ApplicationListParams = {},
     signal?: AbortSignal,
   ) =>
-    requestPaged<ApiApplication>(
+    requestPaged<ApiApplication, CursorMeta>(
       `/recruitment/requisitions/${requisitionId}/applications`,
       {
         query: { ...params },
@@ -473,11 +697,18 @@ export const recruitmentApi = {
     request<ApiApplicationDetail>(`/recruitment/applications/${id}`, {
       ...(signal ? { signal } : {}),
     }),
-  moveApplication: (id: string, stageId: string) =>
-    request<ApiApplicationDetail>(`/recruitment/applications/${id}/move`, {
-      method: "POST",
-      body: { stageId },
-    }),
+  /**
+   * `sendEmail` is always sent. The API sends a stage's message unless told not to,
+   * so a caller that left it out would be emailing somebody it did not mean to.
+   */
+  moveApplication: (id: string, stageId: string, sendEmail: boolean) =>
+    request<ApiApplicationDetail & { email?: ApiQueuedEmail }>(
+      `/recruitment/applications/${id}/move`,
+      {
+        method: "POST",
+        body: { stageId, sendEmail },
+      },
+    ),
   rejectApplication: (id: string, reason?: string) =>
     request<ApiApplicationDetail>(`/recruitment/applications/${id}/reject`, {
       method: "POST",
@@ -498,6 +729,15 @@ export const recruitmentApi = {
     request<ApiCandidateDetail>(`/recruitment/candidates/${id}`, {
       ...(signal ? { signal } : {}),
     }),
+  /**
+   * The audited way to read a candidate's CV — the twin of
+   * `careersApi.openCv` for a person who has a pipeline record. Same answer, same
+   * permissions, same audit trail.
+   */
+  openCandidateCv: (id: string, signal?: AbortSignal) =>
+    request<ApiCvLink>(`/recruitment/candidates/${id}/cv`, {
+      ...(signal ? { signal } : {}),
+    }),
   updateCandidate: (id: string, body: UpdateCandidateBody) =>
     request<ApiCandidate>(`/recruitment/candidates/${id}`, {
       method: "PATCH",
@@ -514,7 +754,7 @@ export const recruitmentApi = {
       ...(signal ? { signal } : {}),
     }),
   scheduleInterview: (applicationId: string, body: ScheduleInterviewBody) =>
-    request<ApiInterviewDetail>(
+    request<ApiInterviewMutation>(
       `/recruitment/applications/${applicationId}/interviews`,
       {
         method: "POST",
@@ -522,13 +762,20 @@ export const recruitmentApi = {
       },
     ),
   rescheduleInterview: (id: string, body: RescheduleInterviewBody) =>
-    request<ApiInterviewDetail>(`/recruitment/interviews/${id}`, {
+    request<ApiInterviewMutation>(`/recruitment/interviews/${id}`, {
       method: "PATCH",
       body,
     }),
-  cancelInterview: (id: string) =>
-    request<ApiInterviewDetail>(`/recruitment/interviews/${id}/cancel`, {
+  cancelInterview: (id: string, body: CancelInterviewBody = {}) =>
+    request<ApiInterviewMutation>(`/recruitment/interviews/${id}/cancel`, {
       method: "POST",
+      body,
+    }),
+  /** "Tell them now": the invitation, for an interview booked without one. */
+  notifyInterview: (id: string) =>
+    request<ApiInterviewMutation>(`/recruitment/interviews/${id}/notify`, {
+      method: "POST",
+      body: {},
     }),
   completeInterview: (id: string) =>
     request<ApiInterviewDetail>(`/recruitment/interviews/${id}/complete`, {
@@ -567,8 +814,17 @@ export const recruitmentApi = {
     request<ApiOffer>(`/recruitment/offers/${id}/submit`, { method: "POST" }),
   approveOffer: (id: string) =>
     request<ApiOffer>(`/recruitment/offers/${id}/approve`, { method: "POST" }),
-  sendOffer: (id: string) =>
-    request<ApiOffer>(`/recruitment/offers/${id}/send`, { method: "POST" }),
+  sendOffer: (
+    id: string,
+    body: { sendEmail?: boolean; emailTemplateId?: string } = {},
+  ) =>
+    request<ApiOffer & { email?: ApiQueuedEmail }>(
+      `/recruitment/offers/${id}/send`,
+      {
+        method: "POST",
+        body,
+      },
+    ),
   acceptOffer: (id: string) =>
     request<ApiAcceptOfferResult>(`/recruitment/offers/${id}/accept`, {
       method: "POST",
@@ -596,7 +852,7 @@ export const recruitmentApi = {
 };
 
 export type PagedRequisitions = Paged<ApiRequisition>;
-export type PagedApplications = Paged<ApiApplication>;
+export type PagedApplications = Paged<ApiApplication, CursorMeta>;
 export type PagedInterviews = Paged<ApiInterview>;
 export type PagedOffers = Paged<ApiOffer>;
 export type PagedCandidates = Paged<ApiCandidate>;

@@ -279,6 +279,7 @@ export function BarChart({
   format = (n) => n.toLocaleString(),
   caption,
   colorBy = "single",
+  tones,
   className,
 }: {
   points: Point[];
@@ -286,6 +287,8 @@ export function BarChart({
   caption: string;
   /** "single" keeps one accent bar; "series" walks the categorical ramp. */
   colorBy?: "single" | "series";
+  /** Per-bar colour, by index, for bars that mean something (a score band, a severity). Wins over `colorBy`. */
+  tones?: readonly string[];
   className?: string;
 }) {
   const max = niceCeiling(Math.max(...recorded(points)));
@@ -327,9 +330,10 @@ export function BarChart({
                   style={{
                     width: `${(p.value / max) * 100}%`,
                     backgroundColor:
-                      colorBy === "series"
+                      tones?.[i] ??
+                      (colorBy === "series"
                         ? SERIES[i % SERIES.length]
-                        : "var(--color-accent)",
+                        : "var(--color-accent)"),
                   }}
                 />
               )}

@@ -91,7 +91,11 @@ export function FilterBar({
     <div className={cn("flex flex-col gap-3", className)}>
       <div className="flex flex-wrap items-center gap-3">
         {onSearchChange && (
-          <div className="relative min-w-0 flex-1 sm:max-w-sm">
+          /* `min-w-44`, not `min-w-0`: the row wraps, but a search box that may
+             shrink to nothing never has to — at 320px beside "Filters" and a
+             count it was a 16px sliver under the button. With a floor it takes
+             a line of its own instead. */
+          <div className="relative min-w-44 max-w-full flex-1 sm:max-w-sm">
             <Search
               aria-hidden="true"
               className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-faint"

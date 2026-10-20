@@ -10,7 +10,14 @@ import {
   EmptyState,
   TextLink,
 } from "@/components/ui";
-import { INTERVIEW_KIND_LABEL } from "@/lib/api/recruitment";
+import { CalendarMenu } from "@/components/hiring/interviews/calendar-menu";
+import { JoinLink } from "@/components/hiring/interviews/join-link";
+import {
+  INTERVIEW_KIND_LABEL,
+  type InterviewStatus,
+} from "@/lib/api/recruitment";
+import { useInterviewsGateway } from "@/lib/hiring/interviews/use-interviews";
+import type { InterviewView } from "@/lib/hiring/interviews/model";
 import { useInterviews } from "@/lib/store/recruitment";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDate, formatTime } from "@/lib/time";
@@ -86,17 +93,39 @@ function Row({
     scheduledFor: string;
     durationMins: number;
     location: string | null;
-    status: string;
+    joinUrl?: string | null;
+    calendarSequence?: number;
+    status: InterviewStatus;
   };
   tone: "info" | "warning";
 }) {
   const timeZone = useOrgTimezone();
+  const gateway = useInterviewsGateway();
   /* `formatDate` gives "5 September 2026" — day and month split off it rather
      than a fresh Intl call, so the chip and the time below agree on which
      zone's day this is. Before this, the month came from a browser-local
      Intl call and the day number from a raw `getDate()` (also browser-local)
      — consistent with each other, but never with the company's own clock. */
   const [day, month] = formatDate(interview.scheduledFor, timeZone).split(" ");
+  /* What a calendar entry may hold: the name, when, where and the link. */
+  const view: InterviewView = {
+    id: interview.id,
+    applicationId: interview.applicationId,
+    candidateName: interview.candidateName,
+    role: null,
+    kind: interview.kind,
+    scheduledFor: interview.scheduledFor,
+    durationMins: interview.durationMins,
+    status: interview.status,
+    location: interview.location,
+    joinUrl: interview.joinUrl ?? null,
+    timeZone: null,
+    stageName: null,
+    panelists: [],
+    sequence: interview.calendarSequence ?? 0,
+    notices: null,
+    cancelReason: null,
+  };
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3 transition-colors hover:bg-canvas">
       <div className="flex w-16 shrink-0 flex-col items-center rounded-md bg-sunken px-2 py-1.5">
@@ -122,6 +151,16 @@ function Row({
           {interview.durationMins} mins
           {interview.location ? ` · ${interview.location}` : ""}
         </p>
+        {tone === "info" && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <JoinLink url={interview.joinUrl ?? null} />
+            <CalendarMenu
+              interview={view}
+              who="staff"
+              getFile={() => gateway.calendarFile(view, "staff")}
+            />
+          </div>
+        )}
       </div>
       <Badge tone={tone} size="sm" dot>
         {interview.status.replace("_", " ").toLowerCase()}

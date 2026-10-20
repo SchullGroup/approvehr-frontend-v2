@@ -44,6 +44,9 @@ export const MODULE_FEATURE_KEYS = [
   "appraisals",
   "hiring",
   "attendance",
+  /* Projects, issues, sprints and a board. Off by default like every module: a
+     five-person business has no use for a tracker and should not be shown one. */
+  "projects",
 ] as const;
 
 /**
@@ -191,6 +194,11 @@ export type ApiFeatures = {
   attendance: boolean;
   /** Ask everybody the same questions and report what came back. */
   surveys: boolean;
+  /**
+   * Projects and issues. Optional because an API one deploy behind does not send
+   * it, and a missing answer reads as off rather than as a type error.
+   */
+  projects?: boolean;
   /** PAYE state, TIN and the annual rent declaration. */
   taxSetup: boolean;
   /** RSA PIN, pension fund administrator, NHF number. */

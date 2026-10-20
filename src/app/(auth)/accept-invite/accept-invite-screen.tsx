@@ -7,6 +7,10 @@ import { Button, Callout } from "@/components/ui";
 import { account, passwordAccepted } from "@/lib/api/account";
 import { markSignedIn } from "@/lib/store/session";
 import { PasswordField } from "@/components/portal/password-field";
+import {
+  COLLABORATOR_HOME,
+  isCollaboratorUser,
+} from "@/lib/hiring/access/collaborator";
 
 /**
  * Turning an invitation into an account.
@@ -62,7 +66,10 @@ export function AcceptInviteScreen({ token }: { token: string | null }) {
     try {
       const result = await account.acceptInvite(token, password);
       markSignedIn(result.user);
-      router.replace("/dashboard");
+      /* Somebody invited to help hire has one room, and it is the one they land in. */
+      router.replace(
+        isCollaboratorUser(result.user) ? COLLABORATOR_HOME : "/dashboard",
+      );
     } catch (caught) {
       setError(
         caught instanceof ApiError

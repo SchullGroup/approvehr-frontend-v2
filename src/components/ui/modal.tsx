@@ -89,7 +89,11 @@ export function Modal({
         aria-describedby={description ? `${id}-desc` : undefined}
         tabIndex={-1}
         className={cn(
-          "relative z-10 flex w-full flex-col bg-surface shadow-xl",
+          /* `min-w-0`: the panel is a flex item of a row, and a flex item's
+             automatic minimum width is its content's. Without it one wide
+             child stretched the whole sheet past the screen, which is the
+             failure this whole block exists to refuse. */
+          "relative z-10 flex w-full min-w-0 flex-col bg-surface shadow-xl",
           closing ? "animate-scale-out" : "animate-scale-in",
           "max-h-[92dvh] sm:max-h-[88dvh]",
           "rounded-t-xl sm:rounded-xl",
@@ -99,7 +103,7 @@ export function Modal({
         )}
       >
         <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 break-words">
             <h2 id={`${id}-title`} className="text-h4 text-ink">
               {title}
             </h2>
@@ -113,18 +117,28 @@ export function Modal({
             )}
           </div>
           {dismissible && (
-            <IconButton label="Close dialog" size="sm" onClick={onClose}>
+            <IconButton
+              label="Close dialog"
+              size="sm"
+              className="shrink-0"
+              onClick={onClose}
+            >
               <X className="size-4" />
             </IconButton>
           )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+        {/* The body scrolls down, never across. `min-w-0` lets it be narrower
+            than its widest child; `overflow-x-clip` is the last line of
+            defence, not the fix — a field that is clipped here is still a
+            field somebody cannot use, so the real cure is always that the
+            child shrinks (see `Field`, `Input` and `globals.css`). */}
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-clip px-5 py-5 sm:px-6">
           {children}
         </div>
 
         {footer && (
-          <div className="flex items-center justify-end gap-3 border-t border-line bg-canvas px-5 py-4 sm:px-6 rounded-b-xl">
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-line bg-canvas px-5 py-4 sm:px-6 rounded-b-xl">
             {footer}
           </div>
         )}
@@ -234,7 +248,7 @@ export function Drawer({
         aria-describedby={description ? `${id}-desc` : undefined}
         tabIndex={-1}
         className={cn(
-          "relative z-10 flex w-full flex-col bg-surface shadow-xl",
+          "relative z-10 flex w-full min-w-0 flex-col bg-surface shadow-xl",
           "max-h-dvh sm:m-4 sm:max-h-[calc(100dvh-2rem)]",
           /* Mirrors Modal, which rounds the edge it is not flush against.
              Clipped, because a panel with no footer ends on the scroller and
@@ -255,7 +269,7 @@ export function Drawer({
         )}
       >
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 break-words">
             <h2 id={`${id}-title`} className="text-h4 text-ink">
               {title}
             </h2>
@@ -268,12 +282,17 @@ export function Drawer({
               </p>
             )}
           </div>
-          <IconButton label="Close panel" size="sm" onClick={onClose}>
+          <IconButton
+            label="Close panel"
+            size="sm"
+            className="shrink-0"
+            onClick={onClose}
+          >
             <X className="size-4" />
           </IconButton>
         </div>
 
-        <div className="min-h-0 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+        <div className="min-h-0 min-w-0 overflow-y-auto overflow-x-clip overscroll-contain px-5 py-5 sm:px-6">
           {children}
         </div>
 

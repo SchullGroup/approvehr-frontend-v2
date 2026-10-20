@@ -31,6 +31,8 @@ import type {
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import { FAIRNESS_OFFLINE, useCycleFairness } from "@/lib/store/performance";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateShort } from "@/lib/time";
 import { BandBars, RangeChart, pct, points } from "./charts";
 
 type Tab = "groups" | "managers" | "calibration";
@@ -497,11 +499,8 @@ function Managers({ data }: { data: ApiFairness }) {
 
 function Calibration({ data }: { data: ApiFairness }) {
   const { calibration } = data;
-  const date = (iso: string) =>
-    new Date(iso).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-    });
+  const timeZone = useOrgTimezone();
+  const date = (iso: string) => formatDateShort(iso, timeZone);
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-3">

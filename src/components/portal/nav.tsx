@@ -19,6 +19,7 @@ import {
   FileSignature,
   FileText,
   FileUp,
+  FolderKanban,
   FolderOpen,
   GraduationCap,
   History,
@@ -36,11 +37,14 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Star,
   Target,
   Timer,
   TrendingUp,
+  UserCheck,
   UserRoundPlus,
   Users,
+  UsersRound,
   Wallet,
 } from "lucide-react";
 import type { PermissionKey } from "@/lib/permissions";
@@ -69,7 +73,7 @@ export type BadgeSource =
  * unanswered fact does not compile. The alternative, a predicate function on
  * the item, would let one be added that nobody ever calls.
  */
-export type NavRowFact = "one-on-ones" | "signatures";
+export type NavRowFact = "one-on-ones" | "signatures" | "interviews";
 
 /**
  * What the sidebar knows that is neither a permission nor a feature flag.
@@ -88,6 +92,12 @@ export type NavFacts = {
   assistantWired: boolean;
   /** One answer per row-level question. Total, so none can be forgotten. */
   rows: Record<NavRowFact, boolean>;
+  /**
+   * Somebody invited to help hire, with no employee record and no permissions: they
+   * are shown My interviews and nothing else. See `useIsCollaborator`. Defaults to
+   * false (and may be left out), so nobody is narrowed until it is known.
+   */
+  collaborator?: boolean;
 };
 
 /**
@@ -99,7 +109,8 @@ export type NavFacts = {
  */
 export const NOTHING_ANSWERED_YET: NavFacts = {
   assistantWired: false,
-  rows: { "one-on-ones": false, signatures: false },
+  rows: { "one-on-ones": false, signatures: false, interviews: false },
+  collaborator: false,
 };
 
 export type NavItem = {
@@ -241,10 +252,25 @@ export type NavGroup = {
 
   /**
    * Which paid module this group belongs to, for `visibleNav` to check
-   * against the company's plan. Unset for `PERSONAL` and `COMPANY_WIDE` —
-   * neither is sold separately, so neither can ever be outside the plan.
+   * against the company's plan. Unset for `PERSONAL` and the company-wide
+   * groups (Reports, Settings) — neither is sold separately, so neither can
+   * ever be outside the plan. The sidebar reads "set" as "this is a module".
    */
   billingModule?: BillingModule;
+
+  /**
+   * A stable key for the group, which the sidebar uses to say which drill-down
+   * level it is on. Optional so every fixture that builds a `NavGroup` by hand
+   * still compiles; the sidebar falls back to a slug of `heading`.
+   */
+  id?: string;
+
+  /**
+   * The icon the group's own row wears at the top level of the sidebar, where
+   * the group is one row and its items are a click away. Unset falls back to
+   * a generic one. Never read by `visibleNav`.
+   */
+  icon?: React.ReactNode;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -284,6 +310,19 @@ const PERSONAL: NavItem[] = [
     label: "Assistant",
     icon: <Sparkles aria-hidden="true" />,
     assistant: true,
+    always: true,
+  },
+  {
+    /* Here rather than under a module, because the six the site sells are not
+       this one's and a seventh heading for a single row would be furniture.
+       No permission: who sees which project is the API's rule (members, and
+       anybody who manages records), and a person on none sees an empty list with
+       a way to start one if they lead people. The feature flag is what keeps it
+       out of a company that has not switched it on. */
+    href: "/projects",
+    label: "Projects",
+    icon: <FolderKanban aria-hidden="true" />,
+    feature: "projects",
     always: true,
   },
   /*
@@ -629,6 +668,13 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "hiring",
     },
     {
+      href: "/hiring/talent-pool",
+      label: "Talent pool",
+      icon: <Star aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
+      feature: "hiring",
+    },
+    {
       href: "/hiring/interviews",
       label: "Interviews",
       icon: <CalendarClock aria-hidden="true" />,
@@ -636,10 +682,36 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "hiring",
     },
     {
+      /* The narrow door: an employee on an interview panel, or hiring for a role,
+         sees the interviews that are theirs and nothing else about hiring. No
+         permission can say who that is, so the rows are asked (`rows`). */
+      href: "/hiring/my-interviews",
+      label: "My interviews",
+      icon: <CalendarCheck aria-hidden="true" />,
+      rows: "interviews",
+      feature: "hiring",
+    },
+    {
       href: "/hiring/offers",
       label: "Offers",
       icon: <FileCheck aria-hidden="true" />,
       anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
+      feature: "hiring",
+    },
+    {
+      /* Where an accepted offer lands. An employee is made from here, on request,
+         and only where the company has Core HR. */
+      href: "/hiring/hired",
+      label: "Hired",
+      icon: <UserCheck aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
+      feature: "hiring",
+    },
+    {
+      href: "/hiring/settings/pipelines",
+      label: "Hiring settings",
+      icon: <SlidersHorizontal aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
       feature: "hiring",
     },
   ],
@@ -793,8 +865,12 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
  * Reports reads across all six; Settings and Roles configure all six. Nothing
  * here would be true of one heading and false of the others, which is the test
  * for belonging in this block rather than in a module.
+ *
+ * Two lists rather than one so the sidebar can file each under its own row —
+ * Reports and Settings — instead of four loose rows at the top level. Every
+ * item that was in the single list is in exactly one of these two.
  */
-const COMPANY_WIDE: NavItem[] = [
+const REPORT_ITEMS: NavItem[] = [
   {
     href: "/reports",
     label: "Reports",
@@ -811,6 +887,9 @@ const COMPANY_WIDE: NavItem[] = [
     label: "Explore",
     icon: <Orbit aria-hidden="true" />,
   },
+];
+
+const SETTINGS_ITEMS: NavItem[] = [
   {
     href: "/settings",
     label: "Settings",
@@ -865,14 +944,42 @@ const BILLING_MODULE_OF: Record<ModuleId, BillingModule> = {
   desk: "HELPDESK",
 };
 
+/**
+ * The icon each module's own row wears in the sidebar's top level.
+ *
+ * `Record<ModuleId, …>`, like `MODULE_ITEMS` above, so a seventh module stops
+ * this file compiling until somebody picks one.
+ */
+const MODULE_ICON: Record<ModuleId, React.ReactNode> = {
+  "core-hr": <UsersRound aria-hidden="true" />,
+  payroll: <Banknote aria-hidden="true" />,
+  hiring: <BriefcaseBusiness aria-hidden="true" />,
+  time: <CalendarDays aria-hidden="true" />,
+  performance: <Target aria-hidden="true" />,
+  desk: <LifeBuoy aria-hidden="true" />,
+};
+
 export const NAV: NavGroup[] = [
-  { items: PERSONAL },
+  { id: "home", items: PERSONAL },
   ...MODULES.map((module) => ({
+    id: module.id,
     heading: module.label,
+    icon: MODULE_ICON[module.id],
     billingModule: BILLING_MODULE_OF[module.id],
     items: MODULE_ITEMS[module.id],
   })).sort((a, b) => Number(comingSoon(a)) - Number(comingSoon(b))),
-  { items: COMPANY_WIDE },
+  {
+    id: "reports",
+    heading: "Reports",
+    icon: <ChartNoAxesColumn aria-hidden="true" />,
+    items: REPORT_ITEMS,
+  },
+  {
+    id: "settings",
+    heading: "Settings",
+    icon: <Settings aria-hidden="true" />,
+    items: SETTINGS_ITEMS,
+  },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -945,6 +1052,12 @@ export function visibleNav(
       const items = group.items.flatMap((item) => {
         if (item.feature !== undefined && features[item.feature] === false) {
           return [];
+        }
+        /* A collaborator is shown the one room that is theirs and no door to any other:
+           not hiring, not employees, not payroll, not even Home. The first question
+           asked, so no later rule can let a row through for them. */
+        if (facts.collaborator) {
+          return item.rows === "interviews" ? [item] : [];
         }
         if (item.assistant && !facts.assistantWired) return [];
         /* Before the permission checks, and before `always`, because it is a

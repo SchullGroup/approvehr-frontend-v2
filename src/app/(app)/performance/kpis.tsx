@@ -1326,7 +1326,7 @@ function GoalCard({
             {/* Two axes, both shown, on the face. Agreed and off track at once
                 is the ordinary case and one badge carrying both would hide
                 whichever mattered — the reason this stayed on the card. */}
-            <span className="flex shrink-0 flex-wrap items-center gap-1.5">
+            <span className="flex max-w-full shrink-0 flex-wrap items-center gap-1.5">
               <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
                 {goal.approvalLabel}
               </Badge>
