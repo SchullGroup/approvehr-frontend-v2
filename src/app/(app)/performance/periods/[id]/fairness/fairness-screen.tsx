@@ -30,12 +30,15 @@ import type {
   FairnessPeriods,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
-import { FAIRNESS_OFFLINE, useCycleFairness } from "@/lib/store/performance";
-import { useOrgTimezone } from "@/lib/store/session";
-import { formatDateShort } from "@/lib/time";
+import {
+  FAIRNESS_OFFLINE,
+  useCycleFairness,
+  useReviewFlags,
+} from "@/lib/store/performance";
 import { BandBars, RangeChart, pct, points } from "./charts";
+import { PeopleToReview, flaggedCount } from "./people-to-review";
 
-type Tab = "groups" | "managers" | "calibration";
+type Tab = "groups" | "managers" | "people";
 type View = "average" | "bands" | "table";
 
 export function FairnessScreen({ cycleId }: { cycleId: string }) {
@@ -44,6 +47,7 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
   const [tab, setTab] = useState<Tab>("groups");
   const detail = useCycleFairness(cycleId, periods, allowed);
   const data = detail.fairness;
+  const review = useReviewFlags(cycleId, allowed);
 
   return (
     <>
@@ -64,7 +68,7 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
           ) : undefined
         }
         action={
-          allowed ? (
+          allowed && tab !== "people" ? (
             <SegmentedControl
               label="Periods counted"
               value={String(periods) as "1" | "3"}
@@ -125,37 +129,51 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
                   count: flagCount(data) || undefined,
                 },
                 { id: "managers", label: "Managers" },
-                { id: "calibration", label: "Calibration moves" },
+                {
+                  id: "people",
+                  label: "People to review",
+                  count: flaggedCount(review.flags) || undefined,
+                },
               ]}
               value={tab}
               onChange={(id) => setTab(id as Tab)}
             >
               {tab === "groups" && <Groups data={data} />}
               {tab === "managers" && <Managers data={data} />}
-              {tab === "calibration" && <Calibration data={data} />}
+              {tab === "people" && (
+                <PeopleToReview
+                  cycleId={cycleId}
+                  flags={review.flags}
+                  loading={review.loading}
+                  error={review.error}
+                  reload={review.reload}
+                />
+              )}
             </Tabs>
-            <Disclosure title="How flags work" region={false}>
-              <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">
-                <li>
-                  Marks are compared before calibration. Calibration moves are
-                  on their own tab.
-                </li>
-                <li>
-                  A group is flagged when its gap is at least{" "}
-                  {pct(data.rules.minGapBp).replace("%", "")} points and the
-                  likely range doesn’t cross zero.
-                </li>
-                <li>
-                  Groups under {data.rules.minGroup} people are hidden. Religion
-                  and state of origin aren’t checked.
-                </li>
-                <li>
-                  A manager is flagged at{" "}
-                  {pct(data.managers.rules.apartBp).replace("%", "")} points
-                  from everyone else, or when their marks barely vary.
-                </li>
-              </ul>
-            </Disclosure>
+            {tab !== "people" && (
+              <Disclosure title="How flags work" region={false}>
+                <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">
+                  <li>
+                    Marks are compared before calibration. Any moves made during
+                    calibration are shown on the period page.
+                  </li>
+                  <li>
+                    A group is flagged when its gap is at least{" "}
+                    {pct(data.rules.minGapBp).replace("%", "")} points and the
+                    likely range doesn&apos;t cross zero.
+                  </li>
+                  <li>
+                    Groups under {data.rules.minGroup} people are hidden.
+                    Religion and state of origin aren&apos;t checked.
+                  </li>
+                  <li>
+                    A manager is flagged at{" "}
+                    {pct(data.managers.rules.apartBp).replace("%", "")} points
+                    from everyone else, or when their marks barely vary.
+                  </li>
+                </ul>
+              </Disclosure>
+            )}
           </>
         )}
       </PageBody>
@@ -329,7 +347,7 @@ function GroupCard({
                 <TD className="text-right tabular-nums">{group.people}</TD>
                 <TD className="text-right tabular-nums">{pct(group.meanBp)}</TD>
                 <TD className="text-right tabular-nums">
-                  {group.gap ? points(group.gap.gapBp) : "—"}
+                  {group.gap ? points(group.gap.gapBp) : "No gap"}
                 </TD>
                 <TD className="text-right tabular-nums">
                   {Math.round(
@@ -385,7 +403,7 @@ function Managers({ data }: { data: ApiFairness }) {
       ? `${points(m.gap.gapBp)} vs everyone else`
       : m.flags.includes("flat")
         ? `${String(m.sameBandShare)}% in the same band`
-        : "—";
+        : "No flag";
 
   return (
     <div className="flex flex-col gap-4">
@@ -439,11 +457,11 @@ function Managers({ data }: { data: ApiFairness }) {
                   <TD className="text-right tabular-nums">{m.people}</TD>
                   <TD className="text-right tabular-nums">{pct(m.meanBp)}</TD>
                   <TD className="text-right tabular-nums">
-                    {m.gap ? points(m.gap.gapBp) : "—"}
+                    {m.gap ? points(m.gap.gapBp) : "No gap"}
                   </TD>
                   <TD className="text-right tabular-nums">
                     {m.spreadBp === null
-                      ? "—"
+                      ? "No data"
                       : points(m.spreadBp).replace("+", "")}
                   </TD>
                 </TR>
@@ -491,93 +509,6 @@ function Managers({ data }: { data: ApiFairness }) {
               ))}
             </TBody>
           </TableWrap>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-function Calibration({ data }: { data: ApiFairness }) {
-  const { calibration } = data;
-  const timeZone = useOrgTimezone();
-  const date = (iso: string) => formatDateShort(iso, timeZone);
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Marks moved" value={String(calibration.moved)} />
-        <Stat label="Moved up" value={String(calibration.up)} />
-        <Stat label="Moved down" value={String(calibration.down)} />
-      </div>
-
-      <Card>
-        <CardHeader level={3} title="Moves by group" />
-        <TableWrap caption="Calibration moves by group">
-          <THead>
-            <TH>Grouping</TH>
-            <TH>Group</TH>
-            <TH className="text-right">Moves</TH>
-            <TH className="text-right">Average move</TH>
-          </THead>
-          <TBody>
-            {calibration.byGroup.flatMap((dim) =>
-              dim.comparable && dim.groups
-                ? dim.groups.map((g) => (
-                    <TR key={`${dim.key}-${g.label}`}>
-                      <TD>{dim.label}</TD>
-                      <TD>{g.label}</TD>
-                      <TD className="text-right tabular-nums">{g.moves}</TD>
-                      <TD className="text-right tabular-nums">
-                        {points(g.averageMoveBp)}
-                      </TD>
-                    </TR>
-                  ))
-                : [
-                    <TR key={dim.key}>
-                      <TD>{dim.label}</TD>
-                      <TD className="text-muted" colSpan={3}>
-                        Too few moves to compare yet
-                      </TD>
-                    </TR>,
-                  ],
-            )}
-          </TBody>
-        </TableWrap>
-      </Card>
-
-      {calibration.latest && (
-        <Card>
-          <CardHeader level={3} title="Latest moves" />
-          {calibration.latest.length === 0 ? (
-            <CardBody className="text-body-sm text-muted">
-              No marks have been moved in this period.
-            </CardBody>
-          ) : (
-            <TableWrap caption="Latest calibration moves">
-              <THead>
-                <TH>Date</TH>
-                <TH>Employee</TH>
-                <TH className="text-right">Mark</TH>
-                <TH>By</TH>
-                <TH>Reason</TH>
-              </THead>
-              <TBody>
-                {calibration.latest.map((move) => (
-                  <TR key={move.id}>
-                    <TD className="whitespace-nowrap">{date(move.at)}</TD>
-                    <TD>{move.employeeName}</TD>
-                    <TD className="whitespace-nowrap text-right tabular-nums">
-                      {pct(move.previousBp ?? move.computedBp)} →{" "}
-                      {move.calibratedBp === null
-                        ? `${pct(move.computedBp)} (put back)`
-                        : pct(move.calibratedBp)}
-                    </TD>
-                    <TD>{move.actorName ?? "—"}</TD>
-                    <TD className="text-muted">{move.reason ?? "—"}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </TableWrap>
-          )}
         </Card>
       )}
     </div>

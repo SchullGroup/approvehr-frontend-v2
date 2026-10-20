@@ -2,6 +2,7 @@
 
 import { request, requestPaged, type Paged } from "@/lib/api/client";
 import { downloadBlob, fetchBinary } from "@/lib/api/download";
+import type { ApiSuggestOutcome } from "@/lib/api/ai";
 
 /**
  * KPIs, appraisals and skills — `/api/v1/performance`.
@@ -1218,6 +1219,46 @@ export type ApiFairnessMove = {
   at: string;
 };
 
+export type ApiReviewStatus = "below" | "above" | "matches" | "unclear";
+
+export type ApiReviewFlag = {
+  employeeId: string;
+  name: string;
+  firstName: string;
+  managerName: string | null;
+  jobTitle: string;
+  department: string | null;
+  markBp: number;
+  expectedBp: number | null;
+  gapBp: number | null;
+  status: ApiReviewStatus;
+  evidence: {
+    objectives: { agreed: number; measured: number; scoreBp: number | null };
+    peers: { responses: number; averageBp: number | null } | null;
+    history: { periods: number; averageBp: number } | null;
+  };
+  patterns: { kind: string; text: string }[];
+};
+
+export type ApiClaim = {
+  author: string;
+  rating: string | null;
+  summary: string | null;
+  answers: { question: string; answer: string }[];
+};
+
+export type ApiClaims = {
+  manager: ApiClaim[];
+  employee: (ApiClaim & { onFinalMark: string | null }) | null;
+};
+
+export type ApiReviewFlags = {
+  cycle: { id: string; name: string };
+  rules: { gapBp: number; peerFloor: number };
+  counts: Record<ApiReviewStatus, number>;
+  people: ApiReviewFlag[];
+};
+
 export type ApiFairness = {
   cycle: { id: string; name: string; stage: string };
   referenceDate: string;
@@ -2392,6 +2433,38 @@ export const performanceApi = {
     request<ApiCycleReport>(
       `/performance/cycles/${cycleId}/report`,
       signalOf(signal),
+    ),
+
+  reviewFlags: (cycleId: string, signal?: AbortSignal) =>
+    request<ApiReviewFlags>(
+      `/performance/cycles/${cycleId}/review-flags`,
+      signalOf(signal),
+    ),
+
+  reviewFlag: (cycleId: string, employeeId: string, signal?: AbortSignal) =>
+    request<{ flag: ApiReviewFlag; claims: ApiClaims }>(
+      `/performance/cycles/${cycleId}/review-flags/${employeeId}`,
+      signalOf(signal),
+    ),
+
+  reviewNote: ({
+    cycleId,
+    employeeId,
+  }: {
+    cycleId: string;
+    employeeId: string;
+  }) =>
+    request<ApiSuggestOutcome>(
+      `/performance/cycles/${cycleId}/review-flags/${employeeId}/note`,
+      { method: "POST" },
+    ),
+
+  reviewBriefing: ({ cycleId }: { cycleId: string }) =>
+    request<ApiSuggestOutcome>(
+      `/performance/cycles/${cycleId}/review-flags/briefing`,
+      {
+        method: "POST",
+      },
     ),
 
   cycleFairness: (

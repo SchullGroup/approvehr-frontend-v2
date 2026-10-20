@@ -71,12 +71,16 @@ import {
   useCycleMutations,
   useCycleRegister,
   useRatingScale,
+  useReviewFlag,
 } from "@/lib/store/performance";
+import { exactPoints } from "@/components/performance/record-check";
 import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
 import { SectionsDialog } from "../../sections-dialog";
 import { AppraisersDialog } from "../../appraiser-map";
 import { AskPeersButton } from "./ask-peers";
+import { CalibrationAudit } from "./fairness/calibration-audit";
+import { FairnessStatus } from "./fairness/fairness-status";
 
 /**
  * Running one appraisal period.
@@ -151,7 +155,6 @@ const STAGE_NEXT_LABEL: Record<string, string> = {
 export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const router = useRouter();
   const canSeeCompany = useCan("EDIT_RECORDS");
-  const canSeeFairness = useCan("VIEW_FAIRNESS");
   const canManage = useCan("MANAGE_SETTINGS");
   const detail = useCycleRegister(cycleId, canSeeCompany);
   const periods = useCycleMutations();
@@ -446,15 +449,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 Nine-box
               </ButtonLink>
             )}
-            {canSeeFairness && !draft && (
-              <ButtonLink
-                size="sm"
-                variant="secondary"
-                href={`/performance/periods/${cycleId}/fairness`}
-              >
-                Fairness check
-              </ButtonLink>
-            )}
+
             {/* The stage never moved on its own, and nothing moved it: the
                 endpoint has always accepted `MANAGER` and `CALIBRATION`,
                 gated and ordered correctly, and had no caller — so every
@@ -741,6 +736,9 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 rows={outstanding}
                 participants={detail.participants}
               />
+              {period?.stage === "CALIBRATION" && (
+                <FairnessStatus cycleId={cycleId} />
+              )}
               <Register
                 register={detail.register}
                 cycleId={cycleId}
@@ -752,6 +750,10 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 onAsked={() => detail.reload()}
               />
               <MultiAppraiserReviews participants={detail.participants} />
+              {(period?.stage === "CALIBRATION" ||
+                period?.stage === "PUBLISHED") && (
+                <CalibrationAudit cycleId={cycleId} />
+              )}
             </>
           )}
         </div>
@@ -2217,6 +2219,14 @@ function CalibrateButton({
   const [failed, setFailed] = useState<string | null>(null);
 
   const existing = row.calibration;
+  const canSeeFairness = useCan("VIEW_FAIRNESS");
+  const { flag } = useReviewFlag(
+    cycleId,
+    row.employeeId,
+    open && canSeeFairness,
+  );
+  const offRecord =
+    flag && (flag.status === "below" || flag.status === "above") ? flag : null;
 
   const start = () => {
     /* Seeded with what is on screen, so somebody nudging a mark by two points
@@ -2333,6 +2343,19 @@ function CalibrateButton({
         }
       >
         <div className="flex flex-col gap-4">
+          {offRecord &&
+            offRecord.gapBp !== null &&
+            offRecord.expectedBp !== null && (
+              <Callout
+                tone="warning"
+                title="This mark doesn't match the evidence"
+              >
+                The evidence suggests {scoreLabel(offRecord.expectedBp)}, a gap
+                of {exactPoints(offRecord.gapBp)}. Check the evidence on the
+                fairness check before moving it.
+              </Callout>
+            )}
+
           {existing && (
             <Callout tone="neutral" title="This mark has already been changed">
               Now {scoreLabel(existing.calibratedBp)}, from{" "}
