@@ -324,7 +324,7 @@ export function Picker({
                 {...(activeId ? { "aria-activedescendant": activeId } : {})}
                 className={cn(
                   "h-10 w-full rounded-md border border-control-line bg-surface",
-                  "pl-9 pr-3 text-body-sm text-ink placeholder:text-muted",
+                  "pl-9 pr-3 text-body-sm pointer-coarse:text-body-md text-ink placeholder:text-muted",
                   "focus:border-accent-text focus:outline-none focus:ring-3 focus:ring-accent/25",
                 )}
               />

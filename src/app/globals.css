@@ -528,8 +528,9 @@
      z-30   the app's own sticky header
      z-40   the invisible click-away layer that closes a dropdown or menu
      z-50   the dropdown/menu/modal layer itself
-     z-[60] the two things meant to sit above everything else at once: toasts
-            and the guided tour's spotlight
+     z-[60] what is meant to sit above everything else at once: toasts, the
+            guided tour's spotlight, and the help panel beside a label (it
+            opens inside dialogs, which are z-50, and is portalled out of them)
 
    Reach for the tier that matches what the element is doing, not the highest
    number that "definitely works" — that is how `z-[9999]` accumulates. */
