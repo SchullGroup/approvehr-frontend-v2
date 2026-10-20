@@ -121,6 +121,9 @@ export function ReviewStep({
   const { lineSummary } = usePayrollActions();
   const { payslips } = run;
 
+  /* Who is open, by **employee**, not by payslip. Every recalculation deletes and
+     rebuilds every payslip, so a payslip id does not survive a save: tracking by
+     it closed the drawer on the very save that was meant to leave it open. */
   const [adjustingId, setAdjustingId] = useState<string | null>(null);
   const [limit, setLimit] = useState(PAGE);
 
@@ -234,8 +237,9 @@ export function ReviewStep({
   const narrowed = visible.length !== payslips.length;
   const note = excludedNote(run);
 
-  const adjusting = payslips.find((slip) => slip.id === adjustingId) ?? null;
-  const open = (slip: Payslip) => setAdjustingId(slip.id);
+  const adjusting =
+    payslips.find((slip) => slip.employeeId === adjustingId) ?? null;
+  const open = (slip: Payslip) => setAdjustingId(slip.employeeId);
 
   const rowProps = {
     editable,

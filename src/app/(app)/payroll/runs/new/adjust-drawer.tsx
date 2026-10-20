@@ -135,12 +135,12 @@ export function AdjustDrawer({
   const [error, setError] = useState<string | null>(null);
 
   const view: View =
-    shown && state.forId === shown.id ? state.view : "overview";
+    shown && state.forId === shown.employeeId ? state.view : "overview";
 
   const go = (next: View) => {
     if (!shown) return;
     setError(null);
-    setState({ forId: shown.id, view: next });
+    setState({ forId: shown.employeeId, view: next });
   };
 
   const close = () => {

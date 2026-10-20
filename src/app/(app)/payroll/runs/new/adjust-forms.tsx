@@ -69,7 +69,14 @@ export function HoursForm({
   const [text, setText] = useState("");
   const parsed = Number(text);
   const valid = text.trim() !== "" && Number.isFinite(parsed) && parsed > 0;
-  const amount = valid ? Math.round(hourlyKobo * parsed * rate) : null;
+  /* An hour's value is worked out from the person's monthly pay, which comes from
+     the directory, and the directory withholds it from anybody who may not see
+     salaries. `0` here means "not known", never "worth nothing": printing
+     "₦0.00 × 6 hours = ₦0.00" would be a claim about somebody's pay made out of
+     a figure we do not have. The server prices the hours when they are saved. */
+  const priced = hourlyKobo > 0;
+  const amount =
+    valid && priced ? Math.round(hourlyKobo * parsed * rate) : null;
 
   return (
     <form
@@ -126,9 +133,11 @@ export function HoursForm({
             role="status"
             className="tabular text-body-sm leading-relaxed text-muted"
           >
-            {amount === null
-              ? `An hour is worth ${formatKobo(hourlyKobo)}, paid at ${String(rate)} times.`
-              : `${formatKobo(hourlyKobo)} × ${text} hours × ${String(rate)} = ${formatKobo(amount)}`}
+            {!priced
+              ? "What an hour is worth is worked out from their monthly pay, which is not shown to you here. The payroll prices these hours when you save."
+              : amount === null
+                ? `An hour is worth ${formatKobo(hourlyKobo)}, paid at ${String(rate)} times.`
+                : `${formatKobo(hourlyKobo)} × ${text} hours × ${String(rate)} = ${formatKobo(amount)}`}
           </p>
         )}
       </div>

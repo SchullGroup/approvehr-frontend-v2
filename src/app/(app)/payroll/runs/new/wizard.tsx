@@ -409,9 +409,22 @@ export function PayrollRunWizard() {
    */
   const [lastRun, setLastRun] = useState<PayrollRunDetail | null>(null);
   if (run && run !== lastRun) setLastRun(run);
+  /* Matched on the period, not the run's id. Saving reloads the list of runs as
+     well as this one, and while it does `runId` is null: keying on it would
+     drop the kept run at the one moment it is needed, which is exactly the
+     moment the drawer and the filter would be lost. */
   const reviewRun =
-    run ?? (runId !== null && lastRun?.id === runId ? lastRun : null);
+    run ??
+    (lastRun !== null && lastRun.period.slice(0, 7) === period
+      ? lastRun
+      : null);
   const reviewRefreshing = run === null && reviewRun !== null;
+  /* Whether Review is looking at an approved run, from the run it is showing.
+     `settled` reads the live run, which is absent during a reload, so for that
+     moment it would call an approved payroll editable. */
+  const reviewSettled =
+    (reviewRun?.status === "APPROVED" || reviewRun?.status === "PAID") &&
+    !offCycle;
 
   /**
    * Fetched when the sheet panel opens, not before — it is one extra request
@@ -1209,9 +1222,9 @@ export function PayrollRunWizard() {
                     run={reviewRun}
                     periodLabel={periodLabel(period)}
                     employees={directory.employees}
-                    editable={canPrepare && !settled}
+                    editable={canPrepare && !reviewSettled}
                     readOnlyReason={
-                      settled
+                      reviewSettled
                         ? "This payroll is approved, so its figures are frozen."
                         : !canPrepare
                           ? "Adjusting a payslip needs the \u201cRun payroll\u201d permission."
@@ -1222,8 +1235,9 @@ export function PayrollRunWizard() {
                     onViewChange={setReviewView}
                     onSaved={() => void prepare()}
                     onAdjusted={(summary) => {
-                      /* The toast, not a message inside the drawer: saving rebuilds
-                     the run, and the wizard is what survives that. */
+                      /* The toast, not a message inside the drawer: saving
+                         rebuilds the run, and the wizard is what survives
+                         that. */
                       toast.push({
                         title: "Saved",
                         tone: "success",
@@ -1233,7 +1247,9 @@ export function PayrollRunWizard() {
                   />
                   <ExcludedList
                     exclusions={reviewRun.exclusions}
-                    {...(canPrepare && !settled ? { onPutBack: putBack } : {})}
+                    {...(canPrepare && !reviewSettled
+                      ? { onPutBack: putBack }
+                      : {})}
                     busyFor={puttingBack}
                   />
                   <BankRegisterCard run={reviewRun} />
