@@ -5,12 +5,13 @@ import { ApiError } from "@/lib/api/client";
 import {
   approvalsApi,
   type ApprovalListParams,
+  type ApprovalModule,
   type ApprovalRow,
 } from "@/lib/api/approvals";
-import type { ApprovalKind } from "@/lib/mock/workflows";
 import {
   buildApprovalQueue,
   decidedItems,
+  moduleOf,
   queueItemFromApproval,
   toQueueItem,
   type QueueItem,
@@ -41,17 +42,25 @@ import { announceApprovalChange, useApprovalGeneration } from "./approval-bus";
  * this screen are reading one status, which is the bug this whole design exists
  * to prevent.
  *
- * ## Filters
+ * ## Filters, and what is deliberately not one
  *
- * "Moves money" and "Needs attention" are the API's own `movesMoney` and
- * `overdue`, so they filter server-side against everything rather than against
- * the page in hand. "People" spans four kinds and the endpoint takes one, so it
- * is applied to the loaded rows — stated here because a client-side filter over
- * a paged list can only ever be as complete as the page.
+ * Module and date range both go to the API, so they filter against everything
+ * rather than against the page in hand. There is no "moves money" or "needs
+ * attention" filter: nobody who raises an approval sets a priority on it, so a
+ * chip claiming some are urgent was the screen's guess dressed as a property of
+ * the request, and "moves money" is just payroll under another name.
  *
- * The header counts are deliberately **not** filtered: "waiting on you" is the
- * whole queue whichever chip is selected, because that is the number somebody
- * came to this screen to find out.
+ * ## Archive
+ *
+ * Putting an approval away is personal and decides nothing: the row stays
+ * pending for everybody else, and for this person it moves to "My archive" until
+ * they bring it back. Archived rows drop out of the header counts and out of
+ * "approve routine" — sweeping one up would decide the very thing somebody chose
+ * not to decide yet.
+ *
+ * The header counts are deliberately **not** filtered by module or date:
+ * "waiting on you" is the whole queue whichever chip is selected, because that
+ * is the number somebody came to this screen to find out.
  *
  * ## The "just decided" trail
  *
@@ -61,15 +70,21 @@ import { announceApprovalChange, useApprovalGeneration } from "./approval-bus";
  * Undo works from both.
  */
 
-export type QueueFilter = "all" | "money" | "people" | "overdue";
+export type QueueFilters = {
+  module: "all" | ApprovalModule;
+  /** `YYYY-MM-DD`, inclusive. Empty means no bound. */
+  from: string;
+  to: string;
+  /** Show what the person put away instead of what is in their way. */
+  archived: boolean;
+};
 
-/** The kinds "People" covers. */
-const PEOPLE_KINDS: ApprovalKind[] = [
-  "leave",
-  "offer",
-  "requisition",
-  "record_change",
-];
+export const NO_FILTERS: QueueFilters = {
+  module: "all",
+  from: "",
+  to: "",
+  archived: false,
+};
 
 export type QueueCounts = {
   pending: number;
@@ -124,6 +139,8 @@ export type QueueState = {
     decided: number;
     skipped: { id: string; reason: string }[];
   }>;
+  /** Put one away for this person only, or bring it back. */
+  setArchived: (item: QueueItem, archived: boolean) => Promise<void>;
   /** How many `approveRoutine` would take, so the button can say. */
   routineCount: number;
   reload: () => void;
@@ -139,7 +156,9 @@ const NO_COUNTS: QueueCounts = {
 /** The one definition of "routine", shared by both modes and the API. */
 const isRoutine = (item: QueueItem) => !item.deadline && item.waitingDays < 5;
 
-export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
+export function useApprovalQueue(
+  filters: QueueFilters = NO_FILTERS,
+): QueueState {
   const { isConnected } = useSession();
   const timeZone = useOrgTimezone();
   const leave = useLeaveStore();
@@ -157,10 +176,12 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
 
   const params: ApprovalListParams = useMemo(
     () => ({
-      ...(filter === "money" ? { movesMoney: true } : {}),
-      ...(filter === "overdue" ? { overdue: true } : {}),
+      ...(filters.module !== "all" ? { module: filters.module } : {}),
+      ...(filters.from ? { from: filters.from } : {}),
+      ...(filters.to ? { to: filters.to } : {}),
+      ...(filters.archived ? { archived: true } : {}),
     }),
-    [filter],
+    [filters.module, filters.from, filters.to, filters.archived],
   );
   const key = JSON.stringify(params);
 
@@ -304,27 +325,51 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
     [approvals, leave],
   );
 
+  const archivedIds = approvals.archived;
   const items = isConnected ? state.items : demoItems;
 
+  /* Connected, the API has already narrowed all of this. In demo mode it is
+     applied here, with the same meaning. A row with no raise date cannot be
+     shown to be inside a date range, so a range leaves it out. */
   const visible = useMemo(
     () =>
-      filter === "people"
-        ? items.filter((item) => PEOPLE_KINDS.includes(item.kind))
-        : /* "money" and "overdue" are the API's filters when connected, and have
-             to be applied here in demo mode. */
-          isConnected
-          ? items
-          : items.filter((item) => {
-              if (filter === "money") return item.amount !== undefined;
-              if (filter === "overdue") {
-                return item.waitingDays >= 5 || Boolean(item.deadline);
-              }
-              return true;
-            }),
-    [items, filter, isConnected],
+      isConnected
+        ? items
+        : items.filter((item) => {
+            if (archivedIds.includes(item.id) !== filters.archived)
+              return false;
+            if (filters.module !== "all" && moduleOf(item) !== filters.module) {
+              return false;
+            }
+            if (filters.from || filters.to) {
+              if (!item.raisedOn) return false;
+              if (filters.from && item.raisedOn < filters.from) return false;
+              if (filters.to && item.raisedOn > filters.to) return false;
+            }
+            return true;
+          }),
+    [items, filters, isConnected, archivedIds],
   );
 
-  const routine = useMemo(() => items.filter(isRoutine), [items]);
+  /* Never from the archive: those are the ones somebody chose not to decide. */
+  const routine = useMemo(
+    () => (filters.archived ? [] : visible.filter(isRoutine)),
+    [visible, filters.archived],
+  );
+
+  const setArchived = useCallback(
+    async (item: QueueItem, archived: boolean) => {
+      if (item.ref?.store === "approval") {
+        await (archived
+          ? approvalsApi.archive(item.ref.id)
+          : approvalsApi.unarchive(item.ref.id));
+        announceApprovalChange();
+        return;
+      }
+      approvals.setArchived(item.id, archived);
+    },
+    [approvals],
+  );
 
   const approveRoutine = useCallback(async () => {
     if (isConnected) {
@@ -347,14 +392,19 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
     return { decided: routine.length, skipped: [] };
   }, [isConnected, routine, leave, approvals]);
 
+  const waiting = useMemo(
+    () => demoItems.filter((item) => !archivedIds.includes(item.id)),
+    [demoItems, archivedIds],
+  );
+
   const demoCounts = useMemo<QueueCounts>(
     () => ({
-      pending: demoItems.length,
-      withDeadline: demoItems.filter((item) => item.deadline).length,
-      ageing: demoItems.filter((item) => item.waitingDays >= 5).length,
-      atStake: demoItems.reduce((sum, item) => sum + (item.amount ?? 0), 0),
+      pending: waiting.length,
+      withDeadline: waiting.filter((item) => item.deadline).length,
+      ageing: waiting.filter((item) => item.waitingDays >= 5).length,
+      atStake: waiting.reduce((sum, item) => sum + (item.amount ?? 0), 0),
     }),
-    [demoItems],
+    [waiting],
   );
 
   return {
@@ -367,6 +417,7 @@ export function useApprovalQueue(filter: QueueFilter = "all"): QueueState {
     decide,
     reopen,
     approveRoutine,
+    setArchived,
     routineCount: routine.length,
     reload: load,
   };

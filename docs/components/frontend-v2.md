@@ -28,9 +28,9 @@ there are too many to be useful as a list, and they are always in the file named
 | [Screens — `/approvals`](#screens-approvals) | 2 | 2 | 0 | 0 |
 | [Screens — `/assistant`](#screens-assistant) | 2 | 2 | 0 | 0 |
 | [Screens — the rest of the signed-in app](#screens-the-rest-of-the-signed-in-app) | 11 | 10 | 0 | 1 |
-| [Screens — public site, auth and setup](#screens-public-site-auth-and-setup) | 41 | 46 | 0 | 6 |
+| [Screens — public site, auth and setup](#screens-public-site-auth-and-setup) | 42 | 47 | 0 | 6 |
 | [Everything else](#everything-else) | 1 | 0 | 0 | 1 |
-| **Total** | **659** | **577** | **276** | **478** |
+| **Total** | **660** | **578** | **276** | **478** |
 
 ---
 
@@ -846,6 +846,7 @@ Everything else under `src/app/(app)`.
 | `src/app/layout.tsx`                                        | `RootLayout`                                                                                                                                     | —     | —                                          | 2 const          |
 | `src/app/manifest.ts`                                       | —                                                                                                                                                | —     | `manifest`                                 | —                |
 | `src/app/not-found.tsx`                                     | `NotFound`                                                                                                                                       | —     | —                                          | 1 const          |
+| `src/app/opengraph-image.tsx`                               | `Image`                                                                                                                                          | —     | —                                          | 3 const          |
 | `src/app/robots.ts`                                         | —                                                                                                                                                | —     | `robots`                                   | —                |
 | `src/app/sitemap.ts`                                        | —                                                                                                                                                | —     | `sitemap`                                  | —                |
 | `src/app/offline/page.tsx`                                  | `OfflinePage`                                                                                                                                    | —     | —                                          | 1 const          |

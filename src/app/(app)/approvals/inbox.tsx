@@ -12,6 +12,8 @@ import {
   CalendarDays,
   Check,
   ClipboardList,
+  Archive,
+  ArchiveRestore,
   Clock,
   FileText,
   Receipt,
@@ -28,6 +30,7 @@ import {
   Card,
   CardBody,
   EmptyState,
+  Input,
   Money,
   SegmentedControl,
   Stat,
@@ -47,7 +50,7 @@ import {
 import {
   useApprovalQueue,
   useSentApprovals,
-  type QueueFilter,
+  type QueueFilters,
 } from "@/lib/store/approvals-api";
 import type { QueueItem } from "@/lib/workflows/queue";
 import {
@@ -164,10 +167,13 @@ function decidedCopy(
  * this screen.
  */
 export function ApprovalInbox() {
-  const [view, setView] = useState<"waiting" | "sent">("waiting");
-  const [filter, setFilter] = useState<QueueFilter>("all");
+  const [view, setView] = useState<"waiting" | "sent" | "archive">("waiting");
+  const [filters, setFilters] = useState<QueueFilters>(START_FILTERS);
   const [declining, setDeclining] = useState<QueueItem | null>(null);
-  const queue = useApprovalQueue(filter);
+  const queue = useApprovalQueue({
+    ...filters,
+    archived: view === "archive",
+  });
   const sent = useSentApprovals();
   const toast = useToast();
   const isManager = useIsManager();
@@ -241,6 +247,28 @@ export function ApprovalInbox() {
     } catch (failure) {
       toast.push({
         title: "Could not undo that",
+        tone: "danger",
+        detail:
+          failure instanceof ApiError
+            ? failure.message
+            : "Something went wrong. Try again.",
+      });
+    }
+  };
+
+  const archive = async (item: QueueItem, archived: boolean) => {
+    try {
+      await queue.setArchived(item, archived);
+      toast.push({
+        title: archived ? "Put away" : "Back in your inbox",
+        tone: "info",
+        detail: archived
+          ? `${item.title} is in My archive. It is still waiting for a decision, and nobody else's inbox has changed.`
+          : `${item.title} is waiting on you again.`,
+      });
+    } catch (failure) {
+      toast.push({
+        title: archived ? "Could not archive that" : "Could not restore that",
         tone: "danger",
         detail:
           failure instanceof ApiError
@@ -324,10 +352,44 @@ export function ApprovalInbox() {
         options={[
           { value: "waiting", label: "Waiting on you" },
           { value: "sent", label: "Sent by you" },
+          { value: "archive", label: "My archive" },
         ]}
       />
 
       {view === "sent" && <SentApprovalsList state={sent} />}
+
+      {view === "archive" && (
+        <>
+          <p className="text-body-sm text-muted">
+            Approvals you put away for later. They are still waiting for a
+            decision, and putting one here changed nothing for anybody else.
+          </p>
+          <InboxFilters filters={filters} onChange={setFilters} />
+          {queue.items.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={<Archive aria-hidden="true" />}
+                title="Nothing in your archive"
+                description="Use Archive on an approval you are not ready to decide. It leaves your inbox and waits here."
+              />
+            </Card>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {queue.items.map((item) => (
+                <li key={item.id}>
+                  <ApprovalRow
+                    item={item}
+                    archived
+                    onApprove={() => void decide(item, "approved")}
+                    onReject={() => setDeclining(item)}
+                    onArchive={() => void archive(item, false)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
 
       {view === "waiting" &&
         (canApprove ? (
@@ -366,17 +428,7 @@ export function ApprovalInbox() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <SegmentedControl
-                label="Filter approvals"
-                value={filter}
-                onChange={setFilter}
-                options={[
-                  { value: "all", label: "All" },
-                  { value: "money", label: "Moves money" },
-                  { value: "people", label: "People" },
-                  { value: "overdue", label: "Needs attention" },
-                ]}
-              />
+              <InboxFilters filters={filters} onChange={setFilters} />
               <Button
                 variant="secondary"
                 size="sm"
@@ -408,6 +460,7 @@ export function ApprovalInbox() {
                       item={item}
                       onApprove={() => void decide(item, "approved")}
                       onReject={() => setDeclining(item)}
+                      onArchive={() => void archive(item, true)}
                     />
                   </li>
                 ))}
@@ -496,6 +549,83 @@ export function ApprovalInbox() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/* Declared here, not imported from the store, so a screen test can replace the
+   store without having to know about this constant. */
+const START_FILTERS: QueueFilters = {
+  module: "all",
+  from: "",
+  to: "",
+  archived: false,
+};
+
+const MODULE_OPTIONS: { value: QueueFilters["module"]; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "payroll", label: "Payroll" },
+  { value: "leave", label: "Leave" },
+  { value: "hiring", label: "Hiring" },
+  { value: "people", label: "Core HR" },
+];
+
+/**
+ * Narrow the inbox by module and by when a request was raised.
+ *
+ * Module is who acts on it, so a bank-account change is under Payroll. There is
+ * deliberately no "urgent" or "moves money" chip: nobody sets a priority when
+ * they raise something, so any such chip would be the screen guessing.
+ */
+function InboxFilters({
+  filters,
+  onChange,
+}: {
+  filters: QueueFilters;
+  onChange: (next: QueueFilters) => void;
+}) {
+  const hasDates = filters.from !== "" || filters.to !== "";
+  return (
+    <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+      <SegmentedControl
+        label="Filter approvals by module"
+        value={filters.module}
+        onChange={(module) => onChange({ ...filters, module })}
+        options={MODULE_OPTIONS}
+      />
+      <label className="flex flex-col gap-1 text-meta text-muted">
+        Raised from
+        <Input
+          type="date"
+          value={filters.from}
+          max={filters.to || undefined}
+          onChange={(e) => {
+            const from = e.target.value;
+            onChange({ ...filters, from });
+          }}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-meta text-muted">
+        Raised to
+        <Input
+          type="date"
+          value={filters.to}
+          min={filters.from || undefined}
+          onChange={(e) => {
+            const to = e.target.value;
+            onChange({ ...filters, to });
+          }}
+        />
+      </label>
+      {hasDates && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onChange({ ...filters, from: "", to: "" })}
+        >
+          Clear dates
+        </Button>
+      )}
+    </div>
+  );
+}
 
 /**
  * "What did I send off, and who is it sitting with now."
@@ -655,12 +785,16 @@ function WithSourceLinks({ text }: { text: string }) {
 
 function ApprovalRow({
   item,
+  archived = false,
   onApprove,
   onReject,
+  onArchive,
 }: {
   item: QueueItem;
+  archived?: boolean;
   onApprove: () => void;
   onReject: () => void;
+  onArchive: () => void;
 }) {
   const ageing = item.waitingDays >= 5;
   /* Only a seed row knows who raised it. The API's approval row does not carry
@@ -753,7 +887,7 @@ function ApprovalRow({
             here would be one that always fails; the real one is one click
             away. */}
         {isDecidableHere(item.kind) ? (
-          <div className="flex w-full shrink-0 gap-2 sm:w-auto">
+          <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto">
             <Button
               variant="approve"
               size="sm"
@@ -767,9 +901,14 @@ function ApprovalRow({
               <X aria-hidden="true" className="size-3.5" />
               {item.kind === "holiday" ? "Decline" : "Reject"}
             </Button>
+            <ArchiveButton
+              item={item}
+              archived={archived}
+              onClick={onArchive}
+            />
           </div>
         ) : (
-          <div className="flex w-full shrink-0 sm:w-auto">
+          <div className="flex w-full shrink-0 gap-2 sm:w-auto">
             <ButtonLink
               href={item.href}
               variant="secondary"
@@ -778,9 +917,38 @@ function ApprovalRow({
             >
               Open {item.kindLabel.toLowerCase()}
             </ButtonLink>
+            <ArchiveButton
+              item={item}
+              archived={archived}
+              onClick={onArchive}
+            />
           </div>
         )}
       </CardBody>
     </Card>
+  );
+}
+
+/** Put away for later, or bring back. Personal, and never a decision. */
+function ArchiveButton({
+  item,
+  archived,
+  onClick,
+}: {
+  item: QueueItem;
+  archived: boolean;
+  onClick: () => void;
+}) {
+  const Icon = archived ? ArchiveRestore : Archive;
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={onClick}
+      aria-label={`${archived ? "Restore" : "Archive"} ${item.title}`}
+    >
+      <Icon aria-hidden="true" className="size-3.5" />
+      {archived ? "Restore" : "Archive"}
+    </Button>
   );
 }
