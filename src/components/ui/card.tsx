@@ -211,7 +211,7 @@ export function Stat({
           </span>
         )}
       </div>
-      <p className="mt-2 text-h3 text-ink tabular truncate">{value}</p>
+      <p className="mt-2 break-words text-h3 text-ink tabular">{value}</p>
       {/*
        * Two lines when there are two things to say.
        *
@@ -227,19 +227,25 @@ export function Stat({
       )}
       {hint && (
         /*
-         * Truncated, with the whole thing in the tooltip.
+         * Wraps. It used to truncate, with the whole thing in a tooltip.
          *
-         * The hint is usually four words. It is also where a **filename** goes —
-         * "ApproveHR_employees_reformatted.xlsx" — and a long one spilled past
-         * the card's edge and over the card beside it. `truncate` needs
-         * `min-w-0` on every flex ancestor to have anything to shrink against;
-         * the card root already carries it.
+         * Truncating was right for the case it was written for — a filename,
+         * "ApproveHR_employees_reformatted.xlsx", which spilled past the card's
+         * edge and over the card beside it — and wrong for the case that is now
+         * most of its use: a hint is a full clause ("Across the 9 marks given.
+         * People with no mark are not counted."), and the half of the sentence
+         * that was cut off is usually the caveat. On a phone there is no hover
+         * to read a `title`, so the caveat was simply gone, and it was gone on
+         * a laptop too, where four cards share a row.
          *
-         * `title` rather than a wrap, because the card's height is what keeps a
-         * row of four stats aligned. A hint that wraps to three lines makes one
-         * card taller than its neighbours, which reads as a layout bug.
+         * `break-words` keeps the filename inside the card: it only breaks a
+         * word that cannot fit, so a sentence wraps at its spaces. The reason
+         * for truncating was that "a hint that wraps to three lines makes one
+         * card taller than its neighbours". Stats sit in grids, and a grid item
+         * stretches to its row's tallest, so the row grows and the cards still
+         * line up; the `title` stays for anybody who hovers.
          */
-        <p className="mt-1 truncate text-body-sm text-muted" title={hint}>
+        <p className="mt-1 break-words text-body-sm text-muted" title={hint}>
           {hint}
         </p>
       )}

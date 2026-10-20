@@ -183,11 +183,17 @@ function Grid({
       </div>
 
       {/* Horizontal scroll rather than a card-per-row stack: a nine-box read one
-          box at a time is a list, and the whole point is seeing the spread. */}
+          box at a time is a list, and the whole point is seeing the spread.
+
+          44rem, not 52: at 52rem an iPad held upright (768, so about 712 of
+          content) showed two and a half columns and cut the third mid-word with
+          nothing to say it scrolled. 44rem fits that width exactly; below it the
+          grid scrolls, and the row labels stay put (`sticky`) so that what each
+          row is stays on screen while the columns move under it. */}
       <div className="overflow-x-auto">
-        <div className="min-w-[52rem]">
-          <div className="grid grid-cols-[9rem_repeat(3,1fr)] gap-2">
-            <div />
+        <div className="min-w-[44rem]">
+          <div className="grid grid-cols-[8rem_repeat(3,minmax(0,1fr))] gap-2">
+            <div className="sticky left-0 z-10 bg-canvas" />
             {AXES.map((axis) => (
               <div key={axis} className="px-1 pb-1">
                 <p className="text-meta font-medium text-body">
@@ -226,7 +232,7 @@ function RowOfThree({
 }) {
   return (
     <>
-      <div className="flex flex-col gap-1 py-2 pr-2">
+      <div className="sticky left-0 z-10 flex flex-col gap-1 bg-canvas py-2 pr-2">
         <Badge tone={ROW_TONE[level]} size="sm">
           {POTENTIAL_LABELS[level]}
         </Badge>
