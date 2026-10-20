@@ -2,6 +2,8 @@
 
 _Repo:_ `approvehr-platform-frontend` · _Generated from_ `src/**/*.{ts,tsx}` (tests excluded)
 
+_Snapshot:_ a one-off pass of 2026-09-11. That repository's last commit on `origin/HEAD` is from 2026-08-21, so nothing has moved under it, but `npm run docs` does not cover this file: if the repository changes, this file is out of date until somebody redoes it.
+
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use`;
 **functions** are plain callables. Constants and types are counted rather than listed.
 
