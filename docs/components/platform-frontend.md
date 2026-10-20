@@ -7,37 +7,37 @@ _Snapshot:_ a one-off pass of 2026-09-11. That repository's last commit on `orig
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use`;
 **functions** are plain callables. Constants and types are counted rather than listed.
 
-| Group                                                                                                              |   Files | Components |   Hooks | Functions |
-| ------------------------------------------------------------------------------------------------------------------ | ------: | ---------: | ------: | --------: |
-| [Layout and chrome — `src/components/layout`](#layout-and-chrome-src-components-layout)                            |       7 |          6 |       0 |         0 |
-| [Shared UI — `src/components/ui`](#shared-ui-src-components-ui)                                                    |      36 |         80 |       0 |         0 |
-| [Access control — `src/components/auth`](#access-control-src-components-auth)                                      |       1 |          1 |       0 |         0 |
-| [Other shared components — `src/components/*`](#other-shared-components-src-components)                            |     356 |        366 |       0 |         8 |
-| [Stores — `src/stores`](#stores-src-stores)                                                                        |       2 |          0 |       2 |         0 |
-| [Services — `src/services`](#services-src-services)                                                                |      73 |          0 |       0 |         6 |
-| [Hooks — `src/hooks`](#hooks-src-hooks)                                                                            |      65 |          0 |     924 |         1 |
-| [Contexts — `src/contexts`](#contexts-src-contexts)                                                                |       3 |          5 |       0 |         0 |
-| [Helpers — `src/lib`, `src/utils`, `src/constants`, `src/data`](#helpers-src-lib-src-utils-src-constants-src-data) |      49 |          0 |       7 |       185 |
-| [Types — `src/types`](#types-src-types)                                                                            |      16 |          0 |       0 |         0 |
-| [Screens — `src/pages/employees`](#screens-src-pages-employees)                                                    |      30 |         29 |       0 |         0 |
-| [Screens — `src/pages/departments`](#screens-src-pages-departments)                                                |       9 |          8 |       0 |         0 |
-| [Screens — `src/pages/attendance`](#screens-src-pages-attendance)                                                  |       9 |         11 |       0 |         0 |
-| [Screens — `src/pages/leave`](#screens-src-pages-leave)                                                            |      21 |         21 |       0 |         0 |
-| [Screens — `src/pages/payroll`](#screens-src-pages-payroll)                                                        |      16 |         16 |       0 |         0 |
-| [Screens — `src/pages/performance`](#screens-src-pages-performance)                                                |      27 |         25 |       0 |         0 |
-| [Screens — `src/pages/recruitment`](#screens-src-pages-recruitment)                                                |       8 |          7 |       0 |         0 |
-| [Screens — `src/pages/assets`](#screens-src-pages-assets)                                                          |       1 |          1 |       0 |         0 |
-| [Screens — `src/pages/companies`](#screens-src-pages-companies)                                                    |       4 |          4 |       0 |         0 |
-| [Screens — `src/pages/settings`](#screens-src-pages-settings)                                                      |      12 |         14 |       0 |         0 |
-| [Screens — `src/pages/auth`](#screens-src-pages-auth)                                                              |       7 |          7 |       0 |         0 |
-| [Screens — `src/pages/onboarding`](#screens-src-pages-onboarding)                                                  |       3 |          3 |       0 |         0 |
-| [Screens — `src/pages/exit`](#screens-src-pages-exit)                                                              |      13 |         12 |       0 |         8 |
-| [Screens — `src/pages/helpdesk`](#screens-src-pages-helpdesk)                                                      |      11 |         11 |       0 |         0 |
-| [Screens — `src/pages/knowledge-base`](#screens-src-pages-knowledge-base)                                          |       4 |          3 |       0 |         0 |
-| [Screens — `src/pages/integrations`](#screens-src-pages-integrations)                                              |       3 |          3 |       0 |         0 |
-| [Screens — the rest of `src/pages`](#screens-the-rest-of-src-pages)                                                |       8 |          8 |       0 |         0 |
-| [Everything else](#everything-else)                                                                                |       6 |          1 |       0 |         0 |
-| **Total**                                                                                                          | **800** |    **642** | **933** |   **208** |
+| Group                                                                                                           |   Files | Components |   Hooks | Functions |
+| --------------------------------------------------------------------------------------------------------------- | ------: | ---------: | ------: | --------: |
+| [Layout and chrome — `src/components/layout`](#layout-and-chrome--srccomponentslayout)                          |       7 |          6 |       0 |         0 |
+| [Shared UI — `src/components/ui`](#shared-ui--srccomponentsui)                                                  |      36 |         80 |       0 |         0 |
+| [Access control — `src/components/auth`](#access-control--srccomponentsauth)                                    |       1 |          1 |       0 |         0 |
+| [Other shared components — `src/components/*`](#other-shared-components--srccomponents)                         |     356 |        366 |       0 |         8 |
+| [Stores — `src/stores`](#stores--srcstores)                                                                     |       2 |          0 |       2 |         0 |
+| [Services — `src/services`](#services--srcservices)                                                             |      73 |          0 |       0 |         6 |
+| [Hooks — `src/hooks`](#hooks--srchooks)                                                                         |      65 |          0 |     924 |         1 |
+| [Contexts — `src/contexts`](#contexts--srccontexts)                                                             |       3 |          5 |       0 |         0 |
+| [Helpers — `src/lib`, `src/utils`, `src/constants`, `src/data`](#helpers--srclib-srcutils-srcconstants-srcdata) |      49 |          0 |       7 |       185 |
+| [Types — `src/types`](#types--srctypes)                                                                         |      16 |          0 |       0 |         0 |
+| [Screens — `src/pages/employees`](#screens--srcpagesemployees)                                                  |      30 |         29 |       0 |         0 |
+| [Screens — `src/pages/departments`](#screens--srcpagesdepartments)                                              |       9 |          8 |       0 |         0 |
+| [Screens — `src/pages/attendance`](#screens--srcpagesattendance)                                                |       9 |         11 |       0 |         0 |
+| [Screens — `src/pages/leave`](#screens--srcpagesleave)                                                          |      21 |         21 |       0 |         0 |
+| [Screens — `src/pages/payroll`](#screens--srcpagespayroll)                                                      |      16 |         16 |       0 |         0 |
+| [Screens — `src/pages/performance`](#screens--srcpagesperformance)                                              |      27 |         25 |       0 |         0 |
+| [Screens — `src/pages/recruitment`](#screens--srcpagesrecruitment)                                              |       8 |          7 |       0 |         0 |
+| [Screens — `src/pages/assets`](#screens--srcpagesassets)                                                        |       1 |          1 |       0 |         0 |
+| [Screens — `src/pages/companies`](#screens--srcpagescompanies)                                                  |       4 |          4 |       0 |         0 |
+| [Screens — `src/pages/settings`](#screens--srcpagessettings)                                                    |      12 |         14 |       0 |         0 |
+| [Screens — `src/pages/auth`](#screens--srcpagesauth)                                                            |       7 |          7 |       0 |         0 |
+| [Screens — `src/pages/onboarding`](#screens--srcpagesonboarding)                                                |       3 |          3 |       0 |         0 |
+| [Screens — `src/pages/exit`](#screens--srcpagesexit)                                                            |      13 |         12 |       0 |         8 |
+| [Screens — `src/pages/helpdesk`](#screens--srcpageshelpdesk)                                                    |      11 |         11 |       0 |         0 |
+| [Screens — `src/pages/knowledge-base`](#screens--srcpagesknowledge-base)                                        |       4 |          3 |       0 |         0 |
+| [Screens — `src/pages/integrations`](#screens--srcpagesintegrations)                                            |       3 |          3 |       0 |         0 |
+| [Screens — the rest of `src/pages`](#screens--the-rest-of-srcpages)                                             |       8 |          8 |       0 |         0 |
+| [Everything else](#everything-else)                                                                             |       6 |          1 |       0 |         0 |
+| **Total**                                                                                                       | **800** |    **642** | **933** |   **208** |
 
 ---
 
