@@ -4186,6 +4186,29 @@ export function useReviewFlag(
   };
 }
 
+const FLAG_DECISION_OFFLINE =
+  "Deciding on a flagged mark needs the API. The decision is part of the period's record.";
+
+/** "Mark stands" and taking it back. Moving a mark and sending a review back have their own hooks. */
+export function useFlagDecisions() {
+  const { isConnected } = useSession();
+  const stands = useCallback(
+    async (cycleId: string, employeeId: string, note: string | null) => {
+      if (!isConnected) throw new Error(FLAG_DECISION_OFFLINE);
+      return performanceApi.markStands(cycleId, employeeId, note);
+    },
+    [isConnected],
+  );
+  const reopen = useCallback(
+    async (cycleId: string, employeeId: string) => {
+      if (!isConnected) throw new Error(FLAG_DECISION_OFFLINE);
+      return performanceApi.reopenFlag(cycleId, employeeId);
+    },
+    [isConnected],
+  );
+  return { stands, reopen };
+}
+
 export const FAIRNESS_OFFLINE =
   "The fairness check needs the API. Its figures are drawn from everybody's mark and records.";
 

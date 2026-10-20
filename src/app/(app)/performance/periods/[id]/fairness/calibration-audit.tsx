@@ -15,6 +15,8 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { useCan } from "@/lib/permissions";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateShort } from "@/lib/time";
 import { useCycleFairness } from "@/lib/store/performance";
 import { pct, points } from "./charts";
 
@@ -37,6 +39,7 @@ export function CalibrationAudit({ cycleId }: { cycleId: string }) {
   // periods=1: this is always an audit of this cycle only, not a rolling window.
   const detail = useCycleFairness(cycleId, 1, allowed);
   const data = detail.fairness;
+  const timeZone = useOrgTimezone();
 
   if (!allowed || !detail.available) return null;
 
@@ -64,11 +67,7 @@ export function CalibrationAudit({ cycleId }: { cycleId: string }) {
   if (!data) return null;
 
   const { calibration } = data;
-  const date = (iso: string) =>
-    new Date(iso).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-    });
+  const date = (iso: string) => formatDateShort(iso, timeZone);
 
   return (
     <div className="flex flex-col gap-4">

@@ -71,16 +71,16 @@ import {
   useCycleMutations,
   useCycleRegister,
   useRatingScale,
-  useReviewFlag,
+  useReviewFlags,
 } from "@/lib/store/performance";
-import { exactPoints } from "@/components/performance/record-check";
+import { CalibrateDialog } from "@/components/performance/calibrate-dialog";
 import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
 import { SectionsDialog } from "../../sections-dialog";
 import { AppraisersDialog } from "../../appraiser-map";
 import { AskPeersButton } from "./ask-peers";
 import { CalibrationAudit } from "./fairness/calibration-audit";
-import { FairnessStatus } from "./fairness/fairness-status";
+import { FairnessStatus, publishLock } from "./fairness/fairness-status";
 
 /**
  * Running one appraisal period.
@@ -156,6 +156,8 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const router = useRouter();
   const canSeeCompany = useCan("EDIT_RECORDS");
   const canManage = useCan("MANAGE_SETTINGS");
+  const canSeeFairness = useCan("VIEW_FAIRNESS");
+  const review = useReviewFlags(cycleId, canSeeFairness);
   const detail = useCycleRegister(cycleId, canSeeCompany);
   const periods = useCycleMutations();
   const toast = useToast();
@@ -214,6 +216,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
      published one is a record. `undefined` at calibration, which is the last
      stage before publishing. */
   const nextStage = running && period ? STAGE_AFTER[period.stage] : undefined;
+  const lock = publishLock(review.flags, period?.stage ?? null);
 
   const failed = (error: unknown) => {
     toast.push({
@@ -449,6 +452,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 Nine-box
               </ButtonLink>
             )}
+            {canSeeFairness && !draft && (
+              <ButtonLink
+                size="sm"
+                variant="secondary"
+                href={`/performance/periods/${cycleId}/fairness`}
+              >
+                Fairness check
+              </ButtonLink>
+            )}
 
             {/* The stage never moved on its own, and nothing moved it: the
                 endpoint has always accepted `MANAGER` and `CALIBRATION`,
@@ -473,7 +485,12 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               </Button>
             )}
             {canManage && running && (
-              <Button size="sm" onClick={() => setPublishing(true)}>
+              <Button
+                size="sm"
+                disabled={lock !== null}
+                title={lock ?? undefined}
+                onClick={() => setPublishing(true)}
+              >
                 Publish the results
               </Button>
             )}
@@ -498,6 +515,16 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
 
       <PageBody>
         <div className="flex flex-col gap-6">
+          {running && canSeeFairness && (
+            <FairnessStatus
+              cycleId={cycleId}
+              stage={period?.stage ?? null}
+              flags={review.flags}
+              loading={review.loading}
+              error={review.error}
+              reload={review.reload}
+            />
+          )}
           {/* Setting it up is the whole of this screen while it is a draft, so it
               is first and it is the only accent control on the page. `canManage`
               rather than `canSeeCompany`: starting a period and reading everybody's
@@ -736,9 +763,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 rows={outstanding}
                 participants={detail.participants}
               />
-              {period?.stage === "CALIBRATION" && (
-                <FairnessStatus cycleId={cycleId} />
-              )}
               <Register
                 register={detail.register}
                 cycleId={cycleId}
@@ -2209,203 +2233,22 @@ function CalibrateButton({
   row: ApiScoreRow;
   onChanged: () => void;
 }) {
-  const periods = useCycleMutations();
-  const toast = useToast();
-
   const [open, setOpen] = useState(false);
-  const [percent, setPercent] = useState("");
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-
-  const existing = row.calibration;
-  const canSeeFairness = useCan("VIEW_FAIRNESS");
-  const { flag } = useReviewFlag(
-    cycleId,
-    row.employeeId,
-    open && canSeeFairness,
-  );
-  const offRecord =
-    flag && (flag.status === "below" || flag.status === "above") ? flag : null;
-
-  const start = () => {
-    /* Seeded with what is on screen, so somebody nudging a mark by two points
-       does not retype it. The reason is deliberately NOT seeded from the old
-       one — a new decision needs a new account of itself. */
-    setPercent(
-      String(Math.round((existing?.calibratedBp ?? row.scoreBp ?? 0) / 100)),
-    );
-    setReason("");
-    setFailed(null);
-    setOpen(true);
-  };
-
-  const save = async () => {
-    const value = Number(percent);
-    if (!Number.isInteger(value) || value < 0 || value > 100) {
-      setFailed("Give a whole percentage between 0 and 100.");
-      return;
-    }
-    if (reason.trim().length < 10) {
-      setFailed("Say why in a few more words: this is the record of it.");
-      return;
-    }
-    setBusy(true);
-    setFailed(null);
-    try {
-      await periods.calibrate(cycleId, row.employeeId, {
-        calibratedBp: value * 100,
-        reason: reason.trim(),
-      });
-      toast.push({
-        title: `${row.employeeName}'s mark is now ${String(value)}%`,
-        tone: "success",
-        detail: "The mark the answers produced is kept beside it.",
-      });
-      setOpen(false);
-      onChanged();
-    } catch (caught) {
-      setFailed(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not change that mark.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const clear = async () => {
-    setBusy(true);
-    setFailed(null);
-    try {
-      await periods.clearCalibration(cycleId, row.employeeId);
-      toast.push({
-        title: `${row.employeeName}'s mark is back to what the answers produced`,
-        tone: "success",
-      });
-      setOpen(false);
-      onChanged();
-    } catch (caught) {
-      setFailed(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not put that mark back.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <>
-      <Button variant="secondary" size="sm" onClick={start}>
-        {existing ? "Change it" : "Change the mark"}
+      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
+        {row.calibration ? "Change it" : "Change the mark"}
       </Button>
-
-      {/* No open-gating here: `Modal` decides whether to render from its own
-          `useDismiss` state, so this has to stay mounted and keep passing the
-          real `open` through for its exit animation to have a chance to play. */}
-      <Modal
+      <CalibrateDialog
         open={open}
         onClose={() => setOpen(false)}
-        title={`Change ${row.employeeName}'s mark`}
-        description={`The answers gave ${scoreLabel(row.computedBp ?? row.scoreBp ?? 0)}.`}
-        size="sm"
-        footer={
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            {/* Only offered where there is something to undo, and away from
-                the save button — it is the destructive half. */}
-            {existing ? (
-              <Button
-                variant="ghost"
-                disabled={busy}
-                onClick={() => void clear()}
-              >
-                Put it back
-              </Button>
-            ) : (
-              <span />
-            )}
-            <div className="flex gap-2">
-              <Button disabled={busy} onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="accent"
-                loading={busy}
-                onClick={() => void save()}
-              >
-                Save the change
-              </Button>
-            </div>
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          {offRecord &&
-            offRecord.gapBp !== null &&
-            offRecord.expectedBp !== null && (
-              <Callout
-                tone="warning"
-                title="This mark doesn't match the evidence"
-              >
-                The evidence suggests {scoreLabel(offRecord.expectedBp)}, a gap
-                of {exactPoints(offRecord.gapBp)}. Check the evidence on the
-                fairness check before moving it.
-              </Callout>
-            )}
-
-          {existing && (
-            <Callout tone="neutral" title="This mark has already been changed">
-              Now {scoreLabel(existing.calibratedBp)}, from{" "}
-              {scoreLabel(existing.originalBp)}
-              {existing.calibratedByName
-                ? `, by ${existing.calibratedByName}`
-                : ""}
-              . The reason given was &ldquo;{existing.reason}&rdquo;.
-            </Callout>
-          )}
-
-          <Field
-            label="New mark"
-            required
-            {...(failed ? { error: failed } : {})}
-          >
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                inputMode="numeric"
-                className="w-28"
-                value={percent}
-                disabled={busy}
-                onChange={(event) => setPercent(event.target.value)}
-              />
-              <span className="text-body-sm text-muted">%</span>
-            </div>
-          </Field>
-
-          <Field
-            label="Why"
-            required
-            help="This is kept with the mark and is what explains it if anybody asks later."
-          >
-            <Textarea
-              rows={3}
-              value={reason}
-              disabled={busy}
-              placeholder="Agreed at the review meeting: this team's targets were set higher than the rest of the department."
-              onChange={(event) => setReason(event.target.value)}
-            />
-          </Field>
-
-          <p className="text-meta text-muted">
-            The mark the answers produced is kept beside this one, not replaced.
-          </p>
-        </div>
-      </Modal>
+        onChanged={onChanged}
+        cycleId={cycleId}
+        employeeId={row.employeeId}
+        employeeName={row.employeeName}
+        computedBp={row.computedBp ?? row.scoreBp ?? 0}
+        existing={row.calibration}
+      />
     </>
   );
 }

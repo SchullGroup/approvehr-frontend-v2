@@ -41,10 +41,16 @@ import { PeopleToReview, flaggedCount } from "./people-to-review";
 type Tab = "groups" | "managers" | "people";
 type View = "average" | "bands" | "table";
 
-export function FairnessScreen({ cycleId }: { cycleId: string }) {
+export function FairnessScreen({
+  cycleId,
+  initialTab,
+}: {
+  cycleId: string;
+  initialTab?: "people" | undefined;
+}) {
   const allowed = useCan("VIEW_FAIRNESS");
   const [periods, setPeriods] = useState<FairnessPeriods>(1);
-  const [tab, setTab] = useState<Tab>("groups");
+  const [tab, setTab] = useState<Tab>(initialTab ?? "groups");
   const detail = useCycleFairness(cycleId, periods, allowed);
   const data = detail.fairness;
   const review = useReviewFlags(cycleId, allowed);
@@ -147,6 +153,7 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
                   loading={review.loading}
                   error={review.error}
                   reload={review.reload}
+                  stage={detail.cycle?.stage ?? null}
                 />
               )}
             </Tabs>
