@@ -13,6 +13,7 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  StatGrid,
   TextLink,
   useToast,
 } from "@/components/ui";
@@ -187,7 +188,7 @@ export function ApprovalsScreen() {
               can read and act on before it is true. The card underneath
               carries the spinner. */}
           {!approvals.loading && approvals.couldHaveQueue && (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <StatGrid columns={2}>
               <Stat
                 label="Waiting on you"
                 value={String(approvals.queue.length)}
@@ -198,7 +199,7 @@ export function ApprovalsScreen() {
                 value={`${measured} of ${approvals.queue.length}`}
                 hint="An objective with no measure is scored on a stated figure"
               />
-            </div>
+            </StatGrid>
           )}
 
           {agreed && (

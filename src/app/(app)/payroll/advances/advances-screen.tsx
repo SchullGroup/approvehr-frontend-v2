@@ -17,6 +17,7 @@ import {
   Money,
   Spinner,
   Stat,
+  StatGrid,
   SuccessMoment,
   Textarea,
   useToast,
@@ -229,7 +230,7 @@ function Mine({
         }
       />
       <CardBody className="flex flex-col gap-4">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <StatGrid columns={3}>
           <Stat
             label="Earned so far"
             value={
@@ -273,7 +274,7 @@ function Mine({
                 : undefined
             }
           />
-        </div>
+        </StatGrid>
 
         {/* The API's own sentence, verbatim. Not a paraphrase — it knows which
             of half a dozen reasons applies. */}

@@ -32,6 +32,7 @@ import {
   Money,
   SegmentedControl,
   Stat,
+  StatGrid,
   useHasAnswered,
   useToast,
   type BadgeTone,
@@ -325,7 +326,7 @@ export function ApprovalInbox() {
             hasData={answered}
             className="flex flex-col gap-6"
           >
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatGrid>
               <Stat
                 label="Waiting on you"
                 value={String(queue.counts.pending)}
@@ -356,7 +357,7 @@ export function ApprovalInbox() {
                     : undefined
                 }
               />
-            </div>
+            </StatGrid>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <SegmentedControl

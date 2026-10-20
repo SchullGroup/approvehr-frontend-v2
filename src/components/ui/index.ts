@@ -14,6 +14,7 @@ export {
   CardFooter,
   LinkCard,
   Stat,
+  StatGrid,
   Callout,
 } from "./card";
 
@@ -31,6 +32,8 @@ export { ProgressMeter, ScoreRing, FactorBars } from "./progress";
 export { SuccessMark, SuccessMoment } from "./success";
 
 export { Modal, Drawer, DrawerSection, ConfirmDialog } from "./modal";
+export { RowActions } from "./row-actions";
+export type { RowAction, RowActionItem } from "./row-actions";
 export { Sortable, SortableHandle } from "./sortable";
 export type { SortableProps, SortableRenderArgs } from "./sortable";
 export type { ModalSize, DrawerSize } from "./modal";

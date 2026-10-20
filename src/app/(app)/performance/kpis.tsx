@@ -30,6 +30,7 @@ import {
   Select,
   LoadState,
   Stat,
+  StatGrid,
   Textarea,
   useToast,
   type AppliedFilter,
@@ -526,7 +527,7 @@ export function KpisTab({
         onRetry={kpis.reload}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatGrid>
         <Stat label="KPIs being tracked" value={String(tracked.length)} />
         <Stat
           label="Average progress"
@@ -568,7 +569,7 @@ export function KpisTab({
             )
           }
         />
-      </div>
+      </StatGrid>
 
       {/* Delivery against objectives is one of the four parts an appraisal is
           made of, and only an **agreed** objective counts towards it. Somebody

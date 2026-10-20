@@ -22,6 +22,7 @@ import {
   Select,
   Spinner,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TH,
@@ -167,7 +168,7 @@ export function BenefitsPanel() {
         ) : (
           <div className="flex flex-col gap-6">
             {canSeeMoney && cost.data && (
-              <div className="grid gap-3 sm:grid-cols-3">
+              <StatGrid columns={3}>
                 {/* Two figures, two cards, labelled apart. Never one "cost". */}
                 <Stat
                   label="Company pays a month"
@@ -188,7 +189,7 @@ export function BenefitsPanel() {
                   value={String(cost.data.people)}
                   hint={`across ${String(cost.data.plans)} ${cost.data.plans === 1 ? "plan" : "plans"}`}
                 />
-              </div>
+              </StatGrid>
             )}
 
             {tab === "plans" ? (

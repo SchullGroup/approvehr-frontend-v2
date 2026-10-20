@@ -22,6 +22,7 @@ import {
   Select,
   SortableTH,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -307,7 +308,7 @@ function PayslipIndex() {
             </Select>
           </Field>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <StatGrid columns={3}>
             <Stat
               label="Payslips"
               /**
@@ -345,7 +346,7 @@ function PayslipIndex() {
               }
               icon={<Mail aria-hidden="true" />}
             />
-          </div>
+          </StatGrid>
         </div>
 
         {run && (

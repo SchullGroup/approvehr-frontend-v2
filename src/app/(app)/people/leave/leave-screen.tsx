@@ -33,6 +33,7 @@ import {
   StackedBar,
   SegmentedControl,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -443,7 +444,7 @@ export function LeaveScreen() {
           hasData={answered}
           className="flex flex-col gap-6"
         >
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatGrid>
             <Stat
               label="Waiting on a decision"
               value={String(waiting.count)}
@@ -474,7 +475,7 @@ export function LeaveScreen() {
               }
               hint="of entitlement, people shown below"
             />
-          </div>
+          </StatGrid>
 
           <Card className="min-w-0">
             <CardHeader

@@ -15,6 +15,7 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -270,7 +271,7 @@ export function LocationsScreen() {
           </Callout>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <StatGrid columns={3}>
           <Stat
             label="Locations"
             value={list.loading ? "—" : String(live.length)}
@@ -294,7 +295,7 @@ export function LocationsScreen() {
             }
             hint="Staff may clock in wherever they are."
           />
-        </div>
+        </StatGrid>
 
         <Card>
           <CardHeader

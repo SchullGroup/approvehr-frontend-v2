@@ -41,6 +41,7 @@ import {
   useHasAnswered,
   SortableTH,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -437,7 +438,7 @@ export function Directory({
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatGrid>
         <Stat
           label="Employees"
           value={count(summary.total)}
@@ -505,7 +506,7 @@ export function Directory({
             hint="missing bank, PIN or TIN: only a missing bank account blocks pay"
           />
         </Link>
-      </div>
+      </StatGrid>
 
       <FilterBar
         search={list.search}

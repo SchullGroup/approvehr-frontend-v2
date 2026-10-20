@@ -24,13 +24,14 @@ import {
   ConfirmDialog,
   EmptyState,
   Field,
-  IconButton,
   Input,
   LoadState,
   Modal,
   Money,
+  RowActions,
   Select,
   Stat,
+  StatGrid,
   Tabs,
   TextLink,
   useToast,
@@ -273,7 +274,7 @@ export function DepartmentsScreen() {
               hasData={departments.flat.length > 0}
             >
               <div className="flex flex-col gap-6">
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <StatGrid>
                   <Stat label="Departments" value={String(departmentCount)} />
                   {/* The API still calls a nested department a "team" in its own
                     count. The label does not, because the Teams tab owns that
@@ -307,7 +308,7 @@ export function DepartmentsScreen() {
                     }
                     hint="people in no department"
                   />
-                </div>
+                </StatGrid>
 
                 {departments.counts.unassignedEmployees > 0 && (
                   <Callout
@@ -774,14 +775,18 @@ function DepartmentRow({
         </div>
 
         {(canAssign || canManage) && (
-          /* `flex-wrap max-w-full`: the row above wraps these onto a line of
-             their own on a phone, and the line was 385px of unbreakable
-             buttons in a 335px card — the whole page grew a sideways scroll. */
-          <div className="flex max-w-full shrink-0 flex-wrap items-center gap-1.5">
+          /* One button for the thing people come here to do, and one menu for
+             everything else. This row used to carry two text buttons and three
+             icon-only ones — five targets, most of them 32px, and on a phone the
+             line was wider than the card, so the whole page grew a sideways
+             scroll. The less frequent acts, and the one that cannot easily be
+             undone, are in the menu where a mis-tap cannot land on them. */
+          <div className="flex max-w-full shrink-0 items-center gap-1.5">
             {canAssign && (
               <Button
                 variant="secondary"
                 size="sm"
+                className="h-11 sm:h-8"
                 onClick={() => onAssign(node)}
                 aria-label={`Assign people to ${node.name}`}
               >
@@ -790,46 +795,33 @@ function DepartmentRow({
               </Button>
             )}
             {canManage && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => onAssignHead(node)}
-                aria-label={`Assign a head to ${node.name}`}
-              >
-                <UserCog aria-hidden="true" className="size-3.5" />
-                Assign head
-              </Button>
-            )}
-            {/* Less-frequent structural actions, collapsed to icons with a
-                native hover tooltip (IconButton sets both `title` and
-                `aria-label`) so the row does not read as a wall of buttons. */}
-            {canManage && (
-              <div className="flex items-center gap-0.5">
-                <IconButton
-                  label={`Add a sub-department inside ${node.name}`}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onAddChild(node.id)}
-                >
-                  <Plus aria-hidden="true" className="size-4" />
-                </IconButton>
-                <IconButton
-                  label={`Edit ${node.name}`}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onEdit(node)}
-                >
-                  <Pencil aria-hidden="true" className="size-3.5" />
-                </IconButton>
-                <IconButton
-                  label={`Archive ${node.name}`}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onArchive(node)}
-                >
-                  <Trash2 aria-hidden="true" className="size-3.5" />
-                </IconButton>
-              </div>
+              <RowActions
+                label={`More actions for ${node.name}`}
+                items={[
+                  {
+                    label: "Assign a head",
+                    icon: <UserCog />,
+                    onSelect: () => onAssignHead(node),
+                  },
+                  {
+                    label: "Add a sub-department",
+                    icon: <Plus />,
+                    onSelect: () => onAddChild(node.id),
+                  },
+                  {
+                    label: "Edit",
+                    icon: <Pencil />,
+                    onSelect: () => onEdit(node),
+                  },
+                  "separator",
+                  {
+                    label: "Archive",
+                    icon: <Trash2 />,
+                    tone: "danger",
+                    onSelect: () => onArchive(node),
+                  },
+                ]}
+              />
             )}
           </div>
         )}

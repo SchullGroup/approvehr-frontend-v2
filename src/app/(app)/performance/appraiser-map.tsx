@@ -17,6 +17,7 @@ import {
   Select,
   Spinner,
   Stat,
+  StatGrid,
   Switch,
   useToast,
 } from "@/components/ui";
@@ -266,7 +267,7 @@ export function AppraiserMapTab() {
       />
 
       {map && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatGrid>
           <Stat
             label="People in the period"
             value={String(map.counts.people)}
@@ -290,7 +291,7 @@ export function AppraiserMapTab() {
                 : undefined
             }
           />
-        </div>
+        </StatGrid>
       )}
 
       {/* Exceptions first, before the table, in the shape the payroll run uses.

@@ -22,6 +22,7 @@ import {
   LoadState,
   Skeleton,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -177,7 +178,7 @@ function Overview() {
           hasData={roles.length > 0}
           className="flex flex-col gap-6"
         >
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatGrid>
             <Stat
               label="Live adverts"
               value={countOrDash(error, numbers.liveAdverts)}
@@ -234,7 +235,7 @@ function Overview() {
                 className="transition-colors group-hover:border-accent"
               />
             </Link>
-          </div>
+          </StatGrid>
 
           {/* `grid-cols-1` at the base breakpoint, not just implied by having
             one column below `lg`: with no `grid-template-columns` declared,

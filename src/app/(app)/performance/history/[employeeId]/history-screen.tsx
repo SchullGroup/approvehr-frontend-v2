@@ -18,6 +18,7 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  StatGrid,
   TextLink,
   type BadgeTone,
 } from "@/components/ui";
@@ -171,7 +172,7 @@ function Who({ history }: { history: ApiScoreHistory }) {
   const latest = scored[scored.length - 1];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <StatGrid>
       <Stat
         label="Who"
         value={history.employeeName}
@@ -230,7 +231,7 @@ function Who({ history }: { history: ApiScoreHistory }) {
             : `${history.trend.fromCycle} to ${history.trend.toCycle}`
         }
       />
-    </div>
+    </StatGrid>
   );
 }
 

@@ -13,6 +13,7 @@ import {
   Select,
   Skeleton,
   Stat,
+  StatGrid,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -264,7 +265,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
           />
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatGrid>
           <Stat
             label="Changes"
             value={String(options.summary?.changes ?? 0)}
@@ -276,7 +277,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
             value={String(options.summary?.reads ?? 0)}
           />
           <Stat label="Matching your filters" value={String(trail.total)} />
-        </div>
+        </StatGrid>
 
         <Card>
           <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-4">

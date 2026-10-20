@@ -27,6 +27,7 @@ import {
   SegmentedControl,
   Skeleton,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -274,7 +275,7 @@ function Adverts() {
           </Callout>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatGrid>
           <Stat
             label="Live adverts"
             value={totals ? String(totals.live) : "—"}
@@ -326,7 +327,7 @@ function Adverts() {
               className="transition-colors group-hover:border-accent"
             />
           </Link>
-        </div>
+        </StatGrid>
 
         <Card>
           <CardHeader

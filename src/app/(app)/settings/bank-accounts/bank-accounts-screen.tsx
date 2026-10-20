@@ -19,6 +19,7 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -256,7 +257,7 @@ export function BankAccountsScreen() {
 
         {stepUp.dialog}
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <StatGrid columns={3}>
           {/* Never a measured zero over a read that did not happen. */}
           <Stat
             label="Accounts in use"
@@ -283,7 +284,7 @@ export function BankAccountsScreen() {
             value={unread ? "\u2014" : String(accounts.counts.archived)}
             {...(unread ? { hint: "not read" } : {})}
           />
-        </div>
+        </StatGrid>
 
         {!primary && accounts.accounts.length > 0 && (
           <Card>

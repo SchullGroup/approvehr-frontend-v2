@@ -15,6 +15,7 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -331,7 +332,7 @@ export function DevicesScreen() {
           </Callout>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <StatGrid columns={3}>
           <Stat
             label="Terminals"
             value={list.loading ? "—" : String(live.length)}
@@ -380,7 +381,7 @@ export function DevicesScreen() {
                     : "Stored and waiting for somebody to say whose they are. Nothing is lost."
             }
           />
-        </div>
+        </StatGrid>
 
         <Card>
           <CardHeader

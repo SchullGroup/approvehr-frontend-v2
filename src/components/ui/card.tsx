@@ -199,7 +199,10 @@ export function Stat({
   return (
     <div
       className={cn(
-        "rounded-lg border border-line bg-surface p-5 min-w-0",
+        /* Compact below `sm`, roomy from there up. A phone shows these two to a
+           row (see `StatGrid`), so the padding that suits a 300px card is far
+           too much for a 170px one. */
+        "min-w-0 rounded-lg border border-line bg-surface p-3.5 sm:p-5",
         className,
       )}
     >
@@ -211,7 +214,9 @@ export function Stat({
           </span>
         )}
       </div>
-      <p className="mt-2 text-h3 text-ink tabular truncate">{value}</p>
+      <p className="mt-1.5 text-h4 text-ink tabular truncate sm:mt-2 sm:text-h3">
+        {value}
+      </p>
       {/*
        * Two lines when there are two things to say.
        *
@@ -238,11 +243,63 @@ export function Stat({
          * `title` rather than a wrap, because the card's height is what keeps a
          * row of four stats aligned. A hint that wraps to three lines makes one
          * card taller than its neighbours, which reads as a layout bug.
+         *
+         * On a phone the card is half the width and a one-line hint cut "nested
+         * inside another" to "nested inside anot…", so there it may take two
+         * lines and no more — and `StatGrid` stretches the row, so the neighbour
+         * is as tall rather than shorter.
          */
-        <p className="mt-1 truncate text-body-sm text-muted" title={hint}>
+        <p
+          className="mt-1 line-clamp-2 text-body-sm text-muted sm:block sm:truncate"
+          title={hint}
+        >
           {hint}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * A row of `Stat`s, two to a row on a phone.
+ *
+ * Four stat cards stacked one to a row took more than a screen before the page's
+ * own content began, on a dozen screens (payroll, payslips, the period screen,
+ * the directory, departments, hiring, leave, shifts, KPIs and more). Two across
+ * is the shape a phone can hold — with `Stat`'s own padding and figure size
+ * stepping down to match — so four become a 2×2 block under the header and the
+ * content is back in the first screenful.
+ *
+ * From `sm` up it is the layout every screen already had, so a desktop does not
+ * change: two across at `sm`, and `columns` across from `xl` (or from `sm` for
+ * three). An odd stat out spans the phone's full width rather than leaving a
+ * hole beside it.
+ *
+ * This is the one place that decides how a row of metrics lays out. A screen
+ * that writes its own `grid` around `Stat`s is the thing this replaces.
+ */
+export function StatGrid({
+  columns = 4,
+  className,
+  children,
+}: {
+  /** How many across on a wide screen. Two across on a phone whatever this is. */
+  columns?: 2 | 3 | 4;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-3 sm:gap-4",
+        columns === 3 && "sm:grid-cols-3",
+        columns === 4 && "xl:grid-cols-4",
+        /* The last of an odd number takes the whole row on a phone. */
+        "[&>:last-child:nth-child(odd)]:col-span-2 sm:[&>:last-child:nth-child(odd)]:col-span-1",
+        className,
+      )}
+    >
+      {children}
     </div>
   );
 }

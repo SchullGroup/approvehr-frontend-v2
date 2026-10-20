@@ -14,6 +14,7 @@ import {
   SegmentedControl,
   Skeleton,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -369,7 +370,7 @@ function MyAttendanceSummary({
       />
       <CardBody>
         {mine ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatGrid>
             <Stat label="Present" value={String(mine.daysPresent)} />
             <Stat
               label="Late"
@@ -382,7 +383,7 @@ function MyAttendanceSummary({
               value={String(mine.daysUnexplained)}
               hint={`of ${mine.workingDays} working days`}
             />
-          </div>
+          </StatGrid>
         ) : (
           <p className="text-body-sm text-muted">
             Nothing recorded for you in this window yet.
@@ -447,7 +448,7 @@ function TodayView({
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatGrid>
         <Stat
           label="In today"
           /* Anybody with a clock-in, not `PRESENT + LATE`.
@@ -482,7 +483,7 @@ function TodayView({
             ? { hint: `${restDays} more off on the rota` }
             : {})}
         />
-      </div>
+      </StatGrid>
 
       <Card>
         <CardHeader title={`Roster · ${shortDate(roster.date)}`} />

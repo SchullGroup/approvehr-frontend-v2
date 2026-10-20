@@ -19,6 +19,7 @@ import {
   ProgressMeter,
   Skeleton,
   Stat,
+  StatGrid,
   TextLink,
   useToast,
 } from "@/components/ui";
@@ -181,7 +182,7 @@ export function OnboardingScreen() {
           onRetry={reload}
         />
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <StatGrid columns={3}>
           <Stat label="In onboarding" value={String(employees.length)} />
           <Stat
             label="Steps complete"
@@ -228,7 +229,7 @@ export function OnboardingScreen() {
               hint="missing a bank account"
             />
           )}
-        </div>
+        </StatGrid>
 
         {loading && employees.length === 0 ? (
           <div className="grid gap-5 lg:grid-cols-2">
