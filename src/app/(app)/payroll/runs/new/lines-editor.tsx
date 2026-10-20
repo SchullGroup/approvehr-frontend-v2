@@ -156,7 +156,7 @@ export function LinesEditor({
   }
 
   return (
-    <div>
+    <div className="flow-root -mb-5">
       <BackToPayslip onBack={onBack} disabled={saving} />
 
       <p className="mb-5 text-body-sm leading-relaxed text-body">

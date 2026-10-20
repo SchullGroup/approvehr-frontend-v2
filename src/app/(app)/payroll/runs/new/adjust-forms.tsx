@@ -73,6 +73,7 @@ export function HoursForm({
 
   return (
     <form
+      className="flow-root -mb-5"
       onSubmit={(event) => {
         event.preventDefault();
         if (canSet && valid && !saving) onSave(parsed);
@@ -216,6 +217,7 @@ export function AmountForm({
 
   return (
     <form
+      className="flow-root -mb-5"
       onSubmit={(event) => {
         event.preventDefault();
         if (kobo !== null && !saving) onSave(kobo);

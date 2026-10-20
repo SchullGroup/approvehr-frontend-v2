@@ -779,7 +779,6 @@ function PayslipCard({
             {slip.name}
           </TextLink>
           <p className="text-meta text-muted">{slip.employeeNo}</p>
-          <Flags adjusted={facts.adjusted} warnings={mine} />
         </div>
         <div className="shrink-0 text-right">
           <p className="text-meta text-muted">Net pay</p>
@@ -787,7 +786,12 @@ function PayslipCard({
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-body-sm">
+      {/* Only the figures this person has. A card that printed "Overtime —" and
+          "Bonus —" for everybody was two rows of nothing per payslip, which is
+          most of why ten of them made a page nobody could scroll to the end of.
+          The table keeps its dashes, because a column needs a cell; a card does
+          not need a line. */}
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-body-sm">
         <CardFact label="Gross">{formatKobo(slip.grossKobo)}</CardFact>
         <CardFact label="PAYE">
           {facts.payeOperated ? (
@@ -796,48 +800,45 @@ function PayslipCard({
             <span className="text-faint">Not operated</span>
           )}
         </CardFact>
-        <CardFact label="Deductions">
-          <Figure
-            kobo={facts.deductions}
-            marked={
-              facts.adjusted.includes("statutory") ||
-              facts.adjusted.includes("deductions")
-            }
-          />
-          {facts.deductionLabels.length > 0 && (
-            <span className="block text-meta text-muted">
-              {facts.deductionLabels.join(", ")}
-            </span>
-          )}
-        </CardFact>
-        {showOvertime && (
+        {facts.deductions > 0 && (
+          <CardFact label="Deductions">
+            <Figure
+              kobo={facts.deductions}
+              marked={
+                facts.adjusted.includes("statutory") ||
+                facts.adjusted.includes("deductions")
+              }
+            />
+          </CardFact>
+        )}
+        {showOvertime && facts.overtime > 0 && (
           <CardFact label="Overtime">
             <Figure kobo={facts.overtime} marked={facts.manualOvertime} />
           </CardFact>
         )}
-        {showBonus && (
+        {showBonus && facts.bonus > 0 && (
           <CardFact label="Bonus">
-            <Figure kobo={facts.bonus} marked={facts.bonus > 0} />
+            <Figure kobo={facts.bonus} marked />
           </CardFact>
         )}
-        {anyUnpaid && (
+        {anyUnpaid && slip.unpaidDays > 0 && (
           <CardFact label="Unpaid days">
-            {slip.unpaidDays > 0 ? (
-              <span className="text-warning-text">{slip.unpaidDays}</span>
-            ) : (
-              <span className="text-faint">—</span>
-            )}
+            <span className="text-warning-text">{slip.unpaidDays}</span>
           </CardFact>
         )}
       </dl>
 
-      <OpenButton
-        slip={slip}
-        editable={editable}
-        refreshing={refreshing}
-        onOpen={onOpen}
-        block
-      />
+      <div className="flex items-center justify-between gap-3">
+        <Flags adjusted={facts.adjusted} warnings={mine} bare />
+        <div className="ml-auto">
+          <OpenButton
+            slip={slip}
+            editable={editable}
+            refreshing={refreshing}
+            onOpen={onOpen}
+          />
+        </div>
+      </div>
     </li>
   );
 }
@@ -911,14 +912,17 @@ function Figure({
 function Flags({
   adjusted,
   warnings,
+  bare = false,
 }: {
   adjusted: readonly AdjustmentKind[];
   warnings: readonly RunException[];
+  /** No margin above it: it is not sitting under a name. */
+  bare?: boolean;
 }) {
   if (adjusted.length === 0 && warnings.length === 0) return null;
   const toFix = warnings.filter((w) => w.severity === "BLOCKER").length;
   return (
-    <span className="mt-1.5 flex flex-wrap gap-1.5">
+    <span className={cn("flex flex-wrap gap-1.5", !bare && "mt-1.5")}>
       {adjusted.length > 0 && (
         <Badge tone="accent" size="sm" icon={<Pencil />}>
           Adjusted

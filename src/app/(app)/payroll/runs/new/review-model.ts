@@ -134,8 +134,16 @@ export function deductionTotal(slip: Payslip): number {
  */
 export function deductionLabels(slip: Payslip): string[] {
   const labels: string[] = [];
-  if (wasDeducted(slip.operates, "pension")) labels.push("Pension");
-  if (wasDeducted(slip.operates, "nhf")) labels.push("Housing fund");
+  /* Named only when there is something behind the name. The table prints labels
+     without amounts, so naming a deduction that came to nothing (lawful, and
+     common: the housing fund is off for most companies) would claim a part of
+     the total that is not in it. */
+  if (wasDeducted(slip.operates, "pension") && slip.pensionEmployeeKobo > 0) {
+    labels.push("Pension");
+  }
+  if (wasDeducted(slip.operates, "nhf") && slip.nhfKobo > 0) {
+    labels.push("Housing fund");
+  }
   if (slip.otherDeductionsKobo > 0) {
     const lines = slip.lines.filter((line) => line.kind === "DEDUCTION");
     labels.push(lines.length === 1 ? (lines[0]?.label ?? "Other") : "Other");
