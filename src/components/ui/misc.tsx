@@ -15,7 +15,7 @@ export function Avatar({
 }: {
   name: string;
   src?: string;
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   tone?: "neutral" | "accent" | "ink";
   className?: string;
 }) {
@@ -31,6 +31,7 @@ export function Avatar({
     sm: "size-8 text-meta",
     md: "size-10 text-body-sm",
     lg: "size-14 text-body-sm",
+    xl: "size-11 text-body font-medium",
   } as const;
 
   const tones = {
