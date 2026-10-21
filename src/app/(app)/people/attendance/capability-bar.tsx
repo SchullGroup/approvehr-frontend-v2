@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { Settings } from "lucide-react";
 import {
-  Button,
+  IconButton,
   Card,
   CardBody,
   Modal,
@@ -61,10 +61,13 @@ export function AttendanceSettingsButton() {
 
   return (
     <>
-      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        <SlidersHorizontal aria-hidden="true" className="size-4" />
-        Attendance settings
-      </Button>
+      <IconButton
+        label="Attendance settings"
+        variant="secondary"
+        onClick={() => setOpen(true)}
+      >
+        <Settings aria-hidden="true" className="size-4" />
+      </IconButton>
       {open && (
         <Modal
           open

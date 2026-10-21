@@ -111,28 +111,54 @@ export function FilterBar({
         )}
 
         {hasPanel && (
-          <IconButton
-            label={
-              applied.length > 0
-                ? `Filters, ${String(applied.length)} applied`
-                : "Filters"
-            }
-            variant="secondary"
-            aria-expanded={open}
-            aria-controls={panelId}
-            onClick={() => setOpen((was) => !was)}
-            className="relative"
-          >
-            <SlidersHorizontal aria-hidden="true" className="size-4" />
-            {applied.length > 0 && (
-              <span
-                aria-hidden="true"
-                className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-fill-strong text-meta font-semibold text-surface"
-              >
-                {applied.length}
-              </span>
+          <div className="relative">
+            <IconButton
+              label={
+                applied.length > 0
+                  ? `Filters, ${String(applied.length)} applied`
+                  : "Filters"
+              }
+              variant="secondary"
+              aria-expanded={open}
+              aria-controls={panelId}
+              onClick={() => setOpen((was) => !was)}
+              className="relative"
+            >
+              <SlidersHorizontal aria-hidden="true" className="size-4" />
+              {applied.length > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-fill-strong text-meta font-semibold text-surface"
+                >
+                  {applied.length}
+                </span>
+              )}
+            </IconButton>
+            {/* A small menu under the button, not a band across the page: the
+                list below does not move when it opens, and a click anywhere
+                else or Escape puts it away. Each filter is one labelled
+                dropdown, one under the other. */}
+            {open && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  aria-hidden="true"
+                  onClick={() => setOpen(false)}
+                />
+                <div
+                  id={panelId}
+                  role="group"
+                  aria-label="Filters"
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setOpen(false);
+                  }}
+                  className="animate-scale-in absolute left-0 top-full z-40 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 rounded-lg border border-line bg-surface p-3 shadow-lg"
+                >
+                  {children}
+                </div>
+              </>
             )}
-          </IconButton>
+          </div>
         )}
 
         {sort}
@@ -191,16 +217,6 @@ export function FilterBar({
               Clear all
             </Button>
           )}
-        </div>
-      )}
-
-      {hasPanel && (
-        <div
-          id={panelId}
-          hidden={!open}
-          className="grid gap-4 rounded-lg border border-line bg-canvas p-4 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          {open && children}
         </div>
       )}
     </div>

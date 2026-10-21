@@ -123,13 +123,7 @@ export function SkillsTab({
           label="Assessed so far"
           value={`${summary.rated} of ${summary.total}`}
         />
-        <Stat
-          label="Below target"
-          value={String(summary.gaps)}
-          {...(summary.gaps > 0
-            ? { trend: { direction: "down" as const, label: "Needs work" } }
-            : {})}
-        />
+        <Stat label="Below target" value={String(summary.gaps)} />
       </StatGrid>
 
       <Card>
@@ -197,7 +191,6 @@ export function SkillsTab({
                     <TH>Skill</TH>
                     <TH align="right">Level</TH>
                     <TH align="right">Target</TH>
-                    <TH align="right">Gap</TH>
                   </THead>
                   <TBody>
                     {gaps.gaps.map((gap) => (
@@ -216,15 +209,6 @@ export function SkillsTab({
                         </TD>
                         <TD align="right" className="tabular">
                           {gap.target}
-                        </TD>
-                        <TD align="right">
-                          <Badge
-                            tone="warning"
-                            size="sm"
-                            icon={<AlertTriangle aria-hidden="true" />}
-                          >
-                            {gap.gap === 1 ? "1 level" : `${gap.gap} levels`}
-                          </Badge>
                         </TD>
                       </TR>
                     ))}
@@ -248,13 +232,6 @@ export function SkillsTab({
                           {gap.sectionName && ` · ${gap.sectionName}`}
                         </p>
                       </div>
-                      <Badge
-                        tone="warning"
-                        size="sm"
-                        icon={<AlertTriangle aria-hidden="true" />}
-                      >
-                        {gap.gap === 1 ? "1 level" : `${gap.gap} levels`}
-                      </Badge>
                     </div>
                     <div className="flex items-center gap-4 text-body-sm text-muted">
                       <span className="tabular">

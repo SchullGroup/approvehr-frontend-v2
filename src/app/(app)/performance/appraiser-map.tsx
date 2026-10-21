@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, Network, Plus, Trash2, Wand2 } from "lucide-react";
+import { Network, Plus, Trash2, Wand2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
   Badge,
@@ -27,10 +27,8 @@ import {
   APPRAISER_ROLES,
   APPRAISER_ROLE_HELP,
   APPRAISER_ROLE_LABEL,
-  EXCEPTION_CODE_SUMMARY,
   FULL_WEIGHT_BP,
   evenWeights,
-  groupExceptionsByCode,
   weightLabel,
   weightProblem,
   type ApiAppraiser,
@@ -151,19 +149,6 @@ export function AppraiserMapTab() {
     );
   }
 
-  const blockers =
-    map?.rows.flatMap((row) =>
-      row.exceptions
-        .filter((issue) => issue.severity === "BLOCKER")
-        .map((issue) => ({ key: `${row.employeeId}-${issue.code}`, ...issue })),
-    ) ?? [];
-  const warnings =
-    map?.rows.flatMap((row) =>
-      row.exceptions
-        .filter((issue) => issue.severity === "WARNING")
-        .map((issue) => ({ key: `${row.employeeId}-${issue.code}`, ...issue })),
-    ) ?? [];
-
   /**
    * One appraiser, at 100%, saved from the row.
    *
@@ -282,117 +267,22 @@ export function AppraiserMapTab() {
             value={String(map.counts.multiAppraiser)}
             hint="with roles and weights"
           />
-          <Stat
-            label="Nobody appraising"
-            value={String(map.counts.unassigned)}
-            trend={
-              map.counts.unassigned > 0
-                ? { direction: "down", label: "Would get no mark" }
-                : undefined
-            }
-          />
+          {map.counts.unassigned > 0 ? (
+            <button
+              type="button"
+              onClick={() => setExceptionsOnly(true)}
+              aria-label={`Nobody appraising: ${map.counts.unassigned}. Show them.`}
+              className="rounded-lg text-left transition-shadow hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text [&>*]:h-full"
+            >
+              <Stat
+                label="Nobody appraising"
+                value={String(map.counts.unassigned)}
+              />
+            </button>
+          ) : (
+            <Stat label="Nobody appraising" value="0" />
+          )}
         </StatGrid>
-      )}
-
-      {/* Exceptions first, before the table, in the shape the payroll run uses.
-          A blocker buried in row 40 of a table is a blocker nobody read. */}
-      {(blockers.length > 0 || warnings.length > 0) && (
-        <Card>
-          <CardHeader
-            title={
-              blockers.length > 0
-                ? blockers.length === 1
-                  ? "1 thing will leave someone with no mark"
-                  : `${blockers.length} things will leave people with no mark`
-                : "Worth a look"
-            }
-            description={
-              map?.started
-                ? "This period is running, so these need fixing now."
-                : "The period has not started, so you have time to sort these out."
-            }
-          />
-          <CardBody className="flex flex-col gap-2">
-            {groupExceptionsByCode([...blockers, ...warnings]).map((group) => {
-              const tone =
-                group.severity === "BLOCKER"
-                  ? "border-danger-line bg-danger-soft text-ink"
-                  : "border-warning-line bg-warning-soft text-ink";
-              const icon =
-                group.severity === "BLOCKER"
-                  ? "text-danger-text"
-                  : "text-warning-text";
-
-              /* One person, one problem — the full sentence, exactly as
-                 before. A single line is not a wall of anything, and naming
-                 them by name here is more useful than a count of one. */
-              if (group.items.length === 1) {
-                const issue = group.items[0]!;
-                return (
-                  <p
-                    key={issue.key}
-                    className={cn(
-                      "flex gap-2.5 rounded-md border px-3.5 py-2.5 text-body-sm",
-                      tone,
-                    )}
-                  >
-                    <AlertTriangle
-                      aria-hidden="true"
-                      className={cn("mt-0.5 size-4 shrink-0", icon)}
-                    />
-                    <span>
-                      <span className="sr-only">
-                        {group.severity === "BLOCKER"
-                          ? "Blocker: "
-                          : "Warning: "}
-                      </span>
-                      {issue.message}
-                    </span>
-                  </p>
-                );
-              }
-
-              /* Several people, the same problem — one line naming the count
-                 rather than the same templated sentence repeated per name.
-                 "Review and fix" is the filter already on this screen: the
-                 table right below is where fixing one of them actually
-                 happens, so there is nothing new to build here. */
-              return (
-                <div
-                  key={group.code}
-                  className={cn(
-                    "flex flex-wrap items-center justify-between gap-3 rounded-md border px-3.5 py-2.5 text-body-sm",
-                    tone,
-                  )}
-                >
-                  <span className="flex gap-2.5">
-                    <AlertTriangle
-                      aria-hidden="true"
-                      className={cn("mt-0.5 size-4 shrink-0", icon)}
-                    />
-                    <span>
-                      <span className="sr-only">
-                        {group.severity === "BLOCKER"
-                          ? "Blocker: "
-                          : "Warning: "}
-                      </span>
-                      {EXCEPTION_CODE_SUMMARY[
-                        group.code as keyof typeof EXCEPTION_CODE_SUMMARY
-                      ](group.items.length)}
-                    </span>
-                  </span>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setExceptionsOnly(true)}
-                  >
-                    Review and fix
-                  </Button>
-                </div>
-              );
-            })}
-          </CardBody>
-        </Card>
       )}
 
       <Card>
