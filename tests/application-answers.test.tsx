@@ -235,9 +235,13 @@ describe("needs a look", () => {
 
   it("says one answer raised a flag, and that a flag is not a decision", () => {
     render(<ApplicationAnswers extras={flagged} />);
-    const note = screen.getByText("Needs a look", { selector: "p" });
-    expect(note).toBeInTheDocument();
-    const region = note.closest("div.rounded-lg") as HTMLElement;
+    /* A quiet line now: the title is visible and the rest sits behind its
+       info icon, still in the page for a screen reader. */
+    const note = screen
+      .getAllByText("Needs a look")
+      .find((el) => el.closest("p")?.textContent?.includes("raised a flag"));
+    expect(note).toBeDefined();
+    const region = note!.closest("p") as HTMLElement;
     expect(region).toHaveTextContent("One answer raised a flag.");
     expect(region).toHaveTextContent(
       "It is not a decision, and nobody is rejected because of it.",
