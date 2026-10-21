@@ -15,6 +15,7 @@ import {
   SegmentedControl,
   Skeleton,
   Stat,
+  StatGrid,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -126,7 +127,7 @@ export function OffboardingScreen() {
             claim about the company drawn from the one row they are allowed to
             read, which is the absent-is-not-zero mistake with a smaller sample. */}
         {view === "open" && (isHr || exits.rows.length > 0) && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <StatGrid columns={2}>
             <Stat
               label="Leaving"
               value={String(leavingSoon)}
@@ -137,7 +138,7 @@ export function OffboardingScreen() {
               value={String(waitingOnSomebody)}
               hint="nobody has approved yet"
             />
-          </div>
+          </StatGrid>
         )}
 
         {/* "Start an exit" above is the door for a layoff, a contract ending,

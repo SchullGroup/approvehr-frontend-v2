@@ -26,6 +26,7 @@ import {
   Select,
   Spinner,
   Stat,
+  StatGrid,
   TextLink,
   useToast,
 } from "@/components/ui";
@@ -159,7 +160,7 @@ export function TeamsPanel({
         />
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <StatGrid columns={3}>
         <Stat label="Teams" value={String(teams.counts.teams)} />
         <Stat
           label="Cross-functional"
@@ -171,7 +172,7 @@ export function TeamsPanel({
           value={String(teams.counts.peopleOnATeam)}
           hint="counted once, however many teams"
         />
-      </div>
+      </StatGrid>
 
       <Card>
         <CardHeader

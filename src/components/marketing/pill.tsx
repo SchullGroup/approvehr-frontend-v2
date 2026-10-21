@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { prefetchFor } from "@/lib/marketing/redirected";
 
 /*
  * One button language for the whole marketing site.
@@ -76,6 +77,7 @@ export function Pill({
   return (
     <Link
       href={href}
+      {...prefetchFor(href)}
       className={cn(
         BASE,
         variant !== "text" && SIZES[size],
@@ -144,6 +146,7 @@ export function LearnMore({
   return (
     <Link
       href={href}
+      {...prefetchFor(href)}
       className={cn(
         "group/more inline-flex items-center gap-2 text-body-sm font-medium text-slate",
         "transition-colors hover:text-slate-muted",

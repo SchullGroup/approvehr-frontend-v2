@@ -17,6 +17,7 @@ import {
   Select,
   Spinner,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -207,7 +208,7 @@ export function PaymentHistoryScreen() {
           />
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <StatGrid columns={2}>
           <Stat
             label="Payments"
             value={
@@ -243,7 +244,7 @@ export function PaymentHistoryScreen() {
                 : netHint(history)
             }
           />
-        </div>
+        </StatGrid>
 
         <Card>
           <CardBody className="flex flex-wrap items-end gap-4">

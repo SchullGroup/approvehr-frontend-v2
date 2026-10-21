@@ -12,6 +12,7 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  StatGrid,
   Tag,
   TBody,
   TD,
@@ -116,7 +117,7 @@ export function SkillsTab({
         onRetry={mine.reload}
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <StatGrid columns={3}>
         <Stat label="Skills on your framework" value={String(summary.total)} />
         <Stat
           label="Assessed so far"
@@ -129,7 +130,7 @@ export function SkillsTab({
             ? { trend: { direction: "down" as const, label: "Needs work" } }
             : {})}
         />
-      </div>
+      </StatGrid>
 
       <Card>
         <CardHeader title="Your skills" />

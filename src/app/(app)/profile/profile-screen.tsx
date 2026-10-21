@@ -28,10 +28,11 @@ import {
   CardHeader,
   DescriptionList,
   EmptyState,
+  LoadFailure,
+  LoadState,
   Money,
   ProgressMeter,
   Skeleton,
-  Spinner,
   Tabs,
   useToast,
 } from "@/components/ui";
@@ -162,10 +163,38 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
 
   if (isLoading || record.loading) {
     return (
-      <PageBody className="flex items-center justify-center py-24">
-        <Spinner />
-        <span className="sr-only">Loading your profile</span>
-      </PageBody>
+      <>
+        <PageHeader title="My profile" />
+        <PageBody>
+          <LoadState
+            loading
+            error={null}
+            subject="your profile"
+            skeleton="detail"
+          >
+            {null}
+          </LoadState>
+        </PageBody>
+      </>
+    );
+  }
+
+  /* A request that failed is not an account with no employee record. The page
+     used to fall through to "No employee record: this account is not linked to
+     anyone on the payroll" — a claim about the company's records that nobody had
+     checked — beside a button to go home. */
+  if (record.error) {
+    return (
+      <>
+        <PageHeader title="My profile" />
+        <PageBody>
+          <LoadFailure
+            subject="your profile"
+            error={record.error}
+            onRetry={record.reload}
+          />
+        </PageBody>
+      </>
     );
   }
 

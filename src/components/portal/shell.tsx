@@ -823,6 +823,25 @@ export function PageHeader({
         : breadcrumb[breadcrumb.length - 1]!
       : null;
 
+  /*
+   * One way back and one trail, never two saying the same thing.
+   *
+   * "Back to Monthly payroll" beside "Monthly payroll / Run payroll" was the same
+   * sentence twice on every detail screen (the wizard, a period, a review, a
+   * payslip, a candidate, a record). The explicit back control is worth having —
+   * the crumbs read as a location, not as something to press — and the trail is
+   * worth having when it says *where you are* rather than only *where you came
+   * from*. So the trail is drawn when it adds something:
+   *
+   * - **There is real history to go back through.** The control then reads just
+   *   "Back", names no destination, and the trail is what says where this page
+   *   sits.
+   * - **It is deeper than a parent and the page.** Two crumbs are the parent and
+   *   this page, and "Back to <parent>" plus the page's own title already says
+   *   both. Three or more name a place between them that nothing else does.
+   */
+  const showTrail = Boolean(breadcrumb && (canGoBack || breadcrumb.length > 2));
+
   return (
     <div className="grid-fade border-b border-line">
       <div className="px-5 pt-6 sm:px-7">
@@ -873,26 +892,33 @@ export function PageHeader({
               )
             )}
 
-            <span aria-hidden="true" className="text-line-strong">
-              |
-            </span>
+            {showTrail && (
+              <>
+                <span aria-hidden="true" className="text-line-strong">
+                  |
+                </span>
 
-            <nav aria-label="Breadcrumb">
-              <ol className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
-                {breadcrumb.map((crumb, i) => (
-                  <li key={crumb.href} className="flex items-center gap-1.5">
-                    {i > 0 && (
-                      <span aria-hidden="true" className="text-line-strong">
-                        /
-                      </span>
-                    )}
-                    <Link href={crumb.href} className="hover:text-ink">
-                      {crumb.label}
-                    </Link>
-                  </li>
-                ))}
-              </ol>
-            </nav>
+                <nav aria-label="Breadcrumb">
+                  <ol className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
+                    {breadcrumb.map((crumb, i) => (
+                      <li
+                        key={crumb.href}
+                        className="flex items-center gap-1.5"
+                      >
+                        {i > 0 && (
+                          <span aria-hidden="true" className="text-line-strong">
+                            /
+                          </span>
+                        )}
+                        <Link href={crumb.href} className="hover:text-ink">
+                          {crumb.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
+              </>
+            )}
           </div>
         )}
 

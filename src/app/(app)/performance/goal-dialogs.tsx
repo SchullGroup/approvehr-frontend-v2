@@ -32,7 +32,7 @@ import {
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useAppraisals } from "@/lib/store/performance";
 import { useSession } from "@/lib/store/session";
-import { TODAY } from "@/lib/today";
+import { useToday } from "@/lib/use-today";
 import {
   objectiveWhoseChoices,
   peopleILead,
@@ -87,9 +87,15 @@ function useLeadReach(): LeadReach {
  * *measure*, and it is a number with a target.
  */
 
-/** The current quarter and the three after it, plus the one just gone. */
-export function quarterOptions(): string[] {
-  const now = currentQuarter(TODAY);
+/**
+ * The current quarter and the three after it, plus the one just gone.
+ *
+ * From the day it is given, never from a constant: this used to start at the
+ * demo dataset's quarter in every build, so a real company filing an objective
+ * in the last quarter of 2026 was offered the third as "the one just gone".
+ */
+export function quarterOptions(today: string): string[] {
+  const now = currentQuarter(today);
   const [yearPart = "2026", quarterPart = "Q1"] = now.split("-");
   let year = Number(yearPart);
   let quarter = Number(quarterPart.replace("Q", ""));
@@ -193,7 +199,8 @@ export function NewKpiDialog({
   const { cycles } = useAppraisals();
   const openPeriods = cycles.filter((cycle) => cycle.stage !== "PUBLISHED");
 
-  const quarters = quarterOptions();
+  const today = useToday();
+  const quarters = quarterOptions(today);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   /* `null` is "not chosen yet", so the starting answer can follow the
@@ -537,7 +544,8 @@ export function AssignKpiDialog({
     [inScope, reach],
   );
 
-  const quarters = quarterOptions();
+  const today = useToday();
+  const quarters = quarterOptions(today);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [chosen, setChosen] = useState<string[]>([]);
@@ -1037,7 +1045,7 @@ export function EditGoalDialog({
     }
   }
 
-  const quarters = quarterOptions();
+  const quarters = quarterOptions(useToday());
   const quarterChoices =
     goal?.dueQuarter && !quarters.includes(goal.dueQuarter)
       ? [goal.dueQuarter, ...quarters]

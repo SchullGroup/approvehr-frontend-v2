@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { RequirePermission } from "@/components/portal/require-permission";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { RUN_BREADCRUMB } from "./breadcrumb";
 import { PayrollRunWizard } from "./wizard";
@@ -30,7 +31,17 @@ export default function NewPayrollRunPage() {
         </>
       }
     >
-      <PayrollRunWizard />
+      {/* Anybody with **no** payroll permission used to get every step with a
+          Continue button and a refusal behind each one. Any one of the three
+          opens it: the wizard already tells a viewer, a preparer and an approver
+          what they may do on each step. */}
+      <RequirePermission
+        permission={["VIEW_SALARIES", "RUN_PAYROLL", "APPROVE_PAYROLL"]}
+        title="You cannot open payroll"
+        what="Opening a payroll run"
+      >
+        <PayrollRunWizard />
+      </RequirePermission>
     </Suspense>
   );
 }

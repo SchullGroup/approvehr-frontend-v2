@@ -17,6 +17,7 @@ import {
   SegmentedControl,
   SkeletonText,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -216,7 +217,7 @@ export function KnowledgeScreen() {
           <LoadFailure subject="the article figures" error={analyticsError} />
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatGrid>
           {/* `?? 0` was a measurement claimed over a figure nobody read. A
               refused or failed analytics call now says so rather than
               publishing four zeros above a list of articles that contradicts
@@ -237,7 +238,7 @@ export function KnowledgeScreen() {
             value={totals ? count(totals.neverRead) : "\u2014"}
             hint={totals ? "published, no reads" : "not counted"}
           />
-        </div>
+        </StatGrid>
 
         {/* The editorial backlog. First, because it is the useful one. */}
         <Card>

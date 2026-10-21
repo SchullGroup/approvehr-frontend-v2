@@ -2,6 +2,7 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
+import { LoadFailure } from "@/components/portal/load-failure";
 import Link from "next/link";
 import {
   BadgeCheck,
@@ -32,14 +33,16 @@ import {
   ConfirmDialog,
   EmptyState,
   Input,
+  LoadState,
   Money,
   SegmentedControl,
   Stat,
+  StatGrid,
+  useHasAnswered,
   useToast,
   type BadgeTone,
 } from "@/components/ui";
 import { DeclineDialog } from "@/components/portal/decline-dialog";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { employeeById } from "@/lib/mock/people";
 import type { ApprovalKind } from "@/lib/mock/workflows";
@@ -186,6 +189,9 @@ export function ApprovalInbox() {
     ...filters,
     archived: view === "archive",
   });
+  /* The filter changes the request, so `loading` goes true again; once the queue
+     has answered, a later read replaces it rather than blanking the controls. */
+  const answered = useHasAnswered(queue.loading);
   const sent = useSentApprovals();
   const decidedList = useDecidedApprovals(
     decidedOutcome,
@@ -351,16 +357,7 @@ export function ApprovalInbox() {
             {sourceNote(queue.connected)}
           </Badge>
         )}
-        {queue.loading && (
-          <span className="text-meta text-muted">Loading…</span>
-        )}
       </div>
-
-      <LoadFailure
-        subject="your approvals"
-        error={queue.error}
-        onRetry={queue.reload}
-      />
 
       {/* Two different questions, not two filters on one list: "what needs
           me" and "what did I send off, and who is it sitting with now" have
@@ -439,8 +436,20 @@ export function ApprovalInbox() {
 
       {view === "waiting" &&
         (canApprove ? (
-          <>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          /* The counts, "Nothing waiting on you" and the ₦ at stake are all
+             statements about what is waiting, so none is said until the queue
+             has answered. They used to open on "Nothing waiting on you" and
+             ₦0.00 while it was still on its way, and after a failure showed the
+             failure callout and then the same reassurance under it. */
+          <LoadState
+            loading={queue.loading}
+            error={queue.error}
+            subject="your approvals"
+            onRetry={queue.reload}
+            hasData={answered}
+            className="flex flex-col gap-6"
+          >
+            <StatGrid>
               <Stat
                 label="Waiting on you"
                 value={String(queue.counts.pending)}
@@ -471,7 +480,7 @@ export function ApprovalInbox() {
                     : undefined
                 }
               />
-            </div>
+            </StatGrid>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <InboxFilters filters={filters} onChange={setFilters} />
@@ -564,7 +573,7 @@ export function ApprovalInbox() {
                 </CardBody>
               </Card>
             )}
-          </>
+          </LoadState>
         ) : (
           /* Not a smaller version of the queue above: it will read exactly zero
            forever, on every tile, for anybody who lands here. That is worse
@@ -771,36 +780,34 @@ function SentApprovalsList({
             {sourceNote(state.connected)}
           </Badge>
         )}
-        {state.loading && (
-          <span className="text-meta text-muted">Loading…</span>
-        )}
       </div>
 
-      <LoadFailure
-        subject="what you've sent"
+      <LoadState
+        loading={state.loading}
         error={state.error}
+        subject="what you've sent"
         onRetry={state.reload}
-      />
-
-      {!state.loading && !state.error && state.rows.length === 0 && (
-        <Card>
-          <EmptyState
-            icon={<ClipboardList aria-hidden="true" />}
-            title="Nothing sent yet"
-            description="A loan, an expense, a payroll run, leave: anything you raise that needs somebody else's decision appears here with its status, so you can see where it's sitting without having to ask."
-          />
-        </Card>
-      )}
-
-      {state.rows.length > 0 && (
-        <ul className="flex flex-col gap-3">
-          {state.rows.map((row) => (
-            <li key={row.id}>
-              <SentApprovalRow row={row} />
-            </li>
-          ))}
-        </ul>
-      )}
+        hasData={state.rows.length > 0}
+        skeleton="list"
+      >
+        {state.rows.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon={<ClipboardList aria-hidden="true" />}
+              title="Nothing sent yet"
+              description="A loan, an expense, a payroll run, leave: anything you raise that needs somebody else's decision appears here with its status, so you can see where it's sitting without having to ask."
+            />
+          </Card>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {state.rows.map((row) => (
+              <li key={row.id}>
+                <SentApprovalRow row={row} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </LoadState>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   EmptyState,
   Skeleton,
   Stat,
+  StatGrid,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/payroll/run-panels";
@@ -210,7 +211,7 @@ export function StatutoryScreen() {
           </div>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <StatGrid columns={2}>
               <Stat
                 label="You file for"
                 value={String(filesFor.length + 1)}
@@ -227,7 +228,7 @@ export function StatutoryScreen() {
                     }
                   : {})}
               />
-            </div>
+            </StatGrid>
 
             {absent.length > 0 && (
               <Card>

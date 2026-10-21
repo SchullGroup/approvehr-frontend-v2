@@ -15,6 +15,7 @@ import {
   SegmentedControl,
   Spinner,
   Stat,
+  StatGrid,
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -148,7 +149,7 @@ export function DocumentsScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatGrid>
           <Stat
             label="Late"
             value={String(expiring.counts.overdue)}
@@ -168,7 +169,7 @@ export function DocumentsScreen() {
             hint="with something outstanding"
           />
           <Stat label="Documents outstanding" value={String(register.total)} />
-        </div>
+        </StatGrid>
 
         {/* The part worth the whole screen. */}
         <Card>

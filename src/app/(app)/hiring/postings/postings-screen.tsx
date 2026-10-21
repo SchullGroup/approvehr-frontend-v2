@@ -23,9 +23,11 @@ import {
   ConfirmDialog,
   EmptyState,
   Input,
+  LoadState,
   SegmentedControl,
   Skeleton,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -37,7 +39,6 @@ import {
   formatMoney,
   useToast,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -274,15 +275,7 @@ function Adverts() {
           </Callout>
         )}
 
-        {postings.error && (
-          <LoadFailure
-            subject="your adverts"
-            error={postings.error}
-            onRetry={postings.reload}
-          />
-        )}
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatGrid>
           <Stat
             label="Live adverts"
             value={totals ? String(totals.live) : "—"}
@@ -334,7 +327,7 @@ function Adverts() {
               className="transition-colors group-hover:border-accent"
             />
           </Link>
-        </div>
+        </StatGrid>
 
         <Card>
           <CardHeader
@@ -369,92 +362,100 @@ function Adverts() {
             }
           />
 
-          {postings.loading ? (
-            <CardBody>
-              <Skeleton className="h-32 w-full" />
-              <span className="sr-only-focusable">Loading your adverts</span>
-            </CardBody>
-          ) : rows.length === 0 ? (
-            <EmptyState
-              icon={<Megaphone aria-hidden="true" />}
-              title={
-                postings.postings.length === 0
-                  ? "No adverts yet"
-                  : "Nothing matches that"
-              }
-              description={
-                postings.postings.length === 0
-                  ? "Write one, publish it, and applications arrive here instead of in your inbox."
-                  : undefined
-              }
-              action={
-                postings.editable && postings.postings.length === 0 ? (
-                  <Button variant="accent" onClick={() => setCreating(true)}>
-                    <Plus aria-hidden="true" className="size-4" />
-                    New advert
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <>
-              <div className="hidden sm:block">
-                <TableWrap caption="Every job advert, newest first">
-                  <THead>
-                    <TH>Role</TH>
-                    <TH>Status</TH>
-                    <TH align="right">Applications</TH>
-                    <TH>Pay</TH>
-                    <TH>Closes</TH>
-                    <TH>
-                      <span className="sr-only-focusable">Actions</span>
-                    </TH>
-                  </THead>
-                  <TBody>
-                    {rows.map((posting) => (
-                      <AdvertRow
-                        key={posting.id}
-                        posting={posting}
-                        waiting={tallies.get(posting.id)?.waiting ?? 0}
-                        editable={postings.editable}
-                        copied={copied === posting.id}
-                        onCopy={() => void copyLink(posting)}
-                        onEdit={() => setEditing(posting)}
-                        onPublish={() =>
-                          void run(
-                            () => postings.publish(posting.id),
-                            `${posting.title} is live`,
-                          )
-                        }
-                        onClose={() => setClosing(posting)}
-                      />
-                    ))}
-                  </TBody>
-                </TableWrap>
-              </div>
+          {/* "No adverts yet" with a New advert button is a statement about the
+              company, so it waits for the answer: it used to follow a failed
+              request, directly under the failure callout. */}
+          <LoadState
+            loading={postings.loading}
+            error={postings.error}
+            subject="your adverts"
+            onRetry={postings.reload}
+            hasData={postings.postings.length > 0}
+            skeleton="list"
+            className="p-4"
+          >
+            {rows.length === 0 ? (
+              <EmptyState
+                icon={<Megaphone aria-hidden="true" />}
+                title={
+                  postings.postings.length === 0
+                    ? "No adverts yet"
+                    : "Nothing matches that"
+                }
+                description={
+                  postings.postings.length === 0
+                    ? "Write one, publish it, and applications arrive here instead of in your inbox."
+                    : undefined
+                }
+                action={
+                  postings.editable && postings.postings.length === 0 ? (
+                    <Button variant="accent" onClick={() => setCreating(true)}>
+                      <Plus aria-hidden="true" className="size-4" />
+                      New advert
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap caption="Every job advert, newest first">
+                    <THead>
+                      <TH>Role</TH>
+                      <TH>Status</TH>
+                      <TH align="right">Applications</TH>
+                      <TH>Pay</TH>
+                      <TH>Closes</TH>
+                      <TH>
+                        <span className="sr-only-focusable">Actions</span>
+                      </TH>
+                    </THead>
+                    <TBody>
+                      {rows.map((posting) => (
+                        <AdvertRow
+                          key={posting.id}
+                          posting={posting}
+                          waiting={tallies.get(posting.id)?.waiting ?? 0}
+                          editable={postings.editable}
+                          copied={copied === posting.id}
+                          onCopy={() => void copyLink(posting)}
+                          onEdit={() => setEditing(posting)}
+                          onPublish={() =>
+                            void run(
+                              () => postings.publish(posting.id),
+                              `${posting.title} is live`,
+                            )
+                          }
+                          onClose={() => setClosing(posting)}
+                        />
+                      ))}
+                    </TBody>
+                  </TableWrap>
+                </div>
 
-              <ul className="divide-y divide-line sm:hidden">
-                {rows.map((posting) => (
-                  <AdvertCard
-                    key={posting.id}
-                    posting={posting}
-                    waiting={tallies.get(posting.id)?.waiting ?? 0}
-                    editable={postings.editable}
-                    copied={copied === posting.id}
-                    onCopy={() => void copyLink(posting)}
-                    onEdit={() => setEditing(posting)}
-                    onPublish={() =>
-                      void run(
-                        () => postings.publish(posting.id),
-                        `${posting.title} is live`,
-                      )
-                    }
-                    onClose={() => setClosing(posting)}
-                  />
-                ))}
-              </ul>
-            </>
-          )}
+                <ul className="divide-y divide-line sm:hidden">
+                  {rows.map((posting) => (
+                    <AdvertCard
+                      key={posting.id}
+                      posting={posting}
+                      waiting={tallies.get(posting.id)?.waiting ?? 0}
+                      editable={postings.editable}
+                      copied={copied === posting.id}
+                      onCopy={() => void copyLink(posting)}
+                      onEdit={() => setEditing(posting)}
+                      onPublish={() =>
+                        void run(
+                          () => postings.publish(posting.id),
+                          `${posting.title} is live`,
+                        )
+                      }
+                      onClose={() => setClosing(posting)}
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+          </LoadState>
 
           {postings.total > postings.postings.length && (
             <CardBody className="border-t border-line">

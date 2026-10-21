@@ -17,6 +17,7 @@ import {
   SegmentedControl,
   SkeletonText,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -235,7 +236,7 @@ export function AnnouncementsScreen() {
           onRetry={board.reload}
         />
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <StatGrid columns={3}>
           <Stat
             label="On the board"
             value={String(live.length)}
@@ -256,7 +257,7 @@ export function AnnouncementsScreen() {
                 : "Nothing has expired"
             }
           />
-        </div>
+        </StatGrid>
 
         <Card>
           <CardHeader

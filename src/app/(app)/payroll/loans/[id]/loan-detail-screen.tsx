@@ -16,6 +16,7 @@ import {
   ProgressMeter,
   Spinner,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -368,7 +369,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
         {/* ------------------------------------------------------- progress */}
 
         {loan.schedule.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatGrid>
             <Stat
               label="Repaid so far"
               value={
@@ -425,7 +426,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
                   : "nothing written off"
               }
             />
-          </div>
+          </StatGrid>
         )}
 
         {loan.schedule.length > 0 && (

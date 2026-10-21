@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LayoutGrid } from "lucide-react";
-import { Button, Callout, Card, CardBody, Spinner } from "@/components/ui";
+import {
+  Button,
+  Callout,
+  Card,
+  CardBody,
+  LoadFailure,
+  LoadState,
+} from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody } from "@/components/portal/shell";
 import {
@@ -147,10 +154,9 @@ export function DashboardScreen() {
       <>
         <DashboardHeader />
         <PageBody>
-          <div className="flex items-center gap-3 py-16">
-            <Spinner />
-            <span className="text-body-sm text-muted">Loading your day…</span>
-          </div>
+          <LoadState loading error={null} subject="your day" skeleton="page">
+            {null}
+          </LoadState>
         </PageBody>
       </>
     );
@@ -161,20 +167,11 @@ export function DashboardScreen() {
       <>
         <DashboardHeader />
         <PageBody>
-          <Card>
-            <CardBody className="flex flex-col items-start gap-3">
-              <p className="text-body">
-                {error ?? "Your dashboard did not load. Try again in a moment."}
-              </p>
-              <button
-                type="button"
-                onClick={reload}
-                className="text-body-sm font-medium text-accent-text underline"
-              >
-                Try again
-              </button>
-            </CardBody>
-          </Card>
+          <LoadFailure
+            subject="your dashboard"
+            error={error ?? new Error("no data")}
+            onRetry={reload}
+          />
         </PageBody>
       </>
     );

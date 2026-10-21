@@ -21,6 +21,7 @@ import {
   Select,
   Skeleton,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -154,7 +155,7 @@ function QueueView() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatGrid>
           <Stat
             label="Open"
             value={pulse.loading ? "—" : String(pulse.open)}
@@ -191,7 +192,7 @@ function QueueView() {
             }
             hint="last 30 days"
           />
-        </div>
+        </StatGrid>
 
         {/* ---- What people are asking about ------------------------------
             Four counts of open tickets say how much is waiting and never say

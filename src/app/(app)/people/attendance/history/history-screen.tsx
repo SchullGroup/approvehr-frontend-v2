@@ -25,6 +25,7 @@ import {
   SegmentedControl,
   Skeleton,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -457,7 +458,7 @@ function DaySummary({
   if (day.absent === null) return null;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <StatGrid>
       <Stat
         label="In"
         value={String(day.present + day.late)}
@@ -474,7 +475,7 @@ function DaySummary({
             : "needs a leave request or a correction"
         }
       />
-    </div>
+    </StatGrid>
   );
 }
 

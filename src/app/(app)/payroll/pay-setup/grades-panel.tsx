@@ -28,6 +28,7 @@ import {
   Money,
   Select,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -158,7 +159,7 @@ export function GradesPanel() {
         />
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatGrid>
         <Stat
           label="Salary grades"
           value={String(totals.grades)}
@@ -188,7 +189,7 @@ export function GradesPanel() {
             : {})}
           hint={totals.outsideBand === 1 ? "one person" : "people"}
         />
-      </div>
+      </StatGrid>
 
       <Card>
         <CardHeader
