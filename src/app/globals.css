@@ -92,10 +92,11 @@
      (must not). This is the fill half, equal to danger-text's current value. */
   --color-danger-fill: #b3261e;
 
-  --color-info: #2b87c4;
-  --color-info-text: #1a5f8a; /* 6.9:1 */
-  --color-info-soft: #eff7fc;
-  --color-info-line: #c2ddef;
+  /* Informational is the brand indigo's lighter step, not a second blue. */
+  --color-info: #5f73c7;
+  --color-info-text: #2b3990;
+  --color-info-soft: #f0f2f9;
+  --color-info-line: #c8cfe8;
 
   /* ---- Categorical. Charts and pipeline stages only, never status. --- */
   /* One family around the brand indigo, not a rainbow: the base, a lighter
@@ -322,9 +323,9 @@
   --color-danger-soft: #2e2308;
   --color-danger-line: #5c4519;
 
-  --color-info-text: #7ec1ee;
-  --color-info-soft: #10222c;
-  --color-info-line: #295068;
+  --color-info-text: #aab8f5;
+  --color-info-soft: #1b2242;
+  --color-info-line: #3d4a78;
 
   --color-cat-1: #8c99ee;
   --color-cat-2: #6f86d6;
