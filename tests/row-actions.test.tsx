@@ -239,7 +239,7 @@ describe("RowActions", () => {
       expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     });
 
-    it("ignores a height-only resize — an address bar sliding away — and closes on a rotation", async () => {
+    it("ignores a height-only resize, an address bar sliding away, and closes on a rotation", async () => {
       mount();
       await userEvent.click(trigger());
       const width = window.innerWidth;

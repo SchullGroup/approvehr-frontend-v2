@@ -138,7 +138,7 @@ describe("what the interpreter follows", () => {
     const markdown = backendApiMarkdown(source, {});
     const shared = markdown.slice(markdown.indexOf("## Shared"));
     expect(markdown).toContain(
-      "| [Shared — everything outside `src/modules`](#shared--everything-outside-srcmodules) | 3 | 1 | — |",
+      "| [Shared, everything outside `src/modules`](#shared--everything-outside-srcmodules) | 3 | 1 |, |",
     );
     expect(shared).not.toContain("| `src/server.ts` |");
     expect(shared).toContain(

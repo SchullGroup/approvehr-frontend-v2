@@ -105,7 +105,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
        read off the case, so inventing one sends somebody looking for nothing. */
     required: true,
     example: "LAP-0042",
-    note: "Your asset tag — what's on the sticker. Must be unique.",
+    note: "Your asset tag, what's on the sticker. Must be unique.",
   },
   {
     field: "name",
@@ -142,7 +142,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
        meaningless, which is why it is required and never inferred. */
     required: true,
     example: "yes",
-    note: "Yes or no — must it be handed back when they leave?",
+    note: "Yes or no, must it be handed back when they leave?",
   },
   {
     field: "serialNumber",
@@ -152,7 +152,7 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     example: "C02X1234ABCD",
     note: "The manufacturer's serial number.",
     recommended: {
-      why: "no serial number — an unreturned item cannot be identified to an insurer, a repairer or the police",
+      why: "no serial number, an unreturned item cannot be identified to an insurer, a repairer or the police",
     },
   },
   {
@@ -170,9 +170,9 @@ const COLUMNS: readonly ColumnSpec<AssetField>[] = [
     ],
     required: false,
     example: "950,000.00",
-    note: "What it cost, in naira. Leave blank if unknown — 0 means it was free.",
+    note: "What it cost, in naira. Leave blank if unknown, 0 means it was free.",
     recommended: {
-      why: "no value recorded — an item that does not come back has no figure against it, so the conversation about it is an argument",
+      why: "no value recorded, an item that does not come back has no figure against it, so the conversation about it is an argument",
     },
   },
   {
@@ -401,7 +401,7 @@ function assetRowRules(ctx: RowContext<AssetField>): void {
     if (first !== undefined) {
       error(
         "tag",
-        `${tag} is already on row ${first} of this file. Two items cannot share one tag — merge the rows, or give one a different tag.`,
+        `${tag} is already on row ${first} of this file. Two items cannot share one tag, merge the rows, or give one a different tag.`,
       );
     }
   }
@@ -412,7 +412,7 @@ function assetRowRules(ctx: RowContext<AssetField>): void {
     if (first !== undefined) {
       error(
         "serialNumber",
-        `Serial ${serial} is already on row ${first} of this file. If these are two different items, check the serials — they are stamped on the case.`,
+        `Serial ${serial} is already on row ${first} of this file. If these are two different items, check the serials, they are stamped on the case.`,
       );
     }
   }
@@ -432,7 +432,7 @@ function assetRowRules(ctx: RowContext<AssetField>): void {
   if (condition !== "" && !CONDITION_WORDS[normalizeKey(condition)]) {
     error(
       "condition",
-      `We do not know what "${condition}" means. Use new, good, fair, poor or damaged. We will not leave it blank and let it default to good — that would be the register claiming the item is fine.`,
+      `We do not know what "${condition}" means. Use new, good, fair, poor or damaged. We will not leave it blank and let it default to good, that would be the register claiming the item is fine.`,
     );
   }
 
@@ -441,7 +441,7 @@ function assetRowRules(ctx: RowContext<AssetField>): void {
     if (normalizeKey(status) === "assigned") {
       error(
         "status",
-        'Say who has it in the Assigned to (staff number) or Assigned to (work email) column instead. "Assigned" is something we work out from an open handover, not a label — otherwise the register would say a laptop is out without saying who has it.',
+        'Say who has it in the Assigned to (staff number) or Assigned to (work email) column instead. "Assigned" is something we work out from an open handover, not a label, otherwise the register would say a laptop is out without saying who has it.',
       );
     } else if (!STATUS_WORDS[normalizeKey(status)]) {
       error(
@@ -486,7 +486,7 @@ function assetRowRules(ctx: RowContext<AssetField>): void {
         if (bought.ok && parsed.value.iso < bought.value.iso) {
           warn(
             "assignedOn",
-            "This says it was handed over before it was bought. One of the two dates is wrong — we import both as written.",
+            "This says it was handed over before it was bought. One of the two dates is wrong, we import both as written.",
           );
         }
       }

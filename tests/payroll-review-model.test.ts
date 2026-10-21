@@ -70,7 +70,7 @@ const BOLA = slip({
   name: "Bola Ade",
   netKobo: 70_000_00,
   grossKobo: 90_000_00,
-  lines: [line("EARNING", "Bonus — Lagos install", 20_000_00)],
+  lines: [line("EARNING", "Bonus. Lagos install", 20_000_00)],
 });
 const CHIDI = slip({
   id: "03",

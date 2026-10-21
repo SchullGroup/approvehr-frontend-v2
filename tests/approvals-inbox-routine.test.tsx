@@ -27,9 +27,9 @@ const item = (id: string, title: string): QueueItem => ({
   ref: { store: "approval", id },
 });
 
-const first = item("ap1", "Bank details — Femi Balogun");
-const second = item("ap2", "Bank details — Ada Eze");
-const third = item("ap3", "Bank details — Tunde Bakare");
+const first = item("ap1", "Bank details. Femi Balogun");
+const second = item("ap2", "Bank details. Ada Eze");
+const third = item("ap3", "Bank details. Tunde Bakare");
 
 let routine: QueueItem[];
 let approveRoutine: Mock<(...args: unknown[]) => Promise<unknown>>;

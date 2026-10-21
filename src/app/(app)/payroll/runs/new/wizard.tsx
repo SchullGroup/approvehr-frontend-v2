@@ -1085,8 +1085,8 @@ export function PayrollRunWizard() {
                   {settled && (
                     <p className="text-meta leading-relaxed text-muted">
                       This run is approved. Its figures are frozen and cannot be
-                      prepared again. To pay somebody outside it — a final
-                      settlement, a bonus, a correction — go back to Period and
+                      prepared again. To pay somebody outside it, a final
+                      settlement, a bonus, a correction, go back to Period and
                       tick &ldquo;Pay somebody outside this payroll&rdquo;.
                     </p>
                   )}
