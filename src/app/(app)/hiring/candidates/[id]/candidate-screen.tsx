@@ -829,7 +829,7 @@ function Application({
               No CV is attached to this application.
             </span>
           ) : record.cvFlagged ? (
-            <span className="min-w-0 flex-1 text-body-sm text-danger-text">
+            <span className="min-w-0 flex-1 text-body-sm text-warning-text">
               The virus check flagged this file, so it cannot be opened. Ask the
               applicant for another copy.
             </span>

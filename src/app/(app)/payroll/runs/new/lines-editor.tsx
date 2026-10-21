@@ -302,7 +302,7 @@ export function LinesEditor({
         summary={
           filled.length === 0 ? (
             hadLines ? (
-              <span className="text-danger-text">
+              <span className="text-warning-text">
                 Saving now takes {name}&rsquo;s {noun} off entirely.
               </span>
             ) : (

@@ -1066,7 +1066,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                         onRota
                           ? "text-muted"
                           : row.daysUnexplained > 0
-                            ? "font-medium text-danger-text"
+                            ? "font-medium text-warning-text"
                             : "text-muted",
                       )}
                     >
@@ -1144,7 +1144,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                       onRota
                         ? "text-muted"
                         : row.daysUnexplained > 0
-                          ? "font-medium text-danger-text"
+                          ? "font-medium text-warning-text"
                           : "text-muted",
                     )}
                   >

@@ -384,7 +384,7 @@ export function ScoringWeightsForm() {
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
                 <div className="min-w-0">
                   {problem ? (
-                    <p className="text-body-sm text-danger-text">{problem}</p>
+                    <p className="text-body-sm text-warning-text">{problem}</p>
                   ) : dirty ? (
                     <p className="text-body-sm text-muted">
                       These make 100%. Saving replaces the whole set.

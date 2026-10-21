@@ -767,9 +767,7 @@ function SentApprovalRow({
             )}
           </div>
           {row.status === "declined" && row.decisionNote && (
-            <p className="mt-2 text-body-sm text-danger-text">
-              {row.decisionNote}
-            </p>
+            <p className="mt-2 text-body-sm text-muted">{row.decisionNote}</p>
           )}
         </div>
 

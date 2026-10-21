@@ -52,10 +52,10 @@ const ICONS = {
 } as const;
 
 const TONES = {
-  success: "border-success-line bg-success-soft text-success-text",
+  success: "border-accent-line bg-accent-soft text-accent-text",
   warning: "border-warning-line bg-warning-soft text-warning-text",
-  danger: "border-danger-line bg-danger-soft text-danger-text",
-  info: "border-info-line bg-info-soft text-info-text",
+  danger: "border-warning-line bg-warning-soft text-warning-text",
+  info: "border-accent-line bg-accent-soft text-accent-text",
 } as const;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {

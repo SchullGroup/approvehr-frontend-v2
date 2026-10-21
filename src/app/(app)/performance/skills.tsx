@@ -435,9 +435,9 @@ function Pips({
 /** Four bands. The key to the tint, which is never the only signal. */
 function Legend() {
   const bands = [
-    { label: "Under 2.5", className: "bg-danger-soft text-danger-text" },
-    { label: "2.5 to 3.4", className: "bg-warning-soft text-warning-text" },
-    { label: "3.5 to 4.4", className: "bg-info-soft text-info-text" },
+    { label: "Under 2.5", className: "bg-warning-soft text-warning-text" },
+    { label: "2.5 to 3.4", className: "bg-sunken text-body" },
+    { label: "3.5 to 4.4", className: "bg-accent-soft text-accent-text" },
     { label: "4.5 and above", className: "bg-accent-soft text-accent-text" },
   ];
   return (
@@ -452,9 +452,9 @@ function Legend() {
 }
 
 function bandFor(average: number): string {
-  if (average < 2.5) return "bg-danger-soft text-danger-text";
-  if (average < 3.5) return "bg-warning-soft text-warning-text";
-  if (average < 4.5) return "bg-info-soft text-info-text";
+  if (average < 2.5) return "bg-warning-soft text-warning-text";
+  if (average < 3.5) return "bg-sunken text-body";
+  if (average < 4.5) return "bg-accent-soft text-accent-text";
   return "bg-accent-soft text-accent-text";
 }
 

@@ -612,7 +612,7 @@ export function DiscrepancyPanel({
             <div className="flex items-start gap-3">
               <span
                 aria-hidden="true"
-                className="mt-0.5 shrink-0 text-danger-text [&>svg]:size-4"
+                className="mt-0.5 shrink-0 text-warning-text [&>svg]:size-4"
               >
                 <Scale />
               </span>
@@ -629,7 +629,7 @@ export function DiscrepancyPanel({
               </div>
               <div className="flex items-baseline justify-between gap-3">
                 <dt className="text-meta text-body">Came out as</dt>
-                <dd className="tabular text-body-sm font-medium text-danger-text">
+                <dd className="tabular text-body-sm font-medium text-warning-text">
                   {formatKobo(d.actualKobo)}
                 </dd>
               </div>

@@ -471,7 +471,7 @@ function StepRow({
       <span
         className={cn(
           "shrink-0 text-meta tabular",
-          overdue ? "font-medium text-danger-text" : "text-faint",
+          overdue ? "font-medium text-warning-text" : "text-faint",
         )}
       >
         {shortDate(due)}

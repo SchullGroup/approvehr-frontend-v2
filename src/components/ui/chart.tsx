@@ -547,7 +547,7 @@ export function StackedBar({
           </li>
         )}
         {over > 0 && (
-          <li className="text-meta font-medium text-danger-text">
+          <li className="text-meta font-medium text-warning-text">
             {format(over)} past the limit
           </li>
         )}

@@ -548,8 +548,8 @@ export function WalletStrip({ run }: { run: PayrollRunDetail }) {
             <dt
               className={
                 short
-                  ? "text-body-sm font-semibold text-danger-text"
-                  : "text-body-sm font-semibold text-success-text"
+                  ? "text-body-sm font-semibold text-warning-text"
+                  : "text-body-sm font-semibold text-accent-text"
               }
             >
               {short ? "Short by" : "Left after"}
@@ -557,8 +557,8 @@ export function WalletStrip({ run }: { run: PayrollRunDetail }) {
             <dd
               className={
                 short
-                  ? "tabular text-h4 text-danger-text"
-                  : "tabular text-h4 text-success-text"
+                  ? "tabular text-h4 text-warning-text"
+                  : "tabular text-h4 text-accent-text"
               }
             >
               {formatKobo(Math.abs(funds.afterKobo))}
@@ -613,9 +613,9 @@ function Figure({
       <dd
         className={
           tone === "danger"
-            ? "font-medium text-danger-text"
+            ? "font-medium text-warning-text"
             : tone === "success"
-              ? "font-medium text-success-text"
+              ? "font-medium text-accent-text"
               : "font-medium text-ink"
         }
       >

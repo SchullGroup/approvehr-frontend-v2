@@ -384,7 +384,7 @@ export function PagesLayout(
                     current
                       ? "border-accent bg-accent text-white"
                       : problems > 0
-                        ? "border-danger-line bg-danger-soft text-danger-text"
+                        ? "border-warning-line bg-warning-soft text-warning-text"
                         : "border-line bg-surface text-body hover:border-ink-soft",
                   )}
                 >

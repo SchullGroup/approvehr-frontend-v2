@@ -390,7 +390,7 @@ export function BoardView() {
                     className={cn(
                       "tabular text-body-sm",
                       state === "over"
-                        ? "font-semibold text-danger-text"
+                        ? "font-semibold text-warning-text"
                         : "text-muted",
                     )}
                     title={
@@ -635,7 +635,7 @@ function SprintHeader({ onComplete }: { onComplete?: () => void }) {
             className={cn(
               "tabular rounded-full border px-2.5 py-0.5 text-meta font-medium",
               tone === "danger"
-                ? "border-danger-line bg-danger-soft text-danger-text"
+                ? "border-warning-line bg-warning-soft text-warning-text"
                 : "border-line bg-surface text-body",
             )}
           >

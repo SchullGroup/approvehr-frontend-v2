@@ -61,7 +61,7 @@ const TYPE_COLOR: Partial<Record<IssueType, string>> = {
 
 function Tone({ bad, children }: { bad: boolean; children: React.ReactNode }) {
   return (
-    <span className={bad ? "text-danger-text" : undefined}>{children}</span>
+    <span className={bad ? "text-warning-text" : undefined}>{children}</span>
   );
 }
 

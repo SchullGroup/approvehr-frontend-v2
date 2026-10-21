@@ -65,7 +65,7 @@ function BatchDetail({
   }
   if (!detail) {
     return (
-      <span className="text-meta text-danger-text">
+      <span className="text-meta text-warning-text">
         Could not load this report. Try again.
       </span>
     );

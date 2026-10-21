@@ -1922,7 +1922,7 @@ function Contact({
       <span
         className={cn(
           "min-w-0 truncate text-body-sm",
-          value ? "text-body" : "text-danger-text",
+          value ? "text-body" : "text-muted",
         )}
       >
         {value ?? missing}

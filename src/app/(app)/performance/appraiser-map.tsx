@@ -784,7 +784,7 @@ export function AppraisersDialog({
           <p
             className={cn(
               "tabular text-body-sm",
-              localProblem ? "text-danger-text" : "text-muted",
+              localProblem ? "text-warning-text" : "text-muted",
             )}
           >
             {entries.length === 0

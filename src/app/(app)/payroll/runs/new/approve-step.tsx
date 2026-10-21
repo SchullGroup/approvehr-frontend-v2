@@ -167,7 +167,7 @@ export function ApproveStep({
                   <span
                     className={cn(
                       "tabular font-medium",
-                      blockers ? "text-danger-text" : "text-success-text",
+                      blockers ? "text-warning-text" : "text-accent-text",
                     )}
                   >
                     {blockers}

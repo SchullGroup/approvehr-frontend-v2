@@ -269,7 +269,7 @@ function Row({ row }: { row: ChecklistRow }) {
             : row.status === "attention"
               ? "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning-text"
               : row.status === "todo"
-                ? "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger-text"
+                ? "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning-text"
                 : "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-canvas text-faint"
         }
       >
