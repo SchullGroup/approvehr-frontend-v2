@@ -9222,3 +9222,61 @@ Not fixed, on purpose: an objective with several measures cannot be uploaded in 
 row), and the upload cannot add a measure to an existing objective. The Add multiple window has no
 `maxLength` on title and description; the 140 and 2,000 limits are enforced at Check with a clear
 message, and a hard cap would silently truncate pasted text.
+
+---
+
+# Recruitment on a phone, the org chart as a chart, and a generator that stopped seeing the redirects
+
+Three pieces from one stretch (#439, #442 and the docs change that follows them). They are in one entry
+because the last was found by reading the diff of a regeneration that was only meant to add two rows.
+
+## Three causes behind most of the Recruitment layout defects (#439)
+
+- **A grid with no column count below `lg` has one `auto` track, and its floor is its widest item.** A candidate with
+  a long email widened the whole candidate page to 922px on a 375px phone. `grid-cols-1`, `min-w-0` on the items, and
+  `break-all` on the address.
+- **A `flex-wrap` row whose words are `min-w-0 flex-1` never wraps**, because the item can always shrink first.
+  `min-w-48 flex-1` gives it a width to wrap at, and the controls beside it are `shrink-0`.
+- **A `<Link>` to a route the proxy 308s off-site prefetches it.** The prefetch follows the redirect to another
+  origin and the CSP's `connect-src` refuses it: one console error per footer link on every public careers page, which
+  wears that chrome. `src/lib/marketing/redirected.ts` is now the one list, read by `src/proxy.ts` and by
+  `noPrefetchIfOffSite` in the footer, so the links and the proxy cannot disagree about which routes have left.
+
+`tests/hiring-layout-across-devices.test.tsx` (16) holds the first two.
+
+## The docs generator read the proxy, and the list had moved
+
+`scripts/docs/pages.ts#redirectsOf` took `REDIRECTED_PATHS` from `src/proxy.ts`. The section above moved it to
+`redirected.ts`, so the generator found nothing, and regenerating `docs/pages/frontend-v2.md` would have deleted
+"Retired here: sends it to the landing site (308)" from `/demo`, `/dpa`, `/privacy`, `/security`, `/terms` and
+`/product/[module]`, all of which still redirect. It reads both files now, with a test that was red against the old
+generator.
+
+> **Read the diff of a regenerated inventory before committing it.** A generator that cannot find its input does not
+> fail. It writes a smaller file that looks just as true, and the only evidence is rows that disappeared.
+
+`npm run docs -- --check` would have caught it and is still not in CI, for the reason its header gives.
+
+## The org chart is a chart (#442)
+
+`/people/org-chart` opens on the reporting line drawn top-down, a card per person joined to their manager, with the
+old department list kept as **By department** (which is also where **Arrange** lives). Decisions worth not undoing:
+
+- **The layout is pure** (`org-chart/tree-layout.ts`: boxes, segments, one SVG path), so
+  `tests/org-chart-layout.test.ts` asserts properties over 300 generated companies (nothing overlaps, every card is
+  joined to its manager, no line ends in mid-air) instead of a picture. One case the sweep cannot see is a stub that
+  lands beside the spine it should feed: the bar stretches to meet it, so nothing dangles. That is why "the manager
+  stays over the column's spine" is a test of its own, and a tamper run is what showed it was needed.
+- **Three or more people with nobody visible below them hang in one column** (`STACK_MIN`). A closed manager counts
+  as one of them, so closing a branch can move its card into the column; the view follows the card as far as the
+  scroll box allows. A drawing that gets much smaller cannot scroll far enough to hold it, and that is the limit, not
+  a bug.
+- **More than one person at the top hangs from a dashed "No manager set" card**, not ranked under somebody. When
+  *nobody* has a manager the screen opens on By department, because a chart of strangers is the old "At the top, 27"
+  screen.
+- **No pay.** `tests/org-chart-has-no-pay.test.ts` reads the two new files as well as `chart.tsx`.
+- **Phones get the chart too**, panning sideways, with the scroll box capped in height only from `md` up so it does not
+  trap a vertical swipe. Defaulting phones to the department list is a one-line change nobody has asked for.
+
+Verified in a browser on a production build against a scratch 53-person company; **not** verified on iOS Safari, a
+company of hundreds, or a line manager's view of the page.

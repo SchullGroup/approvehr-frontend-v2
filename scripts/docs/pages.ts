@@ -262,7 +262,15 @@ function listedStrings(init: ts.Expression | undefined): string[] {
 }
 
 /**
- * Which routes `src/proxy.ts` retires, read from its own constants.
+ * Where `REDIRECTED_PATHS` and `REDIRECTED_PREFIXES` live. They were in the
+ * proxy until the footer links needed the same list (a `<Link>` to a retired
+ * route must not prefetch), and the proxy now imports them from here. Both
+ * files are read, so the answer is right on either side of that move.
+ */
+const REDIRECT_LISTS = "src/lib/marketing/redirected.ts";
+
+/**
+ * Which routes `src/proxy.ts` retires, read from the constants it answers with.
  *
  * A page file that the proxy redirects still exists and still builds, so an
  * inventory made from `page.tsx` alone lists `/demo` as a screen this app
@@ -272,15 +280,21 @@ function listedStrings(init: ts.Expression | undefined): string[] {
  */
 export function redirectsOf(source: RepoSource): Redirects {
   const none: Redirects = { outward: new Set(), prefixes: [], inward: null };
-  if (!source.files().includes("src/proxy.ts")) return none;
+  const files = source.files();
+  if (!files.includes("src/proxy.ts")) return none;
   const text = source.read("src/proxy.ts");
-  const sf = parse("src/proxy.ts", text);
   const value = new Map<string, ts.Expression>();
-  for (const st of sf.statements) {
-    if (!ts.isVariableStatement(st)) continue;
-    for (const d of st.declarationList.declarations) {
-      if (ts.isIdentifier(d.name) && d.initializer)
-        value.set(d.name.text, d.initializer);
+  /* The lists first and the proxy second, so a constant still declared in the
+     proxy wins over one declared beside the links. */
+  for (const file of [REDIRECT_LISTS, "src/proxy.ts"]) {
+    if (!files.includes(file)) continue;
+    const sf = parse(file, file === "src/proxy.ts" ? text : source.read(file));
+    for (const st of sf.statements) {
+      if (!ts.isVariableStatement(st)) continue;
+      for (const d of st.declarationList.declarations) {
+        if (ts.isIdentifier(d.name) && d.initializer)
+          value.set(d.name.text, d.initializer);
+      }
     }
   }
   const entry = value.get("APP_ENTRY");

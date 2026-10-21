@@ -268,6 +268,30 @@ describe("the pages inventory", () => {
     expect(redirects.inward).toBe("/dashboard");
   });
 
+  it("reads the lists from lib/marketing/redirected.ts once the proxy imports them", () => {
+    /* #439 moved `REDIRECTED_PATHS` out of the proxy so the footer links and the
+       proxy read one list. The generator went on reading the proxy, found
+       nothing, and the next regeneration would have dropped "Retired here" from
+       every one of those routes while they still redirected. */
+    const moved = repo({
+      "src/proxy.ts": `
+        import { isRedirectedOffSite } from "@/lib/marketing/redirected";
+        const APP_ENTRY = "/dashboard";
+        export function proxy(request) {
+          if (request.nextUrl.pathname === "/") return redirect(APP_ENTRY);
+        }
+      `,
+      "src/lib/marketing/redirected.ts": `
+        export const REDIRECTED_PATHS: ReadonlySet<string> = new Set(["/demo", "/privacy"]);
+        export const REDIRECTED_PREFIXES: readonly string[] = ["/product"];
+      `,
+    });
+    const redirects = redirectsOf(moved);
+    expect([...redirects.outward]).toEqual(["/demo", "/privacy"]);
+    expect(redirects.prefixes).toEqual(["/product"]);
+    expect(redirects.inward).toBe("/dashboard");
+  });
+
   it("marks a route the application does not serve, and leaves the rest alone", () => {
     expect(row("/demo")).toContain("Retired here");
     expect(row("/product/[module]")).toContain("Retired here");
