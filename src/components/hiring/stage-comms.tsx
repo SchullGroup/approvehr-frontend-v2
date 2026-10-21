@@ -98,7 +98,7 @@ export function StageComms({
     <Disclosure
       title="Stage emails and interview panels"
       meta={
-        <span className="flex items-center gap-1.5">
+        <span className="flex flex-wrap items-center gap-1.5">
           <Badge tone="neutral" size="sm">
             {sending === 1
               ? "1 stage sends an email"

@@ -14,6 +14,7 @@ import {
   LinkedText,
   Skeleton,
   useToast,
+  TextLink,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { LoadMore } from "@/components/portal/load-more";
@@ -385,10 +386,13 @@ function ApplicantRow({
             )}
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
-            <span className="inline-flex min-w-0 items-center gap-1 break-all">
-              <Mail aria-hidden="true" className="size-3.5 shrink-0" />
+            <TextLink
+              href={`mailto:${row.email}`}
+              className="inline-flex max-w-full items-center gap-1 font-normal break-all"
+            >
+              <Mail aria-hidden="true" className="size-3.5" />
               {row.email}
-            </span>
+            </TextLink>
             {row.phone && (
               <span className="tabular inline-flex items-center gap-1">
                 <Phone aria-hidden="true" className="size-3.5 shrink-0" />

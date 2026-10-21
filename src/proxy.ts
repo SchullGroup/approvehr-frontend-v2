@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isRedirectedOffSite } from "@/lib/marketing/redirected";
 
 /**
  * There are now two live copies of the public marketing pitch: this app's own
@@ -45,14 +46,6 @@ const LANDING_URL =
 /** Where the app's own root sends somebody: into the product. */
 const APP_ENTRY = "/dashboard";
 
-const REDIRECTED_PATHS = new Set([
-  "/demo",
-  "/privacy",
-  "/terms",
-  "/security",
-  "/dpa",
-]);
-
 /**
  * `/paye-calculator` is excluded from the redirect set above for exactly
  * `/pricing`'s own reason, stated in this file's header: the standalone site
@@ -60,11 +53,10 @@ const REDIRECTED_PATHS = new Set([
  * "Connected mode works now" and after — the redeploy is still a manual step
  * someone has to do). Redirecting a real, working page here into a domain
  * that does not serve it yet would be worse than not redirecting it. Add it
- * to `REDIRECTED_PATHS` and this matcher's list in the same change that
+ * to `REDIRECTED_PATHS` in `lib/marketing/redirected.ts` (which the links
+ * read too, so they stop prefetching it) and to this matcher's list in the same change that
  * confirms the standalone site actually serves this route.
  */
-
-const REDIRECTED_PREFIXES = ["/product"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -88,11 +80,7 @@ export function proxy(request: NextRequest) {
     );
   }
 
-  const matches =
-    REDIRECTED_PATHS.has(pathname) ||
-    REDIRECTED_PREFIXES.some((prefix) => pathname.startsWith(`${prefix}/`));
-
-  if (!matches) return NextResponse.next();
+  if (!isRedirectedOffSite(pathname)) return NextResponse.next();
 
   return NextResponse.redirect(`${LANDING_URL}${pathname}${search}`, 308);
 }

@@ -330,13 +330,13 @@ function Record({ id }: { id: string }) {
       />
 
       <PageBody>
-        <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
-          <aside className="flex flex-col gap-4 lg:sticky lg:top-20">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
+          <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-20">
             <Card>
               <CardBody className="flex flex-col items-center gap-3 text-center">
                 <Avatar name={name} size="lg" tone="accent" />
                 <div>
-                  <p className="text-h4 text-ink">{name}</p>
+                  <p className="text-h4 break-words text-ink">{name}</p>
                   <p className="mt-0.5 text-body-sm text-muted">
                     {card?.candidate.currentTitle ??
                       realApp?.requisitionJobTitle ??
@@ -599,19 +599,19 @@ function Contact({
   return (
     <ul className="flex flex-col gap-2.5">
       {rows.map((row) => (
-        <li key={row.text} className="flex items-center gap-2.5">
-          <span className="shrink-0 text-faint [&>svg]:size-3.5">
+        <li key={row.text} className="flex items-start gap-2.5">
+          <span className="mt-1 shrink-0 text-faint [&>svg]:size-3.5">
             {row.icon}
           </span>
           {row.href ? (
             <TextLink
               href={row.href}
-              className="min-w-0 truncate text-body-sm font-normal"
+              className="min-w-0 break-all text-body-sm font-normal"
             >
               {row.text}
             </TextLink>
           ) : (
-            <span className="min-w-0 truncate text-body-sm text-body">
+            <span className="min-w-0 break-words text-body-sm text-body">
               {row.text}
             </span>
           )}

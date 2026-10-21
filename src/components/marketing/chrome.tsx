@@ -10,6 +10,7 @@ import {
   appNavLinks,
   internalNavLinks,
   newTabIfApp,
+  noPrefetchIfOffSite,
 } from "@/lib/marketing/links";
 import { LEGAL_LINKS } from "@/lib/marketing/legal";
 import { SOCIAL_PROFILES } from "@/lib/marketing/site";
@@ -171,7 +172,12 @@ export function MarketingNav() {
                 {label}
               </Link>
             ))}
-          <Pill href="/demo" variant="solid" className="hidden sm:inline-flex">
+          <Pill
+            href="/demo"
+            prefetch={false}
+            variant="solid"
+            className="hidden sm:inline-flex"
+          >
             Book a demo
           </Pill>
 
@@ -224,7 +230,12 @@ export function MarketingNav() {
               </Link>
             ))}
           </div>
-          <Pill href="/demo" variant="solid" className="mt-2 w-full">
+          <Pill
+            href="/demo"
+            prefetch={false}
+            variant="solid"
+            className="mt-2 w-full"
+          >
             Book a demo
           </Pill>
         </div>
@@ -338,6 +349,7 @@ export function MarketingFooter() {
                       href={href}
                       {...prefetchFor(href)}
                       {...newTabIfApp(href)}
+                      {...noPrefetchIfOffSite(href)}
                       className="text-body-sm text-slate-soft transition-colors hover:text-slate"
                     >
                       {label}
