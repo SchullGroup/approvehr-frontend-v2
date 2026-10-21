@@ -43,7 +43,6 @@ import {
   useToast,
 } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
-import { cn } from "@/lib/cn";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
@@ -177,7 +176,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const [advancing, setAdvancing] = useState(false);
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
-  const [noAppraiser, setNoAppraiser] = useState<string[] | null>(null);
   const [noObjectives, setNoObjectives] = useState<string[] | null>(null);
 
   /**
@@ -243,9 +241,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         tone: "success",
         detail: `${result.reviewsCreated} ${result.reviewsCreated === 1 ? "form" : "forms"} created · ${result.notified} told in the app. No emails are sent from here.`,
       });
-      setNoAppraiser(
-        result.withoutAppraiser.length > 0 ? result.withoutAppraiser : null,
-      );
       setNoObjectives(
         result.withoutAgreedObjectives.length > 0
           ? result.withoutAgreedObjectives
@@ -580,27 +575,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               `activateCycle`), so this cannot open the dialog on one person
               directly. Scrolling to the card that can is the honest
               affordance rather than a control that guesses. */}
-          {noAppraiser && (
-            <NoticeLine tone="accent">
-              <span>
-                {noAppraiser.length === 1
-                  ? `${noAppraiser[0]} has no appraiser`
-                  : `${noAppraiser.length} people have no appraiser: ${noAppraiser.join(", ")}`}
-              </span>
-              <button
-                type="button"
-                className={NOTICE_LINK}
-                onClick={() => {
-                  document
-                    .getElementById(APPRAISER_EXCEPTIONS_ANCHOR)
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-              >
-                Assign appraisers
-              </button>
-            </NoticeLine>
-          )}
-
           {noObjectives && (
             <NoticeLine tone="warning">
               <span>
@@ -725,7 +699,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             <NobodyAppraising
               cycleId={cycleId}
               exceptions={stableExceptions}
-              draft={draft}
               onFixed={() => detail.reload()}
             />
           )}
@@ -903,13 +876,10 @@ const APPRAISER_EXCEPTIONS_ANCHOR = "appraiser-exceptions";
 function NobodyAppraising({
   cycleId,
   exceptions,
-  draft,
   onFixed,
 }: {
   cycleId: string;
   exceptions: ApiAppraiserMap | null;
-  /** Before the period starts, when starting it is itself the fix. */
-  draft: boolean;
   onFixed: () => void;
 }) {
   const appraisers = useAppraiserMutations();
@@ -976,18 +946,8 @@ function NobodyAppraising({
 
   const rows = exceptions.rows.filter((row) => row.exceptions.length > 0);
 
-  if (rows.length === 0) {
-    return (
-      <Card>
-        <CardHeader title="Who is appraising whom" />
-        <CardBody className="flex items-center gap-2 text-body-sm text-body">
-          <CheckCheck aria-hidden="true" className="size-4 text-success-text" />
-          All {exceptions.counts.people} people have somebody appraising them,
-          and every set of weights makes a whole mark.
-        </CardBody>
-      </Card>
-    );
-  }
+  /* Nothing to fix is not worth a card saying so. */
+  if (rows.length === 0) return null;
 
   const byRow = new Map(rows.map((row) => [row.employeeId, row]));
   const flat = rows.flatMap((row) =>
@@ -997,122 +957,38 @@ function NobodyAppraising({
       ...issue,
     })),
   );
-  const blockerCount = flat.filter(
-    (issue) => issue.severity === "BLOCKER",
-  ).length;
-  const warningCount = flat.length - blockerCount;
 
   return (
-    <Card id={APPRAISER_EXCEPTIONS_ANCHOR}>
-      <CardHeader
-        title="Who is appraising whom"
-        description={
-          exceptions.counts.unassigned === 0
-            ? "Anyone who is missing an appraiser, by name."
-            : draft
-              ? /* The sentence this replaced said only "set a manager on their
-                   record, or assign an appraiser" — true, and it invited
-                   somebody to do by hand what starting the period does for
-                   everybody at once. On a draft that is a hundred clicks
-                   offered in place of one, and it was reported as exactly
-                   that. */
-                "Starting the period gives everyone their line manager as their appraiser, so you do not need to assign anyone first. Use the button below if you want to see the list before you start, and assign anyone the reporting line cannot cover."
-              : "Anyone without an appraiser finishes this period with no mark. Set a manager on their record or assign an appraiser."
-        }
-        action={
-          <Badge
-            tone={blockerCount > 0 ? "danger" : "warning"}
-            size="sm"
-            icon={<UserX aria-hidden="true" />}
-          >
-            {blockerCount > 0
-              ? `${blockerCount} to fix`
-              : `${warningCount} to look at`}
-          </Badge>
-        }
-      />
-      <CardBody className="flex flex-col gap-2">
-        {exceptions.counts.unassigned > 0 && (
-          <div>
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={filling}
-              disabled={filling}
-              onClick={() => void fillFromReportingLine()}
-            >
-              <Wand2 aria-hidden="true" className="size-4" />
-              Fill in from the reporting line
-            </Button>
-          </div>
-        )}
-        {groupExceptionsByCode(flat).map((group) => {
-          const tone =
-            group.severity === "BLOCKER"
-              ? "border-danger-line bg-danger-soft"
-              : "border-warning-line bg-warning-soft";
-
-          /* One person, and the fix is the same fix.
-             ------------------------------------------
-             This branch used to render the message as a bare paragraph with no
-             button, while the branch below — the identical problem affecting
-             two or more people — got "Review and fix" and the assign dialog.
-             So a period with one person missing an appraiser was the *only*
-             shape of that problem with no way to resolve it, which is precisely
-             backwards: one is the easy case.
-
-             `byRow` already holds the row the dialog needs. */
-          if (group.items.length === 1) {
-            const issue = group.items[0]!;
-            const row = byRow.get(issue.employeeId);
-            return (
-              <div
-                key={issue.key}
-                className={cn(
-                  "flex flex-wrap items-center justify-between gap-3 rounded-md border px-3.5 py-2.5 text-body-sm text-ink",
-                  tone,
-                )}
-              >
-                <span>{issue.message}</span>
-                {row && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setAssigning(row)}
-                  >
-                    {row.appraisers.length === 0 ? "Assign" : "Change"}
-                  </Button>
-                )}
-              </div>
-            );
+    <div
+      id={APPRAISER_EXCEPTIONS_ANCHOR}
+      className="flex flex-wrap items-center gap-x-5 gap-y-2 text-body-sm"
+    >
+      {groupExceptionsByCode(flat).map((group) => (
+        <button
+          key={`${group.code}-${group.severity}`}
+          type="button"
+          onClick={() =>
+            setReviewing({ code: group.code, severity: group.severity })
           }
-
-          return (
-            <div
-              key={group.code}
-              className={cn(
-                "flex flex-wrap items-center justify-between gap-3 rounded-md border px-3.5 py-2.5 text-body-sm text-ink",
-                tone,
-              )}
-            >
-              <span>
-                {EXCEPTION_CODE_SUMMARY[
-                  group.code as keyof typeof EXCEPTION_CODE_SUMMARY
-                ](group.items.length)}
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() =>
-                  setReviewing({ code: group.code, severity: group.severity })
-                }
-              >
-                Review and fix
-              </Button>
-            </div>
-          );
-        })}
-      </CardBody>
+          className="rounded-sm font-medium text-accent-text underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+        >
+          {EXCEPTION_CODE_SUMMARY[
+            group.code as keyof typeof EXCEPTION_CODE_SUMMARY
+          ](group.items.length)}
+        </button>
+      ))}
+      {exceptions.counts.unassigned > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          loading={filling}
+          disabled={filling}
+          onClick={() => void fillFromReportingLine()}
+        >
+          <Wand2 aria-hidden="true" className="size-4" />
+          Fill in from the reporting line
+        </Button>
+      )}
 
       {reviewing && (
         <ReviewGroupModal
@@ -1159,7 +1035,7 @@ function NobodyAppraising({
           }}
         />
       )}
-    </Card>
+    </div>
   );
 }
 

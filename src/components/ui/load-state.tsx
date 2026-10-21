@@ -181,10 +181,8 @@ function adviceFor(
       return "Your session has ended. Sign in again to carry on.";
     case "missing":
       return missingMeans === "module"
-        ? `${capitalise(subject)} is not switched on for this deployment yet. ` +
-            "Nothing is missing from your company's records, the part of the " +
-            "service that answers for it has not been released here. Tell your " +
-            "administrator if you were expecting it."
+        ? `${capitalise(subject)} is not switched on here yet. ` +
+            "Ask your administrator if you were expecting it."
         : `${capitalise(subject)} is not here, it may have been removed.`;
     case "timeout":
       return `The server took too long to send ${subject}. Try again in a moment.`;

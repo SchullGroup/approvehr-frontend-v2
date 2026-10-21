@@ -87,16 +87,16 @@ type WidgetComponent = (props: WidgetProps) => React.ReactNode;
 /** A card with a heading, for the widgets that are a card. */
 function Panel({
   title,
-  description,
   children,
 }: {
   title: string;
+  /** Accepted so callers can keep their wording; the card shows the title and the figures. */
   description?: string;
   children: React.ReactNode;
 }) {
   return (
     <Card as="article" className="h-full">
-      <CardHeader title={title} level={3} description={description} />
+      <CardHeader title={title} level={3} />
       <CardBody>{children}</CardBody>
     </Card>
   );
@@ -434,28 +434,9 @@ const PayrollMonth: WidgetComponent = ({ dashboard }) => {
             </Badge>
           </div>
           <p className="text-body-sm text-muted">
-            {/* `employeeCount` is payslips. Beside a net figure it reads as the
-                headcount, so the excluded are named in the same breath. */}
             Net pay for {payroll.employeeCount}{" "}
             {payroll.employeeCount === 1 ? "person" : "people"}
-            {payroll.excludedCount > 0
-              ? ` of ${String(payroll.employeeCount + payroll.excludedCount)}`
-              : ""}{" "}
-            · gross <Money amount={naira(payroll.grossKobo)} decimals />
           </p>
-          {payroll.excludedCount > 0 && (
-            <p className="text-body-sm text-warning-text">
-              {payroll.excludedCount}{" "}
-              {payroll.excludedCount === 1 ? "person is" : "people are"}{" "}
-              deliberately not on this payroll, with the reason recorded
-            </p>
-          )}
-          {payroll.warnings > 0 && (
-            <p className="text-body-sm text-warning-text">
-              {payroll.warnings} {payroll.warnings === 1 ? "thing" : "things"}{" "}
-              worth checking before you approve
-            </p>
-          )}
           <ButtonLink href="/payroll" variant="secondary" size="sm">
             Open payroll
           </ButtonLink>
@@ -869,9 +850,7 @@ export const WIDGET_COMPONENTS: Readonly<Record<string, WidgetComponent>> = {
 function Row({
   href,
   label,
-  detail,
   action,
-  urgent = false,
 }: {
   href: string;
   label: string;
@@ -882,16 +861,7 @@ function Row({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
       <div className="min-w-0">
-        <p className="text-body-sm font-medium">
-          {/* Urgency carries a word as well as a colour. */}
-          {urgent && (
-            <span className="mr-2 text-meta font-semibold text-danger-text">
-              Overdue
-            </span>
-          )}
-          {label}
-        </p>
-        {detail && <p className="mt-0.5 text-body-sm text-muted">{detail}</p>}
+        <p className="text-body-sm font-medium">{label}</p>
       </div>
       <ButtonLink href={href} variant="secondary" size="sm">
         {action}
@@ -962,16 +932,10 @@ function Tile({
   hint?: string;
   tone?: "neutral" | "accent" | "warning";
 }) {
-  const chip = {
-    neutral: "bg-sunken text-muted",
-    accent: "bg-accent-soft text-accent-text",
-    warning: "bg-warning-soft text-warning-text",
-  }[tone];
-  const hintTone = {
-    neutral: "text-faint",
-    accent: "text-accent-text",
-    warning: "text-warning-text",
-  }[tone];
+  /* One quiet colour for every tile. A tinted chip on some of them taught
+     people to read colour as alarm, and the figure is what matters. */
+  void tone;
+  const chip = "bg-sunken text-muted";
 
   /* Two returns rather than one polymorphic element: `Link` requires `href`,
      so a shared component variable widens it to `string | undefined` and does
@@ -1009,10 +973,8 @@ function Tile({
         <span className="text-h2 leading-none font-semibold break-words text-ink">
           {value}
         </span>
-        {/* Absent, not an empty line: a figure that needs no caption should
-            not reserve the space for one and leave the row ragged. */}
         {hint !== undefined && (
-          <span className={cn("text-meta", hintTone)}>{hint}</span>
+          <span className="text-meta text-faint">{hint}</span>
         )}
       </span>
     </>
@@ -1030,7 +992,6 @@ function Tile({
 function Figure({
   label,
   value,
-  warn = false,
 }: {
   label: string;
   value: number;
@@ -1038,9 +999,7 @@ function Figure({
 }) {
   return (
     <div>
-      <p className={warn ? "text-h3 text-warning-text" : "text-h3 text-ink"}>
-        {value.toLocaleString()}
-      </p>
+      <p className="text-h3 text-ink">{value.toLocaleString()}</p>
       <p className="mt-0.5 text-body-sm text-muted">{label}</p>
     </div>
   );
