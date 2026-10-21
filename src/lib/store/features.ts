@@ -175,6 +175,10 @@ const BASE_FLAGS: FeatureFlags = {
      gated on this, so nothing is hidden by the default. */
   probationTracking: false,
   twoFactor: false,
+  /* Off, matching the schema. Nothing is recorded about anybody opening the app
+     until a company turns this on, and the app does not even send the event
+     while it is off. */
+  appOpenTracking: false,
 };
 
 /** The schema's own default, and what renders before the real row arrives. */
@@ -301,6 +305,13 @@ export const FEATURE_COPY: Record<
   twoFactor: {
     label: "Ask for a code from email",
     line: "People who have set it up are asked for a six-digit code when they sign in. You choose separately which actions also need one.",
+  },
+  /* Says what is kept and, in the same breath, what is not: a switch that
+     records when people use a tool is read first as surveillance, and the
+     accurate answer is that it keeps a day and nothing finer. */
+  appOpenTracking: {
+    label: "Count days people open the app",
+    line: "Keeps one mark per person per day, with no time or device. HR sees team totals only, never one person's days.",
   },
   /* Rendered on `/settings/leave` rather than `/settings/features` — see
      `WORKFLOW_FEATURE_KEYS`. The copy lives here anyway so the label and the
@@ -745,6 +756,8 @@ function fromApi(features: ApiFeatures): State {
       multiAppraiser: features.multiAppraiser,
       leaveTwoStepApproval: features.leaveTwoStepApproval,
       probationTracking: features.probationTracking,
+      /* Optional on the wire; a company that was never asked is not tracking. */
+      appOpenTracking: features.appOpenTracking ?? false,
     },
     headcountBand: features.headcountBand,
     setupStep: features.setupStep,
@@ -963,6 +976,7 @@ export function useFeatureSettings() {
           multiAppraiser: features.multiAppraiser,
           leaveTwoStepApproval: features.leaveTwoStepApproval,
           probationTracking: features.probationTracking,
+          appOpenTracking: features.appOpenTracking ?? false,
           headcountBand: features.headcountBand,
         };
       } finally {

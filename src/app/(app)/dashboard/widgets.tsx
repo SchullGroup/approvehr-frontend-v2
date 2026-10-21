@@ -32,6 +32,8 @@ import {
 import { AskPanel } from "@/components/portal/ask-panel";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { AnnouncementsPanel } from "./announcements-panel";
+import { AppUseCard } from "./app-use-card";
+import { TodayPanel } from "./today-panel";
 import { QuickActions } from "./quick-actions";
 import { AppraisalsCard } from "./appraisals-card";
 import { formatKobo } from "@/lib/api/payroll";
@@ -797,6 +799,11 @@ const MyLeave: WidgetComponent = ({ dashboard }) => {
 
 const MyClock: WidgetComponent = () => <MyClockCard />;
 
+/* Both read their own request, so neither takes the dashboard's payload. See
+   `TodayPanel` and `AppUseCard`: each draws nothing when it has nothing to say. */
+const Today: WidgetComponent = () => <TodayPanel />;
+const AppUse: WidgetComponent = () => <AppUseCard />;
+
 /* ------------------------------------------------------------------ tools */
 
 const Appraisals: WidgetComponent = () => <AppraisalsCard />;
@@ -819,11 +826,13 @@ const Noticeboard: WidgetComponent = ({ dashboard }) => (
 export const WIDGET_COMPONENTS: Readonly<Record<string, WidgetComponent>> = {
   "needs-you": NeedsYou,
   "workforce-headline": WorkforceHeadline,
+  today: Today,
   "my-queue": MyQueue,
   "stat-headcount": StatHeadcount,
   "stat-approvals": StatApprovals,
   "stat-records": StatRecords,
   "stat-attendance": StatAttendance,
+  "app-use": AppUse,
   "who-is-in": WhoIsIn,
   "payroll-month": PayrollMonth,
   "money-owed": MoneyOwed,

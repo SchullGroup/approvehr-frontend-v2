@@ -97,6 +97,19 @@ export type ApiBoard = {
   total: number;
 };
 
+/**
+ * Mirrors `MarkedRead`: the answer to "I have opened this".
+ *
+ * `readAt` is the **first** time and a second press does not move it, so
+ * `alreadyRead` is how a caller tells the two apart. Neither is an error.
+ */
+export type ApiMarkedRead = {
+  id: string;
+  read: true;
+  readAt: string;
+  alreadyRead: boolean;
+};
+
 export type ApiPublishResult = {
   announcement: ApiAnnouncement;
   /** How many accounts can now read it. */
@@ -167,6 +180,20 @@ export const announcementsApi = {
   board(signal?: AbortSignal): Promise<ApiBoard> {
     return request<ApiBoard>("/announcements/board", {
       ...(signal ? { signal } : {}),
+    });
+  },
+
+  /**
+   * "I have opened this."
+   *
+   * No permission: the signed-in person is the account in the token, so there is
+   * no id to tamper with but the notice's own. Idempotent and always 200. A
+   * notice the board would not have shown them (a draft, an expired one, another
+   * department's) is a 404 whatever the reason.
+   */
+  markRead(id: string): Promise<ApiMarkedRead> {
+    return request<ApiMarkedRead>(`/announcements/${id}/read`, {
+      method: "POST",
     });
   },
 
