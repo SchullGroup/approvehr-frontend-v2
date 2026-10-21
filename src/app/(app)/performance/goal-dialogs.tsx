@@ -31,8 +31,9 @@ import {
 } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useAppraisals } from "@/lib/store/performance";
-import { useSession } from "@/lib/store/session";
-import { useToday } from "@/lib/use-today";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
+import { TODAY } from "@/lib/today";
 import {
   objectiveWhoseChoices,
   peopleILead,
@@ -88,13 +89,22 @@ function useLeadReach(): LeadReach {
  */
 
 /**
- * The current quarter and the three after it, plus the one just gone.
+ * The day the quarter list is built around.
  *
- * From the day it is given, never from a constant: this used to start at the
- * demo dataset's quarter in every build, so a real company filing an objective
- * in the last quarter of 2026 was offered the third as "the one just gone".
+ * `TODAY` is the demo seed's fixed date (August 2026), so using it for a real
+ * company left "Due quarter" on Q3 2026 in October: an ended quarter. A
+ * connected workspace asks the real clock, in the company's zone (a company in
+ * Lagos is already in tomorrow's quarter at 23:30 UTC on the last day); the
+ * demo keeps its fixed day so its seeded KPIs still line up.
  */
-export function quarterOptions(today: string): string[] {
+export function useQuarterToday(): string {
+  const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
+  return isConnected ? todayIn(timeZone) : TODAY;
+}
+
+/** The current quarter and the three after it, plus the one just gone. */
+export function quarterOptions(today: string = TODAY): string[] {
   const now = currentQuarter(today);
   const [yearPart = "2026", quarterPart = "Q1"] = now.split("-");
   let year = Number(yearPart);
@@ -199,8 +209,7 @@ export function NewKpiDialog({
   const { cycles } = useAppraisals();
   const openPeriods = cycles.filter((cycle) => cycle.stage !== "PUBLISHED");
 
-  const today = useToday();
-  const quarters = quarterOptions(today);
+  const quarters = quarterOptions(useQuarterToday());
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   /* `null` is "not chosen yet", so the starting answer can follow the
@@ -544,8 +553,7 @@ export function AssignKpiDialog({
     [inScope, reach],
   );
 
-  const today = useToday();
-  const quarters = quarterOptions(today);
+  const quarters = quarterOptions(useQuarterToday());
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [chosen, setChosen] = useState<string[]>([]);
@@ -1045,7 +1053,7 @@ export function EditGoalDialog({
     }
   }
 
-  const quarters = quarterOptions(useToday());
+  const quarters = quarterOptions(useQuarterToday());
   const quarterChoices =
     goal?.dueQuarter && !quarters.includes(goal.dueQuarter)
       ? [goal.dueQuarter, ...quarters]

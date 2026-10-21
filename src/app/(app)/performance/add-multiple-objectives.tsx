@@ -13,8 +13,7 @@ import { OBJECTIVES, type ObjectiveField } from "@/lib/imports/objectives";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useSession } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
-import { useToday } from "@/lib/use-today";
-import { quarterOptions, quarterText } from "./goal-dialogs";
+import { quarterOptions, quarterText, useQuarterToday } from "./goal-dialogs";
 import { OBJECTIVES_IMPORT_SURFACE } from "./kpis/import/surface";
 import { useObjectiveTemplateLists } from "./kpis/import/lists";
 
@@ -79,7 +78,7 @@ const parentSuggestions = (goals: readonly ApiGoal[]): FieldOption[] => {
     seen.add(title);
     options.push({
       value: title,
-      label: `${title}, ${goal.level === "company" ? "company" : (goal.departmentName ?? "department")}`,
+      label: `${title} — ${goal.level === "company" ? "company" : (goal.departmentName ?? "department")}`,
     });
   }
   return options;
@@ -115,8 +114,11 @@ function Loaded({
   const { lists } = useObjectiveTemplateLists();
   const { employees, archivedIds } = useEmployeeDirectory({ pageSize: 200 });
   const { user } = useSession();
-  const today = useToday();
   const ownEmail = user?.email ?? null;
+
+  /* Not `TODAY`: that is the demo's fixed August, which left "Due quarter" on an
+     ended quarter for a real company. */
+  const today = useQuarterToday();
 
   const surface = useMemo<BulkSurface>(() => {
     const quarters = quarterOptions(today);
@@ -124,10 +126,10 @@ function Loaded({
       .filter((person) => person.email && !archivedIds.has(person.id))
       .map((person) => ({
         value: person.email as string,
-        label: `${fullName(person)}, ${person.email as string}`,
+        label: `${fullName(person)} — ${person.email as string}`,
       }));
     if (ownEmail && !people.some((option) => option.value === ownEmail)) {
-      people.unshift({ value: ownEmail, label: `Me, ${ownEmail}` });
+      people.unshift({ value: ownEmail, label: `Me — ${ownEmail}` });
     }
 
     const chooseFrom = (

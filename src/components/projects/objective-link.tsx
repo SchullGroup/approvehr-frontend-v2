@@ -64,6 +64,10 @@ function AssigneeLink({ issue }: { issue: Issue }) {
   async function change(next: string | null) {
     const result = await actions.patchIssue(issue, { goalId: next });
     if (!result.ok) return;
+    /* The weekly-task line under this field is the bridge's answer, which only
+       the server has: the save above returns the issue as it was before the
+       bridge ran, so without this it kept saying "Not counted" until a reload. */
+    void actions.refreshIssue(issue);
     const title = options.find((o) => o.id === next)?.label;
     toast.push({
       tone: "success",
@@ -119,6 +123,7 @@ function ClearLink({ issue }: { issue: Issue }) {
   async function clear() {
     const result = await actions.patchIssue(issue, { goalId: null });
     if (result.ok) {
+      void actions.refreshIssue(issue);
       toast.push({
         tone: "success",
         title: `${issue.key} no longer counts toward an objective`,

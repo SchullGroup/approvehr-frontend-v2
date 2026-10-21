@@ -123,6 +123,26 @@ export type NavItem = {
   href: string;
   label: string;
   icon: React.ReactNode;
+  /**
+   * The path this item owns, when `href` is only the door into a bigger area.
+   *
+   * "Hiring settings" opens on `/hiring/settings/pipelines`, but Tags, Scorecards
+   * and the other tabs live beside it, not under it — so a plain `href` prefix
+   * test never lit the row on them, and the module's Overview (`/hiring`, a
+   * prefix of everything) took the highlight instead. `resolveActiveHref`
+   * matches on this when set, still longest-match-wins.
+   */
+  activePrefix?: string;
+  /**
+   * Paths under this item's prefix that it must not claim.
+   *
+   * Overview (`/hiring`) is a prefix of everything in the module, so it lit on
+   * a requisition's own page (`/hiring/requisitions/:id`), which has no row of
+   * its own. Naming the path here leaves that page with nothing lit rather than
+   * the wrong row, and "New role" (`/hiring/requisitions/new`) still matches
+   * itself, being a longer match that is not excluded.
+   */
+  activeExcept?: string[];
   /** A fixed count, for modules with no store behind them yet. */
   badge?: number;
   /** Computed in the shell from a store. Takes precedence over `badge`. */
@@ -655,6 +675,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     {
       href: "/hiring",
       label: "Overview",
+      activeExcept: ["/hiring/requisitions"],
       icon: <BriefcaseBusiness aria-hidden="true" />,
       anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
       feature: "hiring",
@@ -723,6 +744,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     {
       href: "/hiring/settings/pipelines",
       label: "Hiring settings",
+      activePrefix: "/hiring/settings",
       icon: <SlidersHorizontal aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",

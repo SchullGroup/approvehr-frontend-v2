@@ -105,6 +105,25 @@ describe("sending an application", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("scrolls the confirmation into view with room for the sticky header", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    fetchMock.mockResolvedValue(accepted());
+    const { user } = await mount();
+    await fillIn(user);
+    await send(user);
+
+    const heading = await screen.findByRole("heading", {
+      name: "Application sent",
+    });
+    const card = heading.closest('[role="status"]')!;
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+    expect(scrollIntoView.mock.contexts.at(-1)).toBe(card);
+    /* The offset that keeps it clear of the header: scroll-margin-top. */
+    expect(card).toHaveClass("scroll-mt-28");
+    expect(heading).toHaveFocus();
+  });
+
   it("sends what was typed and then says the application is sent, truthfully about email", async () => {
     fetchMock.mockResolvedValue(accepted());
     const { user } = await mount();
