@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { sourceNote } from "@/lib/demo";
 import {
   AlertTriangle,
@@ -19,6 +20,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Modal,
   type BadgeTone,
 } from "@/components/ui";
 import {
@@ -163,12 +165,12 @@ export function ExceptionList({
             They stop the run, there are rarely many, and each names a different
             person to go and fix. Folding them away would hide the only thing on
             this screen that has to be dealt with before anybody is paid. */}
-        {blockers.map((exception) => (
-          <ExceptionRow
-            key={exception.id}
-            exception={exception}
-            action={actionFor?.(exception)}
-            hideFix={replaceFixFor?.has(exception.code) ?? false}
+        {groupByCode(blockers).map((group) => (
+          <BlockerGroup
+            key={group.code}
+            group={group}
+            actionFor={actionFor}
+            hideFix={replaceFixFor?.has(group.code) ?? false}
           />
         ))}
 
@@ -222,6 +224,12 @@ function groupByCode(exceptions: RunException[]): ExceptionGroup[] {
  * needs alarming about.
  */
 const GROUP_TITLE: Record<string, (n: number) => string> = {
+  missing_bank_account: (n) =>
+    n === 1
+      ? "1 person has no usable bank account"
+      : `${String(n)} people have no usable bank account`,
+  missing_pay: (n) =>
+    n === 1 ? "1 person has no pay set" : `${String(n)} people have no pay set`,
   excluded_from_payroll: (n) =>
     n === 1
       ? "1 person is not on this payroll"
@@ -261,6 +269,67 @@ function groupTitle(group: ExceptionGroup): string {
   return group.rows.length === 1
     ? (shortNoticeFor(group.code) ?? group.rows[0]!.message)
     : `${String(group.rows.length)} × ${shortNoticeFor(group.code) ?? group.code}`;
+}
+
+/**
+ * One kind of blocker, as a single calm line.
+ *
+ * Fifty-two people with no bank account used to be fifty-two red boxes down the
+ * page, which read as the system being broken. It is one thing, fifty-two times:
+ * a line that says what and how many, and a button that opens the list in a
+ * dialog with each person and the way to fix them. A lone blocker is still its
+ * own row.
+ */
+function BlockerGroup({
+  group,
+  actionFor,
+  hideFix,
+}: {
+  group: ExceptionGroup;
+  actionFor?: (exception: RunException) => React.ReactNode;
+  hideFix: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (group.rows.length === 1) {
+    return (
+      <ExceptionRow
+        exception={group.rows[0]!}
+        action={actionFor?.(group.rows[0]!)}
+        hideFix={hideFix}
+      />
+    );
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-surface p-3">
+        <p className="min-w-0 text-body-sm text-ink">{groupTitle(group)}</p>
+        <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+          Review and fix
+        </Button>
+      </div>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={groupTitle(group)}
+        size="lg"
+        footer={<Button onClick={() => setOpen(false)}>Done</Button>}
+      >
+        <div className="flex flex-col gap-2">
+          {group.rows.map((exception) => (
+            <ExceptionRow
+              key={exception.id}
+              exception={exception}
+              action={actionFor?.(exception)}
+              hideFix={hideFix}
+              plain
+            />
+          ))}
+        </div>
+      </Modal>
+    </>
+  );
 }
 
 /**
@@ -355,20 +424,15 @@ function ExceptionRow({
     <div
       className={cn(
         "flex flex-wrap items-start gap-3 rounded-md border p-3",
-        blocking
-          ? "border-danger-line bg-danger-soft"
-          : quiet
-            ? "border-line bg-surface"
-            : "border-warning-line bg-warning-soft",
+        quiet
+          ? "border-line bg-surface"
+          : "border-warning-line bg-warning-soft",
       )}
     >
       {!quiet && (
         <span
           aria-hidden="true"
-          className={cn(
-            "mt-0.5 shrink-0 [&>svg]:size-4",
-            blocking ? "text-danger-text" : "text-warning-text",
-          )}
+          className={cn("mt-0.5 shrink-0 [&>svg]:size-4", "text-warning-text")}
         >
           {blocking ? <ShieldAlert /> : <AlertTriangle />}
         </span>

@@ -363,9 +363,9 @@ export function Callout({
 
   const tones = {
     info: "bg-info-soft border-info-line text-info-text",
-    success: "bg-success-soft border-success-line text-success-text",
+    success: "bg-accent-soft border-accent-line text-accent-text",
     warning: "bg-warning-soft border-warning-line text-warning-text",
-    danger: "bg-danger-soft border-danger-line text-danger-text",
+    danger: "bg-warning-soft border-warning-line text-warning-text",
     accent: "bg-accent-soft border-accent-line text-accent-text",
     neutral: "bg-canvas border-line text-body",
   } as const;

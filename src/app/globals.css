@@ -67,22 +67,26 @@
   --color-accent-line: #c8cfe8;
 
   /* ---- Semantic. Two tone: -text for copy, base for fills. ----------- */
-  /* success base is the brand green: ink on it reads 8.6:1.             */
-  --color-success: #8ac97d;
-  --color-success-strong: #529546;
-  --color-success-text: #417739; /* 5.4:1                              */
-  --color-success-soft: #f1f8ef;
-  --color-success-line: #c1e0b8;
+  /* Two hues for status, not four. "Good" and "informational" share the brand
+     indigo; "look at this" and "problem" share a muted ochre, its complement.
+     Red stays only for form validation copy and destructive buttons. */
+  --color-success: #8f9bd6;
+  --color-success-strong: #2b3990;
+  --color-success-text: #2b3990;
+  --color-success-soft: #f0f2f9;
+  --color-success-line: #c8cfe8;
 
-  --color-warning: #d99400;
-  --color-warning-text: #8a5a00; /* 5.9:1 */
-  --color-warning-soft: #fdf8ec;
-  --color-warning-line: #f0dcae;
+  --color-warning: #c9a96e;
+  --color-warning-text: #7a5a1c; /* 6.2:1 */
+  --color-warning-soft: #faf5ea;
+  --color-warning-line: #e8d9b8;
 
   --color-danger: #dc3b32;
   --color-danger-text: #b3261e; /* 6.5:1 */
-  --color-danger-soft: #fdf2f1;
-  --color-danger-line: #f5cdc9;
+  /* The box colours are the ochre, so a "problem" panel is no longer a red
+     slab; the red above is for words that must read as an error. */
+  --color-danger-soft: #faf5ea;
+  --color-danger-line: #e8d9b8;
   /* Fixed, same reasoning as --color-fill-strong above: danger-text is both
      error COPY (must invert for dark mode) and a destructive button's FILL
      (must not). This is the fill half, equal to danger-text's current value. */
@@ -306,17 +310,17 @@
   --color-accent-soft: #1b2242;
   --color-accent-line: #3d4a78;
 
-  --color-success-text: #8fd67f;
-  --color-success-soft: #142a16;
-  --color-success-line: #335a30;
+  --color-success-text: #aab8f5;
+  --color-success-soft: #1b2242;
+  --color-success-line: #3d4a78;
 
   --color-warning-text: #f0b33e;
   --color-warning-soft: #2e2308;
   --color-warning-line: #5c4519;
 
   --color-danger-text: #f1857b;
-  --color-danger-soft: #301512;
-  --color-danger-line: #5c2a24;
+  --color-danger-soft: #2e2308;
+  --color-danger-line: #5c4519;
 
   --color-info-text: #7ec1ee;
   --color-info-soft: #10222c;
