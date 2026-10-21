@@ -36,7 +36,8 @@
  *   new salary and this fails, naming the command that regenerates the fixture —
  *   rather than that person silently having no payslip.
  * - The fixture's recorded settings are still this repo's **defaults**.
- * - Cross-repo, when `approvehr-api` is checked out beside this one: the tax
+ * - Cross-repo, when a backend checkout is beside this one (`backend-source.ts`
+ *   says where it looks): the tax
  *   schedule the fixture was generated on is still the API's **newest**, band for
  *   band. This is the divergence guard, and it is the check that would have
  *   caught the original incident.
@@ -51,8 +52,8 @@
 /* `DEMO_ENABLED` before anything from `src/`: the app modules below reference
    it and the bundler that normally substitutes it is not here. */
 import "./demo-global";
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
+import { readFileSync } from "node:fs";
+import { backendFile, NO_BACKEND } from "./backend-source";
 import {
   DEMO_PAYSLIP_BASIS,
   DEMO_PAYSLIPS,
@@ -158,7 +159,7 @@ if (uncovered.length > 0) {
     `\nNo illustrative payslip for: ${uncovered
       .map((value) => `₦${value.toLocaleString("en-NG")}`)
       .join(", ")}\n` +
-      `Regenerate the fixture from approvehr-api:\n\n` +
+      `Regenerate the fixture from the backend repo (approvehr-backend):\n\n` +
       `  npx tsx scripts/emit-demo-payslips.ts ${salaries.join(" ")} \\\n` +
       `    > ../ApproveHR/web/src/lib/mock/demo-payslips.ts\n`,
   );
@@ -246,12 +247,10 @@ checks.push({
  * read its top rate and failed on the wrong number.
  * ----------------------------------------------------------------------- */
 
-const backendEnginePath = path.resolve(
-  import.meta.dirname,
-  "../../../approvehr-api/src/modules/payroll/engine.ts",
-);
+const backendEnginePath = backendFile("src/modules/payroll/engine.ts");
 
-if (existsSync(backendEnginePath)) {
+if (backendEnginePath !== null) {
+  console.log(`  note  comparing the tax schedules with ${backendEnginePath}`);
   const source = readFileSync(backendEnginePath, "utf8");
   const schedules = source.slice(source.indexOf("export const TAX_SCHEDULES"));
   const arrayEnd = schedules.indexOf("\n];");
@@ -302,8 +301,8 @@ if (existsSync(backendEnginePath)) {
   );
 } else {
   console.log(
-    "  skip  fixture vs the API's tax schedules — approvehr-api is not checked " +
-      "out beside this repo, so there is nothing to compare against.",
+    `  skip  fixture vs the API's tax schedules — ${NO_BACKEND}, so there is ` +
+      "nothing to compare against.",
   );
 }
 
@@ -411,7 +410,7 @@ if (failures.length) {
     `\nPayroll check failed:\n${failures.map((f) => "  " + f).join("\n")}\n\n` +
       `The illustrative figures in src/lib/mock/demo-payslips.ts are generated. ` +
       `Do not hand-edit them to make this pass — regenerate them from ` +
-      `approvehr-api, which is where the payroll engine lives. The command is in ` +
+      `the backend repo (approvehr-backend), which is where the payroll engine lives. The command is in ` +
       `that file's header.`,
   );
   process.exit(1);

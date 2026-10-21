@@ -22,7 +22,7 @@
  * - **The example row is obviously an example**, from the dictionary's own
  *   `templateExample` declarations rather than a map in the file writer.
  * - **The API's copy of the dictionary agrees with this one**, when
- *   `approvehr-api` is checked out beside this repo. That is the drift the
+ *   a backend checkout is beside this repo (`scripts/backend-source.ts`). That is the drift the
  *   mirror's own header warns about, and it is worth a check rather than a
  *   sentence: the API's copy is the one that answers, so a column added there
  *   and not here is offered as "do not import" on a screen with no API.
@@ -33,8 +33,8 @@
 /* `DEMO_ENABLED` before anything from `src/`: the app modules below reference
    it and the bundler that normally substitutes it is not here. */
 import "./demo-global";
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
+import { readFileSync } from "node:fs";
+import { backendFile, NO_BACKEND } from "./backend-source";
 import { parseCsv } from "../src/lib/csv";
 import {
   guessMapping,
@@ -91,17 +91,15 @@ function gateMirror(
   exportName: string,
   mirror: readonly MirrorColumn[],
 ): void {
-  const apiDictionary = path.resolve(
-    import.meta.dirname,
-    `../../../approvehr-api/src/modules/imports/${apiFile}`,
-  );
+  const apiDictionary = backendFile(`src/modules/imports/${apiFile}`);
 
-  if (!existsSync(apiDictionary)) {
+  if (apiDictionary === null) {
     console.log(
-      `  skip  the ${label} mirror vs the API's dictionary — approvehr-api is not checked out beside this repo`,
+      `  skip  the ${label} mirror vs the API's dictionary — ${NO_BACKEND}`,
     );
     return;
   }
+  console.log(`  note  the ${label} mirror is compared with ${apiDictionary}`);
 
   const source = readFileSync(apiDictionary, "utf8");
   const at = source.indexOf(`export const ${exportName}`);
