@@ -63,3 +63,6 @@ pnpm-lock.yaml
 /test-results/
 /playwright-report/
 /.e2e-run
+
+# The walkthrough runner's own output folder (see playwright.walkthrough.config.ts)
+/test-results-walkthrough/
