@@ -199,7 +199,9 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "quarter",
     source: "dashboard",
     anyPermission: SEES_COMPANY,
-    defaultFor: RUNS_THE_COMPANY,
+    /* The "Needs you" card already says this, with a button. A tile saying it
+    again was the same fact twice. */
+    defaultFor: [],
   },
   {
     id: "stat-records",
@@ -210,7 +212,9 @@ export const WIDGETS: readonly WidgetSpec[] = [
     span: "quarter",
     source: "dashboard",
     anyPermission: SEES_COMPANY,
-    defaultFor: RUNS_THE_COMPANY,
+    /* The "Needs you" card already says this, with a button. A tile saying it
+    again was the same fact twice. */
+    defaultFor: [],
   },
   {
     id: "stat-attendance",
