@@ -98,6 +98,29 @@ describe("rows of words and controls", () => {
     },
   );
 
+  it.each([
+    [
+      "a share link",
+      "src/components/hiring/share-links.tsx",
+      /<div className="min-w-48 flex-1">\s*<p className="text-body-sm font-medium text-ink">/,
+    ],
+    [
+      "the stage-email summary",
+      "src/components/hiring/stage-comms.tsx",
+      /<span className="flex flex-wrap items-center gap-1\.5">\s*<Badge/,
+    ],
+    [
+      "an applicant's email",
+      "src/app/(app)/hiring/requisitions/[id]/screening.tsx",
+      /max-w-full items-center gap-1 font-normal break-all/,
+    ],
+  ])(
+    "%s wraps instead of running past its card on a 320px phone",
+    (_label, file, shape) => {
+      expect(source(file)).toMatch(shape);
+    },
+  );
+
   it("never lets the switch beside a rejection reason shrink under the reason's text", () => {
     const row = source(
       "src/app/(app)/hiring/settings/rejection-reasons/reasons-screen.tsx",

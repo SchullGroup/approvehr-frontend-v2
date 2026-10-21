@@ -330,7 +330,7 @@ function ApplicantRow({
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
             <TextLink
               href={`mailto:${row.email}`}
-              className="inline-flex items-center gap-1 font-normal"
+              className="inline-flex max-w-full items-center gap-1 font-normal break-all"
             >
               <Mail aria-hidden="true" className="size-3.5" />
               {row.email}
