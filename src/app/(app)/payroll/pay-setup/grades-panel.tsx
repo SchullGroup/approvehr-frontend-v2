@@ -9,6 +9,7 @@ import {
   Search,
   Trash2,
   TrendingUp,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -38,6 +39,7 @@ import {
   formatMoney,
   useToast,
   ToggleFilter,
+  RowActions,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
@@ -463,46 +465,54 @@ function GradeRow({
         <Money amount={naira(row.monthlyPayrollKobo)} decimals />
       </TD>
 
-      <TD>
-        <div className="flex justify-end gap-1.5">
-          {row.archived ? (
-            editable && (
-              <Button variant="secondary" size="sm" onClick={onRestore}>
-                <RotateCcw aria-hidden="true" className="size-3.5" />
-                Restore
-              </Button>
-            )
-          ) : (
-            <>
-              {row.employees > 0 && canApply && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={onRaise}
-                  aria-label={`Give everyone on ${row.code} a rise`}
-                >
-                  <TrendingUp aria-hidden="true" className="size-3.5" />
-                  Give a rise
-                </Button>
-              )}
-              {editable && (
-                <>
-                  <Button variant="ghost" size="sm" onClick={onEdit}>
-                    Edit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onArchive}
-                    aria-label={`Archive ${row.code}`}
-                  >
-                    <Trash2 aria-hidden="true" className="size-3.5" />
-                  </Button>
-                </>
-              )}
-            </>
-          )}
-        </div>
+      <TD align="right">
+        <RowActions
+          label={`More actions for ${row.code}`}
+          items={
+            row.archived
+              ? editable
+                ? [
+                    {
+                      label: "Restore",
+                      icon: <RotateCcw aria-hidden="true" className="size-4" />,
+                      onSelect: onRestore,
+                    },
+                  ]
+                : []
+              : [
+                  ...(row.employees > 0 && canApply
+                    ? [
+                        {
+                          label: "Give everyone a rise",
+                          icon: (
+                            <TrendingUp aria-hidden="true" className="size-4" />
+                          ),
+                          onSelect: onRaise,
+                        },
+                      ]
+                    : []),
+                  ...(editable
+                    ? [
+                        {
+                          label: "Edit",
+                          icon: (
+                            <Pencil aria-hidden="true" className="size-4" />
+                          ),
+                          onSelect: onEdit,
+                        },
+                        {
+                          label: "Archive",
+                          icon: (
+                            <Trash2 aria-hidden="true" className="size-4" />
+                          ),
+                          tone: "danger" as const,
+                          onSelect: onArchive,
+                        },
+                      ]
+                    : []),
+                ]
+          }
+        />
       </TD>
     </TR>
   );

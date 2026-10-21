@@ -31,7 +31,6 @@ import {
   ButtonLink,
   Card,
   CardBody,
-  ConfirmDialog,
   EmptyState,
   Input,
   LoadState,
@@ -40,6 +39,7 @@ import {
   useHasAnswered,
   useToast,
   type BadgeTone,
+  Select,
 } from "@/components/ui";
 import { DeclineDialog } from "@/components/portal/decline-dialog";
 import { ApiError } from "@/lib/api/client";
@@ -307,21 +307,26 @@ export function ApprovalInbox() {
           me" and "what did I send off, and who is it sitting with now" have
           different owners even for the same person, and conflating them
           would mean one of the two never gets its own empty state. */}
-      <SegmentedControl
-        label="Which approvals to show"
-        value={view}
-        onChange={setView}
-        options={[
-          { value: "waiting", label: "Waiting on you" },
-          /* Connected only: demo mode keeps its decisions in the local store and
-             shows them as "Just decided", so there is no second list to offer. */
-          ...(queue.connected
-            ? [{ value: "decided" as const, label: "Decided" }]
-            : []),
-          { value: "sent", label: "Sent by you" },
-          { value: "archive", label: "My archive" },
-        ]}
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SegmentedControl
+          label="Which approvals to show"
+          value={view}
+          onChange={setView}
+          options={[
+            { value: "waiting", label: "Waiting on you" },
+            /* Connected only: demo mode keeps its decisions in the local store and
+               shows them as "Just decided", so there is no second list to offer. */
+            ...(queue.connected
+              ? [{ value: "decided" as const, label: "Decided" }]
+              : []),
+            { value: "sent", label: "Sent by you" },
+            { value: "archive", label: "My archive" },
+          ]}
+        />
+        {(view !== "waiting" || canApprove) && view !== "sent" && (
+          <InboxFilters filters={filters} onChange={setFilters} />
+        )}
+      </div>
 
       {view === "sent" && <SentApprovalsList state={sent} />}
 
@@ -340,7 +345,6 @@ export function ApprovalInbox() {
               { value: "declined", label: "Declined" },
             ]}
           />
-          <InboxFilters filters={filters} onChange={setFilters} />
           <DecidedApprovalsList state={decidedList} outcome={decidedOutcome} />
         </>
       )}
@@ -351,7 +355,6 @@ export function ApprovalInbox() {
             Approvals you put away for later. They are still waiting for a
             decision, and putting one here changed nothing for anybody else.
           </p>
-          <InboxFilters filters={filters} onChange={setFilters} />
           {queue.items.length === 0 ? (
             <Card>
               <EmptyState
@@ -393,10 +396,6 @@ export function ApprovalInbox() {
             hasData={answered}
             className="flex flex-col gap-6"
           >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <InboxFilters filters={filters} onChange={setFilters} />
-            </div>
-
             {queue.items.length === 0 ? (
               <Card>
                 <EmptyState
@@ -569,12 +568,24 @@ function InboxFilters({
       }
       actions={actions}
     >
-      <SegmentedControl
-        label="Filter approvals by module"
-        value={filters.module}
-        onChange={(module) => onChange({ ...filters, module })}
-        options={MODULE_OPTIONS}
-      />
+      <label className="flex flex-col gap-1 text-meta text-muted">
+        Module
+        <Select
+          value={filters.module}
+          onChange={(e) =>
+            onChange({
+              ...filters,
+              module: e.target.value as QueueFilters["module"],
+            })
+          }
+        >
+          {MODULE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      </label>
       <label className="flex flex-col gap-1 text-meta text-muted">
         Raised from
         <Input

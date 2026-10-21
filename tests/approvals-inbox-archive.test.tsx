@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { ToastProvider } from "@/components/ui";
@@ -80,8 +80,11 @@ describe("the inbox filters", () => {
   it("filters by module, not by a priority nobody set", async () => {
     show();
     await userEvent.click(screen.getByRole("button", { name: "Filters" }));
+    const module = screen.getByLabelText("Module");
     for (const label of ["All", "Payroll", "Leave", "Hiring", "Core HR"]) {
-      expect(screen.getByRole("radio", { name: label })).toBeInTheDocument();
+      expect(
+        within(module).getByRole("option", { name: label }),
+      ).toBeInTheDocument();
     }
     expect(screen.queryByText("Moves money")).not.toBeInTheDocument();
     expect(screen.queryByText("Needs attention")).not.toBeInTheDocument();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, RotateCcw, Tags, Trash2 } from "lucide-react";
+import { Plus, RotateCcw, Tags, Trash2, Pencil } from "lucide-react";
 import {
   Badge,
   Button,
@@ -21,6 +21,7 @@ import {
   TR,
   TableWrap,
   ToggleFilter,
+  RowActions,
 } from "@/components/ui";
 import type {
   CreateTypeInput,
@@ -185,44 +186,50 @@ export function ExpenseTypes({
 
                       {canManage && (
                         <TD align="right">
-                          <div className="flex justify-end gap-1.5">
-                            {type.archived ? (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() =>
-                                  void onUpdate(type.id, { active: true })
-                                }
-                              >
-                                <RotateCcw
-                                  aria-hidden="true"
-                                  className="size-3.5"
-                                />
-                                Switch back on
-                              </Button>
-                            ) : (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setEditing(type)}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  aria-label={`Archive ${type.name}`}
-                                  onClick={() => setArchiving(type)}
-                                >
-                                  <Trash2
-                                    aria-hidden="true"
-                                    className="size-3.5"
-                                  />
-                                </Button>
-                              </>
-                            )}
-                          </div>
+                          <RowActions
+                            label={`More actions for ${type.name}`}
+                            items={
+                              type.archived
+                                ? [
+                                    {
+                                      label: "Switch back on",
+                                      icon: (
+                                        <RotateCcw
+                                          aria-hidden="true"
+                                          className="size-4"
+                                        />
+                                      ),
+                                      onSelect: () =>
+                                        void onUpdate(type.id, {
+                                          active: true,
+                                        }),
+                                    },
+                                  ]
+                                : [
+                                    {
+                                      label: "Edit",
+                                      icon: (
+                                        <Pencil
+                                          aria-hidden="true"
+                                          className="size-4"
+                                        />
+                                      ),
+                                      onSelect: () => setEditing(type),
+                                    },
+                                    {
+                                      label: "Archive",
+                                      icon: (
+                                        <Trash2
+                                          aria-hidden="true"
+                                          className="size-4"
+                                        />
+                                      ),
+                                      tone: "danger",
+                                      onSelect: () => setArchiving(type),
+                                    },
+                                  ]
+                            }
+                          />
                         </TD>
                       )}
                     </TR>
