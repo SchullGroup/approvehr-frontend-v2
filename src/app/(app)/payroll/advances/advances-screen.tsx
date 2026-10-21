@@ -24,6 +24,7 @@ import {
   Tabs,
   type TabItem,
 } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { DecidedCard } from "@/components/payroll/decided-card";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -255,7 +256,14 @@ function Mine({
               <Banknote aria-hidden="true" className="size-4" />
               Draw some of it
             </Button>
-          ) : undefined
+          ) : (
+            /* The API's own sentence says why not, one hover away. */
+            <InfoTooltip
+              id="advance-refusal"
+              label="Why you cannot draw"
+              text={eligibility.refusal}
+            />
+          )
         }
       />
       <CardBody className="flex flex-col gap-4">
@@ -307,14 +315,6 @@ function Mine({
             }
           />
         </StatGrid>
-
-        {/* The API's own sentence, verbatim. Not a paraphrase — it knows which
-            of half a dozen reasons applies. */}
-        {eligibility.refusal !== null && (
-          <Callout tone="info" title="You cannot draw right now">
-            {eligibility.refusal}
-          </Callout>
-        )}
 
         <Callout
           tone="info"

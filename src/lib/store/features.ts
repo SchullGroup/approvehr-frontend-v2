@@ -80,6 +80,12 @@ type State = {
    * inventing a policy.
    */
   probationMonths: number;
+  /**
+   * Whether the company has switched on drawing pay early. Null until the
+   * server has said, which the nav reads as "show it": a menu that hides a row
+   * on a guess is worse than one that shows it a moment early.
+   */
+  earnedWage: boolean | null;
   headcountBand: HeadcountBand;
   setupStep: number;
   totalSteps: number;
@@ -184,6 +190,7 @@ const LOADING: State = {
      same and nothing is gated on it, so an empty default is safe here. */
   stepUpActions: [],
   probationMonths: PROBATION_MONTHS_FALLBACK,
+  earnedWage: null,
   loading: true,
   error: null,
   source: "loading",
@@ -704,6 +711,8 @@ function fromApi(features: ApiFeatures): State {
     deductions: null,
     stepUpActions: features.stepUpActions,
     probationMonths: features.probationMonths,
+    /* Only the read carries it; a save's answer must not erase what was known. */
+    earnedWage: features.earnedWage ?? cache.earnedWage,
     flags: {
       departments: features.departments,
       surveys: features.surveys,
@@ -749,6 +758,7 @@ function fromDemo(demo: DemoState): State {
        answer to carry, and a number somebody had "set" here would describe a
        policy no employee record in this browser was created under. */
     probationMonths: PROBATION_MONTHS_FALLBACK,
+    earnedWage: null,
     headcountBand: demo.headcountBand,
     setupStep: demo.setupStep,
     totalSteps: DEMO_QUESTIONS.length,
@@ -844,6 +854,8 @@ export function useFeatures(): FeatureFlags & {
   setupStep: number;
   totalSteps: number;
   setupCompletedAt: string | null;
+  /** See `State.earnedWage`. */
+  earnedWage: boolean | null;
   loading: boolean;
   /**
    * The failure itself, not its sentence.
@@ -878,6 +890,7 @@ export function useFeatures(): FeatureFlags & {
     setupStep: state.setupStep,
     totalSteps: state.totalSteps,
     setupCompletedAt: state.setupCompletedAt,
+    earnedWage: state.earnedWage,
     loading: state.loading,
     error: state.error,
     source: state.source,

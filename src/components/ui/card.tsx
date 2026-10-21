@@ -303,6 +303,21 @@ export function StatGrid({
 
 /* -------------------------------------------------------------------------- */
 
+/** The words of a callout whose children are only words, or null. */
+function plainText(children: React.ReactNode): string | null {
+  if (typeof children === "string") return children;
+  if (typeof children === "number") return String(children);
+  if (
+    Array.isArray(children) &&
+    children.every(
+      (child) => typeof child === "string" || typeof child === "number",
+    )
+  ) {
+    return children.join("");
+  }
+  return null;
+}
+
 /** A tinted callout. Used for AI output, regulatory notes and warnings. */
 export function Callout({
   tone = "info",
@@ -318,29 +333,34 @@ export function Callout({
   children: React.ReactNode;
 }) {
   const quiet = useId();
-  /* Information that is only good to know is not worth a block on the page: a
-     short line with the detail behind an info icon. Warnings, errors and
-     anything with something to click stay in full. */
+  /* Information is not worth a coloured block on the page. It becomes a quiet
+     line, with anything past the first sentence behind an info icon that shows
+     it on hover or focus. Errors, successes and anything with something to
+     click stay as they are. */
+  const text = plainText(children);
   if (
-    (tone === "info" || tone === "neutral" || tone === "accent") &&
-    typeof children === "string"
+    text !== null &&
+    (tone === "info" ||
+      tone === "neutral" ||
+      tone === "accent" ||
+      tone === "warning")
   ) {
-    const first = children.match(/^.*?[.!?](?:\s|$)/)?.[0].trim() ?? children;
+    const first = text.match(/^.*?[.!?](?:\s|$)/)?.[0].trim() ?? text;
     const visible = title ?? first;
-    const detail = title ? children : children.slice(first.length).trim();
-    if (detail.length > 0 || title) {
-      return (
-        <p
-          className={cn(
-            "inline-flex max-w-full items-center gap-2 text-body-sm text-muted",
-            className,
-          )}
-        >
-          <span className="min-w-0">{visible}</span>
-          <InfoTooltip id={quiet} text={detail || children} label="Read more" />
-        </p>
-      );
-    }
+    const detail = title ? text : text.slice(first.length).trim();
+    return (
+      <p
+        className={cn(
+          "inline-flex max-w-full items-center gap-2 text-body-sm text-muted",
+          className,
+        )}
+      >
+        <span className="min-w-0">{visible}</span>
+        {detail.length > 0 && (
+          <InfoTooltip id={quiet} text={detail} label="Read more" />
+        )}
+      </p>
+    );
   }
 
   const tones = {

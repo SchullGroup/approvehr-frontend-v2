@@ -176,6 +176,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      with no reports, once per session, and the answer is usually an empty
      list. */
   const inAOneOnOne = useAmIInAOneOnOne(!isManager);
+  /* Whoever sets the pay-early policy still needs the row, or nobody could ever
+     switch it on. */
+  const canSetEarlyPay = hasPermission(permissions, "MANAGE_PAY_STRUCTURE");
 
   /* Signatures: showing to somebody who can send, or who has one of their own.
      ---------------------------------------------------------------------
@@ -194,6 +197,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const facts: NavFacts = useMemo(
     () => ({
       assistantWired,
+      earlyPayHidden: features.earnedWage === false && !canSetEarlyPay,
       rows: {
         "one-on-ones": isManager || inAOneOnOne,
         signatures: canSendForSignature || haveSignatures,
@@ -203,6 +207,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }),
     [
       assistantWired,
+      features.earnedWage,
+      canSetEarlyPay,
       isManager,
       inAOneOnOne,
       canSendForSignature,
@@ -380,8 +386,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           className={cn(
             /* Width and the hairline ease together, and the column inside keeps
                its own width so the labels slide out of view instead of
-               reflowing as the box narrows. */
-            "no-print sidebar-surface hidden shrink-0 overflow-hidden border-r lg:block",
+               reflowing as the box narrows.
+
+               `overflow-clip`, not `overflow-hidden`: hidden makes this box a
+               scroll container, and a sticky child then sticks to *it*, which
+               never scrolls, so the menu rode away with the page and only the
+               Collapse button was left in view. Clip cuts the overflow without
+               becoming a scroller. */
+            "no-print sidebar-surface hidden shrink-0 overflow-clip border-r lg:block",
             eased &&
               "transition-[width,border-color,opacity] duration-300 ease-[var(--ease-in-out-soft)] motion-reduce:transition-none",
             collapsed

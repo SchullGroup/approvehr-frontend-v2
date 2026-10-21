@@ -90,6 +90,12 @@ export type NavFacts = {
    * cache the shell already holds (`lib/store/ai.ts`).
    */
   assistantWired: boolean;
+  /**
+   * True when the company has not switched on pay early **and** this reader
+   * cannot switch it on. Optional so every caller from before this question
+   * keeps compiling; absent reads as "show it".
+   */
+  earlyPayHidden?: boolean;
   /** One answer per row-level question. Total, so none can be forgotten. */
   rows: Record<NavRowFact, boolean>;
   /**
@@ -199,6 +205,12 @@ export type NavItem = {
    * different job and a different screen.
    */
   assistant?: true;
+
+  /**
+   * Hidden while `NavFacts.earlyPayHidden`. A row for something the company has
+   * not switched on leads to a screen that can only say no.
+   */
+  hideWhenEarlyPayOff?: true;
 
   /**
    * Hidden unless the **rows** say this is the reader's.
@@ -588,6 +600,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       label: "Pay early",
       icon: <Banknote aria-hidden="true" />,
       always: true,
+      hideWhenEarlyPayOff: true,
     },
     {
       href: "/payroll/expenses",
@@ -1060,6 +1073,7 @@ export function visibleNav(
           return item.rows === "interviews" ? [item] : [];
         }
         if (item.assistant && !facts.assistantWired) return [];
+        if (item.hideWhenEarlyPayOff && facts.earlyPayHidden) return [];
         /* Before the permission checks, and before `always`, because it is a
            different question from all of them: `always` opts out of asking
            about the *reader*, and this is not about the reader. */

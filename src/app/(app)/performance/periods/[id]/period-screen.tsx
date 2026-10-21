@@ -48,7 +48,6 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   EXCEPTION_CODE_SUMMARY,
-  dayLabel,
   groupExceptionsByCode,
   ratingWordsFrom,
   scoreLabel,
@@ -637,14 +636,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           )}
 
           {period && (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Stat
-                label="Stage"
-                value={period.stageLabel}
-                {...(period.dueDate
-                  ? { hint: `Answers due ${dayLabel(period.dueDate)}` }
-                  : {})}
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
               <Stat
                 label="Questions"
                 value={String(period.questionCount)}
@@ -658,26 +650,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 label="Forms in this period"
                 value={String(period.reviewCount)}
                 hint="One self-review each, plus one per appraiser"
-              />
-              <Stat
-                label="Scoring weights"
-                value={period.scoringFrozen ? "Locked in" : "Can still change"}
-                hint={
-                  period.scoringFrozen
-                    ? "A later change to the company's weights cannot move these marks"
-                    : /* Two different reasons weights are still live, and only
-                         one of them was being stated. Starting a period is what
-                         freezes them, so EVERY period that has not started yet
-                         is "Live" — and it was being told it "started before
-                         weights were frozen", two lines under a badge reading
-                         `not started`. The legacy case is real but rare; the
-                         not-started case is every new period there is, and the
-                         useful thing to say about it is that a change now
-                         still lands. */
-                      period.stage === "DRAFT"
-                      ? "Whatever the weights are when the period starts is what it keeps"
-                      : "This period started before weights were locked in, so it uses the company's current weights"
-                }
               />
             </div>
           )}

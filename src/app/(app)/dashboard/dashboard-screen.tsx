@@ -3,15 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutGrid } from "lucide-react";
-import {
-  Button,
-  Callout,
-  Card,
-  CardBody,
-  LoadFailure,
-  LoadState,
-} from "@/components/ui";
+import { LoadFailure, LoadState } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody } from "@/components/portal/shell";
 import {
@@ -22,16 +14,12 @@ import { useCan, usePermissions } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSessionRoles, roleTier, type RoleTier } from "@/lib/roles";
 import { useDashboard, useReports } from "@/lib/store/insights";
-import { useDashboardLayout } from "@/lib/store/dashboard-layout";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
-import { cn } from "@/lib/cn";
 import { checklistRows } from "../settings/checklist";
 import { SetupGuide } from "./setup-guide";
 import { DashboardHeader } from "./header";
-import { CustomizeDrawer } from "./customize-drawer";
 import { WIDGET_COMPONENTS } from "./widgets";
 import {
-  SPAN_CLASS,
   defaultLayout,
   resolveLayout,
   type WidgetContext,
@@ -87,7 +75,6 @@ import {
  */
 export function DashboardScreen() {
   const { data, loading, error, reload } = useDashboard();
-  const layout = useDashboardLayout();
   const { permissions, loading: permissionsLoading } = usePermissions();
   const features = useFeatures();
   const roles = useSessionRoles();
@@ -99,8 +86,6 @@ export function DashboardScreen() {
   useEffect(() => {
     if (collaborator) router.replace(COLLABORATOR_HOME);
   }, [collaborator, router]);
-
-  const [customizing, setCustomizing] = useState(false);
 
   /**
    * The two gates a catalogue can answer.
@@ -132,24 +117,20 @@ export function DashboardScreen() {
    * this person may see — see `resolveLayout` for the three things it drops and
    * why it drops rather than rewrites.
    */
-  const chosen = useMemo(() => {
-    if (layout.widgets === null)
-      return resolveLayout(defaultLayout(tier, context), context);
-    return resolveLayout(layout.widgets, context);
-  }, [layout.widgets, tier, context]);
+  /* One arrangement for everybody of a kind. It used to be customisable, and a
+     customised board left gaps and an order nobody could predict; a fixed one
+     can be arranged properly. */
+  const chosen = useMemo(
+    () => resolveLayout(defaultLayout(tier, context), context),
+    [tier, context],
+  );
 
   /* Only ask for the reports payload if something is going to draw it. */
   const needsReports = chosen.some((widget) => widget.source === "reports");
   const reports = useReports(undefined, needsReports);
 
   /* One gate. See the header for why the layout is awaited with the data. */
-  if (
-    collaborator ||
-    loading ||
-    layout.loading ||
-    permissionsLoading ||
-    roles.loading
-  ) {
+  if (collaborator || loading || permissionsLoading || roles.loading) {
     return (
       <>
         <DashboardHeader />
@@ -184,133 +165,40 @@ export function DashboardScreen() {
   };
 
   /* Widened so a row of stat tiles actually fills its row. See `tileSpans`. */
-  const spans = tileSpans(chosen);
+  const sections = dashboardSections(chosen, tier);
 
   return (
     <>
-      <DashboardHeader
-        action={
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => setCustomizing(true)}
-          >
-            <LayoutGrid aria-hidden="true" className="size-3.5" />
-            Customise
-          </Button>
-        }
-      />
+      <DashboardHeader />
 
       <PageBody>
-        {/* What is still not set up, where somebody actually is.
-        
-            The feedback asks for the post-signup "Complete Setup" prompt to
-            appear on the dashboard too, and it is right about why: the wizard's
-            own CTA is on a screen nobody returns to, so a company that stopped
-            halfway had nothing telling them. `useSetupChecklist` is the same
-            read `/settings` answers from, so the two cannot disagree about
-            what is outstanding.
-        
-            Absent once everything is done, rather than a green "all set" card
-            that lives on the dashboard for ever. */}
+        {/* What is still not set up, where somebody actually is. Absent once
+            everything is done. */}
         <SetupPrompt />
 
-        {/* The arrangement failed to load and the standard one is showing. Said
-            once, here, rather than left for somebody to notice their dashboard
-            has reverted. */}
-        {layout.error && !customizing && (
-          <Callout tone="warning" className="mb-4">
-            {layout.error}
-          </Callout>
-        )}
-
-        {chosen.length === 0 ? (
-          <Card>
-            <CardBody className="flex flex-col items-start gap-3">
-              <p className="text-body">There is nothing on your dashboard.</p>
-              <p className="text-body-sm text-muted">
-                That is a real choice and it stays until you change it, nothing
-                has gone wrong.
-              </p>
-              <Button
-                type="button"
-                variant="accent"
-                size="sm"
-                onClick={() => setCustomizing(true)}
-              >
-                <LayoutGrid aria-hidden="true" className="size-3.5" />
-                Choose what to show
-              </Button>
-            </CardBody>
-          </Card>
-        ) : (
-          /* Twelve columns, so thirds and quarters both divide it. Every widget
-             is full width below `sm` — a stat at a quarter of a phone is
-             unreadable — and each carries `min-w-0` from `SPAN_CLASS`, without
-             which one item that cannot compress floors the whole track. See the
-             responsive entry in HANDOVER.
-
-             `grid-flow-dense`: measured against a live account rather than
-             assumed. It does **not** eliminate a gap — if the spans in a
-             cluster do not sum to a multiple of 12 (a quarter + a half + two
-             quarters is 15), something is short a slot no matter the packing
-             algorithm; dense only chooses which row absorbs it, pulling a
-             later same-size widget forward to close an earlier gap and
-             leaving an equal one behind it. Kept anyway because that pull
-             front-loads completeness — the topmost row ends up full — and it
-             never touches DOM or tab order, only visual position. If a
-             customized arrangement ever reads as widgets shuffled for no
-             reason, this is why; the real fix is choosing spans that sum
-             evenly per cluster, not a CSS property. */
-          <div className="grid grid-cols-12 gap-4 grid-flow-dense">
-            {chosen.map((widget, index) => {
-              const Widget = WIDGET_COMPONENTS[widget.id];
-              if (!Widget) return null;
-              return (
-                <div
-                  key={widget.id}
-                  /* `empty:hidden` is what makes the paragraph above true.
-                     ------------------------------------------------------
-                     Every widget returns `null` when it has nothing to draw,
-                     and the header has always claimed that leaves no hole —
-                     but this wrapper was emitted either way, so a quiet widget
-                     kept its columns and the grid held a gap where it used to
-                     be. On an owner's standard dashboard that was two gaps:
-                     `my-queue` holding the first quarter of the stat row while
-                     drawing nothing, and `chart-headcount-trend` holding half a
-                     row, which left Hiring stranded beside white space.
-
-                     A `null` child leaves the div with no child nodes at all,
-                     so `:empty` matches it and `display: none` takes it out of
-                     the grid — the row closes up and the next widget moves
-                     into the slot. It cannot false-positive on a widget that
-                     drew something, because anything rendered is a child node.
-
-                     Applied here rather than inside each widget so the rule
-                     holds for all of them, including the next one somebody
-                     adds. */
-                  className={cn(spans[index], "empty:hidden")}
-                >
-                  <Widget {...props} />
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <div className="flex flex-col gap-4">
+          {sections.map((section) => (
+            <div key={section.key} className="flex flex-wrap gap-4">
+              {section.widgets.map((widget) => {
+                const Widget = WIDGET_COMPONENTS[widget.id];
+                if (!Widget) return null;
+                /* A widget with nothing to draw returns null and leaves its
+                   wrapper empty, which `empty:hidden` takes out of the grid:
+                   the others share the row instead of leaving a hole. */
+                return (
+                  <div
+                    key={widget.id}
+                    className="min-w-0 empty:hidden"
+                    style={{ flex: `1 1 ${section.min}` }}
+                  >
+                    <Widget {...props} />
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </PageBody>
-
-      <CustomizeDrawer
-        open={customizing}
-        onClose={() => setCustomizing(false)}
-        chosen={chosen}
-        context={context}
-        connected={layout.connected}
-        saving={layout.saving}
-        error={layout.error}
-        onChange={(ids) => void layout.save(ids)}
-        onReset={() => void layout.reset()}
-      />
     </>
   );
 }
@@ -370,38 +258,54 @@ export function DashboardScreen() {
  * Static class strings, never interpolated: Tailwind reads the source as text
  * and a computed `xl:col-span-${n}` compiles to no CSS at all.
  */
-const QUARTER_RUN: Readonly<Record<number, string>> = {
-  1: "col-span-12 xl:col-span-3",
-  2: "col-span-12 sm:col-span-6",
-  3: "col-span-12 md:col-span-4",
-  4: "col-span-12 sm:col-span-6 xl:col-span-3",
-};
-const QUARTER_RUN_MANY = "col-span-12 sm:col-span-6 xl:col-span-3";
+type Section = { key: string; min: string; widgets: WidgetSpec[] };
 
-export function tileSpans(chosen: readonly WidgetSpec[]): string[] {
-  const out: string[] = [];
-  for (let i = 0; i < chosen.length; i += 1) {
-    const widget = chosen[i]!;
-    if (widget.span !== "quarter") {
-      out.push(SPAN_CLASS[widget.span]);
-      continue;
-    }
-    /* The whole run this tile belongs to, measured once at its start and
-       applied to every tile in it. */
-    let end = i;
-    while (end + 1 < chosen.length && chosen[end + 1]!.span === "quarter")
-      end += 1;
-    const run = end - i + 1;
-    const wide = QUARTER_RUN[run] ?? QUARTER_RUN_MANY;
-    /* `min-w-0` on every one of them, always: a grid item's automatic minimum
-       is its min-content width, so a single tile that cannot compress raises
-       the floor of the whole track and takes its siblings with it. That is the
-       documented cause of three of the overflows in HANDOVER's responsive
-       pass. */
-    for (let k = i; k <= end; k += 1) out.push(`min-w-0 ${wide}`);
-    i = end;
-  }
-  return out;
+/**
+ * The dashboard in the order it should be read: what needs you, then the key
+ * figures, then the working panels, then charts, then the rest. Each row shares
+ * wraps and grows to fill its width, so a missing card closes up, a short last
+ * line widens its cards, and there is no slot left empty.
+ */
+export function dashboardSections(
+  chosen: readonly WidgetSpec[],
+  tier: RoleTier,
+): Section[] {
+  const leads = (widget: WidgetSpec) => widget.leadFor?.includes(tier) === true;
+  const attention = chosen.filter(
+    (widget) => widget.span === "full" && widget.group === "attention",
+  );
+  const lead = chosen.filter(
+    (widget) =>
+      widget.span === "full" && leads(widget) && !attention.includes(widget),
+  );
+  const figures = chosen.filter((widget) => widget.span === "quarter");
+  const charts = chosen.filter(
+    (widget) =>
+      widget.span !== "quarter" &&
+      widget.span !== "full" &&
+      widget.group === "charts",
+  );
+  const panels = chosen.filter(
+    (widget) =>
+      widget.span !== "quarter" &&
+      widget.span !== "full" &&
+      widget.group !== "charts",
+  );
+  const rest = chosen.filter(
+    (widget) =>
+      widget.span === "full" &&
+      !attention.includes(widget) &&
+      !lead.includes(widget),
+  );
+  const rows: Section[] = [
+    { key: "attention", min: "100%", widgets: attention },
+    { key: "lead", min: "100%", widgets: lead },
+    { key: "figures", min: "14rem", widgets: figures },
+    { key: "panels", min: "24rem", widgets: panels },
+    { key: "charts", min: "24rem", widgets: charts },
+    { key: "rest", min: "100%", widgets: rest },
+  ];
+  return rows.filter((row) => row.widgets.length > 0);
 }
 
 /**

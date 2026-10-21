@@ -40,9 +40,6 @@ vi.mock("@/lib/store/insights", () => ({
   }),
   useReports: () => ({ data: null, loading: false, error: null }),
 }));
-vi.mock("@/lib/store/dashboard-layout", () => ({
-  useDashboardLayout: () => ({ loading: false, widgets: [] }),
-}));
 vi.mock("@/lib/store/setup-checklist", () => ({
   useSetupChecklist: () => ({ facts: null, loading: false }),
 }));

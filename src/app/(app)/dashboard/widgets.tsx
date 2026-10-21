@@ -732,7 +732,7 @@ const MyLeave: WidgetComponent = ({ dashboard }) => {
   return (
     <Link
       href="/people/leave"
-      className="group flex min-w-0 flex-col gap-3 self-start rounded-xl border border-line bg-surface p-4 transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text sm:p-5"
+      className="group flex min-w-0 flex-col gap-3 h-full rounded-xl border border-line bg-surface p-4 transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text sm:p-5"
     >
       <span className="flex items-center gap-2.5">
         <span
@@ -941,7 +941,7 @@ function Tile({
      so a shared component variable widens it to `string | undefined` and does
      not typecheck. The body is shared; only the shell differs. */
   const shell = cn(
-    "group flex min-w-0 flex-col gap-3 self-start rounded-xl border border-line bg-surface p-4 sm:p-5",
+    "group flex min-w-0 flex-col gap-3 h-full rounded-xl border border-line bg-surface p-4 sm:p-5",
     href &&
       "transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
   );

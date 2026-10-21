@@ -213,6 +213,13 @@ export type ApiFeatures = {
   probationTracking: boolean;
   /** The default length, in months. Only read when tracking is on. */
   probationMonths: number;
+  /**
+   * Whether the company has switched on drawing pay early. Read-only here: it
+   * is the pay-early policy's own switch, set from the Pay early screen.
+   * Optional because only `GET /setup/features` sends it, and an API one deploy
+   * behind sends it nowhere.
+   */
+  earnedWage?: boolean;
   /** Whether a second factor is asked for at all. Off by default. */
   twoFactor: boolean;
   /** Which acts need a code, when `twoFactor` is on. Empty means sign-in only. */
