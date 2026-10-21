@@ -42,6 +42,7 @@ import {
   useToast,
   Tabs,
 } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -1226,8 +1227,17 @@ function RegisterRow({
           <span className="text-muted">No mark</span>
         ) : (
           <>
-            <span className="tabular font-medium text-ink">
-              {scoreLabel(row.scoreBp)}
+            <span className="inline-flex items-center justify-end gap-1.5">
+              <span className="tabular font-medium text-ink">
+                {scoreLabel(row.scoreBp)}
+              </span>
+              {row.components.length > 0 && (
+                <InfoTooltip
+                  id={`mark-parts-${row.employeeId}`}
+                  text={breakdownSentence(row.components)}
+                  label={`How ${row.employeeName}’s mark is made up`}
+                />
+              )}
             </span>
             {/* A moved mark never stands on its own. The computed figure is
                 what the answers produced and it survives beside the decision,
@@ -1243,7 +1253,6 @@ function RegisterRow({
                 Moved from {scoreLabel(row.calibration.originalBp)}
               </span>
             )}
-            <ScoreParts components={row.components} />
           </>
         )}
       </TD>
@@ -1413,9 +1422,10 @@ function RegisterCard({
  * out; three screens render it and the register, which is where a cycle owner
  * actually reads a company's marks, showed only the final figure.
  *
- * Rendered as a line rather than behind a reveal. A total nobody can account
- * for is the thing the whole scoring model exists to avoid, and hiding the
- * account behind a click means most readers never see it.
+ * A total nobody can account for is the thing the whole scoring model exists to
+ * avoid. On a phone the card carries the account as a line under the mark. In
+ * the table a row stays within two lines, so the same account sits behind the
+ * info icon beside the mark, one hover away.
  *
  * **Excluded components are counted, not dropped.** A component with nothing
  * recorded and a component weighted at nothing are different facts, and the
@@ -1426,19 +1436,9 @@ function RegisterCard({
  */
 function ScoreParts({ components }: { components: ApiComponentScore[] }) {
   if (components.length === 0) return null;
-  /* A row stays within two lines: what counted is written out, what did not is
-     one short count whose tooltip names each one with the API's own sentence. */
-  const counted = components.filter(
-    (part) => part.included && part.scoreBp !== null,
-  );
-  const leftOut = components.filter(
-    (part) => !(part.included && part.scoreBp !== null),
-  );
-  const why = leftOut
-    .map((part) => `${part.label}: ${part.excludedNote ?? "nothing recorded"}`)
-    .join("\n");
+  const { counted, leftOut } = splitComponents(components);
   return (
-    <span className="mt-1 line-clamp-2 text-meta leading-relaxed text-muted">
+    <span className="mt-1 block text-meta leading-relaxed text-muted">
       {counted.map((part, index) => (
         <span key={part.component}>
           {index > 0 && <span aria-hidden="true"> · </span>}
@@ -1447,13 +1447,41 @@ function ScoreParts({ components }: { components: ApiComponentScore[] }) {
         </span>
       ))}
       {leftOut.length > 0 && (
-        <span className="text-faint" title={why}>
+        <span className="text-faint" title={leftOutSentence(leftOut)}>
           {counted.length > 0 && <span aria-hidden="true"> · </span>}
           {leftOut.length} left out
         </span>
       )}
     </span>
   );
+}
+
+function splitComponents(components: ApiComponentScore[]) {
+  const counted = components.filter(
+    (part) => part.included && part.scoreBp !== null,
+  );
+  const leftOut = components.filter(
+    (part) => !(part.included && part.scoreBp !== null),
+  );
+  return { counted, leftOut };
+}
+
+/* The API's own sentence for each exclusion, never one written here. */
+function leftOutSentence(leftOut: ApiComponentScore[]): string {
+  return leftOut
+    .map((part) => `${part.label}: ${part.excludedNote ?? "nothing recorded"}`)
+    .join(" ");
+}
+
+/** The whole account of a mark in one sentence, for the table's tooltip. */
+function breakdownSentence(components: ApiComponentScore[]): string {
+  const { counted, leftOut } = splitComponents(components);
+  const parts = counted
+    .map((part) => `${part.label} ${scoreLabel(part.scoreBp ?? 0)}`)
+    .join(", ");
+  const rest =
+    leftOut.length > 0 ? ` Left out: ${leftOutSentence(leftOut)}` : "";
+  return `${parts || "Nothing counted yet"}.${rest}`;
 }
 
 function SignOffCell({ row }: { row: ApiScoreRow }) {
