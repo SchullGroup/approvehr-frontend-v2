@@ -127,6 +127,16 @@ export type NavItem = {
    * matches on this when set, still longest-match-wins.
    */
   activePrefix?: string;
+  /**
+   * Paths under this item's prefix that it must not claim.
+   *
+   * Overview (`/hiring`) is a prefix of everything in the module, so it lit on
+   * a requisition's own page (`/hiring/requisitions/:id`), which has no row of
+   * its own. Naming the path here leaves that page with nothing lit rather than
+   * the wrong row, and "New role" (`/hiring/requisitions/new`) still matches
+   * itself, being a longer match that is not excluded.
+   */
+  activeExcept?: string[];
   /** A fixed count, for modules with no store behind them yet. */
   badge?: number;
   /** Computed in the shell from a store. Takes precedence over `badge`. */
@@ -652,6 +662,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     {
       href: "/hiring",
       label: "Overview",
+      activeExcept: ["/hiring/requisitions"],
       icon: <BriefcaseBusiness aria-hidden="true" />,
       anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
       feature: "hiring",
@@ -659,9 +670,6 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     {
       href: "/hiring/requisitions/new",
       label: "New role",
-      /* A requisition's own page (`/hiring/requisitions/:id`) is the other end
-         of this flow and has no row of its own; without this, Overview lit. */
-      activePrefix: "/hiring/requisitions",
       icon: <UserRoundPlus aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",

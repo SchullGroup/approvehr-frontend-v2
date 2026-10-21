@@ -223,11 +223,11 @@ describe("locate", () => {
   it("lights the one row that owns the page, by its activePrefix when it has one", () => {
     const hiring: NavGroup[] = [
       moduleGroup("hiring", "Recruitment", [
-        item("Overview", { href: "/hiring" }),
-        item("New role", {
-          href: "/hiring/requisitions/new",
-          activePrefix: "/hiring/requisitions",
+        item("Overview", {
+          href: "/hiring",
+          activeExcept: ["/hiring/requisitions"],
         }),
+        item("New role", { href: "/hiring/requisitions/new" }),
         item("Hiring settings", {
           href: "/hiring/settings/pipelines",
           activePrefix: "/hiring/settings",
@@ -238,7 +238,9 @@ describe("locate", () => {
     const at = (path: string) => locate(t, hiring, path).activeHref;
     expect(at("/hiring/settings/tags")).toBe("/hiring/settings/pipelines");
     expect(at("/hiring/settings/pipelines")).toBe("/hiring/settings/pipelines");
-    expect(at("/hiring/requisitions/r-1")).toBe("/hiring/requisitions/new");
+    expect(at("/hiring/requisitions/new")).toBe("/hiring/requisitions/new");
+    /* An existing role has no row of its own: nothing lit, not New role. */
+    expect(at("/hiring/requisitions/r-1")).toBeNull();
     expect(at("/hiring")).toBe("/hiring");
     expect(at("/hiring/talent-pool/x")).toBe("/hiring");
   });

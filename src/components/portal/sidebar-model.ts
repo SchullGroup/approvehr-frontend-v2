@@ -278,6 +278,15 @@ export function resolveActiveHref(
         /* `/dashboard` is the app root and must not claim every path under it. */
         (base !== "/dashboard" && pathname.startsWith(`${base}/`));
       if (!matches) continue;
+      /* A path an item has said is not its own (see `activeExcept`), unless it
+         is the item's own door. */
+      if (
+        pathname !== item.href &&
+        item.activeExcept?.some(
+          (path) => pathname === path || pathname.startsWith(`${path}/`),
+        )
+      )
+        continue;
       /* `best` stays the item's href (that is what rows compare against), so
          rank by the matched base in a parallel variable. */
       if (best === null || base.length > bestRank) {
