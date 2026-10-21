@@ -13,7 +13,7 @@ import { OBJECTIVES, type ObjectiveField } from "@/lib/imports/objectives";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useSession } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
-import { quarterOptions, quarterText } from "./goal-dialogs";
+import { quarterOptions, quarterText, useQuarterToday } from "./goal-dialogs";
 import { OBJECTIVES_IMPORT_SURFACE } from "./kpis/import/surface";
 import { useObjectiveTemplateLists } from "./kpis/import/lists";
 
@@ -116,8 +116,12 @@ function Loaded({
   const { user } = useSession();
   const ownEmail = user?.email ?? null;
 
+  /* Not `TODAY`: that is the demo's fixed August, which left "Due quarter" on an
+     ended quarter for a real company. */
+  const today = useQuarterToday();
+
   const surface = useMemo<BulkSurface>(() => {
-    const quarters = quarterOptions();
+    const quarters = quarterOptions(today);
     const people: FieldOption[] = employees
       .filter((person) => person.email && !archivedIds.has(person.id))
       .map((person) => ({
@@ -188,7 +192,7 @@ function Loaded({
       refusalWithoutApi: OBJECTIVES_IMPORT_SURFACE.refusalWithoutApi,
       onChanged,
     };
-  }, [employees, archivedIds, ownEmail, lists, goals, onChanged]);
+  }, [employees, archivedIds, ownEmail, lists, goals, onChanged, today]);
 
   return <BulkCreateDialog open={open} onClose={onClose} surface={surface} />;
 }
