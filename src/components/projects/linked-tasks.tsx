@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { Button, IconButton, Input, Select } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
@@ -46,7 +47,8 @@ function explain(error: unknown): string {
  * not offered here; the API supports it.
  */
 export function LinkedTasks({ issueId }: { issueId: string }) {
-  const { canWork, openIssue } = useProject();
+  const { project, canWork, openIssue } = useProject();
+  const router = useRouter();
   const base = useId();
   const [links, setLinks] = useState<IssueLink[] | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -156,11 +158,25 @@ export function LinkedTasks({ issueId }: { issueId: string }) {
                   <>
                     <button
                       type="button"
-                      onClick={() => openIssue({ key: other.key })}
+                      onClick={() =>
+                        /* The project screen only opens keys from its own
+                           project, so another project's task is reached
+                           through that project's page. */
+                        other.projectId === project.id
+                          ? openIssue({ key: other.key })
+                          : router.push(
+                              `/projects/${other.projectId}?issue=${encodeURIComponent(other.key)}`,
+                            )
+                      }
                       className="tabular text-meta font-medium text-muted hover:underline"
                     >
                       {other.key}
                     </button>{" "}
+                    {other.projectId !== project.id && (
+                      <span className="text-meta text-faint">
+                        · {other.projectName}
+                      </span>
+                    )}{" "}
                     <span>{other.title}</span>
                   </>
                 )}

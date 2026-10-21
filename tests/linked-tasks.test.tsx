@@ -8,6 +8,9 @@ import {
 } from "@/components/projects/project-context";
 import { contextFor, sampleData } from "./projects-fixture";
 
+const push = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+
 const api = vi.hoisted(() => ({
   links: vi.fn(),
   addLink: vi.fn(),
@@ -54,6 +57,7 @@ function renderLinks(overrides: Partial<ProjectContextValue> = {}) {
 }
 
 beforeEach(() => {
+  push.mockReset();
   Object.values(api).forEach((m) => m.mockReset());
   api.links.mockResolvedValue([]);
   api.searchIssues.mockResolvedValue([]);
@@ -91,13 +95,31 @@ describe("the linked tasks list", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens the other task when its key is clicked", async () => {
-    api.links.mockResolvedValue([visible()]);
+  it("opens a task in this project in the drawer", async () => {
+    const data = sampleData();
+    api.links.mockResolvedValue([
+      visible({
+        other: { ...visible().other, projectId: data.project.id },
+      }),
+    ]);
     const ctx = renderLinks();
     await userEvent.click(
       await screen.findByRole("button", { name: "PAY-120" }),
     );
     expect(ctx.openIssue).toHaveBeenCalledWith({ key: "PAY-120" });
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("goes to the other project's page for a task in another project", async () => {
+    api.links.mockResolvedValue([visible()]);
+    const ctx = renderLinks();
+    const row = (
+      await screen.findByRole("button", { name: "PAY-120" })
+    ).closest("li")!;
+    expect(row).toHaveTextContent("· Payroll");
+    await userEvent.click(within(row).getByRole("button", { name: "PAY-120" }));
+    expect(push).toHaveBeenCalledWith("/projects/p2?issue=PAY-120");
+    expect(ctx.openIssue).not.toHaveBeenCalled();
   });
 
   it("removes a link and drops the row", async () => {

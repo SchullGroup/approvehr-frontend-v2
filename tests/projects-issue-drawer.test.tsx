@@ -20,6 +20,15 @@ import { contextFor, fakeActions, sampleData } from "./projects-fixture";
 
 let thread: IssueThread = { comments: [], activity: [] };
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+}));
+
+vi.mock("@/lib/api/projects", async (original) => ({
+  ...(await original<typeof import("@/lib/api/projects")>()),
+  projectsApi: { links: vi.fn().mockResolvedValue([]) },
+}));
+
 vi.mock("@/lib/store/projects", () => ({
   useIssueThread: () => ({ thread, status: "ready", reload: vi.fn() }),
 }));
