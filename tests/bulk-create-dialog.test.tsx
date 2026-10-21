@@ -11,7 +11,7 @@ import { ToastProvider } from "@/components/ui";
 import { BulkCreateDialog } from "@/components/bulk-create/bulk-create-dialog";
 import type { BulkSurface } from "@/lib/bulk-create/surface";
 import type { ApiApplyResult, ApiValidateResult } from "@/lib/api/imports";
-import { OBJECTIVES } from "@/lib/imports/objectives";
+import { NO_PERIOD_SENTENCE, OBJECTIVES } from "@/lib/imports/objectives";
 
 /**
  * The window for adding several objectives, pressed.
@@ -359,6 +359,40 @@ describe("checking, and the read-only review", () => {
     expect(screen.getByText(/Nothing is created yet/)).toBeInTheDocument();
     /* And nothing has been created. */
     expect(apply).not.toHaveBeenCalled();
+  });
+
+  it("keeps a blank field in the review when the check had something to say about it", async () => {
+    /* An objective filed in no appraisal period is a caution about a cell nobody
+       filled in. The review leaves blank fields out, so without this the card
+       said "1 note" in its header and showed nowhere what the note was. */
+    const user = userEvent.setup();
+    validate.mockResolvedValue({
+      ...validated([rowReport(1)]),
+      rows: [
+        {
+          ...rowReport(1),
+          warnings: [
+            {
+              row: 1,
+              column: OBJECTIVES.heading["period"] as string,
+              value: null,
+              problem: NO_PERIOD_SENTENCE,
+            },
+          ],
+        },
+      ],
+    });
+    open();
+    await user.type(titleBox(), "Grow pipeline");
+    await user.click(screen.getByRole("button", { name: "Check and review" }));
+    await screen.findByRole("heading", { name: "Review 1 objective" });
+
+    expect(screen.getByText("1 note")).toBeInTheDocument();
+    expect(screen.getByText(NO_PERIOD_SENTENCE)).toBeInTheDocument();
+    /* The field it is about is shown, as not set, beside it. */
+    expect(screen.getByText("Appraisal period")).toBeInTheDocument();
+    /* Other blank fields are still left out. */
+    expect(screen.queryByText("Measure")).not.toBeInTheDocument();
   });
 
   it("gives the values back on Edit again, and checks again afterwards", async () => {

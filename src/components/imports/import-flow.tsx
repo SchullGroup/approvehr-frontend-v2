@@ -39,6 +39,7 @@ import { useImport, useImportHistory } from "@/lib/store/imports";
 import type { ApiImportBatchDetail } from "@/lib/api/imports";
 import type { Dictionary } from "@/lib/imports/spec";
 import type { ImportSurface } from "@/lib/imports/surface";
+import { CheckNotices } from "./check-notices";
 import { CheckReport } from "./check-report";
 import { ImportOutcome } from "./import-result";
 import { MatchColumns } from "./match-columns";
@@ -320,6 +321,15 @@ export function ImportFlow({ surface }: { surface: ImportSurface }) {
               const ok = await imp.runCheck();
               if (ok) stepper.goTo(2);
             }}
+          />
+        )}
+
+        {/* A sentence about the whole file, ahead of the rows. Built from the
+            same problems the report below is, so the two cannot disagree. A
+            sibling rather than part of `CheckReport`, which is the list of rows. */}
+        {stepper.index === 2 && imp.check && imp.result === null && (
+          <CheckNotices
+            notices={surface.checkNotices?.(imp.check.problems) ?? []}
           />
         )}
 

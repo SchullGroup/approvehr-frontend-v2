@@ -158,9 +158,12 @@ function Loaded({
           suggestions: people,
         },
         department: chooseFrom(lists["department"], "No department"),
+        /* Not "counts towards nobody's mark": that is only true of a card with no
+           parent, or whose parent has no open period to give it. The check says
+           which, on the card, after it has run. */
         period: chooseFrom(
           lists["period"],
-          "No period (counts towards nobody's mark)",
+          "None chosen (the parent's period, if any)",
         ),
         parent: {
           kind: "text",

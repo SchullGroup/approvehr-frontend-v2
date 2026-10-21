@@ -156,10 +156,21 @@ function ItemBody({
           ...group,
           /* A read-only card leaves out what was never filled in. Listing
              "Measure: Not set" six times is the review telling a person what
-             they already know. Required fields are kept, empty or not. */
+             they already know. Required fields are kept, empty or not — and so
+             is a field the check had something to say about. The caution that an
+             objective is filed in no appraisal period is about a cell that is
+             blank, so without this the card still counts "1 note" in its header
+             and shows nowhere what it is. */
           fields: group.fields.filter((field) => {
             const spec = surface.dictionary.byField.get(field);
-            return spec?.required || (draft.values[field] ?? "").trim() !== "";
+            const said = (report?.problems ?? []).some(
+              (problem) => problem.field === field,
+            );
+            return (
+              spec?.required ||
+              said ||
+              (draft.values[field] ?? "").trim() !== ""
+            );
           }),
         }))
         .filter((group) => group.fields.length > 0)
