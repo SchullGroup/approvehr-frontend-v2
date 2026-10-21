@@ -130,6 +130,12 @@ export const ADVANCED_FEATURE_KEYS = ["multiAppraiser", "twoFactor"] as const;
 export const WORKFLOW_FEATURE_KEYS = [
   "leaveTwoStepApproval",
   "probationTracking",
+  /* The weekly text message digest. Same family and same placement: it is not
+     rendered on `/settings/features`, its switch is on `/settings/sms` beside
+     the people who have opted in and whether anything can be sent at all. A
+     company switching it on is changing nothing for anybody until an employee
+     opts in, which is the sentence that screen leads with. */
+  "smsDigest",
 ] as const;
 
 /** The acts a company can put a code in front of. Mirrors `StepUpAction`. */
@@ -211,6 +217,13 @@ export type ApiFeatures = {
   leaveTwoStepApproval: boolean;
   /** New hires get a probation end date, and it is chased. Off by default. */
   probationTracking: boolean;
+  /**
+   * The weekly text message digest. Off by default.
+   *
+   * Optional because an API one deploy behind does not send it, and a company
+   * that was never asked is a company without it.
+   */
+  smsDigest?: boolean;
   /** The default length, in months. Only read when tracking is on. */
   probationMonths: number;
   /**

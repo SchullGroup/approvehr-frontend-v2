@@ -174,6 +174,9 @@ const BASE_FLAGS: FeatureFlags = {
      that have never run one — and the screen it belongs to is deliberately not
      gated on this, so nothing is hidden by the default. */
   probationTracking: false,
+  /* Off, matching the schema. A company that has not switched the text digest on
+     is texting nobody, and nobody has been asked. */
+  smsDigest: false,
   twoFactor: false,
 };
 
@@ -315,6 +318,13 @@ export const FEATURE_COPY: Record<
   probationTracking: {
     label: "Put a probation end date on new hires",
     line: "Somebody joining is given an end date from the day they start, and it appears here as it approaches. Nobody already on a probation is given one, their record is what it is.",
+  },
+  /* Rendered on `/settings/sms`, which is where the people who have opted in,
+     and whether anything can be sent at all, are on the same screen as the
+     switch. */
+  smsDigest: {
+    label: "Weekly text message",
+    line: "A weekly text of counts and a link, for the people who opt in.",
   },
 };
 
@@ -745,6 +755,9 @@ function fromApi(features: ApiFeatures): State {
       multiAppraiser: features.multiAppraiser,
       leaveTwoStepApproval: features.leaveTwoStepApproval,
       probationTracking: features.probationTracking,
+      /* Optional on the wire, and a company that was never asked is a company
+         without it. */
+      smsDigest: features.smsDigest ?? false,
     },
     headcountBand: features.headcountBand,
     setupStep: features.setupStep,
@@ -963,6 +976,7 @@ export function useFeatureSettings() {
           multiAppraiser: features.multiAppraiser,
           leaveTwoStepApproval: features.leaveTwoStepApproval,
           probationTracking: features.probationTracking,
+          smsDigest: features.smsDigest ?? false,
           headcountBand: features.headcountBand,
         };
       } finally {
