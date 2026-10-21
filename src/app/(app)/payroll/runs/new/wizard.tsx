@@ -381,9 +381,13 @@ export function PayrollRunWizard() {
   const [puttingBack, setPuttingBack] = useState<string | null>(null);
 
   /* The run for the chosen period, whether this session prepared it or a
-     previous one did. Derived, so changing the period switches runs with no
+     previous one did. A cancelled one is not "prepared": it stayed on this
+     screen as "already prepared" after being cancelled, with nothing to do but
+     prepare it again. Derived, so changing the period switches runs with no
      effect and no stale detail. */
-  const existing = runs.find((run) => run.period === period) ?? null;
+  const existing =
+    runs.find((run) => run.period === period && run.status !== "CANCELLED") ??
+    null;
   const runId = existing?.id ?? null;
   const detail = usePayrollRun(runId);
   const run = detail.run;
