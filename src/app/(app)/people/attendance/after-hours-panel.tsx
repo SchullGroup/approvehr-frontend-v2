@@ -6,15 +6,13 @@ import {
   Badge,
   Button,
   Card,
-  CardBody,
   CardHeader,
   EmptyState,
   Field,
-  Spinner,
   Textarea,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { attendanceApi, type ApiAfterHoursScan } from "@/lib/api/attendance";
 import { useCan } from "@/lib/permissions";
@@ -132,123 +130,122 @@ export function AfterHoursPanel() {
         title="After hours"
         description="Door scans outside working hours. Nothing here reaches a timesheet until you decide."
       />
-      {error && (
-        <CardBody>
-          <LoadFailure
-            subject="the after-hours scans"
-            error={error}
-            onRetry={() => setTick((t) => t + 1)}
-          />
-        </CardBody>
-      )}
-      {rows === null ? (
-        <CardBody className="flex justify-center py-10">
-          <Spinner />
-        </CardBody>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          icon={<DoorOpen aria-hidden="true" />}
-          title="Nothing waiting"
-          description="No door scans outside working hours need a decision."
-        />
-      ) : (
-        <ul className="divide-y divide-line">
-          {rows.map((scan) => {
-            const open = counting === scan.punchId;
-            const busy = busyId === scan.punchId;
-            return (
-              <li key={scan.punchId} className="flex flex-col gap-3 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-                      <span>{scan.employeeName}</span>
-                      {scan.nonWorkingDay && (
-                        <Badge tone="info" size="sm">
-                          weekend/holiday
-                        </Badge>
-                      )}
-                    </p>
-                    <p className="mt-0.5 text-meta text-muted">
-                      <span>{shortDate(scan.workDate)}</span>
-                      {" · "}
-                      <span className="tabular">
-                        {formatTime(scan.punchedAt, timeZone)}
-                      </span>
-                      {" · "}
-                      <span>{scan.deviceLabel}</span>
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() =>
-                        void decide(
-                          scan.punchId,
-                          () =>
-                            attendanceApi.dismissAfterHours(scan.punchId, {}),
-                          "Dismissed",
-                        )
-                      }
-                    >
-                      Dismiss
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => {
-                        setCounting(open ? null : scan.punchId);
-                        setNote("");
-                      }}
-                    >
-                      Count as extra hours
-                    </Button>
-                  </div>
-                </div>
-
-                {open && (
-                  <div className="flex flex-col gap-3">
-                    <Field
-                      label="Note"
-                      required
-                      help={`Why this counts, ${String(NOTE_MIN)}–${String(NOTE_MAX)} characters. It is kept with the correction.`}
-                    >
-                      <Textarea
-                        rows={2}
-                        maxLength={NOTE_MAX}
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                      />
-                    </Field>
-                    <div>
-                      <Button
-                        variant="accent"
-                        size="sm"
-                        disabled={!noteOk || busy}
-                        loading={busy}
-                        onClick={() =>
-                          void decide(
-                            scan.punchId,
-                            () =>
-                              attendanceApi.countAfterHours(scan.punchId, {
-                                note: trimmed,
-                              }),
-                            "Counted as extra hours",
-                          )
-                        }
-                      >
-                        Count it
-                      </Button>
+      <LoadState
+        loading={rows === null && error === null}
+        error={error}
+        subject="the after-hours scans"
+        onRetry={() => setTick((t) => t + 1)}
+        hasData={rows !== null}
+      >
+        {rows !== null &&
+          (rows.length === 0 ? (
+            <EmptyState
+              icon={<DoorOpen aria-hidden="true" />}
+              title="Nothing waiting"
+              description="No door scans outside working hours need a decision."
+            />
+          ) : (
+            <ul className="divide-y divide-line">
+              {rows.map((scan) => {
+                const open = counting === scan.punchId;
+                const busy = busyId === scan.punchId;
+                return (
+                  <li key={scan.punchId} className="flex flex-col gap-3 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                          <span>{scan.employeeName}</span>
+                          {scan.nonWorkingDay && (
+                            <Badge tone="info" size="sm">
+                              weekend/holiday
+                            </Badge>
+                          )}
+                        </p>
+                        <p className="mt-0.5 text-meta text-muted">
+                          <span>{shortDate(scan.workDate)}</span>
+                          {" · "}
+                          <span className="tabular">
+                            {formatTime(scan.punchedAt, timeZone)}
+                          </span>
+                          {" · "}
+                          <span>{scan.deviceLabel}</span>
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() =>
+                            void decide(
+                              scan.punchId,
+                              () =>
+                                attendanceApi.dismissAfterHours(
+                                  scan.punchId,
+                                  {},
+                                ),
+                              "Dismissed",
+                            )
+                          }
+                        >
+                          Dismiss
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => {
+                            setCounting(open ? null : scan.punchId);
+                            setNote("");
+                          }}
+                        >
+                          Count as extra hours
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+
+                    {open && (
+                      <div className="flex flex-col gap-3">
+                        <Field
+                          label="Note"
+                          required
+                          help={`Why this counts, ${String(NOTE_MIN)}–${String(NOTE_MAX)} characters. It is kept with the correction.`}
+                        >
+                          <Textarea
+                            rows={2}
+                            maxLength={NOTE_MAX}
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                          />
+                        </Field>
+                        <div>
+                          <Button
+                            variant="accent"
+                            size="sm"
+                            disabled={!noteOk || busy}
+                            loading={busy}
+                            onClick={() =>
+                              void decide(
+                                scan.punchId,
+                                () =>
+                                  attendanceApi.countAfterHours(scan.punchId, {
+                                    note: trimmed,
+                                  }),
+                                "Counted as extra hours",
+                              )
+                            }
+                          >
+                            Count it
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ))}
+      </LoadState>
     </Card>
   );
 }
