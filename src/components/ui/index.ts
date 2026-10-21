@@ -55,6 +55,7 @@ export {
 
 export { Pagination } from "./pagination";
 export { FilterBar } from "./filter-bar";
+export { ToggleFilter } from "./toggle-filter";
 export type { AppliedFilter } from "./filter-bar";
 
 export {

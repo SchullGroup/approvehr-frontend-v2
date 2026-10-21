@@ -7,7 +7,6 @@ import {
   Button,
   Card,
   CardHeader,
-  Checkbox,
   ConfirmDialog,
   EmptyState,
   Field,
@@ -21,6 +20,7 @@ import {
   THead,
   TR,
   TableWrap,
+  ToggleFilter,
 } from "@/components/ui";
 import type {
   CreateTypeInput,
@@ -77,10 +77,10 @@ export function ExpenseTypes({
           description="Each one carries its own cap and receipt rule."
           action={
             <div className="flex flex-wrap items-center gap-4">
-              <Checkbox
+              <ToggleFilter
                 label="Show archived"
                 checked={includeArchived}
-                onChange={(e) => onIncludeArchivedChange(e.target.checked)}
+                onChange={onIncludeArchivedChange}
               />
               {canManage && (
                 <Button

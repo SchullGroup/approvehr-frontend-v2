@@ -190,12 +190,10 @@ export function Stat({
   icon?: React.ReactNode;
   className?: string;
 }) {
+  /* Never red and green. A trend is a remark on a figure, not an alarm: the
+     good direction takes the brand colour and the rest stay quiet. */
   const trendTone =
-    trend?.direction === "up"
-      ? "text-success-text"
-      : trend?.direction === "down"
-        ? "text-danger-text"
-        : "text-muted";
+    trend?.direction === "up" ? "text-accent-text" : "text-muted";
 
   return (
     <div

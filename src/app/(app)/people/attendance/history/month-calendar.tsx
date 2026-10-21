@@ -320,9 +320,10 @@ export function MonthCalendar({
                         key={line.tone}
                         className={cn(
                           "text-meta whitespace-nowrap",
-                          line.tone === "out"
-                            ? "font-medium text-danger-text"
-                            : "text-muted",
+                          /* Everybody not in is the usual state of a day, and a
+                             column of red down the month read as alarm. Fainter
+                             than the count of people who are in. */
+                          line.tone === "out" ? "text-faint" : "text-muted",
                         )}
                       >
                         {line.text}

@@ -119,7 +119,10 @@ describe("the stat cards after a write", () => {
     listPostings.mockResolvedValue(page("PUBLISHED"));
     analytics.mockResolvedValue(totals(1));
     await userEvent.click(
-      screen.getAllByRole("button", { name: "Publish" })[0]!,
+      screen.getAllByRole("button", { name: /More actions for/ })[0]!,
+    );
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: "Publish" }),
     );
 
     await waitFor(() =>
@@ -138,7 +141,12 @@ describe("the stat cards after a write", () => {
     closePosting.mockResolvedValue({ waiting: 0 });
     listPostings.mockResolvedValue(page("CLOSED"));
     analytics.mockResolvedValue(totals(0));
-    await userEvent.click(screen.getAllByRole("button", { name: "Close" })[0]!);
+    await userEvent.click(
+      screen.getAllByRole("button", { name: /More actions for/ })[0]!,
+    );
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: "Close" }),
+    );
     await userEvent.click(
       await screen.findByRole("button", { name: "Close advert" }),
     );

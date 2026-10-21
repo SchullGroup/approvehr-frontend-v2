@@ -94,18 +94,16 @@
   --color-info-line: #c2ddef;
 
   /* ---- Categorical. Charts and pipeline stages only, never status. --- */
+  /* One family around the brand indigo, not a rainbow: the base, a lighter
+     step of it, a cool neighbour (teal), a warm neighbour (violet), the muted
+     complement (ochre) and a slate. Each clears 3:1 against the canvas, which
+     `scripts/verify-contrast.ts` checks. */
   --color-cat-1: #2b3990;
-  --color-cat-2: #12a374;
-  /* #d99400 (== --color-warning) and #c8873c were both below the 3:1 non-text
-     minimum against canvas — 2.43:1 and 2.85:1 — with nothing checking a
-     categorical colour until scripts/verify-contrast.ts gained that matrix.
-     Darkened just enough to clear it; --color-warning itself is untouched,
-     since a chart series needing its own contrast guarantee is a different
-     question from a status dot's. */
-  --color-cat-3: #bf8200;
-  --color-cat-4: #7c5cd6;
-  --color-cat-5: #2b87c4;
-  --color-cat-6: #c0823a;
+  --color-cat-2: #5f73c7;
+  --color-cat-3: #3d8798;
+  --color-cat-4: #a67c2b;
+  --color-cat-5: #7a6bb8;
+  --color-cat-6: #5d6b8a;
 
   /* ---- Typography ---------------------------------------------------- */
   /* Geist is a neo grotesque in the same lineage as Stripe's Sohne. */
@@ -325,11 +323,11 @@
   --color-info-line: #295068;
 
   --color-cat-1: #8c99ee;
-  --color-cat-2: #3adaa5;
-  --color-cat-3: #f0b33e; /* = warning-text, same reuse light mode already makes */
-  --color-cat-4: #b39cfb;
-  --color-cat-5: #7ec1ee; /* = info-text, same reuse light mode already makes */
-  --color-cat-6: #e2ac71;
+  --color-cat-2: #6f86d6;
+  --color-cat-3: #6fb3c4;
+  --color-cat-4: #d1ad66;
+  --color-cat-5: #a99be0;
+  --color-cat-6: #8e9bbb;
 
   /* An ink-tinted shadow at 4-9% opacity is invisible on a near-black ground.
      Every Card/Modal/Drawer already carries `border border-line` unconditionally,

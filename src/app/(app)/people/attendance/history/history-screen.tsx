@@ -19,7 +19,6 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   ColumnChart,
   EmptyState,
   SegmentedControl,
@@ -35,6 +34,7 @@ import {
   TableWrap,
   TextLink,
   formatMoney,
+  ToggleFilter,
 } from "@/components/ui";
 import { ExportButton } from "@/components/portal/export-button";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -977,10 +977,10 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                 export that does not need the pay permission. */}
             {sheet.source === "api" && mayExport && (
               <>
-                <Checkbox
+                <ToggleFilter
                   label="Exceptions only"
                   checked={exceptionsOnly}
-                  onChange={(e) => setExceptionsOnly(e.target.checked)}
+                  onChange={setExceptionsOnly}
                 />
                 <ExportButton
                   label="Download"

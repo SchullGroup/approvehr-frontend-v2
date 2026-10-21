@@ -3,14 +3,14 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Check,
   Copy,
   ExternalLink,
   Lock,
   Megaphone,
   Plus,
   Search,
-  TriangleAlert,
+  FileText,
+  Pencil,
 } from "lucide-react";
 import {
   Badge,
@@ -38,6 +38,8 @@ import {
   TextLink,
   formatMoney,
   useToast,
+  RowActions,
+  type RowActionItem,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
@@ -536,16 +538,7 @@ function Adverts() {
 
 /* -------------------------------------------------------------------------- */
 
-function AdvertRow({
-  posting,
-  waiting,
-  editable,
-  copied,
-  onCopy,
-  onEdit,
-  onPublish,
-  onClose,
-}: {
+type AdvertProps = {
   posting: ApiPosting;
   waiting: number;
   editable: boolean;
@@ -554,57 +547,81 @@ function AdvertRow({
   onEdit: () => void;
   onPublish: () => void;
   onClose: () => void;
-}) {
+};
+
+/** Everything a row used to carry as buttons, in one menu. */
+function advertActions({
+  posting,
+  editable,
+  copied,
+  onCopy,
+  onEdit,
+  onPublish,
+  onClose,
+}: AdvertProps): RowActionItem[] {
   const isLive = posting.status === "PUBLISHED";
+  return [
+    {
+      label: "Form and links",
+      icon: <FileText aria-hidden="true" className="size-4" />,
+      href: `/hiring/postings/${posting.id}`,
+    },
+    ...(isLive
+      ? [
+          {
+            label: copied ? "Copied" : "Copy link",
+            icon: <Copy aria-hidden="true" className="size-4" />,
+            onSelect: onCopy,
+          },
+          {
+            label: "Open the advert page",
+            icon: <ExternalLink aria-hidden="true" className="size-4" />,
+            href: careersPath(posting.publicPath),
+            external: true,
+          },
+        ]
+      : []),
+    ...(editable
+      ? [
+          "separator" as const,
+          {
+            label: "Edit",
+            icon: <Pencil aria-hidden="true" className="size-4" />,
+            onSelect: onEdit,
+          },
+          ...(posting.status === "DRAFT"
+            ? [{ label: "Publish", onSelect: onPublish }]
+            : []),
+          ...(posting.status === "CLOSED"
+            ? [{ label: "Publish again", onSelect: onPublish }]
+            : []),
+          ...(isLive ? [{ label: "Close", onSelect: onClose }] : []),
+        ]
+      : []),
+  ];
+}
+
+/** One line for who and what, one for where. Everything else is a click away. */
+function advertSubtitle(posting: ApiPosting): string {
+  return [
+    posting.requisitionReference ?? "No approved role",
+    EMPLOYMENT_TYPE_LABEL[posting.employmentType],
+    posting.location,
+    requisitionClosedNote(posting.requisitionStatus),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function AdvertRow(props: AdvertProps) {
+  const { posting, waiting } = props;
   /* Never abbreviated. Somebody reconciles a salary band against an offer
      letter, and ₦4.2m is not a figure you can do that with. */
   const band = salaryBand(posting.salaryMinKobo, posting.salaryMaxKobo);
 
   return (
     <TR>
-      <TDPrimary
-        title={
-          <span className="flex flex-wrap items-center gap-2">
-            {posting.title}
-            {posting.requisitionReference ? (
-              <Link
-                href={`/hiring/requisitions/${posting.requisitionId}`}
-                className="tabular text-meta font-normal text-muted hover:text-accent-text hover:underline underline-offset-4"
-              >
-                {posting.requisitionReference}
-              </Link>
-            ) : (
-              <Badge tone="warning" size="sm">
-                No approved role
-              </Badge>
-            )}
-            {requisitionClosedNote(posting.requisitionStatus) && (
-              <Badge
-                tone="warning"
-                size="sm"
-                icon={<TriangleAlert aria-hidden="true" />}
-              >
-                {requisitionClosedNote(posting.requisitionStatus)}
-              </Badge>
-            )}
-          </span>
-        }
-        subtitle={
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span>{EMPLOYMENT_TYPE_LABEL[posting.employmentType]}</span>
-            {posting.location && <span>· {posting.location}</span>}
-            {isLive && (
-              <TextLink
-                href={careersPath(posting.publicPath)}
-                className="tabular inline-flex items-center gap-1 font-normal"
-              >
-                {careersPath(posting.publicPath)}
-                <ExternalLink aria-hidden="true" className="size-3" />
-              </TextLink>
-            )}
-          </span>
-        }
-      />
+      <TDPrimary title={posting.title} subtitle={advertSubtitle(posting)} />
 
       <TD>
         <Badge tone={STATUS_TONE[posting.status]} size="sm" dot>
@@ -636,236 +653,56 @@ function AdvertRow({
       </TD>
 
       <TD>
-        {band === null ? (
-          <span className="text-body-sm text-faint">Not stated</span>
-        ) : (
-          <span className="flex flex-col">
-            <span className="tabular text-body-sm text-ink">{band}</span>
-            {!posting.showSalary && (
-              <span className="text-meta text-muted">Hidden on the advert</span>
-            )}
-          </span>
-        )}
+        <span className="tabular whitespace-nowrap text-body-sm text-body">
+          {band ?? "Not stated"}
+        </span>
       </TD>
 
       <TD>
-        {posting.closesOn ? (
-          <span className="tabular text-body-sm text-body">
-            {posting.closesOn}
-            {!posting.acceptingApplications &&
-              posting.status === "PUBLISHED" && (
-                <span className="mt-0.5 block text-meta text-warning-text">
-                  Date has passed
-                </span>
-              )}
-          </span>
-        ) : (
-          <span className="text-body-sm text-faint">Open</span>
-        )}
+        <span className="tabular whitespace-nowrap text-body-sm text-body">
+          {posting.closesOn ?? "Open"}
+        </span>
       </TD>
 
       <TD align="right">
-        <div className="flex justify-end gap-1.5">
-          <ButtonLink
-            href={`/hiring/postings/${posting.id}`}
-            variant="ghost"
-            size="sm"
-          >
-            Form and links
-          </ButtonLink>
-          {isLive && (
-            <Button variant="ghost" size="sm" onClick={onCopy}>
-              {copied ? (
-                <Check aria-hidden="true" className="size-3.5" />
-              ) : (
-                <Copy aria-hidden="true" className="size-3.5" />
-              )}
-              {copied ? "Copied" : "Copy link"}
-            </Button>
-          )}
-          {editable && (
-            <>
-              <Button variant="ghost" size="sm" onClick={onEdit}>
-                Edit
-              </Button>
-              {posting.status === "DRAFT" && (
-                <Button variant="accent" size="sm" onClick={onPublish}>
-                  Publish
-                </Button>
-              )}
-              {posting.status === "CLOSED" && (
-                <Button variant="secondary" size="sm" onClick={onPublish}>
-                  Publish again
-                </Button>
-              )}
-              {isLive && (
-                <Button variant="secondary" size="sm" onClick={onClose}>
-                  Close
-                </Button>
-              )}
-            </>
-          )}
-        </div>
+        <RowActions
+          label={`More actions for ${posting.title}`}
+          items={advertActions(props)}
+        />
       </TD>
     </TR>
   );
 }
 
-/** The mobile card for one advert — the same facts and the same actions as
- *  `AdvertRow`, laid out as a card rather than six cells. */
-function AdvertCard({
-  posting,
-  waiting,
-  editable,
-  copied,
-  onCopy,
-  onEdit,
-  onPublish,
-  onClose,
-}: {
-  posting: ApiPosting;
-  waiting: number;
-  editable: boolean;
-  copied: boolean;
-  onCopy: () => void;
-  onEdit: () => void;
-  onPublish: () => void;
-  onClose: () => void;
-}) {
-  const isLive = posting.status === "PUBLISHED";
+/** The mobile card for one advert: the same facts, two lines, the same menu. */
+function AdvertCard(props: AdvertProps) {
+  const { posting, waiting } = props;
   const band = salaryBand(posting.salaryMinKobo, posting.salaryMaxKobo);
 
   return (
-    <li className="flex flex-col gap-2 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-            {posting.title}
-            {posting.requisitionReference ? (
-              <Link
-                href={`/hiring/requisitions/${posting.requisitionId}`}
-                className="tabular text-meta font-normal text-muted hover:text-accent-text hover:underline underline-offset-4"
-              >
-                {posting.requisitionReference}
-              </Link>
-            ) : (
-              <Badge tone="warning" size="sm">
-                No approved role
-              </Badge>
-            )}
-            {requisitionClosedNote(posting.requisitionStatus) && (
-              <Badge
-                tone="warning"
-                size="sm"
-                icon={<TriangleAlert aria-hidden="true" />}
-              >
-                {requisitionClosedNote(posting.requisitionStatus)}
-              </Badge>
-            )}
-          </p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
-            <span>{EMPLOYMENT_TYPE_LABEL[posting.employmentType]}</span>
-            {posting.location && <span>· {posting.location}</span>}
-          </p>
-          {isLive && (
-            <TextLink
-              href={careersPath(posting.publicPath)}
-              className="tabular mt-0.5 inline-flex items-center gap-1 text-meta font-normal"
-            >
-              {careersPath(posting.publicPath)}
-              <ExternalLink aria-hidden="true" className="size-3" />
-            </TextLink>
-          )}
-        </div>
-        <Badge tone={STATUS_TONE[posting.status]} size="sm" dot>
-          {STATUS_LABEL[posting.status]}
-        </Badge>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
-        {posting.applicationCount > 0 ? (
-          <Link
-            href={`/hiring/postings/applications?posting=${posting.id}&status=ALL`}
-            className="tabular font-medium text-accent-text hover:underline underline-offset-4"
-          >
-            {posting.applicationCount} applications
-          </Link>
-        ) : (
-          <span className="tabular">
-            {posting.applicationCount} applications
-          </span>
-        )}
-        {waiting > 0 && (
-          <TextLink
-            href={`/hiring/postings/applications?posting=${posting.id}`}
-            className="tabular"
-          >
-            {waiting} waiting
-          </TextLink>
-        )}
-        <span className="tabular">
-          {posting.closesOn ? `Closes ${posting.closesOn}` : "Open"}
-          {posting.closesOn &&
-            !posting.acceptingApplications &&
-            posting.status === "PUBLISHED" && (
-              <span className="text-warning-text"> · date passed</span>
-            )}
-        </span>
-      </div>
-
-      {band !== null && (
-        <p className="tabular text-body-sm text-body">
-          {band}
-          {!posting.showSalary && (
-            <span className="text-meta text-muted">
-              {" "}
-              · hidden on the advert
-            </span>
-          )}
+    <li className="flex items-start justify-between gap-3 p-4">
+      <div className="min-w-0">
+        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+          {posting.title}
+          <Badge tone={STATUS_TONE[posting.status]} size="sm" dot>
+            {STATUS_LABEL[posting.status]}
+          </Badge>
         </p>
-      )}
-
-      <div className="flex flex-wrap gap-1.5">
-        <ButtonLink
-          href={`/hiring/postings/${posting.id}`}
-          variant="ghost"
-          size="sm"
-        >
-          Form and links
-        </ButtonLink>
-        {isLive && (
-          <Button variant="ghost" size="sm" onClick={onCopy}>
-            {copied ? (
-              <Check aria-hidden="true" className="size-3.5" />
-            ) : (
-              <Copy aria-hidden="true" className="size-3.5" />
-            )}
-            {copied ? "Copied" : "Copy link"}
-          </Button>
-        )}
-        {editable && (
-          <>
-            <Button variant="ghost" size="sm" onClick={onEdit}>
-              Edit
-            </Button>
-            {posting.status === "DRAFT" && (
-              <Button variant="accent" size="sm" onClick={onPublish}>
-                Publish
-              </Button>
-            )}
-            {posting.status === "CLOSED" && (
-              <Button variant="secondary" size="sm" onClick={onPublish}>
-                Publish again
-              </Button>
-            )}
-            {isLive && (
-              <Button variant="secondary" size="sm" onClick={onClose}>
-                Close
-              </Button>
-            )}
-          </>
-        )}
+        <p className="mt-0.5 text-meta text-muted">
+          {[
+            advertSubtitle(posting),
+            `${String(posting.applicationCount)} applications`,
+            waiting > 0 ? `${String(waiting)} waiting` : null,
+            band,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
       </div>
+      <RowActions
+        label={`More actions for ${posting.title}`}
+        items={advertActions(props)}
+      />
     </li>
   );
 }

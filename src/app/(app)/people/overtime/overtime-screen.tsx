@@ -297,42 +297,6 @@ function AllOvertime() {
           </Card>
         )}
 
-        {awaitingApproval.count > 0 && (
-          <div className="rounded-lg border border-warning-line bg-warning-soft p-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="flex items-center gap-2 text-body-sm font-semibold text-ink">
-                  <TriangleAlert
-                    aria-hidden="true"
-                    className="size-4 shrink-0"
-                  />
-                  Waiting for approval
-                </p>
-                <p className="mt-2">
-                  <Money
-                    amount={naira(awaitingApproval.amountKobo)}
-                    decimals
-                    size="lg"
-                  />
-                </p>
-                <p className="mt-1 text-body-sm text-body">
-                  {hoursLabel(awaitingApproval.minutes)} across{" "}
-                  {awaitingApproval.count === 1
-                    ? "one day"
-                    : `${awaitingApproval.count} days`}
-                  , this month and any other. Unapproved overtime is not paid:
-                  the payroll run raises it as a warning.
-                </p>
-              </div>
-              {status !== "PENDING" && (
-                <Button size="sm" onClick={() => setStatus("PENDING")}>
-                  Show what is waiting
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-
         <Card>
           <CardHeader
             title={monthLabel(period)}
@@ -352,7 +316,14 @@ function AllOvertime() {
             action={
               <SegmentedControl
                 label="Show"
-                options={FILTERS}
+                options={FILTERS.map((option) =>
+                  option.value === "PENDING" && awaitingApproval.count > 0
+                    ? {
+                        ...option,
+                        label: `${option.label} ${String(awaitingApproval.count)}`,
+                      }
+                    : option,
+                )}
                 value={status}
                 onChange={setStatus}
               />

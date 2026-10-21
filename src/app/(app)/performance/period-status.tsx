@@ -124,7 +124,6 @@ function RailSegment({
   showFigures: boolean;
 }) {
   const nothingToMeasure = segment.total === 0;
-  const complete = !nothingToMeasure && segment.done === segment.total;
 
   return (
     <div
@@ -161,7 +160,7 @@ function RailSegment({
             className="mt-1.5"
             value={segment.done}
             max={segment.total}
-            tone={complete ? "success" : "accent"}
+            tone="accent"
             size="sm"
             showValue={false}
           />

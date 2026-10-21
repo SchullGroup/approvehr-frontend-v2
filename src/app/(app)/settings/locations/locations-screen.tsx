@@ -10,7 +10,6 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   ConfirmDialog,
   EmptyState,
   Spinner,
@@ -24,6 +23,7 @@ import {
   TR,
   TableWrap,
   useToast,
+  ToggleFilter,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -304,13 +304,10 @@ export function LocationsScreen() {
             title="Where people clock in"
             description={GEOFENCE_EXPLANATION}
             action={
-              <Checkbox
+              <ToggleFilter
                 label="Show switched-off locations"
                 checked={showArchived}
-                onChange={(e) => {
-                  const next = e.target.checked;
-                  setShowArchived(next);
-                }}
+                onChange={setShowArchived}
               />
             }
           />

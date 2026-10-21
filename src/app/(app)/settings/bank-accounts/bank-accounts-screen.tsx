@@ -14,7 +14,6 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   ConfirmDialog,
   EmptyState,
   Spinner,
@@ -29,6 +28,7 @@ import {
   TR,
   TableWrap,
   useToast,
+  ToggleFilter,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -309,13 +309,10 @@ export function BankAccountsScreen() {
             title="Accounts"
             description="One account is where salaries come from. The rest are on file."
             action={
-              <Checkbox
+              <ToggleFilter
                 label="Show archived"
                 checked={showArchived}
-                onChange={(e) => {
-                  const next = e.target.checked;
-                  setShowArchived(next);
-                }}
+                onChange={setShowArchived}
               />
             }
           />

@@ -361,14 +361,15 @@ const WhoIsIn: WidgetComponent = ({ dashboard }) => {
           {
             label: "Clocked in",
             value: today.clockedIn,
-            color: "var(--color-success-strong)",
+            color: "var(--color-cat-1)",
           },
           ...(today.late > 0
             ? [
                 {
                   label: "Late",
                   value: today.late,
-                  color: "var(--color-warning)",
+                  color:
+                    "color-mix(in srgb, var(--color-cat-4) 55%, var(--color-surface))",
                 },
               ]
             : []),
@@ -377,7 +378,7 @@ const WhoIsIn: WidgetComponent = ({ dashboard }) => {
                 {
                   label: "On leave",
                   value: today.onLeave,
-                  color: "var(--color-accent-line)",
+                  color: "var(--color-cat-3)",
                 },
               ]
             : []),
@@ -386,7 +387,7 @@ const WhoIsIn: WidgetComponent = ({ dashboard }) => {
                 {
                   label: "Not accounted for",
                   value: today.unaccountedFor,
-                  color: "var(--color-danger)",
+                  color: "var(--color-cat-4)",
                 },
               ]
             : []),
@@ -427,7 +428,7 @@ const PayrollMonth: WidgetComponent = ({ dashboard }) => {
           <div className="flex flex-wrap items-baseline gap-3">
             <Money amount={naira(payroll.netKobo)} decimals size="xl" />
             <Badge
-              tone={payroll.status === "APPROVED" ? "success" : "neutral"}
+              tone={payroll.status === "APPROVED" ? "accent" : "neutral"}
               size="sm"
             >
               {runStatusLabel(payroll.status)}
@@ -556,7 +557,7 @@ const JoinersLeavers: WidgetComponent = ({ reports, reportsLoading }) => {
             value: row.leavers,
           }))}
           height={110}
-          tones={["var(--color-warning)"]}
+          tones={["var(--color-cat-4)"]}
           format={(n) => String(n)}
           caption="People who left, by month."
         />

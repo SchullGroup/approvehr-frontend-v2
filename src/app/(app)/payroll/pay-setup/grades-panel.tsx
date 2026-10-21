@@ -18,7 +18,6 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   ConfirmDialog,
   Drawer,
   EmptyState,
@@ -38,6 +37,7 @@ import {
   TableWrap,
   formatMoney,
   useToast,
+  ToggleFilter,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
@@ -224,13 +224,10 @@ export function GradesPanel() {
                 }}
               />
             </div>
-            <Checkbox
+            <ToggleFilter
               label="Show archived"
               checked={includeArchived}
-              onChange={(e) => {
-                const value = e.target.checked;
-                setIncludeArchived(value);
-              }}
+              onChange={setIncludeArchived}
             />
           </div>
 

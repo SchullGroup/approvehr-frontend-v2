@@ -10,7 +10,6 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   ConfirmDialog,
   EmptyState,
   Spinner,
@@ -25,6 +24,7 @@ import {
   TR,
   TableWrap,
   useToast,
+  ToggleFilter,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -436,13 +436,10 @@ export function DevicesScreen() {
             title="Registered terminals"
             description="Each machine signs its deliveries with its own secret, so an unregistered box cannot write anybody's attendance."
             action={
-              <Checkbox
+              <ToggleFilter
                 label="Show switched-off terminals"
                 checked={showArchived}
-                onChange={(e) => {
-                  const next = e.target.checked;
-                  setShowArchived(next);
-                }}
+                onChange={setShowArchived}
               />
             }
           />
