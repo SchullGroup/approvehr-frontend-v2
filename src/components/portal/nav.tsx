@@ -22,6 +22,7 @@ import {
   FolderKanban,
   FolderOpen,
   GraduationCap,
+  HeartPulse,
   History,
   Inbox,
   Laptop,
@@ -372,6 +373,19 @@ const PERSONAL: NavItem[] = [
     label: "Projects",
     icon: <FolderKanban aria-hidden="true" />,
     feature: "projects",
+    always: true,
+  },
+  {
+    /* Here for the reason Projects is: it belongs to the person using it and to
+       no module the site sells. No permission, because every employee keeps
+       their own log and gives kudos; the screens narrow what a role sees (the
+       organisation's challenge and floor settings need `MANAGE_SETTINGS`) and
+       the API decides everything else. The flag is what keeps it out of a
+       company that has not switched it on. */
+    href: "/wellness",
+    label: "Wellness",
+    icon: <HeartPulse aria-hidden="true" />,
+    feature: "wellness",
     always: true,
   },
   /*

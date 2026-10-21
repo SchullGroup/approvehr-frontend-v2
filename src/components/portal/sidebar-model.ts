@@ -403,6 +403,16 @@ const KEYWORDS: Record<string, string[]> = {
   "home/My approvals": ["approve", "inbox", "pending", "requests", "to do"],
   "home/Assistant": ["ai", "ask", "chat", "copilot"],
   "home/Projects": ["tasks", "kanban", "board", "issues", "work"],
+  "home/Wellness": [
+    "water",
+    "steps",
+    "challenge",
+    "kudos",
+    "recognition",
+    "break",
+    "reminders",
+    "health",
+  ],
 
   "core-hr/Employees": ["staff", "people", "directory", "team", "workers"],
   "core-hr/Departments": ["teams", "units", "divisions", "org structure"],
