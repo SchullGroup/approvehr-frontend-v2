@@ -197,6 +197,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const facts: NavFacts = useMemo(
     () => ({
       assistantWired,
+      earlyPay: features.earlyPay,
       earlyPayHidden: features.earnedWage === false && !canSetEarlyPay,
       rows: {
         "one-on-ones": isManager || inAOneOnOne,
@@ -207,6 +208,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }),
     [
       assistantWired,
+      features.earlyPay,
       features.earnedWage,
       canSetEarlyPay,
       isManager,

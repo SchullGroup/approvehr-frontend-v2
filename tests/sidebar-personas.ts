@@ -39,6 +39,7 @@ const facts = (
   assistantWired = true,
 ): NavFacts => ({
   assistantWired,
+  earlyPay: true,
   rows: { ...NOTHING_ANSWERED_YET.rows, ...rows },
 });
 

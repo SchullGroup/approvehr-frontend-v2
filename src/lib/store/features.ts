@@ -81,6 +81,12 @@ type State = {
    */
   probationMonths: number;
   /**
+   * Whether ApproveHR lets this company offer early pay. Not in `flags`: the
+   * company cannot set it, so it must not turn up as a toggle. The sidebar
+   * reads it through `NavFacts.earlyPay`.
+   */
+  earlyPay: boolean;
+  /**
    * Whether the company has switched on drawing pay early. Null until the
    * server has said, which the nav reads as "show it": a menu that hides a row
    * on a guess is worse than one that shows it a moment early.
@@ -190,6 +196,9 @@ const LOADING: State = {
      same and nothing is gated on it, so an empty default is safe here. */
   stepUpActions: [],
   probationMonths: PROBATION_MONTHS_FALLBACK,
+  /* Hidden until the server answers: a row that appears late is better than
+     one that vanishes under somebody's pointer. */
+  earlyPay: false,
   earnedWage: null,
   loading: true,
   error: null,
@@ -711,6 +720,9 @@ function fromApi(features: ApiFeatures): State {
     deductions: null,
     stepUpActions: features.stepUpActions,
     probationMonths: features.probationMonths,
+    /* An API one deploy behind does not send it, and that API has no switch
+       to have turned anybody off. */
+    earlyPay: features.earlyPay ?? true,
     /* Only the read carries it; a save's answer must not erase what was known. */
     earnedWage: features.earnedWage ?? cache.earnedWage,
     flags: {
@@ -758,6 +770,8 @@ function fromDemo(demo: DemoState): State {
        answer to carry, and a number somebody had "set" here would describe a
        policy no employee record in this browser was created under. */
     probationMonths: PROBATION_MONTHS_FALLBACK,
+    /* Nobody switches a demo company off. */
+    earlyPay: true,
     earnedWage: null,
     headcountBand: demo.headcountBand,
     setupStep: demo.setupStep,
@@ -850,6 +864,8 @@ function useLoadedState(): State {
  */
 export function useFeatures(): FeatureFlags & {
   headcountBand: HeadcountBand;
+  /** See `State.earlyPay`. */
+  earlyPay: boolean;
   setupRequired: boolean;
   setupStep: number;
   totalSteps: number;
@@ -886,6 +902,7 @@ export function useFeatures(): FeatureFlags & {
   return {
     ...state.flags,
     headcountBand: state.headcountBand,
+    earlyPay: state.earlyPay,
     setupRequired: state.setupRequired,
     setupStep: state.setupStep,
     totalSteps: state.totalSteps,

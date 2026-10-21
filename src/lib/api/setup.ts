@@ -214,6 +214,12 @@ export type ApiFeatures = {
   /** The default length, in months. Only read when tracking is on. */
   probationMonths: number;
   /**
+   * Whether ApproveHR lets this company offer early pay. Read-only: only the
+   * admin dashboard moves it, and `PATCH /setup/features` ignores it. Optional
+   * because an API one deploy behind does not send it.
+   */
+  earlyPay?: boolean;
+  /**
    * Whether the company has switched on drawing pay early. Read-only here: it
    * is the pay-early policy's own switch, set from the Pay early screen.
    * Optional because only `GET /setup/features` sends it, and an API one deploy

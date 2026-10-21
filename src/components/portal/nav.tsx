@@ -91,6 +91,13 @@ export type NavFacts = {
    */
   assistantWired: boolean;
   /**
+   * Whether ApproveHR lets this company offer early pay at all — `earlyPay` on
+   * `GET /setup/features`, which follows a switch only we can move, from the
+   * admin dashboard. Not a `FeatureKey`: the company cannot set it, and as a
+   * flag it would turn up as a toggle on `/settings/features` that always fails.
+   */
+  earlyPay: boolean;
+  /**
    * True when the company has not switched on pay early **and** this reader
    * cannot switch it on. Optional so every caller from before this question
    * keeps compiling; absent reads as "show it".
@@ -115,6 +122,7 @@ export type NavFacts = {
  */
 export const NOTHING_ANSWERED_YET: NavFacts = {
   assistantWired: false,
+  earlyPay: false,
   rows: { "one-on-ones": false, signatures: false, interviews: false },
   collaborator: false,
 };
@@ -227,6 +235,13 @@ export type NavItem = {
   assistant?: true;
 
   /**
+   * Hidden unless ApproveHR allows this company early pay. See
+   * `NavFacts.earlyPay`. Like `assistant`, not a question about the reader, so
+   * `always` does not override it.
+   */
+  earlyPay?: true;
+
+  /**
    * Hidden while `NavFacts.earlyPayHidden`. A row for something the company has
    * not switched on leads to a screen that can only say no.
    */
@@ -260,7 +275,8 @@ export type NavItem = {
    * somebody's memory.
    *
    * Opts out of the **permission** check only. A `feature` still hides an item,
-   * and so does `assistant` — neither is a question about the reader.
+   * and so do `assistant` and `earlyPay` — none of them is a question about
+   * the reader.
    */
   always?: boolean;
 
@@ -615,11 +631,15 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
          self-service act, and gating it behind a role would hide it from
          exactly the people it exists for. Whether they *can* is decided by the
          company's policy and by what they have earned — the screen asks the
-         API and renders its refusal. */
+         API and renders its refusal.
+
+         `earlyPay` is the one thing that removes it: ApproveHR switching the
+         company off from the admin dashboard. Then there is nothing to ask. */
       href: "/payroll/advances",
       label: "Pay early",
       icon: <Banknote aria-hidden="true" />,
       always: true,
+      earlyPay: true,
       hideWhenEarlyPayOff: true,
     },
     {
@@ -1095,6 +1115,7 @@ export function visibleNav(
           return item.rows === "interviews" ? [item] : [];
         }
         if (item.assistant && !facts.assistantWired) return [];
+        if (item.earlyPay && !facts.earlyPay) return [];
         if (item.hideWhenEarlyPayOff && facts.earlyPayHidden) return [];
         /* Before the permission checks, and before `always`, because it is a
            different question from all of them: `always` opts out of asking
