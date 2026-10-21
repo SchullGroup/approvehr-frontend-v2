@@ -1438,7 +1438,7 @@ function ScoreParts({ components }: { components: ApiComponentScore[] }) {
     .map((part) => `${part.label}: ${part.excludedNote ?? "nothing recorded"}`)
     .join("\n");
   return (
-    <span className="mt-1 line-clamp-2 block text-meta leading-relaxed text-muted">
+    <span className="mt-1 line-clamp-2 text-meta leading-relaxed text-muted">
       {counted.map((part, index) => (
         <span key={part.component}>
           {index > 0 && <span aria-hidden="true"> · </span>}
