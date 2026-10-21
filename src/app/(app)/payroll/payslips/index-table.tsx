@@ -325,9 +325,6 @@ function PayslipIndex() {
           /* The count and the headcount it covers: nine rows for a company of
              ten is the answer to a different question. */
           value={run ? headcountLabel(run) : "—"}
-          {...(run && run.excludedCount > 0
-            ? { hint: `${run.excludedCount} excluded from this payroll` }
-            : {})}
         />
         <Stat
           label="Net to employees"
