@@ -101,6 +101,24 @@ export function describeActivity(
   if (activity.field === "description") {
     return { verb: "updated the description", from: null, to: null };
   }
+  if (activity.field === "link") {
+    const change = (activity.to ?? {}) as {
+      action?: string;
+      label?: string;
+      other?: { key?: string; title?: string; hidden?: boolean };
+    };
+    const target =
+      !change.other || change.other.hidden
+        ? "a task you can't open"
+        : `${change.other.key ?? ""} ${change.other.title ?? ""}`.trim();
+    const what =
+      change.action === "unlinked" ? "removed a link" : "linked this task";
+    return {
+      verb: `${what}: ${change.label ? `${change.label} ` : ""}${target}`,
+      from: null,
+      to: null,
+    };
+  }
   const label = FIELD_LABEL[activity.field] ?? activity.field;
   if (activity.field === "title") {
     return { verb: "changed the title", from: null, to: null };
