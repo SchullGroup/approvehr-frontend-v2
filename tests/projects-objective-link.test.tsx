@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -187,6 +187,33 @@ describe("count toward, on an issue", () => {
     expect(actions.patchIssue).toHaveBeenCalledWith(issue, {
       goalId: "g-checkout",
     });
+  });
+
+  it("asks for the issue again once the link is saved, so the weekly-task line follows", async () => {
+    const issue = chidis(sampleData());
+    const { actions } = renderDrawer(issue);
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Count toward" }),
+      "Lift checkout conversion",
+    );
+    await waitFor(() =>
+      expect(actions.refreshIssue).toHaveBeenCalledWith(issue),
+    );
+  });
+
+  it("does not ask again when the save was refused", async () => {
+    const issue = chidis(sampleData());
+    const { actions } = renderDrawer(issue);
+    actions.patchIssue.mockResolvedValueOnce({
+      ok: false,
+      message: "No",
+    });
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Count toward" }),
+      "Lift checkout conversion",
+    );
+    await waitFor(() => expect(actions.patchIssue).toHaveBeenCalled());
+    expect(actions.refreshIssue).not.toHaveBeenCalled();
   });
 
   it("unlinks with null, not by leaving the field out", async () => {
