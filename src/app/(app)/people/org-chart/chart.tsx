@@ -407,7 +407,7 @@ export function OrgChartScreen() {
                 title="Some reporting lines loop back on themselves"
               >
                 {fetched.chart.detached.map((person) => person.name).join(", ")}{" "}
-                —{" "}
+                ,{" "}
                 {fetched.chart.detached.length === 1
                   ? "this person reports"
                   : "these people report"}{" "}

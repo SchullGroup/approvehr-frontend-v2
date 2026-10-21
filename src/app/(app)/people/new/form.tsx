@@ -2084,7 +2084,7 @@ export function NewEmployeeForm() {
                     Still needed to pay them: {added.blocking.join(", ")}.
                     Payroll will hold them back until{" "}
                     {added.blocking.length > 1 ? "these are" : "this is"} on the
-                    record —{" "}
+                    record,{" "}
                     <Link
                       href={`/people/${added.id}`}
                       className="font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
@@ -2097,7 +2097,7 @@ export function NewEmployeeForm() {
                 {added.advisory.length > 0 && (
                   <p className="rounded-md bg-canvas p-3 text-muted">
                     Also worth adding: {added.advisory.join(", ")}. This does
-                    not hold their pay back —{" "}
+                    not hold their pay back,{" "}
                     <Link
                       href={`/people/${added.id}`}
                       className="font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"

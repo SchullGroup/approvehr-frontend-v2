@@ -21,6 +21,8 @@ import {
   SuccessMoment,
   Textarea,
   useToast,
+  Tabs,
+  type TabItem,
 } from "@/components/ui";
 import { DecidedCard } from "@/components/payroll/decided-card";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -83,6 +85,8 @@ const TONE: Record<
   RECOVERED: "neutral",
 };
 
+type AdvanceTab = "earned" | "waiting" | "history";
+
 export function AdvancesScreen() {
   const canDecide = useCan("APPROVE_LOANS");
   const canSetPolicy = useCan("MANAGE_PAY_STRUCTURE");
@@ -100,6 +104,23 @@ export function AdvancesScreen() {
     advance: ApiAdvance;
     n: number;
   } | null>(null);
+
+  const [tab, setTab] = useState<AdvanceTab>("earned");
+  const tabItems: TabItem[] = [
+    { id: "earned", label: "Earned" },
+    ...(canDecide
+      ? [
+          {
+            id: "waiting",
+            label: "Waiting on you",
+            ...(waiting.data && waiting.data.length > 0
+              ? { count: waiting.data.length }
+              : {}),
+          },
+        ]
+      : []),
+    { id: "history", label: "Advances" },
+  ];
 
   const reloadAll = () => {
     mine.reload();
@@ -135,29 +156,37 @@ export function AdvancesScreen() {
             {mine.refusal}
           </Callout>
         ) : (
-          <div className="flex flex-col gap-6">
-            <Mine read={mine} onAsk={() => setAsking(true)} />
-            {canDecide && approved && (
-              <DecidedCard
-                key={approved.n}
-                {...advanceApprovedCopy(approved.advance)}
-                onDismiss={() => setApproved(null)}
-              />
+          <Tabs
+            items={tabItems}
+            value={tab}
+            onChange={(next) => setTab(next as AdvanceTab)}
+          >
+            {tab === "earned" && (
+              <Mine read={mine} onAsk={() => setAsking(true)} />
             )}
-            {canDecide && (
-              <Waiting
-                read={waiting}
-                onChanged={reloadAll}
-                onApproved={(advance) =>
-                  setApproved((current) => ({
-                    advance,
-                    n: (current?.n ?? 0) + 1,
-                  }))
-                }
-              />
+            {tab === "waiting" && canDecide && (
+              <div className="flex flex-col gap-6">
+                {approved && (
+                  <DecidedCard
+                    key={approved.n}
+                    {...advanceApprovedCopy(approved.advance)}
+                    onDismiss={() => setApproved(null)}
+                  />
+                )}
+                <Waiting
+                  read={waiting}
+                  onChanged={reloadAll}
+                  onApproved={(advance) =>
+                    setApproved((current) => ({
+                      advance,
+                      n: (current?.n ?? 0) + 1,
+                    }))
+                  }
+                />
+              </div>
             )}
-            <History read={all} />
-          </div>
+            {tab === "history" && <History read={all} />}
+          </Tabs>
         )}
       </PageBody>
       {/* `mine.data` is a data-readiness guard, not an open/close one: the
@@ -239,7 +268,7 @@ function Mine({
               earned.earnedKobo === null ? (
                 <span className="text-faint">—</span>
               ) : (
-                <Money amount={earned.earnedKobo / 100} decimals />
+                <Money amount={earned.earnedKobo / 100} decimals size="xl" />
               )
             }
             hint={
@@ -254,10 +283,9 @@ function Mine({
               eligibility.capKobo === null ? (
                 <span className="text-faint">—</span>
               ) : (
-                <Money amount={eligibility.capKobo / 100} decimals />
+                <Money amount={eligibility.capKobo / 100} decimals size="xl" />
               )
             }
-            hint={`${String(eligibility.maxPercentBp / 100)}% of what you have earned`}
           />
           <Stat
             label="Available now"
@@ -265,7 +293,11 @@ function Mine({
               eligibility.availableKobo === null ? (
                 <span className="text-faint">—</span>
               ) : (
-                <Money amount={eligibility.availableKobo / 100} decimals />
+                <Money
+                  amount={eligibility.availableKobo / 100}
+                  decimals
+                  size="xl"
+                />
               )
             }
             hint={

@@ -443,11 +443,8 @@ function GradeRow({
 
       <TD>
         <span className="block tabular text-body-sm text-ink">
-          <Money amount={naira(row.minGrossKobo)} decimals /> —{" "}
+          <Money amount={naira(row.minGrossKobo)} decimals /> to{" "}
           <Money amount={naira(row.maxGrossKobo)} decimals />
-        </span>
-        <span className="mt-0.5 block text-meta text-muted">
-          Mid-point <Money amount={naira(row.midGrossKobo)} decimals />
         </span>
       </TD>
 
@@ -560,11 +557,8 @@ function GradeCard({
 
       <div className="text-body-sm text-ink">
         <span className="tabular">
-          <Money amount={naira(row.minGrossKobo)} decimals /> —{" "}
+          <Money amount={naira(row.minGrossKobo)} decimals /> to{" "}
           <Money amount={naira(row.maxGrossKobo)} decimals />
-        </span>
-        <span className="mt-0.5 block text-meta text-muted">
-          Mid-point <Money amount={naira(row.midGrossKobo)} decimals />
         </span>
       </div>
 

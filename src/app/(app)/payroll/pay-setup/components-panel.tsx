@@ -765,7 +765,7 @@ function AssigneesDrawer({
                 key={chip.label}
                 className="text-body-sm leading-relaxed text-body"
               >
-                <span className="font-medium text-ink">{chip.label}</span> —{" "}
+                <span className="font-medium text-ink">{chip.label}</span>:{" "}
                 {chip.why}
               </li>
             ))}

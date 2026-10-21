@@ -276,7 +276,7 @@ function Reports() {
       <PageHeader
         title="Reports"
         action={
-          <>
+          <div className="flex flex-wrap items-end gap-3">
             {/* These charts answer a fixed set of questions about one month.
                 Anything else is the builder's job, and a screen nobody can
                 find is a screen nobody has. */}
@@ -284,7 +284,7 @@ function Reports() {
               Build a report
             </ButtonLink>
             {monthPicker}
-          </>
+          </div>
         }
       />
 
