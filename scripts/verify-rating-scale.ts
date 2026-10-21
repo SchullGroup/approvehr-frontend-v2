@@ -1,5 +1,6 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { backendFile, NO_BACKEND } from "./backend-source";
 import { RATING_LABELS, RATING_MEANING } from "../src/lib/api/performance";
 
 /**
@@ -48,16 +49,13 @@ import { RATING_LABELS, RATING_MEANING } from "../src/lib/api/performance";
  * copies in step is not a gate. Parsed out of the API's source as text, because
  * this package cannot resolve that tree.
  *
- * Skips when `approvehr-api` is not checked out beside this repo; the
+ * Skips when there is no backend checkout beside this repo (`scripts/backend-source.ts`); the
  * frontend's CI clones this one alone.
  *
  * Run by `npm run check`.
  */
 
-const SOURCE = path.resolve(
-  import.meta.dirname,
-  "../../../approvehr-api/src/modules/performance/scoring.ts",
-);
+const SOURCE = backendFile("src/modules/performance/scoring.ts");
 
 /**
  * Read a `export const NAME: Record<number, string> = { 5: "…", … };` block out
@@ -252,11 +250,10 @@ function checkNoBareNumbers(): void {
 checkShape();
 checkNoBareNumbers();
 
-if (!existsSync(SOURCE)) {
-  console.log(
-    "  skip  the rating scale vs the API — approvehr-api is not checked out beside this repo",
-  );
+if (SOURCE === null) {
+  console.log(`  skip  the rating scale vs the API — ${NO_BACKEND}`);
 } else {
+  console.log(`  note  comparing with ${SOURCE}`);
   const source = readFileSync(SOURCE, "utf8");
   compare("RATING_LABELS", RATING_LABELS, recordFrom(source, "RATING_LABELS"));
   compare(

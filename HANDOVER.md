@@ -966,7 +966,8 @@ bolted on. There is no frontend engine to test, so it checks what this repo can
 still be wrong about: 51 assertions over the fixture's reconciliation identities
 (exact integers, no tolerance, the same ones `reconcile.ts` demands), every demo
 salary having a row, the fixture's settings still being this repo's defaults, and
-— when `approvehr-api` is checked out beside this repo — the fixture's recorded
+— when a backend checkout is beside this repo (see "Both repos, and which one
+wins" near the end of this file for where it looks) — the fixture's recorded
 tax schedule matching the API's newest **band for band**, parsed out of the
 backend source as text.
 
@@ -8455,9 +8456,24 @@ Two things that look like duplication and are not:
 The API's dictionary (`modules/imports/*.ts`) is what answers when it is up and
 the frontend's mirror (`lib/imports/*.ts`) is what answers offline, so both were
 changed together and `verify-template` compares every heading between them. It
-only does that when a sibling folder named `approvehr-api` exists (item 38 in
-`out/tasks/`); on a layout that names it `approvehr-backend` it prints `skip` and
-compares nothing. Merge the backend first.
+only does that when it can find a backend checkout, and **until item 38 was fixed it
+never could**: it looked for `../../../approvehr-api`, which is where the backend sat
+in the first layout and nowhere since, so it printed `skip` on every machine, and so
+did `verify-payroll`, `verify-rating-scale` and `verify-signature-wording`. A drift
+between the two repos had no gate for as long as that was true.
+
+`scripts/backend-source.ts` is the one lookup all four use now. It takes
+`APPROVEHR_BACKEND_DIR` first (the root of a checkout; use it to compare against an
+unmerged branch, and a path that is not a backend is an error, not a skip), then a
+folder beside this repo or beside any folder above it, up to six levels, so a
+worktree under `.worktrees/` finds the main checkout's neighbour. `approvehr-api`
+is tried before `approvehr-backend`: a link or an old checkout with that name is
+somebody's choice, while `approvehr-backend` is the folder every clone gets. Each
+gate prints `note  comparing with <path>` so it is visible which backend was read,
+and `skip` only when there is none, which is the frontend's own CI, because it
+clones this repo alone. Both halves are tamper-tested: with the lookup working, a
+changed rating label and a changed signature sentence each fail their gate.
+`tests/backend-source.test.ts` pins the lookup itself. Merge the backend first.
 
 ## Not changed, on purpose
 
