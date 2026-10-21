@@ -80,10 +80,10 @@ describe("the inbox filters", () => {
   it("filters by module, not by a priority nobody set", async () => {
     show();
     await userEvent.click(screen.getByRole("button", { name: "Filters" }));
-    const module = screen.getByLabelText("Module");
+    const moduleSelect = screen.getByLabelText("Module");
     for (const label of ["All", "Payroll", "Leave", "Hiring", "Core HR"]) {
       expect(
-        within(module).getByRole("option", { name: label }),
+        within(moduleSelect).getByRole("option", { name: label }),
       ).toBeInTheDocument();
     }
     expect(screen.queryByText("Moves money")).not.toBeInTheDocument();

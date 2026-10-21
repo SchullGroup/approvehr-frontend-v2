@@ -144,9 +144,10 @@ function editGrade(code: string) {
   fireEvent.click(
     within(screen.getByRole("row", { name: new RegExp(code) })).getByRole(
       "button",
-      { name: "Edit" },
+      { name: /More actions for/ },
     ),
   );
+  fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
 }
 
 function gradeForm() {

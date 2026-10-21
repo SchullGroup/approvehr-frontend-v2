@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, FileText, Plus, Search, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  FileText,
+  Plus,
+  Search,
+  Users,
+  Bell,
+  FolderOpen,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -17,6 +25,8 @@ import {
   Stat,
   StatGrid,
   useToast,
+  RowActions,
+  Tabs,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -57,9 +67,12 @@ import { EmployeeFileDrawer } from "./employee-file";
  * the message and hands it over. See `chaseMessage` in
  * `lib/store/documents.ts` for the seam.
  */
+type DocumentsTab = "received" | "waiting" | "files";
+
 export function DocumentsScreen() {
   const canEdit = useCan("EDIT_RECORDS");
 
+  const [tab, setTab] = useState<DocumentsTab>("received");
   const [windowDays, setWindowDays] = useState<"7" | "30" | "90">("30");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<"dueOn" | "name">("dueOn");
@@ -171,241 +184,276 @@ export function DocumentsScreen() {
           <Stat label="Documents outstanding" value={String(register.total)} />
         </StatGrid>
 
+        <Tabs
+          items={[
+            {
+              id: "received",
+              label: "Not yet received",
+              ...(expiring.counts.overdue + expiring.counts.dueSoon > 0
+                ? { count: expiring.counts.overdue + expiring.counts.dueSoon }
+                : {}),
+            },
+            {
+              id: "waiting",
+              label: "Waiting on people",
+              ...(register.peopleWaitingOn > 0
+                ? { count: register.peopleWaitingOn }
+                : {}),
+            },
+            { id: "files", label: "Open a file" },
+          ]}
+          value={tab}
+          onChange={(next) => setTab(next as DocumentsTab)}
+        />
+
         {/* The part worth the whole screen. */}
-        <Card>
-          <CardHeader
-            title="Not yet received"
-            description={expiring.note ?? undefined}
-            action={
-              <SegmentedControl
-                label="How far ahead to look"
-                value={windowDays}
-                onChange={setWindowDays}
-                options={[
-                  { value: "7", label: "7 days" },
-                  { value: "30", label: "30 days" },
-                  { value: "90", label: "90 days" },
-                ]}
-              />
-            }
-          />
-          {expiring.error ? (
-            <CardBody role="alert">
-              <LoadFailure
-                subject="the documents coming up for renewal"
-                error={expiring.error}
-                onRetry={expiring.reload}
-              />
-            </CardBody>
-          ) : expiring.loading ? (
-            <CardBody>
-              <span className="flex items-center gap-2 text-body-sm text-muted">
-                <Spinner size="sm" />
-                Reading the list
-              </span>
-            </CardBody>
-          ) : expiring.rows.length === 0 ? (
-            <EmptyState
-              compact
-              icon={<AlertTriangle aria-hidden="true" />}
-              title={`Nothing due in the next ${expiring.windowDays} days`}
-              description="Anything late or close to its date shows here."
-            />
-          ) : (
-            <CardBody className="flex flex-col gap-2">
-              {expiring.rows.map((row) => (
-                <ComplianceLine
-                  key={`${row.kind}-${row.requestId ?? row.documentId ?? row.employeeId}`}
-                  row={row}
-                  editable={register.editable}
-                  onRemind={() =>
-                    setReminding({
-                      id: row.requestId,
-                      employeeName: row.employeeName,
-                      name: row.name,
-                      dueOn: row.dueOn,
-                      daysLeft: row.daysLeft,
-                    })
-                  }
-                  onAskAgain={() =>
-                    setAsking({ employeeId: row.employeeId, name: row.name })
-                  }
-                  onOpenFile={() => setOpenFile(row.employeeId)}
+        {tab === "received" && (
+          <Card>
+            <CardHeader
+              title="Not yet received"
+              description={expiring.note ?? undefined}
+              action={
+                <SegmentedControl
+                  label="How far ahead to look"
+                  value={windowDays}
+                  onChange={setWindowDays}
+                  options={[
+                    { value: "7", label: "7 days" },
+                    { value: "30", label: "30 days" },
+                    { value: "90", label: "90 days" },
+                  ]}
                 />
-              ))}
-            </CardBody>
-          )}
-        </Card>
+              }
+            />
+            {expiring.error ? (
+              <CardBody role="alert">
+                <LoadFailure
+                  subject="the documents coming up for renewal"
+                  error={expiring.error}
+                  onRetry={expiring.reload}
+                />
+              </CardBody>
+            ) : expiring.loading ? (
+              <CardBody>
+                <span className="flex items-center gap-2 text-body-sm text-muted">
+                  <Spinner size="sm" />
+                  Reading the list
+                </span>
+              </CardBody>
+            ) : expiring.rows.length === 0 ? (
+              <EmptyState
+                compact
+                icon={<AlertTriangle aria-hidden="true" />}
+                title={`Nothing due in the next ${expiring.windowDays} days`}
+                description="Anything late or close to its date shows here."
+              />
+            ) : (
+              <CardBody className="flex flex-col gap-2">
+                {expiring.rows.map((row) => (
+                  <ComplianceLine
+                    key={`${row.kind}-${row.requestId ?? row.documentId ?? row.employeeId}`}
+                    row={row}
+                    editable={register.editable}
+                    onRemind={() =>
+                      setReminding({
+                        id: row.requestId,
+                        employeeName: row.employeeName,
+                        name: row.name,
+                        dueOn: row.dueOn,
+                        daysLeft: row.daysLeft,
+                      })
+                    }
+                    onAskAgain={() =>
+                      setAsking({ employeeId: row.employeeId, name: row.name })
+                    }
+                    onOpenFile={() => setOpenFile(row.employeeId)}
+                  />
+                ))}
+              </CardBody>
+            )}
+          </Card>
+        )}
 
         {/* Everything outstanding, including the undated ones the list above
             cannot show. */}
-        <Card>
-          <CardHeader
-            title="Waiting on people"
-            description={
-              register.peopleWaitingOn === 1
-                ? "1 person owes you a document."
-                : `${register.peopleWaitingOn} people owe you documents.`
-            }
-            action={
-              <SegmentedControl
-                label="Order"
-                value={sort}
-                onChange={setSort}
-                options={[
-                  { value: "dueOn", label: "By date" },
-                  { value: "name", label: "By document" },
-                ]}
-              />
-            }
-          />
-          <CardBody className="flex flex-col gap-3">
-            <Field label="Search by document" hideLabel>
-              <Input
-                value={q}
-                placeholder="Search by document: work permit, certificate"
-                icon={<Search aria-hidden="true" />}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setQ(next);
-                }}
-              />
-            </Field>
-
-            {register.error ? (
-              <div role="alert">
-                <LoadFailure
-                  subject="the documents you have asked for"
-                  error={register.error}
-                  onRetry={register.reload}
+        {tab === "waiting" && (
+          <Card>
+            <CardHeader
+              title="Waiting on people"
+              description={
+                register.peopleWaitingOn === 1
+                  ? "1 person owes you a document."
+                  : `${register.peopleWaitingOn} people owe you documents.`
+              }
+              action={
+                <SegmentedControl
+                  label="Order"
+                  value={sort}
+                  onChange={setSort}
+                  options={[
+                    { value: "dueOn", label: "By date" },
+                    { value: "name", label: "By document" },
+                  ]}
                 />
-              </div>
-            ) : register.loading && register.requests.length === 0 ? (
-              <span className="flex items-center gap-2 text-body-sm text-muted">
-                <Spinner size="sm" />
-                Loading
-              </span>
-            ) : register.requests.length === 0 ? (
-              <EmptyState
-                compact
-                icon={<FileText aria-hidden="true" />}
-                title="Nobody owes you anything"
-                description="Ask somebody for a document and it appears here until it arrives."
-              />
-            ) : (
-              <>
-                {register.requests.map((request) => (
-                  <RequestRow
-                    key={request.id}
-                    request={request}
-                    showPerson
-                    actions={
-                      <>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            setReminding({
-                              id: request.id,
-                              employeeName: request.employeeName,
-                              name: request.name,
-                              dueOn: request.dueOn,
-                              daysLeft: request.daysLeft,
-                            })
-                          }
-                        >
-                          Remind
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setOpenFile(request.employeeId)}
-                        >
-                          Open file
-                        </Button>
-                        {register.editable && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setWaiving(request)}
-                          >
-                            Drop
-                          </Button>
-                        )}
-                      </>
-                    }
+              }
+            />
+            <CardBody className="flex flex-col gap-3">
+              <Field label="Search by document" hideLabel>
+                <Input
+                  value={q}
+                  placeholder="Search by document: work permit, certificate"
+                  icon={<Search aria-hidden="true" />}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setQ(next);
+                  }}
+                />
+              </Field>
+
+              {register.error ? (
+                <div role="alert">
+                  <LoadFailure
+                    subject="the documents you have asked for"
+                    error={register.error}
+                    onRetry={register.reload}
                   />
-                ))}
-                {register.total > register.requests.length && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="self-start"
-                    onClick={() => setLimit((current) => current + 25)}
-                  >
-                    Show more ({register.total - register.requests.length} left)
-                  </Button>
-                )}
-              </>
-            )}
-
-            {!register.editable && (
-              <p className="text-body-sm text-muted">
-                Asking and dropping need the API: the person is notified when
-                you ask, and a request kept in this browser reaches nobody.
-              </p>
-            )}
-          </CardBody>
-        </Card>
-
-        {/* The other half of the question: what is actually on somebody's file. */}
-        <Card>
-          <CardHeader
-            title="Open somebody’s file"
-            description="Their contract, ID and certificates, with anything still missing beside them."
-          />
-          <CardBody className="flex flex-col gap-3">
-            <Field label="Search people" hideLabel>
-              <Input
-                value={peopleQuery}
-                placeholder="Search people"
-                icon={<Search aria-hidden="true" />}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setPeopleQuery(next);
-                }}
-              />
-            </Field>
-
-            {matchedPeople.length === 0 ? (
-              <EmptyState
-                compact
-                icon={<Users aria-hidden="true" />}
-                title="Nobody matches that"
-              />
-            ) : (
-              <ul className="flex flex-col gap-1.5">
-                {matchedPeople.map((person) => (
-                  <li
-                    key={person.id}
-                    className="flex items-center justify-between gap-3 rounded-md border border-line p-3"
-                  >
-                    <span className="min-w-0 truncate text-ink">
-                      {person.name}
-                    </span>
+                </div>
+              ) : register.loading && register.requests.length === 0 ? (
+                <span className="flex items-center gap-2 text-body-sm text-muted">
+                  <Spinner size="sm" />
+                  Loading
+                </span>
+              ) : register.requests.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon={<FileText aria-hidden="true" />}
+                  title="Nobody owes you anything"
+                  description="Ask somebody for a document and it appears here until it arrives."
+                />
+              ) : (
+                <>
+                  {register.requests.map((request) => (
+                    <RequestRow
+                      key={request.id}
+                      request={request}
+                      showPerson
+                      actions={
+                        <RowActions
+                          label={`More actions for ${request.name}`}
+                          items={[
+                            {
+                              label: "Remind",
+                              icon: (
+                                <Bell aria-hidden="true" className="size-4" />
+                              ),
+                              onSelect: () =>
+                                setReminding({
+                                  id: request.id,
+                                  employeeName: request.employeeName,
+                                  name: request.name,
+                                  dueOn: request.dueOn,
+                                  daysLeft: request.daysLeft,
+                                }),
+                            },
+                            {
+                              label: "Open file",
+                              icon: (
+                                <FolderOpen
+                                  aria-hidden="true"
+                                  className="size-4"
+                                />
+                              ),
+                              onSelect: () => setOpenFile(request.employeeId),
+                            },
+                            ...(register.editable
+                              ? [
+                                  "separator" as const,
+                                  {
+                                    label: "Drop this request",
+                                    tone: "danger" as const,
+                                    onSelect: () => setWaiving(request),
+                                  },
+                                ]
+                              : []),
+                          ]}
+                        />
+                      }
+                    />
+                  ))}
+                  {register.total > register.requests.length && (
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => setOpenFile(person.id)}
+                      className="self-start"
+                      onClick={() => setLimit((current) => current + 25)}
                     >
-                      Open file
+                      Show more ({register.total - register.requests.length}{" "}
+                      left)
                     </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardBody>
-        </Card>
+                  )}
+                </>
+              )}
+
+              {!register.editable && (
+                <p className="text-body-sm text-muted">
+                  Asking and dropping need the API: the person is notified when
+                  you ask, and a request kept in this browser reaches nobody.
+                </p>
+              )}
+            </CardBody>
+          </Card>
+        )}
+
+        {/* The other half of the question: what is actually on somebody's file. */}
+        {tab === "files" && (
+          <Card>
+            <CardHeader
+              title="Open somebody’s file"
+              description="Their contract, ID and certificates, with anything still missing beside them."
+            />
+            <CardBody className="flex flex-col gap-3">
+              <Field label="Search people" hideLabel>
+                <Input
+                  value={peopleQuery}
+                  placeholder="Search people"
+                  icon={<Search aria-hidden="true" />}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setPeopleQuery(next);
+                  }}
+                />
+              </Field>
+
+              {matchedPeople.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon={<Users aria-hidden="true" />}
+                  title="Nobody matches that"
+                />
+              ) : (
+                <ul className="flex flex-col gap-1.5">
+                  {matchedPeople.map((person) => (
+                    <li
+                      key={person.id}
+                      className="flex items-center justify-between gap-3 rounded-md border border-line p-3"
+                    >
+                      <span className="min-w-0 truncate text-ink">
+                        {person.name}
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setOpenFile(person.id)}
+                      >
+                        Open file
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardBody>
+          </Card>
+        )}
       </PageBody>
 
       <AskForDocumentModal

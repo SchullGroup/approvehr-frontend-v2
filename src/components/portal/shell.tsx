@@ -290,8 +290,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               }}
               data-tour="search"
               className={cn(
-                "ml-auto hidden items-center gap-2 rounded-md border border-line bg-canvas",
-                "px-3 py-1.5 text-body-sm text-muted transition-colors",
+                /* The same field as the sidebar's Find: one height, one border,
+                   one fill and one icon size, so the two read as the same
+                   control. */
+                "ml-auto hidden h-10 items-center gap-2 rounded-md border border-field-line bg-surface",
+                "px-3 text-body-sm text-muted transition-colors",
                 /* Three widths rather than one fixed 16rem, and no shrinking.
                  ----------------------------------------------------------
                  It was `md:w-64` and could not give way, so at 768 — the
@@ -303,11 +306,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                  is narrow. A control that cannot show what it is should get
                  smaller in steps somebody chose, and never below its own
                  name. */
-                "hover:border-control-line hover:text-body md:flex",
+                "hover:border-ink-soft hover:text-body md:flex",
                 "md:w-40 lg:w-64",
               )}
             >
-              <Search aria-hidden="true" className="size-3.5 shrink-0" />
+              <Search aria-hidden="true" className="size-4 shrink-0" />
               {/* Short at `md`, where the field is 10rem and the full sentence
                 would be clipped mid-word. */}
               <span className="flex-1 truncate text-left lg:hidden">
