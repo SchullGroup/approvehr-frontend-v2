@@ -30,6 +30,7 @@ import {
   Megaphone,
   MessagesSquare,
   Network,
+  Scale,
   Orbit,
   Receipt,
   ReceiptText,
@@ -892,6 +893,15 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <Network aria-hidden="true" />,
       feature: "multiAppraiser",
       permission: "EDIT_RECORDS",
+    },
+    {
+      /* Was reachable only from inside one appraisal period. A module of its
+         own in Performance, for whoever may see it. */
+      href: "/performance/fairness",
+      label: "Fairness check",
+      icon: <Scale aria-hidden="true" />,
+      feature: "appraisals",
+      permission: "VIEW_FAIRNESS",
     },
   ],
 

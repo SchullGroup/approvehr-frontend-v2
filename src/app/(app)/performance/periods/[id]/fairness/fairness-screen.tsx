@@ -41,7 +41,14 @@ import { PeopleToReview, flaggedCount } from "./people-to-review";
 type Tab = "groups" | "managers" | "people";
 type View = "average" | "bands" | "table";
 
-export function FairnessScreen({ cycleId }: { cycleId: string }) {
+export function FairnessScreen({
+  cycleId,
+  picker,
+}: {
+  cycleId: string;
+  /** Set when this is the Performance module page rather than one period's. */
+  picker?: React.ReactNode;
+}) {
   const allowed = useCan("VIEW_FAIRNESS");
   const [periods, setPeriods] = useState<FairnessPeriods>(1);
   const [tab, setTab] = useState<Tab>("groups");
@@ -52,19 +59,28 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
   return (
     <>
       <PageHeader
-        breadcrumb={[
-          { href: "/performance", label: "Performance" },
-          {
-            href: `/performance/periods/${cycleId}`,
-            label: detail.cycle?.name ?? "Appraisal period",
-          },
-        ]}
+        breadcrumb={
+          picker
+            ? [{ href: "/performance", label: "Performance" }]
+            : [
+                { href: "/performance", label: "Performance" },
+                {
+                  href: `/performance/periods/${cycleId}`,
+                  label: detail.cycle?.name ?? "Appraisal period",
+                },
+              ]
+        }
         title="Fairness check"
         meta={
-          detail.cycle ? (
-            <Badge tone="neutral" size="sm" dot>
-              {detail.cycle.stageLabel}
-            </Badge>
+          picker || detail.cycle ? (
+            <span className="flex flex-wrap items-center gap-2">
+              {picker}
+              {detail.cycle && (
+                <Badge tone="neutral" size="sm" dot>
+                  {detail.cycle.stageLabel}
+                </Badge>
+              )}
+            </span>
           ) : undefined
         }
         action={
