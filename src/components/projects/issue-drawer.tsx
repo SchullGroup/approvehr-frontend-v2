@@ -444,7 +444,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             </section>
           )}
 
-          <LinkedTasks issueId={issue.id} />
+          <LinkedTasks key={issue.id} issueId={issue.id} />
 
           <SectionTabs
             label="Comments and history"
