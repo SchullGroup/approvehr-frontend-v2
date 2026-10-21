@@ -10,6 +10,7 @@ import {
   appNavLinks,
   internalNavLinks,
   newTabIfApp,
+  noPrefetchIfOffSite,
 } from "@/lib/marketing/links";
 import { LEGAL_LINKS } from "@/lib/marketing/legal";
 import { SOCIAL_PROFILES } from "@/lib/marketing/site";
@@ -32,6 +33,7 @@ export function AnnouncementBar() {
       </p>
       <Link
         href="/demo"
+        prefetch={false}
         className="ml-3 inline-flex items-center gap-1 text-body-sm font-semibold underline underline-offset-2 hover:no-underline"
       >
         Book a demo <ArrowRight className="size-3.5" aria-hidden />
@@ -124,6 +126,7 @@ export function MarketingNav() {
                     <Link
                       key={m.id}
                       href={`/product/${m.id}`}
+                      prefetch={false}
                       onClick={() => setProductOpen(false)}
                       className="rounded-xl px-3 py-2.5 transition-colors hover:bg-sand"
                     >
@@ -168,7 +171,12 @@ export function MarketingNav() {
                 {label}
               </Link>
             ))}
-          <Pill href="/demo" variant="solid" className="hidden sm:inline-flex">
+          <Pill
+            href="/demo"
+            prefetch={false}
+            variant="solid"
+            className="hidden sm:inline-flex"
+          >
             Book a demo
           </Pill>
 
@@ -195,6 +203,7 @@ export function MarketingNav() {
             <Link
               key={m.id}
               href={`/product/${m.id}`}
+              prefetch={false}
               onClick={() => setOpen(false)}
               className="block rounded-xl px-3 py-2 text-body transition-colors hover:bg-sand"
             >
@@ -220,7 +229,12 @@ export function MarketingNav() {
               </Link>
             ))}
           </div>
-          <Pill href="/demo" variant="solid" className="mt-2 w-full">
+          <Pill
+            href="/demo"
+            prefetch={false}
+            variant="solid"
+            className="mt-2 w-full"
+          >
             Book a demo
           </Pill>
         </div>
@@ -333,6 +347,7 @@ export function MarketingFooter() {
                     <Link
                       href={href}
                       {...newTabIfApp(href)}
+                      {...noPrefetchIfOffSite(href)}
                       className="text-body-sm text-slate-soft transition-colors hover:text-slate"
                     >
                       {label}

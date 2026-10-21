@@ -100,7 +100,7 @@ export function ShareLinks({
                   data-testid="share-link"
                   className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3"
                 >
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-48 flex-1">
                     <p className="text-body-sm font-medium text-ink">
                       {link.label}
                     </p>
