@@ -117,6 +117,16 @@ export type NavItem = {
   href: string;
   label: string;
   icon: React.ReactNode;
+  /**
+   * The path this item owns, when `href` is only the door into a bigger area.
+   *
+   * "Hiring settings" opens on `/hiring/settings/pipelines`, but Tags, Scorecards
+   * and the other tabs live beside it, not under it — so a plain `href` prefix
+   * test never lit the row on them, and the module's Overview (`/hiring`, a
+   * prefix of everything) took the highlight instead. `resolveActiveHref`
+   * matches on this when set, still longest-match-wins.
+   */
+  activePrefix?: string;
   /** A fixed count, for modules with no store behind them yet. */
   badge?: number;
   /** Computed in the shell from a store. Takes precedence over `badge`. */
@@ -649,6 +659,9 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     {
       href: "/hiring/requisitions/new",
       label: "New role",
+      /* A requisition's own page (`/hiring/requisitions/:id`) is the other end
+         of this flow and has no row of its own; without this, Overview lit. */
+      activePrefix: "/hiring/requisitions",
       icon: <UserRoundPlus aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",
@@ -710,6 +723,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     {
       href: "/hiring/settings/pipelines",
       label: "Hiring settings",
+      activePrefix: "/hiring/settings",
       icon: <SlidersHorizontal aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",

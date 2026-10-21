@@ -220,6 +220,42 @@ describe("locate", () => {
     expect(locate(tree, groups, "/payroll").activeHref).toBe("/payroll");
   });
 
+  it("lights the one row that owns the page, by its activePrefix when it has one", () => {
+    const hiring: NavGroup[] = [
+      moduleGroup("hiring", "Recruitment", [
+        item("Overview", { href: "/hiring" }),
+        item("New role", {
+          href: "/hiring/requisitions/new",
+          activePrefix: "/hiring/requisitions",
+        }),
+        item("Hiring settings", {
+          href: "/hiring/settings/pipelines",
+          activePrefix: "/hiring/settings",
+        }),
+      ]),
+    ];
+    const t = buildSidebar(hiring);
+    const at = (path: string) => locate(t, hiring, path).activeHref;
+    expect(at("/hiring/settings/tags")).toBe("/hiring/settings/pipelines");
+    expect(at("/hiring/settings/pipelines")).toBe("/hiring/settings/pipelines");
+    expect(at("/hiring/requisitions/r-1")).toBe("/hiring/requisitions/new");
+    expect(at("/hiring")).toBe("/hiring");
+    expect(at("/hiring/talent-pool/x")).toBe("/hiring");
+  });
+
+  it("lights only Appraisal periods on a period's fairness page", () => {
+    const perf: NavGroup[] = [
+      moduleGroup("performance", "Performance", [
+        item("Overview", { href: "/performance" }),
+        item("Appraisal periods", { href: "/performance/periods" }),
+      ]),
+    ];
+    const t = buildSidebar(perf);
+    expect(locate(t, perf, "/performance/periods/p1/fairness").activeHref).toBe(
+      "/performance/periods",
+    );
+  });
+
   it("puts a top-level link at the top level", () => {
     const here = locate(tree, groups, "/dashboard");
     expect(here.level).toBe(ROOT);

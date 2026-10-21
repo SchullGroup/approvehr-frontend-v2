@@ -263,14 +263,27 @@ export function resolveActiveHref(
   pathname: string,
 ): string | null {
   let best: string | null = null;
+  let bestRank = -1;
   for (const group of groups) {
     for (const item of group.items) {
+      /* An item that owns a wider area than its own door (`activePrefix`)
+         matches on that, and ranks by it too, so `/hiring/settings/tags`
+         (Hiring settings, 15 chars) beats Overview (`/hiring`, 7). A locked
+         item never claims a path: its href is `/billing/pay` whatever it was. */
+      const base =
+        !item.locked && item.activePrefix ? item.activePrefix : item.href;
       const matches =
         pathname === item.href ||
+        pathname === base ||
         /* `/dashboard` is the app root and must not claim every path under it. */
-        (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
+        (base !== "/dashboard" && pathname.startsWith(`${base}/`));
       if (!matches) continue;
-      if (best === null || item.href.length > best.length) best = item.href;
+      /* `best` stays the item's href (that is what rows compare against), so
+         rank by the matched base in a parallel variable. */
+      if (best === null || base.length > bestRank) {
+        best = item.href;
+        bestRank = base.length;
+      }
     }
   }
   return best;
