@@ -8,31 +8,69 @@ exactly as the product shows it.
 `/approvals` (the sidebar item **My approvals**, with a count beside it) is where everything waiting on
 a decision from you lands, whichever module raised it. Each line is one **entry**. You open it, read
 what is being asked, and either **Approve** or **Reject** it. A rejection needs a reason, and the person
-who asked is told that reason.
+who asked is told that reason. An entry you are not ready to decide can be put away with **Archive** and
+found again in **My archive**, and anything already decided is listed under **Decided**.
 
 ## Words used here
 
-| Word             | Means                                                                                                                                              |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Entry**        | One line in your inbox. It points at a request somebody raised — a record change, an attendance correction, leave — and is not the request itself. |
-| **Kind**         | The badge on an entry saying what sort of request it is, for example "Record change".                                                              |
-| **Withdrawn**    | The status of an entry that was closed because the same person raised the same matter again. The newer request is the live one.                    |
-| **Bank details** | One entry that covers both the bank name and the account number, so you decide them together.                                                      |
-| **Rejected**     | The decision label for a plain no. The person is told why.                                                                                         |
+| Word             | Means                                                                                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Entry**        | One line in your inbox. It points at a request somebody raised — a record change, an attendance correction, leave — and is not the request itself.  |
+| **Kind**         | The badge on an entry saying what sort of request it is, for example "Record change".                                                               |
+| **Withdrawn**    | The status of an entry that was closed because the same person raised the same matter again. The newer request is the live one.                     |
+| **Bank details** | One entry that covers both the bank name and the account number, so you decide them together.                                                       |
+| **Rejected**     | The decision label for a plain no. The person is told why. On **Sent by you** the same outcome is badged **Declined**.                              |
+| **Archive**      | Putting an entry away for later, for you only. It is still waiting for a decision, and nobody else's inbox changes.                                 |
+| **Routine**      | An entry with no deadline that has waited less than five days. The button **Approve 3 routine items** (the number varies) works on these.           |
+| **Decided**      | An entry that has been approved or rejected, by you or by anybody else who could decide it. The **Decided** view lists them, newest decision first. |
 
-## The two views
+## The four views
 
-A switch at the top, **Which approvals to show**, has two options:
+A switch at the top, **Which approvals to show**, has four options (three in the demo, which has no **Decided**):
 
-| Option             | Answers                                                   |
-| ------------------ | --------------------------------------------------------- |
-| **Waiting on you** | What needs your decision. This is the view you land on.   |
-| **Sent by you**    | What you raised yourself, and who it is sitting with now. |
+| Option             | Answers                                                                                                                                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Waiting on you** | What needs your decision. This is the view you land on.                                                                                                                       |
+| **Decided**        | What has been approved or rejected, newest decision first, so a decision can be found again. Read-only.                                                                       |
+| **Sent by you**    | What you raised yourself, and who it is sitting with now. Each line has a status — **Waiting**, **Approved**, **Declined** or **Withdrawn** — and, for a decline, the reason. |
+| **My archive**     | The entries you have put away for later. They are still waiting for a decision.                                                                                               |
 
 Under **Waiting on you** you also get the counts **Waiting on you**, **Value at stake**,
-**Has a deadline** and **Waiting 5+ days**, and a filter, **Filter approvals**, with **Moves money**,
-**People** and **Needs attention**. The list is ordered with anything that has a deadline first, then
-oldest first, so the entry that has waited longest is on top.
+**Has a deadline** and **Waiting 5+ days**. They count your whole queue: choosing a module or a date
+range below does not change them, and entries in **My archive** are not in them. The list is ordered
+with anything that has a deadline first, then oldest first, so the entry that has waited longest is on
+top.
+
+### The Decided view
+
+Under **Decided** a second switch, **Which decisions to show**, picks **Approved** or **Declined**. The
+module and date controls below work here too. Each line shows what was asked, who raised it
+(**Raised**) and the day it was decided. It is for looking, not for acting: to undo a decision you
+have just made, use **Undo** under **Waiting on you** (step 5). With nothing to show it reads
+**Nothing approved yet** or **Nothing declined yet**. It lists decisions on approvals you can see,
+so it is not only your own. It needs the server, and the demo does not offer it.
+
+### Narrowing the list
+
+**Waiting on you** and **My archive** share one set of controls:
+
+| Control                                                                                  | What it does                                                                                                                |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Filter approvals by module**: **All**, **Payroll**, **Leave**, **Hiring**, **Core HR** | Shows one module's entries. A module is who acts on a request, not what the request is called (the table below).            |
+| **Raised from** and **Raised to**                                                        | Only entries raised on or between those two days; both days are included. **Clear dates** appears as soon as either is set. |
+
+What each module chip holds:
+
+| Chip        | Holds                                                                                                                                                                 |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Payroll** | Payroll runs, loans, expenses, and record changes — a bank-account change is one, because payroll is who decides it. An exit is a record change too, and is not here. |
+| **Leave**   | Leave requests, attendance corrections and public-holiday entries.                                                                                                    |
+| **Hiring**  | Requisitions and offers.                                                                                                                                              |
+| **Core HR** | A probation coming to an end, a proposed promotion, transfer or other change to somebody's job, and exits.                                                            |
+
+An entry that fits no chip is still under **All**: a chip is never the only way to find something.
+There is no "urgent" or "moves money" chip, because nobody sets a priority when they raise a request
+and the screen would only be guessing.
 
 ## Which entries you can decide here
 
@@ -109,6 +147,42 @@ so you can see what you were about to say. The line then leaves the list on its 
 | **You'll see** | **Back in the queue** — "«title» is waiting on a decision again."                                               |
 
 If it cannot be undone you see **Could not undo that** with the reason.
+
+### 6. Put an entry away, and bring it back
+
+|                |                                                                                                                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Where**      | **Waiting on you** to put one away; **My archive** to bring it back                                                                                                                |
+| **Who**        | Anybody who can see the entry                                                                                                                                                      |
+| **Click**      | **Archive** on the entry (it is there on entries that show **Open …** as well); **Restore** in **My archive**                                                                      |
+| **You'll see** | **Put away** — "«title» is in My archive. It is still waiting for a decision, and nobody else's inbox has changed." Or **Back in your inbox** — "«title» is waiting on you again." |
+
+Archiving is personal and is not a decision: nobody is told, and the request stays pending for whoever
+else it is routed to. In **My archive** an entry keeps its **Approve** and **Reject** (or **Open …**)
+buttons, and the module and date controls work there too. An empty archive reads **Nothing in your
+archive** — "Use Archive on an approval you are not ready to decide. It leaves your inbox and waits
+here." If it fails you see **Could not archive that** or **Could not restore that** with the reason.
+
+### 7. Approve the routine ones together
+
+|                |                                                                                                                                                                                                                                                                            |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Where**      | **Waiting on you**, to the right of the filters                                                                                                                                                                                                                            |
+| **Who**        | Somebody who can approve requests                                                                                                                                                                                                                                          |
+| **Click**      | **Approve 3 routine items** (the number is how many routine entries the list in front of you shows). With none, the button reads **Nothing routine to approve** and is off                                                                                                 |
+| **You'll see** | A box titled **Approve 3 routine items?** that lists every entry it is about to approve, with **Cancel** and **Approve 3**. Pressing **Approve 3** approves exactly those entries and no others                                                                            |
+| **Then**       | A toast such as **3 requests approved**, then either "Anything with a deadline was left for you to look at individually." or "2 still waiting." followed by the server's reason for each one it left. If it approved nothing: **Nothing was approved**, with those reasons |
+
+**Routine** means no deadline and waiting less than five days. The box says: "These are approved now,
+and the people who asked are told. Each one is checked again as it goes: anything that is no longer
+routine, or that you cannot approve, stays where it is." So an entry that picked up a deadline, was
+decided by somebody else, or was put in **My archive** after the list was drawn is left alone and named
+in the toast. The number on the button, the list in the box and what is approved are the same set, so
+choosing a module or a date range narrows all three. Entries in **My archive** are never included.
+
+If the server is a version behind this page, nothing is approved and you see: "The server is a version
+behind this page and cannot approve a list you were shown yet, so nothing was approved. Ask whoever
+looks after the server to update it."
 
 ## Deliberate behaviours
 

@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
+import { readFileSync } from "node:fs";
+import { backendFile, NO_BACKEND } from "./backend-source";
 import {
   MAX_SIGNABLE_BYTES,
   SIGNABLE_CONTENT_TYPE,
@@ -33,16 +33,13 @@ import {
  * not a gate. Parsed out of the API's source as text, because this package
  * cannot resolve that tree.
  *
- * Skips when `approvehr-api` is not checked out beside this repo — CI for the
- * frontend clones this one alone.
+ * Skips when there is no backend checkout beside this repo (`scripts/backend-source.ts`
+ * says where it looks) — CI for the frontend clones this one alone.
  *
  * Run by `npm run check`.
  */
 
-const SOURCE = path.resolve(
-  import.meta.dirname,
-  "../../../approvehr-api/src/modules/signatures/service.ts",
-);
+const SOURCE = backendFile("src/modules/signatures/service.ts");
 
 /**
  * Read a `export const NAME = "…" + "…";` declaration out of the API's source
@@ -123,11 +120,10 @@ const check = (label: string, ours: string, theirs: string | null): void => {
   console.log(`  ok    ${label} agrees with the API`);
 };
 
-if (!existsSync(SOURCE)) {
-  console.log(
-    "  skip  signature wording vs the API — approvehr-api is not checked out beside this repo",
-  );
+if (SOURCE === null) {
+  console.log(`  skip  signature wording vs the API — ${NO_BACKEND}`);
 } else {
+  console.log(`  note  comparing with ${SOURCE}`);
   const source = readFileSync(SOURCE, "utf8");
   check(
     "SIGNING_WORDING",

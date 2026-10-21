@@ -1,26 +1,29 @@
 # Pages — ApproveHR landing site
 
-_Repo:_ `aprrovehr-frontend` · _Framework:_ React 19 + React Router (Vite) · _Generated from_ `src/App.tsx`
+_Repo:_ `aprrovehr-frontend` · _Framework:_ React 19 + React Router (Vite) · _Read by hand from_ `src/App.tsx`
+
+_Snapshot:_ `origin/main` at `2dbf44b` (2026-09-24), `src/App.tsx` last changed 2026-09-15. Kept by hand: `npm run docs` does not cover this file, because the routes carry no metadata to read. Check `src/App.tsx` before trusting a row.
 
 The public marketing and careers site. No authentication anywhere in it. Every page sits inside
 `MarketingLayout` (nav and footer) and `PageWrapper` (the page transition); the screen named below is
 the content itself.
 
-**14 routes.**
+**15 routes.**
 
-| Route                 | Screen        | File                                | What it is                                                              |
-| --------------------- | ------------- | ----------------------------------- | ----------------------------------------------------------------------- |
-| `/`                   | `Home`        | `src/pages/Home/Home.tsx`           | Homepage — hero, module grid, pricing teaser, testimonials.             |
-| `/product/:moduleId`  | `Product`     | `src/pages/Product/Product.tsx`     | One page per module: payroll, core-hr, hiring, time, performance, desk. |
-| `/pricing`            | `Pricing`     | `src/pages/Pricing/Pricing.tsx`     | Tiered pricing with a live headcount calculator.                        |
-| `/demo`               | `Demo`        | `src/pages/Demo/Demo.tsx`           | Demo request form.                                                      |
-| `/careers/:org`       | `CareersList` | `src/pages/Careers/CareersList.tsx` | A company's public job board.                                           |
-| `/careers/:org/:role` | `RolePage`    | `src/pages/Careers/RolePage.tsx`    | One advert, with the application form.                                  |
-| `/about`              | `→ /`         | —                                   | Redirect.                                                               |
-| `/products`           | `→ /`         | —                                   | Redirect.                                                               |
-| `/waitlist`           | `→ /demo`     | —                                   | Redirect.                                                               |
-| `/*`                  | `NotFound`    | `src/pages/NotFound/NotFound.tsx`   | Not found.                                                              |
-| `/privacy`            | `Legal`       | `src/pages/Legal/Legal.tsx`         | Legal document, one renderer over a content module.                     |
-| `/terms`              | `Legal`       | `src/pages/Legal/Legal.tsx`         | Legal document, one renderer over a content module.                     |
-| `/security`           | `Legal`       | `src/pages/Legal/Legal.tsx`         | Legal document, one renderer over a content module.                     |
-| `/dpa`                | `Legal`       | `src/pages/Legal/Legal.tsx`         | Legal document, one renderer over a content module.                     |
+| Route                 | Screen           | File                                          | What it is                                                                                                                                                                                                                |
+| --------------------- | ---------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                   | `Home`           | `src/pages/Home/Home.tsx`                     | Homepage — hero, module grid, pricing teaser, testimonials.                                                                                                                                                               |
+| `/product/:moduleId`  | `Product`        | `src/pages/Product/Product.tsx`               | One page per module: payroll, core-hr, hiring, time, performance, desk.                                                                                                                                                   |
+| `/pricing`            | `Pricing`        | `src/pages/Pricing/Pricing.tsx`               | Tiered pricing with a live headcount calculator.                                                                                                                                                                          |
+| `/demo`               | `Demo`           | `src/pages/Demo/Demo.tsx`                     | Demo request form.                                                                                                                                                                                                        |
+| `/paye-calculator`    | `PayeCalculator` | `src/pages/PayeCalculator/PayeCalculator.tsx` | A free PAYE calculator under the Nigeria Tax Act 2025. It works out nothing itself: it sends gross pay, rent and the pension and NHF choices to the backend's payroll engine and shows what comes back, with a short FAQ. |
+| `/careers/:org`       | `CareersList`    | `src/pages/Careers/CareersList.tsx`           | A company's public job board.                                                                                                                                                                                             |
+| `/careers/:org/:role` | `RolePage`       | `src/pages/Careers/RolePage.tsx`              | One advert, with the application form.                                                                                                                                                                                    |
+| `/about`              | `→ /`            | —                                             | Redirect.                                                                                                                                                                                                                 |
+| `/products`           | `→ /`            | —                                             | Redirect.                                                                                                                                                                                                                 |
+| `/waitlist`           | `→ /demo`        | —                                             | Redirect.                                                                                                                                                                                                                 |
+| `/*`                  | `NotFound`       | `src/pages/NotFound/NotFound.tsx`             | Not found.                                                                                                                                                                                                                |
+| `/privacy`            | `Legal`          | `src/pages/Legal/Legal.tsx`                   | Legal document, one renderer over a content module.                                                                                                                                                                       |
+| `/terms`              | `Legal`          | `src/pages/Legal/Legal.tsx`                   | Legal document, one renderer over a content module.                                                                                                                                                                       |
+| `/security`           | `Legal`          | `src/pages/Legal/Legal.tsx`                   | Legal document, one renderer over a content module.                                                                                                                                                                       |
+| `/dpa`                | `Legal`          | `src/pages/Legal/Legal.tsx`                   | Legal document, one renderer over a content module.                                                                                                                                                                       |

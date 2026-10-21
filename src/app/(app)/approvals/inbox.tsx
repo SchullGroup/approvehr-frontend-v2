@@ -29,6 +29,7 @@ import {
   ButtonLink,
   Card,
   CardBody,
+  ConfirmDialog,
   EmptyState,
   Input,
   Money,
@@ -49,6 +50,7 @@ import {
 } from "@/lib/api/approvals";
 import {
   useApprovalQueue,
+  useDecidedApprovals,
   useSentApprovals,
   type QueueFilters,
 } from "@/lib/store/approvals-api";
@@ -167,14 +169,29 @@ function decidedCopy(
  * this screen.
  */
 export function ApprovalInbox() {
-  const [view, setView] = useState<"waiting" | "sent" | "archive">("waiting");
+  const [view, setView] = useState<"waiting" | "decided" | "sent" | "archive">(
+    "waiting",
+  );
   const [filters, setFilters] = useState<QueueFilters>(START_FILTERS);
   const [declining, setDeclining] = useState<QueueItem | null>(null);
+  /* The rows the person is being asked to approve in one go. A snapshot taken
+     when they press the button, so what they read in the dialog and what is sent
+     are the same list even if the queue reloads underneath them. */
+  const [routineBatch, setRoutineBatch] = useState<QueueItem[] | null>(null);
+  const [sweeping, setSweeping] = useState(false);
+  const [decidedOutcome, setDecidedOutcome] = useState<"approved" | "declined">(
+    "approved",
+  );
   const queue = useApprovalQueue({
     ...filters,
     archived: view === "archive",
   });
   const sent = useSentApprovals();
+  const decidedList = useDecidedApprovals(
+    decidedOutcome,
+    filters,
+    view === "decided",
+  );
   const toast = useToast();
   const isManager = useIsManager();
   const { permissions } = usePermissions();
@@ -278,9 +295,10 @@ export function ApprovalInbox() {
     }
   };
 
-  const approveRoutine = async () => {
+  const approveRoutine = async (batch: QueueItem[]) => {
+    setSweeping(true);
     try {
-      const result = await queue.approveRoutine();
+      const result = await queue.approveRoutine(batch);
       /* The API's own reasons, deduplicated, never a sentence composed here.
          It knows which rows it left and why — one may be a request the caller
          raised themselves, another may need a permission they do not hold —
@@ -317,6 +335,9 @@ export function ApprovalInbox() {
             ? failure.message
             : "Something went wrong. Try again.",
       });
+    } finally {
+      setSweeping(false);
+      setRoutineBatch(null);
     }
   };
 
@@ -351,12 +372,37 @@ export function ApprovalInbox() {
         onChange={setView}
         options={[
           { value: "waiting", label: "Waiting on you" },
+          /* Connected only: demo mode keeps its decisions in the local store and
+             shows them as "Just decided", so there is no second list to offer. */
+          ...(queue.connected
+            ? [{ value: "decided" as const, label: "Decided" }]
+            : []),
           { value: "sent", label: "Sent by you" },
           { value: "archive", label: "My archive" },
         ]}
       />
 
       {view === "sent" && <SentApprovalsList state={sent} />}
+
+      {view === "decided" && (
+        <>
+          <p className="text-body-sm text-muted">
+            Decisions on approvals you can see, newest first. To undo one you
+            have just made, use Undo under Waiting on you.
+          </p>
+          <SegmentedControl
+            label="Which decisions to show"
+            value={decidedOutcome}
+            onChange={setDecidedOutcome}
+            options={[
+              { value: "approved", label: "Approved" },
+              { value: "declined", label: "Declined" },
+            ]}
+          />
+          <InboxFilters filters={filters} onChange={setFilters} />
+          <DecidedApprovalsList state={decidedList} outcome={decidedOutcome} />
+        </>
+      )}
 
       {view === "archive" && (
         <>
@@ -432,7 +478,7 @@ export function ApprovalInbox() {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => void approveRoutine()}
+                onClick={() => setRoutineBatch(queue.routine)}
                 disabled={queue.routineCount === 0}
               >
                 <Check aria-hidden="true" className="size-3.5" />
@@ -532,6 +578,38 @@ export function ApprovalInbox() {
             />
           </Card>
         ))}
+
+      <ConfirmDialog
+        open={routineBatch !== null}
+        onClose={() => {
+          if (!sweeping) setRoutineBatch(null);
+        }}
+        onConfirm={() => {
+          if (routineBatch) void approveRoutine(routineBatch);
+        }}
+        title={`Approve ${routineBatch?.length ?? 0} routine ${
+          routineBatch?.length === 1 ? "item" : "items"
+        }?`}
+        confirmLabel={`Approve ${routineBatch?.length ?? 0}`}
+        tone="primary"
+        loading={sweeping}
+        body={
+          <div className="flex flex-col gap-3">
+            <p>
+              These are approved now, and the people who asked are told. Each
+              one is checked again as it goes: anything that is no longer
+              routine, or that you cannot approve, stays where it is.
+            </p>
+            <ul className="max-h-56 overflow-y-auto rounded-lg border border-line p-2 text-body-sm text-body">
+              {(routineBatch ?? []).map((item) => (
+                <li key={item.id} className="truncate py-0.5">
+                  {item.title}
+                </li>
+              ))}
+            </ul>
+          </div>
+        }
+      />
 
       <DeclineDialog
         open={declining !== null}
@@ -634,6 +712,52 @@ function InboxFilters({
  * is the other side of the same request), so there is no Approve/Decline
  * pair to get wrong here the way `ApprovalRow` has to guard against below.
  */
+/**
+ * "What has been decided, and what was said."
+ *
+ * Read-only: a decided row is history, so there is no Approve or Reject pair to
+ * get wrong. The server orders them, newest decision first.
+ */
+function DecidedApprovalsList({
+  state,
+  outcome,
+}: {
+  state: ReturnType<typeof useDecidedApprovals>;
+  outcome: "approved" | "declined";
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      {state.loading && <span className="text-meta text-muted">Loading…</span>}
+
+      <LoadFailure
+        subject="your decided approvals"
+        error={state.error}
+        onRetry={state.reload}
+      />
+
+      {!state.loading && !state.error && state.rows.length === 0 && (
+        <Card>
+          <EmptyState
+            icon={<ClipboardList aria-hidden="true" />}
+            title={`Nothing ${outcome} yet`}
+            description="Decisions on approvals you can see are listed here as they are made, newest first."
+          />
+        </Card>
+      )}
+
+      {state.rows.length > 0 && (
+        <ul className="flex flex-col gap-3">
+          {state.rows.map((row) => (
+            <li key={row.id}>
+              <SentApprovalRow row={row} lead="Raised" />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function SentApprovalsList({
   state,
 }: {
@@ -695,7 +819,14 @@ const STATUS_LABEL: Record<ApiApprovalRow["status"], string> = {
   withdrawn: "Withdrawn",
 };
 
-function SentApprovalRow({ row }: { row: ApiApprovalRow }) {
+function SentApprovalRow({
+  row,
+  lead = "Sent",
+}: {
+  row: ApiApprovalRow;
+  /** `Sent` in your own list, `Raised` for somebody else's request. */
+  lead?: "Sent" | "Raised";
+}) {
   return (
     <Card>
       <CardBody className="flex flex-wrap items-start gap-4">
@@ -724,7 +855,9 @@ function SentApprovalRow({ row }: { row: ApiApprovalRow }) {
           )}
 
           <div className="mt-2.5 flex flex-wrap items-center gap-3 text-meta text-muted">
-            <span>Sent {row.requestedAt}</span>
+            <span>
+              {lead} {row.requestedAt}
+            </span>
             {row.status === "pending" && row.sentTo && (
               <span>Waiting on {row.sentTo}</span>
             )}

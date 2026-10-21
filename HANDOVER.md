@@ -966,7 +966,8 @@ bolted on. There is no frontend engine to test, so it checks what this repo can
 still be wrong about: 51 assertions over the fixture's reconciliation identities
 (exact integers, no tolerance, the same ones `reconcile.ts` demands), every demo
 salary having a row, the fixture's settings still being this repo's defaults, and
-— when `approvehr-api` is checked out beside this repo — the fixture's recorded
+— when a backend checkout is beside this repo (see "Both repos, and which one
+wins" near the end of this file for where it looks) — the fixture's recorded
 tax schedule matching the API's newest **band for band**, parsed out of the
 backend source as text.
 
@@ -8455,9 +8456,24 @@ Two things that look like duplication and are not:
 The API's dictionary (`modules/imports/*.ts`) is what answers when it is up and
 the frontend's mirror (`lib/imports/*.ts`) is what answers offline, so both were
 changed together and `verify-template` compares every heading between them. It
-only does that when a sibling folder named `approvehr-api` exists (item 38 in
-`out/tasks/`); on a layout that names it `approvehr-backend` it prints `skip` and
-compares nothing. Merge the backend first.
+only does that when it can find a backend checkout, and **until item 38 was fixed it
+never could**: it looked for `../../../approvehr-api`, which is where the backend sat
+in the first layout and nowhere since, so it printed `skip` on every machine, and so
+did `verify-payroll`, `verify-rating-scale` and `verify-signature-wording`. A drift
+between the two repos had no gate for as long as that was true.
+
+`scripts/backend-source.ts` is the one lookup all four use now. It takes
+`APPROVEHR_BACKEND_DIR` first (the root of a checkout; use it to compare against an
+unmerged branch, and a path that is not a backend is an error, not a skip), then a
+folder beside this repo or beside any folder above it, up to six levels, so a
+worktree under `.worktrees/` finds the main checkout's neighbour. `approvehr-api`
+is tried before `approvehr-backend`: a link or an old checkout with that name is
+somebody's choice, while `approvehr-backend` is the folder every clone gets. Each
+gate prints `note  comparing with <path>` so it is visible which backend was read,
+and `skip` only when there is none, which is the frontend's own CI, because it
+clones this repo alone. Both halves are tamper-tested: with the lookup working, a
+changed rating label and a changed signature sentence each fail their gate.
+`tests/backend-source.test.ts` pins the lookup itself. Merge the backend first.
 
 ## Not changed, on purpose
 
@@ -8745,6 +8761,96 @@ decided or genuinely pending is untouched.
 
 ---
 
+# Five Performance layouts broke on a phone, and the causes are not specific to Performance
+
+A measured pass over the Performance module on phones and tablets (#424). It found five layouts that
+needed changing and left everything else alone, because everything else was already right: no text under
+14px, no console errors or failing requests across 194 page loads (17 routes at eight sizes for the
+administrator, 7 for a manager, 6 for an employee), and every one of 16 dialogs and drawers fits at 320,
+375, 812x375 and 768 with its close button visible and focus moved inside. The method is the part to keep.
+Measuring the page found what looking at it did not: the detectors count text over text, text cut by an
+ellipsis or a line clamp, a sentence broken into columns by a flex row, children sticking out of their
+parent, and anything making the page wider than the window.
+
+## The five, and the class each one belongs to
+
+1. **A control that sizes itself to its content cannot share a row** (`appraiser-map.tsx`). `Select` puts
+   its `className` on the `<select>`, and a `<select>` is as wide as its longest option, which here is
+   "Name — Job title". On a tablet it took what it wanted and left the person's name a column about 60px
+   wide; on a phone "More options" ran out of the card, which made the page scroll sideways and a mobile
+   browser zoom out. The row is a grid, `minmax(0,1fr)` for the person, and the select's width is on a
+   wrapper. `basis-48` is the least the wrapper is squeezed to; below that the button drops to its own line
+   and the select keeps the row. The first version squeezed it until the placeholder read "Assign an ap",
+   which a detector did not see and the screenshot did.
+2. **`truncate` on a figure hides the figure** (`Stat`, `components/ui/card.tsx`). The value and the hint
+   wrap now (`break-words`) instead of ending in an ellipsis, so a caveat or an employee's own rating
+   ("Exceeds Expectations") is not cut off. This is the one shared component in the five, used by 52 files.
+   Checked on six screens at two sizes: cards in a row stay level, because grid items stretch, and are up to
+   45px taller where a hint wraps.
+3. **Five column labels do not fit in 55px** (`report-screen.tsx`, `components/ui/chart.tsx`). The spread of
+   marks is drawn as bars below `sm` (`BarChart` takes `tones` now) and as columns from `sm` up. The two
+   are swapped with `hidden` and `sm:hidden`, which is `display: none`, so only one of them reaches the
+   accessibility tree: each chart carries its own data table, and showing both by any other means would
+   announce it twice.
+4. **A grid that scrolls sideways has to say what its rows are** (`nine-box-screen.tsx`). It was 52rem wide,
+   which on an iPad held upright showed two and a half columns and cut the third mid-word with nothing to
+   say it scrolled. It is 44rem, which fits that width exactly. Below it the grid scrolls and the row
+   labels stay put (`sticky left-0 z-10 bg-canvas`): after scrolling 260px on a phone a label sits at
+   x=20, where it was at x=-240.
+5. **Loose text and an inline link inside a flex row are three columns** (`settings/performance/weights-form.tsx`).
+   The paragraph was a flex row so that the lock icon sat beside the words, and a flex row turns every
+   direct child into its own item, so the sentence rendered as three blocks side by side with the link alone
+   in the middle one. The sentence is one `<span className="min-w-0">` now. The save bar lost `shrink-0` for
+   the same page: it held the two buttons at full width and ran them 23px out of the card at 320px.
+
+Numbers one and five are mistakes in how a row is written, and nothing stops the next screen making them;
+number two is a shared component, so its change reached 52 files. `ColumnChart` (number three) has two more
+users, attendance history and the dashboard widgets, that probably have the label problem on a phone and
+were not measured.
+
+## Two guards, and an allowlist entry
+
+`tests/performance-layout-across-devices.test.tsx` pins each fix in the style of
+`pages-do-not-scroll-sideways-on-a-phone.test.tsx`: 11 tests, of which 10 fail on the source before the
+change and one passes (the tooltip, which was always there).
+
+`tests/no-unsafe-form-rows.test.ts` rejects a multi-column grid with no breakpoint prefix that holds a
+form control, and the appraiser row is one. `appraiser-map.tsx` is in its `ALLOWED` list with the measured
+reason beside it, the same two-track design the projects workflow editor is allowed for: the page is exactly
+as wide as the window at 320, 375, 412, 768 and 1366. If a grid like that fails that test, measure it and
+write the widths down; do not just add the name.
+
+## Measured, before and after
+
+Production build, Chromium with touch emulation below 800px, against a seeded scratch company, the build
+before the change against the build after it: text over text 9 to 0; a sentence broken into columns 1 to 0;
+children sticking out of their parent about 20 to 1; content wider than its box on 5 screens to 1; stat and
+heading text cut by an ellipsis on 7 screens to 1 (a header title at 320px).
+
+## Found, and not changed
+
+- **Landscape phone, 812x375.** Dialogs leave 90 to 150px for the form once the header and footer are
+  taken, and the review form's heading takes most of the screen.
+- **320px: "Fill in from the reporting line"** on the period page runs 10px into its card's padding. `Button`
+  is `whitespace-nowrap` and a fixed height.
+- **Touch targets.** Most buttons are 36px. The page-header back link and the breadcrumbs are 20px high, which
+  the WCAG 2.2 spacing exception allows and their size does not.
+- **Design calls, not defects.** Four stat cards stack one to a row on a phone, about 600px before the KPI
+  list; the period page puts seven buttons in four rows before any content; the overview's third tab is cut
+  at the edge of a phone as the only sign that the strip scrolls.
+- **Two recruitment-board tests fail on an unmodified `dev` when run on their own**: `applications-queue`
+  "waits for the typing to pause, then asks the server" and `pipeline-board` "search asks the board, not the
+  cards on screen". They are slow, not wrong. They fail at Testing Library's default one-second `waitFor`,
+  and with that one allowance raised to 20 seconds and nothing else changed (a scratch config, not in the
+  repo) both pass: typing, the debounce and the render of a long list all have to finish inside one second,
+  and on a loaded machine they do not. `npm test` is not in CI, so no pull request was failing on them. Not
+  tried: a quiet machine. The rest of that family fails only on a busy machine too.
+
+**Not verified:** a real device, Safari, the on-screen keyboard, and long lists or long names. The seeded
+company has ten people and one period.
+
+---
+
 # Fields are 16px under a finger, and the help icon opens on a tap
 
 A review of the Performance module on phones found two defects in shared form components. The layout
@@ -8866,3 +8972,253 @@ build against this one:
 focusing a button on a press (the reason the panel opens on a click), are both known behaviour and neither was
 reproduced; Chromium was made to behave like a phone, which is not the same. The on-screen keyboard
 (`visualViewport` shrinking under the panel) was not exercised either.
+
+---
+
+# The inventories are generated now, because the hand-kept ones had stopped being true
+
+`docs/pages/` and `docs/components/` exist to answer "does this already exist?", and `CLAUDE.md` tells
+everyone to search them before writing a component, a hook, a helper or an endpoint. They were first
+produced on 2026-09-11 by a one-off pass nobody recorded, and every change after that was a hand patch. By
+20 October the pages list had 113 routes against 145 `page.tsx` files; the components list had 661 files
+against 1,054 and still named five files and seven symbols that no longer exist; the API list lacked seven
+whole modules (`ai2`, `billing`, `job-roles`, `projects`, `screening`, `surveys` and `work-trackers`: 45
+modules against 52); and the landing list had no PAYE calculator. Each patch was a row somebody
+remembered to add, and the rows nobody remembered were the ones a reader needed. `CLAUDE.md` already said to
+re-derive the file rather than patch the row. There was nothing to re-derive it with.
+
+## `npm run docs`
+
+`scripts/generate-docs.ts`, with its parts in `scripts/docs/`. It rewrites four files:
+`docs/pages/frontend-v2.md` and `docs/components/frontend-v2.md` from this checkout,
+`docs/components/landing-frontend.md` from the landing site and `docs/components/backend-api.md` from the
+backend. The two sibling repositories are read at a git ref (`origin/main` and `origin/staging`) through
+`git cat-file --batch`, never from another checkout's working tree, so a stale branch or an untracked scratch
+file cannot leak into the description of a commit. `-- --check` exits 1 if a committed file is stale and
+ignores the `_Snapshot:_` line, which names a commit and so changes whenever the code does; `-- --only a,b`
+limits the run; `LANDING_REPO`, `LANDING_REF`, `BACKEND_REPO` and `BACKEND_REF` say where the siblings are. A
+sibling that is not there is skipped with a message and never replaced by a smaller file. A ref is read as
+last fetched, so run `git fetch` in each sibling first; the `_Snapshot:_` line at the top of a generated
+file says which commit was read. Prettier runs last, so table widths are never the script's opinion and a
+regenerated file differs only where a row does.
+
+It is **not in `npm run check` and not in CI**, on purpose. It would fail every pull request that adds an
+export without regenerating, which is a rule for the team to choose rather than one for a script to
+introduce. `npm run docs -- --check` exists so that "are the inventories current?" has a command.
+
+Not covered: `docs/pages/landing-frontend.md`, which is kept by hand because the landing site's routes
+carry no metadata to read, and the two platform-frontend files, which come from the one-off pass; that
+repository has not changed since 2026-08-21, so nothing there has drifted yet. Each of the three says so at
+its top.
+
+## The rules, because they are what a reader is trusting
+
+- **Pages.** One row per `page.tsx`; the title and the "What it is" cell are the page's own `metadata`. A
+  page whose title or description is computed prints an em dash, unless every `return` of its
+  `generateMetadata` agrees on a literal. A route that `src/proxy.ts` redirects is marked as retired, read
+  from that file's own `REDIRECTED_PATHS` and `REDIRECTED_PREFIXES`: `/demo`, `/privacy`, `/terms`,
+  `/security`, `/dpa` and `/product/*` go to the landing site with a 308, so the old list described pages
+  this application does not serve.
+- **Components.** By the shape of the declaration and its name. A callable named `useX` is a hook; a callable
+  with a capital letter in a `.tsx` file is a component; a `forwardRef(...)` or `memo(...)` of a capitalised
+  name is a component too (the one-off pass missed those: `Button`, `Input`, `Select` and more); any other
+  callable is a function; everything else is counted ("3 const", "2 types"), not listed. A symbol exported
+  through `export { a }` counts only where it is declared. Barrels, an `index.ts` that only re-exports, are
+  left out: 11 of the 1,054 source files. A symbol lands in the wrong column occasionally, because a factory
+  called `makeThing` that returns a component is a function here. The path beside it is always right.
+- **API.** One section per folder under `src/modules`: a table of its files and what they export, and a table
+  of every endpoint with its full mounted path. Routes are found the way Express finds them, by following the
+  mounts from `app.ts`. The generator executes `createApp` over a small subset of TypeScript, resolves each
+  router through the imports to the file that creates it, and evaluates a path written as a template literal
+  over a loop, which is how `imports` registers three routes for every entity. **It refuses to guess.** A
+  route whose path it cannot evaluate, a `.route()`, `.all()`, `.head()` or `.options()` chain, a route or a
+  mount inside an `if` or a `try`, a router that has routes and is never mounted, and a file that creates a
+  router nothing mounts all stop the run and name the line. The fix is to write the route as a literal or to
+  teach `scripts/docs/backend-api.ts` the form. An inventory that quietly leaves a route out is the failure
+  this exists to prevent.
+
+## How it was checked
+
+Not by reading it. Each generator was run on the commit the committed file came from and compared with that
+file.
+
+- **Pages, at `65a45ff0`:** all 113 original rows present and in the same section order; 110 identical in
+  title and description. The other three differ on purpose or by an original slip: two fallback titles
+  ("Job", "Product") are no longer printed as if they were the page's title, and one description the original
+  cut short.
+- **Components, at `65a45ff0`:** 22 groups with the same files in each, and every cell identical except the
+  `forwardRef`/`memo` components and `export { … }` symbols the original skipped, and one file merged after the
+  original was made.
+- **API, at `a04bc6a`,** the commit the original described (2026-09-10): all 644 original endpoints are
+  reproduced. Six are printed with the prefix the original dropped (four `careers` routes sit under
+  `/careers/public` and two `payments` webhooks under `/payments`), and 13 are new to it: the biometric ingest
+  route in `attendance/ingest.ts`, which is not in a `router.ts`, and 12 `imports` routes built in a loop.
+
+On `staging` (`3e86763`) it finds 851 endpoints in 52 modules, against the 644 in 45 that the old file
+claimed.
+
+## Found while documenting, and not changed
+
+- **"Approve routine" approves what you have archived and ignores the filters on screen.** The backend's
+  `approvals/service.ts#approveRoutine` selects every pending approval with no deadline and under five days
+  old across the whole company, with neither `archivedWhere` nor `scopeWhere`, although the comment above
+  `archivedWhere` says that everything which acts on the queue in bulk leaves archived rows alone. Run on a
+  scratch API with one entry archived, it answered `decided: 2`. The approvals walkthrough carries a dated
+  note about it; **delete that note when this is fixed**.
+- **The Fairness screen has no backend on `staging`.** `VIEW_FAIRNESS` and the check itself exist only on the
+  backend branch `tolu/performance-bias`, so on the shared QA site nobody holds the permission and the button
+  never appears. The Performance walkthrough says so in a note to delete when it ships.
+- **A merge dropped an edit to a walkthrough.** `25c109be` (`tolu-dev`, PR #308, 25 September) carried an
+  older copy of `docs/walkthroughs/performance.md` and lost the 23 September edit: a whole step, one of the
+  nine surprises and the footer date, leaving the step numbers half shifted. HANDOVER lost no heading in that
+  merge. The walkthrough was restored and renumbered in the change that added this generator.
+- **The walkthroughs are not generated, and a label check is how they were audited.** Every bold or quoted
+  string in a walkthrough was searched for in `src`, and the misses were read one by one. A template such as
+  `` `Delete this ${word}?` `` or an emphasis phrase is a false alarm; "I do not accept it" (a button removed on
+  11 September, hours after the walkthrough was written) and "12 forms written" (the screen says "created")
+  were not. Then the product's own changes since the document was last edited were read out of git. That is a
+  manual pass and not a gate, and there is no script for it in the repository.
+
+---
+
+# "Approve routine items" asks first, and approves the list it showed
+
+The inbox button that read **Approve 3 routine items** counted the routine rows on screen and then
+pressed a route that decided the **whole routine queue on the server**. Entries in *My archive*, and
+entries the person was never shown, were approved with it, and nothing asked first. Merged on
+2026-10-21 (backend #202 at 07:55 UTC, frontend #431 at 07:56 UTC).
+
+## What it does now
+
+- **The button opens a confirmation** titled `Approve N routine items?` (`routine item` for one) that
+  names every item, with the confirm button reading `Approve N`. The body says: *These are approved
+  now, and the people who asked are told. Each one is checked again as it goes: anything that is no
+  longer routine, or that you cannot approve, stays where it is.*
+- **It sends the rows it showed, and only those.** The dialog takes a snapshot of the items when it
+  opens and posts their ids to `POST /approvals/approve-routine/selected` (1 to 200).
+  `approveSelected` in `lib/api/approvals.ts` is the client, `approveRoutine(items)` on
+  `useApprovalQueue` the store call. The old whole-queue call and its entry in `endpoints.ts` are gone.
+- **The server re-checks every id at the moment it is pressed**, against the one routine predicate
+  (pending, no deadline, waiting under five days), `visibleFor` (is it in this caller's inbox) and
+  `archivedWhere` (not in their archive), and returns a reason per id. An id the caller cannot see gets
+  the same answer as one that does not exist. The audit entry records the ids asked for and the ids
+  decided. **The toast carries the server's own per-row reasons**, never a sentence composed here, and
+  the dialog closes whether it worked or not.
+
+## Two things not to undo
+
+- **A server that predates the route answers 404, and that is never retried as the old sweep.**
+  `SERVER_BEHIND` is the sentence shown: *The server is a version behind this page and cannot approve a
+  list you were shown yet, so nothing was approved. Ask whoever looks after the server to update it.* The route is separate from the old one on
+  purpose: a body sent to the old `/approve-routine` would have been ignored and the whole queue swept.
+  So the order is the backend first, and a frontend that arrives early fails safe.
+- **The Decided view is connected-only.** The inbox's view switch gains **Decided**, with a switch for
+  **Approved** / **Declined**, the same filters as the queue, newest decision first, read-only (its rows
+  are the Sent row reading **Raised**). Empty states: **Nothing approved yet** and **Nothing declined
+  yet**. `useDecidedApprovals` matches its state to the outcome it was asked for, so a row never shows
+  under the wrong one, and it refetches when anything is decided. Demo mode has no decided history and
+  does not offer it. Order is the backend's `DECIDED_ORDER`: `decidedAt` latest first, undecided last.
+  The queue's "what needs me" ranking puts the oldest request on top, which is wrong for a row that is
+  already decided.
+
+## The backend half, found while testing it
+
+- **A declined expense claim never left the inbox.** `reimbursements.decline` did not call
+  `mirrorApprovalDecision` (approve did), so the entry stayed `PENDING` for ever. It does now, and a
+  data-only migration (`20261022130000_close_declined_expense_claims_in_inbox`) closes the entries
+  already stuck, only where the claim itself is `DECLINED`. The rule from "An approval you could see
+  and never decide" above applies again: a request and its inbox entry are two rows, and whatever ends
+  one ends the other in the same transaction.
+- **Archiving was a read-then-write on a shared list** (`archivedByUserIds`), so two people putting the
+  same row away at once lost one archive. It is a compare-and-set, retried, and answers 409 after eight
+  lost races.
+- **The raised-from and raised-to filters cut at UTC midnight.** They cut at the company's midnight now
+  (`zonedInstant`).
+
+## Verified, and what was not
+
+Six test files (34 tests) cover the frontend: `approvals-inbox-routine`, `approvals-routine-selected-api`,
+`approvals-store-routine-decided`, `approvals-inbox-decided`, and the existing `approvals-inbox-archive`
+and `approvals-inbox-reject`. Three deliberate breaks were each caught: a button that sweeps with no
+confirmation, a store that sends the whole queue instead of the rows it was given, and a 404 that falls
+back to the old sweep. The backend has 16 tests in `approvals-routine`, 6 in
+`reimbursements-declined-inbox` and 4 in `approvals-decided-order`.
+
+**Not seen in a browser.** Everything on the frontend side is covered by component tests with the
+store mocked, and nobody has pressed the confirmation or opened the Decided view on a running inbox.
+The QA site is the place to do that once both halves are on `staging` and `test`.
+
+## Not done
+
+- Complaints 3 to 5 of the inbox feedback ("Moves money", "People", "Needs attention"). Frontend #420
+  replaced the first and last filters with module chips; they were not re-walked here.
+
+---
+
+# An uploaded objective takes its parent's appraisal period, and says so when it files nothing
+
+An objective counts towards somebody's appraisal mark only if it is filed in an appraisal period. The
+objectives upload had two gaps, both found on item 36 of the tracker and merged on 2026-10-21 (backend
+#205 at 07:57 UTC, frontend #435 at 07:59 UTC).
+
+## What changed
+
+- **A child takes its parent's period.** A row that names a parent objective and leaves **Appraisal
+  period** blank is filed in the parent's period if that period is **not published**. A period named in
+  the row always wins. A published parent period is never inherited, and then the row is filed in no
+  period. "Give a KPI to people" (`assignObjective`) has always inherited; the single New objective
+  dialog does not, and does not prefill it either. The upload now behaves like the first. The importer
+  checks for a published period; `assignObjective` does not.
+- **The parent has to exist already.** A parent that is another row of the same file is refused
+  (*It has to exist already*), so inheritance works from existing objectives only.
+- **Every row that will really be written with no period carries a warning** on the Appraisal period
+  column (never an error: a company may mean it): *No appraisal period, so this objective counts towards
+  nobody's appraisal mark.* With a parent in a published period the API adds a second sentence naming
+  it, and with a parent that has none it says there was none to take. The file also gets two batch notes
+  in both the validate and the apply response.
+- **The check step says it once, above the report.** `ImportSurface` has a new optional
+  `checkNotices(rows)` hook, rendered by `ImportFlow` through `components/imports/check-notices.tsx`.
+  The check step's `CheckReport` groups the per-row warning into a collapsed disclosure, and
+  `PARITY.md` Rule 5 says a reveal must not be the only place something that matters is said. Objectives
+  is the first user: a warning-tone callout reading **N objectives have no appraisal period**, which never
+  blocks and renders nothing when the count is zero.
+
+## Decisions not to undo
+
+- **The count is found by field, not by wording.** `countUnfiled` looks for a warning on the `period`
+  field through the dictionary's own aliases. The API may reword the sentence, and a count that stopped
+  matching would fail silent, which is the worst way for a warning about nobody's marks to fail.
+  Skipped rows are not counted: they are not going to be filed at all.
+- **The offline checker is a floor, not the count.** Demo mode (`lib/imports/check.ts`,
+  `lib/imports/objectives.ts`) warns, in the API's exact base sentence, only on a row with **neither a
+  period nor a parent**, and only on a row that will import (`RowContext` gained `hasErrors()`). It never
+  claims a child with a parent will be unfiled, because only the API can see the parent's period, and its
+  batch note says so.
+- **The wording is shared by hand.** The twelve column notes and the base sentence are byte-identical
+  between the two repos. `verify-template` compares headings and cell types but **not note text**, so
+  this is not enforced by a gate; change one side and change the other.
+- **The Add multiple window follows the same rule.** The blank period option reads **None chosen (the
+  parent's period, if any)** (it said "counts towards nobody's mark", false for a card whose parent has an
+  open period), and the read-only review keeps a blank field the check had a note about.
+
+## Verified, and what was not
+
+Frontend: `objectives-import`, `import-check-notices`, `bulk-create-dialog` and the neighbouring import
+and objective tests pass; three deliberate breaks were caught (dropping `!hasErrors()`, counting skipped
+rows, dropping the review's "said" rule). Backend: `imports-objectives` has 40 tests, three more breaks
+were caught (inheritance off, a published period also inherited, the unfiled count wrong), and a 7-row
+file went through validate and apply on a scratch API with the same notes in both.
+
+In a browser against the scratch API the callout read **3 objectives have no appraisal period**; typing
+H2 2026 beside a row and checking again turned it into 2. **The `ImportFlow` wiring has no automated
+test**; only that browser run covers it, so if somebody removes it the unit tests still pass.
+
+## Order, and what was left
+
+The backend goes first. The frontend sends the same headings, so a file works against either order, and
+against an older API the callout simply does not appear.
+
+Not fixed, on purpose: an objective with several measures cannot be uploaded in one go (one measure per
+row), and the upload cannot add a measure to an existing objective. The Add multiple window has no
+`maxLength` on title and description; the 140 and 2,000 limits are enforced at Check with a clear
+message, and a hard cap would silently truncate pasted text.

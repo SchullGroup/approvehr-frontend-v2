@@ -94,15 +94,20 @@ opens is empty, and says so in a sentence.
 | **Objectives to agree** | `/performance/approvals`    | The queue. Somebody sent you a target; you agree it, send it back, or refuse it.                                                | Everyone — but the queue is narrowed to what you may answer, so most people find it empty and are told why |
 | **Who appraises whom**  | `/performance/appraisers`   | Only appears if the company has switched multiple appraisers on. Maps who marks whom, and for what share of the mark.           | HR / Owner                                                                                                 |
 
-Four more screens exist but have no sidebar item, because you reach them from something specific:
+More screens exist but have no sidebar item, because you reach them from something specific:
 
-| Route                                | What it is                                      |
-| ------------------------------------ | ----------------------------------------------- |
-| `/performance/reviews/{id}`          | One person's appraisal                          |
-| `/performance/periods/{id}/report`   | The period's results                            |
-| `/performance/periods/{id}/nine-box` | The calibration grid                            |
-| `/performance/history/{employeeId}`  | One person across every period                  |
-| `/performance/how-it-works`          | The product explaining itself, in its own words |
+| Route                                | What it is                                                                          |
+| ------------------------------------ | ----------------------------------------------------------------------------------- |
+| `/performance/periods/{id}`          | One period: set it up, start it, move it along, and read where everybody has got to |
+| `/performance/periods/new`           | Draft a period from a few sentences (step 5)                                        |
+| `/performance/kpis/import`           | Upload objectives from a spreadsheet                                                |
+| `/performance/reviews/{id}`          | One person's appraisal                                                              |
+| `/performance/reviews/{id}/answer`   | Answering a review one question at a time, in a window of its own                   |
+| `/performance/periods/{id}/report`   | The period's results                                                                |
+| `/performance/periods/{id}/nine-box` | The calibration grid                                                                |
+| `/performance/periods/{id}/fairness` | How the marks compare across groups of people and across managers (step 25)         |
+| `/performance/history/{employeeId}`  | One person across every period                                                      |
+| `/performance/how-it-works`          | The product explaining itself, in its own words                                     |
 
 ---
 
@@ -120,7 +125,7 @@ people, which is the view to hand somebody who asks "so whose job is this?".
 | 2   | **Self-review**    | Watches who is outstanding, nudges the late ones                                                                       | —                                                                          | Fills in their own form and sends it                                        |
 | 3   | **Manager review** | —                                                                                                                      | Writes their review of each person and sends it. Records competency levels | Nothing. Self-reviews already sent are kept                                 |
 | 4   | **Calibration**    | Compares marks across the company, moves any that are out of line with a written reason, places people on the nine-box | Makes each rating final. This is the point at which the person is told     | —                                                                           |
-| 5   | **Published**      | Reads the report, the distribution and the trend                                                                       | —                                                                          | Reads what was written about them. Acknowledges it, or formally disputes it |
+| 5   | **Published**      | Reads the report, the distribution and the trend                                                                       | —                                                                          | Reads what was written about them. Acknowledges it                          |
 
 The four presses that move it between stages, in order: **Start the period** → **Move to manager
 review** → **Move to calibration** → **Publish the results**. All four are one-way.
@@ -131,36 +136,36 @@ review** → **Move to calibration** → **Publish the results**. All four are o
 flowchart LR
   subgraph HR ["HR / Owner"]
     direction TB
-    A["1–7<br/>Set it up<br/>scale, weights, questions"]
-    D["13<br/>Start the period<br/>forms written, people told"]
-    G["21–23<br/>Calibration<br/>compare, move marks, nine-box"]
-    J["27–28<br/>Publish, then read<br/>the report and the trend"]
+    A["1–8<br/>Set it up<br/>scale, weights, questions"]
+    D["16<br/>Start the period<br/>forms created, people told"]
+    G["24–27<br/>Calibration<br/>compare, check fairness, move marks, nine-box"]
+    J["31–33<br/>Publish, then read<br/>the report and the trend"]
   end
   subgraph MG ["Line manager"]
     direction TB
-    C{"12<br/>Agree it?"}
-    F["18–19<br/>Manager review<br/>write it, rate competencies"]
-    H["24<br/>Make it final<br/>the rating of record"]
+    C{"15<br/>Agree it?"}
+    F["21–22<br/>Manager review<br/>write it, rate competencies"]
+    H["28<br/>Make it final<br/>the rating of record"]
   end
   subgraph EM ["The person"]
     direction TB
-    B["8–11<br/>Set a target<br/>objective, measure, send it"]
-    E["14<br/>Self-review<br/>answer it and send"]
-    I{"25<br/>Answer it?"}
+    B["9–14<br/>Set a target<br/>objective, measure, send it"]
+    E["17<br/>Self-review<br/>answer it and send"]
+    I["29<br/>Acknowledge it<br/>they say they have seen it"]
   end
 
   A --> B --> C
   C -- agreed --> D --> E --> F --> G --> H
   H -- "they are told" --> I --> J
   C -. "sent back — edit it and send again" .-> B
-  G -. "send one review back (26)" .-> F
+  G -. "send one review back (30)" .-> F
 
   classDef gate stroke-width:3px;
   class D,G,H,J gate;
 ```
 
 The numbers in each box are the steps in section 4. Read it as a relay: every arrow that crosses a
-lane is a hand-off, and the whole exercise is six of them. **The two dotted arrows are the only ways
+lane is a hand-off, and the whole exercise is nine of them. **The two dotted arrows are the only ways
 anything ever goes backwards, and both need a written reason.** The four boxes with a thick border —
 Start, Calibration, Make it final, Publish — cannot be undone.
 
@@ -178,7 +183,7 @@ Start, Calibration, Make it final, Publish — cannot be undone.
 
 ## 4. The walkthrough
 
-Thirty steps in the order they have to happen. Steps marked _optional_ can be skipped on a first
+Thirty-four steps in the order they have to happen. Steps marked _optional_ can be skipped on a first
 walk and the period will still produce marks. Every other step has something after it that will not
 work if you leave it out.
 
@@ -196,7 +201,7 @@ has already started, which is deliberate.
 
 #### 1. Check appraisals are switched on
 
-If this is off, five of the seven sidebar items are hidden and the Overview screen says so plainly.
+If this is off, four of the seven sidebar items are hidden and the Overview screen says so plainly.
 Nothing is deleted by switching it off, and nothing is lost by switching it back on.
 
 |                |                                                                |
@@ -253,7 +258,7 @@ except the name is optional and can be filled in later.
 | **Where** | `/performance` or `/performance/periods` |
 | **Who** | HR / Owner |
 | **Click** | **Start an appraisal period** — top right of either screen |
-| **You'll see** | A dialog with **Period name**, the dates, **Answers due by**, and three collapsed sections |
+| **You'll see** | A dialog with **Period name**, the dates, **Answers due by**, and five collapsed sections |
 
 The five collapsed sections, in the order you meet them:
 
@@ -270,7 +275,7 @@ The five collapsed sections, in the order you meet them:
   *Nobody* until you tick one. Step 8 is what leaving them off actually does.
 
 > ⚠️ **Careful.** The button reads "Start an appraisal period" but it only _creates_ one. Nothing is
-> sent and nobody is told. Starting it is a separate press, three steps from here.
+> sent and nobody is told. Starting it is a separate press, at step 16.
 
 #### 5. _Optional_ — let the assistant draft it instead
 
@@ -315,6 +320,11 @@ The three settings on a question:
 > ✅ **Shortcut.** There is a **Copy from** control that lifts every question off a previous period.
 > On a second period this is the whole of this step.
 
+Beside **Write the questions** there is also **Sections and subsections**. That is the company's own
+framework of what an appraisal is made of — it starts with Core competency, Behavioural competency,
+Key result area and Leadership — and it is shared by every period, past and future, so renaming
+something there is not a change to this period alone. You never have to open it to run a period.
+
 #### 7. _Optional_ — let managers add their own questions
 
 A switch on the period. With it on, a line manager can add a question of their own on top of the
@@ -326,6 +336,30 @@ standard set, scoped to their own team only.
 | **Who** | HR / Owner |
 | **Click** | The toggle reading **Let managers add their own questions, scoped to their team** |
 | **You'll see** | Nothing changes on this screen. It changes what a manager is offered on theirs |
+
+#### 8. _Optional_ — decide whether the Owner and the HR manager are appraised
+
+Two tick boxes on the same settings card, and **both are off**. So on a new period the person who
+owns the company and whoever runs HR are handed no form of their own unless you say otherwise.
+
+| | |
+|---|---|
+| **Where** | `/performance/periods/{id}`, or the **Appraise the Owner and the HR manager** section of the Start dialog |
+| **Who** | HR / Owner |
+| **Click** | **Appraise the Owner in this period** · **Appraise the HR manager in this period** |
+| **You'll see** | Nothing on this screen. What changes is who the period hands a form to when you start it — one more person for each box you tick |
+
+Two boxes rather than one, because they are two unrelated questions. An HR manager reports to
+somebody like anybody else, so a company that does not appraise its owner may still want its HR
+manager appraised.
+
+> 💡 **Left out is not let off.** Whoever is unticked still writes their own team's reviews and still
+> signs them off. All they lose is a form _about themselves_ — which is also the point, because it is
+> what stops them finishing the period counted as unscored.
+
+> ⚠️ **Decide it before you start the period.** Forms are handed out at the moment you start, so
+> decide before then. The boxes can still be changed afterwards and the product will not stop you, but
+> anybody who already has a form keeps it.
 
 ### Phase C — before you start it: set the targets, and get them agreed
 
@@ -355,13 +389,13 @@ person's objectives under those. You can start anywhere.
 > "Assigned to" list of your direct reports, plus everybody in a department you head. If
 > somebody you expect is missing from that list, that is why.
 
-#### 9b. _Optional_ — change or delete an objective before it is agreed
+#### 10. _Optional_ — change or delete an objective before it is agreed
 
 | | |
 |---|---|
 | **Who** | Whoever can write the objective: its owner, their line manager, a department head, HR / Owner |
 | **Click** | Open the objective, then **Edit** or **Delete** (at the end of the buttons) |
-| **You'll see** | **Edit** opens **Objective title** (**KPI title** on a personal one), **Due quarter**, **Appraisal period** and **Description**; **Save changes** stays off until something differs. **Delete** asks "Delete this KPI?" and says it also removes the objective's measures |
+| **You'll see** | **Edit** opens **Objective title** (**KPI title** on a personal one), **Due quarter**, **Appraisal period** and **Description**; **Save changes** stays off until something differs. **Delete** asks "Delete this KPI?" ("Delete this objective?" on a company or department one) and says it also removes the measures |
 
 > ⚠️ **Neither is offered once it is agreed.** An agreed target is the record of what two people
 > agreed, so **Edit** is replaced by **Reopen the target**, and **Delete** by **Stop this KPI**. The
@@ -369,7 +403,7 @@ person's objectives under those. You can start anywhere.
 > for one that other objectives ladder up to (move or delete those first). **Who it is assigned to**
 > is not in Edit: handing an objective to somebody else is a separate act.
 
-#### 10. Put a number on it
+#### 11. Put a number on it
 
 A measure is what makes progress track itself. Without one, somebody has to state a figure by hand
 at the end.
@@ -385,7 +419,7 @@ at the end.
 > go down** and progress becomes how far it has fallen. Without the tick, a target below the start is
 > refused with an explanation rather than silently scored backwards.
 
-#### 10. _Optional_ — add several objectives in one go
+#### 12. _Optional_ — add several objectives in one go
 
 For a team's quarter. It does what **Upload objectives** does, with the rows typed in instead of
 read from Excel: the same checks, with each row judged on your own authority, and everything arrives
@@ -430,12 +464,34 @@ Then **Check and review**:
 > a name. Somebody with the records permission is offered each person's address while typing. A
 > department head is not: the staff list a head can read carries no emails.
 
+> ⚠️ **Leave Appraisal period blank and an objective may count towards nobody's mark.** An
+> objective counts towards a person's appraisal mark only once it is filed in an appraisal period. This
+> holds for this window and for **Upload objectives** alike, because both go through the same check.
+> A row that names a parent objective and leaves the period blank takes the parent's period, as long
+> as that period is still open. A row with no parent and no period, or whose parent's period is
+> published or has none, is filed in no period. It still imports, since a company may mean it, and
+> the check says so before anything is created:
+>
+> - on the upload page, a yellow callout above the report reads **3 objectives have no appraisal
+>   period** (**1 objective has no appraisal period** for one). It explains that they still import, and
+>   that the way to file them is to name an open period under **Appraisal period** (the report lets you
+>   type it beside each row) or to press **Edit** on the objective before it is agreed (step 10);
+> - on each such row, **No appraisal period, so this objective counts towards nobody's appraisal
+>   mark.**;
+> - in this window the **Appraisal period** dropdown's blank choice reads **None chosen (the parent's
+>   period, if any)**.
+>
+> The parent has to exist already. A parent that is another row of the same file is refused with **It
+> has to exist already**, so a period is inherited from existing objectives only. When the check runs
+> with no server (demo mode) it can only be sure about the rows with neither a period nor a parent,
+> and says so; it never claims a row under a parent will be unfiled.
+
 > 🛑 **Nothing is saved.** Closing with objectives typed asks **Close without creating 3 objectives?**
 > with **Keep editing**, **Download Excel draft**, **Download CSV draft** and **Discard**. The download
 > is how to carry on later: it opens in Excel, and loads back into this window. The only thing this
 > browser remembers is which layout you chose.
 
-#### 10. *Optional* — give the same objective to several people at once
+#### 13. _Optional_ — give the same objective to several people at once
 
 Word it once; each person gets their own copy to track separately.
 
@@ -446,7 +502,7 @@ Word it once; each person gets their own copy to track separately.
 | **Click**      | **Give a KPI to people**, tick the names, confirm        |
 | **You'll see** | The button counts what it will do — _Assign to 4 people_ |
 
-#### 12. Send it to be agreed
+#### 14. Send it to be agreed
 
 Until this is pressed the objective is a private draft. It is not in anybody's queue and it cannot
 be scored.
@@ -462,7 +518,7 @@ be scored.
 > and it appears in your manager's **Waiting on you** at the same moment. Showing both sides of that
 > is the single most convincing thing in a demo.
 
-#### 13. Agree it — as the other person
+#### 15. Agree it — as the other person
 
 Sign in as the manager. This is the queue screen, and it has one job.
 
@@ -498,28 +554,29 @@ flowchart TD
 Starting is the point of no return. It writes a form for every employee who is not archived or
 exited, tells them in the app, and the period can never be deleted again.
 
-#### 14. Start the period
+#### 16. Start the period
 
 |                |                                                                                      |
 | -------------- | ------------------------------------------------------------------------------------ |
 | **Where**      | `/performance/periods/{id}`                                                          |
 | **Who**        | HR / Owner                                                                           |
 | **Click**      | **Start the period**, then confirm                                                   |
-| **You'll see** | A message counting exactly what happened — _"12 forms written · 12 told in the app"_ |
+| **You'll see** | A message counting exactly what happened — _"12 forms created · 12 told in the app. No emails are sent from here."_ |
 
 > 🛑 **Read the two warnings it gives you.** Starting a period returns two lists **by name**, and
-> they are the only time anybody is told:
+> they are the only time anybody is told. Each is a single line on the period screen, and names the
+> person when it is only one ("Tunde Bakare has no appraiser"):
 >
-> **Nobody is appraising them** — these people will finish the period with no mark at all. Fix it on
-> `/performance/appraisers` or by setting their manager on their record.
+> **"3 people have no appraiser: …"** — these people will finish the period with no mark at all. Fix
+> it on `/performance/appraisers` or by setting their manager on their record.
 >
-> **Nothing agreed to be judged on** — these people have no agreed objective, so the objectives part
-> of their mark is empty and the rest is reweighted around it.
+> **"3 people have no agreed objective: …"** — these people have nothing agreed to be judged on, so the
+> objectives part of their mark is empty and the rest is reweighted around it.
 
 > ⚠️ **Nothing here sends email.** People are told inside the app only. If your walkthrough audience
 > expects an email to arrive, say so before you press it.
 
-#### 15. Fill in a self-review — as an ordinary employee
+#### 17. Fill in a self-review — as an ordinary employee
 
 Sign in as somebody with no special permissions. This is what 90% of the company will ever see of
 the module, so it is worth walking properly.
@@ -538,7 +595,7 @@ the module, so it is worth walking properly.
 - Questions marked as required must be answered before Send will work. The screen counts what is
   still missing.
 
-#### 15. *Optional* — log what you did each week
+#### 18. _Optional_ — log what you did each week
 
 A separate, ongoing loop that runs all year rather than at appraisal time. Staff log a line of what
 they did against an objective; their manager grades it. It is the evidence behind a delivery score.
@@ -550,7 +607,12 @@ they did against an objective; their manager grades it. It is the evidence behin
 | **Click**      | Pick an objective, write what you did, log it. The manager sees it under _Waiting on a grade_ |
 | **You'll see** | Rows grouped by the day each task was _logged_ — not the week it covers                       |
 
-#### 17. Chase the people who have not sent theirs
+A task that a finished issue on a project filed for you carries a small **From project KEY-n** tag, in
+**Your weeks**, in an objective's task log and in the grading queue. The tag says where the work came
+from; the grade is still the manager's. It is a link only if you can open that project, and plain
+text if you cannot.
+
+#### 19. Chase the people who have not sent theirs
 
 |                |                                                                                                         |
 | -------------- | ------------------------------------------------------------------------------------------------------- |
@@ -563,7 +625,7 @@ they did against an objective; their manager grades it. It is the evidence behin
 > so as its own line rather than quietly counting them as reached. It is a small thing that a careful
 > PM will notice and like.
 
-#### 18. Move it to manager review
+#### 20. Move it to manager review
 
 |                |                                                                         |
 | -------------- | ----------------------------------------------------------------------- |
@@ -574,7 +636,7 @@ they did against an objective; their manager grades it. It is the evidence behin
 
 > 🛑 **One-way.** There is no button that moves a stage backwards, in this screen or anywhere else.
 
-#### 19. Write a review of somebody — as their manager
+#### 21. Write a review of somebody — as their manager
 
 |                |                                                                                                   |
 | -------------- | ------------------------------------------------------------------------------------------------- |
@@ -592,7 +654,7 @@ they did against an objective; their manager grades it. It is the evidence behin
 > Lagos migration was difficult"_ and watch it correctly say nothing. This runs entirely inside the
 > product — no written appraisal comment is sent anywhere.
 
-#### 20. Record competency levels
+#### 22. Record competency levels
 
 Separate from the review form, and easy to forget. A person with no competency ratings gets a mark
 built from their objectives alone.
@@ -607,7 +669,7 @@ built from their objectives alone.
 > 🛑 **The same trap as step 9.** **Appraisal period** is on this dialog too. Leave it blank and the level is
 > recorded but counts towards no period's mark.
 
-#### 20. *Optional* — ask colleagues for feedback
+#### 23. _Optional_ — ask colleagues for feedback
 
 |                |                                                                                          |
 | -------------- | ---------------------------------------------------------------------------------------- |
@@ -622,7 +684,7 @@ Calibration is the stage where a company looks at every mark side by side and as
 managers have been using the same scale. It is also where a rating stops being a draft and becomes
 the thing a person is told.
 
-#### 22. Move it to calibration
+#### 24. Move it to calibration
 
 |                |                                                                                                               |
 | -------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -635,7 +697,41 @@ the thing a person is told.
 > **Waiting on you** once the period is at calibration. If a manager tells you they cannot see
 > anything to finalise, this is almost always the reason.
 
-#### 23. Move a mark that is out of line
+#### 25. _Optional_ — check the marks for fairness
+
+Before you move anything, look at how the marks fall. This screen compares the marks as the answers
+produced them, before any calibration move, across groups of people and across managers, and flags the
+gaps worth a second look. It does not change a mark.
+
+|                |                                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Where**      | `/performance/periods/{id}/fairness`                                                                                                             |
+| **Who**        | Whoever holds the **See the fairness check** permission                                                                                          |
+| **Click**      | **Fairness check**, at the top of the period screen once the period has started                                                                  |
+| **You'll see** | **Marks compared**, **Gaps flagged**, **Groups hidden** and **Company average**, then three tabs: **Groups**, **Managers** and **Calibration moves** |
+
+- **Groups** is one card per way of grouping people — the permission names gender, age, time at the
+  company, location, contract type and department. Each card reads **Flagged**, **No clear gap** or
+  **Too few to compare**, and can be shown as an **Average**, as **Bands** or as a **Table**.
+- **Managers** shows the average mark each manager gave, and flags a manager whose marks sit well apart
+  from everyone else's, or barely vary at all.
+- **Calibration moves** counts the marks that were moved up and down, by group, and lists the latest
+  moves with the reason given for each.
+- **This period** and **Last 3 periods** at the top switch what is counted.
+- **How flags work**, at the foot, states the rules in the product's own words: a group is flagged only
+  when its gap is large enough and its likely range does not cross zero, and groups under a minimum
+  size are hidden.
+
+> 💡 **Group averages only, never one person's.** A group too small to show is hidden rather than
+> shown, so that no figure on this screen can be traced back to somebody. Religion and state of origin
+> are not checked at all, and the screen says so.
+
+> ⚠️ **Not on the shared QA site yet** (20 October 2026). The button only appears for somebody who
+> holds the permission, and the server's side of it — the permission and the check itself — is on a
+> backend branch that has not reached `staging`, so there nobody holds it. Delete this note when it
+> ships.
+
+#### 26. Move a mark that is out of line
 
 One manager marks generously and another marks hard. Calibration is where that is corrected, on the
 record rather than in a corridor.
@@ -651,7 +747,7 @@ record rather than in a corridor.
 > explains the change if anybody asks years later. A few words is refused; the product asks for a
 > sentence.
 
-#### 23. *Optional* — place people on the nine-box
+#### 27. _Optional_ — place people on the nine-box
 
 Performance against potential, on a three-by-three grid. Performance comes from the period; potential
 is a judgement somebody records here.
@@ -667,7 +763,7 @@ is a judgement somebody records here.
 > grid** with which half is missing, rather than being dropped into the bottom-left box. As the screen
 > puts it: having no mark is not the same as a low one. Most nine-box tools get this wrong.
 
-#### 25. Make a rating final
+#### 28. Make a rating final
 
 The most consequential button in the module. It turns a written review into the rating of record and
 tells the person.
@@ -681,34 +777,42 @@ tells the person.
 
 > 🛑 **It cannot be changed afterwards.** The confirmation says so. Once final, the mark cannot be
 > changed, and the person has been told. If a review genuinely needs redoing after this, the only
-> route is step 27.
+> route is step 30.
 
-### Phase F — the person answers: sign-off, and the two ways it can go
+### Phase F — the person answers: sign-off
 
 A final rating is not finished until the person it is about has answered it. Leaving it unanswered is
 deliberately not one of the options.
 
-#### 26. Acknowledge, or formally dispute
+#### 29. Acknowledge it
 
-|                |                                                                                     |
-| -------------- | ----------------------------------------------------------------------------------- |
-| **Where**      | `/performance/reviews/{id}` — reached from **Waiting on you**                       |
-| **Who**        | The person                                                                          |
-| **Click**      | **I have seen this** or **I do not accept it**                                      |
-| **You'll see** | A banner reading _"Your rating is final and needs your response."_ above both buttons |
+|                |                                                                                                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/performance/reviews/{id}` — reached from **Waiting on you**, or from the **Your rating is final** card on Overview                                                  |
+| **Who**        | The person                                                                                                                                                            |
+| **Click**      | **I have seen this**, then **I have seen this** again in the **Acknowledge this rating** window. A comment is optional                                                 |
+| **You'll see** | A banner reading _"Your rating is final and needs your response"_ above the button. After the click the window turns into a statement of what was recorded, and the review gains an **Acknowledged** card with the date |
 
 ```mermaid
 flowchart TD
-  F["Final, and they have been told<br/>the rating stands. The sign-off is open and stays open<br/>until one of the two below."]
+  F["Final, and they have been told<br/>the rating stands. The sign-off stays open<br/>until they answer it."]
   F --> A["I have seen this<br/>a comment is optional. Acknowledging is not agreeing —<br/>the screen says so in as many words. It records that<br/>they were shown it and nothing more."]
-  F --> D["I do not accept it<br/>grounds are required and must be specific.<br/>The rating still stands; the dispute sits<br/>beside it permanently."]
+  F -. "they do not accept it" .-> D["They tell HR<br/>there is no dispute button for anybody.<br/>The rating still stands."]
 ```
 
-> ⚠️ **One answer only.** The dialog says it before you press: you can do this once, and it cannot be
-> swapped for the other afterwards. Three separate states exist and the product never confuses them —
-> acknowledged, disputed, and _nobody has asked them yet_, which is the common one.
+> ⚠️ **There is no "I do not accept it" button.** There was, and it was removed on 11 September 2026:
+> the person a rating is about should not be the one who decides whether a disagreement becomes a
+> formal record. Overview says what to do instead — _"If you do not accept it, tell HR, because only
+> they can record a formal dispute."_ The server will take a dispute from somebody holding the records
+> permission, but nothing in the product sends one, so today that can only happen over the API. A
+> review disputed before the button went still shows **Disputed**, with the person's words beside the
+> mark. Why it is like this: [ADR-0008](../adr/0008-an-employee-acknowledges-a-rating-and-only-hr-records-a-dispute.md).
 
-#### 26. *Optional* — send one review back to be redone
+> ⚠️ **One answer only.** The acknowledgement is stored with its date and cannot be given twice. Three
+> separate states exist and the product never confuses them — _acknowledged_, _disputed_ (only on a
+> review disputed before 11 September) and _nobody has asked them yet_, which is the common one.
+
+#### 30. _Optional_ — send one review back to be redone
 
 The escape hatch. It reopens exactly one review so one person can have another pass at it. Nobody
 else's review moves.
@@ -726,20 +830,20 @@ else's review moves.
 
 ### Phase G — close it out: publish, then read what the period actually said
 
-#### 28. Publish the results
+#### 31. Publish the results
 
 |                |                                                                                                                                              |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Where**      | `/performance/periods/{id}`                                                                                                                  |
 | **Who**        | HR / Owner                                                                                                                                   |
 | **Click**      | **Publish the results**, then confirm                                                                                                        |
-| **You'll see** | Either _"Every manager's review is now readable by the person it is about"_, or a count of how many people finish with no mark — **by name** |
+| **You'll see** | Either _"People can now read what their manager wrote about them."_, or a count of how many people finish with no mark — **by name**: _"2 people finish with no mark: …"_ |
 
 > ⚠️ **Read the names it gives you.** If anybody finishes with no mark, publishing is the last moment
 > anybody is told. Those people go through a whole appraisal period and come out the other side with
 > nothing.
 
-#### 29. Read the period report
+#### 32. Read the period report
 
 |                |                                                                                                                 |
 | -------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -757,7 +861,7 @@ else's review moves.
 > finalised_, and _told, and no answer yet_. Those are the three things that stop a period from being
 > finished.
 
-#### 30. Read one person across every period
+#### 33. Read one person across every period
 
 |                |                                                                                            |
 | -------------- | ------------------------------------------------------------------------------------------ |
@@ -774,7 +878,7 @@ else's review moves.
 > The person themselves sees only finalised marks, and is told how many are withheld. A working
 > figure moves every time somebody records a rating, so they see it when it is final and not before.
 
-#### 31. Start the next one
+#### 34. Start the next one
 
 Back to step 4. On a second period, step 6 collapses to one press of **Copy from**, and phases A and
 B are already done.
@@ -790,7 +894,7 @@ B are already done.
 
 ## 5. The same period, from four seats
 
-Nobody does all thirty steps. Here is the whole of each person's job, so you can hand somebody one
+Nobody does all thirty-four steps. Here is the whole of each person's job, so you can hand somebody one
 card and nothing else.
 
 ### The person — every employee
@@ -801,7 +905,8 @@ agree. Never sees a period, a register or a report.
 1. Set your own objectives on **KPIs** and press **Send to be agreed**.
 2. Log what you did each week on **Weekly tasks**, if your company uses it.
 3. When a period starts, fill in your self-review from **Overview** and send it.
-4. When your rating is final, answer it: **I have seen this** or **I do not accept it**.
+4. When your rating is final, answer it: **I have seen this**. If you do not accept it, tell HR — there
+   is no button for that.
 
 > **Everything you owe is on Overview.** If that screen says _Nothing needs you_, you are up to date.
 > There is nowhere else to check.
@@ -818,17 +923,20 @@ who reports to you.
 4. At calibration, press **Make it final** on each one.
 
 > ⚠️ **Being a department head widens this** to everybody in your department, not only your direct
-> reports. Being given the "Department Manager" role does not — that role is about leave and equipment
-> and grants nothing here.
+> reports. Being given the **Departmental Lead** role by hand does not — that role's own permissions
+> are about leave, basic record details, starting an exit and equipment, and carry nothing here. (It
+> used to be called Department Manager.)
 
 ### HR / Owner — runs the exercise
 
-Sees all seven items. Holds the settings and the company-wide reads.
+Sees all seven items — the seventh, **Who appraises whom**, only if the company has switched multiple
+appraisers on. Holds the settings and the company-wide reads.
 
 1. Once: the scale, the weights, and the feature switch.
 2. Per period: create it, write the questions, decide who it covers, start it.
 3. While it runs: watch who is outstanding, nudge, move the stage along.
-4. At calibration: move any mark that is out of line, place people on the nine-box.
+4. At calibration: check the fairness view if you hold that permission, move any mark that is out of
+   line, place people on the nine-box.
 5. At the end: publish, then read the report.
 
 > 🛑 **Four presses are one-way** and every one of them is yours: start, each stage move, and publish.
@@ -862,6 +970,7 @@ on purpose — they are the arguments the module is built on.
 | **A refusal is final.** | A refused objective cannot be resubmitted. The answer to a refused objective is a *different* objective, so the refusal stays on the record instead of being written over. |
 | **Changing the weights does not move a running period.** | A period keeps the weights and the scale words it started with. Otherwise a mark somebody was told in March would quietly become a different mark in June. |
 | **"Make it final" only appears at calibration.** | A manager at the manager-review stage has nothing to make final and correctly sees no such button. Move the period to calibration and the rows appear. |
+| **The Owner and the HR manager get no form.** | Both off on every new period, and each is its own tick box. The Owner reports to nobody, so the reporting line has no one to put on their form; the HR manager would otherwise be marking themselves against questions they wrote. Neither is let off anything — both still appraise their own teams. Tick either box on the period to include them (step 8). |
 
 ---
 
@@ -875,13 +984,15 @@ account up or ask an engineer why somebody cannot see something.
 | **Everyone**     | Any account that can sign in. No permission required.                                                                                                                       | Everybody, including the Employee role, which holds nothing.                                                   |
 | **The person**   | The subject of the form. Resolved from who they are, not from a permission.                                                                                                 | Whoever the review or objective is about.                                                                      |
 | **Line manager** | **Having direct reports.** Not a role — it follows from the reporting line on people's records. Widened to a whole department for whoever is set as that department's head. | Nobody, until somebody's record names them as a manager.                                                       |
-| **HR / Owner**   | Two separate permissions that happen to travel together: _Manage settings_ (start a period, weights, scale) and _Edit records_ (read every mark in the company).            | The **Owner** and **HR manager** roles. Notably **not** Department Manager, Branch Manager or Payroll officer. |
+| **HR / Owner**   | Two separate permissions that happen to travel together: _Manage settings_ (start a period, weights, scale) and _Edit records_ (read every mark in the company).            | The **Owner** and **HR manager** roles. Notably **not** Departmental Lead, Branch Manager or Payroll officer. |
 
-> ⚠️ **The one that trips people up in testing.** The role called **Department Manager** grants
-> nothing in Performance. It is about approving that department's leave and seeing its equipment. What
-> gives somebody authority over appraisals is being _set as the head of a department_ on the
-> Departments screen, or having people report to them — two different facts, in two different places,
-> neither of them the role's name.
+> ⚠️ **The one that trips people up in testing.** The role called **Departmental Lead** (formerly
+> Department Manager) carries no performance permission. Whoever heads a department holds it
+> automatically, and what it covers is approving that department's leave first, editing basic details,
+> starting an exit and seeing its equipment. What gives somebody authority over appraisals is the fact
+> that earns the role — being _set as the head of a department_ on the Departments screen — or having
+> people report to them. Handing the role to somebody by hand gives them the leave and equipment rights
+> and nothing in Performance.
 
 ---
 
@@ -906,12 +1017,12 @@ seeded accounts to use.
 | 10  | **Manager** — write the review. Type _"Chidera is quite disorganised"_ and press Send.                                      | It quotes the phrase back at you and the button becomes **Send anyway**. It never blocks — and nothing you typed left the product. |
 | 11  | **HR** — **Move to calibration**, then **Change the mark** on one person with a reason.                                       | The row keeps both figures: what the answers produced, and what it was moved to.                                                   |
 | 12  | **Manager** — **Make it final**. Read the confirmation aloud before pressing it.                                     | This is the one-way door and the moment the person is told.                                                                        |
-| 13  | **Employee** — answer it. **I have seen this**.                                                                             | The sentence saying acknowledging is not agreeing. Then show the other button is now gone. One answer, once.                       |
+| 13  | **Employee** — answer it. **I have seen this**.                                                                             | The sentence saying acknowledging is not agreeing, and the **Acknowledged** card that replaces the banner. One answer, once.       |
 | 14  | **HR** — **See the report**. Finish here.                                                                                   | The two headcounts, and the three lists of names: nobody marked them, written but not finalised, told and no answer yet.           |
 
 ---
 
-*Written against the product as it stands on 11 September 2026. Every button label, field name and
+*Written against the product as it stands on 20 October 2026. Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._

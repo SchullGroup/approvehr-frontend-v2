@@ -175,6 +175,7 @@ export function checkMappedRows(
       text,
       error,
       warn,
+      hasErrors: () => errors.length > 0,
       tally: (name) => {
         counts[name] = (counts[name] ?? 0) + 1;
       },
