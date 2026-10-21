@@ -14,7 +14,6 @@ import {
   ClipboardList,
   Archive,
   ArchiveRestore,
-  Clock,
   FileText,
   Receipt,
   Undo2,
@@ -33,7 +32,6 @@ import {
   Input,
   Money,
   SegmentedControl,
-  Stat,
   useToast,
   type BadgeTone,
 } from "@/components/ui";
@@ -390,39 +388,6 @@ export function ApprovalInbox() {
       {view === "waiting" &&
         (canApprove ? (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Stat
-                label="Waiting on you"
-                value={String(queue.counts.pending)}
-              />
-              <Stat
-                label="Value at stake"
-                value={
-                  <Money amount={queue.counts.atStake} decimals size="xl" />
-                }
-                hint="across every decision waiting"
-              />
-              <Stat
-                label="Has a deadline"
-                value={String(queue.counts.withDeadline)}
-                icon={<Clock aria-hidden="true" />}
-                trend={
-                  queue.counts.withDeadline > 0
-                    ? { direction: "down", label: "Time-bound" }
-                    : undefined
-                }
-              />
-              <Stat
-                label="Waiting 5+ days"
-                value={String(queue.counts.ageing)}
-                trend={
-                  queue.counts.ageing > 0
-                    ? { direction: "down", label: "Ageing" }
-                    : undefined
-                }
-              />
-            </div>
-
             <div className="flex flex-wrap items-center justify-between gap-3">
               <InboxFilters filters={filters} onChange={setFilters} />
               <Button
