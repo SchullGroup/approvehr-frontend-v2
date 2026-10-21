@@ -43,6 +43,7 @@ import { useProjectActor } from "@/lib/store/project-session";
 import { formatDateTimeShort } from "@/lib/time";
 import { CommentItem } from "./comment-item";
 import { DraftHeading, DraftInput, DraftTextarea } from "./draft-fields";
+import { LinkedTasks } from "./linked-tasks";
 import { IssueKey, StatusPill, TypeIcon } from "./glyphs";
 import { MentionComposer } from "./mention-composer";
 import { IssueObjectiveLink } from "./objective-link";
@@ -442,6 +443,8 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
               </ul>
             </section>
           )}
+
+          <LinkedTasks issueId={issue.id} />
 
           <SectionTabs
             label="Comments and history"
