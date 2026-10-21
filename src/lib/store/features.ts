@@ -142,6 +142,9 @@ const BASE_FLAGS: FeatureFlags = {
   /* Off, like every module: a company that has not asked for a tracker keeps a
      sidebar without one. */
   projects: false,
+  /* Off, like every module. The screens hold private records, so nothing about
+     them is shown to a company that has not asked for them. */
+  wellness: false,
   grades: false,
   shifts: false,
   loans: false,
@@ -264,6 +267,10 @@ export const FEATURE_COPY: Record<
   projects: {
     label: "Projects",
     line: "Plan work as projects with issues, sprints and a board, and let people track it together.",
+  },
+  wellness: {
+    label: "Wellness",
+    line: "Break reminders, private water and steps logs, challenges and kudos. You see totals only, never a person\u2019s own figures.",
   },
   hiring: {
     label: "Hiring",
@@ -731,6 +738,7 @@ function fromApi(features: ApiFeatures): State {
       /* Optional on the wire, and a company that was never asked is a company
          without it. */
       projects: features.projects ?? false,
+      wellness: features.wellness ?? false,
       twoFactor: features.twoFactor,
       grades: features.grades,
       shifts: features.shifts,
@@ -949,6 +957,7 @@ export function useFeatureSettings() {
           departments: features.departments,
           surveys: features.surveys,
           projects: features.projects ?? false,
+          wellness: features.wellness ?? false,
           twoFactor: features.twoFactor,
           grades: features.grades,
           shifts: features.shifts,
