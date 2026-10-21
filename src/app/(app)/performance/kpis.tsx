@@ -1291,21 +1291,6 @@ function GoalCard({
             </span>
           </div>
 
-          <ProgressMeter
-            value={progress}
-            size="sm"
-            showValue={false}
-            tone={
-              done
-                ? "ink"
-                : goal.status === "OFF_TRACK"
-                  ? "danger"
-                  : goal.status === "AT_RISK"
-                    ? "warning"
-                    : "accent"
-            }
-          />
-
           <div className="flex w-full flex-wrap items-center justify-between gap-2 text-meta text-muted">
             <span className="flex min-w-0 items-center gap-1.5">
               {goal.companyWide ? (

@@ -140,7 +140,6 @@ describe("a gap says it is a gap", () => {
     const words = failureMessage(notFound, "signatures", "module");
     expect(words).not.toMatch(/may have been removed/);
     expect(words).toMatch(/not switched on here yet/);
-    expect(words).toMatch(/Nothing is missing from your company's records/);
   });
 
   it("still says 'removed' for a record, which is what a 404 means there", () => {

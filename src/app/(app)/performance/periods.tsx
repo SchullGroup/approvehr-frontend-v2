@@ -16,7 +16,6 @@ import { cn } from "@/lib/cn";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { dayLabel, type ApiCycle } from "@/lib/api/performance";
 import { useAppraisals } from "@/lib/store/performance";
-import { StartPeriodButton } from "./start-period";
 
 /**
  * The appraisal periods, as a list of periods and nothing else.
@@ -51,16 +50,13 @@ export function PeriodsTab() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {DEMO_ENABLED && appraisals.source === "demo" ? (
+      {DEMO_ENABLED && appraisals.source === "demo" && (
+        <div>
           <Badge tone="warning" size="sm">
             Demo · this browser only
           </Badge>
-        ) : (
-          <span />
-        )}
-        <StartPeriodButton variant="accent" withIcon />
-      </div>
+        </div>
+      )}
 
       {/* `useAppraisals` no longer merges its two failures, so this is now
           only ever the company list genuinely failing — which is a real
@@ -88,7 +84,6 @@ export function PeriodsTab() {
             icon={<CalendarRange aria-hidden="true" />}
             title="No appraisal period is open"
             description="Start one, write the questions, then start it. Nobody is asked anything until you do."
-            action={<StartPeriodButton variant="accent" />}
           />
         ) : (
           <CardBody className="flex flex-col gap-2">
