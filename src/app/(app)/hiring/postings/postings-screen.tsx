@@ -198,6 +198,11 @@ function Adverts() {
   const run = async (action: () => Promise<unknown>, success: string) => {
     try {
       await action();
+      /* The stat cards read the analytics call, a different request from the
+         list the row came from: `usePostings` reloads itself after a write, so
+         the row turns Live while "Live adverts" kept the old count until a
+         page reload. Ask again now that the write has landed. */
+      analytics.reload();
       toast.push({ title: success, tone: "success" });
       return true;
     } catch (error) {
@@ -499,6 +504,8 @@ function Adverts() {
           void (async () => {
             try {
               const waiting = await postings.close(advert.id);
+              /* Same reason as in `run`: closing changes "Live adverts". */
+              analytics.reload();
               setClosing(null);
               toast.push({
                 title: `${advert.title} is off your careers page`,
