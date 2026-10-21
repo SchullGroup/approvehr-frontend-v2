@@ -24,6 +24,7 @@ import {
 } from "@/lib/store/attendance";
 import { useSession } from "@/lib/store/session";
 import { DayTimer } from "@/app/(app)/people/attendance/day-timer";
+import { useDismiss } from "@/hooks/use-dismiss";
 
 /**
  * Clocking in and out from the top bar.
@@ -73,6 +74,7 @@ import { DayTimer } from "@/app/(app)/people/attendance/day-timer";
 export function ClockMenu({ roster }: { roster: RosterState }) {
   const session = useSession();
   const [open, setOpen] = useState(false);
+  const { mounted, closing } = useDismiss(open, 170);
 
   /* The id in the session is an *account* id when connected; `employeeId` is
      the one that matches a roster row. `my-clock-card.tsx` says the same. */
@@ -111,10 +113,14 @@ export function ClockMenu({ roster }: { roster: RosterState }) {
         )}
       </button>
 
-      {open && (
+      {mounted && (
         <>
           <div
-            className="fixed inset-0 z-40"
+            className={
+              closing
+                ? "pointer-events-none fixed inset-0 z-40"
+                : "fixed inset-0 z-40"
+            }
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
@@ -122,7 +128,8 @@ export function ClockMenu({ roster }: { roster: RosterState }) {
             role="dialog"
             aria-label="Your clock"
             className={cn(
-              "animate-scale-in absolute right-0 z-50 mt-1.5 w-72 rounded-lg border border-line bg-surface p-3 shadow-lg",
+              closing ? "animate-scale-out" : "animate-scale-in",
+              "origin-top-right absolute right-0 z-50 mt-1.5 w-72 rounded-lg border border-line bg-surface p-3 shadow-lg",
               /* A phone: the full width of the header, less its own gutter,
                  directly under it. From `sm` it is the 288px popover it was. */
               "max-sm:inset-x-3 max-sm:top-full max-sm:w-auto",

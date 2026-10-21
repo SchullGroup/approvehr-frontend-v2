@@ -48,6 +48,7 @@ import { VerificationBanner } from "./verification-banner";
 import { BillingBanner } from "./billing-banner";
 import { BillingGate } from "./billing-gate";
 import { useBilling } from "@/lib/billing";
+import { useDismiss } from "@/hooks/use-dismiss";
 
 /**
  * The app shell. The sidebar is a light surface rather than a saturated slab:
@@ -59,6 +60,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   /* Desktop only: hide the sidebar for a full-width page. Remembered per browser. */
   const [collapsed, setCollapsed] = useState(false);
+  /* Off until the saved choice has been read, so a page that opens collapsed
+     is collapsed at once rather than seen closing. */
+  const [eased, setEased] = useState(false);
   useEffect(() => {
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- read after mount to match the server render
@@ -66,6 +70,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     } catch {
       /* storage unavailable: stay open */
     }
+    const frame = requestAnimationFrame(() => setEased(true));
+    return () => cancelAnimationFrame(frame);
   }, []);
   const toggleCollapsed = () =>
     setCollapsed((was) => {
@@ -370,12 +376,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <aside
           data-tour="nav"
           id="portal-nav-desktop"
+          inert={collapsed}
           className={cn(
-            "no-print sidebar-surface hidden w-60 shrink-0 border-r border-line",
-            collapsed ? "lg:hidden" : "lg:block",
+            /* Width and the hairline ease together, and the column inside keeps
+               its own width so the labels slide out of view instead of
+               reflowing as the box narrows. */
+            "no-print sidebar-surface hidden shrink-0 overflow-hidden border-r lg:block",
+            eased &&
+              "transition-[width,border-color,opacity] duration-300 ease-[var(--ease-in-out-soft)] motion-reduce:transition-none",
+            collapsed
+              ? "border-transparent opacity-0 lg:w-0"
+              : "border-line opacity-100 lg:w-60",
           )}
         >
-          <div className="sticky top-14 flex h-[calc(100dvh-3.5625rem)] flex-col">
+          <div className="sticky top-14 flex h-[calc(100dvh-3.5625rem)] w-60 flex-col">
             <SidebarNav
               groups={groups}
               pathname={pathname}
@@ -422,18 +436,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {collapsed && (
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            aria-expanded={false}
-            aria-controls="portal-nav-desktop"
-            aria-label="Show sidebar"
-            className="no-print fixed left-2 top-[4.25rem] z-20 hidden rounded-md border border-line bg-surface p-2 text-muted shadow-sm hover:text-ink lg:block"
-          >
-            <PanelLeftOpen aria-hidden="true" className="size-4" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-expanded={false}
+          aria-controls="portal-nav-desktop"
+          aria-label="Show sidebar"
+          tabIndex={collapsed ? 0 : -1}
+          className={cn(
+            "no-print fixed left-2 top-[4.25rem] z-20 hidden rounded-md border border-line bg-surface p-2 text-muted shadow-sm hover:text-ink lg:block",
+            eased &&
+              "transition-[opacity,transform] duration-300 ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+            collapsed
+              ? "translate-x-0 opacity-100"
+              : "pointer-events-none -translate-x-2 opacity-0",
+          )}
+        >
+          <PanelLeftOpen aria-hidden="true" className="size-4" />
+        </button>
 
         <main id="main" className="min-w-0 flex-1">
           {/* One sticky wrapper for all four, not one each. Each banner used
@@ -585,6 +605,7 @@ export { isNavItemActive } from "./sidebar-model";
 function UserMenu() {
   const { displayName, employee, user, mode, signOut } = useSession();
   const [open, setOpen] = useState(false);
+  const { mounted, closing } = useDismiss(open, 170);
   /* Invited to help hire: no personnel file, so no profile and no documents of their
      own to open, and no sidebar to take a tour of. */
   const collaborator = useIsCollaborator();
@@ -646,16 +667,20 @@ function UserMenu() {
         />
       </button>
 
-      {open && (
+      {mounted && (
         <>
           <div
-            className="fixed inset-0 z-40"
+            className={
+              closing
+                ? "pointer-events-none fixed inset-0 z-40"
+                : "fixed inset-0 z-40"
+            }
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
           <div
             role="menu"
-            className="animate-scale-in absolute right-0 z-50 mt-1.5 w-64 rounded-lg border border-line bg-surface p-1.5 shadow-lg"
+            className={`${closing ? "animate-scale-out" : "animate-scale-in"} origin-top-right absolute right-0 z-50 mt-1.5 w-64 rounded-lg border border-line bg-surface p-1.5 shadow-lg`}
           >
             <div className="border-b border-line px-2.5 py-2">
               <p className="truncate text-body-sm font-medium text-ink">

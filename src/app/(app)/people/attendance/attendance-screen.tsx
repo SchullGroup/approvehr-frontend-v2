@@ -53,6 +53,7 @@ import { shortDate } from "@/lib/today";
 import { AttendanceSettingsButton } from "./capability-bar";
 import { CorrectionDialog } from "./correction-dialog";
 import { MyAttendanceHistoryPanel } from "./my-attendance-history";
+import { useDismiss } from "@/hooks/use-dismiss";
 
 /**
  * The window both the table and its export ask for.
@@ -695,6 +696,7 @@ function RowActions({
   onCorrect: (row: ApiRosterRow) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const { mounted, closing } = useDismiss(open, 170);
   const canApproveLeave = row.status === "ABSENT" && !off;
 
   if (!canApproveLeave && !canCorrect) return null;
@@ -712,16 +714,20 @@ function RowActions({
         <MoreHorizontal aria-hidden="true" className="size-4 text-muted" />
       </button>
 
-      {open && (
+      {mounted && (
         <>
           <div
-            className="fixed inset-0 z-40"
+            className={
+              closing
+                ? "pointer-events-none fixed inset-0 z-40"
+                : "fixed inset-0 z-40"
+            }
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
           <div
             role="menu"
-            className="animate-scale-in absolute right-0 z-50 mt-1.5 w-48 rounded-lg border border-line bg-surface p-1.5 shadow-lg"
+            className={`${closing ? "animate-scale-out" : "animate-scale-in"} origin-top-right absolute right-0 z-50 mt-1.5 w-48 rounded-lg border border-line bg-surface p-1.5 shadow-lg`}
           >
             {canApproveLeave && (
               <Link

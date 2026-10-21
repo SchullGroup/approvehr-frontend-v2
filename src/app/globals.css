@@ -807,6 +807,12 @@
   animation: ahr-fade 0.4s var(--ease-out-soft) both;
 }
 
+/* A quick settle for something that opens under its trigger: shorter than
+   `animate-fade`, which is for whole screens. */
+@utility animate-open {
+  animation: ahr-fade 0.18s var(--ease-out-soft) both;
+}
+
 @utility animate-scale-in {
   animation: ahr-scale-in 0.22s var(--ease-out-soft) both;
 }

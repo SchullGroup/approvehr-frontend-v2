@@ -345,7 +345,10 @@ export function Accordion({
             <div
               id={`panel-${item.id}`}
               hidden={!expanded}
-              className="pb-5 text-body-sm leading-relaxed text-body"
+              className={cn(
+                "pb-5 text-body-sm leading-relaxed text-body",
+                expanded && "animate-open",
+              )}
             >
               {item.answer}
             </div>

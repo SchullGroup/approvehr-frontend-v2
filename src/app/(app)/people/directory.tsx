@@ -77,6 +77,7 @@ import { MissingDetailsDialog } from "@/components/people/missing-details-dialog
 import { useOrgTimezone } from "@/lib/store/session";
 import { todayIn } from "@/lib/time";
 import { DirectoryFieldSettings } from "./directory-settings";
+import { useDismiss } from "@/hooks/use-dismiss";
 
 const STATUS: Record<EmploymentStatus, { tone: BadgeTone; label: string }> = {
   active: { tone: "success", label: "Active" },
@@ -1012,6 +1013,7 @@ function RowActions({
   onFillMissing: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const { mounted, closing } = useDismiss(open, 170);
 
   if (gaps.length === 0) return null;
 
@@ -1028,16 +1030,20 @@ function RowActions({
         <MoreHorizontal aria-hidden="true" className="size-4 text-muted" />
       </button>
 
-      {open && (
+      {mounted && (
         <>
           <div
-            className="fixed inset-0 z-40"
+            className={
+              closing
+                ? "pointer-events-none fixed inset-0 z-40"
+                : "fixed inset-0 z-40"
+            }
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
           <div
             role="menu"
-            className="animate-scale-in absolute right-0 z-50 mt-1.5 w-56 rounded-lg border border-line bg-surface p-1.5 shadow-lg"
+            className={`${closing ? "animate-scale-out" : "animate-scale-in"} origin-top-right absolute right-0 z-50 mt-1.5 w-56 rounded-lg border border-line bg-surface p-1.5 shadow-lg`}
           >
             <button
               type="button"

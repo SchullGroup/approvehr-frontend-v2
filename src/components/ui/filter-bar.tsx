@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useDismiss } from "@/hooks/use-dismiss";
 import { TONES } from "./badge";
 import { Button, IconButton } from "./button";
 import { Input } from "./input";
@@ -84,6 +85,7 @@ export function FilterBar({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const { mounted, closing } = useDismiss(open, 170);
   const panelId = useId();
   const hasPanel = Boolean(children);
 
@@ -138,10 +140,14 @@ export function FilterBar({
                 list below does not move when it opens, and a click anywhere
                 else or Escape puts it away. Each filter is one labelled
                 dropdown, one under the other. */}
-            {open && (
+            {mounted && (
               <>
                 <div
-                  className="fixed inset-0 z-30"
+                  className={
+                    closing
+                      ? "pointer-events-none fixed inset-0 z-30"
+                      : "fixed inset-0 z-30"
+                  }
                   aria-hidden="true"
                   onClick={() => setOpen(false)}
                 />
@@ -152,7 +158,7 @@ export function FilterBar({
                   onKeyDown={(event) => {
                     if (event.key === "Escape") setOpen(false);
                   }}
-                  className="animate-scale-in absolute left-0 top-full z-40 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 rounded-lg border border-line bg-surface p-3 shadow-lg"
+                  className={`${closing ? "animate-scale-out" : "animate-scale-in"} origin-top-left absolute left-0 top-full z-40 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 rounded-lg border border-line bg-surface p-3 shadow-lg`}
                 >
                   {children}
                 </div>
