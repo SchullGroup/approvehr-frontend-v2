@@ -1417,31 +1417,41 @@ function RegisterCard({
  * for is the thing the whole scoring model exists to avoid, and hiding the
  * account behind a click means most readers never see it.
  *
- * **Excluded components are named, not dropped.** A component with nothing
+ * **Excluded components are counted, not dropped.** A component with nothing
  * recorded and a component weighted at nothing are different facts, and the
- * API distinguishes them; showing only what counted would leave a reader
- * wondering why four sections produced three figures. `scoreBp` null renders
- * as an em dash and never as 0% — absent is not zero, here as everywhere.
+ * API distinguishes them; the line says how many were left out and the tooltip
+ * names each with the API's sentence, so a reader is never left wondering why
+ * four sections produced three figures. A missing figure is never shown as 0%:
+ * absent is not zero, here as everywhere.
  */
 function ScoreParts({ components }: { components: ApiComponentScore[] }) {
   if (components.length === 0) return null;
+  /* A row stays within two lines: what counted is written out, what did not is
+     one short count whose tooltip names each one with the API's own sentence. */
+  const counted = components.filter(
+    (part) => part.included && part.scoreBp !== null,
+  );
+  const leftOut = components.filter(
+    (part) => !(part.included && part.scoreBp !== null),
+  );
+  const why = leftOut
+    .map((part) => `${part.label}: ${part.excludedNote ?? "nothing recorded"}`)
+    .join("\n");
   return (
-    <span className="mt-1 block text-meta leading-relaxed text-muted">
-      {components.map((part, index) => (
+    <span className="mt-1 line-clamp-2 block text-meta leading-relaxed text-muted">
+      {counted.map((part, index) => (
         <span key={part.component}>
           {index > 0 && <span aria-hidden="true"> · </span>}
-          <span
-            className={part.included ? undefined : "text-faint"}
-            /* The API's sentence for the exclusion, never one written here. */
-            {...(part.excludedNote ? { title: part.excludedNote } : {})}
-          >
-            {part.label}{" "}
-            <span className="tabular">
-              {part.scoreBp === null ? "—" : scoreLabel(part.scoreBp)}
-            </span>
-          </span>
+          {part.label}{" "}
+          <span className="tabular">{scoreLabel(part.scoreBp ?? 0)}</span>
         </span>
       ))}
+      {leftOut.length > 0 && (
+        <span className="text-faint" title={why}>
+          {counted.length > 0 && <span aria-hidden="true"> · </span>}
+          {leftOut.length} left out
+        </span>
+      )}
     </span>
   );
 }
