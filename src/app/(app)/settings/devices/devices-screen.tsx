@@ -16,6 +16,7 @@ import {
   Spinner,
   Stat,
   StatGrid,
+  Switch,
   TBody,
   TD,
   TDPrimary,
@@ -134,6 +135,46 @@ function UnattributedCount({ row }: { row: ApiAttendanceDevice }) {
   );
 }
 
+/**
+ * What a Smart Life door adds to a row: its name for itself, the entry-only
+ * switch, and a warning when its sync has gone quiet. Nothing renders for an
+ * agent terminal, which has none of these.
+ */
+function SmartLifeNotes({
+  row,
+  busy,
+  onEntryOnly,
+}: {
+  row: ApiAttendanceDevice;
+  busy: boolean;
+  onEntryOnly: (next: boolean) => void;
+}) {
+  if (row.provider !== "TUYA") return null;
+  return (
+    <div className="mt-1.5 flex flex-col gap-1.5">
+      <span>
+        <Badge tone="info" size="sm">
+          Smart Life
+        </Badge>
+      </span>
+      {row.syncStale && (
+        <p className="text-meta text-warning-text">
+          Not synced for 5 days — scans older than 7 days are lost
+        </p>
+      )}
+      {row.archivedAt === null && (
+        <Switch
+          label="Door entry only"
+          description="Every scan is an arrival, never a clock-out."
+          checked={row.entryOnly}
+          disabled={busy}
+          onChange={(e) => onEntryOnly(e.target.checked)}
+        />
+      )}
+    </div>
+  );
+}
+
 /** "Turn back on" for a switched-off terminal, or the four working actions —
     one copy shared by the desktop row and the mobile card. */
 function DeviceRowActions({
@@ -144,8 +185,11 @@ function DeviceRowActions({
   onEdit,
   onRotate,
   onArchive,
+  hasSecret,
 }: {
   off: boolean;
+  /** A Smart Life door has no secret to rotate. */
+  hasSecret: boolean;
   busy: boolean;
   onRestore: () => void;
   onEnrol: () => void;
@@ -170,10 +214,12 @@ function DeviceRowActions({
       <Button variant="ghost" size="sm" onClick={onEdit}>
         Edit
       </Button>
-      <Button variant="ghost" size="sm" onClick={onRotate}>
-        <KeyRound aria-hidden="true" className="size-3.5" />
-        New secret
-      </Button>
+      {hasSecret && (
+        <Button variant="ghost" size="sm" onClick={onRotate}>
+          <KeyRound aria-hidden="true" className="size-3.5" />
+          New secret
+        </Button>
+      )}
       <Button variant="ghost" size="sm" onClick={onArchive}>
         <Power aria-hidden="true" className="size-3.5" />
         Switch off
@@ -459,7 +505,26 @@ export function DevicesScreen() {
                                 )}
                               </span>
                             }
-                            subtitle={row.serialNumber}
+                            subtitle={
+                              <>
+                                {row.serialNumber}
+                                <SmartLifeNotes
+                                  row={row}
+                                  busy={busy}
+                                  onEntryOnly={(next) =>
+                                    void run(
+                                      () =>
+                                        mutations.update(row.id, {
+                                          entryOnly: next,
+                                        }),
+                                      next
+                                        ? `${row.label} is door entry only`
+                                        : `${row.label} now counts exits too`,
+                                    )
+                                  }
+                                />
+                              </>
+                            }
                           />
                           <TD>
                             <DeviceOffice
@@ -492,6 +557,7 @@ export function DevicesScreen() {
                               <div className="flex flex-wrap justify-end gap-1.5">
                                 <DeviceRowActions
                                   off={off}
+                                  hasSecret={row.provider !== "TUYA"}
                                   busy={busy}
                                   onRestore={() =>
                                     void run(
@@ -536,6 +602,19 @@ export function DevicesScreen() {
                         <p className="mt-0.5 text-meta text-muted">
                           {row.serialNumber}
                         </p>
+                        <SmartLifeNotes
+                          row={row}
+                          busy={busy}
+                          onEntryOnly={(next) =>
+                            void run(
+                              () =>
+                                mutations.update(row.id, { entryOnly: next }),
+                              next
+                                ? `${row.label} is door entry only`
+                                : `${row.label} now counts exits too`,
+                            )
+                          }
+                        />
                       </div>
 
                       <div className="flex items-center justify-between gap-3">
@@ -579,6 +658,7 @@ export function DevicesScreen() {
                         <div className="flex flex-wrap gap-1.5">
                           <DeviceRowActions
                             off={off}
+                            hasSecret={row.provider !== "TUYA"}
                             busy={busy}
                             onRestore={() =>
                               void run(

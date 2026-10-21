@@ -244,6 +244,56 @@ export type ApiAttendanceDevice = {
   unmappedPunches: number | null;
   archivedAt: string | null;
   createdAt: string;
+  /**
+   * Who talks to us for this device. An AGENT box signs deliveries with a
+   * secret; a TUYA (Smart Life) door is polled from the cloud and has none.
+   */
+  provider: "AGENT" | "TUYA";
+  /** Every scan is an arrival; nothing on this device counts as a clock-out. */
+  entryOnly: boolean;
+  /** A Smart Life device that has not synced for five days. */
+  syncStale: boolean;
+};
+
+/**
+ * One terminal number in words. Smart Life ids arrive as `fp:3`, `card:12` and
+ * `face:7`; a person choosing who they belong to should not have to decode
+ * them. Anything else (an agent's `0047`) is shown exactly as it came.
+ */
+export function deviceUserLabel(deviceUserId: string): string {
+  const match = /^(fp|card|face):(.+)$/.exec(deviceUserId);
+  if (!match) return deviceUserId;
+  const word = { fp: "Fingerprint", card: "Card", face: "Face" }[
+    match[1] as "fp" | "card" | "face"
+  ];
+  return `${word} ${match[2]}`;
+}
+
+/** A number the device has sent taps for that nobody is mapped to yet. */
+export type ApiUnmappedNumber = {
+  deviceUserId: string;
+  /** What Smart Life calls them, when it says. */
+  deviceUserName: string | null;
+  punches: number;
+};
+
+/**
+ * One door scan outside working hours, waiting for HR.
+ */
+export type ApiAfterHoursScan = {
+  punchId: string;
+  employeeId: string;
+  employeeName: string;
+  deviceLabel: string;
+  punchedAt: string;
+  /** `YYYY-MM-DD`, company-local. */
+  workDate: string;
+  /** A weekend or confirmed public holiday. */
+  nonWorkingDay: boolean;
+  review: "PENDING" | "DISMISSED" | "COUNTED";
+  reviewedAt: string | null;
+  reviewedByName: string | null;
+  reviewNote: string | null;
 };
 
 /**
@@ -297,6 +347,7 @@ export type DevicePatch = {
   label?: string;
   workLocationId?: string | null;
   active?: boolean;
+  entryOnly?: boolean;
 };
 
 /**
@@ -968,10 +1019,43 @@ export const attendanceApi = {
     }),
 
   deviceEnrolments: (id: string, signal?: AbortSignal) =>
-    request<{ enrolments: ApiDeviceEnrolment[] }>(
-      `/attendance/devices/${id}/enrolments`,
-      { ...(signal ? { signal } : {}) },
-    ).then((res) => res.enrolments),
+    request<{
+      enrolments: ApiDeviceEnrolment[];
+      unmapped?: ApiUnmappedNumber[];
+    }>(`/attendance/devices/${id}/enrolments`, {
+      ...(signal ? { signal } : {}),
+    }).then((res) => ({
+      enrolments: res.enrolments,
+      unmapped: res.unmapped ?? [],
+    })),
+
+  /** After-hours door scans. `EDIT_RECORDS`. Pending unless `status` says. */
+  afterHours: (
+    params: {
+      status?: ApiAfterHoursScan["review"];
+      from?: string;
+      to?: string;
+    },
+    signal?: AbortSignal,
+  ) =>
+    request<{ scans: ApiAfterHoursScan[] }>("/attendance/after-hours", {
+      query: params,
+      ...(signal ? { signal } : {}),
+    }).then((res) => res.scans),
+
+  /** 409 when somebody already decided it. */
+  dismissAfterHours: (punchId: string, body: { note?: string }) =>
+    request<ApiAfterHoursScan>(`/attendance/after-hours/${punchId}/dismiss`, {
+      method: "POST",
+      body,
+    }),
+
+  /** Counts the scan toward the day's hours. The note is required, 3–300. */
+  countAfterHours: (punchId: string, body: { note: string }) =>
+    request<ApiAfterHoursScan>(`/attendance/after-hours/${punchId}/count`, {
+      method: "POST",
+      body,
+    }),
 
   /**
    * Say which person an enrolment number means, and go back for its backlog.
