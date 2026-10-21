@@ -426,23 +426,30 @@ export function SidebarNav({
           />
         ) : drill ? (
           <div key={drill.id} className={animation}>
-            <div className="mb-1 flex items-center gap-1">
+            <div className="mb-1">
               <button
                 type="button"
                 data-nav-back=""
                 aria-label="Back to main menu"
                 onClick={goBack}
                 className={cn(
-                  "flex shrink-0 items-center justify-center rounded-md text-muted",
+                  "flex w-full min-w-0 items-center gap-1 rounded-md text-left text-muted",
                   "transition-colors hover:bg-canvas hover:text-ink",
-                  drawer ? "size-11" : "size-9",
+                  drawer ? "min-h-11" : "min-h-9",
                 )}
               >
-                <ChevronLeft aria-hidden="true" className="size-5" />
+                <span
+                  className={cn(
+                    "flex shrink-0 items-center justify-center",
+                    drawer ? "size-11" : "size-9",
+                  )}
+                >
+                  <ChevronLeft aria-hidden="true" className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-body-sm font-semibold text-ink">
+                  {drill.label}
+                </span>
               </button>
-              <h2 className="min-w-0 flex-1 truncate text-body-sm font-semibold text-ink">
-                {drill.label}
-              </h2>
             </div>
             {drill.sections.map((section) => (
               <div key={section.label ?? "first"}>
