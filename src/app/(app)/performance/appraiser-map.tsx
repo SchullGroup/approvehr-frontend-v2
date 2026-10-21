@@ -444,11 +444,6 @@ function PersonRow({
 }) {
   const [assigning, setAssigning] = useState(false);
   const [quickFailed, setQuickFailed] = useState<string | null>(null);
-  const worst = row.exceptions.some((issue) => issue.severity === "BLOCKER")
-    ? "BLOCKER"
-    : row.exceptions.length > 0
-      ? "WARNING"
-      : null;
 
   return (
     <div
@@ -459,12 +454,10 @@ function PersonRow({
            what it wanted and left the name and the note a column about 60px
            wide, one word to a line. Here the person always gets the first
            column in full, and the control takes a row of its own on a phone. */
-        "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2.5 rounded-md border p-3 md:grid-cols-[minmax(0,1fr)_auto_auto]",
-        worst === "BLOCKER"
-          ? "border-danger-line bg-danger-soft"
-          : worst === "WARNING"
-            ? "border-warning-line"
-            : "border-line",
+        "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2.5 rounded-md border p-3",
+        row.weightedRating !== null && "md:grid-cols-[minmax(0,1fr)_auto_auto]",
+        "border-line",
+        row.weightedRating === null && "md:grid-cols-[minmax(0,1fr)_auto]",
       )}
     >
       <div className="min-w-0">
@@ -474,14 +467,7 @@ function PersonRow({
           {row.departmentName && <span>{row.departmentName}</span>}
         </p>
 
-        {row.appraisers.length === 0 ? (
-          <p className="mt-2 text-body-sm text-ink">
-            Nobody.
-            {row.lineManagerName
-              ? ` Their line manager is ${row.lineManagerName}.`
-              : " They have no line manager either."}
-          </p>
-        ) : (
+        {row.appraisers.length === 0 ? null : (
           <ul className="mt-2 flex flex-wrap gap-1.5">
             {row.appraisers.map((one) => (
               <li
@@ -527,17 +513,17 @@ function PersonRow({
         {row.appraisers.length > 1 && <ShareBar appraisers={row.appraisers} />}
       </div>
 
-      <div className="text-right">
-        <p className="text-meta text-faint">Mark</p>
-        <p className="tabular text-body-sm font-medium text-ink">
-          {row.weightedRating === null ? "—" : row.weightedRating}
-        </p>
-        <p className="text-meta text-muted">
-          {row.weightedRating === null
-            ? "nothing in yet"
-            : `${weightLabel(row.submittedWeightBp)} in`}
-        </p>
-      </div>
+      {row.weightedRating !== null && (
+        <div className="text-right">
+          <p className="text-meta text-faint">Mark</p>
+          <p className="tabular text-body-sm font-medium text-ink">
+            {row.weightedRating}
+          </p>
+          <p className="text-meta text-muted">
+            {`${weightLabel(row.submittedWeightBp)} in`}
+          </p>
+        </div>
+      )}
 
       {row.appraisers.length > 0 ? (
         <div className="col-span-2 flex justify-end md:col-span-1">

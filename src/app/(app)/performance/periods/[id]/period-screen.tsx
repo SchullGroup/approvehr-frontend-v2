@@ -12,7 +12,6 @@ import {
   Trash2,
   UserX,
   Users,
-  Wand2,
 } from "lucide-react";
 import {
   Badge,
@@ -41,21 +40,18 @@ import {
   Textarea,
   TextLink,
   useToast,
+  Tabs,
 } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
-  EXCEPTION_CODE_SUMMARY,
-  groupExceptionsByCode,
   ratingWordsFrom,
   scoreLabel,
   weightLabel,
-  type ApiAppraiserMap,
   type ApiComponentScore,
   type ReviewCycleStage,
-  type ApiAppraiserMapRow,
   type ApiCycle,
   type ApiCycleParticipants,
   type ApiRevisionRequest,
@@ -65,7 +61,6 @@ import {
 import { useCan } from "@/lib/permissions";
 import {
   outstandingIn,
-  useAppraiserMutations,
   useCycleMutations,
   useCycleRegister,
   useRatingScale,
@@ -75,7 +70,6 @@ import { exactPoints } from "@/components/performance/record-check";
 import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
 import { SectionsDialog } from "../../sections-dialog";
-import { AppraisersDialog } from "../../appraiser-map";
 import { AskPeersButton } from "./ask-peers";
 import { CalibrationAudit } from "./fairness/calibration-audit";
 import { FairnessStatus } from "./fairness/fairness-status";
@@ -172,34 +166,11 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
     setSectionsOpen(true);
   }, []);
   const [publishing, setPublishing] = useState(false);
+  const [periodTab, setPeriodTab] = useState<"overview" | "marks">("overview");
   const [advancing, setAdvancing] = useState(false);
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
   const [noObjectives, setNoObjectives] = useState<string[] | null>(null);
-
-  /**
-   * The last exceptions map that actually loaded, kept across a background
-   * `detail.reload()`.
-   *
-   * `useCycleRegister` nulls its data the instant `reload()` is called and only
-   * repopulates it once the refetch resolves — a "flash blank, then pop back"
-   * shape that is harmless for the stat grid below, but not for
-   * `NobodyAppraising`: assigning one person inside its "N people have no
-   * appraiser" list calls this same `reload()` to pick up the change, which
-   * would otherwise unmount that list (wiping which group it had open) on
-   * every single save. Twenty-seven people meant twenty-seven trips back
-   * through "Review and fix" for one click each. This is fed to it instead of
-   * `detail.exceptions` directly, so it keeps rendering the same list, now
-   * one person shorter, straight through the reload. */
-  const [stableExceptions, setStableExceptions] =
-    useState<ApiAppraiserMap | null>(null);
-  /* Adjusted during render, not an effect — the "you might not need an
-     effect" pattern for remembering the latest non-null value of a prop.
-     An effect would apply this a frame late, which is exactly the flash this
-     exists to avoid. */
-  if (detail.exceptions && detail.exceptions !== stableExceptions) {
-    setStableExceptions(detail.exceptions);
-  }
 
   const period = detail.cycle;
   const outstanding = outstandingIn(detail.participants);
@@ -635,72 +606,77 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             />
           )}
 
-          {period && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Stat
-                label="Questions"
-                value={String(period.questionCount)}
-                hint={
-                  period.questionCount === 0
-                    ? "No questions yet, so nobody would be asked anything"
-                    : "Used on both the self and manager forms"
-                }
-              />
-              <Stat
-                label="Forms in this period"
-                value={String(period.reviewCount)}
-                hint="One self-review each, plus one per appraiser"
-              />
-            </div>
-          )}
+          <Tabs
+            items={[
+              { id: "overview", label: "Overview" },
+              { id: "marks", label: "Marks" },
+            ]}
+            value={periodTab}
+            onChange={(next) => setPeriodTab(next as "overview" | "marks")}
+          >
+            {periodTab === "overview" && (
+              <div className="flex flex-col gap-6">
+                {period && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Stat
+                      label="Questions"
+                      value={String(period.questionCount)}
+                      hint={
+                        period.questionCount === 0
+                          ? "No questions yet, so nobody would be asked anything"
+                          : "Used on both the self and manager forms"
+                      }
+                    />
+                    <Stat
+                      label="Forms in this period"
+                      value={String(period.reviewCount)}
+                      hint="One self-review each, plus one per appraiser"
+                    />
+                  </div>
+                )}
 
-          {detail.loading && (
-            <Card>
-              <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-                <Spinner size="sm" />
-                Loading the period
-              </CardBody>
-            </Card>
-          )}
+                {detail.loading && (
+                  <Card>
+                    <CardBody className="flex items-center gap-2 text-body-sm text-muted">
+                      <Spinner size="sm" />
+                      Loading the period
+                    </CardBody>
+                  </Card>
+                )}
 
-          {/* Fed the stable snapshot, not `detail.exceptions` — see its own
-              comment above. Gated on the snapshot rather than on
-              `detail.available && !detail.loading` so this survives the very
-              reload its own "Assign" button triggers. */}
-          {stableExceptions && (
-            <NobodyAppraising
-              cycleId={cycleId}
-              exceptions={stableExceptions}
-              onFixed={() => detail.reload()}
-            />
-          )}
-
-          {detail.available && !detail.loading && (
-            <>
-              <Outstanding
-                rows={outstanding}
-                participants={detail.participants}
-              />
-              {period?.stage === "CALIBRATION" && (
-                <FairnessStatus cycleId={cycleId} />
-              )}
-              <Register
-                register={detail.register}
-                cycleId={cycleId}
-                canAskPeers={running && canSeeCompany}
-                canCalibrate={period?.stage === "CALIBRATION" && canManage}
-                canRequestRevision={running && canManage}
-                revisionRequests={detail.revisionRequests}
-                revisionsUnavailable={detail.revisionsUnavailable}
-                onAsked={() => detail.reload()}
-              />
-              <MultiAppraiserReviews participants={detail.participants} />
-              {(period?.stage === "CALIBRATION" ||
-                period?.stage === "PUBLISHED") && (
-                <CalibrationAudit cycleId={cycleId} />
-              )}
-            </>
-          )}
+                {detail.available && !detail.loading && (
+                  <>
+                    <Outstanding
+                      rows={outstanding}
+                      participants={detail.participants}
+                    />
+                    <MultiAppraiserReviews participants={detail.participants} />
+                  </>
+                )}
+              </div>
+            )}
+            {periodTab === "marks" && detail.available && !detail.loading && (
+              <div className="flex flex-col gap-6">
+                {period?.stage === "CALIBRATION" && (
+                  <FairnessStatus cycleId={cycleId} />
+                )}
+                <Register
+                  register={detail.register}
+                  cycleId={cycleId}
+                  canAskPeers={running && canSeeCompany}
+                  canCalibrate={period?.stage === "CALIBRATION" && canManage}
+                  canRequestRevision={running && canManage}
+                  revisionRequests={detail.revisionRequests}
+                  revisionsUnavailable={detail.revisionsUnavailable}
+                  onAsked={() => detail.reload()}
+                />
+                {(period?.stage === "CALIBRATION" ||
+                  period?.stage === "PUBLISHED") && (
+                  <CalibrationAudit cycleId={cycleId} />
+                )}
+              </div>
+            )}
+          </Tabs>
         </div>
       </PageBody>
 
@@ -836,231 +812,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
  * genuinely different problem, or a lone occurrence of this one, still gets
  * its own full sentence. See its own header on `lib/api/performance.ts`.
  */
-/**
- * The anchor the activation callout scrolls to.
- *
- * One constant rather than a string in two files, because a mistyped id here is
- * a button that silently does nothing — the exact failure the rule about
- * resolvable errors exists to prevent, wearing a fix.
- */
-const APPRAISER_EXCEPTIONS_ANCHOR = "appraiser-exceptions";
-
-function NobodyAppraising({
-  cycleId,
-  exceptions,
-  onFixed,
-}: {
-  cycleId: string;
-  exceptions: ApiAppraiserMap | null;
-  onFixed: () => void;
-}) {
-  const appraisers = useAppraiserMutations();
-  const toast = useToast();
-  const [filling, setFilling] = useState(false);
-
-  /**
-   * The same act `activateCycle` performs, on its own button.
-   *
-   * A second control for one mutation is usually how two screens come to
-   * disagree, and it is safe here for a reason worth stating: `auto` is
-   * **idempotent and only ever fills blanks** — `autoAssignFromReportingLine`
-   * skips anybody already mapped — so pressing it twice, or pressing it and
-   * then starting the period, cannot double-assign or overwrite a mapping
-   * somebody built by hand. That is not true of the payment batch this
-   * codebase refuses to give two doors.
-   *
-   * It exists because the alternative was navigating away from the screen that
-   * raised the problem to find the button that answers it.
-   */
-  const fillFromReportingLine = async () => {
-    setFilling(true);
-    try {
-      const result = await appraisers.autoAssign(cycleId);
-      toast.push({
-        title:
-          result.created === 0
-            ? "Everybody already has an appraiser"
-            : result.created === 1
-              ? "1 person given their line manager"
-              : `${result.created} people given their line manager`,
-        tone: "success",
-        /* Named, not counted. These are the people who would otherwise finish
-           the period with no mark at all, and a number tells nobody who to go
-           and look at. */
-        ...(result.withoutManager.length > 0
-          ? {
-              detail: `Still nobody appraising: ${result.withoutManager.join(", ")}. They have no manager either, so assign somebody by hand.`,
-            }
-          : {}),
-      });
-      onFixed();
-    } catch (caught) {
-      toast.push({
-        title: "That did not work",
-        tone: "danger",
-        detail:
-          caught instanceof ApiError
-            ? caught.message
-            : "Something went wrong. Try again.",
-      });
-    } finally {
-      setFilling(false);
-    }
-  };
-
-  const [reviewing, setReviewing] = useState<{
-    code: string;
-    severity: "BLOCKER" | "WARNING";
-  } | null>(null);
-  const [assigning, setAssigning] = useState<ApiAppraiserMapRow | null>(null);
-
-  if (!exceptions) return null;
-
-  const rows = exceptions.rows.filter((row) => row.exceptions.length > 0);
-
-  /* Nothing to fix is not worth a card saying so. */
-  if (rows.length === 0) return null;
-
-  const byRow = new Map(rows.map((row) => [row.employeeId, row]));
-  const flat = rows.flatMap((row) =>
-    row.exceptions.map((issue) => ({
-      key: `${row.employeeId}-${issue.code}`,
-      employeeId: row.employeeId,
-      ...issue,
-    })),
-  );
-
-  return (
-    <div
-      id={APPRAISER_EXCEPTIONS_ANCHOR}
-      className="flex flex-wrap items-center gap-x-5 gap-y-2 text-body-sm"
-    >
-      {groupExceptionsByCode(flat).map((group) => (
-        <button
-          key={`${group.code}-${group.severity}`}
-          type="button"
-          onClick={() =>
-            setReviewing({ code: group.code, severity: group.severity })
-          }
-          className="rounded-sm font-medium text-accent-text underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-        >
-          {EXCEPTION_CODE_SUMMARY[
-            group.code as keyof typeof EXCEPTION_CODE_SUMMARY
-          ](group.items.length)}
-        </button>
-      ))}
-      {exceptions.counts.unassigned > 0 && (
-        <Button
-          variant="ghost"
-          size="sm"
-          loading={filling}
-          disabled={filling}
-          onClick={() => void fillFromReportingLine()}
-        >
-          <Wand2 aria-hidden="true" className="size-4" />
-          Fill in from the reporting line
-        </Button>
-      )}
-
-      {reviewing && (
-        <ReviewGroupModal
-          title={EXCEPTION_CODE_SUMMARY[
-            reviewing.code as keyof typeof EXCEPTION_CODE_SUMMARY
-          ](
-            flat.filter(
-              (issue) =>
-                issue.code === reviewing.code &&
-                issue.severity === reviewing.severity,
-            ).length,
-          )}
-          people={flat
-            .filter(
-              (issue) =>
-                issue.code === reviewing.code &&
-                issue.severity === reviewing.severity,
-            )
-            .map((issue) => byRow.get(issue.employeeId))
-            .filter((row): row is ApiAppraiserMapRow => row !== undefined)}
-          onClose={() => setReviewing(null)}
-          onAssign={(row) => setAssigning(row)}
-        />
-      )}
-
-      {assigning && (
-        <AppraisersDialog
-          cycleId={cycleId}
-          row={assigning}
-          onClose={() => setAssigning(null)}
-          onSaved={() => {
-            setAssigning(null);
-            /* `reviewing` stays open on purpose. This dialog is most often
-               reached from inside the "N people have no appraiser yet" list,
-               and closing that list after every single save turned a
-               twenty-seven-person backlog into twenty-seven trips back
-               through "Review and fix". `onFixed` reloads the period, which
-               reloads `exceptions`, which the modal's own `people` list is
-               filtered from below — the person just assigned drops out of it
-               on its own. The list closes itself once nothing is left in it
-               (the `rows.length === 0` branch above returns before reaching
-               this JSX at all), or whenever the reader clicks "Done". */
-            onFixed();
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-/**
- * Everybody caught by one collapsed exception group, named — the detail a
- * summary line deliberately does not carry. "Assign" opens the exact same
- * dialog `appraiser-map.tsx`'s own table uses, so there is one appraiser
- * editor in the product, not a second one built for this modal.
- */
-function ReviewGroupModal({
-  title,
-  people,
-  onClose,
-  onAssign,
-}: {
-  title: string;
-  people: ApiAppraiserMapRow[];
-  onClose: () => void;
-  onAssign: (row: ApiAppraiserMapRow) => void;
-}) {
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={title}
-      size="lg"
-      footer={<Button onClick={onClose}>Done</Button>}
-    >
-      <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
-        {people.map((row) => (
-          <li
-            key={row.employeeId}
-            className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5"
-          >
-            <span className="min-w-0">
-              <span className="block text-body-sm font-medium text-ink">
-                {row.employeeName}
-              </span>
-              <span className="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
-                <span>{row.jobTitle}</span>
-                {row.departmentName && <span>{row.departmentName}</span>}
-              </span>
-            </span>
-            <Button variant="secondary" size="sm" onClick={() => onAssign(row)}>
-              {row.appraisers.length === 0 ? "Assign" : "Change"}
-            </Button>
-          </li>
-        ))}
-      </ul>
-    </Modal>
-  );
-}
-
 /**
  * Who has not sent a form yet, by name and by what is missing.
  *
