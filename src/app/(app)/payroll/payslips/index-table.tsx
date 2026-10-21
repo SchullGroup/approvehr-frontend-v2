@@ -18,7 +18,6 @@ import {
   LoadState,
   Money,
   Pagination,
-  SegmentedControl,
   Select,
   SortableTH,
   Stat,
@@ -35,14 +34,9 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
-import {
-  RunStatusBadge,
-  SourceBadge,
-  TotalRow,
-} from "@/components/payroll/run-panels";
+import { RunStatusBadge, SourceBadge } from "@/components/payroll/run-panels";
 import {
   STATUS_LABEL,
-  excludedNote,
   headcountLabel,
   naira,
   periodLabel,
@@ -288,9 +282,9 @@ function PayslipIndex() {
         />
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
-        <div className="flex flex-col gap-4">
-          <Field label="Which month" className="max-w-sm">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="Which month" className="w-72 max-w-full">
             <Select
               value={runId ?? ""}
               onChange={(event) => {
@@ -302,103 +296,64 @@ function PayslipIndex() {
             >
               {runs.map((option) => (
                 <option key={option.id} value={option.id}>
-                  {periodLabel(option.period)} — {STATUS_LABEL[option.status]}
+                  {periodLabel(option.period)}, {STATUS_LABEL[option.status]}
                 </option>
               ))}
             </Select>
           </Field>
-
-          <StatGrid columns={3}>
-            <Stat
-              label="Payslips"
-              /**
-               * The count of payslips, and the headcount they cover.
-               *
-               * This is the screen where a bare figure misleads most: somebody
-               * checking that everybody got their payslip counts the rows and
-               * stops. Nine rows for a company of ten is not an error to find
-               * later — it is the answer to a different question.
-               */
-              value={run ? headcountLabel(run) : "—"}
-              {...(run && run.excludedCount > 0
-                ? { hint: `${run.excludedCount} excluded from this payroll` }
-                : {})}
-            />
-            <Stat
-              label="Not sent"
-              /* The server's count across the whole run, not this page's. */
-              value={counts === undefined ? "—" : String(counts.notSent)}
-              {...(counts === undefined
-                ? {}
-                : {
-                    hint:
-                      counts.notSent === 0
-                        ? "All sent"
-                        : "Nobody has these yet",
-                  })}
-            />
-            <Stat
-              label="Opened"
-              value={
-                counts === undefined || inRun === undefined
-                  ? "—"
-                  : `${counts.opened} of ${inRun}`
-              }
-              icon={<Mail aria-hidden="true" />}
-            />
-          </StatGrid>
+          {run && (
+            <span className="pb-2">
+              <RunStatusBadge status={run.status} />
+            </span>
+          )}
         </div>
 
-        {run && (
-          <Card>
-            <CardHeader
-              title={periodLabel(run.period)}
-              action={<RunStatusBadge status={run.status} />}
-            />
-            <CardBody className="flex flex-col gap-3">
-              {excludedNote(run) && (
-                <p className="text-meta leading-relaxed text-warning-text">
-                  {excludedNote(run)}
-                </p>
-              )}
-              {/* `run-panels.tsx` already labels this same field "Net to
-                  employees" under "What leaves the account" — future tense,
-                  because on an approved run the money has not moved. */}
-              <TotalRow label="Net to employees" kobo={run.netKobo} strong />
-              <TotalRow label="Gross" kobo={run.grossKobo} />
-              <div className="flex items-center justify-between gap-3 border-t border-line pt-3 text-body-sm">
-                <span className="text-muted">Pays on</span>
-                <span className="font-medium text-ink">{run.payDate}</span>
-              </div>
-
-              {/* Both permissions, and only connected. A payslip file with the
-                  money columns blank is not a smaller version of this file, it
-                  is a list of names — so the API refuses it outright and the
-                  button is absent rather than present and refused.
-
-                  The file the API sends is also refused if its own net column
-                  does not equal this run's stored total, which is why there is
-                  no offline version: nothing in a browser can make that check,
-                  and an unreconciled pay spreadsheet is the copy an accountant
-                  works from. */}
-              {connected && mayExportPay && (
-                <div className="flex flex-col gap-2 border-t border-line pt-3">
-                  <ExportButton
-                    label="Download payslips"
-                    download={() => payslipsCsv(run.id, run.period.slice(0, 7))}
-                  />
-                  <p className="text-meta text-muted">
-                    Every payslip on this payroll as a spreadsheet. A deduction
-                    this company does not operate is left blank rather than
-                    written as ₦0.00, the two are different facts and only one
-                    of them is a figure.
-                  </p>
-                </div>
-              )}
-            </CardBody>
-          </Card>
+        {/* Both permissions, and only connected. A payslip file with the money
+            columns blank is a list of names, so the API refuses it outright and
+            the button is absent rather than present and refused. */}
+        {run && connected && mayExportPay && (
+          <ExportButton
+            label="Download payslips"
+            download={() => payslipsCsv(run.id, run.period.slice(0, 7))}
+          />
         )}
       </div>
+
+      <StatGrid columns={4}>
+        <Stat
+          label="Payslips"
+          /* The count and the headcount it covers: nine rows for a company of
+             ten is the answer to a different question. */
+          value={run ? headcountLabel(run) : "—"}
+          {...(run && run.excludedCount > 0
+            ? { hint: `${run.excludedCount} excluded from this payroll` }
+            : {})}
+        />
+        <Stat
+          label="Net to employees"
+          value={
+            run ? <Money amount={naira(run.netKobo)} decimals size="xl" /> : "—"
+          }
+          {...(run ? { hint: `Pays on ${run.payDate}` } : {})}
+        />
+        <Stat
+          label="Not sent"
+          /* The server's count across the whole run, not this page's. */
+          value={counts === undefined ? "—" : String(counts.notSent)}
+          {...(counts !== undefined && counts.notSent === 0
+            ? { hint: "All sent" }
+            : {})}
+        />
+        <Stat
+          label="Opened"
+          value={
+            counts === undefined || inRun === undefined
+              ? "—"
+              : `${counts.opened} of ${inRun}`
+          }
+          icon={<Mail aria-hidden="true" />}
+        />
+      </StatGrid>
 
       {run && (
         <SendPayslips
@@ -416,14 +371,7 @@ function PayslipIndex() {
       )}
 
       <Card>
-        <CardHeader
-          title="Distribution"
-          description={
-            run
-              ? `${periodLabel(run.period)} · pays ${run.payDate}`
-              : "Pick a month above."
-          }
-        />
+        <CardHeader title="Distribution" />
 
         <CardBody>
           <FilterBar
@@ -435,21 +383,27 @@ function PayslipIndex() {
             onClearAll={list.clearFilters}
             count={page.total}
             noun={["payslip", "payslips"]}
-            sort={
-              <SegmentedControl
-                label="Delivery"
+          >
+            <Field label="Delivery">
+              <Select
                 value={list.filters.delivery}
-                onChange={(value) => list.setFilter("delivery", value)}
-                options={DELIVERY_FILTERS.map(([value, text]) => ({
-                  value,
-                  label:
-                    counts === undefined || value === ""
+                onChange={(event) =>
+                  list.setFilter(
+                    "delivery",
+                    event.target.value as typeof list.filters.delivery,
+                  )
+                }
+              >
+                {DELIVERY_FILTERS.map(([value, text]) => (
+                  <option key={value} value={value}>
+                    {counts === undefined || value === ""
                       ? text
-                      : `${text} (${counts[deliveryKey(value)]})`,
-                }))}
-              />
-            }
-          />
+                      : `${text} (${counts[deliveryKey(value)]})`}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </FilterBar>
         </CardBody>
 
         {page.error ? null : page.payslips.length === 0 && !page.loading ? (
