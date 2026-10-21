@@ -24,6 +24,8 @@ import { cn } from "@/lib/cn";
 import {
   Avatar,
   Badge,
+  FilterBar,
+  type AppliedFilter,
   Button,
   ButtonLink,
   Card,
@@ -388,22 +390,25 @@ export function ApprovalInbox() {
       {view === "waiting" &&
         (canApprove ? (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <InboxFilters filters={filters} onChange={setFilters} />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void approveRoutine()}
-                disabled={queue.routineCount === 0}
-              >
-                <Check aria-hidden="true" className="size-3.5" />
-                {queue.routineCount === 0
-                  ? "Nothing routine to approve"
-                  : `Approve ${queue.routineCount} routine ${
-                      queue.routineCount === 1 ? "item" : "items"
-                    }`}
-              </Button>
-            </div>
+            <InboxFilters
+              filters={filters}
+              onChange={setFilters}
+              actions={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void approveRoutine()}
+                  disabled={queue.routineCount === 0}
+                >
+                  <Check aria-hidden="true" className="size-3.5" />
+                  {queue.routineCount === 0
+                    ? "Nothing routine to approve"
+                    : `Approve ${queue.routineCount} routine ${
+                        queue.routineCount === 1 ? "item" : "items"
+                      }`}
+                </Button>
+              }
+            />
 
             {queue.items.length === 0 ? (
               <Card>
@@ -538,13 +543,45 @@ const MODULE_OPTIONS: { value: QueueFilters["module"]; label: string }[] = [
 function InboxFilters({
   filters,
   onChange,
+  actions,
 }: {
   filters: QueueFilters;
   onChange: (next: QueueFilters) => void;
+  actions?: React.ReactNode;
 }) {
-  const hasDates = filters.from !== "" || filters.to !== "";
+  const moduleLabel = MODULE_OPTIONS.find(
+    (o) => o.value === filters.module,
+  )?.label;
+  const applied: AppliedFilter[] = [];
+  if (filters.module !== "all" && moduleLabel) {
+    applied.push({
+      label: "Module",
+      value: moduleLabel,
+      onClear: () => onChange({ ...filters, module: "all" }),
+    });
+  }
+  if (filters.from !== "") {
+    applied.push({
+      label: "Raised from",
+      value: filters.from,
+      onClear: () => onChange({ ...filters, from: "" }),
+    });
+  }
+  if (filters.to !== "") {
+    applied.push({
+      label: "Raised to",
+      value: filters.to,
+      onClear: () => onChange({ ...filters, to: "" }),
+    });
+  }
   return (
-    <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+    <FilterBar
+      applied={applied}
+      onClearAll={() =>
+        onChange({ ...filters, module: "all", from: "", to: "" })
+      }
+      actions={actions}
+    >
       <SegmentedControl
         label="Filter approvals by module"
         value={filters.module}
@@ -557,10 +594,7 @@ function InboxFilters({
           type="date"
           value={filters.from}
           max={filters.to || undefined}
-          onChange={(e) => {
-            const from = e.target.value;
-            onChange({ ...filters, from });
-          }}
+          onChange={(e) => onChange({ ...filters, from: e.target.value })}
         />
       </label>
       <label className="flex flex-col gap-1 text-meta text-muted">
@@ -569,22 +603,10 @@ function InboxFilters({
           type="date"
           value={filters.to}
           min={filters.from || undefined}
-          onChange={(e) => {
-            const to = e.target.value;
-            onChange({ ...filters, to });
-          }}
+          onChange={(e) => onChange({ ...filters, to: e.target.value })}
         />
       </label>
-      {hasDates && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onChange({ ...filters, from: "", to: "" })}
-        >
-          Clear dates
-        </Button>
-      )}
-    </div>
+    </FilterBar>
   );
 }
 

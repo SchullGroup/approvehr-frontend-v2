@@ -69,8 +69,9 @@ beforeEach(() => {
 });
 
 describe("the inbox filters", () => {
-  it("filters by module, not by a priority nobody set", () => {
+  it("filters by module, not by a priority nobody set", async () => {
     show();
+    await userEvent.click(screen.getByRole("button", { name: "Filters" }));
     for (const label of ["All", "Payroll", "Leave", "Hiring", "Core HR"]) {
       expect(screen.getByRole("radio", { name: label })).toBeInTheDocument();
     }
@@ -78,8 +79,9 @@ describe("the inbox filters", () => {
     expect(screen.queryByText("Needs attention")).not.toBeInTheDocument();
   });
 
-  it("offers a date range", () => {
+  it("offers a date range", async () => {
     show();
+    await userEvent.click(screen.getByRole("button", { name: "Filters" }));
     expect(screen.getByLabelText("Raised from")).toBeInTheDocument();
     expect(screen.getByLabelText("Raised to")).toBeInTheDocument();
   });
