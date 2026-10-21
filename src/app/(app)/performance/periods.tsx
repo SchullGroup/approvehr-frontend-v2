@@ -72,7 +72,7 @@ export function PeriodsTab() {
       />
 
       <Card>
-        <CardHeader title="Open and not yet started" />
+        <CardHeader title="Open periods" />
         {appraisals.loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
@@ -229,7 +229,7 @@ function PeriodRow({ period }: { period: ApiCycle }) {
             ? "Set it up and start it"
             : published
               ? "See how it came out"
-              : "Who is outstanding"}
+              : "Open the period"}
         </ButtonLink>
       </div>
     </div>
