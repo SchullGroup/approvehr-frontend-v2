@@ -170,7 +170,7 @@ export function ReasonsScreen() {
                   </form>
                 ) : (
                   <>
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-48 flex-1">
                       <p className="flex flex-wrap items-center gap-2 text-body-sm text-ink">
                         {reason.label}
                         {!reason.active && (
@@ -188,6 +188,7 @@ export function ReasonsScreen() {
                     </div>
                     <Switch
                       label="Offered"
+                      className="shrink-0"
                       checked={reason.active}
                       disabled={busy || (reason.active && switchedOn <= 1)}
                       onChange={(event) =>

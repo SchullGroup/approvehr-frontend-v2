@@ -164,7 +164,7 @@ export function TagsScreen() {
                   </form>
                 ) : (
                   <>
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-48 flex-1">
                       <Tag>{tag.name}</Tag>
                       {tag.uses !== undefined && (
                         <span className="ml-2 text-meta text-muted">

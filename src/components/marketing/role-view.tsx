@@ -49,7 +49,7 @@ export function RoleView({
       <div className="container-page">
         <CareersBrand company={role.company} branding={role.branding} />
       </div>
-      <div className="container-page grid gap-14 lg:grid-cols-[1.15fr_1fr] lg:gap-20">
+      <div className="container-page grid grid-cols-1 gap-14 lg:grid-cols-[1.15fr_1fr] lg:gap-20">
         <Wrap>
           <div>
             <Title className="text-h1 text-slate">{role.title}</Title>
