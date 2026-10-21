@@ -236,18 +236,43 @@ function Groups({ data }: { data: ApiFairness }) {
           key={dimension.key}
           dimension={dimension}
           averageBp={data.averageBp}
+          minGroup={data.rules.minGroup}
         />
       ))}
     </div>
   );
 }
 
-function GroupCard({
+/**
+ * What to say when a dimension has no group it can show.
+ *
+ * A hidden group has one of two reasons. `small` is the plain rule: under the
+ * minimum size. `protects` is a group that is itself big enough but is held
+ * back because showing it would let anyone work out the small ones by
+ * subtraction (total minus the visible groups). Saying "under the size it can
+ * be shown at" for the second reads as wrong — the group is large — so name it
+ * and say why.
+ */
+export function allHiddenText(
+  hidden: ApiFairnessDimension["hidden"],
+  minGroup: number,
+): string {
+  const protecting = hidden.filter((h) => h.reason === "protects");
+  if (protecting.length === 0) {
+    return "Every group here is under the size it can be shown at.";
+  }
+  const names = protecting.map((h) => h.label).join(", ");
+  return `Groups under ${String(minGroup)} people are hidden, and so ${protecting.length === 1 ? "is" : "are"} ${names}, because showing ${protecting.length === 1 ? "it" : "them"} would reveal the smaller groups by subtraction.`;
+}
+
+export function GroupCard({
   dimension,
   averageBp,
+  minGroup,
 }: {
   dimension: ApiFairnessDimension;
   averageBp: number | null;
+  minGroup: number;
 }) {
   const [view, setView] = useState<View>("average");
   const flagged = new Set(
@@ -311,7 +336,7 @@ function GroupCard({
       />
       {dimension.groups.length === 0 ? (
         <CardBody className="text-body-sm text-muted">
-          Every group here is under the size it can be shown at.
+          {allHiddenText(dimension.hidden, minGroup)}
         </CardBody>
       ) : view === "table" ? (
         <TableWrap caption={`${dimension.label} by group`}>
