@@ -1221,6 +1221,12 @@ export type ApiFairnessMove = {
 
 export type ApiReviewStatus = "below" | "above" | "matches" | "unclear";
 
+export type ApiFlagResolution =
+  | { state: "open" }
+  | { state: "waiting"; since: string; reason: string }
+  | { state: "moved"; by: string | null; at: string; reason: string }
+  | { state: "stands"; by: string | null; at: string; note: string | null };
+
 export type ApiReviewFlag = {
   employeeId: string;
   name: string;
@@ -1238,6 +1244,10 @@ export type ApiReviewFlag = {
     history: { periods: number; averageBp: number } | null;
   };
   patterns: { kind: string; text: string }[];
+  /** What has been done about a flagged mark. Null when the mark isn't flagged. */
+  resolution: ApiFlagResolution | null;
+  /** Whether there is a submitted manager review that could be sent back. */
+  managerReviewSubmitted: boolean;
 };
 
 export type ApiClaim = {
@@ -1255,7 +1265,14 @@ export type ApiClaims = {
 export type ApiReviewFlags = {
   cycle: { id: string; name: string };
   rules: { gapBp: number; peerFloor: number };
-  counts: Record<ApiReviewStatus, number>;
+  counts: Record<ApiReviewStatus, number> & {
+    /** Flagged marks that stand or were moved. */
+    decided: number;
+    /** Flagged marks whose review is back with the manager. */
+    waiting: number;
+    /** Flagged marks nobody has acted on yet. */
+    open: number;
+  };
   people: ApiReviewFlag[];
 };
 
@@ -2445,6 +2462,18 @@ export const performanceApi = {
     request<{ flag: ApiReviewFlag; claims: ApiClaims }>(
       `/performance/cycles/${cycleId}/review-flags/${employeeId}`,
       signalOf(signal),
+    ),
+
+  markStands: (cycleId: string, employeeId: string, note: string | null) =>
+    request<{ flag: ApiReviewFlag }>(
+      `/performance/cycles/${cycleId}/review-flags/${employeeId}/decision`,
+      { method: "POST", body: { note } },
+    ),
+
+  reopenFlag: (cycleId: string, employeeId: string) =>
+    request<{ flag: ApiReviewFlag }>(
+      `/performance/cycles/${cycleId}/review-flags/${employeeId}/decision`,
+      { method: "DELETE" },
     ),
 
   reviewNote: ({
