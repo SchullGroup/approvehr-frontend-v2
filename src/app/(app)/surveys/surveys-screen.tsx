@@ -18,6 +18,7 @@ import {
   TR,
   TableWrap,
   useToast,
+  RowActions,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { useCan } from "@/lib/permissions";
@@ -250,24 +251,20 @@ function RunningPanel({
                   </Badge>
                 </TD>
                 <TD className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => onShow(survey)}
-                    >
-                      Results
-                    </Button>
-                    {survey.status === "OPEN" && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => void close(survey)}
-                      >
-                        Close it
-                      </Button>
-                    )}
-                  </div>
+                  <RowActions
+                    label={`More actions for ${survey.title}`}
+                    items={[
+                      { label: "Results", onSelect: () => onShow(survey) },
+                      ...(survey.status === "OPEN"
+                        ? [
+                            {
+                              label: "Close it",
+                              onSelect: () => void close(survey),
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
                 </TD>
               </TR>
             ))}

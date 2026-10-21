@@ -23,6 +23,7 @@ import {
   TableWrap,
   Textarea,
   useToast,
+  RowActions,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { Can, useCan } from "@/lib/permissions";
@@ -177,24 +178,17 @@ export function JobRolesScreen() {
                   </TD>
                   <TD className="text-right">
                     {canManage && (
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={readOnly}
-                          onClick={() => setEditing(role)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={readOnly}
-                          onClick={() => setArchiving(role)}
-                        >
-                          Switch off
-                        </Button>
-                      </div>
+                      <RowActions
+                        label={`More actions for ${role.title}`}
+                        disabled={readOnly}
+                        items={[
+                          { label: "Edit", onSelect: () => setEditing(role) },
+                          {
+                            label: "Switch off",
+                            onSelect: () => setArchiving(role),
+                          },
+                        ]}
+                      />
                     )}
                   </TD>
                 </TR>

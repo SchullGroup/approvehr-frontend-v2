@@ -22,6 +22,7 @@ import {
   TR,
   TableWrap,
   type BadgeTone,
+  RowActions,
 } from "@/components/ui";
 import type { SortOrder } from "@/lib/use-list-query";
 import {
@@ -228,26 +229,30 @@ export function ClaimsRegister({
                         </TD>
 
                         <TD align="right">
-                          <div className="flex justify-end gap-1.5">
-                            {claim.editable && mine && onEdit && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onEdit(claim)}
-                              >
-                                Edit
-                              </Button>
-                            )}
-                            {claim.outstanding && canSettle && onMarkPaid && (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => setSettling(claim)}
-                              >
-                                Mark paid
-                              </Button>
-                            )}
-                          </div>
+                          {((claim.editable && mine && onEdit) ||
+                            (claim.outstanding && canSettle && onMarkPaid)) && (
+                            <RowActions
+                              label={`More actions for ${claim.employeeName}'s claim`}
+                              items={[
+                                ...(claim.editable && mine && onEdit
+                                  ? [
+                                      {
+                                        label: "Edit",
+                                        onSelect: () => onEdit(claim),
+                                      },
+                                    ]
+                                  : []),
+                                ...(claim.outstanding && canSettle && onMarkPaid
+                                  ? [
+                                      {
+                                        label: "Mark paid",
+                                        onSelect: () => setSettling(claim),
+                                      },
+                                    ]
+                                  : []),
+                              ]}
+                            />
+                          )}
                         </TD>
                       </TR>
                     );

@@ -23,6 +23,7 @@ import {
   TR,
   TableWrap,
   useToast,
+  RowActions,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -534,23 +535,29 @@ function OvertimeTableRow({
                 Yours: somebody else approves it
               </span>
             ) : !canDecide ? null : (
-              <>
-                {row.status !== "APPROVED" && (
-                  <Button
-                    variant="approve"
-                    size="sm"
-                    loading={busy}
-                    onClick={onApprove}
-                  >
-                    Approve
-                  </Button>
-                )}
-                {row.status !== "DECLINED" && (
-                  <Button size="sm" disabled={busy} onClick={onDecline}>
-                    Decline
-                  </Button>
-                )}
-              </>
+              <RowActions
+                label={`More actions for ${row.name}'s overtime`}
+                items={[
+                  ...(row.status !== "APPROVED"
+                    ? [
+                        {
+                          label: "Approve",
+                          disabled: busy,
+                          onSelect: onApprove,
+                        },
+                      ]
+                    : []),
+                  ...(row.status !== "DECLINED"
+                    ? [
+                        {
+                          label: "Decline",
+                          disabled: busy,
+                          onSelect: onDecline,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
             )}
           </div>
         </TD>
