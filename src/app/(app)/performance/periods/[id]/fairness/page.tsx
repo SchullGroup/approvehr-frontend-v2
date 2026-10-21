@@ -9,9 +9,17 @@ export const metadata: Metadata = {
 
 export default async function FairnessPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id } = await params;
-  return <FairnessScreen cycleId={id} />;
+  const { tab } = await searchParams;
+  return (
+    <FairnessScreen
+      cycleId={id}
+      initialTab={tab === "people" ? "people" : undefined}
+    />
+  );
 }
