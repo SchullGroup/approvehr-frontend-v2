@@ -504,57 +504,97 @@ export function WalletStrip({ run }: { run: PayrollRunDetail }) {
   const funds = run.funds;
   if (!funds) return null;
 
+  const { wallet } = funds;
   const short = !funds.enough;
+  const promised = wallet.committedKobo > 0;
 
   return (
     <Card>
       <CardHeader
-        title="What is in the wallet"
-        description="Payroll is paid from here. This is what it holds now."
+        title={
+          short
+            ? "The wallet does not cover this payroll yet"
+            : "The wallet covers this payroll"
+        }
+        description="Payroll is paid from the wallet. This is what it holds against what is already promised and what this payroll needs."
       />
       <CardBody className="flex flex-col gap-4">
-        <dl className="grid gap-4 sm:grid-cols-3">
-          <Figure label="Available now" kobo={funds.wallet.availableKobo} />
-          <Figure label="This payroll" kobo={funds.neededKobo} />
-          <Figure
-            label={short ? "Short by" : "Left after"}
-            kobo={Math.abs(funds.afterKobo)}
-            tone={short ? "danger" : "success"}
+        {/* The sum, as a sum.
+            ----------------------------------------------------------------
+            This used to open on "Available now ₦-9,400,272.00": a negative
+            amount of money available, which is the reader's job to decode. The
+            API returns `availableKobo` negative on purpose, because "you are
+            ₦X short" is a figure somebody can take to whoever funds the
+            account. So the position is laid out as the arithmetic it is, from
+            what the account holds to what would be left, and no line is ever a
+            negative balance. `afterKobo` is the API's own answer, and it is
+            exactly the last line: held, less promised, less this payroll. */}
+        <dl className="flex flex-col gap-2.5">
+          <WalletLine
+            label="In the wallet"
+            value={formatKobo(wallet.balanceKobo)}
           />
+          {promised && (
+            <WalletLine
+              label="Already promised to payments that have not gone out"
+              value={`\u2212${formatKobo(wallet.committedKobo)}`}
+            />
+          )}
+          <WalletLine
+            label="This payroll"
+            value={`\u2212${formatKobo(funds.neededKobo)}`}
+          />
+          <div className="mt-1 flex items-baseline justify-between gap-4 border-t border-line pt-3">
+            <dt
+              className={
+                short
+                  ? "text-body-sm font-semibold text-danger-text"
+                  : "text-body-sm font-semibold text-success-text"
+              }
+            >
+              {short ? "Short by" : "Left after"}
+            </dt>
+            <dd
+              className={
+                short
+                  ? "tabular text-h4 text-danger-text"
+                  : "tabular text-h4 text-success-text"
+              }
+            >
+              {formatKobo(Math.abs(funds.afterKobo))}
+            </dd>
+          </div>
         </dl>
 
-        {funds.wallet.committedKobo > 0 && (
-          <p className="text-meta text-muted">
-            {formatKobo(funds.wallet.balanceKobo)} is in the account, of which{" "}
-            {formatKobo(funds.wallet.committedKobo)} is already promised to a
-            payment that has not gone out. &ldquo;Available&rdquo; is what is
-            left after that: two payrolls approved in one morning must not both
-            be told the same money is theirs.
-          </p>
-        )}
-
-        {/* One line. This used to spend two paragraphs explaining that a
-            shortfall does not block approval — true, and not what somebody
-            glancing at this card needs first. The figure is already in the
-            stat row above (`Available now`); this exists only to say the
-            balance is low and point at the one place that fixes it. The bank
-            file is not linked from here — it is the other button on this
-            same screen once the run is approved. */}
+        {/* Said once, and only when it matters. Approving never waits for the
+            money: a company that approves on the 25th and funds on the 28th is
+            doing something ordinary, and this exists so nobody meets the figure
+            for the first time on the far side of the one-way door. */}
         {short && (
-          <Callout tone="warning" title="Wallet balance is low">
+          <p className="text-body-sm leading-relaxed text-body">
+            Approving does not need this. Approve now and fund the wallet before
+            you pay, or take the bank register to your bank instead.{" "}
             <ButtonLink
               href="/payroll/payments"
               variant="ghost"
               size="sm"
-              className="h-auto p-0 font-medium underline underline-offset-2"
+              className="h-auto p-0 font-medium text-accent-text underline underline-offset-2 max-sm:min-h-11"
             >
-              Fund it
-            </ButtonLink>{" "}
-            to pay from here, or download the bank file below instead.
-          </Callout>
+              Fund the wallet
+            </ButtonLink>
+          </p>
         )}
       </CardBody>
     </Card>
+  );
+}
+
+function WalletLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <dt className="min-w-0 text-body-sm text-body">{label}</dt>
+      <dd className="tabular shrink-0 text-body-sm text-ink">{value}</dd>
+    </div>
   );
 }
 
