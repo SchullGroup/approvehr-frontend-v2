@@ -134,14 +134,20 @@ export type QueueState = {
     note?: string,
   ) => Promise<DecideOutcome>;
   reopen: (item: QueueItem) => Promise<void>;
-  /** Everything with no deadline, waiting under five days. */
-  approveRoutine: () => Promise<{
+  /**
+   * Approve these, which are the routine ones the person was shown and agreed to.
+   * Connected, the ids go to the server, which re-checks each one; it never
+   * decides anything that was not in the list.
+   */
+  approveRoutine: (items: QueueItem[]) => Promise<{
     decided: number;
     skipped: { id: string; reason: string }[];
   }>;
   /** Put one away for this person only, or bring it back. */
   setArchived: (item: QueueItem, archived: boolean) => Promise<void>;
-  /** How many `approveRoutine` would take, so the button can say. */
+  /** What the "approve routine" button counts: no deadline, waiting under five days. */
+  routine: QueueItem[];
+  /** How many of those there are, so the button can say. */
   routineCount: number;
   reload: () => void;
 };
@@ -371,26 +377,37 @@ export function useApprovalQueue(
     [approvals],
   );
 
-  const approveRoutine = useCallback(async () => {
-    if (isConnected) {
-      const result = await approvalsApi.approveRoutine();
-      announceApprovalChange();
-      /* The array, not its length. The API says why each row was left —
-         "you raised this one yourself", "it needs somebody who can approve
-         payroll" — and a bare count made the screen invent a reason instead. */
-      return { decided: result.decided, skipped: result.skipped };
-    }
-    /* Split by destination rather than one at a time, so each store commits
-       once and the list does not re-rank between decisions. */
-    for (const item of routine) {
-      if (item.ref?.store === "leave") leave.decide(item.ref.id, "approved");
-    }
-    approvals.decideMany(
-      routine.filter((item) => !item.ref).map((item) => item.id),
-      "approved",
-    );
-    return { decided: routine.length, skipped: [] };
-  }, [isConnected, routine, leave, approvals]);
+  const approveRoutine = useCallback(
+    async (items: QueueItem[]) => {
+      if (isConnected) {
+        /* The ids of the rows the person was shown and said yes to, not "whatever
+           the server thinks is routine": the button's number and the decision are
+           the same list. The server still re-checks each one. A page is at most
+           100 rows, inside the server's limit of 200 per press. */
+        const ids = items.flatMap((item) =>
+          item.ref?.store === "approval" ? [item.ref.id] : [],
+        );
+        if (ids.length === 0) return { decided: 0, skipped: [] };
+        const result = await approvalsApi.approveSelected(ids);
+        announceApprovalChange();
+        /* The array, not its length. The API says why each row was left —
+           "you raised this one yourself", "it needs somebody who can approve
+           payroll" — and a bare count made the screen invent a reason instead. */
+        return { decided: result.decided, skipped: result.skipped };
+      }
+      /* Split by destination rather than one at a time, so each store commits
+         once and the list does not re-rank between decisions. */
+      for (const item of items) {
+        if (item.ref?.store === "leave") leave.decide(item.ref.id, "approved");
+      }
+      approvals.decideMany(
+        items.filter((item) => !item.ref).map((item) => item.id),
+        "approved",
+      );
+      return { decided: items.length, skipped: [] };
+    },
+    [isConnected, leave, approvals],
+  );
 
   const waiting = useMemo(
     () => demoItems.filter((item) => !archivedIds.includes(item.id)),
@@ -418,6 +435,7 @@ export function useApprovalQueue(
     reopen,
     approveRoutine,
     setArchived,
+    routine,
     routineCount: routine.length,
     reload: load,
   };
@@ -486,5 +504,97 @@ export function useSentApprovals(): SentApprovalsState {
     error: state.error,
     connected: isConnected,
     reload: () => setKey((k) => k + 1),
+  };
+}
+
+/* ---------------------------------------------------------------- decided */
+
+export type DecidedApprovalsState = {
+  rows: ApprovalRow[];
+  loading: boolean;
+  error: ApiError | null;
+  connected: boolean;
+  reload: () => void;
+};
+
+/**
+ * Approvals already decided, newest decision first.
+ *
+ * "Waiting on you" empties as you work, so without this there was no way to see
+ * what had been approved or rejected, or by when. The API's `status` filter does
+ * the work; this asks for one outcome at a time because approved and rejected are
+ * two different questions and the server orders each by when it was decided.
+ *
+ * Connected only. In demo mode decisions live in the local store and the inbox
+ * shows them as "Just decided", so there is no second list to build.
+ *
+ * Rows are matched to the outcome and filters they were asked for, so switching
+ * from Approved to Rejected never leaves the first list under the second label.
+ * A decision made elsewhere in this browser refetches without blanking the list.
+ */
+export function useDecidedApprovals(
+  outcome: "approved" | "declined",
+  filters: QueueFilters,
+  enabled: boolean,
+): DecidedApprovalsState {
+  const { isConnected } = useSession();
+  const generation = useApprovalGeneration();
+  const [reloads, setReloads] = useState(0);
+  const { module, from, to } = filters;
+  const identity = JSON.stringify([outcome, module, from, to]);
+  const [state, setState] = useState<{
+    identity: string;
+    rows: ApprovalRow[];
+    error: ApiError | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isConnected || !enabled) return;
+    let cancelled = false;
+    approvalsApi
+      .list({
+        status: outcome,
+        ...(module !== "all" ? { module } : {}),
+        ...(from ? { from } : {}),
+        ...(to ? { to } : {}),
+        pageSize: 100,
+      })
+      .then((result) => {
+        if (!cancelled) {
+          setState({ identity, rows: result.rows, error: null });
+        }
+      })
+      .catch((failure: unknown) => {
+        if (!cancelled) {
+          setState({
+            identity,
+            rows: [],
+            error: failure instanceof ApiError ? failure : null,
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isConnected,
+    enabled,
+    identity,
+    outcome,
+    module,
+    from,
+    to,
+    generation,
+    reloads,
+  ]);
+
+  const reload = useCallback(() => setReloads((n) => n + 1), []);
+  const matched = state !== null && state.identity === identity;
+  return {
+    rows: matched ? state.rows : [],
+    loading: enabled && isConnected && !matched,
+    error: matched ? state.error : null,
+    connected: isConnected,
+    reload,
   };
 }

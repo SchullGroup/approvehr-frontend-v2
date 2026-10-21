@@ -38,10 +38,18 @@ vi.mock("@/lib/store/approvals-api", () => ({
     reopen: vi.fn(),
     approveRoutine: vi.fn(),
     setArchived: (...args: unknown[]) => setArchived(...args),
+    routine: [],
     routineCount: 0,
     reload: vi.fn(),
   }),
   useSentApprovals: () => ({
+    rows: [],
+    loading: false,
+    error: null,
+    connected: true,
+    reload: vi.fn(),
+  }),
+  useDecidedApprovals: () => ({
     rows: [],
     loading: false,
     error: null,
