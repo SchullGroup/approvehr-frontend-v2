@@ -202,9 +202,9 @@ export function AddPeopleDialog({
             {chosenUnlinked.length === 1
               ? `${chosenUnlinked[0]!.name} has no personnel record yet.`
               : `${nameSome(chosenUnlinked.map((account) => account.name))} have no personnel record yet.`}{" "}
-            {role.name} works fine without one — nothing here is blocked. If
-            they are actually staff, close this and the role editor behind it,
-            then link or create their record from{" "}
+            {role.name} works fine without one, nothing here is blocked. If they
+            are actually staff, close this and the role editor behind it, then
+            link or create their record from{" "}
             <strong>Accounts with no personnel record</strong> on this screen.
           </Callout>
         )}

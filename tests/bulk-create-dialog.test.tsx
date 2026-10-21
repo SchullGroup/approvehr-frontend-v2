@@ -56,7 +56,7 @@ const surface = (overrides: Partial<BulkSurface> = {}): BulkSurface => ({
     ownerEmail: {
       kind: "text",
       type: "email",
-      suggestions: [{ value: "ngozi@co.com", label: "Ngozi — ngozi@co.com" }],
+      suggestions: [{ value: "ngozi@co.com", label: "Ngozi, ngozi@co.com" }],
     },
     description: { kind: "longtext" },
   },

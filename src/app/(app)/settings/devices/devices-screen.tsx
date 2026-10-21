@@ -324,7 +324,7 @@ export function DevicesScreen() {
             Registering, naming and mapping enrolment numbers all work and
             persist in this browser. Two things do not.{" "}
             <strong>No tap can arrive</strong>, because the thing that delivers
-            one is an endpoint on the server — so nothing here reaches a
+            one is an endpoint on the server, so nothing here reaches a
             timesheet. And <strong>no signing secret is issued</strong>: one
             made up in a browser would look exactly like a real credential and
             would sign deliveries nothing would accept.
@@ -612,7 +612,7 @@ export function DevicesScreen() {
                 Every tap is kept, then read.
               </strong>{" "}
               Taps are recorded exactly as they arrive, and a separate pass
-              decides what the day meant — first tap in, last tap out. A single
+              decides what the day meant, first tap in, last tap out. A single
               tap is an open shift, never a zero-length day.
             </p>
             <p>
@@ -633,13 +633,13 @@ export function DevicesScreen() {
             <p>
               <strong className="text-ink">Late taps are normal.</strong> A
               terminal that loses its network keeps its own record and delivers
-              the lot when it comes back — a fortnight arrives in one go and
+              the lot when it comes back, a fortnight arrives in one go and
               lands on the right days. Sending the same taps twice changes
               nothing, which is what makes an unreliable link safe.
             </p>
             <p className="text-muted">
               Where a tap counts as having happened comes from the terminal,
-              which is why the office matters — set it in{" "}
+              which is why the office matters, set it in{" "}
               <ButtonLink href="/settings/locations" variant="ghost" size="sm">
                 work locations
               </ButtonLink>{" "}
@@ -750,7 +750,7 @@ export function DevicesScreen() {
         body={
           <span className="flex flex-col gap-2.5">
             <span>
-              The current secret stops working immediately — there is no grace
+              The current secret stops working immediately, there is no grace
               period, because a rotation is what you do when one has leaked.
             </span>
             <span>

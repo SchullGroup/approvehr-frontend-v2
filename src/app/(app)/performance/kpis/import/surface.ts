@@ -47,7 +47,7 @@ export const OBJECTIVES_IMPORT_SURFACE: ImportSurface = {
     periods: {
       title: "Some appraisal periods do not exist",
       consequence:
-        "will be skipped. Name a period that is still open, or leave the cell blank — whoever runs appraisals can tell you what they are called.",
+        "will be skipped. Name a period that is still open, or leave the cell blank, whoever runs appraisals can tell you what they are called.",
     },
     parents: {
       title: "Some parent objectives do not exist yet",

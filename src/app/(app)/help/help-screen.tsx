@@ -328,7 +328,7 @@ function QueueView() {
         {canManageCatalogue && (
           <Disclosure
             title="Categories & reply targets"
-            hint="What a request can be about, and how quickly you have promised to answer — switched on, off, or added to, without leaving the queue."
+            hint="What a request can be about, and how quickly you have promised to answer, switched on, off, or added to, without leaving the queue."
           >
             <div className="flex flex-col gap-4">
               <CategoriesAndSlaPanel />

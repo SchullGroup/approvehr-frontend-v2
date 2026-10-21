@@ -1991,7 +1991,7 @@ function PeriodFramingEditor({
     >
       <div className="flex flex-col gap-3">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field optional label="Period covered — from">
+          <Field optional label="Period covered, from">
             <Input
               type="date"
               value={start}
@@ -2501,7 +2501,7 @@ function RevisionButton({
     return (
       <span
         className="text-meta text-muted"
-        title={`${existing.targetStage === "SELF" ? "Self-appraisal" : "Manager review"} — ${existing.reason}`}
+        title={`${existing.targetStage === "SELF" ? "Self-appraisal" : "Manager review"}, ${existing.reason}`}
       >
         Sent back, waiting for them to send it again
       </span>

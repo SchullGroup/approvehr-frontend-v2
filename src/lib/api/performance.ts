@@ -1851,7 +1851,7 @@ export const POTENTIAL_MEANING: Record<ApiPotentialLevel, string> = {
   HIGH: "Could take on a substantially bigger or different role within a year or two.",
   MEDIUM:
     "Could grow further in this kind of role, or take a bigger one in time.",
-  LOW: "Well placed where they are. This is not a judgement of their value — most people are here, and it is what makes a company work.",
+  LOW: "Well placed where they are. This is not a judgement of their value, most people are here, and it is what makes a company work.",
 };
 
 export const PERFORMANCE_AXIS_LABELS: Record<ApiPerformanceAxis, string> = {
@@ -1866,7 +1866,7 @@ export const POTENTIAL_REASON_MIN = 10;
 export function potentialReasonProblem(reason: string): string | null {
   if (reason.trim().length >= POTENTIAL_REASON_MIN) return null;
   return (
-    `Say why in a sentence — at least ${String(POTENTIAL_REASON_MIN)} characters. ` +
+    `Say why in a sentence, at least ${String(POTENTIAL_REASON_MIN)} characters. ` +
     "This placement is read by the people who decide promotions, and one " +
     "nobody can explain should not be deciding anything."
   );
@@ -2925,7 +2925,7 @@ export const RATING_LABELS: Record<number, string> = {
 export const RATING_MEANING: Record<number, string> = {
   5: "Consistently well beyond what the role asks for, and others learn from how they do it.",
   4: "Delivers more than the role asks for, reliably.",
-  3: "Does what the role asks for. The ordinary, good outcome — most people, most periods.",
+  3: "Does what the role asks for. The ordinary, good outcome, most people, most periods.",
   2: "Falls short of what the role asks for in ways that need addressing.",
   1: "Well short of what the role asks for.",
 };

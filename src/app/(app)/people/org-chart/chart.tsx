@@ -1073,7 +1073,7 @@ function MoveDialog({
           aria-label="New parent department"
           onChange={(event) => setChoice(event.target.value)}
         >
-          <option value="">Top level — no parent</option>
+          <option value="">Top level, no parent</option>
           {targets.map((department) => (
             <option key={department.id} value={department.id}>
               Inside {department.name}

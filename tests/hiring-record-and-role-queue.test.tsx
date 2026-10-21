@@ -124,7 +124,7 @@ describe("finding the careers application behind an id in a candidate's URL", ()
     expect(recruitment.getCandidate).not.toHaveBeenCalled();
   });
 
-  it("resolves a candidate id through the candidate's email — never by scanning a list", async () => {
+  it("resolves a candidate id through the candidate's email, never by scanning a list", async () => {
     careers.getApplication.mockImplementation(async (id: string) => {
       if (id === "cand-1") throw notFound();
       return detail(id, { candidateId: "cand-1" });

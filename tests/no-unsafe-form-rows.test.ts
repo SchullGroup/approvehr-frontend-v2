@@ -199,7 +199,7 @@ describe("form rows on a phone", () => {
       offenders
         .map(
           (r) =>
-            `${r.file}:${r.line} ${r.detail} — use <FieldRow> (see tests/no-unsafe-form-rows.test.ts)`,
+            `${r.file}:${r.line} ${r.detail}, use <FieldRow> (see tests/no-unsafe-form-rows.test.ts)`,
         )
         .join("\n"),
     ).toEqual([]);
@@ -209,7 +209,7 @@ describe("form rows on a phone", () => {
     for (const file of Object.keys(ALLOWED)) {
       expect(
         rows.some((row) => row.file === file),
-        `${file} is allow-listed but no longer has a fixed-column row — remove it from ALLOWED`,
+        `${file} is allow-listed but no longer has a fixed-column row, remove it from ALLOWED`,
       ).toBe(true);
     }
   });
@@ -222,7 +222,7 @@ describe("form rows on a phone", () => {
     expect(
       rawPickers,
       rawPickers
-        .map((r) => `${r.file}:${r.line} ${r.detail} — use <Input type=…>`)
+        .map((r) => `${r.file}:${r.line} ${r.detail}, use <Input type=…>`)
         .join("\n"),
     ).toEqual([]);
   });

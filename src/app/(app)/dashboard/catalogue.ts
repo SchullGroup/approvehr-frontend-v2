@@ -162,7 +162,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     id: "workforce-headline",
     title: "Workforce headline",
     blurb:
-      "One sentence worth knowing this cycle — the department most off-track, a quiet task tracker, or someone who has cleared the promotion bar.",
+      "One sentence worth knowing this cycle, the department most off-track, a quiet task tracker, or someone who has cleared the promotion bar.",
     group: "attention",
     span: "full",
     source: "dashboard",
@@ -205,7 +205,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     id: "stat-records",
     title: "Records to finish",
     blurb:
-      "People payroll would refuse to pay — no account number, or no pension PIN. The same test the run uses.",
+      "People payroll would refuse to pay, no account number, or no pension PIN. The same test the run uses.",
     group: "people",
     span: "quarter",
     source: "dashboard",
@@ -422,7 +422,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     id: "appraisals",
     title: "Appraisals",
     blurb:
-      "Where the current period has got to — self-reviews in, manager reviews in, marks final, signed off — and the button that starts one.",
+      "Where the current period has got to, self-reviews in, manager reviews in, marks final, signed off, and the button that starts one.",
     group: "tools",
     span: "half",
     source: "local",

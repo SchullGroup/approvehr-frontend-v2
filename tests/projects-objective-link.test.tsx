@@ -323,7 +323,7 @@ describe("the weekly-task line, in the three states", () => {
 
   it("shows the API's sentence when nothing could be filed", () => {
     const message =
-      "Not counted toward a weekly task — link this issue or the project to an objective.";
+      "Not counted toward a weekly task, link this issue or the project to an objective.";
     renderDrawer(
       withWeekly({ state: "NOT_COUNTED", reason: "NO_OBJECTIVE", message }),
     );
@@ -332,7 +332,7 @@ describe("the weekly-task line, in the three states", () => {
 
   it("shows the API's sentence when the week has closed", () => {
     const message =
-      "Not counted toward a weekly task — it was finished in a week that has closed.";
+      "Not counted toward a weekly task, it was finished in a week that has closed.";
     renderDrawer(
       withWeekly({ state: "NOT_COUNTED", reason: "WEEK_CLOSED", message }),
     );

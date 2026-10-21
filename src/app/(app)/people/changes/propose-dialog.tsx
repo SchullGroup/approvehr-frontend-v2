@@ -34,7 +34,7 @@ const KINDS: { id: Kind; label: string; hint: string }[] = [
   {
     id: "TRANSFER",
     label: "Transfer",
-    hint: "Another department, office or manager. No more money implied — a move that also pays more is a promotion.",
+    hint: "Another department, office or manager. No more money implied, a move that also pays more is a promotion.",
   },
   {
     id: "GRADE_CHANGE",
@@ -152,7 +152,7 @@ export function ProposeChangeDialog({ onClose }: { onClose: () => void }) {
       open
       onClose={onClose}
       title="Propose an employment change"
-      description="It goes to somebody who can approve it, and is written on the date you set — not before."
+      description="It goes to somebody who can approve it, and is written on the date you set, not before."
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose} disabled={saving}>
@@ -199,7 +199,7 @@ export function ProposeChangeDialog({ onClose }: { onClose: () => void }) {
         <Field
           label="Takes effect on"
           required
-          help="Their record is written on this day and not before. A date in the past is refused — payslips already issued were worked out on the old figures."
+          help="Their record is written on this day and not before. A date in the past is refused, payslips already issued were worked out on the old figures."
         >
           <Input
             type="date"

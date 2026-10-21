@@ -103,7 +103,7 @@ export function ReportFaultButton({
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={`Report a fault — ${assetName}`}
+        title={`Report a fault, ${assetName}`}
         description="Say what is wrong with it. Somebody who looks after equipment will pick it up, and you will see it move along here."
         footer={
           <div className="flex justify-end gap-2">

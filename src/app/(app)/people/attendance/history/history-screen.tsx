@@ -635,7 +635,7 @@ function DayTable({
     return (
       <Card>
         <CardHeader
-          title={`${shortDate(roster.date)} — ${label}`}
+          title={`${shortDate(roster.date)}, ${label}`}
           description={
             day.kind === "HOLIDAY"
               ? "Payroll withholds nothing."

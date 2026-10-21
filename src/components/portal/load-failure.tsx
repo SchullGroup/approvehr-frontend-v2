@@ -143,7 +143,7 @@ function adviceFor(
     case "missing":
       return missingMeans === "module"
         ? `${capitalise(subject)} is not switched on for this deployment yet. ` +
-            "Nothing is missing from your company's records — the part of the " +
+            "Nothing is missing from your company's records, the part of the " +
             "service that answers for it has not been released here. Tell your " +
             "administrator if you were expecting it."
         : `${capitalise(subject)} is not here, it may have been removed.`;

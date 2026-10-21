@@ -638,7 +638,7 @@ export function KnowledgeScreen() {
         title={`Hide ${hiding?.title ?? ""}?`}
         confirmLabel="Hide it"
         tone="danger"
-        body="Staff stop seeing it straight away. Nothing is deleted — publish it again whenever you like."
+        body="Staff stop seeing it straight away. Nothing is deleted, publish it again whenever you like."
         onConfirm={() => {
           if (!hiding) return;
           void articles

@@ -468,7 +468,7 @@ export function LeaveScreen() {
             description={
               sort === null
                 ? "Waiting first, then by start date."
-                : "In the order you asked for, across every request — not just this page."
+                : "In the order you asked for, across every request, not just this page."
             }
             action={
               <div className="flex items-center gap-3">

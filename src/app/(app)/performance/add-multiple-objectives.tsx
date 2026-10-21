@@ -78,7 +78,7 @@ const parentSuggestions = (goals: readonly ApiGoal[]): FieldOption[] => {
     seen.add(title);
     options.push({
       value: title,
-      label: `${title} — ${goal.level === "company" ? "company" : (goal.departmentName ?? "department")}`,
+      label: `${title}, ${goal.level === "company" ? "company" : (goal.departmentName ?? "department")}`,
     });
   }
   return options;
@@ -122,10 +122,10 @@ function Loaded({
       .filter((person) => person.email && !archivedIds.has(person.id))
       .map((person) => ({
         value: person.email as string,
-        label: `${fullName(person)} — ${person.email as string}`,
+        label: `${fullName(person)}, ${person.email as string}`,
       }));
     if (ownEmail && !people.some((option) => option.value === ownEmail)) {
-      people.unshift({ value: ownEmail, label: `Me — ${ownEmail}` });
+      people.unshift({ value: ownEmail, label: `Me, ${ownEmail}` });
     }
 
     const chooseFrom = (

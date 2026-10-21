@@ -100,7 +100,7 @@ export function AnnouncementForm({
     trimmedTitle.length > 0 && trimmedTitle.length < 3
       ? "Give it a title of at least three characters."
       : title.length > TITLE_LIMIT
-        ? "Shorten the title — it has to read on one line on the dashboard."
+        ? "Shorten the title, it has to read on one line on the dashboard."
         : undefined;
 
   const bodyError =

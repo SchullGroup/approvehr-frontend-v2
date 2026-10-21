@@ -264,7 +264,7 @@ describe("whether an email would leave", () => {
           enabled: true,
           willSend: false,
           blockedBy: [
-            "Add a reply-to address — replies from candidates have to go somewhere.",
+            "Add a reply-to address, replies from candidates have to go somewhere.",
           ],
         },
       }),
@@ -272,7 +272,7 @@ describe("whether an email would leave", () => {
     const out = await apiComms.emails.readiness(signal());
     expect(out.willSend).toBe(false);
     expect(out.blockedBy).toEqual([
-      "Add a reply-to address — replies from candidates have to go somewhere.",
+      "Add a reply-to address, replies from candidates have to go somewhere.",
     ]);
   });
 

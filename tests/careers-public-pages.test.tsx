@@ -181,7 +181,7 @@ describe("the list of open roles", () => {
     expect(screen.queryByText(/could not load/i)).not.toBeInTheDocument();
   });
 
-  it("works out the wait itself when a 429 carries no sentence — rounded up, from the header", async () => {
+  it("works out the wait itself when a 429 carries no sentence, rounded up, from the header", async () => {
     fetchMock.mockResolvedValue(
       json(429, { error: { code: "rate_limited" } }, { "Retry-After": "130" }),
     );

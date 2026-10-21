@@ -182,7 +182,7 @@ function Meeting({
         description={
           meeting.heldAt
             ? "Held"
-            : "In the diary — not marked as held yet, so it does not count towards coverage."
+            : "In the diary, not marked as held yet, so it does not count towards coverage."
         }
         action={
           <Badge tone={meeting.heldAt ? "success" : "neutral"} size="sm" dot>
@@ -428,7 +428,7 @@ function ScheduleDialog({
       <div className="flex flex-col gap-4">
         <Field
           label="Which day"
-          help="A one-to-one is a day, not a time — moving it from two o'clock to four is the same meeting."
+          help="A one-to-one is a day, not a time, moving it from two o'clock to four is the same meeting."
         >
           <Input
             type="date"
@@ -547,7 +547,7 @@ function AddItemDialog({
             </Field>
             <p className="text-meta text-faint">
               It will be yours. An action belongs to one of the two people in
-              the one-to-one — work for anybody else belongs where they will see
+              the one-to-one, work for anybody else belongs where they will see
               it.
             </p>
           </>

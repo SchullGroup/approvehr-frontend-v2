@@ -215,7 +215,7 @@ export function useLeaveStore() {
       const requester = employeeById(input.employeeId);
       pushDemoNotification({
         ruleId: "n-leave-request",
-        title: `${request.type} leave — ${requester ? fullName(requester) : "Unknown"}`,
+        title: `${request.type} leave, ${requester ? fullName(requester) : "Unknown"}`,
         body: `${request.from} to ${request.to} · ${request.days} ${request.days === 1 ? "day" : "days"}`,
         actionHref: "/approvals",
         entityType: "leave_request",

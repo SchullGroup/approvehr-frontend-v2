@@ -809,7 +809,7 @@ const SEED_QUESTIONS: readonly SeedQuestion[] = DEMO_ENABLED
       },
       {
         id: "demo-q-self-evidence",
-        prompt: "Attach any supporting evidence — a report, a dashboard.",
+        prompt: "Attach any supporting evidence, a report, a dashboard.",
         kind: "FILE",
         /* Not required, and that is the honest default for evidence: somebody
            whose work leaves no artefact should not be held out of their own
@@ -1789,7 +1789,7 @@ export function useObjectiveMutations() {
         if (goal.approval === "REJECTED") {
           offline(
             `"${goal.title}" was not agreed. Write the objective you can agree ` +
-              "on instead of re-sending this one — the refusal is part of the record.",
+              "on instead of re-sending this one, the refusal is part of the record.",
           );
         }
         if (goal.reviewCycleId === null && goal.dueQuarter === null) {
@@ -1822,7 +1822,7 @@ export function useObjectiveMutations() {
           offline(
             goal.approval === "AGREED"
               ? `"${goal.title}" is already agreed.`
-              : `"${goal.title}" has not been sent for agreement yet — it is ` +
+              : `"${goal.title}" has not been sent for agreement yet, it is ` +
                   `${goal.approvalLabel.toLowerCase()}.`,
           );
         }
@@ -1844,7 +1844,7 @@ export function useObjectiveMutations() {
         assertNotOwn(goal);
         if (goal.approval !== "AWAITING_APPROVAL") {
           offline(
-            `"${goal.title}" is not waiting to be agreed — it is ` +
+            `"${goal.title}" is not waiting to be agreed, it is ` +
               `${goal.approvalLabel.toLowerCase()}.`,
           );
         }
@@ -1870,7 +1870,7 @@ export function useObjectiveMutations() {
         }
         if (goal.approval === "AGREED") {
           offline(
-            `"${goal.title}" was agreed. Stop it or reopen it for revision — ` +
+            `"${goal.title}" was agreed. Stop it or reopen it for revision, ` +
               "refusing it now would erase the fact that it was ever agreed.",
           );
         }
@@ -1897,7 +1897,7 @@ export function useObjectiveMutations() {
         if (goal.approval !== "AGREED") {
           offline(
             `"${goal.title}" is not agreed, so there is nothing frozen to ` +
-              `reopen — it is ${goal.approvalLabel.toLowerCase()}.`,
+              `reopen, it is ${goal.approvalLabel.toLowerCase()}.`,
           );
         }
         local(id, {
@@ -3904,7 +3904,7 @@ const DEMO_WEIGHTS: ApiScoringWeights = {
 
 const SCALE_SAVE_OFFLINE =
   "Renaming the scale needs the API. The words are the company's, stored " +
-  "once and frozen onto every period as it starts — there is nothing in this " +
+  "once and frozen onto every period as it starts, there is nothing in this " +
   "browser for a period to freeze.";
 
 /**
@@ -4230,7 +4230,7 @@ export function useCycleFairness(
 const NINE_BOX_OFFLINE =
   "A nine-box needs the API. One half of it is every person's mark, which is " +
   "an aggregate over everybody, and the other half is a judgement somebody " +
-  "recorded — a grid assembled in this browser would place people nobody has " +
+  "recorded, a grid assembled in this browser would place people nobody has " +
   "placed.";
 
 /**

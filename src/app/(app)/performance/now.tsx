@@ -364,7 +364,7 @@ export function WhatNeedsYouTab({
     if (mine === "") {
       return `Nothing is waiting on you, and ${theirs}.`;
     }
-    return `${mine.charAt(0).toUpperCase()}${mine.slice(1)} — and ${theirs}.`;
+    return `${mine.charAt(0).toUpperCase()}${mine.slice(1)}, and ${theirs}.`;
   })();
 
   /* A manager's third question is "who has not sent theirs in", and the honest

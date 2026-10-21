@@ -1170,7 +1170,7 @@ export function NewEmployeeForm() {
                   {draft.email.trim() !== "" && (
                     <Field
                       label="What they can do when they sign in"
-                      help="Employee unless you say otherwise — their own record and their own payslips. You can only give out a role you hold yourself."
+                      help="Employee unless you say otherwise, their own record and their own payslips. You can only give out a role you hold yourself."
                     >
                       <Picker
                         value={draft.accessRoleId}
@@ -1342,7 +1342,7 @@ export function NewEmployeeForm() {
                     label="Gross monthly"
                     optional
                     error={errorFor("grossMonthly")}
-                    help="Before PAYE, pension and NHF. Leave it blank until it is agreed — payroll will name them until it is set."
+                    help="Before PAYE, pension and NHF. Leave it blank until it is agreed, payroll will name them until it is set."
                   >
                     <Input
                       data-employee-field="grossMonthly"

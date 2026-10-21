@@ -572,7 +572,7 @@ export function DraftPeriodWizard() {
 
                   {text.trim() !== "" && text.trim().length < 20 && (
                     <p className="text-meta text-muted">
-                      Say a little more about the period — a sentence or two.
+                      Say a little more about the period, a sentence or two.
                     </p>
                   )}
                 </>

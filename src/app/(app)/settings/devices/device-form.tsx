@@ -128,7 +128,7 @@ export function DeviceForm({
           required={!editing}
           help={
             editing
-              ? "Fixed once registered — it is what the agent sends to say which machine a delivery came from."
+              ? "Fixed once registered, it is what the agent sends to say which machine a delivery came from."
               : "As printed on the unit. Copy it exactly: this is what the agent sends to identify itself, character for character."
           }
         >
@@ -185,7 +185,7 @@ export function DeviceForm({
               description={
                 draft.active
                   ? "Taps from this terminal are recorded."
-                  : "Deliveries are refused while this is off. Use it for a unit away being repaired — nothing it already sent is affected, and anything its agent buffers arrives when you turn it back on."
+                  : "Deliveries are refused while this is off. Use it for a unit away being repaired, nothing it already sent is affected, and anything its agent buffers arrives when you turn it back on."
               }
               checked={draft.active}
               onChange={(e) => {

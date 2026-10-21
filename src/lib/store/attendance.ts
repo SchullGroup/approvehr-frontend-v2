@@ -1518,7 +1518,7 @@ export function useAttendanceMutations() {
         throw new ApiError(
           422,
           "validation_error",
-          "Say why this changed — payroll pays against this record.",
+          "Say why this changed, payroll pays against this record.",
           [{ field: "note", message: "Say why this changed." }],
         );
       }

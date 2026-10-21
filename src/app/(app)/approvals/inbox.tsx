@@ -89,23 +89,19 @@ const ICON: Record<ApprovalKind, React.ReactNode> = {
   holiday: <CalendarCheck aria-hidden="true" />,
 };
 
+/* Every kind reads the same: colour is for something that needs attention, and
+   a list where each row has its own colour has no row that stands out. */
 const TONE: Record<ApprovalKind, BadgeTone> = {
-  leave: "info",
-  payroll_run: "accent",
-  offer: "success",
-  requisition: "warning",
+  leave: "neutral",
+  payroll_run: "neutral",
+  offer: "neutral",
+  requisition: "neutral",
   expense: "neutral",
   record_change: "neutral",
-  loan: "warning",
-  /* Warning rather than neutral: a confirmation carries a real deadline, and
-     an overdue one means somebody is working past the end of a probation
-     nobody decided. */
-  confirmation: "warning",
-  /* Warning for the same reason: the effective date is a real deadline, and a
-     promotion approved after it means somebody was paid the old figure for a
-     month they were owed the new one. */
-  employment_change: "warning",
-  holiday: "accent",
+  loan: "neutral",
+  confirmation: "neutral",
+  employment_change: "neutral",
+  holiday: "neutral",
 };
 
 /** Holiday rows were raised by the API, not a person, so they get their own copy. */
@@ -326,7 +322,7 @@ export function ApprovalInbox() {
           implied. Connected, approving here writes to the database. */}
       <div className="flex flex-wrap items-center gap-2">
         {sourceNote(queue.connected) && (
-          <Badge tone="warning" size="sm" dot>
+          <Badge tone="neutral" size="sm" dot>
             {sourceNote(queue.connected)}
           </Badge>
         )}
@@ -482,7 +478,7 @@ export function ApprovalInbox() {
                         <Badge
                           tone={
                             halfway
-                              ? "warning"
+                              ? "neutral"
                               : decision === "approved"
                                 ? "success"
                                 : "neutral"
@@ -643,7 +639,7 @@ function SentApprovalsList({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
         {sourceNote(state.connected) && (
-          <Badge tone="warning" size="sm" dot>
+          <Badge tone="neutral" size="sm" dot>
             {sourceNote(state.connected)}
           </Badge>
         )}
@@ -809,7 +805,6 @@ function ApprovalRow({
     <Card
       className={cn(
         "group transition-shadow duration-200 hover:shadow-md",
-        item.deadline && "border-warning-line",
         item.pastDeadline && "border-danger-line",
       )}
     >
@@ -828,7 +823,7 @@ function ApprovalRow({
             </Badge>
             {item.deadline && (
               <Badge
-                tone={item.pastDeadline ? "danger" : "warning"}
+                tone={item.pastDeadline ? "danger" : "neutral"}
                 size="sm"
                 dot
               >

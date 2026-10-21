@@ -23,7 +23,7 @@ const KINDS: { value: ReviewQuestionKind; label: string }[] = [
      reach the anonymous peer audience the API refuses it for. Asking your own
      report for the report behind a number is the commonest version of this
      question there is. */
-  { value: "FILE", label: "A file — a report, a dashboard, a screenshot" },
+  { value: "FILE", label: "A file, a report, a dashboard, a screenshot" },
 ];
 
 const AUDIENCES: { value: ReviewAudience; label: string }[] = [

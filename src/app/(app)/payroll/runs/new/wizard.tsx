@@ -1039,8 +1039,8 @@ export function PayrollRunWizard() {
               {settled && (
                 <p className="text-meta leading-relaxed text-muted">
                   This run is approved. Its figures are frozen and cannot be
-                  prepared again. To pay somebody outside it — a final
-                  settlement, a bonus, a correction — go back to Period and tick
+                  prepared again. To pay somebody outside it, a final
+                  settlement, a bonus, a correction, go back to Period and tick
                   &ldquo;Pay somebody outside this payroll&rdquo;.
                 </p>
               )}
@@ -3189,7 +3189,7 @@ function hasManualOvertime(slip: Payslip): boolean {
 
 /** Both forms of the bonus line: a reason is optional, so the label has two. */
 function isBonusLine(label: string): boolean {
-  return label === "Bonus" || label.startsWith("Bonus — ");
+  return label === "Bonus" || label.startsWith("Bonus, ");
 }
 
 /**
@@ -3265,7 +3265,7 @@ function bonusOn(slip: Payslip): { amountKobo: number; reason: string } | null {
 function shortLabel(label: string): string {
   if (label.startsWith("Overtime, entered by hand")) return "overtime";
   if (label === "Bonus") return "bonus";
-  if (label.startsWith("Bonus — ")) return label.replace(/^Bonus — /, "");
+  if (label.startsWith("Bonus, ")) return label.replace(/^Bonus — /, "");
   return label;
 }
 

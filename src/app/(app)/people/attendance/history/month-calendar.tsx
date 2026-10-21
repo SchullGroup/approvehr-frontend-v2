@@ -175,7 +175,7 @@ function cellClaim(day: ApiAttendanceDay): {
         : []),
     ],
     filler: "",
-    label: `${date} — ${spoken.join(", ")}, of ${day.people} on the payroll${expected}`,
+    label: `${date}, ${spoken.join(", ")}, of ${day.people} on the payroll${expected}`,
   };
 }
 

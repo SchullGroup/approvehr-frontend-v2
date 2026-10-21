@@ -88,7 +88,7 @@ export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
             than one without. */}
         <p className="text-meta text-muted">
           Includes bank name, account number and account name for every person,
-          alongside their full calculated breakdown — unlike the payslip export,
+          alongside their full calculated breakdown, unlike the payslip export,
           which leaves bank details out on purpose. Keep it as carefully as you
           would a bank statement.
         </p>

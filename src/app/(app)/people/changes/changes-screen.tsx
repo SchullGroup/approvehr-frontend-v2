@@ -88,7 +88,7 @@ export function ChangesScreen() {
           title={`${overdueToApply.length} agreed ${overdueToApply.length === 1 ? "change has" : "changes have"} passed their date and not been written`}
         >
           These should have taken effect by now. The job that writes them runs
-          daily — if this is still here tomorrow, the worker is not running, and
+          daily, if this is still here tomorrow, the worker is not running, and
           the people below are being paid on their old terms.
         </Callout>
       )}

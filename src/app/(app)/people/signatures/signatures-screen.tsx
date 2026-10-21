@@ -500,7 +500,7 @@ function DeclineButton({
         <div className="flex flex-col gap-4">
           <Field
             label="Why"
-            help="Required — it is the only thing the sender gets."
+            help="Required, it is the only thing the sender gets."
           >
             <Textarea
               rows={3}
@@ -547,7 +547,7 @@ function SignDialog({
     <Modal
       open
       onClose={onClose}
-      title={`Sign — ${record.title}`}
+      title={`Sign, ${record.title}`}
       footer={
         <div className="flex items-center gap-2">
           <Button
@@ -604,7 +604,7 @@ function SignDialog({
 
         <Field
           label="Type your full name"
-          help={`As it appears on your record — ${record.signerName}.`}
+          help={`As it appears on your record, ${record.signerName}.`}
         >
           <Input
             value={typedName}

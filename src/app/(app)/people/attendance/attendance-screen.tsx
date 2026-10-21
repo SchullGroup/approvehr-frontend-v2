@@ -326,7 +326,7 @@ function NoRecordHere({ canAddPeople }: { canAddPeople: boolean }) {
         <p className="max-w-prose text-body-sm leading-relaxed text-body">
           {canAddPeople
             ? "This account runs the company but is not on its payroll, so there is no record to clock in or out against. Add yourself as an employee and this becomes your own day."
-            : "This account is not linked to an employee record, so there is nothing to clock in or out against and no attendance of your own to show. Whoever looks after your people records can link it — ask them, and this becomes your own day."}
+            : "This account is not linked to an employee record, so there is nothing to clock in or out against and no attendance of your own to show. Whoever looks after your people records can link it, ask them, and this becomes your own day."}
         </p>
         {canAddPeople && (
           <ButtonLink href="/people/new" variant="secondary" size="sm">

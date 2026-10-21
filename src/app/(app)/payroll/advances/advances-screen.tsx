@@ -613,7 +613,7 @@ function AskDialog({
             <p className="text-body-sm text-body">
               Your next payslip will be{" "}
               <Money amount={(kobo + feeKobo) / 100} decimals /> lighter
-              {feeKobo > 0 ? " — that includes the fee." : "."}
+              {feeKobo > 0 ? ", that includes the fee." : "."}
             </p>
           )}
 
@@ -662,7 +662,7 @@ function DeclineDialog({
     <Modal
       open={advance !== null}
       onClose={onClose}
-      title={advance ? `Decline — ${advance.employeeName}` : "Decline"}
+      title={advance ? `Decline, ${advance.employeeName}` : "Decline"}
       description="They see your reason."
       footer={
         <div className="flex items-center gap-2">
@@ -703,7 +703,7 @@ function DeclineDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="Why" help="Required — it is the only thing they get.">
+        <Field label="Why" help="Required, it is the only thing they get.">
           <Textarea
             rows={3}
             value={reason}
@@ -834,7 +834,7 @@ function PolicyDialog({
 
           <Field
             label="Most they can draw"
-            help="As a share of what they have earned so far. It cannot be all of it — a payslip has tax and pension on it."
+            help="As a share of what they have earned so far. It cannot be all of it, a payslip has tax and pension on it."
           >
             <Input
               inputMode="decimal"

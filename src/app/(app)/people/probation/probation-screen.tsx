@@ -66,7 +66,7 @@ export function ProbationScreen() {
         <Callout tone="info" title="Probation decisions need the API">
           This browser has no probation table behind it. The people below are
           the demo directory&apos;s own staff still marked as on probation —
-          which is the state this screen exists to surface — but confirming
+          which is the state this screen exists to surface, but confirming
           somebody moves their employment status, and a status changed here
           would never reach a payroll run, a payslip or a letter.
         </Callout>
@@ -334,7 +334,7 @@ function ProbationPolicyCard({
           >
             It decides what happens to the <strong>next</strong> person who
             joins. The {undated} {undated === 1 ? "person" : "people"} already
-            on a probation with no date keep their record as it is — put a date
+            on a probation with no date keep their record as it is, put a date
             on each from their own employment tab.
           </Callout>
         )}
@@ -358,7 +358,7 @@ function ProbationPolicyCard({
               {...(monthsProblem
                 ? { error: monthsProblem }
                 : {
-                    help: "Months. Changing it moves nobody already on a probation — their end date is on their own record from the day they were created.",
+                    help: "Months. Changing it moves nobody already on a probation, their end date is on their own record from the day they were created.",
                   })}
             >
               <div className="flex items-center gap-2">

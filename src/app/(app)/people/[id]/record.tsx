@@ -649,8 +649,8 @@ export function EmployeeRecord({
                 This is the read-only, company-wide view of your record
               </p>
               <p className="text-body-sm text-muted">
-                To update your phone, address, bank account or pension PIN — or
-                to start your own exit — use your profile instead.
+                To update your phone, address, bank account or pension PIN, or
+                to start your own exit, use your profile instead.
               </p>
               <ButtonLink
                 href="/profile"

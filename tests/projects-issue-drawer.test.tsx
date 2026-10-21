@@ -516,7 +516,7 @@ describe("the weekly-task note", () => {
 
   it("says it in one plain line when the API says the issue is not counted", () => {
     const message =
-      "Not counted toward a weekly task — link this issue or the project to an objective.";
+      "Not counted toward a weekly task, link this issue or the project to an objective.";
     renderDrawer(
       "CHK-13",
       {},
@@ -537,7 +537,7 @@ describe("the weekly-task note", () => {
         state: "NOT_COUNTED",
         reason: "WEEK_CLOSED",
         message:
-          "Not counted toward a weekly task — it was finished in a week that has closed.",
+          "Not counted toward a weekly task, it was finished in a week that has closed.",
       }),
     );
     expect(

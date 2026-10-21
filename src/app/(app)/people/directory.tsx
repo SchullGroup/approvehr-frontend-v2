@@ -920,7 +920,7 @@ export function Directory({
             <p className="text-meta text-muted">
               {connected ? (
                 <>
-                  Exports everyone matching the filters above — the whole set,
+                  Exports everyone matching the filters above, the whole set,
                   not just this page. Pay is included only if you are allowed to
                   see it. Archived records are hidden from the directory and the
                   payroll run, but stay resolvable so past payslips keep

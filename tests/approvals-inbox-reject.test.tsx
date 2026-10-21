@@ -22,7 +22,7 @@ const row: QueueItem = {
   id: "ap1",
   kind: "record_change",
   kindLabel: "Record change",
-  title: "Bank details — Femi Balogun",
+  title: "Bank details. Femi Balogun",
   summary: "Bank: Access Bank → GTBank",
   requestedAt: "13 Oct",
   waitingDays: 2,
