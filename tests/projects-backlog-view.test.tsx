@@ -667,7 +667,7 @@ describe("completing a sprint", () => {
         "That sprint has already been completed.",
       ),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/completed —/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/completed for/)).not.toBeInTheDocument();
   });
 
   it("keeps the figures it was asked with while it leaves, though the store has already moved the issues", async () => {
@@ -703,7 +703,7 @@ describe("completing a sprint", () => {
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Complete sprint" }),
     );
-    expect(await screen.findByText(/completed —/)).toBeInTheDocument();
+    expect(await screen.findByText(/completed for/)).toBeInTheDocument();
     /* Gone from the lists, still on screen in the closing dialog, with its figures. */
     expect(screen.queryByRole("region", { name: "CHK Sprint 3" })).toBeNull();
     const leaving = screen.getByRole("dialog", {

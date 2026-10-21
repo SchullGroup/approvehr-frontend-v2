@@ -123,7 +123,15 @@ function focusCameFromKeyboard(node: HTMLElement): boolean {
  * so with the keyboard up or the page zoomed in, the panel lands where the
  * person is looking and not behind their keyboard.
  */
-function InfoTooltip({ id, text }: { id: string; text: string }) {
+export function InfoTooltip({
+  id,
+  text,
+  label = "More about this field",
+}: {
+  id: string;
+  text: string;
+  label?: string;
+}) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [showing, setShowing] = useState<Showing>("closed");
   const close = useCallback(() => setShowing("closed"), []);
@@ -135,7 +143,7 @@ function InfoTooltip({ id, text }: { id: string; text: string }) {
       </span>
       <button
         type="button"
-        aria-label="More about this field"
+        aria-label={label}
         onClick={() =>
           setShowing((now) => (now === "pinned" ? "closed" : "pinned"))
         }

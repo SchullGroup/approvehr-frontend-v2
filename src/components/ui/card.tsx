@@ -1,4 +1,5 @@
-import { createElement } from "react";
+import { createElement, useId } from "react";
+import { InfoTooltip } from "./field";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -269,6 +270,32 @@ export function Callout({
   className?: string;
   children: React.ReactNode;
 }) {
+  const quiet = useId();
+  /* Information that is only good to know is not worth a block on the page: a
+     short line with the detail behind an info icon. Warnings, errors and
+     anything with something to click stay in full. */
+  if (
+    (tone === "info" || tone === "neutral" || tone === "accent") &&
+    typeof children === "string"
+  ) {
+    const first = children.match(/^.*?[.!?](?:\s|$)/)?.[0].trim() ?? children;
+    const visible = title ?? first;
+    const detail = title ? children : children.slice(first.length).trim();
+    if (detail.length > 0 || title) {
+      return (
+        <p
+          className={cn(
+            "inline-flex max-w-full items-center gap-2 text-body-sm text-muted",
+            className,
+          )}
+        >
+          <span className="min-w-0">{visible}</span>
+          <InfoTooltip id={quiet} text={detail || children} label="Read more" />
+        </p>
+      );
+    }
+  }
+
   const tones = {
     info: "bg-info-soft border-info-line text-info-text",
     success: "bg-success-soft border-success-line text-success-text",
