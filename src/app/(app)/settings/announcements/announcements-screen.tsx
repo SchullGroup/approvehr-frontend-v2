@@ -13,8 +13,6 @@ import {
   ConfirmDialog,
   EmptyState,
   IconButton,
-  Input,
-  SegmentedControl,
   SkeletonText,
   Stat,
   StatGrid,
@@ -26,6 +24,9 @@ import {
   TR,
   TableWrap,
   useToast,
+  Field,
+  FilterBar,
+  Select,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -265,29 +266,35 @@ export function AnnouncementsScreen() {
             description="Newest first. Pinning changes the order staff see, not this one: this is a work list."
           />
 
-          <CardBody className="flex flex-wrap items-center gap-3">
-            <SegmentedControl<Filter>
-              label="Which notices to show"
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { value: "all", label: "All" },
-                { value: "published", label: "Published" },
-                { value: "draft", label: "Drafts" },
-              ]}
-            />
-            <div className="min-w-[13rem] flex-1">
-              <Input
-                type="search"
-                value={search}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setSearch(next);
-                }}
-                placeholder="Find a notice by title or wording"
-                aria-label="Find a notice by title or wording"
-              />
-            </div>
+          <CardBody>
+            <FilterBar
+              search={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Find a notice by title or wording"
+              searchLabel="Find a notice by title or wording"
+              applied={
+                filter === "all"
+                  ? []
+                  : [
+                      {
+                        label: "Show",
+                        value: filter === "draft" ? "Drafts" : "Published",
+                        onClear: () => setFilter("all"),
+                      },
+                    ]
+              }
+            >
+              <Field label="Which notices to show">
+                <Select
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value as Filter)}
+                >
+                  <option value="all">All</option>
+                  <option value="published">Published</option>
+                  <option value="draft">Drafts</option>
+                </Select>
+              </Field>
+            </FilterBar>
           </CardBody>
 
           {board.loading ? (

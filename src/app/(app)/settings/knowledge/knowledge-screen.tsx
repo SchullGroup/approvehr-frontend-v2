@@ -13,8 +13,6 @@ import {
   CardHeader,
   ConfirmDialog,
   EmptyState,
-  Input,
-  SegmentedControl,
   SkeletonText,
   Stat,
   StatGrid,
@@ -27,6 +25,9 @@ import {
   TR,
   TableWrap,
   useToast,
+  Field,
+  FilterBar,
+  Select,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { useCan } from "@/lib/permissions";
@@ -400,36 +401,55 @@ export function KnowledgeScreen() {
         <Card>
           <CardHeader title="Every article" />
 
-          <CardBody className="flex flex-wrap items-center gap-3">
-            <SegmentedControl<Filter>
-              label="Which articles to show"
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { value: "all", label: "All" },
-                { value: "published", label: "Live" },
-                { value: "draft", label: "Drafts" },
+          <CardBody>
+            <FilterBar
+              search={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Find an article by title"
+              searchLabel="Find an article by title"
+              applied={[
+                ...(filter !== "all"
+                  ? [
+                      {
+                        label: "Show",
+                        value: filter === "draft" ? "Drafts" : "Live",
+                        onClear: () => setFilter("all"),
+                      },
+                    ]
+                  : []),
+                ...(order !== "views"
+                  ? [
+                      {
+                        label: "Order",
+                        value:
+                          order === "title" ? "A to Z" : "Recently changed",
+                        onClear: () => setOrder("views"),
+                      },
+                    ]
+                  : []),
               ]}
-            />
-            <SegmentedControl<Order>
-              label="Order"
-              value={order}
-              onChange={setOrder}
-              options={[
-                { value: "views", label: "Most read" },
-                { value: "updatedAt", label: "Recently changed" },
-                { value: "title", label: "A–Z" },
-              ]}
-            />
-            <div className="min-w-[13rem] flex-1">
-              <Input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Find an article by title"
-                aria-label="Find an article by title"
-              />
-            </div>
+            >
+              <Field label="Which articles to show">
+                <Select
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value as Filter)}
+                >
+                  <option value="all">All</option>
+                  <option value="published">Live</option>
+                  <option value="draft">Drafts</option>
+                </Select>
+              </Field>
+              <Field label="Order">
+                <Select
+                  value={order}
+                  onChange={(event) => setOrder(event.target.value as Order)}
+                >
+                  <option value="views">Most read</option>
+                  <option value="updatedAt">Recently changed</option>
+                  <option value="title">A to Z</option>
+                </Select>
+              </Field>
+            </FilterBar>
           </CardBody>
 
           {articles.error && (

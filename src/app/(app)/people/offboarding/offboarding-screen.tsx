@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { DoorOpen, ListChecks, Search, UserMinus } from "lucide-react";
+import { DoorOpen, ListChecks, UserMinus } from "lucide-react";
 import {
   Badge,
   Button,
@@ -10,12 +10,13 @@ import {
   Card,
   CardBody,
   EmptyState,
-  Input,
   ProgressMeter,
-  SegmentedControl,
   Skeleton,
   Stat,
   StatGrid,
+  Field,
+  FilterBar,
+  Select,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -176,31 +177,36 @@ export function OffboardingScreen() {
           </p>
         </Can>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="relative w-full sm:w-80">
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-faint"
-            />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name, staff number or reason"
-              aria-label="Search exits"
-              className="pl-9"
-            />
-          </div>
-          <SegmentedControl
-            label="Which exits to show"
-            value={view}
-            onChange={setView}
-            options={[
-              { value: "open", label: "Open" },
-              { value: "closed", label: "Closed" },
-              { value: "all", label: "Everyone" },
-            ]}
-          />
-        </div>
+        <FilterBar
+          search={query}
+          onSearchChange={setQuery}
+          searchPlaceholder="Search name, staff number or reason"
+          searchLabel="Search exits"
+          applied={
+            view === "open"
+              ? []
+              : [
+                  {
+                    label: "Show",
+                    value: view === "closed" ? "Closed" : "Everyone",
+                    onClear: () => setView("open"),
+                  },
+                ]
+          }
+        >
+          <Field label="Which exits to show">
+            <Select
+              value={view}
+              onChange={(event) =>
+                setView(event.target.value as "open" | "closed" | "all")
+              }
+            >
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+              <option value="all">Everyone</option>
+            </Select>
+          </Field>
+        </FilterBar>
 
         {exits.loading ? (
           <Card>

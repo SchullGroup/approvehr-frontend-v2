@@ -7,8 +7,10 @@ import {
   Badge,
   Button,
   EmptyState,
-  SegmentedControl,
   Skeleton,
+  Field,
+  FilterBar,
+  Select,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -105,23 +107,29 @@ function List() {
       />
       <PageBody className="space-y-6">
         {actor.editRecords && (
-          <div className="flex flex-wrap items-center gap-3">
-            <SegmentedControl<Scope>
-              label="Which projects"
-              value={scope}
-              onChange={setScope}
-              options={[
-                { value: "mine", label: "My projects" },
-                { value: "all", label: "Everyone's" },
-              ]}
-            />
-            {scope === "all" && (
-              <p className="text-body-sm text-muted">
-                Every project in the company, for support and audit. You can
-                read and change any of them.
-              </p>
-            )}
-          </div>
+          <FilterBar
+            applied={
+              scope === "all"
+                ? [
+                    {
+                      label: "Show",
+                      value: "Everyone's",
+                      onClear: () => setScope("mine"),
+                    },
+                  ]
+                : []
+            }
+          >
+            <Field label="Which projects">
+              <Select
+                value={scope}
+                onChange={(event) => setScope(event.target.value as Scope)}
+              >
+                <option value="mine">My projects</option>
+                <option value="all">Everyone&apos;s</option>
+              </Select>
+            </Field>
+          </FilterBar>
         )}
 
         {list.status === "loading" && (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Lock, Search, ShieldCheck } from "lucide-react";
+import { Lock, ShieldCheck } from "lucide-react";
 import {
   Badge,
   Button,
@@ -9,11 +9,13 @@ import {
   Checkbox,
   EmptyState,
   Field,
+  FilterBar,
   Input,
   Select,
   Skeleton,
   Stat,
   StatGrid,
+  type AppliedFilter,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -218,6 +220,44 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
     query || actor || entityType || entityId || from || to || includeReads,
   );
 
+  const actorName = options.actors.find(
+    (person) => (person.isSystem ? "system" : (person.id ?? "")) === actor,
+  )?.name;
+  const kindName = options.kinds.find((kind) => kind.type === entityType)?.noun;
+  const appliedFilters: AppliedFilter[] = [
+    ...(actor
+      ? [
+          {
+            label: "Who",
+            value: actorName ?? "Selected",
+            onClear: () => setActor(""),
+          },
+        ]
+      : []),
+    ...(entityType
+      ? [
+          {
+            label: "Kind",
+            value: sentenceCase(kindName ?? entityType),
+            onClear: () => setEntityType(""),
+          },
+        ]
+      : []),
+    ...(from
+      ? [{ label: "From", value: from, onClear: () => setFrom("") }]
+      : []),
+    ...(to ? [{ label: "To", value: to, onClear: () => setTo("") }] : []),
+    ...(includeReads
+      ? [
+          {
+            label: "Log views",
+            value: "Shown",
+            onClear: () => setIncludeReads(false),
+          },
+        ]
+      : []),
+  ];
+
   const clear = () => {
     setSearch("");
     setQuery("");
@@ -276,24 +316,19 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
             label="Times the log was opened"
             value={String(options.summary?.reads ?? 0)}
           />
-          <Stat label="Matching your filters" value={String(trail.total)} />
         </StatGrid>
 
-        <Card>
-          <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Field label="Search" className="xl:col-span-2">
-              <Input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="A name, a kind of record, an action"
-                icon={<Search aria-hidden="true" />}
-                /* The API caps `q` at 120 characters and answers 400 above it. */
-                maxLength={120}
-              />
-            </Field>
-
-            {/* The count beside each name has to match the list beneath it.
+        <FilterBar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="A name, a kind of record, an action"
+          searchLabel="Search the audit log"
+          applied={appliedFilters}
+          onClearAll={clear}
+          count={trail.total}
+          noun={["entry", "entries"]}
+        >
+          {/* The count beside each name has to match the list beneath it.
                 ------------------------------------------------------------
                 The list leaves record views out unless "Show who read the
                 log" is ticked, so a dropdown that always shows `events` sits
@@ -308,79 +343,71 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
                 line appears in exactly the case where it is true — reads
                 hidden, and no `changes` to use — and retires itself the day
                 the API starts sending it. */}
-            <Field
-              label="Who"
-              {...(countsIncludeReads
-                ? {
-                    help: "Counts include record views, which the list leaves out until you tick Show who read the log.",
-                  }
-                : {})}
+          <Field
+            label="Who"
+            {...(countsIncludeReads
+              ? {
+                  help: "Counts include record views, which the list leaves out until you tick Show who read the log.",
+                }
+              : {})}
+          >
+            <Select
+              value={actor}
+              onChange={(event) => setActor(event.target.value)}
             >
-              <Select
-                value={actor}
-                onChange={(event) => setActor(event.target.value)}
-              >
-                <option value="">Anyone</option>
-                {options.actors.map((person) => (
-                  <option
-                    key={person.id ?? "system"}
-                    value={person.isSystem ? "system" : (person.id ?? "")}
-                  >
-                    {person.name} ({countFor(person)})
-                  </option>
-                ))}
-              </Select>
-            </Field>
+              <option value="">Anyone</option>
+              {options.actors.map((person) => (
+                <option
+                  key={person.id ?? "system"}
+                  value={person.isSystem ? "system" : (person.id ?? "")}
+                >
+                  {person.name} ({countFor(person)})
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-            <Field label="Kind of record">
-              <Select
-                value={entityType}
-                onChange={(event) => setEntityType(event.target.value)}
-              >
-                <option value="">Everything</option>
-                {options.kinds.map((kind) => (
-                  <option key={kind.type} value={kind.type}>
-                    {sentenceCase(kind.noun)} ({kind.count})
-                  </option>
-                ))}
-              </Select>
-            </Field>
+          <Field label="Kind of record">
+            <Select
+              value={entityType}
+              onChange={(event) => setEntityType(event.target.value)}
+            >
+              <option value="">Everything</option>
+              {options.kinds.map((kind) => (
+                <option key={kind.type} value={kind.type}>
+                  {sentenceCase(kind.noun)} ({kind.count})
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-            <Field label="From">
-              <Input
-                type="date"
-                value={from}
-                /* Bounded by each other and not by today: reading the clock in
+          <Field label="From">
+            <Input
+              type="date"
+              value={from}
+              /* Bounded by each other and not by today: reading the clock in
                    render is the hydration trap `HANDOVER.md` documents, and a
                    date in the future simply matches nothing. */
-                max={to || undefined}
-                onChange={(event) => setFrom(event.target.value)}
-              />
-            </Field>
+              max={to || undefined}
+              onChange={(event) => setFrom(event.target.value)}
+            />
+          </Field>
 
-            <Field label="To">
-              <Input
-                type="date"
-                value={to}
-                min={from || undefined}
-                onChange={(event) => setTo(event.target.value)}
-              />
-            </Field>
+          <Field label="To">
+            <Input
+              type="date"
+              value={to}
+              min={from || undefined}
+              onChange={(event) => setTo(event.target.value)}
+            />
+          </Field>
 
-            <div className="flex items-end justify-between gap-3 sm:col-span-2">
-              <Checkbox
-                label="Show who read the log"
-                checked={includeReads}
-                onChange={(event) => setIncludeReads(event.target.checked)}
-              />
-              {filtered && (
-                <Button variant="ghost" size="sm" onClick={clear}>
-                  Clear filters
-                </Button>
-              )}
-            </div>
-          </div>
-        </Card>
+          <Checkbox
+            label="Show who read the log"
+            checked={includeReads}
+            onChange={(event) => setIncludeReads(event.target.checked)}
+          />
+        </FilterBar>
 
         {oneRecord && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-canvas px-4 py-3">

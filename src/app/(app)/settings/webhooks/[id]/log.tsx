@@ -18,7 +18,6 @@ import {
   CardHeader,
   EmptyState,
   Select,
-  SegmentedControl,
   Skeleton,
   TBody,
   TD,
@@ -27,6 +26,8 @@ import {
   THead,
   TR,
   TableWrap,
+  Field,
+  FilterBar,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import type { ApiDelivery } from "@/lib/api/webhooks";
@@ -117,24 +118,57 @@ export function DeliveryLog({
         level={2}
       />
       <CardBody className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <SegmentedControl
-            label="Show"
-            value={filters.status}
-            onChange={(status) => onFilters({ ...filters, status, page: 1 })}
-            options={[
-              { value: "all", label: "All" },
-              { value: "delivered", label: "Delivered" },
-              { value: "pending", label: "Waiting" },
-              { value: "failed", label: "Given up" },
-            ]}
-          />
-          <div className="min-w-[12rem]">
+        <FilterBar
+          applied={[
+            ...(filters.status !== "all"
+              ? [
+                  {
+                    label: "Show",
+                    value:
+                      filters.status === "failed"
+                        ? "Given up"
+                        : filters.status === "pending"
+                          ? "Waiting"
+                          : "Delivered",
+                    onClear: () =>
+                      onFilters({ ...filters, status: "all", page: 1 }),
+                  },
+                ]
+              : []),
+            ...(filters.event
+              ? [
+                  {
+                    label: "Event",
+                    value: filters.event,
+                    onClear: () =>
+                      onFilters({ ...filters, event: "", page: 1 }),
+                  },
+                ]
+              : []),
+          ]}
+        >
+          <Field label="Show">
             <Select
-              aria-label="Filter by event"
+              value={filters.status}
+              onChange={(event) =>
+                onFilters({
+                  ...filters,
+                  status: event.target.value as typeof filters.status,
+                  page: 1,
+                })
+              }
+            >
+              <option value="all">All</option>
+              <option value="delivered">Delivered</option>
+              <option value="pending">Waiting</option>
+              <option value="failed">Given up</option>
+            </Select>
+          </Field>
+          <Field label="Event">
+            <Select
               value={filters.event}
-              onChange={(e) =>
-                onFilters({ ...filters, event: e.target.value, page: 1 })
+              onChange={(event) =>
+                onFilters({ ...filters, event: event.target.value, page: 1 })
               }
             >
               <option value="">Every event</option>
@@ -144,8 +178,8 @@ export function DeliveryLog({
                 </option>
               ))}
             </Select>
-          </div>
-        </div>
+          </Field>
+        </FilterBar>
 
         {!retriesRunning && (
           <p className="flex items-start gap-2 rounded-md border border-warning-line bg-warning-soft p-3 text-body-sm text-warning-text">

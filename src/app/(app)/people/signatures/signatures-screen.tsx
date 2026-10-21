@@ -14,10 +14,11 @@ import {
   Field,
   Input,
   Modal,
-  SegmentedControl,
   Spinner,
   Textarea,
   useToast,
+  FilterBar,
+  Select,
 } from "@/components/ui";
 import { ExportButton } from "@/components/portal/export-button";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -166,22 +167,33 @@ export function SignaturesScreen() {
             </Button>
           ) : undefined
         }
-        tabs={
-          <SegmentedControl
-            label="What to show"
-            value={tab}
-            onChange={(value) => setTab(value as "mine" | "all")}
-            options={[
-              { value: "mine", label: "Waiting on me" },
-              {
-                value: "all",
-                label: canManage ? "Everything" : "Sent and signed",
-              },
-            ]}
-          />
-        }
       />
       <PageBody>
+        <FilterBar
+          applied={
+            tab === "all"
+              ? [
+                  {
+                    label: "Show",
+                    value: canManage ? "Everything" : "Sent and signed",
+                    onClear: () => setTab("mine"),
+                  },
+                ]
+              : []
+          }
+        >
+          <Field label="What to show">
+            <Select
+              value={tab}
+              onChange={(event) => setTab(event.target.value as "mine" | "all")}
+            >
+              <option value="mine">Waiting on me</option>
+              <option value="all">
+                {canManage ? "Everything" : "Sent and signed"}
+              </option>
+            </Select>
+          </Field>
+        </FilterBar>
         {!read.available ? (
           <Callout tone="info" title="This needs the API">
             {read.refusal}
