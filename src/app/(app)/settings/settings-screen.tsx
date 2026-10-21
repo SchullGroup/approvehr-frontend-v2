@@ -7,6 +7,7 @@ import {
   Clock,
   Cpu,
   LifeBuoy,
+  MessageSquare,
   ShieldCheck,
   Check,
   CircleDashed,
@@ -210,6 +211,16 @@ const ONGOING = [
     title: "Notifications",
     description: "What triggers an email, and who receives approval reminders.",
     icon: <Bell aria-hidden="true" />,
+  },
+  {
+    /* Beside Notifications, which is the other place a company decides what its
+       people are told. Named for what the person receives and not for the
+       channel's plumbing: nobody on a shop floor asks for an "SMS digest". */
+    href: "/settings/sms",
+    title: "Text messages",
+    description:
+      "A weekly text of counts and a link, only for people who opt in.",
+    icon: <MessageSquare aria-hidden="true" />,
   },
   {
     href: "/settings/appearance",

@@ -61,6 +61,7 @@ import {
 import { self } from "@/lib/api/self";
 import { PROFILE_TABS, isProfileTab, type ProfileTab } from "./tabs";
 import { MyDetails } from "./my-details";
+import { TextMessagesCard } from "./text-messages-card";
 
 /**
  * The employee's own screen.
@@ -300,6 +301,10 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
               <div className="grid gap-6 lg:grid-cols-2">
                 <EmploymentCard employee={employee} />
                 <SecurityCard onSignOut={signOut} apiMode={mode === "api"} />
+                {/* Renders nothing unless the company has switched the weekly
+                    text on, or this person is already opted in and may need to
+                    stop it. The number offered is the one on their record. */}
+                <TextMessagesCard phone={employee.phone} />
               </div>
 
               {/* The employee's own door out, and the last thing on the tab for
