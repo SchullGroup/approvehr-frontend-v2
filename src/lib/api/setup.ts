@@ -213,6 +213,12 @@ export type ApiFeatures = {
   probationTracking: boolean;
   /** The default length, in months. Only read when tracking is on. */
   probationMonths: number;
+  /**
+   * Whether ApproveHR lets this company offer early pay. Read-only: only the
+   * admin dashboard moves it, and `PATCH /setup/features` ignores it. Optional
+   * because an API one deploy behind does not send it.
+   */
+  earlyPay?: boolean;
   /** Whether a second factor is asked for at all. Off by default. */
   twoFactor: boolean;
   /** Which acts need a code, when `twoFactor` is on. Empty means sign-in only. */

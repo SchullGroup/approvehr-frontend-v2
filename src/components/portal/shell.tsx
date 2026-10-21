@@ -166,6 +166,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const facts: NavFacts = useMemo(
     () => ({
       assistantWired,
+      earlyPay: features.earlyPay,
       rows: {
         "one-on-ones": isManager || inAOneOnOne,
         signatures: canSendForSignature || haveSignatures,
@@ -175,6 +176,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }),
     [
       assistantWired,
+      features.earlyPay,
       isManager,
       inAOneOnOne,
       canSendForSignature,

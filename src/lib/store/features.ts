@@ -80,6 +80,12 @@ type State = {
    * inventing a policy.
    */
   probationMonths: number;
+  /**
+   * Whether ApproveHR lets this company offer early pay. Not in `flags`: the
+   * company cannot set it, so it must not turn up as a toggle. The sidebar
+   * reads it through `NavFacts.earlyPay`.
+   */
+  earlyPay: boolean;
   headcountBand: HeadcountBand;
   setupStep: number;
   totalSteps: number;
@@ -184,6 +190,9 @@ const LOADING: State = {
      same and nothing is gated on it, so an empty default is safe here. */
   stepUpActions: [],
   probationMonths: PROBATION_MONTHS_FALLBACK,
+  /* Hidden until the server answers: a row that appears late is better than
+     one that vanishes under somebody's pointer. */
+  earlyPay: false,
   loading: true,
   error: null,
   source: "loading",
@@ -704,6 +713,9 @@ function fromApi(features: ApiFeatures): State {
     deductions: null,
     stepUpActions: features.stepUpActions,
     probationMonths: features.probationMonths,
+    /* An API one deploy behind does not send it, and that API has no switch
+       to have turned anybody off. */
+    earlyPay: features.earlyPay ?? true,
     flags: {
       departments: features.departments,
       surveys: features.surveys,
@@ -749,6 +761,8 @@ function fromDemo(demo: DemoState): State {
        answer to carry, and a number somebody had "set" here would describe a
        policy no employee record in this browser was created under. */
     probationMonths: PROBATION_MONTHS_FALLBACK,
+    /* Nobody switches a demo company off. */
+    earlyPay: true,
     headcountBand: demo.headcountBand,
     setupStep: demo.setupStep,
     totalSteps: DEMO_QUESTIONS.length,
@@ -840,6 +854,8 @@ function useLoadedState(): State {
  */
 export function useFeatures(): FeatureFlags & {
   headcountBand: HeadcountBand;
+  /** See `State.earlyPay`. */
+  earlyPay: boolean;
   setupRequired: boolean;
   setupStep: number;
   totalSteps: number;
@@ -874,6 +890,7 @@ export function useFeatures(): FeatureFlags & {
   return {
     ...state.flags,
     headcountBand: state.headcountBand,
+    earlyPay: state.earlyPay,
     setupRequired: state.setupRequired,
     setupStep: state.setupStep,
     totalSteps: state.totalSteps,
