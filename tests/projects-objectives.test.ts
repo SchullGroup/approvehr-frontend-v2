@@ -243,15 +243,15 @@ describe("the weekly-task line", () => {
     for (const [reason, message] of [
       [
         "NO_OBJECTIVE",
-        "Not counted toward a weekly task — link this issue or the project to an objective.",
+        "Not counted toward a weekly task, link this issue or the project to an objective.",
       ],
       [
         "OBJECTIVE_NOT_USABLE",
-        "Not counted toward a weekly task — the linked objective is not an agreed one that the assignee owns.",
+        "Not counted toward a weekly task, the linked objective is not an agreed one that the assignee owns.",
       ],
       [
         "WEEK_CLOSED",
-        "Not counted toward a weekly task — it was finished in a week that has closed.",
+        "Not counted toward a weekly task, it was finished in a week that has closed.",
       ],
     ] as const) {
       expect(weeklyTaskLine({ state: "NOT_COUNTED", reason, message })).toBe(

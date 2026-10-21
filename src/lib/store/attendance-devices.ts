@@ -531,7 +531,7 @@ export function useDeviceMutations(): DeviceMutations {
           "conflict",
           existing.employeeId === body.employeeId
             ? `${employeeName ?? "That person"} is already user ${deviceUserId} on ${device.label}.`
-            : `User ${deviceUserId} on ${device.label} is already mapped to somebody. Remove that mapping first — every punch it has sent is attributed to them.`,
+            : `User ${deviceUserId} on ${device.label} is already mapped to somebody. Remove that mapping first, every punch it has sent is attributed to them.`,
         );
       }
 
@@ -561,7 +561,7 @@ export function useDeviceMutations(): DeviceMutations {
            obvious phrasing for a good reason: a sentence naming a mode is a
            sentence that has to be folded out of a production build, and this
            one says the thing that actually matters instead. */
-        note: `Future taps from user ${deviceUserId} would be ${first}'s. None can arrive without a server — a tap is delivered over the network.`,
+        note: `Future taps from user ${deviceUserId} would be ${first}'s. None can arrive without a server, a tap is delivered over the network.`,
       };
     },
     [isConnected],

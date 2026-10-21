@@ -388,7 +388,7 @@ export function RealPipeline({
             {canManage && !stagesState.loading && stagesState.error && (
               <p className="w-full text-body-sm text-danger-text">
                 {stagesState.error.message} The stages could not be loaded, so
-                no &ldquo;Move to&rdquo; options are shown here — Reject and
+                no &ldquo;Move to&rdquo; options are shown here. Reject and
                 Withdraw below still work.
               </p>
             )}
@@ -399,8 +399,8 @@ export function RealPipeline({
               moveOptions.length === 0 && (
                 <p className="w-full text-body-sm text-muted">
                   This requisition has only the one stage they are already in,
-                  so there is nowhere else to move them — reject or withdraw
-                  them instead, or add another stage on the requisition.
+                  so there is nowhere else to move them, reject or withdraw them
+                  instead, or add another stage on the requisition.
                 </p>
               )}
             {/* `POST /applications/:id/move` and `.../reject` are both gated
@@ -1093,7 +1093,7 @@ function OfferCard({
         onClose={() => setRedoing(false)}
         title="Make a new offer"
         confirmLabel="Save as draft"
-        help="This starts a fresh draft on the same application — the offer that was declined or withdrawn is replaced, not duplicated. Submit it for approval once you are ready."
+        help="This starts a fresh draft on the same application, the offer that was declined or withdrawn is replaced, not duplicated. Submit it for approval once you are ready."
         onConfirm={async (amountNaira, startDate) => {
           try {
             setError(null);
@@ -1413,7 +1413,7 @@ export function RealScreening({
         {!asked && (
           <p className="text-body-sm text-muted">
             Nothing was recorded when this person was screened in. None of it is
-            required — an offer can be made without any of it — but a notice
+            required, an offer can be made without any of it, but a notice
             period and a salary expectation are what a hiring manager asks for
             first.
           </p>
@@ -1688,7 +1688,7 @@ function ScreeningDialog({
         <Field
           label="Right to work"
           optional
-          help="Blank means nobody asked — which is not the same as being told no."
+          help="Blank means nobody asked, which is not the same as being told no."
         >
           <Select
             value={right}

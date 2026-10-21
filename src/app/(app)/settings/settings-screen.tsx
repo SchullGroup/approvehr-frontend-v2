@@ -128,7 +128,7 @@ const ONGOING = [
     href: "/settings/features",
     title: "What this company uses",
     description:
-      "Switch modules on and off — loans, expenses, hiring, shifts, attendance. A module switched off disappears from the sidebar rather than being deleted, and its data is kept.",
+      "Switch modules on and off, loans, expenses, hiring, shifts, attendance. A module switched off disappears from the sidebar rather than being deleted, and its data is kept.",
     icon: <ToggleRight aria-hidden="true" />,
   },
   {

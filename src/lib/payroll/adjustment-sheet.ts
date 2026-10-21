@@ -186,7 +186,7 @@ export const SHEET_COLUMNS: readonly SheetColumn[] = [
     heading: "Deduction",
     note:
       "Naira, this month only. A staff purchase, a damaged tool, a salary " +
-      "advance settled outside the loans module — not a statutory deduction, " +
+      "advance settled outside the loans module, not a statutory deduction, " +
       `which has its own columns below. Empty this cell to take it off. If ` +
       `this shows "${AMBIGUOUS_LINES_MARKER}", this person has more than one ` +
       "such deduction. Leave the cell as it is and edit them in the app.",

@@ -230,7 +230,7 @@ export function DashboardScreen() {
             <CardBody className="flex flex-col items-start gap-3">
               <p className="text-body">There is nothing on your dashboard.</p>
               <p className="text-body-sm text-muted">
-                That is a real choice and it stays until you change it — nothing
+                That is a real choice and it stays until you change it, nothing
                 has gone wrong.
               </p>
               <Button

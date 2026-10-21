@@ -298,7 +298,7 @@ export const FEATURE_COPY: Record<
      with the switch above. */
   probationTracking: {
     label: "Put a probation end date on new hires",
-    line: "Somebody joining is given an end date from the day they start, and it appears here as it approaches. Nobody already on a probation is given one — their record is what it is.",
+    line: "Somebody joining is given an end date from the day they start, and it appears here as it approaches. Nobody already on a probation is given one, their record is what it is.",
   },
 };
 
@@ -489,7 +489,7 @@ const DEMO_QUESTIONS: ApiWizardQuestion[] = DEMO_ENABLED
           { value: "yes", label: "Yes", sets: { attendance: true } },
           {
             value: "no",
-            label: "No — we do not track attendance",
+            label: "No, we do not track attendance",
             sets: { attendance: false },
             consequence:
               "Nobody sees a check-in button, and there is no roster or attendance " +

@@ -61,7 +61,7 @@ export const DEMO_ROLE_HEADING = "Changing the catalogue needs the API";
 /** The non-obvious half: it is not "no server", it is "these decide marks". */
 export const DEMO_ROLE_REASON =
   "A role carries what people on it are judged against, and the appraisal " +
-  "figures in this browser were worked out somewhere else — a role invented " +
+  "figures in this browser were worked out somewhere else, a role invented " +
   "here would put a standard on screen that no review was ever scored on.";
 
 /**

@@ -214,7 +214,7 @@ export function EnrolmentsDrawer({
               <Field
                 label="Enrolment number"
                 required
-                help="Exactly as the terminal shows it. Keep any leading zeros — 0047 and 47 are two different people to a machine that uses both."
+                help="Exactly as the terminal shows it. Keep any leading zeros, 0047 and 47 are two different people to a machine that uses both."
               >
                 <Input
                   value={deviceUserId}

@@ -3,8 +3,8 @@
 import { useId, useState } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { Badge, TONES } from "./badge";
-import { Button } from "./button";
+import { TONES } from "./badge";
+import { Button, IconButton } from "./button";
 import { Input } from "./input";
 
 /**
@@ -12,8 +12,8 @@ import { Input } from "./input";
  *
  * ## Rule 5, and the one place it must not be obeyed
  *
- * The controls are **closed by default** and the trigger says what is inside and
- * how much: "Filters · 2 applied". A directory offering eight selects above the
+ * The controls are **closed by default** behind a filter icon that carries a count
+ * of what is applied. A directory offering eight selects above the
  * table is eight things to read before the list, and seven of them are not the
  * question the reader came with.
  *
@@ -111,20 +111,28 @@ export function FilterBar({
         )}
 
         {hasPanel && (
-          <Button
+          <IconButton
+            label={
+              applied.length > 0
+                ? `Filters, ${String(applied.length)} applied`
+                : "Filters"
+            }
             variant="secondary"
             aria-expanded={open}
             aria-controls={panelId}
             onClick={() => setOpen((was) => !was)}
+            className="relative"
           >
             <SlidersHorizontal aria-hidden="true" className="size-4" />
-            Filters
             {applied.length > 0 && (
-              <Badge tone="accent" size="sm" className="font-semibold">
+              <span
+                aria-hidden="true"
+                className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-fill-strong text-meta font-semibold text-surface"
+              >
                 {applied.length}
-              </Badge>
+              </span>
             )}
-          </Button>
+          </IconButton>
         )}
 
         {sort}

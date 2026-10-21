@@ -59,7 +59,7 @@ export function PushPanel() {
         ) : push.state === "unsupported" ? (
           <Callout tone="info" title="This browser cannot show them">
             Notifications need a browser with push support. On an iPhone, add
-            ApproveHR to your home screen first — Safari only allows them for an
+            ApproveHR to your home screen first. Safari only allows them for an
             installed app.
           </Callout>
         ) : push.state === "unconfigured" ? (
@@ -72,15 +72,15 @@ export function PushPanel() {
         ) : push.state === "blocked" ? (
           <Callout tone="warning" title="This browser is blocking them">
             You have blocked notifications for ApproveHR, and a button here
-            cannot undo that — the browser will not ask again. Allow
+            cannot undo that, the browser will not ask again. Allow
             notifications for this site in your browser&rsquo;s own settings,
             then come back.
           </Callout>
         ) : (
           <>
             <p className="text-body-sm text-muted">
-              A notification says what needs you — &ldquo;a payroll needs
-              approving&rdquo; — and never a figure. It is drawn by your
+              A notification says what needs you, &ldquo;a payroll needs
+              approving&rdquo;, and never a figure. It is drawn by your
               operating system, so it may appear on a locked screen.
             </p>
             <div>

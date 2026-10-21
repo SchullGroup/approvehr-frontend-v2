@@ -3,18 +3,21 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronDown, ChevronLeft, Menu, Search, X } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  ChevronLeft,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useCanGoBack } from "@/lib/nav-history";
 import { Logo } from "@/components/brand/logo";
-import {
-  Avatar,
-  Badge,
-  MoneyPrivacyToggle,
-  ThemeToggle,
-} from "@/components/ui";
+import { Avatar, Badge } from "@/components/ui";
 import { CommandPalette } from "./command-palette";
-import { ClockMenu } from "./clock-menu";
 import { GuidedTour, openTour } from "./tour/guided-tour";
 import { NAV, visibleNav, type BadgeSource, type NavFacts } from "./nav";
 import { SidebarNav } from "./sidebar";
@@ -54,6 +57,25 @@ import { useBilling } from "@/lib/billing";
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  /* Desktop only: hide the sidebar for a full-width page. Remembered per browser. */
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read after mount to match the server render
+      setCollapsed(localStorage.getItem("sidebar-collapsed") === "1");
+    } catch {
+      /* storage unavailable: stay open */
+    }
+  }, []);
+  const toggleCollapsed = () =>
+    setCollapsed((was) => {
+      try {
+        localStorage.setItem("sidebar-collapsed", was ? "0" : "1");
+      } catch {
+        /* not remembered */
+      }
+      return !was;
+    });
   const [searchOpen, setSearchOpen] = useState(false);
   /* What the header search opens with. Empty from the button and from `/`; the
      sidebar's Find hands over what was typed when it has no page to offer. */
@@ -305,16 +327,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 notices the room has got dark. The Appearance screen keeps the
                 explanation — including that this is per-browser and not synced
                 — and this is the same one setting, in the chrome. */}
-            <ThemeToggle />
-
-            {!collaborator && <MoneyPrivacyToggle />}
 
             {/* Clocking in and out without leaving the page you are on.
                 Absent for an account with no employee record, and for a
                 company that has never clocked anybody in — see the header of
                 `clock-menu.tsx` for both, and for the day-one consequence of
                 the second. */}
-            <ClockMenu roster={roster} />
 
             {/* Was a button that did nothing, labelled "3 unread" whatever the
                 truth was. Now a link to the inbox with the real count — the
@@ -351,7 +369,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             its own Find text and drill state, both derived from the route. */}
         <aside
           data-tour="nav"
-          className="no-print sidebar-surface hidden w-60 shrink-0 border-r border-line lg:block"
+          id="portal-nav-desktop"
+          className={cn(
+            "no-print sidebar-surface hidden w-60 shrink-0 border-r border-line",
+            collapsed ? "lg:hidden" : "lg:block",
+          )}
         >
           <div className="sticky top-14 flex h-[calc(100dvh-3.5625rem)] flex-col">
             <SidebarNav
@@ -362,6 +384,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onSearchPeople={collaborator ? undefined : searchPeople}
               variant="desktop"
             />
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              aria-expanded
+              aria-controls="portal-nav-desktop"
+              className="mx-3 mb-3 mt-1 flex items-center gap-2 rounded-md px-3 py-2 text-body-sm text-muted hover:bg-canvas hover:text-ink"
+            >
+              <PanelLeftClose aria-hidden="true" className="size-4" />
+              Collapse
+            </button>
           </div>
         </aside>
 
@@ -388,6 +420,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               />
             </div>
           </div>
+        )}
+
+        {collapsed && (
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-expanded={false}
+            aria-controls="portal-nav-desktop"
+            aria-label="Show sidebar"
+            className="no-print fixed left-2 top-[4.25rem] z-20 hidden rounded-md border border-line bg-surface p-2 text-muted shadow-sm hover:text-ink lg:block"
+          >
+            <PanelLeftOpen aria-hidden="true" className="size-4" />
+          </button>
         )}
 
         <main id="main" className="min-w-0 flex-1">
@@ -564,9 +609,9 @@ function UserMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2.5 rounded-md border border-line px-2 py-1.5 text-left hover:bg-canvas"
+        className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-2 text-left hover:bg-canvas"
       >
-        <Avatar name={name} size="xs" tone="accent" />
+        <Avatar name={name} size="xl" tone="accent" />
         {/* Name, subtitle and role badge from `lg`, not `sm`.
             ----------------------------------------------------
             The note further up this file records the same class of bug being
@@ -588,9 +633,11 @@ function UserMenu() {
           <span className="block truncate text-body-sm font-medium leading-tight text-ink">
             {name}
           </span>
-          <span className="block truncate text-meta leading-tight text-muted">
-            {subtitle}
-          </span>
+          {employee?.jobTitle && (
+            <span className="block truncate text-meta leading-tight text-muted">
+              {subtitle}
+            </span>
+          )}
         </span>
         <SessionRoleBadge className="hidden shrink-0 xl:inline-flex" />
         <ChevronDown

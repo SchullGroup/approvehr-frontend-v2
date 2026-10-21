@@ -471,7 +471,7 @@ function Record({ id }: { id: string }) {
                 <CardBody className="flex flex-col items-start gap-3">
                   <p className="text-body-sm text-body">
                     {record?.waiting
-                      ? "Screen them in to start a pipeline record — stage, interviews, scorecards and any offer all live there once they are."
+                      ? "Screen them in to start a pipeline record, stage, interviews, scorecards and any offer all live there once they are."
                       : "Nobody has screened this person into a role's pipeline yet."}
                   </p>
                 </CardBody>

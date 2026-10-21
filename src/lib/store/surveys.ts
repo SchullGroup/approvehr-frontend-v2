@@ -86,7 +86,7 @@ export const DEMO_SURVEY_HEADING = "Surveys need the API";
 /** The non-obvious half, and the one worth saying: it is about the promise. */
 export const DEMO_SURVEY_REASON =
   "The point of a survey here is that an anonymous answer cannot be traced " +
-  "back to the person who gave it, and that is something the server does — a " +
+  "back to the person who gave it, and that is something the server does, a " +
   "version running entirely in this browser could not demonstrate it, and " +
   "seeded answers would be invented opinions attributed to invented staff.";
 

@@ -193,17 +193,17 @@ export function scoreLens(rows: readonly ApiScoreRow[]): Lens {
     } else if (below > 0) {
       byDepartment.set(department, {
         tone: "danger",
-        detail: `${String(scored)} of ${String(total)} scored — ${String(below)} below expectations`,
+        detail: `${String(scored)} of ${String(total)} scored, ${String(below)} below expectations`,
       });
     } else if (partial > 0) {
       byDepartment.set(department, {
         tone: "warning",
-        detail: `${String(scored)} of ${String(total)} scored — ${String(partial)} partially meeting`,
+        detail: `${String(scored)} of ${String(total)} scored, ${String(partial)} partially meeting`,
       });
     } else {
       byDepartment.set(department, {
         tone: "success",
-        detail: `${String(scored)} of ${String(total)} scored — meeting or exceeding`,
+        detail: `${String(scored)} of ${String(total)} scored, meeting or exceeding`,
       });
     }
   }
@@ -244,12 +244,12 @@ export function intensityLens(
     if (silent > logging) {
       byDepartment.set(departmentName, {
         tone: "danger",
-        detail: `${base} — ${String(silent)} silent this cycle`,
+        detail: `${base}, ${String(silent)} silent this cycle`,
       });
     } else if (silent > 0) {
       byDepartment.set(departmentName, {
         tone: "warning",
-        detail: `${base} — ${String(silent)} silent this cycle`,
+        detail: `${base}, ${String(silent)} silent this cycle`,
       });
     } else {
       byDepartment.set(departmentName, { tone: "success", detail: base });
@@ -306,7 +306,7 @@ export function topScorerLens(rows: readonly ApiScoreRow[]): Lens {
     const percent = top[0]!.scorePercent ?? Math.round(topScoreBp / 100);
     byDepartment.set(department, {
       tone: "success",
-      detail: `${names} — ${top[0]!.bandLabel ?? "Scored"} at ${String(percent)}%, ${String(appraisers)} ${appraisers === 1 ? "appraiser" : "appraisers"} weighted`,
+      detail: `${names}, ${top[0]!.bandLabel ?? "Scored"} at ${String(percent)}%, ${String(appraisers)} ${appraisers === 1 ? "appraiser" : "appraisers"} weighted`,
     });
   }
 
@@ -341,7 +341,7 @@ export function promotionReadyLens(
     const [, latestCycle] = people[0]!.cycles;
     byDepartment.set(departmentName, {
       tone: "success",
-      detail: `${names} — top band two cycles running (through ${latestCycle}), meeting every expected competency`,
+      detail: `${names}, top band two cycles running (through ${latestCycle}), meeting every expected competency`,
     });
   }
 

@@ -364,8 +364,6 @@ export function SkillsTab({
 /* -------------------------------------------------------------------------- */
 
 function SkillRow({ row }: { row: ApiCompetencyRow }) {
-  const gap = row.gap ?? 0;
-
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
       <div className="min-w-0">
@@ -381,27 +379,6 @@ function SkillRow({ row }: { row: ApiCompetencyRow }) {
 
       <div className="flex flex-wrap items-center gap-3">
         <Pips level={row.level} target={row.target} scaleMax={row.scaleMax} />
-        {row.level === null ? (
-          <Badge tone="neutral" size="sm">
-            Not assessed
-          </Badge>
-        ) : gap > 0 ? (
-          <Badge
-            tone="warning"
-            size="sm"
-            icon={<AlertTriangle aria-hidden="true" />}
-          >
-            {gap === 1 ? "1 level below target" : `${gap} levels below target`}
-          </Badge>
-        ) : row.target !== null ? (
-          <Badge tone="accent" size="sm">
-            At target
-          </Badge>
-        ) : (
-          <Badge tone="neutral" size="sm">
-            No target set
-          </Badge>
-        )}
       </div>
     </li>
   );

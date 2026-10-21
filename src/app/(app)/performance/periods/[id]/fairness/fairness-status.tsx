@@ -56,7 +56,7 @@ export function FairnessStatus({ cycleId }: { cycleId: string }) {
           </p>
           <p className="mt-1 text-body-sm text-body">
             Review {flagged === 1 ? "them" : "each one"} in the fairness check
-            before publishing. Their manager may have a good reason — the check
+            before publishing. Their manager may have a good reason, the check
             flags, it doesn&apos;t decide.
           </p>
         </div>

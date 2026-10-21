@@ -487,7 +487,7 @@ function Form() {
         <Card>
           <CardHeader
             title="Legal entities"
-            description="Each entity files separately. Headcount is live from the directory. Adding one is not self-service yet — ask us and we will set it up."
+            description="Each entity files separately. Headcount is live from the directory. Adding one is not self-service yet, ask us and we will set it up."
           />
           <div className="hidden sm:block">
             <TableWrap className="rounded-none border-0">

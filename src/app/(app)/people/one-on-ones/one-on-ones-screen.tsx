@@ -131,7 +131,7 @@ export function OneOnOnesScreen() {
            feedback, verbatim: "I don't understand the flow and what it means."
            A module whose own name is the only explanation is a module people
            click once. */
-        description="A running record of the check-ins between one person and their manager — what was agreed, and what is still open from last time. Either of you can start one; only the two of you can read it."
+        description="A running record of the check-ins between one person and their manager, what was agreed, and what is still open from last time. Either of you can start one; only the two of you can read it."
         meta={
           <span className="inline-flex items-center gap-1 text-meta text-faint">
             <Lock aria-hidden="true" className="size-3.5" />
@@ -262,7 +262,7 @@ function Mine({
           <CardHeader
             level={2}
             title="Stopped"
-            description="Nothing is deleted — the meetings that happened still happened."
+            description="Nothing is deleted, the meetings that happened still happened."
           />
           <CardBody className="flex flex-wrap gap-2">
             {stopped.map((series) => (
@@ -609,7 +609,7 @@ function StartDialog({
             {people.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.jobTitle
-                  ? `${person.fullName} — ${person.jobTitle}`
+                  ? `${person.fullName}, ${person.jobTitle}`
                   : person.fullName}
               </option>
             ))}

@@ -70,7 +70,7 @@ export function AttendanceSettingsButton() {
           open
           onClose={() => setOpen(false)}
           title="Attendance settings"
-          description="Overtime, leave approval, shifts and self clock-in — switched on or off without leaving this tab. Rates, caps and entitlements still live on their own settings pages."
+          description="Overtime, leave approval, shifts and self clock-in, switched on or off without leaving this tab. Rates, caps and entitlements still live on their own settings pages."
         >
           <div className="flex flex-col gap-4">
             <OvertimeEnableSwitch />

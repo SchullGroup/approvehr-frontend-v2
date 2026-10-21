@@ -401,7 +401,7 @@ function ObjectiveCard({
           {goal.keyResults.map((measure) => (
             <li key={measure.id} className="text-body-sm text-body">
               <span className="font-medium text-ink">{measure.label}</span>
-              {" — "}
+              {", "}
               <span className="tabular">
                 {formatMeasure(measure.startValue, measure.unit)} to{" "}
                 {formatMeasure(measure.targetValue, measure.unit)}

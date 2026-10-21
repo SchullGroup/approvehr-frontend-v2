@@ -390,7 +390,7 @@ function PayslipIndex() {
                   <p className="text-meta text-muted">
                     Every payslip on this payroll as a spreadsheet. A deduction
                     this company does not operate is left blank rather than
-                    written as ₦0.00 — the two are different facts and only one
+                    written as ₦0.00, the two are different facts and only one
                     of them is a figure.
                   </p>
                 </div>

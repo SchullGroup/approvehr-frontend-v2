@@ -133,7 +133,7 @@ export const APPROVALS: ApprovalItem[] = DEMO_ENABLED
       {
         id: "ap-06",
         kind: "expense",
-        title: "Travel reimbursement — Musa Ibrahim",
+        title: "Travel reimbursement. Musa Ibrahim",
         summary: "Lagos → Abeokuta site visits · 3 receipts attached",
         requestedById: "p-07",
         requestedAt: "22 Aug",

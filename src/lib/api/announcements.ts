@@ -157,7 +157,7 @@ export const DELETE_EFFECT =
 
 /** Why a draft is not a dimmed notice. Used wherever drafts are listed. */
 export const DRAFT_EFFECT =
-  "A draft is invisible to staff — it is not on anybody's dashboard, dimmed or " +
+  "A draft is invisible to staff, it is not on anybody's dashboard, dimmed or " +
   "otherwise. Publishing is what puts it there.";
 
 /* ------------------------------------------------------------------- calls */

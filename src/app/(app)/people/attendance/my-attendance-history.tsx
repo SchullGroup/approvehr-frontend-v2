@@ -349,7 +349,7 @@ export function RequestCorrectionDialog({
       return;
     }
     if (reason.trim().length < 10) {
-      setError("Say a bit more — this is what HR has to go on.");
+      setError("Say a bit more, this is what HR has to go on.");
       return;
     }
     setSaving(true);

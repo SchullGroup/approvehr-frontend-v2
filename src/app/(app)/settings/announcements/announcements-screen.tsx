@@ -519,7 +519,7 @@ export function AnnouncementsScreen() {
         tone="primary"
         title={`Take “${takingDown?.title ?? ""}” off the board?`}
         confirmLabel="Take it down"
-        body="Staff stop seeing it straight away. The wording is kept as a draft — publish it again whenever you like."
+        body="Staff stop seeing it straight away. The wording is kept as a draft, publish it again whenever you like."
         onConfirm={() => {
           const target = takingDown;
           if (!target) return;
