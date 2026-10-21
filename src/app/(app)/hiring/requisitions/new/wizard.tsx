@@ -877,7 +877,7 @@ function Wizard() {
                     <p className="text-body-sm text-body">
                       This saves a real <strong>requisition</strong> — title,
                       location, type, pay range, department, hiring manager and
-                      its pipeline stages — plus a <strong>draft advert</strong>{" "}
+                      its pipeline stages, plus a <strong>draft advert</strong>{" "}
                       with its application form. Nothing is public until you
                       publish it. The note for approvers stays on this screen;
                       there is no field for it yet.
