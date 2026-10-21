@@ -139,10 +139,10 @@ describe("the words in a row", () => {
   });
 
   it("gives a heading the anchor GitHub does, so a link in the summary table works", () => {
-    expect(slug("Design system, `src/components/ui`")).toBe(
+    expect(slug("Design system — `src/components/ui`")).toBe(
       "design-system--srccomponentsui",
     );
-    expect(slug("Screens, `/people`")).toBe("screens--people");
+    expect(slug("Screens — `/people`")).toBe("screens--people");
   });
 
   it("orders a folder's own files before its subfolders, as a file tree reads", () => {
@@ -278,7 +278,7 @@ describe("the pages inventory", () => {
 
   it("counts the pages and groups them", () => {
     expect(markdown).toContain("**5 pages** in total.");
-    expect(markdown).toContain("## (app). The signed-in product");
+    expect(markdown).toContain("## (app) — The signed-in product");
     expect(markdown).toContain("### Approvals inbox");
   });
 
@@ -291,7 +291,7 @@ describe("the pages inventory", () => {
 
 describe("the components inventory", () => {
   const spec: ComponentsSpec = {
-    title: "Components, test",
+    title: "Components — test",
     repo: "test",
     from: "`src`",
     intro: "Intro.",

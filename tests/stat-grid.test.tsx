@@ -45,11 +45,11 @@ describe("Stat", () => {
     expect(stat).toHaveClass("p-3.5", "sm:p-5");
   });
 
-  it("lets a hint take two lines on a phone and one from sm", () => {
+  it("lets a hint wrap rather than cut its caveat", () => {
     const { getByText } = render(
       <Stat label="Leave" value="3" hint="approved, starting within 31 days" />,
     );
     const hint = getByText("approved, starting within 31 days");
-    expect(hint).toHaveClass("line-clamp-2", "sm:truncate");
+    expect(hint).toHaveClass("break-words");
   });
 });

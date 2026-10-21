@@ -215,7 +215,9 @@ export function Stat({
           </span>
         )}
       </div>
-      <p className="mt-2 break-words text-h3 text-ink tabular">{value}</p>
+      <p className="mt-1.5 text-h4 text-ink tabular truncate sm:mt-2 sm:text-h3">
+        {value}
+      </p>
       {/*
        * Two lines when there are two things to say.
        *

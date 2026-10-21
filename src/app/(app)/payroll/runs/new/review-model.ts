@@ -24,7 +24,7 @@ import type { OvertimeHourlyBasis } from "@/lib/overtime/derive";
 
 /** Both forms of the bonus line: a reason is optional, so the label has two. */
 export function isBonusLine(label: string): boolean {
-  return label === "Bonus" || label.startsWith("Bonus, ");
+  return label === "Bonus" || label.startsWith("Bonus — ");
 }
 
 /**
