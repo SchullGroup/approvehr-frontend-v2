@@ -46,7 +46,9 @@ const BASELINE = path.join(ROOT, "scripts", "load-rule-baseline.json");
 /** Moved onto the rule. Paths relative to the repo root. */
 const ADOPTED = [
   "src/app/(app)/approvals/inbox.tsx",
+  "src/app/(app)/dashboard/app-use-card.tsx",
   "src/app/(app)/dashboard/dashboard-screen.tsx",
+  "src/app/(app)/dashboard/today-panel.tsx",
   "src/app/(app)/hiring/hiring-screen.tsx",
   "src/app/(app)/hiring/postings/postings-screen.tsx",
   "src/app/(app)/payroll/payslips/index-table.tsx",

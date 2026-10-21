@@ -170,6 +170,26 @@ export const WIDGETS: readonly WidgetSpec[] = [
     defaultFor: RUNS_THE_COMPANY,
   },
   {
+    /* Everybody, and in the first row for every tier: it is the one card that is
+       about the person and not about the company, and the one that answers "what
+       is true for me today" before they have to go and look. For staff it sits
+       above the clock card, which the panel's own header badge stands in for
+       (clock state, with a link); move it behind `my-clock` with `leadFor` if
+       the daily button should come first.
+
+       `source: "local"` because it reads its own request (`GET /me/today`), which
+       costs the dashboard nothing and fails alone: a failed panel is a card, not
+       the screen. */
+    id: "today",
+    title: "Today",
+    blurb:
+      "What is true for you today: notices to read, policies to accept, when you are paid, what leave you have left, your next one-to-one, and whether you are clocked in.",
+    group: "attention",
+    span: "full",
+    source: "local",
+    defaultFor: EVERYONE,
+  },
+  {
     id: "my-queue",
     title: "Waiting on you",
     blurb: "How many decisions are sitting in your own approval queue.",
@@ -226,6 +246,21 @@ export const WIDGETS: readonly WidgetSpec[] = [
     anyPermission: SEES_COMPANY,
     feature: "attendance",
     defaultFor: ["admin", "custom"],
+  },
+  {
+    /* Only where the company has turned the measure on, and only for whoever holds
+       the permission the API gates it on. Both gates are the catalogue's; whether
+       the week has a figure to show (the privacy floor) is the card's own. */
+    id: "app-use",
+    title: "App use",
+    blurb:
+      "How many of the team opened the app this week, and how many on three or more days. Team totals only.",
+    group: "people",
+    span: "half",
+    source: "local",
+    permission: "MANAGE_SETTINGS",
+    feature: "appOpenTracking",
+    defaultFor: RUNS_THE_COMPANY,
   },
   {
     id: "who-is-in",

@@ -86,7 +86,13 @@ export const RECORD_FIELD_KEYS = [
  * The API refuses turning it on while `appraisals` is off, and turns it off with
  * appraisals. Nothing is deleted either way.
  */
-export const ADVANCED_FEATURE_KEYS = ["multiAppraiser", "twoFactor"] as const;
+export const ADVANCED_FEATURE_KEYS = [
+  "multiAppraiser",
+  "twoFactor",
+  /* One mark per person per day that the app was opened, so HR can see how many
+     of the team use it each week. Off by default; see `lib/api/me.ts`. */
+  "appOpenTracking",
+] as const;
 
 /**
  * How a module's own workflow is configured. A fourth kind of switch.
@@ -228,6 +234,12 @@ export type ApiFeatures = {
   earnedWage?: boolean;
   /** Whether a second factor is asked for at all. Off by default. */
   twoFactor: boolean;
+  /**
+   * Whether opening the app is recorded, one mark per person per day. Off by
+   * default. Optional because an API one deploy behind does not send it, and a
+   * missing answer reads as off.
+   */
+  appOpenTracking?: boolean;
   /** Which acts need a code, when `twoFactor` is on. Empty means sign-in only. */
   stepUpActions: StepUpAction[];
   setupStep: number;
