@@ -345,6 +345,22 @@ export function locate(
       return { level: entry.id, entryKey: entry.key, activeHref };
     }
   }
+  /* Nothing lit, but the path may still belong to a section: an item that
+     declines a path with `activeExcept` (Overview, for a requisition's own
+     page) is the section's claim on it. Keep that section open with no row
+     lit, rather than dropping to the top level and hiding the menu the person
+     is reading inside. */
+  for (const entry of tree.flat()) {
+    if (entry.kind !== "drill") continue;
+    const owns = entry.items.some(
+      (item) =>
+        !item.locked &&
+        item.activeExcept?.some(
+          (path) => pathname === path || pathname.startsWith(`${path}/`),
+        ),
+    );
+    if (owns) return { level: entry.id, entryKey: entry.key, activeHref: null };
+  }
   return { level: ROOT, entryKey: null, activeHref: null };
 }
 

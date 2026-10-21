@@ -241,6 +241,11 @@ describe("locate", () => {
     expect(at("/hiring/requisitions/new")).toBe("/hiring/requisitions/new");
     /* An existing role has no row of its own: nothing lit, not New role. */
     expect(at("/hiring/requisitions/r-1")).toBeNull();
+    /* ...but the Recruitment section stays open while reading it. */
+    const here = locate(t, hiring, "/hiring/requisitions/r-1");
+    expect(here.level).toBe("hiring");
+    expect(here.activeHref).toBeNull();
+    expect(locate(t, hiring, "/hiring/requisitions/new").level).toBe("hiring");
     expect(at("/hiring")).toBe("/hiring");
     expect(at("/hiring/talent-pool/x")).toBe("/hiring");
   });
