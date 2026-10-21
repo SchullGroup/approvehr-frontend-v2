@@ -464,6 +464,28 @@ Then **Check and review**:
 > a name. Somebody with the records permission is offered each person's address while typing. A
 > department head is not: the staff list a head can read carries no emails.
 
+> ⚠️ **Leave Appraisal period blank and an objective may count towards nobody's mark.** An
+> objective counts towards a person's appraisal mark only once it is filed in an appraisal period. This
+> holds for this window and for **Upload objectives** alike, because both go through the same check.
+> A row that names a parent objective and leaves the period blank takes the parent's period, as long
+> as that period is still open. A row with no parent and no period, or whose parent's period is
+> published or has none, is filed in no period. It still imports, since a company may mean it, and
+> the check says so before anything is created:
+>
+> - on the upload page, a yellow callout above the report reads **3 objectives have no appraisal
+>   period** (**1 objective has no appraisal period** for one). It explains that they still import, and
+>   that the way to file them is to name an open period under **Appraisal period** (the report lets you
+>   type it beside each row) or to press **Edit** on the objective before it is agreed (step 10);
+> - on each such row, **No appraisal period, so this objective counts towards nobody's appraisal
+>   mark.**;
+> - in this window the **Appraisal period** dropdown's blank choice reads **None chosen (the parent's
+>   period, if any)**.
+>
+> The parent has to exist already. A parent that is another row of the same file is refused with **It
+> has to exist already**, so a period is inherited from existing objectives only. When the check runs
+> with no server (demo mode) it can only be sure about the rows with neither a period nor a parent,
+> and says so; it never claims a row under a parent will be unfiled.
+
 > 🛑 **Nothing is saved.** Closing with objectives typed asks **Close without creating 3 objectives?**
 > with **Keep editing**, **Download Excel draft**, **Download CSV draft** and **Discard**. The download
 > is how to carry on later: it opens in Excel, and loads back into this window. The only thing this
