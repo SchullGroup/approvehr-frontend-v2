@@ -6,7 +6,7 @@
 - **Scope:** both
 - **Supersedes:** —
 - **Superseded by:** —
-- **Enforced by:** approvehr-backend tests, run by its `npm run check` and CI: `tests/payroll-cancel-and-reprepare.test.ts` ("approval is still the one-way door", "cancelling cannot be used to walk back through it"), `tests/payroll-overtime-override.test.ts` ("the person who prepared it does not approve it"), `tests/payroll-deduction-switches.test.ts` ("an approved run cannot be rewritten by a later switch"). Not pinned by any test: that preparing settles nothing, and the "can actually sign in" clause (see Consequences). Frontend: review only.
+- **Enforced by:** approvehr-backend tests, run by its `npm run check` and CI: `tests/payroll-cancel-and-reprepare.test.ts` ("approval is still the one-way door", "cancelling cannot be used to walk back through it"), `tests/payroll-overtime-override.test.ts` ("the person who prepared it does not approve it"), `tests/payroll-maker-checker.test.ts` (who counts as "somebody else", including the "can actually sign in" clause), `tests/payroll-deduction-switches.test.ts` ("an approved run cannot be rewritten by a later switch"). Not pinned by any test: that preparing settles nothing. Frontend: review only.
 - **Backfilled:** 2026-10-11 from `HANDOVER.md` §§ "Assembling a payroll run", "Maker and checker" and "Walking the payroll flow found four things 2,109 tests did not", checked against `origin/staging` of approvehr-backend; decision dated by `cc9e0c0`
 
 ## Context
@@ -52,17 +52,21 @@ each with its reasoning in its message, made the rules:
 - **Accepted:** the control exists only while a second approver does. `preparedById` is set from
   the caller's employee id only (`POST /payroll/runs`), so an account with no linked employee
   record leaves it null and is never refused at approval; the null rule was written for seeds and
-  scripts and this case was not recorded as a decision. **A defect, checked on 2026-10-11:** the
-  count of "somebody else" filters `employeeId: { not: approvedById }`, and on a nullable column
-  that drops the rows where it is null. On the scratch database (Prisma 7.9.1, Postgres 16), a
-  company whose only other approver has no employee record counted 0 other approvers, so the
-  preparer could approve their own run although a second approver existed. It is not fixed here;
-  the fix is `OR: [{ employeeId: null }, { employeeId: { not: approvedById } }]`. The "can actually sign in" clause
-  (`passwordHash: { not: null }`) has no test that fails without it: the test written for it
-  asserts a refusal while a real second approver exists, and the "fresh organisation" case its
-  comment points to is not in the file. `RUN_PAYROLL` plus `APPROVE_PAYROLL` in one role is only
-  reported in the role editor, never blocked; the approval-time check is the control. The maker
-  is whoever last rebuilt the figures, by design.
+  scripts and this case was not recorded as a decision. **Still open:** it needs the employee id or,
+  failing that, the user id stamped on the prepare side, at about a dozen call sites, and the
+  approver excluded from the count by either id.
+- **Fixed on 2026-10-21 (approvehr-backend #201):** the count of "somebody else" filtered
+  `employeeId: { not: approvedById }`, and on a nullable column that drops the rows where it is null.
+  A company whose only other approver has no employee record counted 0 other approvers, so the
+  preparer could approve their own run although a second approver existed (checked on 2026-10-11 on
+  the scratch database, Prisma 7.9.1, Postgres 16). It reads
+  `OR: [{ employeeId: null }, { employeeId: { not: approvedById } }]` now. The "can actually sign in"
+  clause (`passwordHash: { not: null }`) has a test that fails without it: removing any one of the
+  `passwordHash`, `archivedAt` or `roleHolds` clauses fails a case in
+  `tests/payroll-maker-checker.test.ts`.
+- `RUN_PAYROLL` plus `APPROVE_PAYROLL` in one role is only reported in the role editor, never
+  blocked; the approval-time check is the control. The maker is whoever last rebuilt the figures, by
+  design.
 - **Revisit if:** a customer needs reversible approval (it would need its own ledger and audit),
   or accounts without employee records start preparing runs.
 

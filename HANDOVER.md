@@ -9078,3 +9078,147 @@ claimed.
   11 September, hours after the walkthrough was written) and "12 forms written" (the screen says "created")
   were not. Then the product's own changes since the document was last edited were read out of git. That is a
   manual pass and not a gate, and there is no script for it in the repository.
+
+---
+
+# "Approve routine items" asks first, and approves the list it showed
+
+The inbox button that read **Approve 3 routine items** counted the routine rows on screen and then
+pressed a route that decided the **whole routine queue on the server**. Entries in *My archive*, and
+entries the person was never shown, were approved with it, and nothing asked first. Merged on
+2026-10-21 (backend #202 at 07:55 UTC, frontend #431 at 07:56 UTC).
+
+## What it does now
+
+- **The button opens a confirmation** titled `Approve N routine items?` (`routine item` for one) that
+  names every item, with the confirm button reading `Approve N`. The body says: *These are approved
+  now, and the people who asked are told. Each one is checked again as it goes: anything that is no
+  longer routine, or that you cannot approve, stays where it is.*
+- **It sends the rows it showed, and only those.** The dialog takes a snapshot of the items when it
+  opens and posts their ids to `POST /approvals/approve-routine/selected` (1 to 200).
+  `approveSelected` in `lib/api/approvals.ts` is the client, `approveRoutine(items)` on
+  `useApprovalQueue` the store call. The old whole-queue call and its entry in `endpoints.ts` are gone.
+- **The server re-checks every id at the moment it is pressed**, against the one routine predicate
+  (pending, no deadline, waiting under five days), `visibleFor` (is it in this caller's inbox) and
+  `archivedWhere` (not in their archive), and returns a reason per id. An id the caller cannot see gets
+  the same answer as one that does not exist. The audit entry records the ids asked for and the ids
+  decided. **The toast carries the server's own per-row reasons**, never a sentence composed here, and
+  the dialog closes whether it worked or not.
+
+## Two things not to undo
+
+- **A server that predates the route answers 404, and that is never retried as the old sweep.**
+  `SERVER_BEHIND` is the sentence shown: *The server is a version behind this page and cannot approve a
+  list you were shown yet, so nothing was approved. Ask whoever looks after the server to update it.* The route is separate from the old one on
+  purpose: a body sent to the old `/approve-routine` would have been ignored and the whole queue swept.
+  So the order is the backend first, and a frontend that arrives early fails safe.
+- **The Decided view is connected-only.** The inbox's view switch gains **Decided**, with a switch for
+  **Approved** / **Declined**, the same filters as the queue, newest decision first, read-only (its rows
+  are the Sent row reading **Raised**). Empty states: **Nothing approved yet** and **Nothing declined
+  yet**. `useDecidedApprovals` matches its state to the outcome it was asked for, so a row never shows
+  under the wrong one, and it refetches when anything is decided. Demo mode has no decided history and
+  does not offer it. Order is the backend's `DECIDED_ORDER`: `decidedAt` latest first, undecided last.
+  The queue's "what needs me" ranking puts the oldest request on top, which is wrong for a row that is
+  already decided.
+
+## The backend half, found while testing it
+
+- **A declined expense claim never left the inbox.** `reimbursements.decline` did not call
+  `mirrorApprovalDecision` (approve did), so the entry stayed `PENDING` for ever. It does now, and a
+  data-only migration (`20261022130000_close_declined_expense_claims_in_inbox`) closes the entries
+  already stuck, only where the claim itself is `DECLINED`. The rule from "An approval you could see
+  and never decide" above applies again: a request and its inbox entry are two rows, and whatever ends
+  one ends the other in the same transaction.
+- **Archiving was a read-then-write on a shared list** (`archivedByUserIds`), so two people putting the
+  same row away at once lost one archive. It is a compare-and-set, retried, and answers 409 after eight
+  lost races.
+- **The raised-from and raised-to filters cut at UTC midnight.** They cut at the company's midnight now
+  (`zonedInstant`).
+
+## Verified, and what was not
+
+Six test files (34 tests) cover the frontend: `approvals-inbox-routine`, `approvals-routine-selected-api`,
+`approvals-store-routine-decided`, `approvals-inbox-decided`, and the existing `approvals-inbox-archive`
+and `approvals-inbox-reject`. Three deliberate breaks were each caught: a button that sweeps with no
+confirmation, a store that sends the whole queue instead of the rows it was given, and a 404 that falls
+back to the old sweep. The backend has 16 tests in `approvals-routine`, 6 in
+`reimbursements-declined-inbox` and 4 in `approvals-decided-order`.
+
+**Not seen in a browser.** Everything on the frontend side is covered by component tests with the
+store mocked, and nobody has pressed the confirmation or opened the Decided view on a running inbox.
+The QA site is the place to do that once both halves are on `staging` and `test`.
+
+## Not done
+
+- Complaints 3 to 5 of the inbox feedback ("Moves money", "People", "Needs attention"). Frontend #420
+  replaced the first and last filters with module chips; they were not re-walked here.
+
+---
+
+# An uploaded objective takes its parent's appraisal period, and says so when it files nothing
+
+An objective counts towards somebody's appraisal mark only if it is filed in an appraisal period. The
+objectives upload had two gaps, both found on item 36 of the tracker and merged on 2026-10-21 (backend
+#205 at 07:57 UTC, frontend #435 at 07:59 UTC).
+
+## What changed
+
+- **A child takes its parent's period.** A row that names a parent objective and leaves **Appraisal
+  period** blank is filed in the parent's period if that period is **not published**. A period named in
+  the row always wins. A published parent period is never inherited, and then the row is filed in no
+  period. "Give a KPI to people" (`assignObjective`) has always inherited; the single New objective
+  dialog does not, and does not prefill it either. The upload now behaves like the first. The importer
+  checks for a published period; `assignObjective` does not.
+- **The parent has to exist already.** A parent that is another row of the same file is refused
+  (*It has to exist already*), so inheritance works from existing objectives only.
+- **Every row that will really be written with no period carries a warning** on the Appraisal period
+  column (never an error: a company may mean it): *No appraisal period, so this objective counts towards
+  nobody's appraisal mark.* With a parent in a published period the API adds a second sentence naming
+  it, and with a parent that has none it says there was none to take. The file also gets two batch notes
+  in both the validate and the apply response.
+- **The check step says it once, above the report.** `ImportSurface` has a new optional
+  `checkNotices(rows)` hook, rendered by `ImportFlow` through `components/imports/check-notices.tsx`.
+  The check step's `CheckReport` groups the per-row warning into a collapsed disclosure, and
+  `PARITY.md` Rule 5 says a reveal must not be the only place something that matters is said. Objectives
+  is the first user: a warning-tone callout reading **N objectives have no appraisal period**, which never
+  blocks and renders nothing when the count is zero.
+
+## Decisions not to undo
+
+- **The count is found by field, not by wording.** `countUnfiled` looks for a warning on the `period`
+  field through the dictionary's own aliases. The API may reword the sentence, and a count that stopped
+  matching would fail silent, which is the worst way for a warning about nobody's marks to fail.
+  Skipped rows are not counted: they are not going to be filed at all.
+- **The offline checker is a floor, not the count.** Demo mode (`lib/imports/check.ts`,
+  `lib/imports/objectives.ts`) warns, in the API's exact base sentence, only on a row with **neither a
+  period nor a parent**, and only on a row that will import (`RowContext` gained `hasErrors()`). It never
+  claims a child with a parent will be unfiled, because only the API can see the parent's period, and its
+  batch note says so.
+- **The wording is shared by hand.** The twelve column notes and the base sentence are byte-identical
+  between the two repos. `verify-template` compares headings and cell types but **not note text**, so
+  this is not enforced by a gate; change one side and change the other.
+- **The Add multiple window follows the same rule.** The blank period option reads **None chosen (the
+  parent's period, if any)** (it said "counts towards nobody's mark", false for a card whose parent has an
+  open period), and the read-only review keeps a blank field the check had a note about.
+
+## Verified, and what was not
+
+Frontend: `objectives-import`, `import-check-notices`, `bulk-create-dialog` and the neighbouring import
+and objective tests pass; three deliberate breaks were caught (dropping `!hasErrors()`, counting skipped
+rows, dropping the review's "said" rule). Backend: `imports-objectives` has 40 tests, three more breaks
+were caught (inheritance off, a published period also inherited, the unfiled count wrong), and a 7-row
+file went through validate and apply on a scratch API with the same notes in both.
+
+In a browser against the scratch API the callout read **3 objectives have no appraisal period**; typing
+H2 2026 beside a row and checking again turned it into 2. **The `ImportFlow` wiring has no automated
+test**; only that browser run covers it, so if somebody removes it the unit tests still pass.
+
+## Order, and what was left
+
+The backend goes first. The frontend sends the same headings, so a file works against either order, and
+against an older API the callout simply does not appear.
+
+Not fixed, on purpose: an objective with several measures cannot be uploaded in one go (one measure per
+row), and the upload cannot add a measure to an existing objective. The Add multiple window has no
+`maxLength` on title and description; the 140 and 2,000 limits are enforced at Check with a clear
+message, and a hard cap would silently truncate pasted text.
