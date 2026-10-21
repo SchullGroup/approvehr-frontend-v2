@@ -240,21 +240,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
           </button>
 
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            aria-expanded={!collapsed}
-            aria-controls="portal-nav-desktop"
-            aria-label={collapsed ? "Show sidebar" : "Hide sidebar"}
-            className="hidden rounded-md p-2 text-muted hover:bg-canvas hover:text-ink lg:block"
-          >
-            {collapsed ? (
-              <PanelLeftOpen aria-hidden="true" className="size-5" />
-            ) : (
-              <PanelLeftClose aria-hidden="true" className="size-5" />
-            )}
-          </button>
-
           {/* The wordmark costs 149px and a phone has 375. With it, the whole
               right-hand cluster sat past the right edge: the user menu's own
               right edge measured 405 on a 375 viewport *before* the clock icon
@@ -399,6 +384,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onSearchPeople={collaborator ? undefined : searchPeople}
               variant="desktop"
             />
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              aria-expanded
+              aria-controls="portal-nav-desktop"
+              className="mx-3 mb-3 mt-1 flex items-center gap-2 rounded-md px-3 py-2 text-body-sm text-muted hover:bg-canvas hover:text-ink"
+            >
+              <PanelLeftClose aria-hidden="true" className="size-4" />
+              Collapse
+            </button>
           </div>
         </aside>
 
@@ -425,6 +420,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               />
             </div>
           </div>
+        )}
+
+        {collapsed && (
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-expanded={false}
+            aria-controls="portal-nav-desktop"
+            aria-label="Show sidebar"
+            className="no-print fixed left-2 top-[4.25rem] z-20 hidden rounded-md border border-line bg-surface p-2 text-muted shadow-sm hover:text-ink lg:block"
+          >
+            <PanelLeftOpen aria-hidden="true" className="size-4" />
+          </button>
         )}
 
         <main id="main" className="min-w-0 flex-1">

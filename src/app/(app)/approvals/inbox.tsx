@@ -259,54 +259,12 @@ export function ApprovalInbox() {
         title: archived ? "Put away" : "Back in your inbox",
         tone: "info",
         detail: archived
-          ? `${item.title} is in My archive. It is still waiting for a decision, and nobody else's inbox has changed.`
+          ? `${item.title} is in My archive.`
           : `${item.title} is waiting on you again.`,
       });
     } catch (failure) {
       toast.push({
         title: archived ? "Could not archive that" : "Could not restore that",
-        tone: "danger",
-        detail:
-          failure instanceof ApiError
-            ? failure.message
-            : "Something went wrong. Try again.",
-      });
-    }
-  };
-
-  const approveRoutine = async () => {
-    try {
-      const result = await queue.approveRoutine();
-      /* The API's own reasons, deduplicated, never a sentence composed here.
-         It knows which rows it left and why — one may be a request the caller
-         raised themselves, another may need a permission they do not hold —
-         and the screen used to answer a zero with a fixed claim about
-         deadlines and five-day waits that its own counters could disprove. */
-      const reasons = [...new Set(result.skipped.map((row) => row.reason))];
-      if (result.decided === 0) {
-        toast.push({
-          title: "Nothing was approved",
-          tone: "info",
-          detail:
-            reasons.length > 0
-              ? reasons.join(" ")
-              : "Nothing waiting counts as routine. Anything with a deadline, or sitting five days, needs you to look at it.",
-        });
-        return;
-      }
-      toast.push({
-        title: `${result.decided} ${
-          result.decided === 1 ? "request" : "requests"
-        } approved`,
-        tone: "success",
-        detail:
-          result.skipped.length > 0
-            ? `${result.skipped.length} still waiting. ${reasons.join(" ")}`
-            : "Anything with a deadline was left for you to look at individually.",
-      });
-    } catch (failure) {
-      toast.push({
-        title: "That did not work",
         tone: "danger",
         detail:
           failure instanceof ApiError
@@ -393,21 +351,6 @@ export function ApprovalInbox() {
             <InboxFilters
               filters={filters}
               onChange={setFilters}
-              actions={
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => void approveRoutine()}
-                  disabled={queue.routineCount === 0}
-                >
-                  <Check aria-hidden="true" className="size-3.5" />
-                  {queue.routineCount === 0
-                    ? "Nothing routine to approve"
-                    : `Approve ${queue.routineCount} routine ${
-                        queue.routineCount === 1 ? "item" : "items"
-                      }`}
-                </Button>
-              }
             />
 
             {queue.items.length === 0 ? (
@@ -415,7 +358,7 @@ export function ApprovalInbox() {
                 <EmptyState
                   icon={<Check aria-hidden="true" />}
                   title="Nothing waiting on you"
-                  description="Everything routed to you has been actioned. New requests appear here the moment they are raised."
+                  description="New requests show up here."
                 />
               </Card>
             ) : (
