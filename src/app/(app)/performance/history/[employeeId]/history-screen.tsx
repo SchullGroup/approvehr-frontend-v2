@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -19,12 +20,14 @@ import {
   Spinner,
   Stat,
   StatGrid,
+  Tabs,
   TextLink,
   type BadgeTone,
 } from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { WorkRecordPanel } from "@/components/performance/work-record";
 import {
   changeLabel,
   dayLabel,
@@ -73,6 +76,7 @@ import { BAND_TONE, useScoreHistory } from "@/lib/store/performance";
 export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
   const detail = useScoreHistory(employeeId, true);
   const history = detail.history;
+  const [tab, setTab] = useState("history");
 
   return (
     <>
@@ -97,65 +101,80 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {DEMO_ENABLED && !detail.available && (
-          <Callout tone="warning" title="Demo data, this browser only">
-            <p>{detail.refusal}</p>
-          </Callout>
-        )}
+        <Tabs
+          items={[
+            { id: "history", label: "Appraisal history" },
+            { id: "work-record", label: "Work record" },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
 
-        {/* A 403 here reaches the reader as the server's own sentence, which is
+        {tab === "work-record" && <WorkRecordPanel employeeId={employeeId} />}
+
+        {tab === "history" && (
+          <>
+            {DEMO_ENABLED && !detail.available && (
+              <Callout tone="warning" title="Demo data, this browser only">
+                <p>{detail.refusal}</p>
+              </Callout>
+            )}
+
+            {/* A 403 here reaches the reader as the server's own sentence, which is
             the one that names the rule: self, direct report, or the records
             permission. An appraiser assigned to one period is refused on
             purpose, and only the server can say so. */}
-        <LoadFailure
-          subject="this person's score history"
-          error={detail.error}
-          onRetry={detail.reload}
-        />
+            <LoadFailure
+              subject="this person's score history"
+              error={detail.error}
+              onRetry={detail.reload}
+            />
 
-        {detail.loading && (
-          <Card>
-            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-              <Spinner size="sm" />
-              Loading every period
-            </CardBody>
-          </Card>
-        )}
-
-        {history && (
-          <>
-            <Who history={history} />
-
-            {/* The API's own sentence, on its own line. The heading over it
-                said what the sentence already says. */}
-            {history.withheldNote && (
-              <NoticeLine tone="muted">{history.withheldNote}</NoticeLine>
+            {detail.loading && (
+              <Card>
+                <CardBody className="flex items-center gap-2 text-body-sm text-muted">
+                  <Spinner size="sm" />
+                  Loading every period
+                </CardBody>
+              </Card>
             )}
 
-            {history.points.length === 0 ? (
-              <Card>
-                <EmptyState
-                  compact
-                  icon={<TriangleAlert aria-hidden="true" />}
-                  title="No appraisal period has covered them yet"
-                  description="Someone shows up here once an appraisal period they are part of has started. A period that has not started has no marks yet."
-                />
-              </Card>
-            ) : (
+            {history && (
               <>
-                <Trend history={history} />
-                {history.unscoredCycles.length > 0 && (
-                  <NoMark cycles={history.unscoredCycles} />
+                <Who history={history} />
+
+                {/* The API's own sentence, on its own line. The heading over it
+                said what the sentence already says. */}
+                {history.withheldNote && (
+                  <NoticeLine tone="muted">{history.withheldNote}</NoticeLine>
                 )}
-                {history.truncated && (
-                  <p className="text-body-sm text-muted">
-                    The {history.limit} most recent periods are shown. Older
-                    ones exist and are not on this page.
-                  </p>
+
+                {history.points.length === 0 ? (
+                  <Card>
+                    <EmptyState
+                      compact
+                      icon={<TriangleAlert aria-hidden="true" />}
+                      title="No appraisal period has covered them yet"
+                      description="Someone shows up here once an appraisal period they are part of has started. A period that has not started has no marks yet."
+                    />
+                  </Card>
+                ) : (
+                  <>
+                    <Trend history={history} />
+                    {history.unscoredCycles.length > 0 && (
+                      <NoMark cycles={history.unscoredCycles} />
+                    )}
+                    {history.truncated && (
+                      <p className="text-body-sm text-muted">
+                        The {history.limit} most recent periods are shown. Older
+                        ones exist and are not on this page.
+                      </p>
+                    )}
+                    {[...history.points].reverse().map((point) => (
+                      <Point key={point.cycleId} point={point} />
+                    ))}
+                  </>
                 )}
-                {[...history.points].reverse().map((point) => (
-                  <Point key={point.cycleId} point={point} />
-                ))}
               </>
             )}
           </>

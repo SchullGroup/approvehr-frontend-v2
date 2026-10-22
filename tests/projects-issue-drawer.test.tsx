@@ -19,9 +19,22 @@ import { contextFor, fakeActions, sampleData } from "./projects-fixture";
  */
 
 let thread: IssueThread = { comments: [], activity: [] };
+const reloadThread = vi.hoisted(() => vi.fn());
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+}));
+
+vi.mock("@/lib/api/projects", async (original) => ({
+  ...(await original<typeof import("@/lib/api/projects")>()),
+  projectsApi: {
+    links: vi.fn().mockResolvedValue([]),
+    removeLink: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 
 vi.mock("@/lib/store/projects", () => ({
-  useIssueThread: () => ({ thread, status: "ready", reload: vi.fn() }),
+  useIssueThread: () => ({ thread, status: "ready", reload: reloadThread }),
 }));
 
 vi.mock("@/lib/store/project-session", () => ({
@@ -492,6 +505,69 @@ describe("history", () => {
     expect(text[changed]).toContain("Chidi Nwosu");
     expect(text[changed]).toContain("High");
     expect(text[changed]).toContain("Highest");
+  });
+});
+
+describe("links and history", () => {
+  it("reloads the history after a link is removed", async () => {
+    const { projectsApi } = await import("@/lib/api/projects");
+    (projectsApi.links as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        id: "l1",
+        type: "BLOCKS",
+        direction: "outgoing",
+        label: "blocks",
+        note: null,
+        createdAt: "2026-10-20T09:00:00Z",
+        createdBy: null,
+        other: {
+          id: "i2",
+          key: "PAY-120",
+          title: "Payslip",
+          projectId: "p2",
+          projectName: "Payroll",
+          statusName: "To Do",
+          statusCategory: "TODO",
+          assigneeName: null,
+        },
+      },
+    ]);
+    reloadThread.mockClear();
+    renderDrawer();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Remove link to PAY-120" }),
+    );
+    await waitFor(() => expect(reloadThread).toHaveBeenCalledTimes(1));
+  });
+
+  it("reads a link entry with no actor as Someone", async () => {
+    thread = {
+      comments: [],
+      activity: [
+        {
+          id: "a1",
+          issueId: "x",
+          actorId: null,
+          field: "link",
+          from: null,
+          to: {
+            action: "linked",
+            label: "back end for",
+            other: { hidden: true },
+          },
+          at: "2026-10-20T09:00:00.000Z",
+        },
+      ],
+    };
+    renderDrawer();
+    await userEvent.click(screen.getByRole("tab", { name: "History" }));
+    const row = within(dialog())
+      .getAllByRole("listitem")
+      .find((li) => li.textContent?.includes("linked this task"))!;
+    expect(row.textContent).toContain(
+      "Someone linked this task: back end for a task you can't open",
+    );
+    expect(row.textContent).not.toMatch(/undefined|Unassigned/);
   });
 });
 

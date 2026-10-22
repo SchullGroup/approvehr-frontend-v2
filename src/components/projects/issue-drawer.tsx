@@ -43,6 +43,7 @@ import { useProjectActor } from "@/lib/store/project-session";
 import { formatDateTimeShort } from "@/lib/time";
 import { CommentItem } from "./comment-item";
 import { DraftHeading, DraftInput, DraftTextarea } from "./draft-fields";
+import { LinkedTasks } from "./linked-tasks";
 import { IssueKey, StatusPill, TypeIcon } from "./glyphs";
 import { MentionComposer } from "./mention-composer";
 import { IssueObjectiveLink } from "./objective-link";
@@ -138,7 +139,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
   } = useProject();
   const toast = useToast();
   const actor = useProjectActor();
-  const { thread } = useIssueThread(issue.id);
+  const { thread, reload: reloadThread } = useIssueThread(issue.id);
   const base = useId();
 
   const [confirming, setConfirming] = useState(false);
@@ -443,6 +444,12 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             </section>
           )}
 
+          <LinkedTasks
+            key={issue.id}
+            issueId={issue.id}
+            onChanged={reloadThread}
+          />
+
           <SectionTabs
             label="Comments and history"
             items={[
@@ -515,7 +522,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                       />
                       <p className="min-w-0 flex-1 text-body-sm text-ink">
                         <strong className="font-semibold">
-                          {people.nameOf(row.actorId)}
+                          {row.actorId ? people.nameOf(row.actorId) : "Someone"}
                         </strong>{" "}
                         {text.verb}
                         {text.from !== null && text.to !== null && (

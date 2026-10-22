@@ -25,6 +25,11 @@ let loading = false;
 let failed = false;
 const reload = vi.fn();
 
+vi.mock("@/lib/api/projects", async (original) => ({
+  ...(await original<typeof import("@/lib/api/projects")>()),
+  projectsApi: { links: vi.fn().mockResolvedValue([]) },
+}));
+
 vi.mock("@/lib/store/projects", () => ({
   useIssueThread: () => ({ thread, status: "ready", reload: vi.fn() }),
 }));
