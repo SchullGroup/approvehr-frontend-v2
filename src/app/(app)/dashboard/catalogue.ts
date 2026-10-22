@@ -96,6 +96,19 @@ export const GROUP_LABELS: Readonly<Record<WidgetGroup, string>> = {
   tools: "Tools and notices",
 };
 
+/**
+ * Where a widget goes when it is not a metric card or a card in the grid.
+ *
+ * - `header`: a control in the page header (the Start-something menu).
+ * - `banner`: one full-width line between the metrics and the cards.
+ * - `foot`: full-width, after the cards. Collapsed or a single-purpose box.
+ *
+ * Absent means it is placed by `span`: a `quarter` is a metric card, a `half`
+ * is a card in the two-column grid, and a `full` that leads for a tier goes
+ * first.
+ */
+export type WidgetSlot = "header" | "banner" | "foot";
+
 export type WidgetSpec = {
   id: string;
   title: string;
@@ -103,6 +116,8 @@ export type WidgetSpec = {
   blurb: string;
   group: WidgetGroup;
   span: WidgetSpan;
+  /** See `WidgetSlot`. */
+  slot?: WidgetSlot;
   source: WidgetSource;
   /** Held by this person. */
   permission?: PermissionKey;
@@ -153,7 +168,9 @@ export const WIDGETS: readonly WidgetSpec[] = [
     blurb:
       "Every held-up thing with the button that clears it: approvals waiting, records payroll would refuse, exits and starters part-done.",
     group: "attention",
-    span: "full",
+    /* A card in the two-column grid, first in it. When the Today panel beside
+       it has nothing to say it takes the row; when this has nothing it does. */
+    span: "half",
     source: "dashboard",
     anyPermission: SEES_COMPANY,
     defaultFor: RUNS_THE_COMPANY,
@@ -165,6 +182,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
       "One sentence worth knowing this cycle, the department most off-track, a quiet task tracker, or someone who has cleared the promotion bar.",
     group: "attention",
     span: "full",
+    slot: "banner",
     source: "dashboard",
     permission: "EDIT_RECORDS",
     defaultFor: RUNS_THE_COMPANY,
@@ -185,7 +203,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
     blurb:
       "What is true for you today: notices to read, policies to accept, when you are paid, what leave you have left, your next one-to-one, and whether you are clocked in.",
     group: "attention",
-    span: "full",
+    span: "half",
     source: "local",
     defaultFor: EVERYONE,
   },
@@ -196,7 +214,13 @@ export const WIDGETS: readonly WidgetSpec[] = [
     group: "attention",
     span: "quarter",
     source: "dashboard",
-    defaultFor: EVERYONE,
+    /* Not for the people who have "Needs you": that card already says how many
+       decisions are waiting and carries the button, and a tile reading
+       "Nothing needs you" beside it said the opposite of the sidebar's own
+       count. The widget also draws nothing for anybody the company-wide
+       approvals block was sent to, so a custom role that holds the company
+       permissions is covered too. */
+    defaultFor: ["custom", "staff"],
   },
 
   /* ---------------------------------------------------------------- people */
@@ -426,7 +450,9 @@ export const WIDGETS: readonly WidgetSpec[] = [
     title: "Your leave left",
     blurb: "Days remaining against your entitlement, one line per leave type.",
     group: "you",
-    span: "quarter",
+    /* A card, not a metric: six meters are not a figure, and as a quarter it
+       was the tallest thing in the row and set the row's height. */
+    span: "half",
     source: "dashboard",
     defaultFor: ["admin", "custom", "staff"],
   },
@@ -475,6 +501,7 @@ export const WIDGETS: readonly WidgetSpec[] = [
       "One question, answered from your own records. Nothing here changes anything.",
     group: "tools",
     span: "full",
+    slot: "foot",
     source: "local",
     defaultFor: EVERYONE,
   },
@@ -482,9 +509,10 @@ export const WIDGETS: readonly WidgetSpec[] = [
     id: "quick-actions",
     title: "Things to start",
     blurb:
-      "The handful of acts people begin from this screen, filtered to what you can do.",
+      "The handful of acts people begin from this screen, filtered to what you can do. A menu in the page header.",
     group: "tools",
     span: "full",
+    slot: "header",
     source: "local",
     defaultFor: ["admin", "custom"],
   },
@@ -492,9 +520,10 @@ export const WIDGETS: readonly WidgetSpec[] = [
     id: "noticeboard",
     title: "Noticeboard",
     blurb:
-      "Company announcements you have not read. Draws nothing when there are none.",
+      "Everything on the company noticeboard right now, read or not. Closed until opened; the Today panel is where an unread notice is read and recorded. Draws nothing when there are none.",
     group: "tools",
     span: "full",
+    slot: "foot",
     source: "dashboard",
     defaultFor: EVERYONE,
   },

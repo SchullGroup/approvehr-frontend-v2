@@ -210,6 +210,21 @@ describe("RowActions", () => {
     expect(trigger()).toHaveClass("bg-red-500");
   });
 
+  it("can draw its trigger as a named button for a menu that belongs to a page", async () => {
+    render(
+      <RowActions
+        label="Start something"
+        triggerText="Start something"
+        items={items()}
+      />,
+    );
+    const named = screen.getByRole("button", { name: "Start something" });
+    expect(named).toHaveTextContent("Start something");
+    expect(named).toHaveAttribute("aria-haspopup", "menu");
+    await userEvent.click(named);
+    expect(screen.getAllByRole("menuitem")).toHaveLength(3);
+  });
+
   describe("on a phone", () => {
     const rect = (top: number, bottom: number): DOMRect =>
       ({ top, bottom, left: 0, right: 40, width: 40, height: 40 }) as DOMRect;

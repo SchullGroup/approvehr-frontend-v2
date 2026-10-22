@@ -10,7 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { MoreHorizontal } from "lucide-react";
+import { ChevronDown, MoreHorizontal } from "lucide-react";
 import { useIsClient } from "@/hooks/use-is-client";
 import { cn } from "@/lib/cn";
 import { Button } from "./button";
@@ -106,6 +106,8 @@ export function RowActions({
   items,
   className,
   triggerClassName,
+  triggerText,
+  triggerIcon,
   disabled = false,
 }: {
   /** Names the trigger: "More actions for Engineering". */
@@ -113,6 +115,15 @@ export function RowActions({
   items: readonly RowActionItem[];
   className?: string;
   triggerClassName?: string;
+  /**
+   * A page-level menu has no row to belong to, and a bare ellipsis says
+   * nothing about what is in it. With this the trigger is a named button — the
+   * header's "Start something" — instead of the row's icon. The accessible name
+   * is still `label`; this is only what is drawn.
+   */
+  triggerText?: string;
+  /** With `triggerText`: the glyph before it. */
+  triggerIcon?: React.ReactNode;
   /** The whole menu is unavailable; the trigger is shown, dimmed. */
   disabled?: boolean;
 }) {
@@ -279,13 +290,16 @@ export function RowActions({
         ref={trigger}
         aria-label={label}
         title={label}
-        variant="ghost"
+        variant={triggerText ? "secondary" : "ghost"}
         size="sm"
         disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
-        className={cn("size-11 px-0 sm:size-9", triggerClassName)}
+        className={cn(
+          triggerText ? "min-h-11 sm:min-h-9" : "size-11 px-0 sm:size-9",
+          triggerClassName,
+        )}
         onClick={(event) => {
           fromKeyboard.current = event.detail === 0;
           if (open) close(false);
@@ -299,7 +313,15 @@ export function RowActions({
           }
         }}
       >
-        <MoreHorizontal aria-hidden="true" className="size-4" />
+        {triggerText ? (
+          <>
+            {triggerIcon}
+            {triggerText}
+            <ChevronDown aria-hidden="true" className="size-4" />
+          </>
+        ) : (
+          <MoreHorizontal aria-hidden="true" className="size-4" />
+        )}
       </Button>
 
       {isClient &&

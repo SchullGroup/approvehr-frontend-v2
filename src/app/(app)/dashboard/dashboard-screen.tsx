@@ -6,6 +6,7 @@ import Link from "next/link";
 import { LoadFailure, LoadState } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody } from "@/components/portal/shell";
+import { cn } from "@/lib/cn";
 import {
   COLLABORATOR_HOME,
   useIsCollaborator,
@@ -164,12 +165,23 @@ export function DashboardScreen() {
     reportsLoading: needsReports && reports.loading,
   };
 
-  /* Widened so a row of stat tiles actually fills its row. See `tileSpans`. */
   const sections = dashboardSections(chosen, tier);
+  const headerWidgets = chosen.filter((widget) => widget.slot === "header");
 
   return (
     <>
-      <DashboardHeader />
+      <DashboardHeader
+        action={
+          headerWidgets.length > 0 ? (
+            <>
+              {headerWidgets.map((widget) => {
+                const Widget = WIDGET_COMPONENTS[widget.id];
+                return Widget ? <Widget key={widget.id} {...props} /> : null;
+              })}
+            </>
+          ) : undefined
+        }
+      />
 
       <PageBody>
         {/* What is still not set up, where somebody actually is. Absent once
@@ -178,18 +190,19 @@ export function DashboardScreen() {
 
         <div className="flex flex-col gap-4">
           {sections.map((section) => (
-            <div key={section.key} className="flex flex-wrap gap-4">
+            <div key={section.key} className={SECTION_CLASS[section.key]}>
               {section.widgets.map((widget) => {
                 const Widget = WIDGET_COMPONENTS[widget.id];
                 if (!Widget) return null;
                 /* A widget with nothing to draw returns null and leaves its
-                   wrapper empty, which `empty:hidden` takes out of the grid:
-                   the others share the row instead of leaving a hole. */
+                   wrapper empty, which `empty:hidden` takes out of the row:
+                   the others share it instead of leaving a hole. The wrapper is
+                   a grid so whatever it holds fills the cell, in both
+                   directions, and a row of cards is a row of equal heights. */
                 return (
                   <div
                     key={widget.id}
-                    className="min-w-0 empty:hidden"
-                    style={{ flex: `1 1 ${section.min}` }}
+                    className={cn(CELL_CLASS[section.key], "empty:hidden")}
                   >
                     <Widget {...props} />
                   </div>
@@ -204,106 +217,99 @@ export function DashboardScreen() {
 }
 
 /**
- * The column span each chosen widget gets, so a row of stat tiles fills its row.
+ * The dashboard in the order it is read, as five kinds of row.
  *
- * ## The gap this closes
+ * ```
+ * page header ........ greeting, date, and the Start-something menu
+ * lead ............... the one thing a tier opens the page to do (staff: clock in)
+ * metrics ............ ONE row of figure cards, four at most
+ * banner ............. one sentence worth knowing, full width
+ * cards .............. a two-column grid of cards, equal height within a row
+ * foot ............... full-width and quiet: the assistant, the noticeboard
+ * ```
  *
- * `SPAN_CLASS` gives a `quarter` widget three of twelve columns whatever else
- * is on the screen, and nothing in the product emits quarters in multiples of
- * four. An employee's standard arrangement is three of them — what is waiting
- * on you, your last payslip, your leave — so the row came to nine columns and
- * left a quarter of the screen blank beside it, every load, for every member
- * of staff. It read as a widget that had failed to render rather than as a row
- * that had finished.
+ * ## What the old arrangement did, and why this is a different shape
  *
- * So a **run** of adjacent quarters divides its row: three become thirds, two
- * become halves, four stay quarters.
+ * Six kinds of row, each with its own width rule, in an order that grew by
+ * accretion: a stat row that orphaned a tile when its count was not a divisor of
+ * twelve, a masonry of halves with dead space beside whichever card was
+ * shortest, "Start something" as eight tiles, and "7 requests waiting" said in
+ * Needs you and again as a stat two inches below it. 4,541px on a phone.
  *
- * ## Each run size gets its own ladder, so none of them orphans a tile
+ * **Metrics are one row and at most four.** Four is what fits a row at the
+ * widest and two-by-two on a phone, and a fifth tile is where the orphan came
+ * from. A tile beyond the fourth is not dropped — it joins the cards, where a
+ * tile is a perfectly good card — because dropping a figure silently is worse
+ * than a row that is a little uneven.
  *
- * The count has to divide the row at *every* width, not only the widest. A run
- * of three stepping 1 → 2 → 3 looks tidy at the ends and puts a lone tile
- * beside half a row of nothing everywhere in between, which is the same hole
- * this function exists to close, moved to the tablet. So a run of three never
- * goes through a two-column stage at all: it holds one column until there is
- * room for three. A run of four can pair, because four pairs evenly.
+ * **Cards are two across, and equal in height within a row.** A row that has one
+ * card left over is not a half and a hole: the leftover takes the whole row, so
+ * there is never an empty column. That is `flex-wrap` with a grow, not a grid —
+ * a grid cannot know that the card in its second column drew nothing.
  *
- * | Run | phone | 640 | 768 | 1280 |
- * |---|---|---|---|---|
- * | 1 | full | full | full | quarter |
- * | 2 | full | half | half | half |
- * | 3 | full | full | third | third |
- * | 4 | full | half | half | quarter |
+ * **Today leads the cards, after Needs you.** Needs you is the company's
+ * held-up work; Today is this person's. Beside each other they are the two
+ * questions somebody opens the page with, and where only one has an answer it
+ * takes the row.
  *
- * Five or more is the one case that can still orphan, and it is left to: past
- * four tiles in a row the arrangement is the reader's own doing, and the
- * alternative is a fifth tile stretched across half the screen.
- *
- * ## Why a run and not the whole list
- *
- * Because the arrangement is the reader's. Somebody who puts a chart between
- * two stat tiles has separated them on purpose, and widening across the chart
- * would silently re-join them. A run is the set of tiles that are actually
- * going to share a row.
- *
- * ## What it deliberately does not try to do
- *
- * A widget with nothing to draw returns `null`, `empty:hidden` takes it out of
- * the grid, and the row closes up short — three thirds where one is quiet
- * leaves four columns over. Sizing for that is not possible here: whether a
- * widget has anything to say is a question only the widget can answer, and it
- * answers it during render. This sizes for what is *on* the dashboard, which
- * is the case that was wrong on every load rather than occasionally.
- *
- * Static class strings, never interpolated: Tailwind reads the source as text
- * and a computed `xl:col-span-${n}` compiles to no CSS at all.
+ * The widths are static class strings, never interpolated: Tailwind reads the
+ * source as text and a computed class compiles to no CSS at all.
  */
-type Section = { key: string; min: string; widgets: WidgetSpec[] };
+export type SectionKey = "lead" | "metrics" | "banner" | "cards" | "foot";
+export type Section = { key: SectionKey; widgets: WidgetSpec[] };
 
-/**
- * The dashboard in the order it should be read: what needs you, then the key
- * figures, then the working panels, then charts, then the rest. Each row shares
- * wraps and grows to fill its width, so a missing card closes up, a short last
- * line widens its cards, and there is no slot left empty.
- */
+/** Four across at the widest, two-by-two on a phone, and a lone last one fills its row. */
+export const MAX_METRICS = 4;
+
+const SECTION_CLASS: Readonly<Record<SectionKey, string>> = {
+  lead: "flex flex-col gap-4",
+  metrics: "flex flex-wrap gap-3 sm:gap-4",
+  banner: "flex flex-col gap-4",
+  cards: "flex flex-wrap gap-4",
+  foot: "flex flex-col gap-4",
+};
+
+const CELL_CLASS: Readonly<Record<SectionKey, string>> = {
+  lead: "grid min-w-0",
+  /* 9.5rem is what two tiles need on a 390px phone. Grow, so three tiles in a
+     row of four are three wider tiles and not three tiles and a gap. */
+  metrics: "grid min-w-0 grow basis-[9.5rem]",
+  banner: "grid min-w-0",
+  /* One column below `xl`; two from there. A hair under half, so two cells plus
+     the gap never add up to more than the row and wrap by a rounding error. */
+  cards: "grid min-w-0 grow basis-full xl:basis-[calc(50%-0.55rem)]",
+  foot: "grid min-w-0",
+};
+
 export function dashboardSections(
   chosen: readonly WidgetSpec[],
   tier: RoleTier,
 ): Section[] {
+  const placed = chosen.filter((widget) => widget.slot !== "header");
   const leads = (widget: WidgetSpec) => widget.leadFor?.includes(tier) === true;
-  const attention = chosen.filter(
-    (widget) => widget.span === "full" && widget.group === "attention",
-  );
-  const lead = chosen.filter(
+
+  const lead = placed.filter(
     (widget) =>
-      widget.span === "full" && leads(widget) && !attention.includes(widget),
+      widget.span === "full" && widget.slot === undefined && leads(widget),
   );
-  const figures = chosen.filter((widget) => widget.span === "quarter");
-  const charts = chosen.filter(
+  const banner = placed.filter((widget) => widget.slot === "banner");
+  const foot = placed.filter((widget) => widget.slot === "foot");
+  const figures = placed.filter((widget) => widget.span === "quarter");
+  const metrics = figures.slice(0, MAX_METRICS);
+  const cards = placed.filter(
     (widget) =>
-      widget.span !== "quarter" &&
-      widget.span !== "full" &&
-      widget.group === "charts",
+      !lead.includes(widget) &&
+      !banner.includes(widget) &&
+      !foot.includes(widget) &&
+      !metrics.includes(widget),
   );
-  const panels = chosen.filter(
-    (widget) =>
-      widget.span !== "quarter" &&
-      widget.span !== "full" &&
-      widget.group !== "charts",
-  );
-  const rest = chosen.filter(
-    (widget) =>
-      widget.span === "full" &&
-      !attention.includes(widget) &&
-      !lead.includes(widget),
-  );
+
   const rows: Section[] = [
-    { key: "attention", min: "100%", widgets: attention },
-    { key: "lead", min: "100%", widgets: lead },
-    { key: "figures", min: "14rem", widgets: figures },
-    { key: "panels", min: "24rem", widgets: panels },
-    { key: "charts", min: "24rem", widgets: charts },
-    { key: "rest", min: "100%", widgets: rest },
+    { key: "lead", widgets: lead },
+    { key: "metrics", widgets: metrics },
+    { key: "banner", widgets: banner },
+    { key: "cards", widgets: cards },
+    { key: "foot", widgets: foot },
   ];
   return rows.filter((row) => row.widgets.length > 0);
 }

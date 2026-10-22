@@ -65,14 +65,26 @@ describe("the Today panel", () => {
     expect(spec?.feature).toBeUndefined();
   });
 
-  it.each(TIERS)("is in the first row for %s", (tier) => {
-    const ctx = context({
-      permissions: ["EDIT_RECORDS", "VIEW_SALARIES", "MANAGE_SETTINGS"],
-    });
-    const first = dashboardSections(layout(tier, ctx), tier)[0];
-    expect(first?.key).toBe("attention");
-    expect(first?.widgets.map((widget) => widget.id)).toContain("today");
-  });
+  it.each(TIERS)(
+    "is one of the first two cards for %s, with only the metrics and a banner above it",
+    (tier) => {
+      const ctx = context({
+        permissions: ["EDIT_RECORDS", "VIEW_SALARIES", "MANAGE_SETTINGS"],
+      });
+      const rows = dashboardSections(layout(tier, ctx), tier);
+      const cards = rows.find((row) => row.key === "cards");
+      expect(cards?.widgets.slice(0, 2).map((widget) => widget.id)).toContain(
+        "today",
+      );
+      const above = rows.slice(
+        0,
+        rows.findIndex((row) => row.key === "cards"),
+      );
+      expect(
+        above.every((row) => ["lead", "metrics", "banner"].includes(row.key)),
+      ).toBe(true);
+    },
+  );
 
   it("comes after what needs a decision, for the people who have that card", () => {
     const ctx = context({ permissions: ["EDIT_RECORDS", "VIEW_SALARIES"] });
