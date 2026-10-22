@@ -146,6 +146,8 @@ export type CreateAnnouncementBody = {
   audience?: AnnouncementAudience;
   departmentIds?: string[];
   pinned?: boolean;
+  /** Staff are expected to open it. Defaults to false. */
+  mandatory?: boolean;
   /** `YYYY-MM-DD`. */
   expiresOn?: string;
   /** Put it up straight away rather than saving a draft. Defaults to false. */
@@ -158,6 +160,12 @@ export type UpdateAnnouncementBody = {
   audience?: AnnouncementAudience;
   departmentIds?: string[];
   pinned?: boolean;
+  /**
+   * Set or cleared at any time. The API records a change to it as its own audit
+   * event, and only when the stored value actually moves, so a body that repeats
+   * the current value says nothing.
+   */
+  mandatory?: boolean;
   /** `null` clears the date. Absent leaves it alone. */
   expiresOn?: string | null;
 };
@@ -177,6 +185,25 @@ export const DELETE_EFFECT =
   "Deleted, not archived. Nothing else in the system referenced it, so there " +
   "is nothing left to read afterwards, not for you and not in a report. To " +
   "take a notice off the board and keep the wording, take it down instead.";
+
+/**
+ * What a must-read notice is, and what changing it later does.
+ *
+ * Written once so the form's tooltip and the list's badge cannot say different
+ * things. "Recorded" is the API's behaviour (an audit event of its own, apart from
+ * the edit's): who stopped requiring staff to read something, and when, is one
+ * thing to search for. People who have already read the notice stay read either
+ * way, and a notice cannot be made to ask everybody again except by taking it down
+ * and publishing it.
+ */
+export const MANDATORY_CHANGE_RECORDED =
+  "Turning this on or off after the notice is published is recorded, with " +
+  "who did it and when. People who have already read it stay read.";
+
+/** What the switch does for the reader. It blocks nothing. */
+export const MANDATORY_EFFECT =
+  "A task on their Today panel until they open it. It does not stop anybody " +
+  "working and it reaches nobody new.";
 
 /** Why a draft is not a dimmed notice. Used wherever drafts are listed. */
 export const DRAFT_EFFECT =

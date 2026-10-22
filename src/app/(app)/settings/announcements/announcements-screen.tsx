@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Megaphone, Pin, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowDownToLine,
+  Megaphone,
+  Pencil,
+  Pin,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -12,7 +19,7 @@ import {
   CardHeader,
   ConfirmDialog,
   EmptyState,
-  IconButton,
+  RowActions,
   SkeletonText,
   Stat,
   StatGrid,
@@ -102,6 +109,17 @@ export function AnnouncementsScreen() {
 
   const [writing, setWriting] = useState(false);
   const [editing, setEditing] = useState<ApiAnnouncement | null>(null);
+  /* The notice the edit form was last opened on, kept after it closes.
+     `AnnouncementForm` reads its fields from `notice` once, when it mounts, so
+     it has to be mounted afresh for each notice: without a key it opened on the
+     blank state it was first mounted with, and a save of an untouched edit wrote
+     that blank state over the notice. Kept rather than reset to null on close so
+     the form's exit does not flash its "write a notice" heading on the way out.
+     Adjusting state during render is the documented way to derive this. */
+  const [editedNotice, setEditedNotice] = useState<ApiAnnouncement | null>(
+    null,
+  );
+  if (editing !== null && editing !== editedNotice) setEditedNotice(editing);
   const [takingDown, setTakingDown] = useState<ApiAnnouncement | null>(null);
   const [deleting, setDeleting] = useState<ApiAnnouncement | null>(null);
   const [busy, setBusy] = useState(false);
@@ -348,6 +366,11 @@ export function AnnouncementsScreen() {
                           title={
                             <span className="flex flex-wrap items-center gap-2">
                               {notice.title}
+                              {notice.mandatory && (
+                                <Badge tone="accent" size="sm">
+                                  Must read
+                                </Badge>
+                              )}
                               {notice.pinned && (
                                 <Badge
                                   tone="accent"
@@ -407,6 +430,11 @@ export function AnnouncementsScreen() {
                     <div className="min-w-0">
                       <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
                         {notice.title}
+                        {notice.mandatory && (
+                          <Badge tone="accent" size="sm">
+                            Must read
+                          </Badge>
+                        )}
                         {notice.pinned && (
                           <Badge
                             tone="accent"
@@ -487,8 +515,9 @@ export function AnnouncementsScreen() {
       />
 
       <AnnouncementForm
+        key={editedNotice?.id ?? "none"}
         open={editing !== null}
-        notice={editing ?? undefined}
+        notice={editedNotice ?? undefined}
         departments={pickable}
         onClose={() => setEditing(null)}
         onSave={async (draft, publish) => {
@@ -502,6 +531,13 @@ export function AnnouncementsScreen() {
                 audience: draft.audience,
                 departmentIds: draft.departmentIds,
                 pinned: draft.pinned,
+                /* Only when it moved. The API records a change to it as an
+                   event of its own and says nothing about a repeat, so this is
+                   not for its sake; it keeps the edit's own record to what was
+                   actually changed. */
+                ...(draft.mandatory !== target.mandatory
+                  ? { mandatory: draft.mandatory }
+                  : {}),
                 /* An empty date clears it. `null` and absent mean different
                  things to the API, and this is the one that means "clear". */
                 expiresOn: draft.expiresOn === "" ? null : draft.expiresOn,
@@ -634,28 +670,37 @@ function NoticeRowActions({
 }) {
   return (
     <>
-      <Button variant="ghost" size="sm" disabled={busy} onClick={onEdit}>
-        Edit
-      </Button>
-
-      {notice.published ? (
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={busy}
-          onClick={onTakeDown}
-        >
-          Take it down
-        </Button>
-      ) : (
+      {/* The one act worth a button: putting a draft up. Everything else is in
+          the menu, so a row is never a line of small buttons, and the delete is
+          never one mis-tap from a neighbour. */}
+      {!notice.published && (
         <Button variant="accent" size="sm" disabled={busy} onClick={onPublish}>
           Publish
         </Button>
       )}
-
-      <IconButton label={`Delete ${notice.title}`} size="sm" onClick={onDelete}>
-        <Trash2 aria-hidden="true" className="size-3.5" />
-      </IconButton>
+      <RowActions
+        label={`More actions for ${notice.title}`}
+        disabled={busy}
+        items={[
+          { label: "Edit", icon: <Pencil />, onSelect: onEdit },
+          ...(notice.published
+            ? [
+                {
+                  label: "Take it down",
+                  icon: <ArrowDownToLine />,
+                  onSelect: onTakeDown,
+                },
+              ]
+            : []),
+          "separator",
+          {
+            label: "Delete",
+            icon: <Trash2 />,
+            tone: "danger" as const,
+            onSelect: onDelete,
+          },
+        ]}
+      />
     </>
   );
 }
@@ -667,6 +712,7 @@ function bodyFrom(draft: Draft, publish: boolean) {
     audience: draft.audience,
     departmentIds: draft.departmentIds,
     pinned: draft.pinned,
+    mandatory: draft.mandatory,
     publish,
     ...(draft.expiresOn ? { expiresOn: draft.expiresOn } : {}),
   };
