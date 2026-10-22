@@ -45,6 +45,7 @@ import {
   calendarDaysBetween,
   sectionData,
   sectionFailed,
+  noticeTodoCount,
   type ApiTodayNotice,
   type ClockInToday,
   type TodaySectionName,
@@ -223,8 +224,11 @@ function TodayBody({ today }: { today: MeToday }) {
     );
   }
   if (announcements) {
+    /* The API's order, kept: the ones staff must read first. */
     const unread = announcements.notices.filter((notice) => !notice.read);
-    todoCount += announcements.unread;
+    /* The count is the tasks, which is the notices somebody must open. The rest
+       are listed after them and are not counted: see `noticeTodoCount`. */
+    todoCount += noticeTodoCount(announcements);
     for (const notice of unread) {
       todo.push(
         <TodayRow
@@ -233,23 +237,53 @@ function TodayBody({ today }: { today: MeToday }) {
           title={notice.title}
           detail={noticeDetail(notice, timeZone)}
           trailing={
-            <Button
-              size="sm"
-              variant="secondary"
-              aria-label={`Read ${notice.title}`}
-              onClick={() => readNotice(notice)}
-            >
-              Read
-            </Button>
+            <>
+              {notice.mandatory && (
+                /* A word, in the indigo: a notice somebody has to open is not a
+                   problem and is not shown as one. */
+                <Badge tone="accent" size="sm">
+                  Must read
+                </Badge>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                aria-label={`Read ${notice.title}`}
+                onClick={() => readNotice(notice)}
+              >
+                Read
+              </Button>
+            </>
           }
         />,
       );
     }
-    const more = announcements.unread - unread.length;
-    if (more > 0) {
+    /* Two different shortfalls, said separately: five rows is a cap on the list
+       and the two counts are not capped. Mandatory sort first, so any that did
+       not fit are the must-reads and the ordinary ones are shown or beyond. */
+    const mandatoryShown = unread.filter((notice) => notice.mandatory).length;
+    const moreMandatory =
+      typeof announcements.mandatoryUnread === "number"
+        ? announcements.mandatoryUnread - mandatoryShown
+        : 0;
+    const moreOthers =
+      announcements.unread -
+      (typeof announcements.mandatoryUnread === "number"
+        ? announcements.mandatoryUnread
+        : 0) -
+      (unread.length - mandatoryShown);
+    if (moreMandatory > 0) {
+      todo.push(
+        <MoreLine key="notices-more-mandatory">
+          {moreMandatory} more {moreMandatory === 1 ? "notice" : "notices"} you
+          must read. They appear here as you read these.
+        </MoreLine>,
+      );
+    }
+    if (moreOthers > 0) {
       todo.push(
         <MoreLine key="notices-more">
-          {more} more unread. They appear here as you read these.
+          {moreOthers} more unread. They appear here as you read these.
         </MoreLine>,
       );
     }

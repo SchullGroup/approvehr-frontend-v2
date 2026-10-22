@@ -2,7 +2,11 @@ import { StrictMode } from "react";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/client";
-import type { ApiToday } from "@/lib/api/me";
+import {
+  noticeTodoCount,
+  type AnnouncementsToday,
+  type ApiToday,
+} from "@/lib/api/me";
 
 /**
  * What the Today panel's client asks the API, and what the store makes of the
@@ -219,13 +223,43 @@ describe("the weekly figure", () => {
   });
 });
 
+/* ---------------------------------------------------------- the to-do count */
+
+describe("how many notices are a task", () => {
+  const section = (over: Partial<AnnouncementsToday>): AnnouncementsToday => ({
+    notices: [],
+    unread: 6,
+    mandatoryUnread: 2,
+    total: 9,
+    ...over,
+  });
+
+  it("is the must-reads, not every unread notice", () => {
+    expect(noticeTodoCount(section({}))).toBe(2);
+  });
+
+  it("is a true zero when there are unread notices and none of them must be read", () => {
+    expect(noticeTodoCount(section({ mandatoryUnread: 0 }))).toBe(0);
+  });
+
+  it("falls back to every unread notice for an API that sends no must-read count", () => {
+    const old = {
+      notices: [],
+      unread: 6,
+      total: 9,
+    } as unknown as AnnouncementsToday;
+    expect(noticeTodoCount(old)).toBe(6);
+  });
+});
+
 /* ------------------------------------------------------------------- store */
 
-const notice = (id: string, read = false) => ({
+const notice = (id: string, read = false, mandatory = false) => ({
   id,
   title: id,
   body: id,
   pinned: false,
+  mandatory,
   publishedAt: "2026-10-19T09:00:00.000Z",
   postedByName: null,
   departmentNames: [],
@@ -238,7 +272,12 @@ const held = (): ApiToday => ({
   sections: {
     announcements: {
       status: "ok",
-      data: { notices: [notice("a"), notice("b")], unread: 5, total: 6 },
+      data: {
+        notices: [notice("a", false, true), notice("b")],
+        unread: 5,
+        mandatoryUnread: 2,
+        total: 6,
+      },
     },
     leave: {
       status: "ok",
@@ -296,7 +335,12 @@ describe("the store", () => {
       sections: {
         announcements: {
           status: "ok",
-          data: { notices: [notice("b")], unread: 4, total: 6 },
+          data: {
+            notices: [notice("b")],
+            unread: 4,
+            mandatoryUnread: 1,
+            total: 6,
+          },
         },
       },
     });
@@ -358,13 +402,67 @@ describe("the store", () => {
     expect(read()?.unread).toBe(4);
   });
 
+  it("takes one off the must-read count only when the notice was a must-read", async () => {
+    request.mockResolvedValueOnce(held());
+    const { result } = renderHook(() => useMeToday());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const read = () => {
+      const section = result.current.data?.sections.announcements;
+      return section?.status === "ok" ? section.data : null;
+    };
+    expect(read()).toMatchObject({ unread: 5, mandatoryUnread: 2 });
+
+    /* "b" is an ordinary notice: unread falls, the tasks do not. */
+    act(() => result.current.markNoticeRead("b", "2026-10-21T09:10:00.000Z"));
+    expect(read()).toMatchObject({ unread: 4, mandatoryUnread: 2 });
+
+    /* "a" is a must-read: both fall. */
+    act(() => result.current.markNoticeRead("a", "2026-10-21T09:11:00.000Z"));
+    expect(read()).toMatchObject({ unread: 3, mandatoryUnread: 1 });
+
+    /* And a second tap is not a second off either count. */
+    act(() => result.current.markNoticeRead("a", "2026-10-21T09:12:00.000Z"));
+    expect(read()).toMatchObject({ unread: 3, mandatoryUnread: 1 });
+  });
+
+  it("leaves an absent must-read count absent, rather than making one up", async () => {
+    request.mockResolvedValueOnce({
+      asOf: "x",
+      sections: {
+        announcements: {
+          status: "ok",
+          /* An API that predates the field. */
+          data: {
+            notices: [notice("a")],
+            unread: 3,
+            total: 3,
+          } as unknown as AnnouncementsToday,
+        },
+      },
+    });
+    const { result } = renderHook(() => useMeToday());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => result.current.markNoticeRead("a", "2026-10-21T09:10:00.000Z"));
+    const section = result.current.data?.sections.announcements;
+    expect(section?.status === "ok" && section.data.unread).toBe(2);
+    /* Not a number: a made-up zero would read as "nothing is a task". */
+    expect(
+      section?.status === "ok" ? section.data.mandatoryUnread : "no section",
+    ).toBeUndefined();
+  });
+
   it("never takes the unread count below zero", async () => {
     request.mockResolvedValueOnce({
       asOf: "x",
       sections: {
         announcements: {
           status: "ok",
-          data: { notices: [notice("a")], unread: 0, total: 1 },
+          data: {
+            notices: [notice("a", false, true)],
+            unread: 0,
+            mandatoryUnread: 0,
+            total: 1,
+          },
         },
       },
     });

@@ -35,6 +35,7 @@ describe("an instant renders in the company's zone, not UTC's", () => {
           title: "Payroll moves to the 25th",
           body: "Starting next month.",
           pinned: false,
+          mandatory: false,
           publishedAt: INSTANT,
           departmentNames: [],
           postedByName: "Amara Nwachukwu",

@@ -52,6 +52,7 @@ const notice = (id: string, over: Record<string, unknown> = {}) => ({
   title: `Notice ${id}`,
   body: `Body of notice ${id}.\nSecond paragraph.`,
   pinned: false,
+  mandatory: false,
   publishedAt: "2026-10-19T09:00:00.000Z",
   postedByName: "Ada Obi",
   departmentNames: [],
@@ -77,11 +78,13 @@ function everything(): Sections {
       status: "ok",
       data: {
         notices: [
-          notice("n1", { pinned: true }),
+          /* The API's order: a notice somebody must read comes first. */
+          notice("n1", { pinned: true, mandatory: true }),
           notice("n2"),
           notice("n3", { read: true, readAt: "2026-10-20T08:00:00.000Z" }),
         ],
         unread: 2,
+        mandatoryUnread: 1,
         total: 3,
       },
     },
@@ -191,9 +194,83 @@ describe("To do", () => {
     expect(screen.getByText("Notice n2")).toBeInTheDocument();
     /* Read ones are not asked of them. */
     expect(screen.queryByText("Notice n3")).not.toBeInTheDocument();
-    /* Two unread notices and one policy. */
-    expect(screen.getByRole("tab", { name: /To do\s*3/ })).toBeInTheDocument();
+    /* One notice they must read and one policy. The other unread notice is
+       listed and is not a task, so it is not in the count. */
+    expect(screen.getByRole("tab", { name: /To do\s*2/ })).toBeInTheDocument();
     expect(screen.getByText(/Pinned, Ada Obi/)).toBeInTheDocument();
+  });
+
+  it("marks the notices somebody must read, and only those, in the API's order", async () => {
+    mountWith();
+    await screen.findByText("Notice n1");
+    const row = (title: string) =>
+      screen.getByText(title).closest("li") as HTMLElement;
+    expect(within(row("Notice n1")).getByText("Must read")).toBeInTheDocument();
+    expect(within(row("Notice n2")).queryByText("Must read")).toBeNull();
+    /* The order the API sent: the must-read first. */
+    const titles = screen
+      .getAllByRole("button", { name: /^Read Notice/ })
+      .map((button) => button.getAttribute("aria-label"));
+    expect(titles).toEqual(["Read Notice n1", "Read Notice n2"]);
+  });
+
+  it("counts the must-reads and not the unread, so an ordinary unread notice is not a task", async () => {
+    mountWith({
+      announcements: {
+        status: "ok",
+        data: {
+          notices: [notice("n1"), notice("n2")],
+          unread: 2,
+          mandatoryUnread: 0,
+          total: 2,
+        },
+      },
+      policies: { status: "ok", data: { outstanding: [], total: 0 } },
+    });
+    expect(await screen.findByText("Notice n1")).toBeInTheDocument();
+    /* Listed, so it can be read, and no count: nothing here is asked of them. */
+    expect(screen.getByRole("tab", { name: "To do" })).toBeInTheDocument();
+    expect(screen.queryByText("Must read")).toBeNull();
+  });
+
+  it("says how many must-reads did not fit in the five, apart from the rest", async () => {
+    mountWith({
+      announcements: {
+        status: "ok",
+        data: {
+          notices: ["a", "b", "c", "d", "e"].map((id) =>
+            notice(id, { mandatory: true }),
+          ),
+          unread: 9,
+          mandatoryUnread: 7,
+          total: 9,
+        },
+      },
+      policies: { status: "ok", data: { outstanding: [], total: 0 } },
+    });
+    expect(
+      await screen.findByText(/2 more notices you must read/),
+    ).toBeInTheDocument();
+    /* Seven are tasks, whatever the list could hold. */
+    expect(screen.getByRole("tab", { name: /To do\s*7/ })).toBeInTheDocument();
+    /* The two ordinary ones are said separately, as before. */
+    expect(screen.getByText(/2 more unread/)).toBeInTheDocument();
+  });
+
+  it("counts every unread notice for an API that sends no must-read figure", async () => {
+    mountWith({
+      announcements: {
+        status: "ok",
+        data: {
+          notices: [notice("n1"), notice("n2")],
+          unread: 2,
+          total: 2,
+        } as never,
+      },
+      policies: { status: "ok", data: { outstanding: [], total: 0 } },
+    });
+    expect(await screen.findByText("Notice n1")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /To do\s*2/ })).toBeInTheDocument();
   });
 
   it("says a re-asked policy is a re-ask, not a first", async () => {
@@ -209,6 +286,7 @@ describe("To do", () => {
         data: {
           notices: [notice("n1")],
           unread: 4,
+          mandatoryUnread: 0,
           total: 4,
         },
       },
@@ -225,7 +303,7 @@ describe("To do", () => {
     mountWith({
       announcements: {
         status: "ok",
-        data: { notices: [], unread: 0, total: 0 },
+        data: { notices: [], unread: 0, mandatoryUnread: 0, total: 0 },
       },
       policies: { status: "ok", data: { outstanding: [], total: 0 } },
     });
@@ -316,7 +394,7 @@ describe("a section that does not apply draws nothing", () => {
     const { container } = mountWith({
       announcements: {
         status: "ok",
-        data: { notices: [], unread: 0, total: 0 },
+        data: { notices: [], unread: 0, mandatoryUnread: 0, total: 0 },
       },
       policies: unavailable("no_staff_record"),
       pay: unavailable("no_staff_record"),
@@ -334,7 +412,7 @@ describe("a section that does not apply draws nothing", () => {
     mountWith({
       announcements: {
         status: "ok",
-        data: { notices: [], unread: 0, total: 0 },
+        data: { notices: [], unread: 0, mandatoryUnread: 0, total: 0 },
       },
       policies: unavailable("no_staff_record"),
       pay: unavailable("no_staff_record"),
@@ -713,7 +791,12 @@ describe("opening a notice", () => {
       sections: {
         announcements: {
           status: "ok",
-          data: { notices: [notice("n2")], unread: 1, total: 3 },
+          data: {
+            notices: [notice("n2")],
+            unread: 1,
+            mandatoryUnread: 0,
+            total: 3,
+          },
         },
       },
     });
@@ -737,7 +820,9 @@ describe("opening a notice", () => {
         screen.queryByRole("button", { name: "Read Notice n1" }),
       ).not.toBeInTheDocument(),
     );
-    expect(screen.getByRole("tab", { name: /To do\s*2/ })).toBeInTheDocument();
+    /* n1 was the must-read, so the count falls from two (it and the policy) to
+       one (the policy). */
+    expect(screen.getByRole("tab", { name: /To do\s*1/ })).toBeInTheDocument();
     await waitFor(() =>
       expect(api.today).toHaveBeenLastCalledWith(["announcements"]),
     );
@@ -781,6 +866,7 @@ describe("opening a notice", () => {
             notice("x", { body: "<img src=x onerror=alert(1)> Office shut." }),
           ],
           unread: 1,
+          mandatoryUnread: 0,
           total: 1,
         },
       },

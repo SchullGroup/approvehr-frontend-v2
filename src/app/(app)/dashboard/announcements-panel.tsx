@@ -116,6 +116,13 @@ function Notice({ notice }: { notice: ApiBoardNotice }) {
   return (
     <article className="border-l-2 border-line pl-3.5">
       <div className="flex flex-wrap items-center gap-2">
+        {notice.mandatory && (
+          /* The indigo, and a word: a notice staff are expected to open is not
+             a warning. */
+          <Badge tone="accent" size="sm">
+            Must read
+          </Badge>
+        )}
         {notice.pinned && (
           /* A word as well as an icon. An icon alone is a colour-and-shape cue
              that a screen reader has to guess at. */

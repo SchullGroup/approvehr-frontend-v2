@@ -57,6 +57,14 @@ export type ApiAnnouncement = {
    */
   departmentNames: string[];
   pinned: boolean;
+  /**
+   * Staff are expected to open it.
+   *
+   * It marks and it counts, and nothing more: it blocks nothing, widens nobody's
+   * audience and changes nothing about what a read receipt is. Turning it on or
+   * off after the notice is up is allowed, and is recorded in the audit trail.
+   */
+  mandatory: boolean;
   published: boolean;
   publishedAt: string | null;
   /** `YYYY-MM-DD`, inclusive. Null means it stays until somebody takes it down. */
@@ -79,6 +87,8 @@ export type ApiBoardNotice = {
   title: string;
   body: string;
   pinned: boolean;
+  /** Staff are expected to open it. See `ApiAnnouncement.mandatory`. */
+  mandatory: boolean;
   publishedAt: string;
   /** Empty when the notice is for everybody. Names, never ids. */
   departmentNames: string[];

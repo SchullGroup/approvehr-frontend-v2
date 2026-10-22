@@ -65,8 +65,9 @@ export type MeToday = {
   /**
    * The person has opened this notice and the server has recorded it.
    *
-   * Moves it to read and takes one off the unread count at once, so the row does
-   * not sit there for the length of a second request. The section refresh that
+   * Moves it to read and takes one off the unread count at once (and off the
+   * must-read count, if it was one), so the row does not sit there for the length
+   * of a second request. The section refresh that
    * follows is what makes the count exact, since a sixth unread notice may now
    * belong in the five.
    */
@@ -179,6 +180,15 @@ export function useMeToday(): MeToday {
                   notice.id === id ? { ...notice, read: true, readAt } : notice,
                 ),
                 unread: Math.max(section.data.unread - 1, 0),
+                /* The to-do count moves only when the notice was one of the
+                   tasks. An API that sends no such figure is left sending none:
+                   `noticeTodoCount` then falls back to `unread`, which has just
+                   moved. */
+                mandatoryUnread:
+                  target.mandatory &&
+                  typeof section.data.mandatoryUnread === "number"
+                    ? Math.max(section.data.mandatoryUnread - 1, 0)
+                    : section.data.mandatoryUnread,
               },
             },
           },

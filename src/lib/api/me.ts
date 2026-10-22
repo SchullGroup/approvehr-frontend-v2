@@ -79,6 +79,8 @@ export type ApiTodayNotice = {
   /** Plain text, up to 4,000 characters. Never HTML. */
   body: string;
   pinned: boolean;
+  /** Staff are expected to open it. It marks and counts and blocks nothing. */
+  mandatory: boolean;
   publishedAt: string;
   postedByName: string | null;
   /** Empty when it is for everybody. */
@@ -88,13 +90,43 @@ export type ApiTodayNotice = {
 };
 
 export type AnnouncementsToday = {
-  /** At most five: unread first, then read, each group pinned first then newest. */
+  /**
+   * At most five: mandatory unread first, then the other unread, then read, each
+   * group pinned first then newest. The order is the API's and is kept.
+   */
   notices: ApiTodayNotice[];
-  /** Visible to this person and not yet read. Not capped at five. */
+  /**
+   * Visible to this person and not yet read, mandatory or not. Not capped at
+   * five. A badge: "notices I have not opened". It is **not** the to-do count,
+   * which is `mandatoryUnread` (see `noticeTodoCount`).
+   */
   unread: number;
+  /**
+   * Of `unread`, the ones staff are expected to open. Not capped at five: with
+   * seven unread the list shows five, all mandatory, and this says 7.
+   *
+   * Absent from an API that predates it, which is why callers go through
+   * `noticeTodoCount` rather than reading it bare.
+   */
+  mandatoryUnread: number;
   /** Visible to this person. Not capped at five. */
   total: number;
 };
+
+/**
+ * How many notices are a task.
+ *
+ * `mandatoryUnread`, never `unread`: an unread notice that nobody has to read is
+ * something to look at and not something to do, and a to-do count that included
+ * every one would make the tab shout about a canteen menu. An API that predates
+ * the field sends no number at all, and then every unread notice counts, as it did
+ * before there was a difference. A missing figure is not a zero.
+ */
+export function noticeTodoCount(section: AnnouncementsToday): number {
+  return typeof section.mandatoryUnread === "number"
+    ? section.mandatoryUnread
+    : section.unread;
+}
 
 export type PoliciesToday = {
   /** Up to five awaiting acknowledgement, newest published first. */
