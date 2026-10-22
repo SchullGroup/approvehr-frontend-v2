@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Lock,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Input } from "@/components/ui";
+import { sectionKey, useFoldedSections } from "@/lib/store/sidebar-sections";
 import type { BadgeSource, NavGroup, NavItem } from "./nav";
 import {
   ROOT,
@@ -67,6 +69,20 @@ import {
  * "I went back up", "I opened Payroll" — and it is held for **that page
  * only**, so it can never fight the route: the moment the path changes, the
  * route is right again.
+ *
+ * ## Headed sections fold
+ *
+ * A level of eight or more items is filed under small headings (People,
+ * Lifecycle, Records), and each heading is a button that folds its section
+ * away. It is the one place anything expands in place, and it is bounded by
+ * what a level already holds. Folding is a personal preference, kept in the
+ * browser (`lib/store/sidebar-sections.ts`) and never derived from the route:
+ * the route decides which *level* you are on, you decide how much of it you
+ * read.
+ *
+ * A fold never hides a fact. A folded heading carries a dot when something in
+ * it has a count waiting and a mark when the page you are on is inside it, Find
+ * still searches it, and every section starts open.
  *
  * ## Why a chevron row is a button
  *
@@ -134,6 +150,7 @@ export function SidebarNav({
   >(null);
   const reduced = usePrefersReducedMotion();
   const drawer = variant === "drawer";
+  const { isFolded, toggle: toggleSection } = useFoldedSections();
 
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -430,7 +447,10 @@ export function SidebarNav({
               <button
                 type="button"
                 data-nav-back=""
-                aria-label="Back to main menu"
+                /* WCAG 2.5.3: the name has to contain what the button shows,
+                   so somebody who says "click Payroll" reaches it. The label
+                   leads and the purpose follows. */
+                aria-label={`${drill.label}, back to main menu`}
                 onClick={goBack}
                 className={cn(
                   "flex w-full min-w-0 items-center gap-1 rounded-md text-left text-muted",
@@ -451,28 +471,50 @@ export function SidebarNav({
                 </span>
               </button>
             </div>
-            {drill.sections.map((section) => (
-              <div key={section.label ?? "first"}>
-                {section.label && (
-                  <h3 className="px-2.5 pb-1 pt-3 text-meta font-semibold uppercase tracking-wide text-faint">
-                    {section.label}
-                  </h3>
-                )}
-                <ul className="flex flex-col gap-0.5">
-                  {section.items.map((item) => (
-                    <li key={item.label}>
-                      <NavLinkRow
-                        item={item}
-                        active={isNavItemActive(item, here.activeHref)}
-                        count={countOf(item, badges)}
-                        onNavigate={onLinkUsed}
-                        drawer={drawer}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            {drill.sections.map((section, sectionIndex) => {
+              const key = section.label
+                ? sectionKey(drill.id, section.label)
+                : null;
+              const folded = key !== null && isFolded(key);
+              const panelId = `${listId}-section-${sectionIndex}`;
+              return (
+                <div key={section.label ?? "first"}>
+                  {section.label && key && (
+                    <SectionHeading
+                      label={section.label}
+                      folded={folded}
+                      panelId={panelId}
+                      current={section.items.some((item) =>
+                        isNavItemActive(item, here.activeHref),
+                      )}
+                      attention={section.items.some(
+                        (item) =>
+                          (countOf(item, badges) ?? 0) > 0 &&
+                          !item.locked &&
+                          !item.soon,
+                      )}
+                      onToggle={() => toggleSection(key)}
+                      drawer={drawer}
+                    />
+                  )}
+                  {!folded && (
+                    <ul id={panelId} className="flex flex-col gap-0.5">
+                      {section.items.map((item) => (
+                        <li key={item.label}>
+                          <NavLinkRow
+                            item={item}
+                            active={isNavItemActive(item, here.activeHref)}
+                            count={countOf(item, badges)}
+                            onNavigate={onLinkUsed}
+                            drawer={drawer}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div key="root" className={animation}>
@@ -611,6 +653,78 @@ function NavLinkRow({
         </span>
       )}
     </Link>
+  );
+}
+
+/**
+ * A small heading that folds its section.
+ *
+ * The heading stays an `h3`, with the button inside it: that is the disclosure
+ * pattern, and it keeps the outline a screen reader walks. The label is the
+ * button's whole name (the chevron is decoration), so "People" says "People".
+ *
+ * Folded, it says the two things a hidden list must not hide: that something
+ * inside is waiting (a dot, not a sum — leave requests and clock-ins do not
+ * add), and that the page you are on is inside it.
+ */
+function SectionHeading({
+  label,
+  folded,
+  panelId,
+  current,
+  attention,
+  onToggle,
+  drawer,
+}: {
+  label: string;
+  folded: boolean;
+  panelId: string;
+  current: boolean;
+  attention: boolean;
+  onToggle: () => void;
+  drawer: boolean;
+}) {
+  return (
+    <h3 className="pb-0.5 pt-3">
+      <button
+        type="button"
+        data-nav-section={label}
+        data-folded={folded ? "true" : undefined}
+        aria-expanded={!folded}
+        aria-controls={folded ? undefined : panelId}
+        onClick={onToggle}
+        className={cn(
+          "group flex w-full items-center gap-1.5 rounded-md px-2.5 text-left text-meta font-semibold uppercase tracking-wide",
+          "transition-colors hover:bg-canvas",
+          drawer ? "min-h-11" : "min-h-8",
+          folded && current
+            ? "text-accent-text"
+            : "text-faint hover:text-muted",
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        {folded && current && (
+          <span className="sr-only">, the page you are on is in here</span>
+        )}
+        {folded && attention && (
+          <>
+            <span
+              aria-hidden="true"
+              data-attention=""
+              className="size-1.5 shrink-0 rounded-full bg-accent-text"
+            />
+            <span className="sr-only">, needs attention</span>
+          </>
+        )}
+        <ChevronDown
+          aria-hidden="true"
+          className={cn(
+            "size-3.5 shrink-0 transition-transform",
+            folded && "-rotate-90",
+          )}
+        />
+      </button>
+    </h3>
   );
 }
 
