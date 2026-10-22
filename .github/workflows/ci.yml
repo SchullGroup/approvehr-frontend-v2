@@ -18,8 +18,8 @@ on:
     # `staging` joined on 2026-10-22. Work lands on it directly, with no pull
     # request in between, so for those pushes this run is the only check that
     # is not the author's own machine. Without it a green "CI" on staging meant
-    # nothing: the "Staging into dev" pull request was closed and no workflow ran
-    # for 47 consecutive pushes. `dev` is still uncovered.
+    # nothing: once the "Staging into dev" pull request was closed, no workflow ran
+    # for the pushes that followed. `dev` is still uncovered.
     branches: [main, preprod, test, staging]
   pull_request:
 
