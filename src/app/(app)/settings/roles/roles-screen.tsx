@@ -27,10 +27,10 @@ import {
   Stat,
   Tabs,
   useToast,
+  LoadState,
 } from "@/components/ui";
 import type { TabItem } from "@/components/ui";
 import { InviteLinkButton } from "@/components/portal/invite-link";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { invitesApi, type PendingInvite } from "@/lib/api/invites";
@@ -254,121 +254,126 @@ export function RolesScreen({
           </Callout>
         )}
 
-        {roles.error && (
-          <LoadFailure
-            subject="your roles"
-            error={roles.error}
-            onRetry={roles.reload}
-          />
-        )}
+        {/* The one loading and failure rule, over the counts and the tabs that
+            share this read. "Roles 0" and "Can manage access 0" were printed
+            while the roles were still loading and after they could not be: two
+            claims about who can change access that the page did not know. */}
+        <LoadState
+          loading={roles.loading}
+          error={roles.error}
+          subject="your roles"
+          onRetry={roles.reload}
+          skeleton="page"
+          hasData={roles.roles.length > 0}
+        >
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <Stat label="Roles" value={String(roles.counts.roles)} />
+            <Stat
+              label="Can manage access"
+              value={String(roles.counts.peopleWhoCanManageAccess)}
+              hint="people who can change this page"
+              {...(roles.counts.peopleWhoCanManageAccess < 2
+                ? {
+                    trend: {
+                      direction: "down" as const,
+                      label: "Add one more",
+                    },
+                  }
+                : {})}
+            />
+            <Stat
+              label="Built-in roles"
+              value={String(roles.roles.filter((role) => role.isSystem).length)}
+              hint="fixed, and cannot be deleted"
+            />
+          </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <Stat label="Roles" value={String(roles.counts.roles)} />
-          <Stat
-            label="Can manage access"
-            value={String(roles.counts.peopleWhoCanManageAccess)}
-            hint="people who can change this page"
-            {...(roles.counts.peopleWhoCanManageAccess < 2
-              ? { trend: { direction: "down" as const, label: "Add one more" } }
-              : {})}
-          />
-          <Stat
-            label="Built-in roles"
-            value={String(roles.roles.filter((role) => role.isSystem).length)}
-            hint="fixed, and cannot be deleted"
-          />
-        </div>
+          {conflicted.map((role) => (
+            <Callout key={role.id} tone="warning">
+              <p className="font-medium text-ink">
+                {role.name}: {role.warnings[0]}
+              </p>
+              <div className="mt-2.5">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setOpenId(role.id)}
+                >
+                  Split it
+                </Button>
+              </div>
+            </Callout>
+          ))}
 
-        {conflicted.map((role) => (
-          <Callout key={role.id} tone="warning">
-            <p className="font-medium text-ink">
-              {role.name}: {role.warnings[0]}
-            </p>
-            <div className="mt-2.5">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setOpenId(role.id)}
-              >
-                Split it
-              </Button>
-            </div>
-          </Callout>
-        ))}
-
-        {/* Three questions the page answers, one at a time: which roles there
+          {/* Three questions the page answers, one at a time: which roles there
             are, who has been invited or has an account with no role, and what
             you can do yourself. The counts and any role that needs splitting
             stay above, because they are true whichever tab is open. */}
-        <Tabs items={TAB_ITEMS} value={tab} onChange={changeTab}>
-          <div className="flex flex-col gap-6">
-            {tab === "roles" && (
-              <>
-                <Card>
-                  <CardHeader title="Roles" />
-                  {roles.roles.length === 0 ? (
-                    <EmptyState
-                      icon={<ShieldCheck aria-hidden="true" />}
-                      title={roles.loading ? "Loading…" : "No roles yet"}
-                      {...(roles.loading
-                        ? {}
-                        : {
-                            description:
-                              "Every company gets four to start with. If this is empty, the workspace was not set up.",
-                          })}
-                    />
-                  ) : (
-                    <CardBody className="flex flex-col gap-2">
-                      {roles.roles.map((role) => (
-                        <RoleRow
-                          key={role.id}
-                          role={role}
-                          canManage={canManage}
-                          onOpen={() => setOpenId(role.id)}
-                          onDuplicate={() => setCreating({ from: role })}
-                          onDelete={() => setDeleting(role)}
-                        />
-                      ))}
-                    </CardBody>
-                  )}
-                </Card>
-              </>
-            )}
-            {tab === "invitations" && (
-              <>
-                <InvitationsCard
-                  invites={invites}
-                  canInvite={canInvite}
-                  onInvite={() => setInviting(true)}
-                  onResend={(userId) =>
-                    void run(
-                      () => invites.resend(userId),
-                      "Invitation sent again",
-                    )
-                  }
-                  onRevoke={(invite) => setRevoking(invite)}
-                  onLink={(invite) => setLinking(invite)}
-                />
+          <Tabs items={TAB_ITEMS} value={tab} onChange={changeTab}>
+            <div className="flex flex-col gap-6">
+              {tab === "roles" && (
+                <>
+                  <Card>
+                    <CardHeader title="Roles" />
+                    {roles.roles.length === 0 ? (
+                      <EmptyState
+                        icon={<ShieldCheck aria-hidden="true" />}
+                        title="No roles yet"
+                        description="Every company gets four to start with. If this is empty, the workspace was not set up."
+                      />
+                    ) : (
+                      <CardBody className="flex flex-col gap-2">
+                        {roles.roles.map((role) => (
+                          <RoleRow
+                            key={role.id}
+                            role={role}
+                            canManage={canManage}
+                            onOpen={() => setOpenId(role.id)}
+                            onDuplicate={() => setCreating({ from: role })}
+                            onDelete={() => setDeleting(role)}
+                          />
+                        ))}
+                      </CardBody>
+                    )}
+                  </Card>
+                </>
+              )}
+              {tab === "invitations" && (
+                <>
+                  <InvitationsCard
+                    invites={invites}
+                    canInvite={canInvite}
+                    onInvite={() => setInviting(true)}
+                    onResend={(userId) =>
+                      void run(
+                        () => invites.resend(userId),
+                        "Invitation sent again",
+                      )
+                    }
+                    onRevoke={(invite) => setRevoking(invite)}
+                    onLink={(invite) => setLinking(invite)}
+                  />
 
-                <UnlinkedAccountsPanel canManage={canManage} />
-              </>
-            )}
-            {tab === "your-access" && (
-              <>
-                <div className="grid gap-6 lg:grid-cols-2">
-                  <YourAccess access={access} catalogue={roles.catalogue} />
-                  {preview.available && (
-                    <PreviewCard
-                      roles={roles.roles}
-                      currentId={preview.role?.id ?? ""}
-                      onChange={preview.set}
-                    />
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </Tabs>
+                  <UnlinkedAccountsPanel canManage={canManage} />
+                </>
+              )}
+              {tab === "your-access" && (
+                <>
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <YourAccess access={access} catalogue={roles.catalogue} />
+                    {preview.available && (
+                      <PreviewCard
+                        roles={roles.roles}
+                        currentId={preview.role?.id ?? ""}
+                        onChange={preview.set}
+                      />
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </Tabs>
+        </LoadState>
       </PageBody>
 
       <RoleEditor
@@ -714,20 +719,22 @@ export function InvitationsCard({
           ) : undefined
         }
       />
-      {invites.error ? (
+      {invites.error || invites.loading ? (
         <CardBody>
-          <LoadFailure subject="invitations" error={invites.error} />
+          <LoadState
+            loading={invites.loading}
+            error={invites.error}
+            subject="invitations"
+            skeleton="list"
+          >
+            {null}
+          </LoadState>
         </CardBody>
       ) : invites.invites.length === 0 ? (
         <EmptyState
           icon={<Mail aria-hidden="true" />}
-          title={invites.loading ? "Loading…" : "No pending invitations"}
-          {...(invites.loading
-            ? {}
-            : {
-                description:
-                  "Everybody entitled to sign in either already has an account, or has not been invited yet.",
-              })}
+          title="No pending invitations"
+          description="Everybody entitled to sign in either already has an account, or has not been invited yet."
         />
       ) : (
         <CardBody className="flex flex-col gap-2">

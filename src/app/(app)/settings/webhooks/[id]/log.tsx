@@ -18,7 +18,6 @@ import {
   CardHeader,
   EmptyState,
   Select,
-  Skeleton,
   TBody,
   TD,
   TDPrimary,
@@ -28,8 +27,8 @@ import {
   TableWrap,
   Field,
   FilterBar,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import type { ApiDelivery } from "@/lib/api/webhooks";
 import { fullStamp } from "@/lib/audit/language";
 import type { useDeliveryLog } from "@/lib/store/webhooks";
@@ -194,145 +193,141 @@ export function DeliveryLog({
           </p>
         )}
 
-        {/* `useDeliveryLog` flattens the error to a string before a screen sees
-            it, so there is no `ApiError` left to classify and this renders the
-            general advice. Widening that state to `ApiError | null` is what
-            would let the API's own sentence through. */}
-        <LoadFailure
-          subject="the delivery log"
+        <LoadState
+          loading={log.loading}
           error={log.error}
+          subject="the delivery log"
           onRetry={log.reload}
-        />
-
-        {log.loading ? (
-          <Skeleton className="h-40 w-full" />
-        ) : log.rows.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<Clock aria-hidden="true" />}
-            title="Nothing here yet"
-            description="Send a test event and it will appear at the top of this list."
-          />
-        ) : (
-          <>
-            <div className="hidden sm:block">
-              <TableWrap caption="Every delivery attempt for this endpoint, newest first">
-                <THead>
-                  <TH>Event</TH>
-                  <TH>When</TH>
-                  <TH>Result</TH>
-                  <TH>Attempt</TH>
-                  <TH className="text-right">Payload</TH>
-                </THead>
-                <TBody>
-                  {log.rows.map((row) => {
-                    const open = expanded.has(row.id);
-                    return (
-                      <Fragment key={row.id}>
-                        <TR className="align-top">
-                          <TDPrimary
-                            title={
-                              <span className="font-mono text-body-sm">
-                                {row.event}
-                              </span>
-                            }
-                            subtitle={
-                              <span className="font-mono">
-                                {row.id.slice(0, 8)}…
-                              </span>
-                            }
-                          />
-                          <TD className="whitespace-nowrap tabular">
-                            {fullStamp(row.createdAt, timeZone)}
-                          </TD>
-                          <TD>
-                            <Outcome row={row} timeZone={timeZone} />
-                          </TD>
-                          <TD className="whitespace-nowrap tabular">
-                            {row.attempt} of {row.maxAttempts}
-                          </TD>
-                          <TD align="right">
-                            <div className="flex flex-col items-end gap-2">
-                              <ShowHideButton
-                                open={open}
-                                onClick={() => toggle(row.id)}
-                              />
-                              {editable && row.state !== "delivered" && (
-                                <RetryButton
-                                  loading={retrying === row.id}
-                                  onClick={() => void retry(row.id)}
+          skeleton="table"
+        >
+          {log.rows.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<Clock aria-hidden="true" />}
+              title="Nothing here yet"
+              description="Send a test event and it will appear at the top of this list."
+            />
+          ) : (
+            <>
+              <div className="hidden sm:block">
+                <TableWrap caption="Every delivery attempt for this endpoint, newest first">
+                  <THead>
+                    <TH>Event</TH>
+                    <TH>When</TH>
+                    <TH>Result</TH>
+                    <TH>Attempt</TH>
+                    <TH className="text-right">Payload</TH>
+                  </THead>
+                  <TBody>
+                    {log.rows.map((row) => {
+                      const open = expanded.has(row.id);
+                      return (
+                        <Fragment key={row.id}>
+                          <TR className="align-top">
+                            <TDPrimary
+                              title={
+                                <span className="font-mono text-body-sm">
+                                  {row.event}
+                                </span>
+                              }
+                              subtitle={
+                                <span className="font-mono">
+                                  {row.id.slice(0, 8)}…
+                                </span>
+                              }
+                            />
+                            <TD className="whitespace-nowrap tabular">
+                              {fullStamp(row.createdAt, timeZone)}
+                            </TD>
+                            <TD>
+                              <Outcome row={row} timeZone={timeZone} />
+                            </TD>
+                            <TD className="whitespace-nowrap tabular">
+                              {row.attempt} of {row.maxAttempts}
+                            </TD>
+                            <TD align="right">
+                              <div className="flex flex-col items-end gap-2">
+                                <ShowHideButton
+                                  open={open}
+                                  onClick={() => toggle(row.id)}
                                 />
-                              )}
-                            </div>
-                          </TD>
-                        </TR>
-                        {open && (
-                          <TR>
-                            <TD colSpan={5}>
-                              <Detail row={row} timeZone={timeZone} />
+                                {editable && row.state !== "delivered" && (
+                                  <RetryButton
+                                    loading={retrying === row.id}
+                                    onClick={() => void retry(row.id)}
+                                  />
+                                )}
+                              </div>
                             </TD>
                           </TR>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </TBody>
-              </TableWrap>
-            </div>
+                          {open && (
+                            <TR>
+                              <TD colSpan={5}>
+                                <Detail row={row} timeZone={timeZone} />
+                              </TD>
+                            </TR>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </TBody>
+                </TableWrap>
+              </div>
 
-            <ul className="divide-y divide-line sm:hidden">
-              {log.rows.map((row) => {
-                const open = expanded.has(row.id);
-                return (
-                  <li key={row.id} className="flex flex-col gap-2 p-4">
-                    <div className="min-w-0">
-                      <p className="font-mono text-body-sm text-ink">
-                        {row.event}
-                      </p>
-                      <p className="font-mono text-meta text-muted">
-                        {row.id.slice(0, 8)}…
-                      </p>
-                    </div>
+              <ul className="divide-y divide-line sm:hidden">
+                {log.rows.map((row) => {
+                  const open = expanded.has(row.id);
+                  return (
+                    <li key={row.id} className="flex flex-col gap-2 p-4">
+                      <div className="min-w-0">
+                        <p className="font-mono text-body-sm text-ink">
+                          {row.event}
+                        </p>
+                        <p className="font-mono text-meta text-muted">
+                          {row.id.slice(0, 8)}…
+                        </p>
+                      </div>
 
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-body-sm text-muted">When</span>
-                      <span className="tabular text-body-sm text-body">
-                        {fullStamp(row.createdAt, timeZone)}
-                      </span>
-                    </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">When</span>
+                        <span className="tabular text-body-sm text-body">
+                          {fullStamp(row.createdAt, timeZone)}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-body-sm text-muted">Result</span>
-                      <Outcome row={row} timeZone={timeZone} />
-                    </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">Result</span>
+                        <Outcome row={row} timeZone={timeZone} />
+                      </div>
 
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-body-sm text-muted">Attempt</span>
-                      <span className="tabular text-body-sm text-body">
-                        {row.attempt} of {row.maxAttempts}
-                      </span>
-                    </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">Attempt</span>
+                        <span className="tabular text-body-sm text-body">
+                          {row.attempt} of {row.maxAttempts}
+                        </span>
+                      </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <ShowHideButton
-                        open={open}
-                        onClick={() => toggle(row.id)}
-                      />
-                      {editable && row.state !== "delivered" && (
-                        <RetryButton
-                          loading={retrying === row.id}
-                          onClick={() => void retry(row.id)}
+                      <div className="flex flex-wrap gap-2">
+                        <ShowHideButton
+                          open={open}
+                          onClick={() => toggle(row.id)}
                         />
-                      )}
-                    </div>
+                        {editable && row.state !== "delivered" && (
+                          <RetryButton
+                            loading={retrying === row.id}
+                            onClick={() => void retry(row.id)}
+                          />
+                        )}
+                      </div>
 
-                    {open && <Detail row={row} timeZone={timeZone} />}
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        )}
+                      {open && <Detail row={row} timeZone={timeZone} />}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </LoadState>
 
         {(filters.page > 1 || log.hasMore) && (
           <div className="flex items-center justify-between gap-3">

@@ -12,10 +12,9 @@ import {
   Field,
   Input,
   Select,
-  Spinner,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import {
   deviceUserLabel,
@@ -195,12 +194,6 @@ export function EnrolmentsDrawer({
       description="A terminal knows people by its own enrolment numbers. This is where those become names."
     >
       <div className="flex flex-col gap-6">
-        <LoadFailure
-          subject="this terminal's enrolments"
-          error={list.error}
-          onRetry={list.reload}
-        />
-
         {device.unmappedPunches !== null && device.unmappedPunches > 0 && (
           <Callout tone="warning" title="Taps nobody is mapped to">
             {device.unmappedPunches === 1
@@ -306,59 +299,70 @@ export function EnrolmentsDrawer({
           </DrawerSection>
         )}
 
-        <DrawerSection title={`Mapped (${String(list.enrolments.length)})`}>
-          {list.loading ? (
-            <div className="flex justify-center py-8">
-              <Spinner />
-            </div>
-          ) : list.enrolments.length === 0 ? (
-            <EmptyState
-              icon={<UserRound aria-hidden="true" />}
-              title="Nobody is mapped yet"
-              description="Until a number is mapped, taps from it are recorded against nobody and reach no timesheet. Nothing is lost: they are claimed the moment you map the number."
-            />
-          ) : (
-            <ul className="flex flex-col divide-y divide-line">
-              {list.enrolments.map((row) => (
-                <li
-                  key={row.id}
-                  className="flex items-center justify-between gap-3 py-3"
-                >
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-body-sm font-medium text-ink">
-                        {row.employeeName}
+        <DrawerSection
+          title={
+            list.loading || list.error
+              ? "Mapped"
+              : `Mapped (${String(list.enrolments.length)})`
+          }
+        >
+          <LoadState
+            loading={list.loading}
+            error={list.error}
+            subject="this terminal's enrolments"
+            onRetry={list.reload}
+            hasData={list.enrolments.length > 0}
+            skeleton="list"
+          >
+            {list.enrolments.length === 0 ? (
+              <EmptyState
+                icon={<UserRound aria-hidden="true" />}
+                title="Nobody is mapped yet"
+                description="Until a number is mapped, taps from it are recorded against nobody and reach no timesheet. Nothing is lost: they are claimed the moment you map the number."
+              />
+            ) : (
+              <ul className="flex flex-col divide-y divide-line">
+                {list.enrolments.map((row) => (
+                  <li
+                    key={row.id}
+                    className="flex items-center justify-between gap-3 py-3"
+                  >
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-body-sm font-medium text-ink">
+                          {row.employeeName}
+                        </span>
+                        <Badge tone="neutral" size="sm">
+                          {row.deviceUserId.includes(":")
+                            ? deviceUserLabel(row.deviceUserId)
+                            : `User ${row.deviceUserId}`}
+                        </Badge>
                       </span>
-                      <Badge tone="neutral" size="sm">
-                        {row.deviceUserId.includes(":")
-                          ? deviceUserLabel(row.deviceUserId)
-                          : `User ${row.deviceUserId}`}
-                      </Badge>
+                      <span className="text-meta text-muted">
+                        {row.employeeNo}
+                      </span>
                     </span>
-                    <span className="text-meta text-muted">
-                      {row.employeeNo}
-                    </span>
-                  </span>
-                  {canManage && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() =>
-                        void run(
-                          () => mutations.unmap(device.id, row.id),
-                          `User ${row.deviceUserId} is no longer mapped`,
-                        )
-                      }
-                    >
-                      <X aria-hidden="true" className="size-3.5" />
-                      Take off
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+                    {canManage && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(
+                            () => mutations.unmap(device.id, row.id),
+                            `User ${row.deviceUserId} is no longer mapped`,
+                          )
+                        }
+                      >
+                        <X aria-hidden="true" className="size-3.5" />
+                        Take off
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </LoadState>
         </DrawerSection>
 
         <DrawerSection title="What removing one does">
