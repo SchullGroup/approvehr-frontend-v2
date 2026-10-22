@@ -6,7 +6,10 @@ import {
   announcementsApi,
   type AnnouncementListParams,
   type ApiAnnouncement,
+  type ApiReader,
+  type ApiReadersMeta,
   type CreateAnnouncementBody,
+  type ReaderState,
   type UpdateAnnouncementBody,
 } from "@/lib/api/announcements";
 import { DEMO_ANNOUNCEMENTS } from "@/lib/mock/announcements";
@@ -249,6 +252,203 @@ export function useAnnouncements(
 
 const byNewest = (a: ApiAnnouncement, b: ApiAnnouncement): number =>
   b.createdAt.localeCompare(a.createdAt);
+
+/* ------------------------------------------------------------ the reader list */
+
+/** The reader list is a work list somebody scrolls, so it comes in pages. */
+const READERS_PAGE = 25;
+
+export type ReadersResult = {
+  /** Every page loaded so far, in the order the API sent them. */
+  rows: ApiReader[];
+  /**
+   * Counts and rate, from the last answer for this notice, whichever list it
+   * was for. Null until one has arrived: a count read off nothing is not a zero.
+   */
+  meta: ApiReadersMeta | null;
+  /** Of the list asked for. Null until it has answered. */
+  total: number | null;
+  hasMore: boolean;
+  /** The first page of this list is in flight. */
+  loading: boolean;
+  /**
+   * The first page failed, as the failure itself and not its sentence:
+   * `LoadFailure` picks its advice from the class. Null when it did not. Rows
+   * already on screen from another list do not mix in.
+   */
+  error: unknown;
+  /** A later page is in flight. */
+  loadingMore: boolean;
+  /** A later page failed; what was loaded stays. */
+  moreError: ApiError | null;
+  loadMore: () => void;
+  reload: () => void;
+};
+
+type ReadersFetched = {
+  listKey: string;
+  pages: ApiReader[][];
+  total: number | null;
+  hasMore: boolean;
+  /** Wrapped, so "no failure" and "a failure that was thrown as nothing" differ. */
+  error: { cause: unknown } | null;
+  moreError: ApiError | null;
+};
+
+/**
+ * Who has opened a notice, or who still has to: `GET /announcements/:id/readers`.
+ *
+ * Connected only, and only for somebody who may read it. The API answers `403`
+ * for anybody without `MANAGE_SETTINGS`, so a caller passes `id: null` instead
+ * and nothing is asked: the same rule `useAnnouncements` follows, and for the
+ * same reason (a refusal rendered as "did not load" is a claim that something
+ * failed). There is no demo half: a reader list is a fact about real people, and
+ * a seeded one would be invented evidence of who was told what.
+ *
+ * ## One list at a time, counts from either
+ *
+ * `state` picks the list, and the counts for both come back with whichever was
+ * asked for, so the tab strip can show "Read 7, Still to read 5" from the first
+ * answer. They are held per notice, so opening another notice does not briefly
+ * show the last one's.
+ *
+ * ## Staleness is a key compared during render
+ *
+ * Switching tab or notice changes `listKey`, and what was fetched under the old
+ * one is simply not matched, so the screen shows a skeleton and never the other
+ * list's rows under this list's heading. Later pages are appended under the same
+ * key; a failure on one keeps what was loaded and offers the retry.
+ */
+export function useAnnouncementReaders(
+  id: string | null,
+  state: ReaderState,
+): ReadersResult {
+  const { isConnected } = useSession();
+  const mayRead = useCan("MANAGE_SETTINGS");
+  const active = id !== null && isConnected && mayRead;
+
+  const [tick, setTick] = useState(0);
+  const [retry, setRetry] = useState(0);
+  const listKey = `${id ?? ""}|${state}|${tick}`;
+
+  /* Pages requested, reset when the list changes. Adjusting state during render
+     is the documented way to derive this; an effect would be a cascaded render. */
+  const [requested, setRequested] = useState({ listKey, pages: 1 });
+  if (requested.listKey !== listKey) setRequested({ listKey, pages: 1 });
+  const pages = requested.listKey === listKey ? requested.pages : 1;
+
+  const [fetched, setFetched] = useState<ReadersFetched | null>(null);
+  const [held, setHeld] = useState<{
+    id: string;
+    meta: ApiReadersMeta;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!active || id === null) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const paged = await announcementsApi.readers(
+          id,
+          { state, page: pages, pageSize: READERS_PAGE },
+          controller.signal,
+        );
+        if (cancelled) return;
+        setHeld({ id, meta: paged.meta });
+        setFetched((before) => {
+          const same = before !== null && before.listKey === listKey;
+          const kept = same ? before.pages.slice(0, pages - 1) : [];
+          return {
+            listKey,
+            pages: [...kept, paged.data],
+            total: paged.meta.total,
+            hasMore: paged.meta.hasMore,
+            error: null,
+            moreError: null,
+          };
+        });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        if (cancelled) return;
+        setFetched((before) => {
+          const same = before !== null && before.listKey === listKey;
+          /* A failure on the first page is the list failing. On a later one it is
+             only that page, and what is already here is still true. */
+          if (pages > 1 && same) {
+            return {
+              ...before,
+              moreError:
+                error instanceof ApiError
+                  ? error
+                  : new ApiError(
+                      500,
+                      "internal_error",
+                      "Something went wrong.",
+                    ),
+            };
+          }
+          return {
+            listKey,
+            pages: [],
+            total: null,
+            hasMore: false,
+            /* Something thrown as nothing is still a failure. */
+            error: { cause: error ?? new Error("Request failed") },
+            moreError: null,
+          };
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [active, id, state, pages, listKey, retry]);
+
+  const reload = useCallback(() => setTick((t) => t + 1), []);
+  const loadMore = useCallback(() => {
+    setRequested((now) =>
+      fetched?.moreError ? now : { ...now, pages: now.pages + 1 },
+    );
+    setRetry((n) => n + 1);
+  }, [fetched?.moreError]);
+
+  const matched = fetched !== null && fetched.listKey === listKey;
+  const meta = held !== null && held.id === id ? held.meta : null;
+
+  if (!active) {
+    return {
+      rows: NO_READERS,
+      meta: null,
+      total: null,
+      hasMore: false,
+      loading: false,
+      error: null,
+      loadingMore: false,
+      moreError: null,
+      loadMore,
+      reload,
+    };
+  }
+
+  const loaded = matched ? fetched.pages.length : 0;
+  return {
+    rows: matched ? fetched.pages.flat() : NO_READERS,
+    meta,
+    total: matched ? fetched.total : null,
+    hasMore: matched ? fetched.hasMore : false,
+    loading: !matched || (fetched.pages.length === 0 && fetched.error === null),
+    error: matched && fetched.error !== null ? fetched.error.cause : null,
+    loadingMore: matched && fetched.error === null && loaded < pages,
+    moreError: matched ? fetched.moreError : null,
+    loadMore,
+    reload,
+  };
+}
+
+const NO_READERS: ApiReader[] = [];
 
 /* ------------------------------------------------------------------ writing */
 

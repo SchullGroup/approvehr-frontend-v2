@@ -117,7 +117,7 @@ describe("one event, in words", () => {
     ).toMatchObject({ title: "Talent pooled", detail: "Into Pool" });
   });
 
-  it("tells a named person, a removed account and the system apart — never a blank", () => {
+  it("tells a named person, a removed account and the system apart, never a blank", () => {
     expect(actorOf(event())).toBe("Fatima Bello");
     expect(actorOf(event({ by: null, byUserId: "gone" }))).toBe(
       "An account that has since been removed",

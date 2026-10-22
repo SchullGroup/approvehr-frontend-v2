@@ -22,8 +22,8 @@ import {
   TR,
   TableWrap,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { Can } from "@/lib/permissions";
 import { FEATURE_COPY, useFeatureSettings } from "@/lib/store/features";
 import { useProbation } from "@/lib/store/probation";
@@ -50,13 +50,20 @@ export function ProbationScreen() {
   const overdue = due.filter((row) => row.daysRemaining < 0);
   const upcoming = due.filter((row) => row.daysRemaining >= 0);
 
-  if (error) {
+  /* The one loading and failure rule, as a gate over the whole screen: the
+     queue and the list of people with no end date both say who is, or is not,
+     due a decision, and a read that has not answered, or failed, cannot. */
+  if (error || loading) {
     return (
-      <LoadFailure
-        subject="the probation list"
+      <LoadState
+        loading={loading}
         error={error}
+        subject="the probation list"
         onRetry={reload}
-      />
+        skeleton="list"
+      >
+        {null}
+      </LoadState>
     );
   }
 
@@ -66,7 +73,7 @@ export function ProbationScreen() {
         <Callout tone="info" title="Probation decisions need the API">
           This browser has no probation table behind it. The people below are
           the demo directory&apos;s own staff still marked as on probation —
-          which is the state this screen exists to surface — but confirming
+          which is the state this screen exists to surface, but confirming
           somebody moves their employment status, and a status changed here
           would never reach a payroll run, a payslip or a letter.
         </Callout>
@@ -334,7 +341,7 @@ function ProbationPolicyCard({
           >
             It decides what happens to the <strong>next</strong> person who
             joins. The {undated} {undated === 1 ? "person" : "people"} already
-            on a probation with no date keep their record as it is — put a date
+            on a probation with no date keep their record as it is, put a date
             on each from their own employment tab.
           </Callout>
         )}
@@ -358,7 +365,7 @@ function ProbationPolicyCard({
               {...(monthsProblem
                 ? { error: monthsProblem }
                 : {
-                    help: "Months. Changing it moves nobody already on a probation — their end date is on their own record from the day they were created.",
+                    help: "Months. Changing it moves nobody already on a probation, their end date is on their own record from the day they were created.",
                   })}
             >
               <div className="flex items-center gap-2">

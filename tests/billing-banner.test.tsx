@@ -141,7 +141,7 @@ describe("when nothing should show", () => {
 });
 
 describe("while the paywall switch is off", () => {
-  it("still shows the banner — only locking is gated on enforced, not the banner", () => {
+  it("still shows the banner, only locking is gated on enforced, not the banner", () => {
     billing = { ...trialEndingIn(2), enforced: false };
     render(<BillingBanner />);
     expect(screen.getByText("Your trial ends in 2 days.")).toBeInTheDocument();

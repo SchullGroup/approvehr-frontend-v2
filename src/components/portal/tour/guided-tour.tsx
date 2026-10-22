@@ -187,7 +187,7 @@ export const TOUR_STEPS: readonly Step[] = [
     id: "yours",
     title: "Your day, and your time off",
     body:
-      "Attendance shows where your day stands — clock yourself in if your " +
+      "Attendance shows where your day stands, clock yourself in if your " +
       "company has you do that, or see today's record if HR does it for " +
       "you. Leave shows your own balance and lets you ask for time off; " +
       "pending days are already held back from what's left.",
@@ -212,7 +212,7 @@ export const TOUR_STEPS: readonly Step[] = [
           "no module to remember to check."
         : "Approving isn't part of your role, and this screen says so if " +
           "you ever wonder. Switch to Sent by you to see where a leave " +
-          "request — or anything else you've sent off — currently stands, " +
+          "request, or anything else you've sent off, currently stands, " +
           "without having to ask.",
     target: ['[data-tour="nav-item:/approvals"]', '[data-tour="nav"]'],
     always: true,

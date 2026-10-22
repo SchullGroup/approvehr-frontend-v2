@@ -11,6 +11,7 @@ import {
   CardHeader,
   Modal,
   Stat,
+  StatGrid,
   SuccessMark,
   TBody,
   TD,
@@ -138,7 +139,7 @@ export function ImportOutcome({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatGrid>
         <Stat
           label={`${capitalise(noun.many)} added`}
           value={count(result.created)}
@@ -169,7 +170,7 @@ export function ImportOutcome({
               hint={stat.hint}
             />
           ))}
-      </div>
+      </StatGrid>
 
       {result.failure ? (
         <Callout

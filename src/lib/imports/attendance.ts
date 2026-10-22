@@ -91,7 +91,7 @@ const COLUMNS: readonly ColumnSpec<AttendanceField>[] = [
     ],
     required: true,
     example: "EMP-0041",
-    note: "The staff number, or the person's work email. Not their name — two people can share one.",
+    note: "The staff number, or the person's work email. Not their name, two people can share one.",
   },
   {
     field: "date",

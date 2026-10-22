@@ -103,7 +103,7 @@ export function objectiveWhoseChoices(input: {
     if (canSetCompanyWide || heads(department)) {
       choices.push({
         value: `dept:${department.id}`,
-        label: `${department.name} — the whole department`,
+        label: `${department.name}, the whole department`,
       });
     }
   }

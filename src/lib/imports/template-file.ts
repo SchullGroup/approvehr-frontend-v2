@@ -195,9 +195,9 @@ export const withLists = (
  * offline.
  */
 export const FALLBACK_LEGEND: readonly string[] = [
-  "Required — the import will not add a person without it.",
-  "Recommended — the person is added, and they appear on a list of details somebody has to come back to.",
-  "Optional — leave the column out entirely if you do not have it. A column you do not send is left alone on anybody we update.",
+  "Required, the import will not add a person without it.",
+  "Recommended, the person is added, and they appear on a list of details somebody has to come back to.",
+  "Optional, leave the column out entirely if you do not have it. A column you do not send is left alone on anybody we update.",
   "Delete the example row before you upload. Your headings can be named anything: you match them to ours on screen.",
   "Dates: DD/MM/YYYY or YYYY-MM-DD. Money: naira, monthly, and the naira sign and commas are fine.",
 ];

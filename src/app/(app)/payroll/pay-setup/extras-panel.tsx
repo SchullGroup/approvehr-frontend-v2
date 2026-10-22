@@ -60,7 +60,7 @@ export function ExtrasPanel() {
       <Card>
         <CardHeader
           title="What a payroll carries, besides salary"
-          description="Everything below reads and writes through the same settings as the standalone pages — change it here or there, it's one value either way."
+          description="Everything below reads and writes through the same settings as the standalone pages, change it here or there, it's one value either way."
           level={3}
         />
       </Card>
@@ -72,7 +72,7 @@ export function ExtrasPanel() {
       <Card>
         <CardHeader
           title="Payout account"
-          description="Where the company's own payroll payments are sent from — a different setting from anything above, so it stays on its own page."
+          description="Where the company's own payroll payments are sent from, a different setting from anything above, so it stays on its own page."
           level={3}
         />
         <CardBody>
@@ -136,7 +136,7 @@ function BonusSwitch({ canEdit }: { canEdit: boolean }) {
       <CardBody>
         <Switch
           label="Award bonuses"
-          description="A one-off payment for one person on one payroll — taxed, and never counted for pension. Off, the payroll run does not offer to add one and the Bonus column is not shown."
+          description="A one-off payment for one person on one payroll, taxed, and never counted for pension. Off, the payroll run does not offer to add one and the Bonus column is not shown."
           checked={settings.bonus.enabled}
           disabled={!canEdit || !available || loading || saving}
           onChange={(event) => void toggle(event.target.checked)}
@@ -170,7 +170,7 @@ function BonusSwitch({ canEdit }: { canEdit: boolean }) {
           </Callout>
         )}
         <p className="mt-3 text-body-sm text-muted">
-          A payment somebody gets every month is an allowance, not a bonus — add
+          A payment somebody gets every month is an allowance, not a bonus, add
           it on the Allowances tab so it lands on every payroll by itself.
         </p>
       </CardBody>

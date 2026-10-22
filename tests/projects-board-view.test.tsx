@@ -99,7 +99,7 @@ describe("the sprint board", () => {
     }).parentElement!;
     expect(head).toHaveTextContent("over the limit of 1");
     expect(within(head).getByText("3/1").parentElement).toHaveClass(
-      "text-danger-text",
+      "text-warning-text",
     );
   });
 

@@ -24,18 +24,19 @@ import {
   ConfirmDialog,
   EmptyState,
   Field,
-  IconButton,
   Input,
+  LoadState,
   Modal,
   Money,
+  RowActions,
   Select,
   Stat,
+  StatGrid,
   Tabs,
   TextLink,
   useToast,
   type TabItem,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { ApiError } from "@/lib/api/client";
@@ -209,7 +210,15 @@ export function DepartmentsScreen() {
   };
 
   const tabs: TabItem[] = [
-    { id: "structure", label: "Structure", count: departmentCount },
+    /* A count on a tab is a count, so it waits for the answer like the rest. It
+       read "Structure 0" while the structure was still on its way. */
+    {
+      id: "structure",
+      label: "Structure",
+      ...(departments.loading || departments.error
+        ? {}
+        : { count: departmentCount }),
+    },
     { id: "teams", label: "Teams" },
   ];
 
@@ -246,141 +255,140 @@ export function DepartmentsScreen() {
           </Callout>
         )}
 
-        {departments.error && (
-          <LoadFailure
-            subject="the company structure"
-            error={departments.error}
-            onRetry={departments.reload}
-          />
-        )}
-
         <Tabs
           items={tabs}
           value={tab}
           onChange={(next) => setTab(next === "teams" ? "teams" : "structure")}
         >
           {tab === "structure" ? (
-            <div className="flex flex-col gap-6">
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <Stat label="Departments" value={String(departmentCount)} />
-                {/* The API still calls a nested department a "team" in its own
+            /* Nothing below is said until the read has answered: the counts, the
+               ₦ total and "No departments yet" were all printed while the
+               structure was still on its way, so a company of forty departments
+               opened on 0 and ₦0. After a failure the same emptiness would have
+               carried an "Add the first department" button. */
+            <LoadState
+              loading={departments.loading}
+              error={departments.error}
+              subject="the company structure"
+              onRetry={departments.reload}
+              hasData={departments.flat.length > 0}
+            >
+              <div className="flex flex-col gap-6">
+                <StatGrid>
+                  <Stat label="Departments" value={String(departmentCount)} />
+                  {/* The API still calls a nested department a "team" in its own
                     count. The label does not, because the Teams tab owns that
                     word now — see the header. Counted here from the flat list
                     rather than taken from `counts`, which includes the archived
                     rows this screen asks for. */}
-                <Stat
-                  label="Sub-departments"
-                  value={String(subDepartmentCount)}
-                  hint="nested inside another"
-                />
-                {/* Dropped entirely for a reader without `VIEW_SALARIES`,
+                  <Stat
+                    label="Sub-departments"
+                    value={String(subDepartmentCount)}
+                    hint="nested inside another"
+                  />
+                  {/* Dropped entirely for a reader without `VIEW_SALARIES`,
                     rather than shown as a dash. The other three stats are
                     about structure and stay. */}
-                {totalPayroll !== null && (
+                  {totalPayroll !== null && (
+                    <Stat
+                      label="Monthly payroll"
+                      value={
+                        <Money amount={totalPayroll / 100} compact size="xl" />
+                      }
+                      hint="across every unit"
+                    />
+                  )}
                   <Stat
-                    label="Monthly payroll"
-                    value={
-                      <Money amount={totalPayroll / 100} compact size="xl" />
+                    label="Unassigned"
+                    value={String(departments.counts.unassignedEmployees)}
+                    trend={
+                      departments.counts.unassignedEmployees > 0
+                        ? { direction: "down", label: "No cost centre" }
+                        : undefined
                     }
-                    hint="across every unit"
+                    hint="people in no department"
                   />
+                </StatGrid>
+
+                {departments.counts.unassignedEmployees > 0 && (
+                  <Callout
+                    tone="warning"
+                    title="Some people are in no department"
+                  >
+                    They will not appear in any department payroll report, and
+                    no head is responsible for them. Use{" "}
+                    <strong>Assign people</strong> on the department they belong
+                    to, or set it on their own record.
+                  </Callout>
                 )}
-                <Stat
-                  label="Unassigned"
-                  value={String(departments.counts.unassignedEmployees)}
-                  trend={
-                    departments.counts.unassignedEmployees > 0
-                      ? { direction: "down", label: "No cost centre" }
-                      : undefined
-                  }
-                  hint="people in no department"
-                />
-              </div>
 
-              {departments.counts.unassignedEmployees > 0 && (
-                <Callout
-                  tone="warning"
-                  title="Some people are in no department"
-                >
-                  They will not appear in any department payroll report, and no
-                  head is responsible for them. Use{" "}
-                  <strong>Assign people</strong> on the department they belong
-                  to, or set it on their own record.
-                </Callout>
-              )}
-
-              <Card>
-                <CardHeader
-                  title="Structure"
-                  description="Top level is a department. Anything nested inside one is a sub-department, and it rolls up into its parent."
-                />
-                {liveTree.length === 0 ? (
-                  <EmptyState
-                    icon={<Building2 aria-hidden="true" />}
-                    title={
-                      departments.loading ? "Loading…" : "No departments yet"
-                    }
-                    description={
-                      departments.loading
-                        ? "Reading your structure."
-                        : "Add your first department to start grouping people and reporting payroll by cost centre."
-                    }
-                    action={
-                      canManage && !departments.loading ? (
-                        <Button
-                          variant="accent"
-                          onClick={() => setCreating({})}
-                        >
-                          Add the first department
-                        </Button>
-                      ) : undefined
-                    }
-                  />
-                ) : (
-                  <CardBody className="flex flex-col gap-1.5">
-                    {liveTree.map((node) => (
-                      <DepartmentRow
-                        key={node.id}
-                        node={node}
-                        expanded={expanded}
-                        onToggle={toggle}
-                        canManage={canManage}
-                        canAssign={canAssign}
-                        onAddChild={(parentId) => setCreating({ parentId })}
-                        onEdit={setEditing}
-                        onArchive={setArchiving}
-                        onAssign={setAssigning}
-                        onAssignHead={setAssigningHead}
-                      />
-                    ))}
-                  </CardBody>
-                )}
-              </Card>
-
-              {archivedUnits.length > 0 && (
                 <Card>
                   <CardHeader
-                    title="Archived"
-                    description="Hidden, not deleted. Past payslips still reference the department they were run against, so nothing is ever spliced out."
+                    title="Structure"
+                    description="Top level is a department. Anything nested inside one is a sub-department, and it rolls up into its parent."
                   />
-                  <CardBody className="flex flex-col gap-1.5">
-                    {archivedUnits.map((unit) => (
-                      <ArchivedRow
-                        key={unit.id}
-                        unit={unit}
-                        canManage={canManage}
-                        onRestore={() =>
-                          void run(
-                            () => departments.restore(unit.id),
-                            `${unit.name} restored`,
-                          )
-                        }
-                      />
-                    ))}
-                  </CardBody>
+                  {liveTree.length === 0 ? (
+                    <EmptyState
+                      icon={<Building2 aria-hidden="true" />}
+                      title="No departments yet"
+                      description="Add your first department to start grouping people and reporting payroll by cost centre."
+                      action={
+                        canManage ? (
+                          <Button
+                            variant="accent"
+                            onClick={() => setCreating({})}
+                          >
+                            Add the first department
+                          </Button>
+                        ) : undefined
+                      }
+                    />
+                  ) : (
+                    <CardBody className="flex flex-col gap-1.5">
+                      {liveTree.map((node) => (
+                        <DepartmentRow
+                          key={node.id}
+                          node={node}
+                          expanded={expanded}
+                          onToggle={toggle}
+                          canManage={canManage}
+                          canAssign={canAssign}
+                          onAddChild={(parentId) => setCreating({ parentId })}
+                          onEdit={setEditing}
+                          onArchive={setArchiving}
+                          onAssign={setAssigning}
+                          onAssignHead={setAssigningHead}
+                        />
+                      ))}
+                    </CardBody>
+                  )}
                 </Card>
-              )}
-            </div>
+
+                {archivedUnits.length > 0 && (
+                  <Card>
+                    <CardHeader
+                      title="Archived"
+                      description="Hidden, not deleted. Past payslips still reference the department they were run against, so nothing is ever spliced out."
+                    />
+                    <CardBody className="flex flex-col gap-1.5">
+                      {archivedUnits.map((unit) => (
+                        <ArchivedRow
+                          key={unit.id}
+                          unit={unit}
+                          canManage={canManage}
+                          onRestore={() =>
+                            void run(
+                              () => departments.restore(unit.id),
+                              `${unit.name} restored`,
+                            )
+                          }
+                        />
+                      ))}
+                    </CardBody>
+                  </Card>
+                )}
+              </div>
+            </LoadState>
           ) : (
             <TeamsPanel
               departments={departments.flat.map((one) => ({
@@ -767,14 +775,18 @@ function DepartmentRow({
         </div>
 
         {(canAssign || canManage) && (
-          /* `flex-wrap max-w-full`: the row above wraps these onto a line of
-             their own on a phone, and the line was 385px of unbreakable
-             buttons in a 335px card — the whole page grew a sideways scroll. */
-          <div className="flex max-w-full shrink-0 flex-wrap items-center gap-1.5">
+          /* One button for the thing people come here to do, and one menu for
+             everything else. This row used to carry two text buttons and three
+             icon-only ones — five targets, most of them 32px, and on a phone the
+             line was wider than the card, so the whole page grew a sideways
+             scroll. The less frequent acts, and the one that cannot easily be
+             undone, are in the menu where a mis-tap cannot land on them. */
+          <div className="flex max-w-full shrink-0 items-center gap-1.5">
             {canAssign && (
               <Button
                 variant="secondary"
                 size="sm"
+                className="h-11 sm:h-8"
                 onClick={() => onAssign(node)}
                 aria-label={`Assign people to ${node.name}`}
               >
@@ -783,46 +795,33 @@ function DepartmentRow({
               </Button>
             )}
             {canManage && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => onAssignHead(node)}
-                aria-label={`Assign a head to ${node.name}`}
-              >
-                <UserCog aria-hidden="true" className="size-3.5" />
-                Assign head
-              </Button>
-            )}
-            {/* Less-frequent structural actions, collapsed to icons with a
-                native hover tooltip (IconButton sets both `title` and
-                `aria-label`) so the row does not read as a wall of buttons. */}
-            {canManage && (
-              <div className="flex items-center gap-0.5">
-                <IconButton
-                  label={`Add a sub-department inside ${node.name}`}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onAddChild(node.id)}
-                >
-                  <Plus aria-hidden="true" className="size-4" />
-                </IconButton>
-                <IconButton
-                  label={`Edit ${node.name}`}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onEdit(node)}
-                >
-                  <Pencil aria-hidden="true" className="size-3.5" />
-                </IconButton>
-                <IconButton
-                  label={`Archive ${node.name}`}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onArchive(node)}
-                >
-                  <Trash2 aria-hidden="true" className="size-3.5" />
-                </IconButton>
-              </div>
+              <RowActions
+                label={`More actions for ${node.name}`}
+                items={[
+                  {
+                    label: "Assign a head",
+                    icon: <UserCog />,
+                    onSelect: () => onAssignHead(node),
+                  },
+                  {
+                    label: "Add a sub-department",
+                    icon: <Plus />,
+                    onSelect: () => onAddChild(node.id),
+                  },
+                  {
+                    label: "Edit",
+                    icon: <Pencil />,
+                    onSelect: () => onEdit(node),
+                  },
+                  "separator",
+                  {
+                    label: "Archive",
+                    icon: <Trash2 />,
+                    tone: "danger",
+                    onSelect: () => onArchive(node),
+                  },
+                ]}
+              />
             )}
           </div>
         )}

@@ -220,7 +220,7 @@ describe("the calendar menu", () => {
     expect(screen.getByRole("menu")).toBeInTheDocument();
     expect(button).toHaveAttribute("aria-expanded", "true");
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("menu")).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
     expect(button).toHaveFocus();
   });
 

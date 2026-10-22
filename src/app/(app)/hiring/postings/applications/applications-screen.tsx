@@ -1119,7 +1119,7 @@ function ApplicationRow({
       {waiting && closedNote && (
         <p className="text-body-sm text-danger-text">
           {posting?.requisitionReference}: {closedNote}. Advancing will be
-          refused — edit the advert to link a different open role first.
+          refused, edit the advert to link a different open role first.
         </p>
       )}
 

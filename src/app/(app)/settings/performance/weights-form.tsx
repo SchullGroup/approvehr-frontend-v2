@@ -14,10 +14,13 @@ import {
   Field,
   Input,
   Spinner,
+  Tabs,
   TextLink,
   useToast,
 } from "@/components/ui";
+import type { TabItem } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { useUrlTab } from "@/hooks/use-url-tab";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -29,6 +32,12 @@ import {
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import { useScoringWeights } from "@/lib/store/performance";
+import { SCORING_TABS, type ScoringTabId } from "./tabs";
+
+const TAB_ITEMS: TabItem[] = [
+  { id: "weights", label: "Weights" },
+  { id: "marks", label: "Names of marks" },
+];
 
 /**
  * How much each part of an appraisal counts.
@@ -124,7 +133,15 @@ const draftFrom = (weights: ApiScoringWeights): Draft =>
     {} as Draft,
   );
 
-export function ScoringWeightsForm() {
+export function ScoringWeightsForm({
+  scale,
+  initialTab = "weights",
+}: {
+  /** The "what a mark is called" form, shown on its own tab. */
+  scale: React.ReactNode;
+  initialTab?: ScoringTabId;
+}) {
+  const [tab, changeTab] = useUrlTab<ScoringTabId>(initialTab, SCORING_TABS);
   const canManage = useCan("MANAGE_SETTINGS");
   const { weights, loading, error, source, editable, refusal, save } =
     useScoringWeights();
@@ -237,189 +254,206 @@ export function ScoringWeightsForm() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <LoadFailure subject="the scoring weights" error={error} />
+        {/* Two tabs because they are two halves of one question: how a mark is
+            assembled, and what the result is called. Both stay mounted and the
+            other is hidden, so a half-typed weight survives a look at the names
+            and the other way round. */}
+        <Tabs items={TAB_ITEMS} value={tab} onChange={changeTab}>
+          <div hidden={tab !== "weights"} className="flex flex-col gap-6">
+            <LoadFailure subject="the scoring weights" error={error} />
 
-        {loading ? (
-          <span className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Reading the weights
-          </span>
-        ) : draft === null ? (
-          <Callout tone="warning" title="No weights to show">
-            The scoring weights could not be read, so nothing is rendered here
-            rather than a set that might not be yours.
-          </Callout>
-        ) : (
-          <>
-            <Callout tone="info" title="What these weights do">
-              <p>
-                A mark is the weighted average of the parts below. They have to
-                make 100% exactly, checked when they are saved, so there is
-                never an unbalanced set to patch up afterwards.
-              </p>
-              <p className="mt-2">
-                A part with{" "}
-                <strong>nothing recorded against it is left out</strong> and the
-                rest are spread over the whole mark. Somebody who manages nobody
-                is not rated on leadership, and they are not scored nought for
-                it either: those are different claims about a person.
-              </p>
-            </Callout>
-
-            {!editable && (
-              <Callout tone="warning" title="Saving needs the API">
-                <p>{refusal}</p>
+            {loading ? (
+              <span className="flex items-center gap-2 text-body-sm text-muted">
+                <Spinner size="sm" />
+                Reading the weights
+              </span>
+            ) : draft === null ? (
+              <Callout tone="warning" title="No weights to show">
+                The scoring weights could not be read, so nothing is rendered
+                here rather than a set that might not be yours.
               </Callout>
-            )}
-            {editable && !canManage && (
-              <Callout
-                tone="info"
-                title="Changing these needs settings permission"
-              >
-                <p>
-                  How much each part counts decides pay, so it sits behind the
-                  same permission as the rest of company configuration. You can
-                  read the set: a scale you are measured against and not allowed
-                  to read would be an odd thing to ship.
-                </p>
-              </Callout>
-            )}
+            ) : (
+              <>
+                <Callout tone="info" title="What these weights do">
+                  <p>
+                    A mark is the weighted average of the parts below. They have
+                    to make 100% exactly, checked when they are saved, so there
+                    is never an unbalanced set to patch up afterwards.
+                  </p>
+                  <p className="mt-2">
+                    A part with{" "}
+                    <strong>nothing recorded against it is left out</strong> and
+                    the rest are spread over the whole mark. Somebody who
+                    manages nobody is not rated on leadership, and they are not
+                    scored nought for it either: those are different claims
+                    about a person.
+                  </p>
+                </Callout>
 
-            <Card>
-              <CardHeader
-                title="The parts of a mark"
-                description="Percentages. They must total 100% exactly."
-                action={<Total totalBp={totalBp} />}
-              />
-              <CardBody className="flex flex-col gap-5">
-                {entries.map((row) => (
-                  <div
-                    key={row.component}
-                    className="grid gap-3 sm:grid-cols-[1fr_9rem] sm:items-start"
+                {!editable && (
+                  <Callout tone="warning" title="Saving needs the API">
+                    <p>{refusal}</p>
+                  </Callout>
+                )}
+                {editable && !canManage && (
+                  <Callout
+                    tone="info"
+                    title="Changing these needs settings permission"
                   >
-                    <div className="min-w-0">
-                      <p className="text-body-sm font-medium text-ink">
-                        {row.label}
-                      </p>
-                      <p className="mt-0.5 text-meta text-muted">
-                        {COMPONENT_SOURCE[row.component]}
-                      </p>
-                    </div>
-                    {canManage && editable ? (
-                      <Field
-                        label="Weight"
-                        {...(invalid(row.text)
-                          ? { error: "A number between 0 and 100." }
-                          : {})}
+                    <p>
+                      How much each part counts decides pay, so it sits behind
+                      the same permission as the rest of company configuration.
+                      You can read the set: a scale you are measured against and
+                      not allowed to read would be an odd thing to ship.
+                    </p>
+                  </Callout>
+                )}
+
+                <Card>
+                  <CardHeader
+                    title="The parts of a mark"
+                    description="Percentages. They must total 100% exactly."
+                    action={<Total totalBp={totalBp} />}
+                  />
+                  <CardBody className="flex flex-col gap-5">
+                    {entries.map((row) => (
+                      <div
+                        key={row.component}
+                        className="grid gap-3 sm:grid-cols-[1fr_9rem] sm:items-start"
                       >
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step={STEP}
-                          suffix="%"
-                          value={row.text}
-                          onChange={(event) => {
-                            /* Read the value before any updater runs: React
+                        <div className="min-w-0">
+                          <p className="text-body-sm font-medium text-ink">
+                            {row.label}
+                          </p>
+                          <p className="mt-0.5 text-meta text-muted">
+                            {COMPONENT_SOURCE[row.component]}
+                          </p>
+                        </div>
+                        {canManage && editable ? (
+                          <Field
+                            label="Weight"
+                            {...(invalid(row.text)
+                              ? { error: "A number between 0 and 100." }
+                              : {})}
+                          >
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={STEP}
+                              suffix="%"
+                              value={row.text}
+                              onChange={(event) => {
+                                /* Read the value before any updater runs: React
                                nulls `currentTarget` once the event finishes
                                dispatching, and this crashed the payroll
                                settings form once. */
-                            const next = event.target.value;
-                            set(row.component, next);
-                          }}
-                        />
-                      </Field>
-                    ) : (
-                      <p className="tabular text-body-sm font-medium text-ink sm:pt-1.5 sm:text-right">
-                        {weightLabel(row.weightBp)}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </CardBody>
-            </Card>
+                                const next = event.target.value;
+                                set(row.component, next);
+                              }}
+                            />
+                          </Field>
+                        ) : (
+                          <p className="tabular text-body-sm font-medium text-ink sm:pt-1.5 sm:text-right">
+                            {weightLabel(row.weightBp)}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </CardBody>
+                </Card>
 
-            <SelfAssessment
-              note={weights?.selfAssessmentNote ?? ""}
-              weightBp={selfBp?.weightBp ?? 0}
-              savedWeightBp={
-                weights?.rows.find((row) => row.component === "SELF_ASSESSMENT")
-                  ?.weightBp ?? 0
-              }
-              swingBp={selfSwingBp}
-            />
+                <SelfAssessment
+                  note={weights?.selfAssessmentNote ?? ""}
+                  weightBp={selfBp?.weightBp ?? 0}
+                  savedWeightBp={
+                    weights?.rows.find(
+                      (row) => row.component === "SELF_ASSESSMENT",
+                    )?.weightBp ?? 0
+                  }
+                  swingBp={selfSwingBp}
+                />
 
-            <Card>
-              <CardHeader
-                title="A change here does not move a period that has started"
-                description="The same rule payroll uses for its settings snapshot."
-              />
-              <CardBody className="flex flex-col gap-3 text-body-sm text-body">
-                <p>
-                  When a period starts, the weights are copied onto it. Changing
-                  them afterwards cannot move a mark that has already been
-                  awarded: a rating from this quarter has to keep explaining
-                  itself against the weights that produced it, years later.
-                </p>
-                <p className="flex items-start gap-2 text-body-sm text-body">
-                  <Lock
-                    aria-hidden="true"
-                    className="mt-0.5 size-4 shrink-0 text-faint"
+                <Card>
+                  <CardHeader
+                    title="A change here does not move a period that has started"
+                    description="The same rule payroll uses for its settings snapshot."
                   />
-                  {/* One element, not loose text and a link. The paragraph is a
+                  <CardBody className="flex flex-col gap-3 text-body-sm text-body">
+                    <p>
+                      When a period starts, the weights are copied onto it.
+                      Changing them afterwards cannot move a mark that has
+                      already been awarded: a rating from this quarter has to
+                      keep explaining itself against the weights that produced
+                      it, years later.
+                    </p>
+                    <p className="flex items-start gap-2 text-body-sm text-body">
+                      <Lock
+                        aria-hidden="true"
+                        className="mt-0.5 size-4 shrink-0 text-faint"
+                      />
+                      {/* One element, not loose text and a link. The paragraph is a
                       flex row so the lock sits beside the words, and a flex row
                       turns every direct child into its own column: the sentence
                       used to render as three blocks side by side, with the link
                       alone in the middle one. */}
-                  <span className="min-w-0">
-                    A period screen says whether its weights are frozen, and{" "}
-                    <TextLink href="/performance">the appraisals tab</TextLink>{" "}
-                    is where appraisal periods are started.
-                  </span>
-                </p>
-              </CardBody>
-            </Card>
+                      <span className="min-w-0">
+                        A period screen says whether its weights are frozen, and{" "}
+                        <TextLink href="/performance">
+                          the appraisals tab
+                        </TextLink>{" "}
+                        is where appraisal periods are started.
+                      </span>
+                    </p>
+                  </CardBody>
+                </Card>
 
-            {canManage && editable && (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
-                <div className="min-w-0">
-                  {problem ? (
-                    <p className="text-body-sm text-danger-text">{problem}</p>
-                  ) : dirty ? (
-                    <p className="text-body-sm text-muted">
-                      These make 100%. Saving replaces the whole set.
-                    </p>
-                  ) : (
-                    <p className="text-body-sm text-muted">
-                      Nothing changed. This is the set a new period starts with.
-                    </p>
-                  )}
-                </div>
-                {/* No `shrink-0`: it held this group at its full width, so on a
+                {canManage && editable && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface p-4">
+                    <div className="min-w-0">
+                      {problem ? (
+                        <p className="text-body-sm text-warning-text">
+                          {problem}
+                        </p>
+                      ) : dirty ? (
+                        <p className="text-body-sm text-muted">
+                          These make 100%. Saving replaces the whole set.
+                        </p>
+                      ) : (
+                        <p className="text-body-sm text-muted">
+                          Nothing changed. This is the set a new period starts
+                          with.
+                        </p>
+                      )}
+                    </div>
+                    {/* No `shrink-0`: it held this group at its full width, so on a
                     320px phone the two buttons ran 23px out of the card instead
                     of the second one wrapping under the first. */}
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="secondary"
-                    disabled={!dirty || saving}
-                    onClick={() => setEdited(null)}
-                  >
-                    <RotateCcw aria-hidden="true" className="size-4" />
-                    Discard
-                  </Button>
-                  <Button
-                    variant="accent"
-                    loading={saving}
-                    disabled={problem !== null || anyInvalid || !dirty}
-                    onClick={() => void onSave()}
-                  >
-                    Save the whole set
-                  </Button>
-                </div>
-              </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="secondary"
+                        disabled={!dirty || saving}
+                        onClick={() => setEdited(null)}
+                      >
+                        <RotateCcw aria-hidden="true" className="size-4" />
+                        Discard
+                      </Button>
+                      <Button
+                        variant="accent"
+                        loading={saving}
+                        disabled={problem !== null || anyInvalid || !dirty}
+                        onClick={() => void onSave()}
+                      >
+                        Save the whole set
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
+          </div>
+          <div hidden={tab !== "marks"}>{scale}</div>
+        </Tabs>
       </PageBody>
     </>
   );

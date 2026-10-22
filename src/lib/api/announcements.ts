@@ -57,6 +57,14 @@ export type ApiAnnouncement = {
    */
   departmentNames: string[];
   pinned: boolean;
+  /**
+   * Staff are expected to open it.
+   *
+   * It marks and it counts, and nothing more: it blocks nothing, widens nobody's
+   * audience and changes nothing about what a read receipt is. Turning it on or
+   * off after the notice is up is allowed, and is recorded in the audit trail.
+   */
+  mandatory: boolean;
   published: boolean;
   publishedAt: string | null;
   /** `YYYY-MM-DD`, inclusive. Null means it stays until somebody takes it down. */
@@ -79,6 +87,8 @@ export type ApiBoardNotice = {
   title: string;
   body: string;
   pinned: boolean;
+  /** Staff are expected to open it. See `ApiAnnouncement.mandatory`. */
+  mandatory: boolean;
   publishedAt: string;
   /** Empty when the notice is for everybody. Names, never ids. */
   departmentNames: string[];
@@ -95,6 +105,61 @@ export type ApiBoard = {
    * notices exist and were not sent — worth saying rather than dropping.
    */
   total: number;
+};
+
+/**
+ * Mirrors `MarkedRead`: the answer to "I have opened this".
+ *
+ * `readAt` is the **first** time and a second press does not move it, so
+ * `alreadyRead` is how a caller tells the two apart. Neither is an error.
+ */
+export type ApiMarkedRead = {
+  id: string;
+  read: true;
+  readAt: string;
+  alreadyRead: boolean;
+};
+
+/** Which of a notice's two lists: who has opened it, or who still has to. */
+export type ReaderState = "read" | "unread";
+
+/**
+ * One account on a notice's reader list.
+ *
+ * Per **account**, not per employee: an owner with no staff record can read a
+ * company-wide notice and appears here with `employeeId: null` and no department.
+ */
+export type ApiReader = {
+  userId: string;
+  name: string;
+  employeeId: string | null;
+  department: string | null;
+  /** When they first opened it. Null in the "still to read" list, by definition. */
+  readAt: string | null;
+};
+
+/**
+ * What comes with either list, so one screen can say "7 of 12, 58%" above
+ * whichever tab is open.
+ *
+ * `reach` is the accounts that could read the notice now (everybody for a
+ * company-wide one, the chosen departments' staff otherwise), and is always
+ * `read + unread`. A receipt from somebody who has since left or moved out of the
+ * audience is kept by the API and counts in neither, which is what keeps the rate
+ * at or under 100%.
+ */
+export type ApiReadersMeta = {
+  counts: { reach: number; read: number; unread: number };
+  /** A whole percent, or null when nobody is in the audience: never a 0. */
+  readRate: number | null;
+  /** Whether staff are expected to open the notice. */
+  mandatory: boolean;
+};
+
+export type ReadersParams = {
+  state: ReaderState;
+  page?: number;
+  pageSize?: number;
 };
 
 export type ApiPublishResult = {
@@ -123,6 +188,8 @@ export type CreateAnnouncementBody = {
   audience?: AnnouncementAudience;
   departmentIds?: string[];
   pinned?: boolean;
+  /** Staff are expected to open it. Defaults to false. */
+  mandatory?: boolean;
   /** `YYYY-MM-DD`. */
   expiresOn?: string;
   /** Put it up straight away rather than saving a draft. Defaults to false. */
@@ -135,6 +202,12 @@ export type UpdateAnnouncementBody = {
   audience?: AnnouncementAudience;
   departmentIds?: string[];
   pinned?: boolean;
+  /**
+   * Set or cleared at any time. The API records a change to it as its own audit
+   * event, and only when the stored value actually moves, so a body that repeats
+   * the current value says nothing.
+   */
+  mandatory?: boolean;
   /** `null` clears the date. Absent leaves it alone. */
   expiresOn?: string | null;
 };
@@ -155,9 +228,28 @@ export const DELETE_EFFECT =
   "is nothing left to read afterwards, not for you and not in a report. To " +
   "take a notice off the board and keep the wording, take it down instead.";
 
+/**
+ * What a must-read notice is, and what changing it later does.
+ *
+ * Written once so the form's tooltip and the list's badge cannot say different
+ * things. "Recorded" is the API's behaviour (an audit event of its own, apart from
+ * the edit's): who stopped requiring staff to read something, and when, is one
+ * thing to search for. People who have already read the notice stay read either
+ * way, and a notice cannot be made to ask everybody again except by taking it down
+ * and publishing it.
+ */
+export const MANDATORY_CHANGE_RECORDED =
+  "Turning this on or off after the notice is published is recorded, with " +
+  "who did it and when. People who have already read it stay read.";
+
+/** What the switch does for the reader. It blocks nothing. */
+export const MANDATORY_EFFECT =
+  "A task on their Today panel until they open it. It does not stop anybody " +
+  "working and it reaches nobody new.";
+
 /** Why a draft is not a dimmed notice. Used wherever drafts are listed. */
 export const DRAFT_EFFECT =
-  "A draft is invisible to staff — it is not on anybody's dashboard, dimmed or " +
+  "A draft is invisible to staff, it is not on anybody's dashboard, dimmed or " +
   "otherwise. Publishing is what puts it there.";
 
 /* ------------------------------------------------------------------- calls */
@@ -170,6 +262,20 @@ export const announcementsApi = {
     });
   },
 
+  /**
+   * "I have opened this."
+   *
+   * No permission: the signed-in person is the account in the token, so there is
+   * no id to tamper with but the notice's own. Idempotent and always 200. A
+   * notice the board would not have shown them (a draft, an expired one, another
+   * department's) is a 404 whatever the reason.
+   */
+  markRead(id: string): Promise<ApiMarkedRead> {
+    return request<ApiMarkedRead>(`/announcements/${id}/read`, {
+      method: "POST",
+    });
+  },
+
   /** The management list, drafts included. Needs `MANAGE_SETTINGS`. */
   list(
     params: AnnouncementListParams = {},
@@ -179,6 +285,26 @@ export const announcementsApi = {
       query: { ...params },
       ...(signal ? { signal } : {}),
     });
+  },
+
+  /**
+   * Who has opened a notice and who still has to, for the notice's own audience.
+   * Needs `MANAGE_SETTINGS`: an employee gets 403 whatever the notice, even one
+   * addressed to them, and sees only their own receipt on Today.
+   *
+   * `read` is the evidence (newest first) and `unread` the chase list (by name).
+   * A draft or a notice taken down is a 409, because nobody can have read it, and
+   * an expired one still answers so HR can see the final rate.
+   */
+  readers(
+    id: string,
+    params: ReadersParams,
+    signal?: AbortSignal,
+  ): Promise<Paged<ApiReader, ApiReadersMeta>> {
+    return requestPaged<ApiReader, ApiReadersMeta>(
+      `/announcements/${id}/readers`,
+      { query: { ...params }, ...(signal ? { signal } : {}) },
+    );
   },
 
   get(id: string, signal?: AbortSignal): Promise<ApiAnnouncement> {

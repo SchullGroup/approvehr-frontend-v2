@@ -223,7 +223,7 @@ describe("text fields on a touch screen", () => {
       offenders
         .map(
           (o) =>
-            `${o.file}:${o.line} ${o.detail} — add pointer-coarse:text-body-md (see tests/text-fields-are-16px-on-touch.test.ts)`,
+            `${o.file}:${o.line} ${o.detail}, add pointer-coarse:text-body-md (see tests/text-fields-are-16px-on-touch.test.ts)`,
         )
         .join("\n"),
     ).toEqual([]);
@@ -257,7 +257,7 @@ describe("text fields on a touch screen", () => {
       expect(scan(`<input className="text-[1.25rem]" />`)).toEqual([]);
     });
 
-    it("leaves a field with no size of its own alone — it inherits one", () => {
+    it("leaves a field with no size of its own alone, it inherits one", () => {
       expect(scan(`<input className="h-10 w-full" />`)).toEqual([]);
       expect(scan(`<input />`)).toEqual([]);
     });

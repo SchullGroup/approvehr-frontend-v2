@@ -10,6 +10,7 @@ import {
   CardBody,
   CardFooter,
   EmptyState,
+  RichText,
   SkeletonText,
   TextLink,
 } from "@/components/ui";
@@ -117,11 +118,6 @@ export function ArticleScreen({ slug }: { slug: string }) {
     );
   }
 
-  const paragraphs = article.body
-    .split(/\n\s*\n/)
-    .map((block) => block.trim())
-    .filter((block) => block.length > 0);
-
   return (
     <>
       <PageHeader
@@ -159,12 +155,10 @@ export function ArticleScreen({ slug }: { slug: string }) {
 
       <PageBody className="flex flex-col gap-5">
         <Card className="max-w-3xl">
-          <CardBody className="flex flex-col gap-4">
-            {paragraphs.map((block, index) => (
-              <p key={index} className="text-body leading-relaxed">
-                {block}
-              </p>
-            ))}
+          <CardBody>
+            {/* The body is written with **bold** and lists, and used to be
+                printed as typed — the asterisks and all. */}
+            <RichText>{article.body}</RichText>
           </CardBody>
 
           <CardFooter className="flex flex-wrap items-center justify-between gap-4">

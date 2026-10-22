@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import {
@@ -10,7 +10,12 @@ import {
   Select,
   type BadgeTone,
 } from "@/components/ui";
-import { DragGhost, useDragInto } from "@/components/ui/drag-into";
+import { useDragInto } from "@/components/ui/drag-into";
+import {
+  BoardGhost,
+  useFlip,
+  type Settle,
+} from "@/components/projects/board-motion";
 import { cn } from "@/lib/cn";
 import { IssueCard } from "@/components/projects/issue-card";
 import { IssueFilterBar } from "@/components/projects/issue-filter-bar";
@@ -137,6 +142,23 @@ export function BoardView() {
     [lanes, cells],
   );
 
+  /* Where the card in the hand would land: a cell and a place in it. Drives the
+     gap the other cards open up, and is what a release uses. */
+  const [slot, setSlot] = useState<{ cellId: string; index: number } | null>(
+    null,
+  );
+  const slotRef = useRef<{ cellId: string; index: number } | null>(null);
+  const [grab, setGrab] = useState<{
+    w: number;
+    h: number;
+    dx: number;
+    dy: number;
+    html: string;
+  } | null>(null);
+  const settleRef = useRef<Settle | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  useFlip(gridRef, settleRef);
+
   const drop = useCallback(
     (movedId: string, targetId: string, point: { x: number; y: number }) => {
       const issue = issueById.get(movedId);
@@ -147,7 +169,11 @@ export function BoardView() {
         issue,
         target,
         cell,
-        beforeId: cardBefore(targetId, point.y, issue.id),
+        beforeId:
+          slotRef.current?.cellId === targetId
+            ? (cell.filter((c) => c.id !== issue.id)[slotRef.current.index]
+                ?.id ?? null)
+            : cardBefore(targetId, point.y, issue.id),
         mode,
         memberIds: project.memberIds,
       });
@@ -156,17 +182,93 @@ export function BoardView() {
     [issueById, cells, mode, project.memberIds, actions],
   );
 
+  const grabRef = useRef(grab);
+  useEffect(() => {
+    grabRef.current = grab;
+  }, [grab]);
   const onDrop = useCallback(
     (
       moved: { id: string },
       targetId: string,
       point: { x: number; y: number },
-    ) => drop(moved.id, targetId, point),
+    ) => {
+      const g = grabRef.current;
+      if (g)
+        settleRef.current = {
+          id: moved.id,
+          left: point.x - g.dx,
+          top: point.y - g.dy,
+          tilt: 3,
+        };
+      drop(moved.id, targetId, point);
+    },
     [drop],
   );
   const canDrop = useCallback(() => canWork, [canWork]);
   const { drag, start } = useDragInto({ onDrop, canDrop });
   const held = drag ? issueById.get(drag.id) : undefined;
+  const dragId = drag?.id ?? null;
+  /* The gap: wherever the pointer says, or back where the card came from while
+     it is held over nothing. */
+  const where = gapAt(dragId, slot, cells);
+
+  /* While a card is held, work out where it would land on every move. Measured
+     from layout offsets, which a running slide animation does not disturb, and
+     with the gap itself taken out so the answer does not flip back and forth as
+     the cards move. */
+  useEffect(() => {
+    if (!dragId) return;
+    const move = (event: PointerEvent) => {
+      const under = document.elementFromPoint(event.clientX, event.clientY);
+      const cell = under?.closest<HTMLElement>("[data-drop-id]") ?? null;
+      let next: { cellId: string; index: number } | null = null;
+      if (cell && canWork) {
+        const box = cell.getBoundingClientRect();
+        const pointer = event.clientY - box.top;
+        const gap = cell.querySelector<HTMLElement>("[data-placeholder]");
+        const shift = gap ? gap.offsetHeight + 8 : 0;
+        let seen = false;
+        let index = 0;
+        for (const child of Array.from(cell.children) as HTMLElement[]) {
+          if (child.dataset["placeholder"] !== undefined) {
+            seen = true;
+            continue;
+          }
+          if (child.dataset["moving"] !== undefined) continue;
+          if (child.dataset["flip"] === undefined) continue;
+          const top = child.offsetTop - (seen ? shift : 0);
+          if (pointer > top + child.offsetHeight / 2) index += 1;
+        }
+        next = { cellId: cell.dataset["dropId"] ?? "", index };
+      }
+      slotRef.current = next;
+      setSlot((was) =>
+        was?.cellId === next?.cellId && was?.index === next?.index ? was : next,
+      );
+    };
+    window.addEventListener("pointermove", move);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      slotRef.current = null;
+      setSlot(null);
+    };
+  }, [dragId, canWork]);
+
+  const grabCard =
+    (issue: Issue) => (event: React.PointerEvent<HTMLElement>) => {
+      const card = event.currentTarget.closest<HTMLElement>("[data-card-id]");
+      if (card) {
+        const box = card.getBoundingClientRect();
+        setGrab({
+          w: box.width,
+          h: box.height,
+          dx: event.clientX - box.left,
+          dy: event.clientY - box.top,
+          html: card.outerHTML,
+        });
+      }
+      start(issue.id, "issue")(event);
+    };
 
   const moveTo = (issue: Issue, statusId: string) => {
     const target = encodeDropTarget({ statusId, laneKey: "all" });
@@ -258,7 +360,7 @@ export function BoardView() {
       />
 
       <div className="scroll-x -mx-5 px-5 pb-2 sm:-mx-7 sm:px-7">
-        <div className="min-w-max space-y-4">
+        <div ref={gridRef} className="min-w-max space-y-4">
           <div
             className="grid gap-3"
             style={{
@@ -288,7 +390,7 @@ export function BoardView() {
                     className={cn(
                       "tabular text-body-sm",
                       state === "over"
-                        ? "font-semibold text-danger-text"
+                        ? "font-semibold text-warning-text"
                         : "text-muted",
                     )}
                     title={
@@ -354,43 +456,90 @@ export function BoardView() {
                       data-drop-id={id}
                       aria-label={`${status.name}${lane.label ? `, ${lane.label}` : ""}`}
                       className={cn(
-                        "flex min-h-24 flex-col gap-2 rounded-lg border p-2 transition-colors",
+                        "relative flex min-h-24 flex-col gap-2 rounded-lg border p-2 transition-colors",
                         over
                           ? "border-accent bg-accent-soft"
                           : "border-transparent bg-sunken",
                       )}
                     >
-                      {items.map((issue) => (
-                        <li key={issue.id}>
-                          <IssueCard
-                            issue={issue}
-                            parent={
-                              issue.parentId
-                                ? (issueById.get(issue.parentId) ?? null)
-                                : null
-                            }
-                            epic={
-                              issue.epicId
-                                ? (issueById.get(issue.epicId) ?? null)
-                                : null
-                            }
-                            statuses={statuses}
-                            people={people}
-                            today={today}
-                            done={isDone(project.statuses, issue)}
-                            dragging={drag?.id === issue.id}
-                            canMove={canWork}
-                            onGrab={start(issue.id, "issue")}
-                            onOpen={() => openIssue(issue)}
-                            onMove={(statusId) => moveTo(issue, statusId)}
-                          />
-                        </li>
-                      ))}
-                      {items.length === 0 && (
-                        <li className="flex flex-1 items-center justify-center rounded-md border border-dashed border-line-strong px-3 py-5 text-center text-meta text-faint">
-                          {canWork ? "Drop an issue here" : "Nothing here"}
-                        </li>
-                      )}
+                      {(() => {
+                        const nodes: React.ReactNode[] = [];
+                        let place = 0;
+                        const gapHere = (n: number) =>
+                          dragId !== null &&
+                          where?.cellId === id &&
+                          where.index === n;
+                        for (const issue of items) {
+                          const moving = issue.id === dragId;
+                          if (!moving && gapHere(place)) {
+                            nodes.push(
+                              <li
+                                key="gap"
+                                data-placeholder=""
+                                data-flip="gap"
+                                aria-hidden="true"
+                                className="rounded-md border border-dashed border-accent bg-accent-soft"
+                                style={{ height: grab?.h }}
+                              />,
+                            );
+                          }
+                          nodes.push(
+                            <li
+                              key={issue.id}
+                              data-flip={`card:${issue.id}`}
+                              {...(moving ? { "data-moving": "" } : {})}
+                              className={
+                                moving
+                                  ? "pointer-events-none invisible absolute h-0 overflow-hidden"
+                                  : undefined
+                              }
+                            >
+                              <IssueCard
+                                issue={issue}
+                                parent={
+                                  issue.parentId
+                                    ? (issueById.get(issue.parentId) ?? null)
+                                    : null
+                                }
+                                epic={
+                                  issue.epicId
+                                    ? (issueById.get(issue.epicId) ?? null)
+                                    : null
+                                }
+                                statuses={statuses}
+                                people={people}
+                                today={today}
+                                done={isDone(project.statuses, issue)}
+                                dragging={false}
+                                canMove={canWork}
+                                onGrab={grabCard(issue)}
+                                onOpen={() => openIssue(issue)}
+                                onMove={(statusId) => moveTo(issue, statusId)}
+                              />
+                            </li>,
+                          );
+                          if (!moving) place += 1;
+                        }
+                        if (gapHere(place)) {
+                          nodes.push(
+                            <li
+                              key="gap"
+                              data-placeholder=""
+                              data-flip="gap"
+                              aria-hidden="true"
+                              className="rounded-md border border-dashed border-accent bg-accent-soft"
+                              style={{ height: grab?.h }}
+                            />,
+                          );
+                        }
+                        return nodes;
+                      })()}
+                      {items.filter((i) => i.id !== dragId).length === 0 &&
+                        !(dragId !== null && where?.cellId === id) && (
+                          <li className="flex flex-1 items-center justify-center rounded-md border border-dashed border-line-strong px-3 py-5 text-center text-meta text-faint">
+                            {canWork ? "Drop an issue here" : "Nothing here"}
+                          </li>
+                        )}
                     </ul>
                   );
                 })}
@@ -430,11 +579,7 @@ export function BoardView() {
         </p>
       )}
 
-      {drag && held && (
-        <DragGhost x={drag.x} y={drag.y}>
-          <span className="tabular text-muted">{held.key}</span> {held.title}
-        </DragGhost>
-      )}
+      {drag && held && grab && <BoardGhost x={drag.x} y={drag.y} grab={grab} />}
 
       {completeDialog}
     </div>
@@ -490,7 +635,7 @@ function SprintHeader({ onComplete }: { onComplete?: () => void }) {
             className={cn(
               "tabular rounded-full border px-2.5 py-0.5 text-meta font-medium",
               tone === "danger"
-                ? "border-danger-line bg-danger-soft text-danger-text"
+                ? "border-warning-line bg-warning-soft text-warning-text"
                 : "border-line bg-surface text-body",
             )}
           >
@@ -512,4 +657,18 @@ function SprintHeader({ onComplete }: { onComplete?: () => void }) {
       </div>
     </div>
   );
+}
+
+function gapAt(
+  dragId: string | null,
+  slot: { cellId: string; index: number } | null,
+  cells: Map<string, Issue[]>,
+): { cellId: string; index: number } | null {
+  if (!dragId) return null;
+  if (slot) return slot;
+  for (const [cellId, list] of cells) {
+    const index = list.findIndex((i) => i.id === dragId);
+    if (index >= 0) return { cellId, index };
+  }
+  return null;
 }

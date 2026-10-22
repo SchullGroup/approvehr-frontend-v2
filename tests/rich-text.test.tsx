@@ -45,7 +45,7 @@ describe("what a description keeps", () => {
 
   it("decodes the entities a writer typed, as text", () => {
     expect(decodeEntities("Fish &amp; chips &lt;3 &#8212; &pound;5")).toBe(
-      "Fish & chips <3 — £5",
+      "Fish & chips <3, £5",
     );
     expect(page("<p>Salary &gt; &#8358;300k</p>").textContent).toContain(
       "Salary > ₦300k",

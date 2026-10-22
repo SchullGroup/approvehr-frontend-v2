@@ -15,8 +15,8 @@ import {
   Money,
   Spinner,
   Stat,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { naira } from "@/lib/api/payments";
 import { usePermissions } from "@/lib/permissions";
@@ -124,14 +124,6 @@ export function PaymentsScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {wallet.error && (
-          <LoadFailure
-            subject="the wallet balance"
-            error={wallet.error}
-            onRetry={wallet.reload}
-          />
-        )}
-
         {/* One figure, and an em dash where it has not arrived.
             -----------------------------------------------------------------
             Never ₦0.00 for an unanswered request. `useWalletStatement`
@@ -191,20 +183,27 @@ export function PaymentsScreen() {
           <Card>
             <CardHeader title="Putting money in" />
             <CardBody>
-              {wallet.loading ? (
-                <div className="flex items-center gap-2 text-body-sm text-muted">
-                  <Spinner size="sm" />
-                  Reading the account
-                </div>
-              ) : held ? (
-                <FundingAccounts accounts={held.fundingAccounts} />
-              ) : (
-                <Callout tone="info" title="Not available here">
-                  The wallet is a live balance from the API. There is no ledger
-                  to read offline, and a figure invented here would be a claim
-                  about a company&rsquo;s money.
-                </Callout>
-              )}
+              {/* The one loading and failure rule. The wallet's own read failing
+                  is said here, once, rather than above the figures and again
+                  as "Not available here ... offline". */}
+              <LoadState
+                loading={wallet.loading}
+                error={wallet.error}
+                subject="the wallet"
+                onRetry={wallet.reload}
+                skeleton="list"
+                hasData={held !== null && held !== undefined}
+              >
+                {held ? (
+                  <FundingAccounts accounts={held.fundingAccounts} />
+                ) : (
+                  <Callout tone="info" title="Not available here">
+                    The wallet is a live balance from the API. There is no
+                    ledger to read offline, and a figure invented here would be
+                    a claim about a company&rsquo;s money.
+                  </Callout>
+                )}
+              </LoadState>
             </CardBody>
           </Card>
           {/* "Already promised" was here, and it is gone on purpose.

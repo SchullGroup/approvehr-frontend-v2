@@ -107,9 +107,9 @@ export type RequisitionStatus =
 export function requisitionClosedNote(
   status: RequisitionStatus | null,
 ): string | null {
-  if (status === "FILLED") return "Role filled — cannot take a new candidate";
+  if (status === "FILLED") return "Role filled, cannot take a new candidate";
   if (status === "CANCELLED")
-    return "Role cancelled — cannot take a new candidate";
+    return "Role cancelled, cannot take a new candidate";
   return null;
 }
 

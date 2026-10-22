@@ -86,7 +86,7 @@ export const DEMO_SURVEY_HEADING = "Surveys need the API";
 /** The non-obvious half, and the one worth saying: it is about the promise. */
 export const DEMO_SURVEY_REASON =
   "The point of a survey here is that an anonymous answer cannot be traced " +
-  "back to the person who gave it, and that is something the server does — a " +
+  "back to the person who gave it, and that is something the server does, a " +
   "version running entirely in this browser could not demonstrate it, and " +
   "seeded answers would be invented opinions attributed to invented staff.";
 
@@ -102,7 +102,7 @@ export function useSurveys() {
 
   return {
     surveys: outcome?.value ?? [],
-    loading: isConnected && outcome === undefined,
+    loading: isConnected && outcome === null,
     error: outcome?.error ?? null,
     unavailable: !isConnected,
     reload: useCallback(() => all.refresh("all"), []),
@@ -116,7 +116,7 @@ export function useMySurveys() {
 
   return {
     invites: outcome?.value ?? [],
-    loading: isConnected && outcome === undefined,
+    loading: isConnected && outcome === null,
     error: outcome?.error ?? null,
     unavailable: !isConnected,
     reload: useCallback(() => mineRes.refresh("mine"), []),
@@ -130,7 +130,7 @@ export function useSurvey(id: string | null) {
 
   return {
     survey: outcome?.value ?? null,
-    loading: key !== null && outcome === undefined,
+    loading: key !== null && outcome === null,
     error: outcome?.error ?? null,
     unavailable: !isConnected,
     reload: useCallback(() => {
@@ -153,7 +153,7 @@ export function useSurveyResults(id: string | null) {
 
   return {
     results: outcome?.value ?? null,
-    loading: key !== null && outcome === undefined,
+    loading: key !== null && outcome === null,
     error: outcome?.error ?? null,
     unavailable: !isConnected,
     reload: useCallback(() => {

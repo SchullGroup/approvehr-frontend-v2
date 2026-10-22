@@ -227,7 +227,7 @@ export function WorkflowEditor({ editable }: { editable: boolean }) {
                 <p
                   id={reasonId}
                   role="status"
-                  className="mt-1.5 text-meta text-danger-text sm:max-w-[75%]"
+                  className="mt-1.5 text-meta text-warning-text sm:max-w-[75%]"
                 >
                   {why}
                 </p>

@@ -136,13 +136,13 @@ describe("the weekly-task note", () => {
         state: "NOT_COUNTED",
         reason: "NO_OBJECTIVE",
         message:
-          "Not counted toward a weekly task — link this issue or the project to an objective.",
+          "Not counted toward a weekly task, link this issue or the project to an objective.",
       }),
     ).toEqual({
       state: "NOT_COUNTED",
       reason: "NO_OBJECTIVE",
       message:
-        "Not counted toward a weekly task — link this issue or the project to an objective.",
+        "Not counted toward a weekly task, link this issue or the project to an objective.",
     });
   });
 

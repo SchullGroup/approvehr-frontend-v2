@@ -626,8 +626,8 @@ export function SectionsDialog({
               {subsectionsOf(confirmDelete?.id ?? "").length === 1
                 ? "subsection"
                 : `${String(subsectionsOf(confirmDelete?.id ?? "").length)} subsections`}{" "}
-              filed under it stay, and every rating against them stays — they
-              are left without a section until somebody re-files them.
+              filed under it stay, and every rating against them stays, they are
+              left without a section until somebody re-files them.
             </p>
             <p>
               While they are unfiled, answers to them count towards no part of
@@ -649,8 +649,8 @@ export function SectionsDialog({
         body={
           <p>
             It stops being offered on new forms. Every rating already recorded
-            against it is kept — a past rating is the evidence somebody
-            improved, so this is never a delete.
+            against it is kept, a past rating is the evidence somebody improved,
+            so this is never a delete.
           </p>
         }
       />

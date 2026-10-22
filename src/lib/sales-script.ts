@@ -67,7 +67,7 @@ declare global {
  */
 export function salesScriptNote(): string | null {
   return SALES_SCRIPT_ENABLED
-    ? "These are sample questions with prepared answers, not a live AI — grounded in this company's real records, so they show what the real assistant would find. Ask anything else and it'll say so, rather than pretend to know."
+    ? "These are sample questions with prepared answers, not a live AI, grounded in this company's real records, so they show what the real assistant would find. Ask anything else and it'll say so, rather than pretend to know."
     : null;
 }
 
@@ -78,7 +78,7 @@ export function salesScriptNote(): string | null {
  * reading only this one string is still an honest answer to "is this real".
  */
 export function salesScriptAssistantName(): string | null {
-  return SALES_SCRIPT_ENABLED ? "Prepared examples — not a live AI" : null;
+  return SALES_SCRIPT_ENABLED ? "Prepared examples, not a live AI" : null;
 }
 
 /**
@@ -102,6 +102,6 @@ export function salesScriptAssistantName(): string | null {
  */
 export function scriptedFallback(): string {
   return SALES_SCRIPT_ENABLED
-    ? "That's not one of the prepared questions — this is a small set of real examples, not a live AI that can answer anything. Try one of the ones above."
+    ? "That's not one of the prepared questions, this is a small set of real examples, not a live AI that can answer anything. Try one of the ones above."
     : "";
 }

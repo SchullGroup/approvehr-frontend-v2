@@ -7,8 +7,8 @@ import {
   Card,
   CardHeader,
   EmptyState,
+  LoadState,
   Money,
-  Spinner,
   TBody,
   TD,
   TDPrimary,
@@ -19,7 +19,6 @@ import {
   TextLink,
   rowClick,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { SourceBadge } from "@/components/payroll/run-panels";
 import {
   STATUS_LABEL,
@@ -55,127 +54,134 @@ export function MyPayslipIndex() {
 
   return (
     <div className="flex flex-col gap-6">
-      <SourceBadge connected={connected} loading={loading} error={error} />
+      {/* Says where the figures came from and nothing about the read: the
+          loading skeleton and the failure card below carry those, and this
+          used to print the raw error in red above a card saying the same. */}
+      <SourceBadge connected={connected} />
 
-      {error && <LoadFailure subject="your payslips" error={error} />}
+      {/* The one loading and failure rule. This used to print "Nothing here
+          yet" under a failure card, and render an empty table while it waited. */}
+      <LoadState
+        loading={loading}
+        error={error}
+        subject="your payslips"
+        skeleton="table"
+        hasData={payslips.length > 0}
+      >
+        <Card>
+          <CardHeader title="Your payslips" />
 
-      <Card>
-        <CardHeader title="Your payslips" />
-
-        {payslips.length === 0 && !loading ? (
-          <EmptyState
-            compact
-            icon={<FileQuestion aria-hidden="true" />}
-            title="Nothing here yet"
-            description="A payslip appears here once a payroll you are on has been run."
-          />
-        ) : (
-          <>
-            <div className="hidden sm:block">
-              <TableWrap
-                className="rounded-none border-x-0 border-b-0"
-                caption="Your payslips"
-              >
-                <THead>
-                  <TH>Month</TH>
-                  <TH align="right">Gross</TH>
-                  <TH align="right">Net pay</TH>
-                  <TH>Status</TH>
-                </THead>
-                <TBody>
-                  {payslips.map((slip: OwnPayslip) => {
-                    const href = `/payroll/payslips/${slip.id}`;
-                    return (
-                      <TR
-                        key={slip.id}
-                        interactive
-                        onClick={rowClick(() => router.push(href))}
-                      >
-                        <TDPrimary
-                          title={
-                            <TextLink href={href}>
-                              {periodLabel(slip.run.period)}
-                            </TextLink>
-                          }
-                          subtitle={STATUS_LABEL[slip.run.status]}
-                        />
-                        <TD align="right">
-                          <Money amount={naira(slip.grossKobo)} decimals />
-                        </TD>
-                        <TD align="right">
-                          <Money amount={naira(slip.netKobo)} decimals />
-                        </TD>
-                        <TD>
-                          <Badge
-                            tone={
-                              deliveryOf(slip) === "opened" ? "success" : "info"
+          {payslips.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<FileQuestion aria-hidden="true" />}
+              title="Nothing here yet"
+              description="A payslip appears here once a payroll you are on has been run."
+            />
+          ) : (
+            <>
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-none border-x-0 border-b-0"
+                  caption="Your payslips"
+                >
+                  <THead>
+                    <TH>Month</TH>
+                    <TH align="right">Gross</TH>
+                    <TH align="right">Net pay</TH>
+                    <TH>Status</TH>
+                  </THead>
+                  <TBody>
+                    {payslips.map((slip: OwnPayslip) => {
+                      const href = `/payroll/payslips/${slip.id}`;
+                      return (
+                        <TR
+                          key={slip.id}
+                          interactive
+                          onClick={rowClick(() => router.push(href))}
+                        >
+                          <TDPrimary
+                            title={
+                              <TextLink href={href}>
+                                {periodLabel(slip.run.period)}
+                              </TextLink>
                             }
-                            size="sm"
-                            dot
-                          >
-                            {DELIVERY_LABEL[deliveryOf(slip)]}
-                          </Badge>
-                        </TD>
-                      </TR>
-                    );
-                  })}
-                </TBody>
-              </TableWrap>
-            </div>
+                            subtitle={STATUS_LABEL[slip.run.status]}
+                          />
+                          <TD align="right">
+                            <Money amount={naira(slip.grossKobo)} decimals />
+                          </TD>
+                          <TD align="right">
+                            <Money amount={naira(slip.netKobo)} decimals />
+                          </TD>
+                          <TD>
+                            <Badge
+                              tone={
+                                deliveryOf(slip) === "opened"
+                                  ? "success"
+                                  : "info"
+                              }
+                              size="sm"
+                              dot
+                            >
+                              {DELIVERY_LABEL[deliveryOf(slip)]}
+                            </Badge>
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </TableWrap>
+              </div>
 
-            <ul className="divide-y divide-line sm:hidden">
-              {payslips.map((slip: OwnPayslip) => {
-                const href = `/payroll/payslips/${slip.id}`;
-                return (
-                  <li
-                    key={slip.id}
-                    onClick={rowClick(() => router.push(href))}
-                    className="flex flex-col gap-2 p-4"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <TextLink href={href} className="text-body-sm">
-                          {periodLabel(slip.run.period)}
-                        </TextLink>
-                        <p className="mt-0.5 text-meta text-muted">
-                          {STATUS_LABEL[slip.run.status]}
-                        </p>
+              <ul className="divide-y divide-line sm:hidden">
+                {payslips.map((slip: OwnPayslip) => {
+                  const href = `/payroll/payslips/${slip.id}`;
+                  return (
+                    <li
+                      key={slip.id}
+                      onClick={rowClick(() => router.push(href))}
+                      className="flex flex-col gap-2 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <TextLink href={href} className="text-body-sm">
+                            {periodLabel(slip.run.period)}
+                          </TextLink>
+                          <p className="mt-0.5 text-meta text-muted">
+                            {STATUS_LABEL[slip.run.status]}
+                          </p>
+                        </div>
+                        <Badge
+                          tone={
+                            deliveryOf(slip) === "opened" ? "success" : "info"
+                          }
+                          size="sm"
+                          dot
+                        >
+                          {DELIVERY_LABEL[deliveryOf(slip)]}
+                        </Badge>
                       </div>
-                      <Badge
-                        tone={
-                          deliveryOf(slip) === "opened" ? "success" : "info"
-                        }
-                        size="sm"
-                        dot
-                      >
-                        {DELIVERY_LABEL[deliveryOf(slip)]}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-body-sm text-muted">Gross</span>
-                      <span className="tabular text-body-sm text-body">
-                        <Money amount={naira(slip.grossKobo)} decimals />
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-body-sm text-muted">Net pay</span>
-                      <span className="tabular text-body-sm font-medium text-ink">
-                        <Money amount={naira(slip.netKobo)} decimals />
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        )}
-      </Card>
-
-      {loading && payslips.length === 0 && (
-        <div className="flex items-center gap-2 px-1 text-body-sm text-muted">
-          <Spinner /> Finding your payslips…
-        </div>
-      )}
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">Gross</span>
+                        <span className="tabular text-body-sm text-body">
+                          <Money amount={naira(slip.grossKobo)} decimals />
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">Net pay</span>
+                        <span className="tabular text-body-sm font-medium text-ink">
+                          <Money amount={naira(slip.netKobo)} decimals />
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </Card>
+      </LoadState>
     </div>
   );
 }

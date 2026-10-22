@@ -29,6 +29,7 @@ const ALL_FEATURES = {};
    `one-on-ones` is exercised properly in `one-on-one-by-role.test.ts`. */
 const EVERYTHING_ANSWERED: NavFacts = {
   assistantWired: true,
+  earlyPay: true,
   rows: { "one-on-ones": true, signatures: true, interviews: true },
 };
 
@@ -139,8 +140,7 @@ describe("a gap says it is a gap", () => {
        reads as data loss, and produced "why did we add signatures". */
     const words = failureMessage(notFound, "signatures", "module");
     expect(words).not.toMatch(/may have been removed/);
-    expect(words).toMatch(/not switched on for this deployment/);
-    expect(words).toMatch(/Nothing is missing from your company's records/);
+    expect(words).toMatch(/not switched on here yet/);
   });
 
   it("still says 'removed' for a record, which is what a 404 means there", () => {

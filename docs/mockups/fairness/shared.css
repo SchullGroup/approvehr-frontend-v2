@@ -1,0 +1,269 @@
+:root {
+  --ink: #0a1f2d;
+  --body: #4a5a68;
+  --muted: #586675;
+  --faint: #616d76;
+  --canvas: #f7f9fb;
+  --surface: #fff;
+  --sunken: #f1f5f8;
+  --line: #e3e9ed;
+  --line-strong: #cdd7de;
+  --accent: #2b3990;
+  --accent-soft: #f0f2f9;
+  --warning: #d99400;
+  --warning-text: #8a5a00;
+  --warning-soft: #fdf8ec;
+  --success-text: #417739;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: Geist, system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--surface);
+  font-size: 15px;
+  line-height: 1.5;
+}
+button {
+  font: inherit;
+}
+.shell {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  min-height: 100vh;
+}
+.side {
+  border-right: 1px solid var(--line);
+  padding: 20px 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.side b {
+  display: block;
+  color: var(--ink);
+  font-size: 17px;
+  margin-bottom: 24px;
+}
+.side div {
+  padding: 7px 8px;
+  border-radius: 6px;
+}
+.side .on {
+  background: var(--sunken);
+  color: var(--ink);
+  font-weight: 500;
+}
+main {
+  padding: 28px 40px 80px;
+  max-width: 1180px;
+  min-width: 0;
+}
+.crumb {
+  font-size: 14px;
+  color: var(--muted);
+}
+h1 {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 6px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.stage {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+.seg {
+  display: inline-flex;
+  background: var(--sunken);
+  border-radius: 8px;
+  padding: 3px;
+}
+.seg button {
+  all: unset;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.seg button.on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(10, 31, 45, 0.08);
+}
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 32px 0 8px;
+}
+.label.ai {
+  color: var(--accent);
+}
+.note {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--ink);
+  margin: 0;
+  max-width: 68ch;
+}
+.fine {
+  font-size: 13px;
+  color: var(--faint);
+  margin-top: 6px;
+}
+.quote {
+  border-left: 2px solid var(--line-strong);
+  padding-left: 12px;
+  margin: 6px 0 16px;
+  color: var(--ink);
+}
+.who {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0;
+}
+.who b {
+  color: var(--ink);
+  font-weight: 500;
+}
+.role {
+  font-size: 14px;
+  color: var(--muted);
+}
+.warn {
+  color: var(--warning-text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.figs {
+  display: flex;
+  gap: 36px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+.figs dt {
+  font-size: 13px;
+  color: var(--muted);
+}
+.figs dd {
+  margin: 2px 0 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.figs .gap {
+  color: var(--warning-text);
+}
+.scale {
+  position: relative;
+  height: 14px;
+  margin: 18px 6px 0;
+}
+.scale .t {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  height: 2px;
+  background: var(--sunken);
+}
+.scale .g {
+  position: absolute;
+  top: 5px;
+  height: 4px;
+  background: #f3dca5;
+  border-radius: 2px;
+}
+.scale .m,
+.scale .r {
+  position: absolute;
+  top: 1px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+}
+.scale .m {
+  background: var(--ink);
+}
+.scale .r {
+  border: 2px solid var(--accent);
+  background: #fff;
+}
+.legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--faint);
+  margin-top: 8px;
+}
+ul.pat {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--body);
+}
+ul.pat li {
+  margin: 4px 0;
+}
+dl.rec {
+  margin: 0;
+  font-size: 14px;
+}
+dl.rec div {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  padding: 6px 0;
+}
+dl.rec dt {
+  color: var(--muted);
+}
+.pick {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  text-decoration: none;
+  opacity: 0.92;
+}
+@media (max-width: 760px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .side {
+    display: none;
+  }
+  main {
+    padding: 20px 16px 72px;
+  }
+  .hide-sm {
+    display: none;
+  }
+  .figs {
+    gap: 22px;
+  }
+  .figs dd {
+    font-size: 22px;
+  }
+}

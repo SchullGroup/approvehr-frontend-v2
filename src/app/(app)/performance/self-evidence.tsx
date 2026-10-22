@@ -141,13 +141,13 @@ export function SelfEvidence({
                   <Line
                     label="Not completed"
                     value={notCompleted}
-                    tone="text-danger-text"
+                    tone="text-warning-text"
                   />
                   {rejected > 0 && (
                     <Line
                       label="Rejected"
                       value={rejected}
-                      tone="text-danger-text"
+                      tone="text-warning-text"
                     />
                   )}
                 </>

@@ -156,7 +156,7 @@ describe("closing it", () => {
     expect(panel()).toBeNull();
   });
 
-  it("does not close under a press on the panel itself — that press is the start of a click", async () => {
+  it("does not close under a press on the panel itself, that press is the start of a click", async () => {
     const user = userEvent.setup();
     renderField();
     await user.click(icon());

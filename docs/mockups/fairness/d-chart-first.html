@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fairness check — D: chart first</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      .tabs {
+        display: flex;
+        gap: 28px;
+        border-bottom: 1px solid var(--line);
+        margin: 24px 0 0;
+        overflow-x: auto;
+      }
+      .tabs button {
+        all: unset;
+        cursor: pointer;
+        white-space: nowrap;
+        padding: 12px 0;
+        font-size: 15px;
+        color: var(--muted);
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+      }
+      .tabs button.on {
+        color: var(--ink);
+        font-weight: 500;
+        border-color: var(--ink);
+      }
+      .count {
+        font-size: 12px;
+        background: var(--sunken);
+        border-radius: 999px;
+        padding: 1px 7px;
+        margin-left: 6px;
+        color: var(--ink);
+      }
+      .split {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+        gap: 48px;
+        margin-top: 28px;
+      }
+      .lede {
+        font-size: 16px;
+        color: var(--body);
+        margin: 0 0 6px;
+      }
+      .lede strong {
+        color: var(--ink);
+      }
+      .hint {
+        font-size: 14px;
+        color: var(--muted);
+        margin: 0 0 16px;
+      }
+      svg {
+        width: 100%;
+        height: auto;
+        display: block;
+        overflow: visible;
+      }
+      .pt {
+        cursor: pointer;
+      }
+      .key {
+        display: flex;
+        gap: 18px;
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+      .key i {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 6px;
+        vertical-align: -1px;
+      }
+      .detail {
+        border-left: 1px solid var(--line);
+        padding-left: 40px;
+        min-height: 400px;
+      }
+      .empty {
+        color: var(--muted);
+        font-size: 15px;
+        padding-top: 40px;
+      }
+      @media (max-width: 980px) {
+        .split {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .detail {
+          border-left: 0;
+          padding-left: 0;
+          border-top: 1px solid var(--line);
+          padding-top: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <nav class="side">
+        <b>ApproveHR</b>
+        <div>Home</div>
+        <div>Employees</div>
+        <div class="on">Performance</div>
+        <div>Monthly payroll</div>
+      </nav>
+      <main>
+        <div class="crumb">Performance / H2 2026 appraisal</div>
+        <h1>Fairness check <span class="stage">Calibration</span></h1>
+        <div class="tabs">
+          <button class="on">
+            People to review <span class="count">6</span></button
+          ><button>Groups</button><button>Managers</button
+          ><button>Calibration moves</button>
+        </div>
+
+        <div class="split">
+          <div>
+            <p class="lede">
+              <strong>Every mark against what the record suggests.</strong>
+            </p>
+            <p class="hint">
+              On the diagonal, the mark matches the record. Highlighted dots are
+              10 or more points off it. Click one.
+            </p>
+            <svg
+              id="plot"
+              viewBox="0 0 520 440"
+              role="img"
+              aria-label="Mark against record for 52 people"
+            ></svg>
+            <div class="key">
+              <span
+                ><i style="background: var(--warning)"></i>Marked below
+                record</span
+              ><span
+                ><i style="background: var(--accent)"></i>Marked above
+                record</span
+              ><span
+                ><i style="background: var(--line-strong)"></i>Matches</span
+              >
+            </div>
+          </div>
+          <div class="detail" id="detail">
+            <p class="empty">
+              Select a highlighted dot to see why that person is flagged.
+            </p>
+          </div>
+        </div>
+      </main>
+    </div>
+    <a class="pick" href="index.html">← All options</a>
+    <script src="data.js"></script>
+    <script>
+      const P = FAIRNESS.people;
+      const W = 520,
+        H = 440,
+        L = 60,
+        B = 36,
+        lo = 20,
+        hi = 100;
+      const sx = (v) => L + ((v - lo) / (hi - lo)) * (W - L - 8);
+      const sy = (v) => H - B - ((v - lo) / (hi - lo)) * (H - B - 8);
+      let seed = 7;
+      const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+      const others = Array.from({ length: 40 }, () => {
+        const r = 45 + rnd() * 35;
+        return [r, r + (rnd() - 0.5) * 14];
+      });
+      let svg = "";
+      for (const t of [20, 40, 60, 80, 100]) {
+        svg += `<line x1="${sx(t)}" x2="${sx(t)}" y1="8" y2="${H - B}" stroke="#f1f5f8"/><line x1="${L}" x2="${W - 8}" y1="${sy(t)}" y2="${sy(t)}" stroke="#f1f5f8"/>`;
+        svg += `<text x="${sx(t)}" y="${H - B + 18}" text-anchor="middle" font-size="12" fill="#616d76">${t}%</text><text x="${L - 8}" y="${sy(t) + 4}" text-anchor="end" font-size="12" fill="#616d76">${t}%</text>`;
+      }
+      svg += `<polygon points="${sx(lo)},${sy(lo + 10)} ${sx(hi - 10)},${sy(hi)} ${sx(hi)},${sy(hi)} ${sx(hi)},${sy(hi - 10)} ${sx(lo + 10)},${sy(lo)} ${sx(lo)},${sy(lo)}" fill="#f7f9fb"/>`;
+      svg += `<line x1="${sx(lo)}" y1="${sy(lo)}" x2="${sx(hi)}" y2="${sy(hi)}" stroke="#cdd7de" stroke-dasharray="4 4"/>`;
+      svg += `<text x="${sx(88)}" y="${sy(92)}" font-size="12" fill="#616d76" transform="rotate(-40 ${sx(88)} ${sy(92)})">mark = record</text>`;
+      svg += `<text x="${(W + L) / 2}" y="${H - 2}" text-anchor="middle" font-size="12" fill="#586675">Record suggests →</text>`;
+      svg += `<text x="8" y="${(H - B) / 2}" text-anchor="middle" font-size="12" fill="#586675" transform="rotate(-90 8 ${(H - B) / 2})">Mark →</text>`;
+      for (const [r, m] of others)
+        svg += `<circle cx="${sx(r)}" cy="${sy(m)}" r="4.5" fill="#cdd7de"/>`;
+      const placed = [];
+      P.forEach((p, k) => {
+        const c = p.dir === "below" ? "#d99400" : "#2b3990";
+        // Nudge a label down when it would sit on top of another.
+        let ly = sy(p.mark) + 4;
+        while (
+          placed.some(
+            ([px, py]) =>
+              Math.abs(px - sx(p.rec)) < 60 && Math.abs(py - ly) < 14,
+          )
+        )
+          ly += 15;
+        placed.push([sx(p.rec), ly]);
+        svg += `<g class="pt" data-k="${k}"><circle cx="${sx(p.rec)}" cy="${sy(p.mark)}" r="12" fill="transparent"/><circle class="dot" cx="${sx(p.rec)}" cy="${sy(p.mark)}" r="6.5" fill="${c}" stroke="#fff" stroke-width="2"/><text x="${sx(p.rec) + 11}" y="${ly}" font-size="12" fill="#0a1f2d">${p.name.split(" ")[0]}</text></g>`;
+      });
+      const plot = document.getElementById("plot");
+      plot.innerHTML = svg;
+      plot.addEventListener("click", (e) => {
+        const g = e.target.closest(".pt");
+        if (!g) return;
+        plot
+          .querySelectorAll(".pt .dot")
+          .forEach((d) => d.setAttribute("r", 6.5));
+        g.querySelector(".dot").setAttribute("r", 9);
+        document.getElementById("detail").innerHTML = personDetail(
+          P[+g.dataset.k],
+        );
+        if (innerWidth < 980)
+          document
+            .getElementById("detail")
+            .scrollIntoView({ behavior: "smooth" });
+      });
+    </script>
+  </body>
+</html>

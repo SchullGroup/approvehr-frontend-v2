@@ -16,8 +16,8 @@ import {
   TR,
   TableWrap,
   TextLink,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
   fullName,
@@ -44,9 +44,11 @@ type Row = {
  * reader to find it by hand.
  */
 export function IncompleteRecordsScreen() {
-  const { employees, loading, connected, error } = useEmployeeDirectory({
-    pageSize: 200,
-  });
+  const { employees, loading, connected, error, reload } = useEmployeeDirectory(
+    {
+      pageSize: 200,
+    },
+  );
 
   const rows: Row[] = employees
     .map((employee) => {
@@ -79,7 +81,6 @@ export function IncompleteRecordsScreen() {
             {sourceNote(connected)}
           </Badge>
         )}
-        {loading && <span className="text-meta text-muted">Loading…</span>}
       </div>
 
       {/* A read that failed is not a company with nothing missing.
@@ -90,126 +91,133 @@ export function IncompleteRecordsScreen() {
           same wrong claim as a zero standing in for an absent figure — and
           worse here than most, because this is the screen whose whole job is
           to warn somebody that a payroll will not pay. */}
-      {error ? (
-        <LoadFailure subject="the incomplete records" error={error} />
-      ) : rows.length === 0 && !loading ? (
-        <Card>
-          <EmptyState
-            icon={<ShieldAlert aria-hidden="true" />}
-            title="Nothing missing"
-            description="Every record has a bank account, pension PIN and TIN on file."
-          />
-        </Card>
-      ) : (
-        <>
-          {blockingRows.length > 0 && (
-            <Callout
-              tone="danger"
+      <LoadState
+        loading={loading}
+        error={error}
+        subject="the incomplete records"
+        onRetry={reload}
+        skeleton="table"
+        hasData={rows.length > 0}
+      >
+        {rows.length === 0 ? (
+          <Card>
+            <EmptyState
               icon={<ShieldAlert aria-hidden="true" />}
-              title={`${blockingRows.length} ${blockingRows.length === 1 ? "person" : "people"} cannot be paid until this is fixed`}
-            >
-              {blockingConsequence}
-            </Callout>
-          )}
-
-          <div className="rounded-lg border border-line bg-surface">
-            <div className="hidden sm:block">
-              <TableWrap
-                className="rounded-b-none border-0"
-                caption="Employees missing a bank account, pension PIN or tax identification number"
+              title="Nothing missing"
+              description="Every record has a bank account, pension PIN and TIN on file."
+            />
+          </Card>
+        ) : (
+          <>
+            {blockingRows.length > 0 && (
+              <Callout
+                tone="danger"
+                icon={<ShieldAlert aria-hidden="true" />}
+                title={`${blockingRows.length} ${blockingRows.length === 1 ? "person" : "people"} cannot be paid until this is fixed`}
               >
-                <THead>
-                  <TH>Employee</TH>
-                  <TH>Missing</TH>
-                </THead>
-                <TBody>
-                  {rows.map(({ employee, blocking, advisory }) => (
-                    <TR key={employee.id}>
-                      <TDPrimary
-                        title={
-                          <TextLink href={`/people/${employee.id}`}>
-                            {fullName(employee)}
-                          </TextLink>
-                        }
-                        subtitle={`${employee.jobTitle} · ${employee.employeeNo}`}
-                      />
-                      <TD>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                          {blocking.map((gap) => (
-                            <Link
-                              key={gap.field}
-                              href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
-                              title={gap.consequence}
-                              className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-                            >
-                              <Badge tone="danger" size="sm">
+                {blockingConsequence}
+              </Callout>
+            )}
+
+            <div className="rounded-lg border border-line bg-surface">
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-b-none border-0"
+                  caption="Employees missing a bank account, pension PIN or tax identification number"
+                >
+                  <THead>
+                    <TH>Employee</TH>
+                    <TH>Missing</TH>
+                  </THead>
+                  <TBody>
+                    {rows.map(({ employee, blocking, advisory }) => (
+                      <TR key={employee.id}>
+                        <TDPrimary
+                          title={
+                            <TextLink href={`/people/${employee.id}`}>
+                              {fullName(employee)}
+                            </TextLink>
+                          }
+                          subtitle={`${employee.jobTitle} · ${employee.employeeNo}`}
+                        />
+                        <TD>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                            {blocking.map((gap) => (
+                              <Link
+                                key={gap.field}
+                                href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
+                                title={gap.consequence}
+                                className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                              >
+                                <Badge tone="danger" size="sm">
+                                  {gap.label}
+                                </Badge>
+                              </Link>
+                            ))}
+                            {advisory.map((gap) => (
+                              <Link
+                                key={gap.field}
+                                href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
+                                title={gap.consequence}
+                                className="text-meta text-muted underline decoration-dotted underline-offset-2 hover:text-accent-text hover:decoration-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                              >
                                 {gap.label}
-                              </Badge>
-                            </Link>
-                          ))}
-                          {advisory.map((gap) => (
-                            <Link
-                              key={gap.field}
-                              href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
-                              title={gap.consequence}
-                              className="text-meta text-muted underline decoration-dotted underline-offset-2 hover:text-accent-text hover:decoration-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-                            >
-                              {gap.label}
-                            </Link>
-                          ))}
-                        </div>
-                      </TD>
-                    </TR>
-                  ))}
-                </TBody>
-              </TableWrap>
-            </div>
+                              </Link>
+                            ))}
+                          </div>
+                        </TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
 
-            <ul className="divide-y divide-line sm:hidden">
-              {rows.map(({ employee, blocking, advisory }) => (
-                <li key={employee.id} className="flex flex-col gap-2 p-4">
-                  <div className="min-w-0">
-                    <TextLink
-                      href={`/people/${employee.id}`}
-                      className="text-body-sm"
-                    >
-                      {fullName(employee)}
-                    </TextLink>
-                    <p className="mt-0.5 text-meta text-muted">
-                      {employee.jobTitle} · {employee.employeeNo}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                    {blocking.map((gap) => (
-                      <Link
-                        key={gap.field}
-                        href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
-                        title={gap.consequence}
-                        className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+              <ul className="divide-y divide-line sm:hidden">
+                {rows.map(({ employee, blocking, advisory }) => (
+                  <li key={employee.id} className="flex flex-col gap-2 p-4">
+                    <div className="min-w-0">
+                      <TextLink
+                        href={`/people/${employee.id}`}
+                        className="text-body-sm"
                       >
-                        <Badge tone="danger" size="sm">
+                        {fullName(employee)}
+                      </TextLink>
+                      <p className="mt-0.5 text-meta text-muted">
+                        {employee.jobTitle} · {employee.employeeNo}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                      {blocking.map((gap) => (
+                        <Link
+                          key={gap.field}
+                          href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
+                          title={gap.consequence}
+                          className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                        >
+                          <Badge tone="danger" size="sm">
+                            {gap.label}
+                          </Badge>
+                        </Link>
+                      ))}
+                      {advisory.map((gap) => (
+                        <Link
+                          key={gap.field}
+                          href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
+                          title={gap.consequence}
+                          className="text-meta text-muted underline decoration-dotted underline-offset-2 hover:text-accent-text hover:decoration-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+                        >
                           {gap.label}
-                        </Badge>
-                      </Link>
-                    ))}
-                    {advisory.map((gap) => (
-                      <Link
-                        key={gap.field}
-                        href={`/people/${employee.id}?tab=pay&field=${gap.field}`}
-                        title={gap.consequence}
-                        className="text-meta text-muted underline decoration-dotted underline-offset-2 hover:text-accent-text hover:decoration-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-                      >
-                        {gap.label}
-                      </Link>
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </>
-      )}
+                        </Link>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
+      </LoadState>
     </div>
   );
 }

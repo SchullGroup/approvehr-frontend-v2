@@ -139,12 +139,17 @@ export function ExploreScreen() {
 
       <PageBody className="flex flex-col gap-4">
         {headline && headline.rule !== "none" && (
-          <Callout
-            tone={headline.rule === "promotion-ready" ? "success" : "danger"}
-            title="Worth a look this cycle"
-          >
-            {headline.sentence}
-          </Callout>
+          <p className="flex items-start gap-2 text-body-sm text-body">
+            <span
+              aria-hidden="true"
+              className={
+                headline.rule === "promotion-ready"
+                  ? "mt-1.5 size-2 shrink-0 rounded-full bg-success"
+                  : "mt-1.5 size-2 shrink-0 rounded-full bg-warning"
+              }
+            />
+            <span>{headline.sentence}</span>
+          </p>
         )}
 
         {DEMO_ENABLED && source === "demo" && (

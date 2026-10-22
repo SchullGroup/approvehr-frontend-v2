@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { Settings } from "lucide-react";
 import {
-  Button,
+  IconButton,
   Card,
   CardBody,
   Modal,
@@ -61,16 +61,19 @@ export function AttendanceSettingsButton() {
 
   return (
     <>
-      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        <SlidersHorizontal aria-hidden="true" className="size-4" />
-        Attendance settings
-      </Button>
+      <IconButton
+        label="Attendance settings"
+        variant="secondary"
+        onClick={() => setOpen(true)}
+      >
+        <Settings aria-hidden="true" className="size-4" />
+      </IconButton>
       {open && (
         <Modal
           open
           onClose={() => setOpen(false)}
           title="Attendance settings"
-          description="Overtime, leave approval, shifts and self clock-in — switched on or off without leaving this tab. Rates, caps and entitlements still live on their own settings pages."
+          description="Overtime, leave approval, shifts and self clock-in, switched on or off without leaving this tab. Rates, caps and entitlements still live on their own settings pages."
         >
           <div className="flex flex-col gap-4">
             <OvertimeEnableSwitch />

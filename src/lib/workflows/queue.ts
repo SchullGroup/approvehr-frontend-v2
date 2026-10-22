@@ -64,7 +64,7 @@ function leaveApproval(
   return {
     id: `leave:${request.id}`,
     kind: "leave",
-    title: `${request.type} leave — ${who}`,
+    title: `${request.type} leave, ${who}`,
     summary: `${shortDate(request.from)}–${shortDate(request.to)} · ${
       request.days
     } ${request.days === 1 ? "day" : "days"} · ${cover}`,
@@ -239,7 +239,7 @@ export function toQueueItem(item: ApprovalItem): QueueItem {
     id: item.id,
     kind: item.kind,
     kindLabel: APPROVAL_LABEL[item.kind],
-    title: item.title,
+    title: plainTitle(item.title),
     summary: item.summary,
     requestedById: item.requestedById,
     requestedAt: item.requestedAt,
@@ -295,7 +295,7 @@ export function queueItemFromApproval(
     id: row.id,
     kind: row.kind,
     kindLabel: row.kindLabel,
-    title: row.title,
+    title: plainTitle(row.title),
     summary: row.summary ?? "",
     requestedAt: shortDate(row.requestedAt),
     raisedOn: row.requestedAt,
@@ -306,4 +306,9 @@ export function queueItemFromApproval(
     ...(isPastDeadline(row.deadlineAt) ? { pastDeadline: true } : {}),
     ref: { store: "approval", id: row.id },
   };
+}
+
+/** The API writes "Kind — Person"; the inbox reads "Kind for Person". */
+function plainTitle(title: string): string {
+  return title.replace(/ — /g, " for ");
 }

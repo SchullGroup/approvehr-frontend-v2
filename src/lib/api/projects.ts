@@ -500,6 +500,10 @@ export const projectsApi = {
       await request<Raw>(`/issues/${id}`, { method: "PATCH", body: patch }),
     ),
 
+  /** One issue as the server has it now, weekly-task line included. */
+  getIssue: async (id: string, signal?: AbortSignal) =>
+    toIssue(await request<Raw>(`/issues/${id}`, signalOf(signal))),
+
   removeIssue: (id: string) =>
     request<unknown>(`/issues/${id}`, { method: "DELETE" }),
 

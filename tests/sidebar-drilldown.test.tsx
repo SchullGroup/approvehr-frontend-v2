@@ -124,6 +124,7 @@ describe("the top level", () => {
       "My approvals",
       "Assistant",
       "Projects",
+      "Wellness",
       "Core HR",
       "Payroll",
       "Recruitment",
@@ -153,7 +154,13 @@ describe("the top level", () => {
     const links = Array.from(nav().querySelectorAll("a[href]")).map(
       (a) => a.querySelector("[data-nav-label]")?.textContent,
     );
-    expect(links).toEqual(["Home", "My approvals", "Assistant", "Projects"]);
+    expect(links).toEqual([
+      "Home",
+      "My approvals",
+      "Assistant",
+      "Projects",
+      "Wellness",
+    ]);
     /* A row that opens is a button and is never also a link. */
     expect(
       nav().querySelectorAll("a[href] svg.lucide-chevron-right"),

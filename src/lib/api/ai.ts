@@ -31,7 +31,13 @@ export type ApiSuggestion = {
 };
 
 export type ApiSuggestOutcome =
-  | { available: true; suggestions: ApiSuggestion[]; groundedIn: ApiGrounding }
+  | {
+      available: true;
+      suggestions: ApiSuggestion[];
+      groundedIn: ApiGrounding;
+      /** Set when the note was saved, so it is not written again on every open. */
+      writtenAt?: string;
+    }
   | { available: false; reason: string; groundedIn: ApiGrounding };
 
 export type ApiAssistantStatus = {

@@ -598,7 +598,7 @@ function buildReadiness(
   for (const task of outstanding.filter((t) => t.mandatory)) {
     blockers.push(
       task.outcome === "NOT_RETURNED"
-        ? `${task.label} — recorded as not returned.`
+        ? `${task.label}, recorded as not returned.`
         : task.label,
     );
   }
@@ -907,7 +907,7 @@ function demoUpdateTask(
         throw refuse(
           422,
           "note_required",
-          "Say what happened — that outcome is something somebody will be asked about.",
+          "Say what happened, that outcome is something somebody will be asked about.",
         );
       }
       next.outcome = outcome;

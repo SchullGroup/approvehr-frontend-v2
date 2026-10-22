@@ -364,7 +364,7 @@ describe("the detector itself", () => {
     ).toHaveLength(1);
   });
 
-  it("catches Date.UTC(...getUTC...) and toTimeString(...) — the two spellings round 1 of review found", () => {
+  it("catches Date.UTC(...getUTC...) and toTimeString(...), the two spellings round 1 of review found", () => {
     expect(
       run(
         [
@@ -380,7 +380,7 @@ describe("the detector itself", () => {
     expect(run(`const now = new Date();`)).toHaveLength(1);
   });
 
-  it("does not flag new Date(someValue) — parsing a given date is not reading the clock", () => {
+  it("does not flag new Date(someValue), parsing a given date is not reading the clock", () => {
     expect(run(`const due = new Date(dueDate + "T00:00:00Z");`)).toEqual([]);
   });
 
@@ -388,7 +388,7 @@ describe("the detector itself", () => {
     expect(run(`const at = Date.now();`)).toHaveLength(1);
   });
 
-  it("catches new Date(Date.now()) — round 2's escape: identical to new Date()", () => {
+  it("catches new Date(Date.now()), round 2's escape: identical to new Date()", () => {
     expect(run(`const now = new Date(Date.now());`)).toHaveLength(1);
     /* Character-for-character the batch's original bug, laundered through
        Date.now() instead of a bare new Date(). */
@@ -397,7 +397,7 @@ describe("the detector itself", () => {
     ).toHaveLength(1);
   });
 
-  it("passes new Date(Date.now()).toISOString() — still the one safe shape, just spelled through Date.now()", () => {
+  it("passes new Date(Date.now()).toISOString(), still the one safe shape, just spelled through Date.now()", () => {
     expect(run(`at: new Date(Date.now()).toISOString(),`)).toEqual([]);
   });
 
@@ -405,19 +405,19 @@ describe("the detector itself", () => {
     expect(run(`id: \`role-\${Date.now().toString(36)}\`,`)).toEqual([]);
   });
 
-  it("catches new Date(new Date().toISOString()) — round 2's other escape: a relaunder that hands back a fresh, clock-anchored Date", () => {
+  it("catches new Date(new Date().toISOString()), round 2's other escape: a relaunder that hands back a fresh, clock-anchored Date", () => {
     expect(
       run(`const relaunched = new Date(new Date().toISOString());`),
     ).toHaveLength(1);
   });
 
-  it("passes new Date(new Date().toISOString()).toISOString() — a redundant round trip, but still terminal", () => {
+  it("passes new Date(new Date().toISOString()).toISOString(), a redundant round trip, but still terminal", () => {
     expect(
       run(`at: new Date(new Date().toISOString()).toISOString(),`),
     ).toEqual([]);
   });
 
-  it("passes Date.now() arithmetic wrapped in new Date(...) and used whole — the seed-only isoDaysAgo shape", () => {
+  it("passes Date.now() arithmetic wrapped in new Date(...) and used whole, the seed-only isoDaysAgo shape", () => {
     expect(
       run(`new Date(Date.now() - days * 86_400_000).toISOString();`),
     ).toEqual([]);
@@ -429,7 +429,7 @@ describe("the detector itself", () => {
     ).toEqual([]);
   });
 
-  it("catches a bare Date() call — round 3's addition, zero instances in this repo today", () => {
+  it("catches a bare Date() call, round 3's addition, zero instances in this repo today", () => {
     expect(run(`const stamp = Date();`)).toHaveLength(1);
   });
 
@@ -445,7 +445,7 @@ describe("the detector itself", () => {
     ).toEqual([]);
   });
 
-  it("does not honour a marker on the line before — round 3 scoped this to one line, not a window", () => {
+  it("does not honour a marker on the line before, round 3 scoped this to one line, not a window", () => {
     expect(
       run(
         [
@@ -456,7 +456,7 @@ describe("the detector itself", () => {
     ).toHaveLength(1);
   });
 
-  it("does not honour a marker phrase sitting inside a string literal — round 3's other fix", () => {
+  it("does not honour a marker phrase sitting inside a string literal, round 3's other fix", () => {
     expect(
       run(
         [

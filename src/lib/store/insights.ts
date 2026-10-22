@@ -161,6 +161,7 @@ export function useDashboard(): DashboardState & { reload: () => void } {
             title: notice.title,
             body: notice.body,
             pinned: notice.pinned,
+            mandatory: notice.mandatory,
             publishedAt: notice.publishedAt ?? notice.createdAt,
             departmentNames: notice.departmentNames,
             postedByName: notice.postedByName,

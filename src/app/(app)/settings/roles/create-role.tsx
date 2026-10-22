@@ -286,7 +286,7 @@ export function CreateRoleDialog({
           </div>
 
           {incomplete && (
-            <p role="status" className="text-body-sm text-danger-text">
+            <p role="status" className="text-body-sm text-warning-text">
               Every person needs a first name, a last name and a work email.
               Clear the row if you did not mean to add them.
             </p>

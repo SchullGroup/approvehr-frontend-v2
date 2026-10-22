@@ -303,7 +303,7 @@ export function PayScreen({
       <Card>
         <EmptyState
           icon={<CreditCard aria-hidden="true" />}
-          title="Online payment isn't available yet — contact support to subscribe."
+          title="Online payment isn't available yet, contact support to subscribe."
           action={
             <Button variant="secondary" onClick={() => setNotSetUp(false)}>
               Back to plans
@@ -500,7 +500,7 @@ function TransferStep({
 
       <p className="text-body-sm text-muted">
         This account belongs to your company. We&apos;ll switch you on as soon
-        as the money arrives — usually within a minute.
+        as the money arrives, usually within a minute.
       </p>
 
       {unappliedKobo > 0 ? (
@@ -578,7 +578,7 @@ function DoneStep({
     <Card className="max-w-2xl p-5">
       <EmptyState
         icon={<CheckCircle2 aria-hidden="true" />}
-        title={`Payment received — you're on ${planName} until ${formatDate(
+        title={`Payment received, you're on ${planName} until ${formatDate(
           billing.currentPeriodEnd,
           timeZone,
         )}.`}

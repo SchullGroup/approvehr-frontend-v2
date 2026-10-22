@@ -107,7 +107,7 @@ export function shortLabel(label: string): string {
  * colleague's behalf still says whose it was.
  */
 function withoutActor(label: string, who: string): string {
-  const suffix = ` — ${who}`;
+  const suffix = `, ${who}`;
   return label.endsWith(suffix) ? label.slice(0, -suffix.length) : label;
 }
 

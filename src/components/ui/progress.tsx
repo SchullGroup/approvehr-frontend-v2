@@ -38,10 +38,10 @@ export function ProgressMeter({
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   const fills = {
     accent: "bg-accent",
-    success: "bg-success",
-    info: "bg-info",
+    success: "bg-accent",
+    info: "bg-accent",
     warning: "bg-warning",
-    danger: "bg-danger",
+    danger: "bg-warning",
     ink: "bg-fill-strong",
   } as const;
 

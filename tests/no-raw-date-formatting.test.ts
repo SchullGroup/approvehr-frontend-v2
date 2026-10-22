@@ -221,7 +221,7 @@ describe("the detector itself", () => {
     expect(hits).toHaveLength(1);
   });
 
-  it("catches a Date-typed parameter — the gap this round closed", () => {
+  it("catches a Date-typed parameter, the gap this round closed", () => {
     const hits = violationsIn(
       `function label(when: Date): string {\n  return when.toLocaleString("en-GB");\n}`,
       "sample.ts",
@@ -229,7 +229,7 @@ describe("the detector itself", () => {
     expect(hits).toHaveLength(1);
   });
 
-  it("catches a Date-typed destructured prop — also part of that gap", () => {
+  it("catches a Date-typed destructured prop, also part of that gap", () => {
     const hits = violationsIn(
       `function Row({ when }: { when: Date }) {\n  return when.toLocaleString("en-GB");\n}`,
       "sample.ts",

@@ -613,7 +613,7 @@ describe("the preview is the applicant's own form", () => {
     expect(box).toHaveAccessibleDescription("As on your payslip");
   });
 
-  it("changes with the kind, the limit, the options and the order — and says nothing of knockouts", async () => {
+  it("changes with the kind, the limit, the options and the order, and says nothing of knockouts", async () => {
     const user = userEvent.setup();
     render(
       <Harness

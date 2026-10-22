@@ -424,7 +424,7 @@ export function ClaimForm({
                 <span
                   className={
                     capNote.tone === "danger"
-                      ? "text-body-sm font-medium text-danger-text"
+                      ? "text-body-sm font-medium text-warning-text"
                       : "text-body-sm text-muted"
                   }
                 >

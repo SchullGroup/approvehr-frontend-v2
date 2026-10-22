@@ -14,13 +14,13 @@ import {
   Field,
   Input,
   Modal,
-  SegmentedControl,
-  Spinner,
   Textarea,
   useToast,
+  FilterBar,
+  Select,
+  LoadState,
 } from "@/components/ui";
 import { ExportButton } from "@/components/portal/export-button";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SendDialog } from "./send-dialog";
 import { ApiError } from "@/lib/api/client";
@@ -166,39 +166,52 @@ export function SignaturesScreen() {
             </Button>
           ) : undefined
         }
-        tabs={
-          <SegmentedControl
-            label="What to show"
-            value={tab}
-            onChange={(value) => setTab(value as "mine" | "all")}
-            options={[
-              { value: "mine", label: "Waiting on me" },
-              {
-                value: "all",
-                label: canManage ? "Everything" : "Sent and signed",
-              },
-            ]}
-          />
-        }
       />
       <PageBody>
+        <FilterBar
+          applied={
+            tab === "all"
+              ? [
+                  {
+                    label: "Show",
+                    value: canManage ? "Everything" : "Sent and signed",
+                    onClear: () => setTab("mine"),
+                  },
+                ]
+              : []
+          }
+        >
+          <Field label="What to show">
+            <Select
+              value={tab}
+              onChange={(event) => setTab(event.target.value as "mine" | "all")}
+            >
+              <option value="mine">Waiting on me</option>
+              <option value="all">
+                {canManage ? "Everything" : "Sent and signed"}
+              </option>
+            </Select>
+          </Field>
+        </FilterBar>
         {!read.available ? (
           <Callout tone="info" title="This needs the API">
             {read.refusal}
           </Callout>
-        ) : read.error ? (
-          <LoadFailure
-            subject="signatures"
+        ) : read.error || read.loading || !read.data ? (
+          /* The one loading and failure rule. This screen lists a whole
+             module, so a 404 is the API not carrying it rather than a record
+             somebody deleted — see `MissingMeans`. Exactly the case that made
+             production look broken. */
+          <LoadState
+            loading={read.loading}
             error={read.error}
+            subject="signatures"
             onRetry={read.reload}
-            /* This screen lists a whole module, so a 404 is the API not
-             carrying it rather than a record somebody deleted — see
-             `MissingMeans`. Exactly the case that made production look
-             broken. */
             missingMeans="module"
-          />
-        ) : read.loading || !read.data ? (
-          <Spinner label="Loading" />
+            skeleton="list"
+          >
+            {null}
+          </LoadState>
         ) : read.data.length === 0 ? (
           /* Bare `EmptyState` has no edges of its own — see `feedback.tsx`.
              `approvals/inbox.tsx` wraps every empty state in a `Card` for
@@ -500,7 +513,7 @@ function DeclineButton({
         <div className="flex flex-col gap-4">
           <Field
             label="Why"
-            help="Required — it is the only thing the sender gets."
+            help="Required, it is the only thing the sender gets."
           >
             <Textarea
               rows={3}
@@ -547,7 +560,7 @@ function SignDialog({
     <Modal
       open
       onClose={onClose}
-      title={`Sign — ${record.title}`}
+      title={`Sign, ${record.title}`}
       footer={
         <div className="flex items-center gap-2">
           <Button
@@ -604,7 +617,7 @@ function SignDialog({
 
         <Field
           label="Type your full name"
-          help={`As it appears on your record — ${record.signerName}.`}
+          help={`As it appears on your record, ${record.signerName}.`}
         >
           <Input
             value={typedName}

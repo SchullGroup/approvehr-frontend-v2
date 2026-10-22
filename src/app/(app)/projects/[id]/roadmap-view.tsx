@@ -172,10 +172,10 @@ export function RoadmapView() {
                     className="absolute bottom-0 top-8 flex -translate-x-1/2 flex-col items-center"
                     style={{ left: model.todayX }}
                   >
-                    <span className="rounded-sm bg-danger-fill px-1.5 text-meta font-semibold text-white">
+                    <span className="rounded-sm bg-accent px-1.5 text-meta font-semibold text-white">
                       Today
                     </span>
-                    <span className="w-0.5 flex-1 bg-danger-fill" />
+                    <span className="w-0.5 flex-1 bg-accent" />
                   </span>
                 </div>
 

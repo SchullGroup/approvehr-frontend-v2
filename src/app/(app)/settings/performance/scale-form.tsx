@@ -105,7 +105,7 @@ export function scaleProblem(
   const words = entries.map((entry) => entry.label.trim().toLowerCase());
   const clash = words.find((word, index) => words.indexOf(word) !== index);
   if (clash !== undefined) {
-    return "Two levels cannot share a word — a reader could not tell them apart.";
+    return "Two levels cannot share a word, a reader could not tell them apart.";
   }
   return null;
 }
@@ -252,7 +252,7 @@ export function RatingScaleForm() {
               </p>
               <p className="mt-2">
                 The sentence beside each word is what stops five managers
-                reading the same label five ways — which is the whole reason an
+                reading the same label five ways, which is the whole reason an
                 appraisal has a scale rather than a conversation.
               </p>
             </Callout>

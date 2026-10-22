@@ -7,6 +7,7 @@ import {
   Clock,
   Cpu,
   LifeBuoy,
+  MessageSquare,
   ShieldCheck,
   Check,
   CircleDashed,
@@ -128,7 +129,7 @@ const ONGOING = [
     href: "/settings/features",
     title: "What this company uses",
     description:
-      "Switch modules on and off — loans, expenses, hiring, shifts, attendance. A module switched off disappears from the sidebar rather than being deleted, and its data is kept.",
+      "Switch modules on and off, loans, expenses, hiring, shifts, attendance. A module switched off disappears from the sidebar rather than being deleted, and its data is kept.",
     icon: <ToggleRight aria-hidden="true" />,
   },
   {
@@ -212,6 +213,16 @@ const ONGOING = [
     icon: <Bell aria-hidden="true" />,
   },
   {
+    /* Beside Notifications, which is the other place a company decides what its
+       people are told. Named for what the person receives and not for the
+       channel's plumbing: nobody on a shop floor asks for an "SMS digest". */
+    href: "/settings/sms",
+    title: "Text messages",
+    description:
+      "A weekly text of counts and a link, only for people who opt in.",
+    icon: <MessageSquare aria-hidden="true" />,
+  },
+  {
     href: "/settings/appearance",
     title: "Appearance",
     description:
@@ -269,7 +280,7 @@ function Row({ row }: { row: ChecklistRow }) {
             : row.status === "attention"
               ? "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning-text"
               : row.status === "todo"
-                ? "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger-text"
+                ? "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning-text"
                 : "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-canvas text-faint"
         }
       >

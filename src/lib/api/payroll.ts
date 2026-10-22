@@ -1905,7 +1905,7 @@ export function headcountLabel(run: {
   if (run.excludedCount === 0) return String(run.employeeCount);
   return (
     `${run.employeeCount} of ${run.employeeCount + run.excludedCount}` +
-    ` — ${run.excludedCount} excluded`
+    `, ${run.excludedCount} excluded`
   );
 }
 
@@ -1943,7 +1943,7 @@ export function payslipCountLabel(run: {
   if (run.excludedCount === 0) return `${run.employeeCount} ${noun}`;
   return (
     `${run.employeeCount} of ${run.employeeCount + run.excludedCount} ${noun}` +
-    ` — ${run.excludedCount} excluded`
+    `, ${run.excludedCount} excluded`
   );
 }
 

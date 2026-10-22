@@ -23,9 +23,11 @@ import {
   Modal,
   ProgressMeter,
   Skeleton,
+  Tabs,
   Textarea,
   useToast,
 } from "@/components/ui";
+import type { TabItem } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -37,10 +39,12 @@ import { useCan } from "@/lib/permissions";
 import { useEquipment } from "@/lib/store/assets";
 import { useExit } from "@/lib/store/offboarding";
 import { useSession } from "@/lib/store/session";
+import { useUrlTab } from "@/hooks/use-url-tab";
 import { shortDate } from "@/lib/today";
 import { statusTone } from "../status-tone";
 import { Checklist } from "./checklist";
 import { InterviewPanel } from "./interview-panel";
+import { EXIT_TABS, type ExitTabId } from "./tabs";
 
 /**
  * One exit: a progress bar, the next action, and a checklist.
@@ -62,8 +66,23 @@ import { InterviewPanel } from "./interview-panel";
  * under it names what. The API refuses the same thing for the same reasons and
  * with the same list — `GET /readiness` and `POST /complete` run one
  * calculation, so the button and the refusal cannot disagree.
+ *
+ * ## Three tabs under the next action
+ *
+ * The progress bar and the buttons stay above them, because they are true of
+ * every tab. Under them: the checklist (the work), what the exit does to pay and
+ * to the equipment register (the money), and the facts and the exit interview
+ * (the record). That is the order of the page as it was, and it was a 3,000px
+ * column of three unrelated things.
  */
-export function ExitDetailScreen({ id }: { id: string }) {
+export function ExitDetailScreen({
+  id,
+  initialTab = "checklist",
+}: {
+  id: string;
+  initialTab?: ExitTabId;
+}) {
+  const [tab, changeTab] = useUrlTab<ExitTabId>(initialTab, EXIT_TABS);
   const exitState = useExit(id);
   const { exit, readiness } = exitState;
   const { employeeId, displayName } = useSession();
@@ -201,6 +220,18 @@ export function ExitDetailScreen({ id }: { id: string }) {
      enforces both and this only decides which button to offer. */
   const mine = employeeId !== null && exit.employee.id === employeeId;
   const canWithdraw = !closed && (mine || isHr);
+
+  /* The pay tab is there when it has something on it: an API that predates
+     `finalPay` and nothing on the register leaves it with nothing to say, and an
+     empty tab is a tab that teaches people not to open the others. */
+  const hasPay = readiness.finalPay !== undefined || held.length > 0;
+  const tabItems: TabItem[] = [
+    { id: "checklist", label: "Checklist" },
+    ...(hasPay ? [{ id: "pay", label: "Final pay and equipment" }] : []),
+    { id: "details", label: isHr ? "Details and interview" : "Details" },
+  ];
+  /* A `?tab=` for a tab that is not there falls back to the checklist. */
+  const shown = tabItems.some((item) => item.id === tab) ? tab : "checklist";
 
   return (
     <>
@@ -343,122 +374,148 @@ export function ExitDetailScreen({ id }: { id: string }) {
           </CardBody>
         </Card>
 
-        <Checklist
-          groups={exit.groups}
-          closed={closed}
-          canTick={canTick}
-          canVerify={isHr}
-          completedByMe={completedByMe}
-          onUpdate={exitState.updateTask}
-          onVerify={exitState.verifyTask}
-        />
+        <Tabs items={tabItems} value={shown} onChange={changeTab}>
+          <div className="flex flex-col gap-6">
+            {shown === "checklist" && (
+              <>
+                <Checklist
+                  groups={exit.groups}
+                  closed={closed}
+                  canTick={canTick}
+                  canVerify={isHr}
+                  completedByMe={completedByMe}
+                  onUpdate={exitState.updateTask}
+                  onVerify={exitState.verifyTask}
+                />
+              </>
+            )}
 
-        {/* Presence, not falsiness. `finalPay` is new on `GET /readiness`, and a
+            {shown === "pay" && (
+              <>
+                {/* Presence, not falsiness. `finalPay` is new on `GET /readiness`, and a
             screen served against an API that predates it should lose one card
             rather than crash on the leaver's page. */}
-        {readiness.finalPay !== undefined && (
-          <FinalPayCard finalPay={readiness.finalPay} />
-        )}
+                {readiness.finalPay !== undefined && (
+                  <FinalPayCard finalPay={readiness.finalPay} />
+                )}
 
-        {held.length > 0 && (
-          <Card>
-            <CardHeader
-              title="Still on the equipment register"
-              level={3}
-              description="A checklist line ticked as returned while this still says otherwise stops the exit closing."
-              action={
-                <ButtonLink href="/people/assets" variant="secondary" size="sm">
-                  Open the register
-                </ButtonLink>
-              }
-            />
-            <CardBody className="flex flex-col gap-2">
-              {held.map((asset) => (
-                <div
-                  key={asset.assignmentId}
-                  className="flex flex-wrap items-center gap-3 rounded-md border border-line p-3"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sunken text-muted [&>svg]:size-4"
-                  >
-                    <Laptop aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-body-sm font-medium text-ink">
-                      {asset.name}
-                    </p>
-                    <p className="tabular mt-0.5 text-body-sm text-muted">
-                      {asset.tag} · since {shortDate(asset.assignedOn)}
-                      {asset.valueKobo === null
-                        ? ""
-                        : ` · ${formatKobo(asset.valueKobo)}`}
-                    </p>
-                  </div>
+                {held.length > 0 && (
+                  <Card>
+                    <CardHeader
+                      title="Still on the equipment register"
+                      level={3}
+                      description="A checklist line ticked as returned while this still says otherwise stops the exit closing."
+                      action={
+                        <ButtonLink
+                          href="/people/assets"
+                          variant="secondary"
+                          size="sm"
+                        >
+                          Open the register
+                        </ButtonLink>
+                      }
+                    />
+                    <CardBody className="flex flex-col gap-2">
+                      {held.map((asset) => (
+                        <div
+                          key={asset.assignmentId}
+                          className="flex flex-wrap items-center gap-3 rounded-md border border-line p-3"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sunken text-muted [&>svg]:size-4"
+                          >
+                            <Laptop aria-hidden="true" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-body-sm font-medium text-ink">
+                              {asset.name}
+                            </p>
+                            <p className="tabular mt-0.5 text-body-sm text-muted">
+                              {asset.tag} · since {shortDate(asset.assignedOn)}
+                              {asset.valueKobo === null
+                                ? ""
+                                : ` · ${formatKobo(asset.valueKobo)}`}
+                            </p>
+                          </div>
 
-                  {/* Written by the assets module, not this one. The button is
+                          {/* Written by the assets module, not this one. The button is
                       here because this is where the person is standing when the
                       laptop arrives, and making them find the register to close
                       an exit is how a register goes stale. */}
-                  {isHr && !closed && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() =>
-                        void run(async () => {
-                          await equipment.takeBack(asset.assetId, {
-                            outcome: "RETURNED",
-                          });
-                          await exitState.reload();
-                        }, `${asset.name} back on the register`)
-                      }
-                    >
-                      Got it back
-                    </Button>
+                          {isHr && !closed && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() =>
+                                void run(async () => {
+                                  await equipment.takeBack(asset.assetId, {
+                                    outcome: "RETURNED",
+                                  });
+                                  await exitState.reload();
+                                }, `${asset.name} back on the register`)
+                              }
+                            >
+                              Got it back
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </CardBody>
+                  </Card>
+                )}
+              </>
+            )}
+
+            {shown === "details" && (
+              <>
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <Card>
+                    <CardHeader title="The exit" level={3} />
+                    <CardBody>
+                      <DescriptionList
+                        items={[
+                          { term: "What happened", value: exit.kindLabel },
+                          { term: "Why", value: exit.reason ?? "Not recorded" },
+                          {
+                            term: "Told us on",
+                            value: shortDate(exit.noticeGivenOn),
+                          },
+                          {
+                            term: "Last working day",
+                            value: `${shortDate(exit.lastWorkingDay)} · ${exit.noticeDays} days notice`,
+                          },
+                          {
+                            term: "Released by",
+                            value: exit.managerApprovedByName ?? "Not yet",
+                          },
+                          {
+                            term: "Approved by HR",
+                            value: exit.hrApprovedByName ?? "Not yet",
+                          },
+                          {
+                            term: "Staff number",
+                            value: exit.employee.employeeNo,
+                          },
+                        ]}
+                      />
+                    </CardBody>
+                  </Card>
+
+                  {isHr && (
+                    <InterviewPanel
+                      interview={exit.interview}
+                      employeeFirstName={firstName}
+                      closed={closed}
+                      onSave={exitState.saveInterview}
+                    />
                   )}
                 </div>
-              ))}
-            </CardBody>
-          </Card>
-        )}
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card>
-            <CardHeader title="The exit" level={3} />
-            <CardBody>
-              <DescriptionList
-                items={[
-                  { term: "What happened", value: exit.kindLabel },
-                  { term: "Why", value: exit.reason ?? "Not recorded" },
-                  { term: "Told us on", value: shortDate(exit.noticeGivenOn) },
-                  {
-                    term: "Last working day",
-                    value: `${shortDate(exit.lastWorkingDay)} · ${exit.noticeDays} days notice`,
-                  },
-                  {
-                    term: "Released by",
-                    value: exit.managerApprovedByName ?? "Not yet",
-                  },
-                  {
-                    term: "Approved by HR",
-                    value: exit.hrApprovedByName ?? "Not yet",
-                  },
-                  { term: "Staff number", value: exit.employee.employeeNo },
-                ]}
-              />
-            </CardBody>
-          </Card>
-
-          {isHr && (
-            <InterviewPanel
-              interview={exit.interview}
-              employeeFirstName={firstName}
-              closed={closed}
-              onSave={exitState.saveInterview}
-            />
-          )}
-        </div>
+              </>
+            )}
+          </div>
+        </Tabs>
       </PageBody>
 
       <ConfirmDialog

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { tabFromQuery } from "@/lib/url-tab";
 import { ExitDetailScreen } from "./exit-detail-screen";
+import { EXIT_TABS } from "./tabs";
 
 export const metadata: Metadata = {
   title: "Exit",
@@ -15,9 +17,17 @@ export const metadata: Metadata = {
  */
 export default async function ExitPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string | string[] }>;
 }) {
   const { id } = await params;
-  return <ExitDetailScreen id={id} />;
+  const { tab } = await searchParams;
+  return (
+    <ExitDetailScreen
+      id={id}
+      initialTab={tabFromQuery(tab, EXIT_TABS, "checklist")}
+    />
+  );
 }

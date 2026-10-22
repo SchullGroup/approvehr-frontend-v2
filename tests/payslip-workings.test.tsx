@@ -87,11 +87,11 @@ describe("what a statutory deduction was charged on", () => {
   it("says the rate, the base and which parts of the pay counted", () => {
     draw({ paye: null, pension: PENSION, nhf: NHF });
     expect(
-      screen.getByText("8% of ₦500,000.00 — basic, housing and transport"),
+      screen.getByText("8% of ₦500,000.00, basic, housing and transport"),
     ).toBeInTheDocument();
     /* A fractional rate keeps its decimals; a whole one does not grow any. */
     expect(
-      screen.getByText("2.50% of ₦300,000.00 — basic salary"),
+      screen.getByText("2.50% of ₦300,000.00, basic salary"),
     ).toBeInTheDocument();
   });
 
