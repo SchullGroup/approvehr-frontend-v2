@@ -1,6 +1,6 @@
-# Company report: design
+# Company reports: design
 
-**Status:** proposed, nothing built. A spec only.
+**Status:** decided by the owner on 23 Oct 2026 (see "Decisions made" at the end) and being built in the pieces under (l).
 **Replaces:** Explore (`/reports/explore`, the 3D department spheres).
 **Written:** 22 and 23 Oct 2026. Every figure quoted as "true today" was read from the
 staging demo (`localhost:8600`, company Schulltech, cycle "H2 2026 appraisal") on 23 Oct 2026.
@@ -45,8 +45,10 @@ These are the constraints a developer should hold to. Most restate rules this co
 4. **Nothing under five people is averaged or compared.** The department table shows the headcount
    and nothing else for such a row. This follows the Fairness check, including its "protects" rule
    (hiding a group of one to four also hides the next smallest, so nothing can be got by subtraction).
-5. **No names in the body of the report.** Names appear in the department side panel and behind a
-   "See who" link, and only for people who can already open the register (`EDIT_RECORDS`).
+5. **Names only where the owner decided they belong, and only for `EDIT_RECORDS`.** Names appear in
+   the department side panel, behind a "See who" link, and on the two named findings (F10 and F11,
+   below), each with its basis in one line. They never appear in the headline, the strip, or any
+   other finding, and never in one company-wide list.
 6. **No free text, ever.** No review answer, comment, objective note or quote appears. This keeps
    the promise on `/settings/ai` that written appraisal comments do not leave the platform.
 7. **Worked out by fixed rules, and the page says so.** No model writes any sentence. The rule that
@@ -62,11 +64,12 @@ These are the constraints a developer should hold to. Most restate rules this co
 
 ## The page
 
-Route `/reports/company`, nav label **Company report** under Reports, replacing Explore.
+Route `/reports/company`, nav label and page title **Company reports** (plural, as the owner said it)
+under Reports, replacing Explore.
 `/reports/explore` redirects to it. Layout, top to bottom:
 
 ```
-Company report                         [ Period: H2 2026 appraisal v ]   [ Download PDF ]
+Company reports                        [ Period: H2 2026 appraisal v ]   [ Download PDF ]
 In calibration. Marks can still move.  Worked out from ApproveHR records by fixed rules, 23 Oct 2026 09:14.
 
 4 of the 6 marks the Fairness check flagged still need a decision, so H2 2026
@@ -225,17 +228,19 @@ Open the Fairness check                                                 <- plain
 
 Initial catalogue. Order within an axis is by status (blocks first), then by the size of the figure.
 
-| Id  | Axis     | Fires when                                          | Title today                                                                                                                               | If nothing changes                                                               | Where to act                    | Needs           |
-| --- | -------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------- | --------------- |
-| F1  | Process  | flagged marks undecided                             | 4 of the 6 flagged marks have no decision                                                                                                 | results cannot be published                                                      | Fairness check, review queue    | `VIEW_FAIRNESS` |
-| F2  | Process  | people with no appraiser                            | 2 of 62 people have no appraiser                                                                                                          | they finish the period with no mark                                              | Performance, appraisers         | `EDIT_RECORDS`  |
-| F3  | Process  | marks with no agreed objective                      | 12 of 61 marks have no agreed objective                                                                                                   | the objectives part is left out of those marks, so they are less like the others | Performance, approvals          | `EDIT_RECORDS`  |
-| F4  | Process  | people missing from the nine-box                    | 40 of 61 are on the nine-box. 17 have no potential assessed and 4 have no mark                                                            | a talent decision rests on a partial grid                                        | Performance, nine-box           | `EDIT_RECORDS`  |
-| F5  | Process  | staff records incomplete                            | 52 of 62 staff records lack a bank account, pension PIN or tax ID                                                                         | payroll cannot file for them                                                     | People, incomplete records      | `EDIT_RECORDS`  |
-| F6  | Fairness | department or manager group flagged                 | Finance's average mark is 16.4 points above everyone else's (likely range 7.1 to 25.6). One manager's group of 11 is flagged the same way | decisions that use marks will treat the gap as real                              | Fairness check, department view | `VIEW_FAIRNESS` |
-| F7  | Fairness | groups hidden                                       | 7 people in two contract types and 1 manager's 4 people are not compared                                                                  | those groups cannot be checked                                                   | Fairness check                  | `VIEW_FAIRNESS` |
-| F8  | Results  | people with no mark, or a disputed rating           | 4 people have no mark. 1 rating is disputed                                                                                               | they finish with no mark, and the dispute stays open                             | Performance, period             | `EDIT_RECORDS`  |
-| F9  | Results  | weekly tasks barely graded (**held back**, see (k)) | "1 of 61 people has a graded task"                                                                                                        | none stated                                                                      | Performance, review tasks       | `EDIT_RECORDS`  |
+| Id  | Axis     | Fires when                                                                | Title today                                                                                                                               | If nothing changes                                                               | Where to act                    | Needs           |
+| --- | -------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------- | --------------- |
+| F1  | Process  | flagged marks undecided                                                   | 4 of the 6 flagged marks have no decision                                                                                                 | results cannot be published                                                      | Fairness check, review queue    | `VIEW_FAIRNESS` |
+| F2  | Process  | people with no appraiser                                                  | 2 of 62 people have no appraiser                                                                                                          | they finish the period with no mark                                              | Performance, appraisers         | `EDIT_RECORDS`  |
+| F3  | Process  | marks with no agreed objective                                            | 12 of 61 marks have no agreed objective                                                                                                   | the objectives part is left out of those marks, so they are less like the others | Performance, approvals          | `EDIT_RECORDS`  |
+| F4  | Process  | people missing from the nine-box                                          | 40 of 61 are on the nine-box. 17 have no potential assessed and 4 have no mark                                                            | a talent decision rests on a partial grid                                        | Performance, nine-box           | `EDIT_RECORDS`  |
+| F5  | Process  | staff records incomplete                                                  | 52 of 62 staff records lack a bank account, pension PIN or tax ID                                                                         | payroll cannot file for them                                                     | People, incomplete records      | `EDIT_RECORDS`  |
+| F6  | Fairness | department or manager group flagged                                       | Finance's average mark is 16.4 points above everyone else's (likely range 7.1 to 25.6). One manager's group of 11 is flagged the same way | decisions that use marks will treat the gap as real                              | Fairness check, department view | `VIEW_FAIRNESS` |
+| F7  | Fairness | groups hidden                                                             | 7 people in two contract types and 1 manager's 4 people are not compared                                                                  | those groups cannot be checked                                                   | Fairness check                  | `VIEW_FAIRNESS` |
+| F8  | Results  | people with no mark, or a disputed rating                                 | 4 people have no mark. 1 rating is disputed                                                                                               | they finish with no mark, and the dispute stays open                             | Performance, period             | `EDIT_RECORDS`  |
+| F9  | Results  | weekly tasks barely graded (**held back**, see (k))                       | "1 of 61 people has a graded task"                                                                                                        | none stated                                                                      | Performance, review tasks       | `EDIT_RECORDS`  |
+| F10 | Results  | a department of five or more has marks                                    | Highest mark in each department, with its basis. Engineering: the highest of 17 scored is 85.2%, one appraiser                            | none stated                                                                      | Performance, nine-box           | `EDIT_RECORDS`  |
+| F11 | Results  | somebody held the top band two cycles running and meets every role target | 1 person has been in the top band two cycles running and meets 3 of 3 role targets                                                        | none stated                                                                      | Performance, nine-box           | `EDIT_RECORDS`  |
 
 Notes:
 
@@ -248,6 +253,30 @@ Notes:
   the owner of the fix is the manager.
 - A finding appears only when its rule fires. There is no "all clear" card per rule. A clean report
   is a short report.
+
+### Named lines: highest marks and promotion-ready (F10, F11)
+
+The owner decided on 23 Oct 2026 to keep "best performer" and "promotion-ready", in the department
+panel and in the findings, **with safeguards so they cannot mislead**. This replaces the earlier
+recommendation to show them only as flags in the panel. The safeguards are part of the finding, not
+decoration:
+
+1. **Each line carries its basis in one sentence.** "Highest of the 17 marks in Engineering, 85.2%,
+   one appraiser." "Top band in H1 2026 and H2 2026, meets 3 of 3 role targets."
+2. **A mark still in calibration says so on the line.** "H2 2026 is in calibration, so this mark can
+   move." It is not left to the header.
+3. **Departments are not comparable, and it says so.** One line above F10 and in the panel: "These
+   departments are rated by different managers. Marks are not adjusted for that." with a link to the
+   Fairness check.
+4. **Never a single company-wide ranking.** Lines are grouped by department, sorted by department name
+   and then person name, never by score. There is no "top ten". A department's highest mark is only
+   ever shown inside that department.
+5. **No highest-mark line for a small group.** Only a department with at least five people and five
+   marks gets one (the same minimum as the Fairness check). The top of three is not a finding. A tie
+   names everyone at the top figure.
+6. **`EDIT_RECORDS` only.** The block is absent for anybody else.
+7. **The judgement is made elsewhere.** Each block links to the nine-box and to the Fairness check,
+   which stay the places those calls are made. Nothing here says "promote".
 
 ## (e) What is working
 
@@ -341,9 +370,11 @@ bottom:
    is OWI's "Connections and friction".
 8. **People to look at** (`EDIT_RECORDS`, and only when the group is five or more): **everyone** in
    the department, sorted by name, with their mark and a "Why" column. "Why" is a short list of
-   criteria flags, each a plain fact: "Top band two cycles running, meets 3 of 3 role targets",
-   "Below the evidence by 12 points", "No mark", "No appraiser". This is where today's
-   "promotion-readiness" survives, as an inspectable fact on a row and not as a verdict or a colour.
+   criteria flags, each a plain fact: "Highest mark in the department (of 17)", "Top band two cycles
+   running, meets 3 of 3 role targets", "Below the evidence by 12 points", "No mark", "No appraiser".
+   A mark in calibration carries "can still move". Under the list: "These departments are rated by
+   different managers. Marks are not adjusted for that." with links to the nine-box and the Fairness
+   check. The list is by name, never by score.
 
 ## (h) Privacy, honesty and the PDF
 
@@ -418,7 +449,7 @@ button on the Departments tab, to these conditions:
 | Open the report, headline, strip, Process findings, Results findings, department table   | `EDIT_RECORDS`                                        | nav item hidden (absent, not disabled). Direct URL shows the standard refusal      |
 | Anything from the Fairness check (H1, H4, F1, F6, F7, the Fairness lens, flagged counts) | `VIEW_FAIRNESS` as well                               | those blocks are omitted from the response. The Fairness axis heading is not drawn |
 | Cost per head, payroll cost, the cost axis of the bubble chart                           | `VIEW_SALARIES` as well                               | keys omitted. The chart's x axis becomes goal progress                             |
-| Names (side panel, "See who", "People to look at")                                       | `EDIT_RECORDS`, and the group has five or more people | counts only                                                                        |
+| Names (side panel, "See who", "People to look at", F10, F11)                             | `EDIT_RECORDS`, and the group has five or more people | counts only                                                                        |
 | A priority-action button                                                                 | the permission the destination needs                  | omitted by the API. The finding keeps its link as text                             |
 | Download PDF                                                                             | `EXPORT_DATA`                                         | button absent                                                                      |
 | Dashboard banner (same headline function)                                                | `EDIT_RECORDS`                                        | no banner                                                                          |
@@ -506,7 +537,18 @@ type NotMeasured = { what: string; why: string };
 type ActionRef = { id: string; label: string; href: string };
 
 type Finding = {
-  id: "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9";
+  id:
+    | "F1"
+    | "F2"
+    | "F3"
+    | "F4"
+    | "F5"
+    | "F6"
+    | "F7"
+    | "F8"
+    | "F9"
+    | "F10"
+    | "F11";
   axis: "results" | "process" | "fairness";
   status: "blocks" | "weakens" | "info";
   title: string; // computed, contains the figure
@@ -516,6 +558,16 @@ type Finding = {
   act?: { label: string; href: string };
   departments?: string[]; // only groups of five or more
   seeWho?: boolean; // true when the panel can list names
+  lines?: NamedLine[]; // F10 and F11 only. Grouped by department, sorted by name, never by score
+  caveats?: string[]; // "H2 2026 is in calibration...", "These departments are rated by different managers..."
+};
+
+type NamedLine = {
+  department: string; // a group of five or more
+  employeeId: string;
+  name: string;
+  basis: string; // one sentence: "Highest of the 17 marks in Engineering, 85.2%, one appraiser"
+  marksMayMove: boolean;
 };
 
 type DepartmentRow =
@@ -618,6 +670,13 @@ the API's with its own database, never the shared one). Nothing is removed until
 About nine working days, one engineer. Pieces 1 and 3 touch the same API module, so they go in order.
 Piece 7 is independent and should be first if the demo is needed sooner.
 
+**Landing order, as decided on 23 Oct 2026.** Each lands alone on staging, API and web as separate
+pushes. The API deploys slowly and a new push cancels the one in flight, so the API goes in **two**
+pushes: the endpoint (pieces 1 and 3, with F10 and F11), then the seed (piece 7) together with the
+removal of the old routes. The web goes: the Overview (2), the Departments tab (4), print (5), then
+the removal of Explore and three.js (6) only after the new screen is live. The seed is applied to the
+demo database with a `pg_dump` backup first.
+
 **Piece 6, the removal list.**
 
 - Web: `src/app/(app)/reports/explore/` (8 files, about 1,300 lines), the nav entry in
@@ -633,21 +692,22 @@ Piece 7 is independent and should be first if the demo is needed sooner.
   `scripts/verify-legacy-permissions.ts`. Keep the `goals` Report Builder dataset: it is generic and
   covered by `tests/reports.test.ts`.
 
-## (m) Decisions for the owner
+## Decisions made (23 Oct 2026)
 
-1. **Replace Explore with this report, or remove Explore and stop.** Recommended: replace. Removing is
-   cheaper (about a day) but loses the one thing the owner wanted from it, a sentence that says what to do
-   next, and the dashboard banner goes with it.
-2. **Do names of "best" and "promotion-ready" people appear anywhere outside Performance?** Recommended:
-   no ranking, no "best performer". The department panel lists **everyone** with their mark and a "Why"
-   column of plain criteria flags, `EDIT_RECORDS` only, groups of five or more. The nine-box and the
-   Fairness check stay the places those judgements are made.
-3. **Show cost against performance?** Recommended: yes, to people with `VIEW_SALARIES` only, on the
-   bubble chart and as a column, with the caution that cost per head reflects who works there as well as how
-   well they are rated. It is what the owner first asked for ("staff performance versus cost versus
-   department") and it is the most sensitive thing on the screen.
-4. **Name and route.** Recommended: "Company report" at `/reports/company`, with `/reports/explore`
-   redirecting. "Explore" names a mechanism and says nothing about what is inside.
+The owner decided all four. The recommendations in the first version of this spec are kept where the
+owner agreed, and changed where noted.
+
+1. **Replace Explore with this report.** Decided. Named **Company reports** (plural), under Reports,
+   at `/reports/company`. `/reports/explore` redirects to it.
+2. **Cost against performance: yes.** Decided, as recommended. On the Departments tab and the bubble
+   chart, only for people with `VIEW_SALARIES` (absent, never zeroed). For everybody else the chart's x
+   axis is goal progress.
+3. **Keep "best performer", "promotion-ready" and the rest, with safeguards.** Decided, **changed from
+   the recommendation**, which was to show them only as flags in the panel. They now appear in the
+   department panel and as findings F10 and F11 for `EDIT_RECORDS`, each with its basis in one line,
+   saying plainly when a mark is in calibration and when managers are not comparable, never as one
+   company-wide ranking, and linking to the nine-box and the Fairness check (see "Named lines").
+4. **Name.** Decided: "Company reports".
 
 Smaller calls this spec has made, which the owner can overrule:
 
