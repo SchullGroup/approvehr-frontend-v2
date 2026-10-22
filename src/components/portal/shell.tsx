@@ -857,6 +857,29 @@ function CompanySwitcher() {
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * How wide a page's content column is allowed to get.
+ *
+ * The app is drawn for a 1,440px window, which is a 1,200px column beside the
+ * sidebar. Nothing stopped that column growing with the screen, so on a 2,560px
+ * monitor a directory row was 2,300px from name to status and the eye had to
+ * cross a metre of white to find who it belonged to. `page` caps the column at
+ * 90rem (1,440px) and centres it, which leaves a 1,440px window and a laptop
+ * untouched and gives a large one margins instead of stretch.
+ *
+ * The cap is on the content, not on the header band: the hairline under the
+ * title still runs edge to edge, and the title row and the body are capped to
+ * the **same** width so their left edges line up. A page that is genuinely a
+ * canvas (the org chart, a board, a rota) passes `width="full"` to **both**
+ * `PageHeader` and `PageBody`.
+ */
+export type PageWidth = "page" | "full";
+
+const PAGE_WIDTH: Record<PageWidth, string> = {
+  page: "mx-auto w-full max-w-[90rem]",
+  full: "",
+};
+
 export function PageHeader({
   title,
   breadcrumb,
@@ -864,7 +887,10 @@ export function PageHeader({
   meta,
   description,
   tabs,
+  width = "page",
 }: {
+  /** See `PageWidth`. Must match the page's `PageBody`. */
+  width?: PageWidth;
   title: string;
   breadcrumb?: { href: string; label: string }[];
   action?: React.ReactNode;
@@ -934,100 +960,104 @@ export function PageHeader({
   return (
     <div className="grid-fade border-b border-line">
       <div className="px-5 pt-6 sm:px-7">
-        {breadcrumb && breadcrumb.length > 0 && (
-          <div className="mb-2.5 flex flex-wrap items-center gap-2.5">
-            {/*
-             * An explicit way back — real navigation history when this visit
-             * actually has any, the deterministic **parent** link otherwise.
-             *
-             * The crumbs were already links, and that was not enough on its
-             * own: they read as a location rather than as a control, so people
-             * used the browser's back button instead — which is not always the
-             * same journey. Arriving here from a notification, from search, or
-             * from a bookmark means `router.back()` goes somewhere unrelated to
-             * the page you are on, or after a redirect, nowhere at all. That
-             * case still gets the fixed parent link, labelled with its name.
-             *
-             * But arriving here by clicking *into* this page from somewhere
-             * else in the product is the common case, not the exotic one, and
-             * a fixed parent cannot serve it — a payroll exception's "Add
-             * account number" link lands on an employee record, and that
-             * record's own breadcrumb has no way to know it should say "Back
-             * to Run payroll" instead of "Back to Employees". Only real
-             * history knows that, which is what `useCanGoBack` reports: has
-             * this tab actually navigated to a different page since it opened.
-             * When it has, this becomes a real "back" rather than a link to a
-             * fixed destination, and the label drops "to X" rather than name a
-             * destination it cannot promise.
-             */}
-            {canGoBack ? (
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-              >
-                <ChevronLeft aria-hidden="true" className="size-3.5" />
-                Back
-              </button>
-            ) : (
-              backCrumb && (
-                <Link
-                  href={backCrumb.href}
+        <div className={PAGE_WIDTH[width]}>
+          {breadcrumb && breadcrumb.length > 0 && (
+            <div className="mb-2.5 flex flex-wrap items-center gap-2.5">
+              {/*
+               * An explicit way back — real navigation history when this visit
+               * actually has any, the deterministic **parent** link otherwise.
+               *
+               * The crumbs were already links, and that was not enough on its
+               * own: they read as a location rather than as a control, so people
+               * used the browser's back button instead — which is not always the
+               * same journey. Arriving here from a notification, from search, or
+               * from a bookmark means `router.back()` goes somewhere unrelated to
+               * the page you are on, or after a redirect, nowhere at all. That
+               * case still gets the fixed parent link, labelled with its name.
+               *
+               * But arriving here by clicking *into* this page from somewhere
+               * else in the product is the common case, not the exotic one, and
+               * a fixed parent cannot serve it — a payroll exception's "Add
+               * account number" link lands on an employee record, and that
+               * record's own breadcrumb has no way to know it should say "Back
+               * to Run payroll" instead of "Back to Employees". Only real
+               * history knows that, which is what `useCanGoBack` reports: has
+               * this tab actually navigated to a different page since it opened.
+               * When it has, this becomes a real "back" rather than a link to a
+               * fixed destination, and the label drops "to X" rather than name a
+               * destination it cannot promise.
+               */}
+              {canGoBack ? (
+                <button
+                  type="button"
+                  onClick={() => router.back()}
                   className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   <ChevronLeft aria-hidden="true" className="size-3.5" />
-                  Back to {backCrumb.label}
-                </Link>
-              )
-            )}
+                  Back
+                </button>
+              ) : (
+                backCrumb && (
+                  <Link
+                    href={backCrumb.href}
+                    className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    <ChevronLeft aria-hidden="true" className="size-3.5" />
+                    Back to {backCrumb.label}
+                  </Link>
+                )
+              )}
 
-            {showTrail && (
-              <>
-                <span aria-hidden="true" className="text-line-strong">
-                  |
-                </span>
+              {showTrail && (
+                <>
+                  <span aria-hidden="true" className="text-line-strong">
+                    |
+                  </span>
 
-                <nav aria-label="Breadcrumb">
-                  <ol className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
-                    {breadcrumb.map((crumb, i) => (
-                      <li
-                        key={crumb.href}
-                        className="flex items-center gap-1.5"
-                      >
-                        {i > 0 && (
-                          <span aria-hidden="true" className="text-line-strong">
-                            /
-                          </span>
-                        )}
-                        <Link href={crumb.href} className="hover:text-ink">
-                          {crumb.label}
-                        </Link>
-                      </li>
-                    ))}
-                  </ol>
-                </nav>
-              </>
-            )}
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-start justify-between gap-4 pb-5">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-h3 text-ink">{title}</h1>
-              {meta}
+                  <nav aria-label="Breadcrumb">
+                    <ol className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
+                      {breadcrumb.map((crumb, i) => (
+                        <li
+                          key={crumb.href}
+                          className="flex items-center gap-1.5"
+                        >
+                          {i > 0 && (
+                            <span
+                              aria-hidden="true"
+                              className="text-line-strong"
+                            >
+                              /
+                            </span>
+                          )}
+                          <Link href={crumb.href} className="hover:text-ink">
+                            {crumb.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ol>
+                  </nav>
+                </>
+              )}
             </div>
-            {description && (
-              /* `max-w-2xl` so a sentence does not run the full width of a
+          )}
+
+          <div className="flex flex-wrap items-start justify-between gap-4 pb-5">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="text-h3 text-ink">{title}</h1>
+                {meta}
+              </div>
+              {description && (
+                /* `max-w-2xl` so a sentence does not run the full width of a
                  desktop — a line somebody has to track across 1600px is a line
                  they skip, which defeats the point of having written it. */
-              <p className="mt-1.5 max-w-2xl text-body-sm leading-relaxed text-body">
-                {description}
-              </p>
-            )}
-          </div>
-          {action && (
-            /* Wraps, and is allowed to shrink.
+                <p className="mt-1.5 max-w-2xl text-body-sm leading-relaxed text-body">
+                  {description}
+                </p>
+              )}
+            </div>
+            {action && (
+              /* Wraps, and is allowed to shrink.
                ---------------------------------------------------------------
                `shrink-0` with no wrap made this an unbreakable block as wide as
                the sum of its buttons. On `/people` that is three buttons at
@@ -1041,20 +1071,21 @@ export function PageHeader({
                row *alone* exceeds the width — the phone case — does it wrap
                internally, which is what we want. Measured on `/people` at 375px:
                501px -> 335px. */
-            <div className="flex flex-wrap items-center gap-2">{action}</div>
-          )}
-        </div>
+              <div className="flex flex-wrap items-center gap-2">{action}</div>
+            )}
+          </div>
 
-        {tabs && (
-          /* The title row above carries its own `pb-5`, which is the header's
+          {tabs && (
+            /* The title row above carries its own `pb-5`, which is the header's
              breathing room before the `border-b` on the outer wrapper — fine
              when tabs are absent, since that row is then the last thing in the
              header. When tabs are present they render as a sibling after it
              with no padding of their own, so they sat flush against the
              divider. Same `pb-5` here gives whichever section actually ends
              the header the same gap before the line. */
-          <div className="pb-5">{tabs}</div>
-        )}
+            <div className="pb-5">{tabs}</div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1063,11 +1094,21 @@ export function PageHeader({
 export function PageBody({
   className,
   children,
+  width = "page",
 }: {
   className?: string;
   children: React.ReactNode;
+  /** See `PageWidth`. Must match the page's `PageHeader`. */
+  width?: PageWidth;
 }) {
-  return <div className={cn("px-5 py-6 sm:px-7", className)}>{children}</div>;
+  /* Two boxes: the outer keeps the gutters and the inner is the capped column,
+     which is where a page's own `className` (the flex column and its gap, the
+     centring of a spinner) belongs. */
+  return (
+    <div className="px-5 py-6 sm:px-7">
+      <div className={cn(PAGE_WIDTH[width], className)}>{children}</div>
+    </div>
+  );
 }
 
 /** Sticky helper for empty "not built yet" routes so the nav stays honest. */
