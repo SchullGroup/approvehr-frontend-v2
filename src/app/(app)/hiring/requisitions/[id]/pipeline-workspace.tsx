@@ -7,7 +7,6 @@ import {
   ButtonLink,
   Callout,
   EmptyState,
-  SegmentedControl,
   Skeleton,
   useToast,
 } from "@/components/ui";
@@ -65,6 +64,9 @@ import {
 import { usePipelineView } from "@/lib/hiring/pipeline/use-view";
 import { useCan } from "@/lib/permissions";
 import { useDebounced } from "@/lib/use-debounced";
+import { PhoneStages } from "./phone-stages";
+import { usePhone } from "./use-phone";
+import { ViewSwitch } from "./view-switch";
 
 /**
  * One role's people, as a board or a table, with the same filters, the same
@@ -138,6 +140,8 @@ export function PipelineWorkspace({
   const tags = useTags();
   const reasons = useRejectionReasons();
   const [view, setView] = usePipelineView();
+  /* A phone gets the board one stage at a time; see `phone-stages.tsx`. */
+  const phone = usePhone();
 
   const [search, setSearch] = useState("");
   const query = useDebounced(search.trim(), 300);
@@ -474,7 +478,7 @@ export function PipelineWorkspace({
           score.narrowed || score.sort !== "newest",
         )}
         actions={
-          <SegmentedControl
+          <ViewSwitch
             label="View"
             value={view}
             onChange={setView}
@@ -559,17 +563,31 @@ export function PipelineWorkspace({
         />
       ) : view === "board" ? (
         <div className={stale ? "opacity-60 transition-opacity" : undefined}>
-          <KanbanBoard
-            board={board}
-            canManage={canManage}
-            today={today}
-            timeZone={timeZone}
-            selection={selection}
-            moveTargets={moveTargets}
-            onMove={askToMove}
-            onRejectRequest={askToReject}
-            onEditTags={(card) => setTagsFor(card.id)}
-          />
+          {phone ? (
+            <PhoneStages
+              board={board}
+              canManage={canManage}
+              today={today}
+              timeZone={timeZone}
+              selection={selection}
+              moveTargets={moveTargets}
+              onMove={askToMove}
+              onRejectRequest={askToReject}
+              onEditTags={(card) => setTagsFor(card.id)}
+            />
+          ) : (
+            <KanbanBoard
+              board={board}
+              canManage={canManage}
+              today={today}
+              timeZone={timeZone}
+              selection={selection}
+              moveTargets={moveTargets}
+              onMove={askToMove}
+              onRejectRequest={askToReject}
+              onEditTags={(card) => setTagsFor(card.id)}
+            />
+          )}
         </div>
       ) : (
         <div className={stale ? "opacity-60 transition-opacity" : undefined}>

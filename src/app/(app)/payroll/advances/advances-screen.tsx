@@ -17,12 +17,16 @@ import {
   Money,
   Spinner,
   Stat,
+  StatGrid,
   SuccessMoment,
   Textarea,
   useToast,
+  Tabs,
+  type TabItem,
+  LoadState,
 } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { DecidedCard } from "@/components/payroll/decided-card";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -82,6 +86,8 @@ const TONE: Record<
   RECOVERED: "neutral",
 };
 
+type AdvanceTab = "earned" | "waiting" | "history";
+
 export function AdvancesScreen() {
   const canDecide = useCan("APPROVE_LOANS");
   const canSetPolicy = useCan("MANAGE_PAY_STRUCTURE");
@@ -99,6 +105,23 @@ export function AdvancesScreen() {
     advance: ApiAdvance;
     n: number;
   } | null>(null);
+
+  const [tab, setTab] = useState<AdvanceTab>("earned");
+  const tabItems: TabItem[] = [
+    { id: "earned", label: "Earned" },
+    ...(canDecide
+      ? [
+          {
+            id: "waiting",
+            label: "Waiting on you",
+            ...(waiting.data && waiting.data.length > 0
+              ? { count: waiting.data.length }
+              : {}),
+          },
+        ]
+      : []),
+    { id: "history", label: "Advances" },
+  ];
 
   const reloadAll = () => {
     mine.reload();
@@ -134,29 +157,37 @@ export function AdvancesScreen() {
             {mine.refusal}
           </Callout>
         ) : (
-          <div className="flex flex-col gap-6">
-            <Mine read={mine} onAsk={() => setAsking(true)} />
-            {canDecide && approved && (
-              <DecidedCard
-                key={approved.n}
-                {...advanceApprovedCopy(approved.advance)}
-                onDismiss={() => setApproved(null)}
-              />
+          <Tabs
+            items={tabItems}
+            value={tab}
+            onChange={(next) => setTab(next as AdvanceTab)}
+          >
+            {tab === "earned" && (
+              <Mine read={mine} onAsk={() => setAsking(true)} />
             )}
-            {canDecide && (
-              <Waiting
-                read={waiting}
-                onChanged={reloadAll}
-                onApproved={(advance) =>
-                  setApproved((current) => ({
-                    advance,
-                    n: (current?.n ?? 0) + 1,
-                  }))
-                }
-              />
+            {tab === "waiting" && canDecide && (
+              <div className="flex flex-col gap-6">
+                {approved && (
+                  <DecidedCard
+                    key={approved.n}
+                    {...advanceApprovedCopy(approved.advance)}
+                    onDismiss={() => setApproved(null)}
+                  />
+                )}
+                <Waiting
+                  read={waiting}
+                  onChanged={reloadAll}
+                  onApproved={(advance) =>
+                    setApproved((current) => ({
+                      advance,
+                      n: (current?.n ?? 0) + 1,
+                    }))
+                  }
+                />
+              </div>
             )}
-            <History read={all} />
-          </div>
+            {tab === "history" && <History read={all} />}
+          </Tabs>
         )}
       </PageBody>
       {/* `mine.data` is a data-readiness guard, not an open/close one: the
@@ -198,16 +229,22 @@ function Mine({
   read: ReturnType<typeof useMyAdvance>;
   onAsk: () => void;
 }) {
-  if (read.error) {
+  /* The one loading and failure rule, as a gate: skeleton while it asks, the
+     failure card after it could not, and only a read that has answered goes on
+     to say what has been earned. */
+  if (read.error || read.loading || !read.data) {
     return (
-      <LoadFailure
-        subject="what you have earned"
+      <LoadState
+        loading={read.loading}
         error={read.error}
+        subject="what you have earned"
         onRetry={read.reload}
-      />
+        skeleton="detail"
+      >
+        {null}
+      </LoadState>
     );
   }
-  if (read.loading || !read.data) return <Spinner label="Working it out" />;
 
   const { earned, eligibility } = read.data;
 
@@ -225,11 +262,18 @@ function Mine({
               <Banknote aria-hidden="true" className="size-4" />
               Draw some of it
             </Button>
-          ) : undefined
+          ) : (
+            /* The API's own sentence says why not, one hover away. */
+            <InfoTooltip
+              id="advance-refusal"
+              label="Why you cannot draw"
+              text={eligibility.refusal}
+            />
+          )
         }
       />
       <CardBody className="flex flex-col gap-4">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <StatGrid columns={3}>
           <Stat
             label="Earned so far"
             value={
@@ -238,7 +282,7 @@ function Mine({
               earned.earnedKobo === null ? (
                 <span className="text-faint">—</span>
               ) : (
-                <Money amount={earned.earnedKobo / 100} decimals />
+                <Money amount={earned.earnedKobo / 100} decimals size="xl" />
               )
             }
             hint={
@@ -253,10 +297,9 @@ function Mine({
               eligibility.capKobo === null ? (
                 <span className="text-faint">—</span>
               ) : (
-                <Money amount={eligibility.capKobo / 100} decimals />
+                <Money amount={eligibility.capKobo / 100} decimals size="xl" />
               )
             }
-            hint={`${String(eligibility.maxPercentBp / 100)}% of what you have earned`}
           />
           <Stat
             label="Available now"
@@ -264,7 +307,11 @@ function Mine({
               eligibility.availableKobo === null ? (
                 <span className="text-faint">—</span>
               ) : (
-                <Money amount={eligibility.availableKobo / 100} decimals />
+                <Money
+                  amount={eligibility.availableKobo / 100}
+                  decimals
+                  size="xl"
+                />
               )
             }
             hint={
@@ -273,15 +320,7 @@ function Mine({
                 : undefined
             }
           />
-        </div>
-
-        {/* The API's own sentence, verbatim. Not a paraphrase — it knows which
-            of half a dozen reasons applies. */}
-        {eligibility.refusal !== null && (
-          <Callout tone="info" title="You cannot draw right now">
-            {eligibility.refusal}
-          </Callout>
-        )}
+        </StatGrid>
 
         <Callout
           tone="info"
@@ -310,7 +349,21 @@ function Waiting({
   const [busy, setBusy] = useState(false);
   const [declining, setDeclining] = useState<ApiAdvance | null>(null);
 
-  if (read.loading || !read.data) return null;
+  /* Was `return null` for all three of these, so a failed read drew nothing at
+     all: no card, no reason, no retry. */
+  if (read.error || read.loading || !read.data) {
+    return (
+      <LoadState
+        loading={read.loading}
+        error={read.error}
+        subject="the advances waiting on you"
+        onRetry={read.reload}
+        skeleton="list"
+      >
+        {null}
+      </LoadState>
+    );
+  }
   if (read.data.length === 0) {
     return (
       <Callout tone="success" title="Nothing waiting on you">
@@ -399,7 +452,19 @@ function History({ read }: { read: ReturnType<typeof useAdvances> }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
 
-  if (read.loading || !read.data) return null;
+  if (read.error || read.loading || !read.data) {
+    return (
+      <LoadState
+        loading={read.loading}
+        error={read.error}
+        subject="the advances"
+        onRetry={read.reload}
+        skeleton="list"
+      >
+        {null}
+      </LoadState>
+    );
+  }
   if (read.data.length === 0) {
     return (
       <EmptyState
@@ -613,7 +678,7 @@ function AskDialog({
             <p className="text-body-sm text-body">
               Your next payslip will be{" "}
               <Money amount={(kobo + feeKobo) / 100} decimals /> lighter
-              {feeKobo > 0 ? " — that includes the fee." : "."}
+              {feeKobo > 0 ? ", that includes the fee." : "."}
             </p>
           )}
 
@@ -662,7 +727,7 @@ function DeclineDialog({
     <Modal
       open={advance !== null}
       onClose={onClose}
-      title={advance ? `Decline — ${advance.employeeName}` : "Decline"}
+      title={advance ? `Decline, ${advance.employeeName}` : "Decline"}
       description="They see your reason."
       footer={
         <div className="flex items-center gap-2">
@@ -703,7 +768,7 @@ function DeclineDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="Why" help="Required — it is the only thing they get.">
+        <Field label="Why" help="Required, it is the only thing they get.">
           <Textarea
             rows={3}
             value={reason}
@@ -834,7 +899,7 @@ function PolicyDialog({
 
           <Field
             label="Most they can draw"
-            help="As a share of what they have earned so far. It cannot be all of it — a payslip has tax and pension on it."
+            help="As a share of what they have earned so far. It cannot be all of it, a payslip has tax and pension on it."
           >
             <Input
               inputMode="decimal"

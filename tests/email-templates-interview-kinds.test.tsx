@@ -50,22 +50,40 @@ const open = async () => {
   await screen.findByText("Kind decline");
 };
 
-const KINDS = [
+/* The page splits the kinds across tabs by who receives them. */
+const CANDIDATE_KINDS = [
   "Invitation to interview",
   "Interview changed",
   "Interview cancelled",
+  "Reminder of an interview",
+];
+const PANEL_KINDS = [
   "Invitation to the panel",
   "Interview changed (panel)",
   "Interview cancelled (panel)",
-  "Reminder of an interview",
   "Reminder of an interview (panel)",
   "Scorecard to hand in",
 ];
+const KINDS = [...CANDIDATE_KINDS, ...PANEL_KINDS];
+
+const showTab = (name: string) =>
+  userEvent.click(screen.getByRole("tab", { name }));
 
 describe("the page lists the interview emails", () => {
   it("has a section for each, saying when it goes and what the built-in wording is", async () => {
     await open();
-    for (const kind of KINDS) {
+    await showTab("Interviews");
+    for (const kind of CANDIDATE_KINDS) {
+      expect(
+        screen.getByRole("heading", { name: kind, level: 3 }),
+        kind,
+      ).toBeInTheDocument();
+    }
+    expect(
+      screen.getByText(/A calendar file with the new details is attached/),
+    ).toBeInTheDocument();
+    await showTab("Interview panel");
+    for (const kind of PANEL_KINDS) {
       expect(
         screen.getByRole("heading", { name: kind, level: 3 }),
         kind,
@@ -75,9 +93,6 @@ describe("the page lists the interview emails", () => {
       screen.getByText(
         /Sent to each person on the panel when an interview is arranged/,
       ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/A calendar file with the new details is attached/),
     ).toBeInTheDocument();
   });
 });
@@ -264,9 +279,11 @@ describe("the reminders and the nudge", () => {
 
   it("say, in the list, that a reminder is never the first email about an interview", async () => {
     await open();
+    await showTab("Interviews");
     expect(
       screen.getByText(/Never sent as the first email about an interview\./),
     ).toBeInTheDocument();
+    await showTab("Interview panel");
     expect(
       screen.getByText(/Never after they have handed one in/),
     ).toBeInTheDocument();

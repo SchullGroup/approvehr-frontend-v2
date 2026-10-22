@@ -269,7 +269,7 @@ export function PayrollScreen() {
                   }`}
                   action={<RunStatusBadge status={current.status} />}
                 />
-                <CardBody className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <CardBody className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                   <Stat
                     /* Present tense. The card description directly above this
                        says "Nothing has been paid and nothing has been settled"

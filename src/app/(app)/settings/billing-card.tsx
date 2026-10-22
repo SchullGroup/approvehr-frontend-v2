@@ -87,7 +87,7 @@ export function BillingCard() {
           {line && <p className="mt-1 text-body-sm text-body">{line}</p>}
           {!billing.enforced && (
             <p className="mt-1 text-body-sm text-muted">
-              Billing isn&apos;t switched on yet — nothing is locked.
+              Billing isn&apos;t switched on yet, nothing is locked.
             </p>
           )}
         </div>

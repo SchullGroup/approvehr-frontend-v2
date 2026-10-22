@@ -815,7 +815,7 @@ function rateWorking(working: RateWorking | null | undefined): string | null {
   if (!working) return null;
   const rate = working.rate * 100;
   const percent = Number.isInteger(rate) ? rate : rate.toFixed(2);
-  return `${percent}% of ${formatKobo(working.baseKobo)} — ${working.baseLabel}`;
+  return `${percent}% of ${formatKobo(working.baseKobo)}, ${working.baseLabel}`;
 }
 
 function LineItem({

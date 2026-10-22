@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -24,6 +24,11 @@ let companyGoals: ApiGoal[] = [];
 let loading = false;
 let failed = false;
 const reload = vi.fn();
+
+vi.mock("@/lib/api/projects", async (original) => ({
+  ...(await original<typeof import("@/lib/api/projects")>()),
+  projectsApi: { links: vi.fn().mockResolvedValue([]) },
+}));
 
 vi.mock("@/lib/store/projects", () => ({
   useIssueThread: () => ({ thread, status: "ready", reload: vi.fn() }),
@@ -189,6 +194,33 @@ describe("count toward, on an issue", () => {
     });
   });
 
+  it("asks for the issue again once the link is saved, so the weekly-task line follows", async () => {
+    const issue = chidis(sampleData());
+    const { actions } = renderDrawer(issue);
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Count toward" }),
+      "Lift checkout conversion",
+    );
+    await waitFor(() =>
+      expect(actions.refreshIssue).toHaveBeenCalledWith(issue),
+    );
+  });
+
+  it("does not ask again when the save was refused", async () => {
+    const issue = chidis(sampleData());
+    const { actions } = renderDrawer(issue);
+    actions.patchIssue.mockResolvedValueOnce({
+      ok: false,
+      message: "No",
+    });
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Count toward" }),
+      "Lift checkout conversion",
+    );
+    await waitFor(() => expect(actions.patchIssue).toHaveBeenCalled());
+    expect(actions.refreshIssue).not.toHaveBeenCalled();
+  });
+
   it("unlinks with null, not by leaving the field out", async () => {
     const issue = { ...chidis(sampleData()), goalId: "g-checkout" };
     const { actions } = renderDrawer(issue);
@@ -323,7 +355,7 @@ describe("the weekly-task line, in the three states", () => {
 
   it("shows the API's sentence when nothing could be filed", () => {
     const message =
-      "Not counted toward a weekly task — link this issue or the project to an objective.";
+      "Not counted toward a weekly task, link this issue or the project to an objective.";
     renderDrawer(
       withWeekly({ state: "NOT_COUNTED", reason: "NO_OBJECTIVE", message }),
     );
@@ -332,7 +364,7 @@ describe("the weekly-task line, in the three states", () => {
 
   it("shows the API's sentence when the week has closed", () => {
     const message =
-      "Not counted toward a weekly task — it was finished in a week that has closed.";
+      "Not counted toward a weekly task, it was finished in a week that has closed.";
     renderDrawer(
       withWeekly({ state: "NOT_COUNTED", reason: "WEEK_CLOSED", message }),
     );

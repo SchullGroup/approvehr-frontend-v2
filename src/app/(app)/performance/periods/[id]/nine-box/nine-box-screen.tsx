@@ -449,7 +449,7 @@ function PlaceDialog({
     <Modal
       open
       onClose={onClose}
-      title={`Potential — ${person.employeeName}`}
+      title={`Potential, ${person.employeeName}`}
       description={person.jobTitle}
       footer={
         <div className="flex flex-wrap items-center gap-2">

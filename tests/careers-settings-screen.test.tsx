@@ -74,7 +74,7 @@ const settings = (
     enabled: true,
     willSend: false,
     blockedBy: [
-      "Add a reply-to address — replies from applicants have to go somewhere.",
+      "Add a reply-to address, replies from applicants have to go somewhere.",
     ],
   },
   search: { indexable: true },

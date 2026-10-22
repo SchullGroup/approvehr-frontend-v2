@@ -25,8 +25,10 @@ import {
   Modal,
   Select,
   Stat,
+  Tabs,
   useToast,
 } from "@/components/ui";
+import type { TabItem } from "@/components/ui";
 import { InviteLinkButton } from "@/components/portal/invite-link";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -34,6 +36,7 @@ import { ApiError } from "@/lib/api/client";
 import { invitesApi, type PendingInvite } from "@/lib/api/invites";
 import { sourceNote } from "@/lib/demo";
 import type { Catalogue } from "@/lib/api/permissions";
+import { useUrlTab } from "@/hooks/use-url-tab";
 import { usePermissions } from "@/lib/permissions";
 import {
   useInviteDelivery,
@@ -48,7 +51,14 @@ import {
 import { CreateRoleDialog } from "./create-role";
 import { RoleEditor } from "./role-editor";
 import { SendInviteDialog } from "./send-invite";
+import { ROLES_TABS, type RolesTabId } from "./tabs";
 import { UnlinkedAccountsPanel } from "./unlinked-accounts";
+
+const TAB_ITEMS: TabItem[] = [
+  { id: "roles", label: "Roles" },
+  { id: "invitations", label: "Invitations" },
+  { id: "your-access", label: "Your access" },
+];
 
 /**
  * Roles and permissions.
@@ -87,10 +97,13 @@ import { UnlinkedAccountsPanel } from "./unlinked-accounts";
  */
 export function RolesScreen({
   initialOpenId = null,
+  initialTab = "roles",
 }: {
   /** From `?open=<roleId>` — see `RolesPage`. */
   initialOpenId?: string | null;
+  initialTab?: RolesTabId;
 }) {
+  const [tab, changeTab] = useUrlTab<RolesTabId>(initialTab, ROLES_TABS);
   const access = usePermissions();
   const held = useMemo(() => [...access.permissions], [access.permissions]);
   const roles = useRoles(held);
@@ -283,58 +296,79 @@ export function RolesScreen({
           </Callout>
         ))}
 
-        <Card>
-          <CardHeader title="Roles" />
-          {roles.roles.length === 0 ? (
-            <EmptyState
-              icon={<ShieldCheck aria-hidden="true" />}
-              title={roles.loading ? "Loading…" : "No roles yet"}
-              {...(roles.loading
-                ? {}
-                : {
-                    description:
-                      "Every company gets four to start with. If this is empty, the workspace was not set up.",
-                  })}
-            />
-          ) : (
-            <CardBody className="flex flex-col gap-2">
-              {roles.roles.map((role) => (
-                <RoleRow
-                  key={role.id}
-                  role={role}
-                  canManage={canManage}
-                  onOpen={() => setOpenId(role.id)}
-                  onDuplicate={() => setCreating({ from: role })}
-                  onDelete={() => setDeleting(role)}
+        {/* Three questions the page answers, one at a time: which roles there
+            are, who has been invited or has an account with no role, and what
+            you can do yourself. The counts and any role that needs splitting
+            stay above, because they are true whichever tab is open. */}
+        <Tabs items={TAB_ITEMS} value={tab} onChange={changeTab}>
+          <div className="flex flex-col gap-6">
+            {tab === "roles" && (
+              <>
+                <Card>
+                  <CardHeader title="Roles" />
+                  {roles.roles.length === 0 ? (
+                    <EmptyState
+                      icon={<ShieldCheck aria-hidden="true" />}
+                      title={roles.loading ? "Loading…" : "No roles yet"}
+                      {...(roles.loading
+                        ? {}
+                        : {
+                            description:
+                              "Every company gets four to start with. If this is empty, the workspace was not set up.",
+                          })}
+                    />
+                  ) : (
+                    <CardBody className="flex flex-col gap-2">
+                      {roles.roles.map((role) => (
+                        <RoleRow
+                          key={role.id}
+                          role={role}
+                          canManage={canManage}
+                          onOpen={() => setOpenId(role.id)}
+                          onDuplicate={() => setCreating({ from: role })}
+                          onDelete={() => setDeleting(role)}
+                        />
+                      ))}
+                    </CardBody>
+                  )}
+                </Card>
+              </>
+            )}
+            {tab === "invitations" && (
+              <>
+                <InvitationsCard
+                  invites={invites}
+                  canInvite={canInvite}
+                  onInvite={() => setInviting(true)}
+                  onResend={(userId) =>
+                    void run(
+                      () => invites.resend(userId),
+                      "Invitation sent again",
+                    )
+                  }
+                  onRevoke={(invite) => setRevoking(invite)}
+                  onLink={(invite) => setLinking(invite)}
                 />
-              ))}
-            </CardBody>
-          )}
-        </Card>
 
-        <InvitationsCard
-          invites={invites}
-          canInvite={canInvite}
-          onInvite={() => setInviting(true)}
-          onResend={(userId) =>
-            void run(() => invites.resend(userId), "Invitation sent again")
-          }
-          onRevoke={(invite) => setRevoking(invite)}
-          onLink={(invite) => setLinking(invite)}
-        />
-
-        <UnlinkedAccountsPanel canManage={canManage} />
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <YourAccess access={access} catalogue={roles.catalogue} />
-          {preview.available && (
-            <PreviewCard
-              roles={roles.roles}
-              currentId={preview.role?.id ?? ""}
-              onChange={preview.set}
-            />
-          )}
-        </div>
+                <UnlinkedAccountsPanel canManage={canManage} />
+              </>
+            )}
+            {tab === "your-access" && (
+              <>
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <YourAccess access={access} catalogue={roles.catalogue} />
+                  {preview.available && (
+                    <PreviewCard
+                      roles={roles.roles}
+                      currentId={preview.role?.id ?? ""}
+                      onChange={preview.set}
+                    />
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </Tabs>
       </PageBody>
 
       <RoleEditor

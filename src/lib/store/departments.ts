@@ -425,7 +425,7 @@ export function useDepartments(includeArchived = false) {
         refuse(
           409,
           "conflict",
-          `${inside.length} ${inside.length === 1 ? "person is" : "people are"} still in ${row.name} (${names}${inside.length > 3 ? ", …" : ""}). Move them first — reassigning automatically would change which cost centre their pay lands in.`,
+          `${inside.length} ${inside.length === 1 ? "person is" : "people are"} still in ${row.name} (${names}${inside.length > 3 ? ", …" : ""}). Move them first, reassigning automatically would change which cost centre their pay lands in.`,
         );
       }
 

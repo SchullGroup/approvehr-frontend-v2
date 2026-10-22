@@ -17,6 +17,7 @@ import {
   Select,
   Spinner,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -26,8 +27,8 @@ import {
   TableWrap,
   TextLink,
   type PickerOption,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { naira, paymentOutcome } from "@/lib/api/payments";
 import { usePermissions } from "@/lib/permissions";
@@ -100,6 +101,9 @@ export function PaymentHistoryScreen() {
     ...(person ? { employeeId: person.id } : {}),
     ...(period ? { period } : {}),
   });
+  /* Whether the two figures may be printed: after an answer, and not after a
+     failure. A failed read leaves `total` at 0, which is not "nobody was paid". */
+  const answered = !history.loading && !history.error;
   const payees = usePaidPeople(period || undefined);
   /* Months come from the batches rather than from the payments, because there is
      roughly one batch a month and there are as many payments as there are staff:
@@ -199,15 +203,7 @@ export function PaymentHistoryScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {history.error && (
-          <LoadFailure
-            subject="the payment history"
-            error={history.error}
-            onRetry={history.reload}
-          />
-        )}
-
-        <div className="grid gap-4 sm:grid-cols-2">
+        <StatGrid columns={2}>
           <Stat
             label="Payments"
             value={
@@ -215,7 +211,7 @@ export function PaymentHistoryScreen() {
                  is a claim that nobody has ever been paid. Sized by `Stat`
                  itself rather than a size class here, so this matches every
                  other Stat value in the app instead of running 5px smaller. */
-              history.loading ? (
+              !answered ? (
                 <span className="text-muted">&mdash;</span>
               ) : (
                 history.total
@@ -231,19 +227,22 @@ export function PaymentHistoryScreen() {
                  which is a different claim from "there is no payment on file" —
                  and only the second one is true. `size="xl"` for the same
                  reason as the dash above: matches `Stat`'s own value size. */
-              history.loading || history.total === 0 ? (
+              !answered || history.total === 0 ? (
                 <span className="text-muted">&mdash;</span>
               ) : (
                 <Money amount={naira(history.pageNetKobo)} decimals size="xl" />
               )
             }
-            hint={
-              history.total === 0
-                ? "nothing on file under this filter"
-                : netHint(history)
-            }
+            {...(answered
+              ? {
+                  hint:
+                    history.total === 0
+                      ? "nothing on file under this filter"
+                      : netHint(history),
+                }
+              : {})}
           />
-        </div>
+        </StatGrid>
 
         <Card>
           <CardBody className="flex flex-wrap items-end gap-4">
@@ -308,219 +307,230 @@ export function PaymentHistoryScreen() {
             title="Payments"
             description="One row for each payment to each person."
           />
-          {history.loading ? (
-            <CardBody className="flex justify-center py-10">
-              <Spinner />
-            </CardBody>
-          ) : history.rows.length === 0 ? (
-            <EmptyState
-              icon={<Banknote aria-hidden="true" />}
-              title={filtered ? "No payments match that" : "No payments yet"}
-              description={
-                filtered
-                  ? "Nothing was paid under this filter. Widen it, or clear it to see everything."
-                  : "A payment appears here once a batch has been built from an approved payroll run."
-              }
-              action={
-                filtered ? (
-                  <Button
-                    onClick={() => {
-                      setPerson(null);
-                      setPeriod("");
-                      setPage(1);
-                    }}
+          {/* The one loading and failure rule. After a failed read the stats
+              read 0 and this said "No payments yet", which is a claim about
+              what the company has paid that the page does not know. */}
+          <LoadState
+            loading={history.loading}
+            error={history.error}
+            subject="the payment history"
+            onRetry={history.reload}
+            skeleton="table"
+            hasData={history.rows.length > 0}
+            className="p-5"
+          >
+            {history.rows.length === 0 ? (
+              <EmptyState
+                icon={<Banknote aria-hidden="true" />}
+                title={filtered ? "No payments match that" : "No payments yet"}
+                description={
+                  filtered
+                    ? "Nothing was paid under this filter. Widen it, or clear it to see everything."
+                    : "A payment appears here once a batch has been built from an approved payroll run."
+                }
+                action={
+                  filtered ? (
+                    <Button
+                      onClick={() => {
+                        setPerson(null);
+                        setPeriod("");
+                        setPage(1);
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  ) : (
+                    <ButtonLink href="/payroll/payments">
+                      Go to payments
+                    </ButtonLink>
+                  )
+                }
+              />
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap
+                    className="rounded-none border-0"
+                    caption="Payments, newest first"
                   >
-                    Clear filters
-                  </Button>
-                ) : (
-                  <ButtonLink href="/payroll/payments">
-                    Go to payments
-                  </ButtonLink>
-                )
-              }
-            />
-          ) : (
-            <>
-              <div className="hidden sm:block">
-                <TableWrap
-                  className="rounded-none border-0"
-                  caption="Payments, newest first"
-                >
-                  <THead>
-                    <TH>Person</TH>
-                    <TH>Pay month</TH>
-                    <TH align="right">Net paid</TH>
-                    <TH>Payment</TH>
-                    <TH>Batch</TH>
-                  </THead>
-                  <TBody>
-                    {history.rows.map((row) => {
-                      const outcome = paymentOutcome(row);
-                      return (
-                        <TR key={row.id}>
-                          <TDPrimary
-                            title={
-                              /* A payee with no employee record is a real
+                    <THead>
+                      <TH>Person</TH>
+                      <TH>Pay month</TH>
+                      <TH align="right">Net paid</TH>
+                      <TH>Payment</TH>
+                      <TH>Batch</TH>
+                    </THead>
+                    <TBody>
+                      {history.rows.map((row) => {
+                        const outcome = paymentOutcome(row);
+                        return (
+                          <TR key={row.id}>
+                            <TDPrimary
+                              title={
+                                /* A payee with no employee record is a real
                                  state — `employeeId` is nullable — and a
                                  link to `/people/null` is worse than plain
                                  text. */
-                              row.employeeId ? (
-                                <TextLink href={`/people/${row.employeeId}`}>
-                                  {row.payeeName}
-                                </TextLink>
+                                row.employeeId ? (
+                                  <TextLink href={`/people/${row.employeeId}`}>
+                                    {row.payeeName}
+                                  </TextLink>
+                                ) : (
+                                  row.payeeName
+                                )
+                              }
+                              subtitle={
+                                row.employeeId
+                                  ? undefined
+                                  : "Not on the payroll"
+                              }
+                            />
+                            <TD>
+                              {row.period ? (
+                                monthLabel(`${row.period}-01`)
                               ) : (
-                                row.payeeName
-                              )
-                            }
-                            subtitle={
-                              row.employeeId ? undefined : "Not on the payroll"
-                            }
-                          />
-                          <TD>
+                                <span className="text-muted">
+                                  No pay month
+                                  <span className="mt-0.5 block text-meta">
+                                    Raised {longDate(row.raisedAt.slice(0, 10))}
+                                  </span>
+                                </span>
+                              )}
+                            </TD>
+                            <TD
+                              align="right"
+                              className="tabular font-medium text-ink"
+                            >
+                              <Money amount={naira(row.amountKobo)} decimals />
+                            </TD>
+                            <TD>
+                              <Badge tone={outcome.tone} size="sm" dot>
+                                {outcome.label}
+                              </Badge>
+                              {/* Only where the reason is about this one
+                                payment. The general explanation is the
+                                callout above; a sentence under fifty badges
+                                is noise. */}
+                              {row.failureReason && (
+                                <span className="mt-1 block text-meta text-danger-text">
+                                  {row.failureReason}
+                                </span>
+                              )}
+                            </TD>
+                            <TD>
+                              <TextLink
+                                href={`/payroll/payments/${row.batchId}`}
+                                className="text-body-sm font-normal"
+                              >
+                                {row.batchReference}
+                              </TextLink>
+                              {row.payDate && (
+                                <span className="mt-0.5 block text-meta text-muted">
+                                  Due {longDate(row.payDate)}
+                                </span>
+                              )}
+                            </TD>
+                          </TR>
+                        );
+                      })}
+                    </TBody>
+                  </TableWrap>
+                </div>
+
+                <ul className="divide-y divide-line sm:hidden">
+                  {history.rows.map((row) => {
+                    const outcome = paymentOutcome(row);
+                    return (
+                      <li key={row.id} className="flex flex-col gap-2 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            {row.employeeId ? (
+                              <TextLink
+                                href={`/people/${row.employeeId}`}
+                                className="text-body-sm"
+                              >
+                                {row.payeeName}
+                              </TextLink>
+                            ) : (
+                              <p className="text-body-sm font-medium text-ink">
+                                {row.payeeName}
+                              </p>
+                            )}
+                            {!row.employeeId && (
+                              <p className="mt-0.5 text-meta text-muted">
+                                Not on the payroll
+                              </p>
+                            )}
+                          </div>
+                          <Badge tone={outcome.tone} size="sm" dot>
+                            {outcome.label}
+                          </Badge>
+                        </div>
+                        {row.failureReason && (
+                          <p className="text-meta text-danger-text">
+                            {row.failureReason}
+                          </p>
+                        )}
+
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-body-sm text-muted">
                             {row.period ? (
                               monthLabel(`${row.period}-01`)
                             ) : (
                               <span className="text-muted">
                                 No pay month
                                 <span className="mt-0.5 block text-meta">
-                                  Raised {longDate(row.raisedAt.slice(0, 10))}
+                                  Raised {formatDate(row.raisedAt, timeZone)}
                                 </span>
                               </span>
                             )}
-                          </TD>
-                          <TD
-                            align="right"
-                            className="tabular font-medium text-ink"
-                          >
+                          </span>
+                          <span className="tabular text-body-sm font-medium text-ink">
                             <Money amount={naira(row.amountKobo)} decimals />
-                          </TD>
-                          <TD>
-                            <Badge tone={outcome.tone} size="sm" dot>
-                              {outcome.label}
-                            </Badge>
-                            {/* Only where the reason is about this one
-                                payment. The general explanation is the
-                                callout above; a sentence under fifty badges
-                                is noise. */}
-                            {row.failureReason && (
-                              <span className="mt-1 block text-meta text-danger-text">
-                                {row.failureReason}
-                              </span>
-                            )}
-                          </TD>
-                          <TD>
-                            <TextLink
-                              href={`/payroll/payments/${row.batchId}`}
-                              className="text-body-sm font-normal"
-                            >
-                              {row.batchReference}
-                            </TextLink>
-                            {row.payDate && (
-                              <span className="mt-0.5 block text-meta text-muted">
-                                Due {longDate(row.payDate)}
-                              </span>
-                            )}
-                          </TD>
-                        </TR>
-                      );
-                    })}
-                  </TBody>
-                </TableWrap>
-              </div>
-
-              <ul className="divide-y divide-line sm:hidden">
-                {history.rows.map((row) => {
-                  const outcome = paymentOutcome(row);
-                  return (
-                    <li key={row.id} className="flex flex-col gap-2 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          {row.employeeId ? (
-                            <TextLink
-                              href={`/people/${row.employeeId}`}
-                              className="text-body-sm"
-                            >
-                              {row.payeeName}
-                            </TextLink>
-                          ) : (
-                            <p className="text-body-sm font-medium text-ink">
-                              {row.payeeName}
-                            </p>
-                          )}
-                          {!row.employeeId && (
-                            <p className="mt-0.5 text-meta text-muted">
-                              Not on the payroll
-                            </p>
-                          )}
+                          </span>
                         </div>
-                        <Badge tone={outcome.tone} size="sm" dot>
-                          {outcome.label}
-                        </Badge>
-                      </div>
-                      {row.failureReason && (
-                        <p className="text-meta text-danger-text">
-                          {row.failureReason}
-                        </p>
-                      )}
 
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-body-sm text-muted">
-                          {row.period ? (
-                            monthLabel(`${row.period}-01`)
-                          ) : (
-                            <span className="text-muted">
-                              No pay month
-                              <span className="mt-0.5 block text-meta">
-                                Raised {formatDate(row.raisedAt, timeZone)}
-                              </span>
+                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-body-sm">
+                          <TextLink href={`/payroll/payments/${row.batchId}`}>
+                            {row.batchReference}
+                          </TextLink>
+                          {row.payDate && (
+                            <span className="tabular text-meta text-muted">
+                              Due {longDate(row.payDate)}
                             </span>
                           )}
-                        </span>
-                        <span className="tabular text-body-sm font-medium text-ink">
-                          <Money amount={naira(row.amountKobo)} decimals />
-                        </span>
-                      </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
 
-                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-body-sm">
-                        <TextLink href={`/payroll/payments/${row.batchId}`}>
-                          {row.batchReference}
-                        </TextLink>
-                        {row.payDate && (
-                          <span className="tabular text-meta text-muted">
-                            Due {longDate(row.payDate)}
-                          </span>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-
-              {history.total > history.pageSize && (
-                <CardBody className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-body-sm text-muted">
-                    Showing {from}&ndash;{to} of {history.total}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      disabled={history.page <= 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={history.page >= history.totalPages}
-                      onClick={() => setPage((p) => p + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </CardBody>
-              )}
-            </>
-          )}
+                {history.total > history.pageSize && (
+                  <CardBody className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-body-sm text-muted">
+                      Showing {from}&ndash;{to} of {history.total}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        disabled={history.page <= 1}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={history.page >= history.totalPages}
+                        onClick={() => setPage((p) => p + 1)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </CardBody>
+                )}
+              </>
+            )}
+          </LoadState>
         </Card>
 
         <p className="flex items-start gap-2 text-body-sm text-muted">

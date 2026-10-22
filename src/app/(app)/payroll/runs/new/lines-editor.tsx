@@ -2,24 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { Button, Callout, Field, Input, Modal, Spinner } from "@/components/ui";
+import { Button, Callout, Field, Input, Spinner } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { formatKobo, type AdjustmentLine } from "@/lib/api/payroll";
 import { usePayrollActions } from "@/lib/store/payroll";
+import { BackToPayslip, FormFooter, TOUCH } from "./drawer-parts";
 
 /**
  * Several named bonuses, or several named deductions, as one figure.
  *
- * ## Why a modal and not a cell
+ * ## Where this went
  *
- * The inline cells beside this take one number. That is right for a correction
- * — somebody's overtime is wrong, type over it — and it cannot express the
- * thing people actually have: **₦50,000 for the Lagos install and ₦20,000 for
- * the weekend cover**, which is one bonus figure on the payslip and two facts
- * about why.
+ * It was `LinesDialog`, a modal opened from two of the four links in every table
+ * row. The Review step now edits everything in one place, the adjust drawer, so
+ * this is the same editor with the same fields, the same rules and the same
+ * save, rendered as a view of that drawer instead of a dialog stacked over it.
+ * Nothing about what it does has changed.
+ *
+ * ## Why lines and not a cell
+ *
+ * A single amount is right for a correction: somebody's tax is wrong, type over
+ * it. It cannot express the thing people actually have: **₦50,000 for the Lagos
+ * install and ₦20,000 for the weekend cover**, which is one bonus figure on the
+ * payslip and two facts about why.
  *
  * A single amount with a single reason forces those two into one, and the loss
- * is not cosmetic. "₦70,000 — Lagos install and weekend cover" is a sentence
+ * is not cosmetic. "₦70,000, Lagos install and weekend cover" is a sentence
  * nobody can reconcile against anything twelve months later, when the question
  * is which project the ₦50,000 belonged to. Lines keep the amounts separate
  * and the table keeps showing one total, which is what a payroll table is for.
@@ -28,56 +36,38 @@ import { usePayrollActions } from "@/lib/store/payroll";
  *
  * A company recording "Bonus" and nothing else is doing something ordinary. The
  * reason is what makes *several* lines legible, not what makes one line valid,
- * and the API's own schema agrees — so demanding one here would be the screen
- * inventing a rule the server does not have. The prompt says what it is for
- * instead.
+ * and the API's own schema agrees, so demanding one here would be the screen
+ * inventing a rule the server does not have.
  *
  * ## Saved whole, once
  *
- * `setLines` replaces every line of one kind. Somebody who adds two lines,
- * edits a third and removes a fourth has made **one** decision, and sending it
- * as four requests makes four — any of which can fail alone and leave the
- * person carrying half of what was meant. It also means the table's total moves
- * once rather than flickering through four intermediate figures.
+ * `setLines` replaces every line of one kind. Somebody who adds two lines, edits
+ * a third and removes a fourth has made **one** decision, and sending it as four
+ * requests makes four, any of which can fail alone and leave the person carrying
+ * half of what was meant.
  */
-export function LinesDialog({
-  open = true,
+export function LinesEditor({
   runId,
   employeeId,
   name,
   kind,
-  onClose,
+  onBack,
   onSaved,
 }: {
-  /**
-   * Defaults to `true`: the one caller (`runs/new/wizard.tsx`) still mounts
-   * this conditionally on `linesOpen` and does not pass `open` — this keeps
-   * that caller working exactly as it does today until it threads the real
-   * boolean through and renders unconditionally instead.
-   */
-  open?: boolean;
   runId: string;
   employeeId: string;
   name: string;
   kind: "bonus" | "deduction";
-  onClose: () => void;
-  /** The run was rebuilt. The wizard re-reads it; this component is unmounted. */
+  onBack: () => void;
+  /** The run was rebuilt. The wizard re-reads it. */
   onSaved: (summary: string) => void;
 }) {
   /* Destructured, not held as `actions`.
      ---------------------------------------------------------------------
      `usePayrollActions()` returns a fresh object literal every render, so an
-     effect depending on the whole thing re-runs on every render — which
-     re-seeds `rows` and **wipes whatever somebody has just typed**. Found by
-     typing into the modal and watching both fields empty themselves; offline
-     the read resolves instantly, so the row was gone before the keystroke
-     finished.
-
-     Each function is its own `useCallback` over `[isConnected]` and is
-     therefore stable, and pulling them out is what lets the dependency array
-     name a plain identifier — which is also what `exhaustive-deps` can
-     actually reason about. Suppressing that rule instead would have left the
-     next person to rediscover the same defect. */
+     effect depending on the whole thing re-runs on every render, which re-seeds
+     `rows` and **wipes whatever somebody has just typed**. Each function is its
+     own `useCallback` over `[isConnected]` and is therefore stable. */
   const { adjustmentLines, setLines } = usePayrollActions();
 
   const [loading, setLoading] = useState(true);
@@ -92,7 +82,7 @@ export function LinesDialog({
         const lines = await adjustmentLines(runId, employeeId);
         if (cancelled) return;
         const existing = kind === "bonus" ? lines.bonuses : lines.deductions;
-        /* One blank row when there is nothing yet, so the modal opens on
+        /* One blank row when there is nothing yet, so the view opens on
            something to type into rather than on an empty box and a button. */
         setRows(existing.length > 0 ? existing.map(toRow) : [blank()]);
       } catch (error) {
@@ -110,7 +100,6 @@ export function LinesDialog({
     return () => {
       cancelled = true;
     };
-    /* Re-reads only when the connection flips — see the destructure above. */
   }, [adjustmentLines, runId, employeeId, kind]);
 
   const noun = kind === "bonus" ? "bonus" : "deduction";
@@ -140,11 +129,10 @@ export function LinesDialog({
         lines: filled.map((row) => {
           const amountKobo = parseKobo(row.amount) ?? 0;
           const reason = row.reason.trim();
-          /* `compact`-style: a reason is omitted rather than sent empty. The
-             API stores null for "no reason given" and the payslip line then
-             reads "Bonus" rather than "Bonus — ", which is the difference
-             between a line with no explanation and one whose explanation is
-             blank. */
+          /* A reason is omitted rather than sent empty. The API stores null for
+             "no reason given" and the payslip line then reads "Bonus" rather
+             than "Bonus — ", which is the difference between a line with no
+             explanation and one whose explanation is blank. */
           return reason ? { amountKobo, reason } : { amountKobo };
         }),
       });
@@ -162,75 +150,21 @@ export function LinesDialog({
           ? error.message
           : `That ${noun} could not be saved.`,
       );
+    } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={kind === "bonus" ? `Bonus for ${name}` : `Deductions for ${name}`}
-      description={
-        kind === "bonus"
+    <div className="flow-root -mb-5">
+      <BackToPayslip onBack={onBack} disabled={saving} />
+
+      <p className="mb-5 text-body-sm leading-relaxed text-body">
+        {kind === "bonus"
           ? "Taxable, and not pensionable. It shows on the payroll as one figure."
-          : "Taken off take-home pay after tax. It shows on the payroll as one figure."
-      }
-      size="lg"
-      footer={
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-body-sm text-muted">
-            {filled.length === 0 ? (
-              hadLines ? (
-                <span className="text-danger-text">
-                  Saving now takes {name}&rsquo;s {noun} off entirely.
-                </span>
-              ) : (
-                "Nothing entered yet."
-              )
-            ) : (
-              <>
-                <span className="tabular font-medium text-ink">
-                  {formatKobo(total)}
-                </span>{" "}
-                over {filled.length} {filled.length === 1 ? "line" : "lines"}
-              </>
-            )}
-          </span>
-          <span className="flex gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onClose}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="accent"
-              loading={saving}
-              /* Nothing entered and nothing to remove is a button that would
-                 save an empty list over an empty list. It reads as an action
-                 and is a no-op, so it is dead rather than dressed up. */
-              disabled={
-                saving ||
-                loading ||
-                broken ||
-                (filled.length === 0 && !hadLines)
-              }
-              onClick={() => void save()}
-            >
-              {filled.length === 0
-                ? hadLines
-                  ? `Take the ${noun} off`
-                  : "Enter an amount"
-                : `Save ${formatKobo(total)}`}
-            </Button>
-          </span>
-        </div>
-      }
-    >
+          : "Taken off take-home pay after tax. It shows on the payroll as one figure."}
+      </p>
+
       {loading ? (
         <div className="flex justify-center py-8">
           <Spinner />
@@ -243,24 +177,22 @@ export function LinesDialog({
             </Callout>
           )}
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             {rows.map((row, at) => (
-              /* Each row is a named group, so "Amount" and "What it is for"
-                 are unambiguous to a screen reader without repeating "line 2"
-                 into every visible label. The labels themselves are hidden
-                 after the first row rather than dropped — a control with no
-                 label is a control nobody using a reader can fill in. */
+              /* Each row is a named group, so "Amount" and "What it is for" are
+                 unambiguous to a screen reader without repeating "line 2" into
+                 every visible label. */
               <div
                 key={row.key}
                 role="group"
                 aria-label={`Line ${String(at + 1)}`}
-                className="grid gap-3 sm:grid-cols-[minmax(0,150px)_minmax(0,1fr)_auto] sm:items-start"
+                className="grid gap-3 rounded-lg border border-line p-3 sm:grid-cols-[minmax(0,130px)_minmax(0,1fr)_auto] sm:items-start sm:border-0 sm:p-0"
               >
                 <Field
                   label="Amount"
                   hideLabel={at !== 0}
                   /* Only the row somebody has actually broken. An empty row is
-                     not an error — it is a row waiting to be filled in, and
+                     not an error, it is a row waiting to be filled in, and
                      save drops it. */
                   error={
                     row.amount.trim() !== "" && parseKobo(row.amount) === null
@@ -272,6 +204,7 @@ export function LinesDialog({
                     inputMode="decimal"
                     placeholder="0.00"
                     value={row.amount}
+                    className="max-sm:h-11"
                     onChange={(event) => {
                       const next = event.target.value;
                       setRows((was) =>
@@ -299,6 +232,7 @@ export function LinesDialog({
                     }
                     value={row.reason}
                     maxLength={200}
+                    className="max-sm:h-11"
                     onChange={(event) => {
                       const next = event.target.value;
                       setRows((was) =>
@@ -316,15 +250,17 @@ export function LinesDialog({
                     size="sm"
                     aria-label={`Remove line ${String(at + 1)}`}
                     /* Never below one row. An empty list is reachable by
-                       clearing the amount and saving — which says what it does
-                       on the button — rather than by deleting your way to a
-                       modal with nothing in it. */
+                       clearing the amount and saving, which says what it does
+                       on the button, rather than by deleting your way to a view
+                       with nothing in it. */
                     disabled={rows.length === 1}
+                    className="max-sm:min-h-11 max-sm:w-full"
                     onClick={() => {
                       setRows((was) => was.filter((r) => r.key !== row.key));
                     }}
                   >
                     <Trash2 aria-hidden="true" className="size-4" />
+                    <span className="sm:sr-only">Remove this line</span>
                   </Button>
                 </div>
               </div>
@@ -336,6 +272,7 @@ export function LinesDialog({
               type="button"
               variant="secondary"
               size="sm"
+              className={TOUCH}
               disabled={rows.length >= MAX_LINES}
               onClick={() => {
                 setRows((was) => [...was, blank()]);
@@ -345,7 +282,7 @@ export function LinesDialog({
               Another line
             </Button>
             {rows.length >= MAX_LINES && (
-              <p className="text-meta mt-2 text-muted">
+              <p className="mt-2 text-meta text-muted">
                 {MAX_LINES} lines is the most one person can carry in a month.
               </p>
             )}
@@ -360,17 +297,65 @@ export function LinesDialog({
           </p>
         </div>
       )}
-    </Modal>
+
+      <FormFooter
+        summary={
+          filled.length === 0 ? (
+            hadLines ? (
+              <span className="text-warning-text">
+                Saving now takes {name}&rsquo;s {noun} off entirely.
+              </span>
+            ) : (
+              "Nothing entered yet."
+            )
+          ) : (
+            <>
+              <span className="tabular font-medium text-ink">
+                {formatKobo(total)}
+              </span>{" "}
+              over {filled.length} {filled.length === 1 ? "line" : "lines"}
+            </>
+          )
+        }
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          className={TOUCH}
+          onClick={onBack}
+          disabled={saving}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          variant="accent"
+          className={TOUCH}
+          loading={saving}
+          /* Nothing entered and nothing to remove is a button that would save
+             an empty list over an empty list. It reads as an action and is a
+             no-op, so it is dead rather than dressed up. */
+          disabled={
+            saving || loading || broken || (filled.length === 0 && !hadLines)
+          }
+          onClick={() => void save()}
+        >
+          {filled.length === 0
+            ? hadLines
+              ? `Take the ${noun} off`
+              : "Enter an amount"
+            : `Save ${formatKobo(total)}`}
+        </Button>
+      </FormFooter>
+    </div>
   );
 }
 
 /**
  * The most lines one person may carry, matching the API's own ceiling.
  *
- * A typo guard rather than a policy — twenty separate bonuses in one month is
- * somebody's finger stuck on a key. Kept in step with `linesSchema` on the API:
- * a local limit that were higher would offer rows the server then refuses in
- * one lump, naming none of them.
+ * A typo guard rather than a policy: twenty separate bonuses in one month is
+ * somebody's finger stuck on a key. Kept in step with `linesSchema` on the API.
  */
 const MAX_LINES = 20;
 
@@ -395,9 +380,8 @@ function toRow(line: AdjustmentLine): Row {
     key: line.id,
     id: line.id,
     /* Naira, with the decimals, because that is what somebody typed and what
-       they will recognise. Parsed back to kobo on the way out — the round trip
-       through a string is exact for whole and fractional naira alike, which is
-       the reason nothing here holds a float. */
+       they will recognise. Parsed back to kobo on the way out; the round trip
+       through a string is exact for whole and fractional naira alike. */
     amount: (line.amountKobo / 100).toFixed(2),
     reason: line.reason ?? "",
   };

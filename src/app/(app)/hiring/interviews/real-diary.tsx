@@ -128,13 +128,13 @@ function Row({
   };
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3 transition-colors hover:bg-canvas">
-      <div className="flex w-16 shrink-0 flex-col items-center rounded-md bg-sunken px-2 py-1.5">
+      <div className="order-1 flex w-16 shrink-0 flex-col items-center rounded-md bg-sunken px-2 py-1.5 sm:order-none">
         <span className="text-meta text-muted">
           {month ? month.slice(0, 3) : ""}
         </span>
         <span className="tabular text-h4 leading-none text-ink">{day}</span>
       </div>
-      <div className="min-w-0 flex-1">
+      <div className="order-3 min-w-0 basis-full break-words sm:order-none sm:basis-0 sm:flex-1">
         <p className="text-body-sm font-medium text-ink">
           <TextLink href={`/hiring/candidates/${interview.applicationId}`}>
             {interview.candidateName}
@@ -162,13 +162,19 @@ function Row({
           </div>
         )}
       </div>
-      <Badge tone={tone} size="sm" dot>
+      <Badge
+        tone={tone}
+        size="sm"
+        dot
+        className="order-2 ml-auto sm:order-none sm:ml-0"
+      >
         {interview.status.replace("_", " ").toLowerCase()}
       </Badge>
       <ButtonLink
         href={`/hiring/candidates/${interview.applicationId}`}
         size="sm"
         variant="secondary"
+        className="order-4 sm:order-none"
       >
         Open record
       </ButtonLink>

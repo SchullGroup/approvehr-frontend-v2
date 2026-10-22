@@ -27,8 +27,10 @@ import {
   THead,
   TR,
   TableWrap,
+  Tabs,
   TextLink,
 } from "@/components/ui";
+import type { TabItem } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
@@ -40,12 +42,21 @@ import {
   type ApiScoreRegister,
   type ScoreBand,
 } from "@/lib/api/performance";
+import { useUrlTab } from "@/hooks/use-url-tab";
 import { useCan } from "@/lib/permissions";
 import {
   BAND_TONE,
   useCycleRegister,
   useCycleReport,
 } from "@/lib/store/performance";
+import { REPORT_TABS, type ReportTabId } from "./tabs";
+
+const REPORT_TAB_ITEMS: TabItem[] = [
+  { id: "marks", label: "Marks" },
+  { id: "progress", label: "Forms and sign-off" },
+  { id: "parts", label: "Parts of the mark" },
+  { id: "follow-up", label: "To follow up" },
+];
 
 /**
  * "N of M", or what the absence is when there is no M.
@@ -91,7 +102,14 @@ function ratio(done: number, total: number, notYet: string): string {
  * sentence about a company. "Leadership: 0%" is not. Every exclusion is rendered
  * with the register's own note and its own headcount.
  */
-export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
+export function PeriodReportScreen({
+  cycleId,
+  initialTab,
+}: {
+  cycleId: string;
+  initialTab: ReportTabId;
+}) {
+  const [tab, changeTab] = useUrlTab<ReportTabId>(initialTab, REPORT_TABS);
   const canSeeCompany = useCan("EDIT_RECORDS");
   const detail = useCycleReport(cycleId, canSeeCompany);
   const cycle = detail.cycle;
@@ -206,35 +224,50 @@ export function PeriodReportScreen({ cycleId }: { cycleId: string }) {
         {report && report.marks.people > 0 && (
           <>
             <Headline report={report} />
-            <div className="grid gap-4 lg:grid-cols-2">
-              <DepartmentPerformance register={register.register} />
-              <TopPerformers register={register.register} />
-            </div>
-            <Distribution report={report} />
-            <WhatCameIn report={report} />
-            <Parts report={report} />
-            <NamedList
-              title="No mark"
-              description="These people will finish the period with no mark. That is not the same as a mark of 0: nothing was recorded for them."
-              empty="Everybody in this period has a mark."
-              rows={report.unscored}
-              tone="danger"
-            />
-            <NamedList
-              title="Written, not final yet"
-              description="A rating has been written but the person has not been told. Making it final is what tells them."
-              empty="Every rating that has been written is final."
-              rows={report.unfinalised}
-              tone="warning"
-            />
-            <NamedList
-              title="Told, and no answer yet"
-              description="They have been told their rating and have not replied. Not replying is not the same as agreeing."
-              empty="Everybody who has been told their rating has replied."
-              rows={report.awaitingAcknowledgement}
-              tone="warning"
-            />
-            <Disputes report={report} />
+            {/* Four questions, four tabs: how it came out, what came in, what a
+                mark is made of, and who still needs chasing. They share no row,
+                and stacked they were a 4,600px page. */}
+            <Tabs items={REPORT_TAB_ITEMS} value={tab} onChange={changeTab}>
+              <div className="flex flex-col gap-6">
+                {tab === "marks" && (
+                  <>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <DepartmentPerformance register={register.register} />
+                      <TopPerformers register={register.register} />
+                    </div>
+                    <Distribution report={report} />
+                  </>
+                )}
+                {tab === "progress" && <WhatCameIn report={report} />}
+                {tab === "parts" && <Parts report={report} />}
+                {tab === "follow-up" && (
+                  <>
+                    <NamedList
+                      title="No mark"
+                      description="These people will finish the period with no mark. That is not the same as a mark of 0: nothing was recorded for them."
+                      empty="Everybody in this period has a mark."
+                      rows={report.unscored}
+                      tone="danger"
+                    />
+                    <NamedList
+                      title="Written, not final yet"
+                      description="A rating has been written but the person has not been told. Making it final is what tells them."
+                      empty="Every rating that has been written is final."
+                      rows={report.unfinalised}
+                      tone="warning"
+                    />
+                    <NamedList
+                      title="Told, and no answer yet"
+                      description="They have been told their rating and have not replied. Not replying is not the same as agreeing."
+                      empty="Everybody who has been told their rating has replied."
+                      rows={report.awaitingAcknowledgement}
+                      tone="warning"
+                    />
+                    <Disputes report={report} />
+                  </>
+                )}
+              </div>
+            </Tabs>
           </>
         )}
       </PageBody>
@@ -531,10 +564,10 @@ function TopPerformers({ register }: { register: ApiScoreRegister | null }) {
  * in `store/performance.ts` would be one more thing to keep in step.
  */
 const BAND_FILL: Record<ScoreBand, string> = {
-  BELOW: "var(--color-danger)",
+  BELOW: "var(--color-cat-4)",
   PARTIALLY_MEETS: "var(--color-warning)",
   MEETS: "var(--color-line-strong)",
-  EXCEEDS: "var(--color-accent)",
+  EXCEEDS: "var(--color-info)",
   OUTSTANDING: "var(--color-success-strong)",
 };
 

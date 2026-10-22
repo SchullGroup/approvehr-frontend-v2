@@ -10,7 +10,10 @@ import {
   Card,
   CardBody,
   Field,
+  LoadFailure,
   Select,
+  Skeleton,
+  loadPhase,
   useToast,
   ButtonLink,
 } from "@/components/ui";
@@ -45,7 +48,16 @@ import { RequestCorrectionDialog } from "@/app/(app)/people/attendance/my-attend
  * leftovers were not merely redundant, they were aborting the request the
  * announcement had started. See the note in `run` below.
  */
-export function MyClockCard() {
+export function MyClockCard({
+  showFailure = true,
+}: {
+  /**
+   * Whether a failed read is explained on this card. A screen that already
+   * renders the same failure beside it — the attendance page's own roster —
+   * passes false, so one failed request is not announced twice.
+   */
+  showFailure?: boolean;
+} = {}) {
   const roster = useAttendanceRoster();
   const locations = useWorkLocations();
   const { clockIn, clockOut, undoClockOut } = useAttendanceMutations();
@@ -88,6 +100,25 @@ export function MyClockCard() {
     myRow?.status === "ON_LEAVE" ||
     myRow?.status === "HOLIDAY" ||
     myRow?.status === "REST_DAY";
+
+  /**
+   * Whether the roster has answered, which is the only thing that lets this card
+   * say anything about today.
+   *
+   * It used to read `myRow` straight off an empty list, so for as long as the
+   * request was in flight — and for good, if it failed — the card said **"You
+   * have not clocked in today"** beside a live Clock in button. Both were claims
+   * about the person's day that nobody had checked, and the button invited a
+   * second clock-in on top of a first that simply had not loaded. `policy` is
+   * null only until the first connected answer, which makes it the honest "has
+   * it ever answered" signal; `rows` cannot be, because a real answer for a
+   * person with no record is also empty.
+   */
+  const phase = loadPhase({
+    loading: roster.loading,
+    error: roster.error,
+    hasData: roster.policy !== null,
+  });
 
   /**
    * Both clock actions, and every way they can be turned down.
@@ -234,15 +265,19 @@ export function MyClockCard() {
             <p className="text-body-lg font-semibold text-ink">
               {session.displayName ?? myRow?.employeeName ?? "Your day"}
             </p>
-            <p className="mt-0.5 text-body-sm text-muted">
-              {myRow?.clockIn
-                ? myRow.clockOut
-                  ? `In at ${myRow.clockIn}, out at ${myRow.clockOut}.`
-                  : `In at ${myRow.clockIn}.`
-                : nothingToClock && myRow
-                  ? `${STATUS_LABEL[myRow.status]} today: nothing to clock.`
-                  : "You have not clocked in today."}
-            </p>
+            {phase === "loading" ? (
+              <Skeleton className="mt-2 h-4 w-48" />
+            ) : phase === "ready" ? (
+              <p className="mt-0.5 text-body-sm text-muted">
+                {myRow?.clockIn
+                  ? myRow.clockOut
+                    ? `In at ${myRow.clockIn}, out at ${myRow.clockOut}.`
+                    : `In at ${myRow.clockIn}.`
+                  : nothingToClock && myRow
+                    ? `${STATUS_LABEL[myRow.status]} today: nothing to clock.`
+                    : "You have not clocked in today."}
+              </p>
+            ) : null}
 
             {/* An earlier day still open.
               ----------------------------
@@ -263,8 +298,11 @@ export function MyClockCard() {
               showing both would leave two clocks on the card disagreeing
               about which one is real. Absent, not a guessed 08:00–17:00,
               when the policy has not loaded yet. */}
-            {!myRow?.clockIn && !nothingToClock && policy && (
-              /* A chip, and every part of it `whitespace-nowrap`.
+            {phase === "ready" &&
+              !myRow?.clockIn &&
+              !nothingToClock &&
+              policy && (
+                /* A chip, and every part of it `whitespace-nowrap`.
                ----------------------------------------------------
                The old markup was a flex row whose *text node* was one flex
                item and whose grace note was another, so a narrow column broke
@@ -276,21 +314,21 @@ export function MyClockCard() {
                The separator went with it: a leading "·" at the start of a
                wrapped line is punctuation pointing at nothing, and the chip
                already groups the two. */
-              <p className="mt-2 inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg bg-sunken px-2.5 py-1.5">
-                <Clock
-                  aria-hidden="true"
-                  className="size-4 shrink-0 text-accent-text"
-                />
-                <span className="font-semibold whitespace-nowrap text-ink">
-                  Expected {policy.shiftStart}–{policy.shiftEnd}
-                </span>
-                {policy.graceMinutes > 0 && (
-                  <span className="text-body-sm whitespace-nowrap text-muted">
-                    {policy.graceMinutes} min grace
+                <p className="mt-2 inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg bg-sunken px-2.5 py-1.5">
+                  <Clock
+                    aria-hidden="true"
+                    className="size-4 shrink-0 text-accent-text"
+                  />
+                  <span className="font-semibold whitespace-nowrap text-ink">
+                    Expected {policy.shiftStart}–{policy.shiftEnd}
                   </span>
-                )}
-              </p>
-            )}
+                  {policy.graceMinutes > 0 && (
+                    <span className="text-body-sm whitespace-nowrap text-muted">
+                      {policy.graceMinutes} min grace
+                    </span>
+                  )}
+                </p>
+              )}
 
             {/* Only while the clock is running.
               ----------------------------------
@@ -314,7 +352,9 @@ export function MyClockCard() {
           </div>
         </div>
 
-        {policy && !policy.selfServiceClockIn ? (
+        {phase === "loading" ? (
+          <Skeleton className="h-10 w-full lg:w-44" />
+        ) : phase === "failed" ? null : policy && !policy.selfServiceClockIn ? (
           <p className="text-body-sm text-muted">
             Your HR team records attendance for everybody.
           </p>
@@ -440,6 +480,16 @@ export function MyClockCard() {
               )}
             </div>
           )
+        )}
+
+        {phase === "failed" && showFailure && (
+          <div className="w-full">
+            <LoadFailure
+              subject="today's clock"
+              error={roster.error}
+              onRetry={roster.reload}
+            />
+          </div>
         )}
       </CardBody>
     </Card>

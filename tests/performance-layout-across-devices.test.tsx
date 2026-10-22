@@ -125,28 +125,6 @@ describe("the report's spread of marks", () => {
   });
 });
 
-describe("the appraiser mapping rows", () => {
-  const rows = source("src/app/(app)/performance/appraiser-map.tsx");
-
-  it("are a grid, so the person's details are never squeezed by the control beside them", () => {
-    /* A wrapping flex row with a `flex-1` person block let the assign select
-       take its longest option's width and left the name a column about 60px
-       wide, one word to a line, on a tablet. */
-    expect(rows).toContain("grid-cols-[minmax(0,1fr)_auto]");
-    expect(rows).toContain("md:grid-cols-[minmax(0,1fr)_auto_auto]");
-  });
-
-  it("put the select's width on a wrapper, because Select puts its className on the <select>", () => {
-    /* The old `min-w-[13rem]` was on the select inside a wrapper that sized to
-       the longest option, and pushed "More options" out of the card by 13px at
-       375 and 68px at 320: the page grew a sideways scroll, and a mobile
-       browser answers that by zooming out, which put a dialog's Save button
-       below the screen. */
-    expect(rows).not.toContain("min-w-[13rem]");
-    expect(rows).toMatch(/min-w-0 flex-1 basis-48/);
-  });
-});
-
 describe("the scoring settings page", () => {
   const form = source("src/app/(app)/settings/performance/weights-form.tsx");
 

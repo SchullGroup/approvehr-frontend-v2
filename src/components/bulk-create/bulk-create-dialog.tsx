@@ -50,6 +50,7 @@ import {
   TableLayout,
   type LayoutProps,
 } from "./layouts";
+import { useDismiss } from "@/hooks/use-dismiss";
 
 /**
  * The window for adding several records at once, in three layouts, with a
@@ -540,6 +541,7 @@ function DownloadMenu({
   small?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const { mounted, closing } = useDismiss(open, 170);
   return (
     <div className="relative inline-block text-left">
       <Button
@@ -553,16 +555,20 @@ function DownloadMenu({
         Download draft
         <ChevronDown aria-hidden="true" className="size-4" />
       </Button>
-      {open && (
+      {mounted && (
         <>
           <div
-            className="fixed inset-0 z-40"
+            className={
+              closing
+                ? "pointer-events-none fixed inset-0 z-40"
+                : "fixed inset-0 z-40"
+            }
             aria-hidden="true"
             onClick={() => setOpen(false)}
           />
           <div
             role="menu"
-            className="animate-scale-in absolute right-0 z-50 mt-1.5 w-64 rounded-lg border border-line bg-surface p-1.5 shadow-lg"
+            className={`${closing ? "animate-scale-out" : "animate-scale-in"} origin-top-right absolute right-0 z-50 mt-1.5 w-64 rounded-lg border border-line bg-surface p-1.5 shadow-lg`}
           >
             {(
               [

@@ -371,7 +371,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
                       {row.bankName.trim().length > 0 ? (
                         row.bankName
                       ) : (
-                        <span className="flex items-center gap-1.5 text-danger-text">
+                        <span className="flex items-center gap-1.5 text-warning-text">
                           <TriangleAlert
                             aria-hidden="true"
                             className="size-3.5"
@@ -384,7 +384,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
                       {row.accountNumberOk ? (
                         row.accountNumberMasked
                       ) : (
-                        <span className="flex items-center gap-1.5 text-danger-text">
+                        <span className="flex items-center gap-1.5 text-warning-text">
                           <TriangleAlert
                             aria-hidden="true"
                             className="size-3.5"
@@ -445,7 +445,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
                     {row.bankName.trim().length > 0 ? (
                       row.bankName
                     ) : (
-                      <span className="flex items-center gap-1.5 text-danger-text">
+                      <span className="flex items-center gap-1.5 text-warning-text">
                         <TriangleAlert
                           aria-hidden="true"
                           className="size-3.5"
@@ -458,7 +458,7 @@ export function BatchDetailScreen({ id }: { id: string }) {
                     {row.accountNumberOk ? (
                       row.accountNumberMasked
                     ) : (
-                      <span className="flex items-center gap-1.5 text-danger-text">
+                      <span className="flex items-center gap-1.5 text-warning-text">
                         <TriangleAlert
                           aria-hidden="true"
                           className="size-3.5"

@@ -141,7 +141,7 @@ export function ProbationDecisionDialog({
             value={outcome}
             onChange={(e) => setOutcome(e.currentTarget.value as Outcome)}
           >
-            <option value="confirm">Confirm — they passed</option>
+            <option value="confirm">Confirm, they passed</option>
             <option value="extend">Extend the probation</option>
             <option value="not_confirmed">Not confirmed</option>
           </Select>
@@ -162,7 +162,7 @@ export function ProbationDecisionDialog({
             ? "Their status moves to active and the confirmation is recorded against their record with your name and today's date."
             : outcome === "extend"
               ? "They stay on probation until the new date, and a fresh decision is raised as it approaches."
-              : "The decision is recorded and their employment continues unchanged. Ending it has a notice period, a final payslip and equipment to collect — start that from their record, under Record their exit."}
+              : "The decision is recorded and their employment continues unchanged. Ending it has a notice period, a final payslip and equipment to collect, start that from their record, under Record their exit."}
         </Callout>
 
         {outcome === "extend" && (

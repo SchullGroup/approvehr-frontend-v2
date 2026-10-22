@@ -552,7 +552,7 @@ function demoExceptions(
         person.id,
         /* The trailing full stop is stripped inside the quotes: it would
            double up with the one closing this sentence. Same as the API. */
-        `${person.name} is not being paid this period — ` +
+        `${person.name} is not being paid this period, ` +
           `"${left.reason.replace(/\.$/, "")}". ` +
           `Excluded${decidedBy} on ${left.excludedAt.slice(0, 10)}. They have no ` +
           `payslip on this run and nothing is owed to them by it. They are back ` +

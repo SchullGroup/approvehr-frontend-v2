@@ -48,7 +48,7 @@ const TYPE_TONE: Record<IssueType, string> = {
   EPIC: "bg-cat-4/15 text-cat-4",
   STORY: "bg-success-soft text-success-text",
   TASK: "bg-info-soft text-info-text",
-  BUG: "bg-danger-soft text-danger-text",
+  BUG: "bg-warning-soft text-warning-text",
   SUBTASK: "bg-sunken text-muted",
 };
 
@@ -85,9 +85,9 @@ const PRIORITY_ICON: Record<Priority, typeof Zap> = {
 };
 
 const PRIORITY_TONE: Record<Priority, string> = {
-  HIGHEST: "text-danger-text",
-  HIGH: "text-danger-text",
-  MEDIUM: "text-warning-text",
+  HIGHEST: "text-warning-text",
+  HIGH: "text-warning-text",
+  MEDIUM: "text-muted",
   LOW: "text-info-text",
   LOWEST: "text-info-text",
 };

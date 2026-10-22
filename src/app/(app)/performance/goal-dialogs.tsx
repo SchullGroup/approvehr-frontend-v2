@@ -31,7 +31,8 @@ import {
 } from "@/lib/store/departments";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useAppraisals } from "@/lib/store/performance";
-import { useSession } from "@/lib/store/session";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
 import { TODAY } from "@/lib/today";
 import {
   objectiveWhoseChoices,
@@ -87,9 +88,24 @@ function useLeadReach(): LeadReach {
  * *measure*, and it is a number with a target.
  */
 
+/**
+ * The day the quarter list is built around.
+ *
+ * `TODAY` is the demo seed's fixed date (August 2026), so using it for a real
+ * company left "Due quarter" on Q3 2026 in October: an ended quarter. A
+ * connected workspace asks the real clock, in the company's zone (a company in
+ * Lagos is already in tomorrow's quarter at 23:30 UTC on the last day); the
+ * demo keeps its fixed day so its seeded KPIs still line up.
+ */
+export function useQuarterToday(): string {
+  const { isConnected } = useSession();
+  const timeZone = useOrgTimezone();
+  return isConnected ? todayIn(timeZone) : TODAY;
+}
+
 /** The current quarter and the three after it, plus the one just gone. */
-export function quarterOptions(): string[] {
-  const now = currentQuarter(TODAY);
+export function quarterOptions(today: string = TODAY): string[] {
+  const now = currentQuarter(today);
   const [yearPart = "2026", quarterPart = "Q1"] = now.split("-");
   let year = Number(yearPart);
   let quarter = Number(quarterPart.replace("Q", ""));
@@ -193,7 +209,7 @@ export function NewKpiDialog({
   const { cycles } = useAppraisals();
   const openPeriods = cycles.filter((cycle) => cycle.stage !== "PUBLISHED");
 
-  const quarters = quarterOptions();
+  const quarters = quarterOptions(useQuarterToday());
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   /* `null` is "not chosen yet", so the starting answer can follow the
@@ -369,7 +385,7 @@ export function NewKpiDialog({
                     fact. */}
                 {mine.map((department) => (
                   <option key={department.id} value={`dept:${department.id}`}>
-                    {department.name} — the whole department
+                    {department.name}, the whole department
                   </option>
                 ))}
                 {/* The API's own rule, not a longer list than it will accept,
@@ -537,7 +553,7 @@ export function AssignKpiDialog({
     [inScope, reach],
   );
 
-  const quarters = quarterOptions();
+  const quarters = quarterOptions(useQuarterToday());
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [chosen, setChosen] = useState<string[]>([]);
@@ -1037,7 +1053,7 @@ export function EditGoalDialog({
     }
   }
 
-  const quarters = quarterOptions();
+  const quarters = quarterOptions(useQuarterToday());
   const quarterChoices =
     goal?.dueQuarter && !quarters.includes(goal.dueQuarter)
       ? [goal.dueQuarter, ...quarters]

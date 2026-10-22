@@ -126,7 +126,7 @@ export function IssueCard({
               <TypeIcon type={issue.type} />
               <IssueKey issueKey={issue.key} done={done} />
               {overdue && issue.dueDate && (
-                <span className="text-meta font-medium text-danger-text">
+                <span className="text-meta font-medium text-warning-text">
                   Due {shortDate(issue.dueDate)}
                 </span>
               )}

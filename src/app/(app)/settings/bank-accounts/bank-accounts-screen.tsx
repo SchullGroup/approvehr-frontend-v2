@@ -14,11 +14,11 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   ConfirmDialog,
   EmptyState,
   Spinner,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -28,6 +28,7 @@ import {
   TR,
   TableWrap,
   useToast,
+  ToggleFilter,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -256,7 +257,7 @@ export function BankAccountsScreen() {
 
         {stepUp.dialog}
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <StatGrid columns={3}>
           {/* Never a measured zero over a read that did not happen. */}
           <Stat
             label="Accounts in use"
@@ -283,7 +284,7 @@ export function BankAccountsScreen() {
             value={unread ? "\u2014" : String(accounts.counts.archived)}
             {...(unread ? { hint: "not read" } : {})}
           />
-        </div>
+        </StatGrid>
 
         {!primary && accounts.accounts.length > 0 && (
           <Card>
@@ -308,13 +309,10 @@ export function BankAccountsScreen() {
             title="Accounts"
             description="One account is where salaries come from. The rest are on file."
             action={
-              <Checkbox
+              <ToggleFilter
                 label="Show archived"
                 checked={showArchived}
-                onChange={(e) => {
-                  const next = e.target.checked;
-                  setShowArchived(next);
-                }}
+                onChange={setShowArchived}
               />
             }
           />

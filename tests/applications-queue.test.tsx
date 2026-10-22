@@ -331,7 +331,7 @@ describe("filters are questions to the server", () => {
 });
 
 describe("the search", () => {
-  it("waits for the typing to pause, then asks the server — and does not filter what it already had", async () => {
+  it("waits for the typing to pause, then asks the server, and does not filter what it already had", async () => {
     serve(120);
     const user = userEvent.setup();
     open();

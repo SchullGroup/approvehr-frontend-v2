@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { checkMappedRows } from "@/lib/imports/check";
 import { guessMapping, mapRow } from "@/lib/imports/mapping";
-import { OBJECTIVES, parseQuarter, parseYesNo } from "@/lib/imports/objectives";
+import {
+  NO_PERIOD_SENTENCE,
+  OBJECTIVES,
+  parseQuarter,
+  parseYesNo,
+} from "@/lib/imports/objectives";
 
 /**
  * The objectives dictionary on this side: how a file's headings are read, and
@@ -220,5 +225,112 @@ describe("what the file alone can settle", () => {
     const report = check([row({ [H.ownerEmail]: "ada@company.test" })]);
     expect(report.rows[0]?.name).toBe("Grow qualified pipeline");
     expect(report.rows[0]?.employeeNo).toBe("ada@company.test");
+  });
+});
+
+/**
+ * An objective counts towards a mark only if it is filed in an appraisal period.
+ *
+ * The API gives a child its parent's period when the cell is blank, so which rows
+ * will really be filed in none is something only it can say. A browser can be
+ * certain of exactly one kind: a row with neither a period nor a parent, which has
+ * nothing to take one from. These pin that floor, and pin that it never claims
+ * more than the file shows.
+ */
+describe("the appraisal period, as far as a file can tell", () => {
+  it("warns a row with no period and no parent, in the API's own sentence", () => {
+    const report = check([row({})]);
+    const [only] = report.rows;
+
+    expect(only?.errors).toEqual([]);
+    expect(only?.warnings).toHaveLength(1);
+    expect(only?.warnings[0]).toMatchObject({
+      column: H.period,
+      value: null,
+      problem: NO_PERIOD_SENTENCE,
+    });
+    /* A caution and never a refusal: the row still goes in. */
+    expect(only?.action).toBe("create");
+    expect(report.toSkip).toBe(0);
+    expect(report.toImport).toBe(1);
+  });
+
+  it("says nothing about a row that names a period", () => {
+    const report = check([row({ [H.period]: "H2 2026" })]);
+    expect(report.rows[0]?.warnings).toEqual([]);
+    expect(report.notes.join(" ")).not.toContain("no appraisal period");
+  });
+
+  it("says nothing about a row under a parent, because the API may give it one", () => {
+    const report = check([row({ [H.parent]: "Marketing: grow pipeline" })]);
+    expect(report.rows[0]?.warnings).toEqual([]);
+  });
+
+  it("does not warn a row it is skipping for something else", () => {
+    /* "Imports anyway" would be false of it: the same report says Skipped. */
+    const report = check([row({ [H.quarter]: "next quarter" })]);
+    expect(report.rows[0]?.action).toBe("skip");
+    expect(report.rows[0]?.warnings).toEqual([]);
+    expect(report.notes.join(" ")).not.toContain("no appraisal period");
+  });
+
+  it("does not warn the second of two rows that are the same objective", () => {
+    const report = check([row({}), row({})]);
+    expect(report.rows[0]?.warnings).toHaveLength(1);
+    expect(report.rows[1]?.action).toBe("skip");
+    expect(report.rows[1]?.warnings).toEqual([]);
+  });
+
+  it("counts them once for the file, and says what a browser cannot know", () => {
+    const report = check([
+      row({ [H.title]: "One" }),
+      row({ [H.title]: "Two", [H.period]: "H2 2026" }),
+      row({ [H.title]: "Three", [H.parent]: "A parent" }),
+      row({ [H.title]: "Four" }),
+      row({ [H.title]: "Five", [H.quarter]: "soon" }),
+    ]);
+    const note = report.notes.find((candidate) =>
+      candidate.includes("no appraisal period"),
+    );
+
+    /* One and Four: neither a period nor a parent, and nothing wrong with them. */
+    expect(report.rows.map((r) => r.warnings.length)).toEqual([1, 0, 0, 1, 0]);
+    expect(note).toContain("2 objectives have no Appraisal period");
+    expect(note).toContain("count towards nobody's appraisal mark");
+    expect(note).toContain("They still import");
+    /* Not a count of everything that will end up unfiled, and it says so. */
+    expect(note).toContain("checked when you connect");
+  });
+
+  it("uses the singular for one", () => {
+    const note = check([row({})]).notes.find((candidate) =>
+      candidate.includes("no appraisal period"),
+    );
+    expect(note).toContain("1 objective has no Appraisal period");
+    expect(note).toContain(
+      "it is filed in no appraisal period and counts towards",
+    );
+    expect(note).toContain("It still imports");
+  });
+
+  it("describes the blank cell the way it now behaves", () => {
+    const note = OBJECTIVES.byField.get("period")?.note ?? "";
+    /* The old claim, that blank always means nobody's mark, is only true of a row
+       with nothing to take — and a template that still said it flatly would be
+       wrong about every child of a department objective. */
+    expect(note).toContain("parent objective's period");
+    expect(note).not.toContain("Blank means it counts towards nobody's");
+  });
+});
+
+describe("what the department column says about a blank cell", () => {
+  it("does not call a department needed when blank is how a company objective is made", () => {
+    /* It used to say "Needed when nobody is assigned and there is no parent
+       objective", while the template's own legend said a company objective is what
+       you get if you do not name one. The API agrees with the legend: a person
+       with the records permission uploads exactly that. */
+    const note = OBJECTIVES.byField.get("department")?.note ?? "";
+    expect(note).not.toContain("Needed when");
+    expect(note).toContain("blank makes a company objective");
   });
 });

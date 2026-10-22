@@ -520,7 +520,7 @@ function ChangeEffect({
         {net > 0 ? (
           <ArrowUp aria-hidden="true" className="size-5 text-success-text" />
         ) : net < 0 ? (
-          <ArrowDown aria-hidden="true" className="size-5 text-danger-text" />
+          <ArrowDown aria-hidden="true" className="size-5 text-warning-text" />
         ) : (
           <Slash aria-hidden="true" className="size-5 text-muted" />
         )}

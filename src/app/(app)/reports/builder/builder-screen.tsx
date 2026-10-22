@@ -173,7 +173,7 @@ export function ReportBuilderScreen() {
                         label={
                           column.available
                             ? column.label
-                            : `${column.label} — needs ${column.permission ?? "a permission"}`
+                            : `${column.label}, needs ${column.permission ?? "a permission"}`
                         }
                         checked={columns.includes(column.key)}
                         disabled={!column.available}
@@ -202,7 +202,7 @@ export function ReportBuilderScreen() {
                       value={groupBy}
                       onChange={(event) => setGroupBy(event.target.value)}
                     >
-                      <option value="">No grouping — one row each</option>
+                      <option value="">No grouping, one row each</option>
                       {dataset.columns
                         .filter(
                           (column) => column.groupable && column.available,
@@ -350,7 +350,7 @@ function useFilterOptions(dataset: ApiDataset | null) {
             value: run.id,
             /* The period and the status, because "which run" on a month with
                an off-cycle one beside it is otherwise unanswerable. */
-            label: `${run.period} — ${run.status.toLowerCase()}`,
+            label: `${run.period}, ${run.status.toLowerCase()}`,
           }));
         }
         if (!cancelled) setOptions(next);
@@ -457,7 +457,7 @@ function Result({ result }: { result: ApiReportResult }) {
         {result.truncated && (
           <Callout tone="warning" title="There is more behind this">
             This report hit the row limit. Narrow it with a filter to see the
-            rest — what is below is not the whole answer.
+            rest, what is below is not the whole answer.
           </Callout>
         )}
 
@@ -590,7 +590,7 @@ function SavedList({ read }: { read: ReturnType<typeof useSavedReports> }) {
       <CardHeader
         level={2}
         title="Saved reports"
-        description="A saved report is the question, not the answer — running it reads again."
+        description="A saved report is the question, not the answer, running it reads again."
       />
       <CardBody className="flex flex-col gap-2">
         {read.data.map((report) => (

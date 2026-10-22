@@ -11,6 +11,9 @@ import {
   performanceApi,
   type ApiAnswer,
   type ApiFairness,
+  type ApiClaims,
+  type ApiReviewFlag,
+  type ApiReviewFlags,
   type FairnessPeriods,
   type ApiCompetency,
   type ApiCycle,
@@ -806,7 +809,7 @@ const SEED_QUESTIONS: readonly SeedQuestion[] = DEMO_ENABLED
       },
       {
         id: "demo-q-self-evidence",
-        prompt: "Attach any supporting evidence — a report, a dashboard.",
+        prompt: "Attach any supporting evidence, a report, a dashboard.",
         kind: "FILE",
         /* Not required, and that is the honest default for evidence: somebody
            whose work leaves no artefact should not be held out of their own
@@ -1786,7 +1789,7 @@ export function useObjectiveMutations() {
         if (goal.approval === "REJECTED") {
           offline(
             `"${goal.title}" was not agreed. Write the objective you can agree ` +
-              "on instead of re-sending this one — the refusal is part of the record.",
+              "on instead of re-sending this one, the refusal is part of the record.",
           );
         }
         if (goal.reviewCycleId === null && goal.dueQuarter === null) {
@@ -1819,7 +1822,7 @@ export function useObjectiveMutations() {
           offline(
             goal.approval === "AGREED"
               ? `"${goal.title}" is already agreed.`
-              : `"${goal.title}" has not been sent for agreement yet — it is ` +
+              : `"${goal.title}" has not been sent for agreement yet, it is ` +
                   `${goal.approvalLabel.toLowerCase()}.`,
           );
         }
@@ -1841,7 +1844,7 @@ export function useObjectiveMutations() {
         assertNotOwn(goal);
         if (goal.approval !== "AWAITING_APPROVAL") {
           offline(
-            `"${goal.title}" is not waiting to be agreed — it is ` +
+            `"${goal.title}" is not waiting to be agreed, it is ` +
               `${goal.approvalLabel.toLowerCase()}.`,
           );
         }
@@ -1867,7 +1870,7 @@ export function useObjectiveMutations() {
         }
         if (goal.approval === "AGREED") {
           offline(
-            `"${goal.title}" was agreed. Stop it or reopen it for revision — ` +
+            `"${goal.title}" was agreed. Stop it or reopen it for revision, ` +
               "refusing it now would erase the fact that it was ever agreed.",
           );
         }
@@ -1894,7 +1897,7 @@ export function useObjectiveMutations() {
         if (goal.approval !== "AGREED") {
           offline(
             `"${goal.title}" is not agreed, so there is nothing frozen to ` +
-              `reopen — it is ${goal.approvalLabel.toLowerCase()}.`,
+              `reopen, it is ${goal.approvalLabel.toLowerCase()}.`,
           );
         }
         local(id, {
@@ -3901,7 +3904,7 @@ const DEMO_WEIGHTS: ApiScoringWeights = {
 
 const SCALE_SAVE_OFFLINE =
   "Renaming the scale needs the API. The words are the company's, stored " +
-  "once and frozen onto every period as it starts — there is nothing in this " +
+  "once and frozen onto every period as it starts, there is nothing in this " +
   "browser for a period to freeze.";
 
 /**
@@ -4128,6 +4131,84 @@ export function useCycleReport(
   };
 }
 
+export function useReviewFlags(cycleId: string, enabled: boolean) {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    (signal: AbortSignal) => performanceApi.reviewFlags(cycleId, signal),
+    [cycleId],
+  );
+  const fetched = useFetched<ApiReviewFlags>(
+    `review-flags|${cycleId}`,
+    enabled && isConnected,
+    load,
+  );
+  return {
+    flags: fetched.data,
+    loading: fetched.loading,
+    error: fetched.error,
+    reload: fetched.reload,
+  };
+}
+
+type ReviewFlagDetail = { flag: ApiReviewFlag; claims: ApiClaims };
+
+// A 404 means there is nothing to show this reader about this person, not a failure.
+export function useReviewFlag(
+  cycleId: string | null,
+  employeeId: string | null,
+  enabled: boolean,
+) {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    async (signal: AbortSignal): Promise<ReviewFlagDetail | null> => {
+      try {
+        return await performanceApi.reviewFlag(
+          cycleId ?? "",
+          employeeId ?? "",
+          signal,
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+      }
+    },
+    [cycleId, employeeId],
+  );
+  const fetched = useFetched<ReviewFlagDetail | null>(
+    `review-flag|${cycleId ?? ""}|${employeeId ?? ""}`,
+    enabled && isConnected && cycleId !== null && employeeId !== null,
+    load,
+  );
+  return {
+    flag: fetched.data?.flag ?? null,
+    claims: fetched.data?.claims ?? null,
+    loading: fetched.loading,
+  };
+}
+
+const FLAG_DECISION_OFFLINE =
+  "Deciding on a flagged mark needs the API. The decision is part of the period's record.";
+
+/** "Mark stands" and taking it back. Moving a mark and sending a review back have their own hooks. */
+export function useFlagDecisions() {
+  const { isConnected } = useSession();
+  const stands = useCallback(
+    async (cycleId: string, employeeId: string, note: string | null) => {
+      if (!isConnected) throw new Error(FLAG_DECISION_OFFLINE);
+      return performanceApi.markStands(cycleId, employeeId, note);
+    },
+    [isConnected],
+  );
+  const reopen = useCallback(
+    async (cycleId: string, employeeId: string) => {
+      if (!isConnected) throw new Error(FLAG_DECISION_OFFLINE);
+      return performanceApi.reopenFlag(cycleId, employeeId);
+    },
+    [isConnected],
+  );
+  return { stands, reopen };
+}
+
 export const FAIRNESS_OFFLINE =
   "The fairness check needs the API. Its figures are drawn from everybody's mark and records.";
 
@@ -4172,7 +4253,7 @@ export function useCycleFairness(
 const NINE_BOX_OFFLINE =
   "A nine-box needs the API. One half of it is every person's mark, which is " +
   "an aggregate over everybody, and the other half is a judgement somebody " +
-  "recorded — a grid assembled in this browser would place people nobody has " +
+  "recorded, a grid assembled in this browser would place people nobody has " +
   "placed.";
 
 /**

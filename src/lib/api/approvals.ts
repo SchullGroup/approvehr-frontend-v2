@@ -1,6 +1,6 @@
 "use client";
 
-import { request, requestPaged } from "@/lib/api/client";
+import { ApiError, request, requestPaged } from "@/lib/api/client";
 import { dayIn, daysBetweenIn } from "@/lib/time";
 /* A type-only import: erased at build time, so this module carries no
    dependency on the seed data. The union is the app's own vocabulary for a
@@ -16,7 +16,7 @@ import type { ApprovalKind } from "@/lib/mock/workflows";
  * | Header counts | `GET /approvals/summary` |
  * | Approve or send back | `POST /approvals/:id/decide` |
  * | Undo | `POST /approvals/:id/reopen` |
- * | Approve everything routine | `POST /approvals/approve-routine` |
+ * | Approve the routine ones you were shown | `POST /approvals/approve-routine/selected` |
  * | Backfill missing rows | `POST /approvals/reconcile` |
  *
  * ## An approval is an index entry, not a record
@@ -41,9 +41,18 @@ import type { ApprovalKind } from "@/lib/mock/workflows";
  * the client would fight that and produce two different queues for the same
  * data, so the rows are rendered in the order they arrive.
  *
- * `approve-routine` excludes anything with a deadline for the same reason: those
- * are precisely the rows that need a person to look at them, and a bulk action
- * that swept them up would defeat the flag.
+ * `approve-routine/selected` excludes anything with a deadline for the same
+ * reason: those are precisely the rows that need a person to look at them, and a
+ * bulk action that swept them up would defeat the flag.
+ *
+ * ## The sweep takes ids, never "everything"
+ *
+ * The button says how many it will approve, so what it sends is exactly those
+ * rows. `POST /approvals/approve-routine` (no body) still exists on the server
+ * and decides the whole routine queue, which can be more than the screen showed;
+ * nothing here calls it. A server that predates the ids route answers 404 for it,
+ * and that is reported as "the server is a version behind", never retried as the
+ * sweep.
  *
  * ## Money
  *
@@ -114,6 +123,14 @@ type WireSummary = {
   atStakeKobo: number;
   byKind: Record<string, number>;
 };
+
+/**
+ * What a 404 from the counted-ids route means. Said once, here, so the inbox and
+ * its test read the same sentence: the route is new, and an older server has no
+ * such path.
+ */
+export const SERVER_BEHIND =
+  "The server is a version behind this page and cannot approve a list you were shown yet, so nothing was approved. Ask whoever looks after the server to update it.";
 
 /* ---------------------------------------------------------------- the shapes */
 
@@ -371,12 +388,38 @@ export const approvalsApi = {
     return row ? toRow(row) : null;
   },
 
-  /** Everything with no deadline, waiting under five days. */
-  approveRoutine: () =>
-    request<{ decided: number; skipped: { id: string; reason: string }[] }>(
-      "/approvals/approve-routine",
-      { method: "POST" },
-    ),
+  /**
+   * Approve exactly these, if each is still routine, visible to the caller and
+   * not in their archive. The ids are the ones the button counted. What the
+   * server leaves out comes back with its reason in `skipped`.
+   *
+   * A 404 here means the server has no such route yet (it predates it). That
+   * must never fall back to the sweep, so it becomes a plain sentence and
+   * nothing is approved.
+   */
+  approveSelected: async (
+    ids: string[],
+  ): Promise<{
+    decided: number;
+    decidedIds: string[];
+    skipped: { id: string; reason: string }[];
+  }> => {
+    try {
+      return await request<{
+        decided: number;
+        decidedIds: string[];
+        skipped: { id: string; reason: string }[];
+      }>("/approvals/approve-routine/selected", {
+        method: "POST",
+        body: { ids },
+      });
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 404) {
+        throw new ApiError(404, "server_behind", SERVER_BEHIND);
+      }
+      throw failure;
+    }
+  },
 
   /**
    * Backfills approval rows for pending subjects that have none.

@@ -77,7 +77,10 @@ const labels = () =>
 const findBox = () => screen.getByRole("combobox", { name: "Find a page" });
 const row = (id: string) =>
   nav().querySelector<HTMLElement>(`button[data-nav-row="${id}"]`)!;
-const heading = () => nav().querySelector("h2")?.textContent ?? null;
+/* The section title is the label on the back row (one button, not a button and a
+   heading), so "which section am I in" reads that row's text. */
+const heading = () =>
+  nav().querySelector("[data-nav-back]")?.textContent ?? null;
 const current = () =>
   Array.from(nav().querySelectorAll('[aria-current="page"]')).map(
     (node) => node.querySelector("[data-nav-label]")?.textContent,
@@ -124,6 +127,7 @@ describe("the top level", () => {
       "My approvals",
       "Assistant",
       "Projects",
+      "Wellness",
       "Core HR",
       "Payroll",
       "Recruitment",
@@ -153,7 +157,13 @@ describe("the top level", () => {
     const links = Array.from(nav().querySelectorAll("a[href]")).map(
       (a) => a.querySelector("[data-nav-label]")?.textContent,
     );
-    expect(links).toEqual(["Home", "My approvals", "Assistant", "Projects"]);
+    expect(links).toEqual([
+      "Home",
+      "My approvals",
+      "Assistant",
+      "Projects",
+      "Wellness",
+    ]);
     /* A row that opens is a button and is never also a link. */
     expect(
       nav().querySelectorAll("a[href] svg.lucide-chevron-right"),
@@ -743,9 +753,11 @@ describe("on a phone, in the drawer", () => {
     for (const node of nav().querySelectorAll("a[href]")) {
       expect(node.className).toContain("min-h-11");
     }
+    /* The back row is one full-width button, 44px tall, with the 44px chevron
+       cell inside it; it is no longer a square icon button. */
     expect(
       screen.getByRole("button", { name: "Back to main menu" }).className,
-    ).toContain("size-11");
+    ).toContain("min-h-11");
   });
 
   it("closes on navigation", async () => {

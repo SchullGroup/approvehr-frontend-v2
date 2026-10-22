@@ -264,9 +264,7 @@ function ResignDialog({
     setBusy(true);
     setError(null);
     try {
-      const reason = note.trim()
-        ? `${why.trim()} — ${note.trim()}`
-        : why.trim();
+      const reason = note.trim() ? `${why.trim()}, ${note.trim()}` : why.trim();
       setHandedIn(await start({ kind: "RESIGNATION", reason, lastWorkingDay }));
     } catch (caught) {
       setError(

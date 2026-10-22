@@ -68,7 +68,7 @@ const KINDS: { value: ReviewQuestionKind; label: string }[] = [
   { value: "RATING", label: "A rating on the company scale" },
   { value: "BOOLEAN", label: "Yes or no" },
   { value: "CHOICE", label: "Pick from a list" },
-  { value: "FILE", label: "A file — a report, a dashboard, a screenshot" },
+  { value: "FILE", label: "A file, a report, a dashboard, a screenshot" },
 ];
 
 const AUDIENCE_LABEL: Record<ReviewAudience, string> = {
@@ -749,8 +749,8 @@ function FiledUnderPicker({
        its ratings recorded and excluded, and 0% would read as a weight
        somebody chose. */
     return option.weightBp === null
-      ? `${option.name} — not weighted`
-      : `${option.name} — ${weightLabel(option.weightBp)} of the mark`;
+      ? `${option.name}, not weighted`
+      : `${option.name}, ${weightLabel(option.weightBp)} of the mark`;
   };
 
   const addSubsection = async () => {

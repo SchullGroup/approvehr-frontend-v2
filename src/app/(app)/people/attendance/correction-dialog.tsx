@@ -248,7 +248,7 @@ export function CorrectionDialog({
             {locations.map((location) => (
               <option key={location.id} value={location.id}>
                 {location.name}
-                {location.addressLine ? ` — ${location.addressLine}` : ""}
+                {location.addressLine ? `, ${location.addressLine}` : ""}
               </option>
             ))}
           </Select>

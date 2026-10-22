@@ -350,7 +350,7 @@ export function SheetPanel({
 
             {parsed.problems.length > 0 ? (
               <>
-                <ul className="flex flex-col gap-1 text-body-sm text-danger-text">
+                <ul className="flex flex-col gap-1 text-body-sm text-warning-text">
                   {parsed.problems.map((problem) => (
                     <li key={`${String(problem.row)}-${problem.column}`}>
                       {problem.row > 0 ? `Row ${String(problem.row)}: ` : ""}

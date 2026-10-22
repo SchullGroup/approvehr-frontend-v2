@@ -1,7 +1,9 @@
 "use client";
 
 import { ApiError, request, requestPaged } from "@/lib/api/client";
+import { STATUS_CATEGORIES } from "@/lib/projects/types";
 import type {
+  StatusCategory,
   CompleteSprintMove,
   Issue,
   IssueActivity,
@@ -230,6 +232,77 @@ export function toActivity(raw: Raw): IssueActivity {
   };
 }
 
+/** How a link reads from one side; the API stores one row per pair. */
+export type LinkType = "RELATES" | "BLOCKS" | "IMPLEMENTS" | "DUPLICATES";
+
+/** What you choose when adding one: the stored type, or its reverse. */
+export type LinkChoice =
+  LinkType | "BLOCKED_BY" | "IMPLEMENTED_BY" | "DUPLICATED_BY";
+
+export type LinkedIssue =
+  | {
+      hidden?: false;
+      id: string;
+      key: string;
+      title: string;
+      projectId: string;
+      projectName: string;
+      statusName: string;
+      statusCategory: StatusCategory;
+      assigneeName: string | null;
+    }
+  | { hidden: true };
+
+export type IssueLink = {
+  id: string;
+  type: LinkType;
+  direction: "outgoing" | "incoming";
+  /** Worded for this side, e.g. "blocked by". Shown as given. */
+  label: string;
+  note: string | null;
+  createdAt: string;
+  createdBy: { id: string; name: string } | null;
+  other: LinkedIssue;
+};
+
+export type IssueSearchHit = {
+  id: string;
+  key: string;
+  title: string;
+  projectName: string;
+};
+
+export function toIssueLink(raw: Raw): IssueLink {
+  const other = (raw["other"] ?? {}) as Raw;
+  const by = raw["createdBy"] as Raw | null | undefined;
+  return {
+    id: str(raw["id"]),
+    type: str(raw["type"]) as LinkType,
+    direction: raw["direction"] === "incoming" ? "incoming" : "outgoing",
+    label: str(raw["label"]),
+    note: strOrNull(raw["note"]),
+    createdAt: str(raw["createdAt"]),
+    createdBy: by ? { id: str(by["id"]), name: str(by["name"]) } : null,
+    other:
+      other["hidden"] === true
+        ? { hidden: true }
+        : {
+            id: str(other["id"]),
+            key: str(other["key"]),
+            title: str(other["title"]),
+            projectId: str(other["projectId"]),
+            projectName: str(other["projectName"]),
+            statusName: str(other["statusName"]),
+            statusCategory: (STATUS_CATEGORIES as readonly string[]).includes(
+              str(other["statusCategory"]),
+            )
+              ? (other["statusCategory"] as StatusCategory)
+              : "TODO",
+            assigneeName: strOrNull(other["assigneeName"]),
+          },
+  };
+}
+
 const signalOf = (signal?: AbortSignal) => (signal ? { signal } : {});
 
 export type LoadedProject = ProjectData & {
@@ -325,6 +398,45 @@ export const projectsApi = {
     return rows.map(toStatus);
   },
 
+  /* ------------------------------------------------------------ task links */
+
+  links: async (issueId: string, signal?: AbortSignal) =>
+    list(
+      await request<Raw[]>(`/issues/${issueId}/links`, signalOf(signal)),
+    ).map(toIssueLink),
+
+  addLink: async (
+    issueId: string,
+    body: { toIssueKey: string; type: LinkChoice; note?: string },
+  ) =>
+    toIssueLink(
+      await request<Raw>(`/issues/${issueId}/links`, { method: "POST", body }),
+    ),
+
+  /** Answers nothing useful: the stored side may differ, so refetch the list. */
+  updateLink: (id: string, note: string | null) =>
+    request<unknown>(`/links/${id}`, { method: "PATCH", body: { note } }),
+
+  removeLink: (id: string) =>
+    request<unknown>(`/links/${id}`, { method: "DELETE" }),
+
+  /** Tasks the caller can open, up to ten. */
+  searchIssues: async (
+    q: string,
+    signal?: AbortSignal,
+  ): Promise<IssueSearchHit[]> =>
+    list(
+      await request<Raw[]>("/issues/search", {
+        query: { q },
+        ...signalOf(signal),
+      }),
+    ).map((r) => ({
+      id: str(r["id"]),
+      key: str(r["key"]),
+      title: str(r["title"]),
+      projectName: str(r["projectName"]),
+    })),
+
   /* ---------------------------------------------------------------- sprints */
 
   createSprint: async (projectId: string, input: NewSprintInput) =>
@@ -387,6 +499,10 @@ export const projectsApi = {
     toIssue(
       await request<Raw>(`/issues/${id}`, { method: "PATCH", body: patch }),
     ),
+
+  /** One issue as the server has it now, weekly-task line included. */
+  getIssue: async (id: string, signal?: AbortSignal) =>
+    toIssue(await request<Raw>(`/issues/${id}`, signalOf(signal))),
 
   removeIssue: (id: string) =>
     request<unknown>(`/issues/${id}`, { method: "DELETE" }),

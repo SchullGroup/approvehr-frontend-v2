@@ -14,7 +14,6 @@ import {
   Modal,
   SegmentedControl,
   Select,
-  Spinner,
   Stat,
   TBody,
   TD,
@@ -24,8 +23,8 @@ import {
   TableWrap,
   TextLink,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -131,7 +130,7 @@ export function OneOnOnesScreen() {
            feedback, verbatim: "I don't understand the flow and what it means."
            A module whose own name is the only explanation is a module people
            click once. */
-        description="A running record of the check-ins between one person and their manager — what was agreed, and what is still open from last time. Either of you can start one; only the two of you can read it."
+        description="A running record of the check-ins between one person and their manager, what was agreed, and what is still open from last time. Either of you can start one; only the two of you can read it."
         meta={
           <span className="inline-flex items-center gap-1 text-meta text-faint">
             <Lock aria-hidden="true" className="size-3.5" />
@@ -210,17 +209,21 @@ function Mine({
       </Callout>
     );
   }
-  if (read.error) {
+  /* The one loading and failure rule, as a gate. */
+  if (read.error || read.loading || !read.data) {
     return (
-      <LoadFailure
-        subject="your one-to-ones"
+      <LoadState
+        loading={read.loading}
         error={read.error}
+        subject="your one-to-ones"
         onRetry={read.reload}
         missingMeans="module"
-      />
+        skeleton="list"
+      >
+        {null}
+      </LoadState>
     );
   }
-  if (read.loading || !read.data) return <Spinner label="Loading" />;
   if (read.data.length === 0) {
     /* Two different nils, and they need two different sentences.
        -------------------------------------------------------------------
@@ -262,7 +265,7 @@ function Mine({
           <CardHeader
             level={2}
             title="Stopped"
-            description="Nothing is deleted — the meetings that happened still happened."
+            description="Nothing is deleted, the meetings that happened still happened."
           />
           <CardBody className="flex flex-wrap gap-2">
             {stopped.map((series) => (
@@ -356,17 +359,20 @@ function Coverage({ read }: { read: ReturnType<typeof useOneOnOneCoverage> }) {
       </Callout>
     );
   }
-  if (read.error) {
+  if (read.error || read.loading || !read.data) {
     return (
-      <LoadFailure
-        subject="coverage"
+      <LoadState
+        loading={read.loading}
         error={read.error}
+        subject="coverage"
         onRetry={read.reload}
         missingMeans="module"
-      />
+        skeleton="table"
+      >
+        {null}
+      </LoadState>
     );
   }
-  if (read.loading || !read.data) return <Spinner label="Loading" />;
 
   const { rows, counts } = read.data;
 
@@ -609,7 +615,7 @@ function StartDialog({
             {people.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.jobTitle
-                  ? `${person.fullName} — ${person.jobTitle}`
+                  ? `${person.fullName}, ${person.jobTitle}`
                   : person.fullName}
               </option>
             ))}

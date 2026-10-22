@@ -221,6 +221,7 @@ describe("approving a pay-early request", () => {
     approve.mockResolvedValue(advance({ status: "APPROVED" }));
     render(<AdvancesScreen />);
 
+    fireEvent.click(screen.getByRole("tab", { name: /Waiting on you/ }));
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
 
     expect(
@@ -239,6 +240,7 @@ describe("approving a pay-early request", () => {
   it("can be closed", async () => {
     approve.mockResolvedValue(advance({ status: "APPROVED" }));
     render(<AdvancesScreen />);
+    fireEvent.click(screen.getByRole("tab", { name: /Waiting on you/ }));
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
     await screen.findByRole("heading", { name: /is approved/ });
 
@@ -251,6 +253,7 @@ describe("approving a pay-early request", () => {
     approve.mockRejectedValue(new Error("The wallet is short."));
     render(<AdvancesScreen />);
 
+    fireEvent.click(screen.getByRole("tab", { name: /Waiting on you/ }));
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
 
     await waitFor(() => expect(approve).toHaveBeenCalled());

@@ -6,7 +6,7 @@
 - **Scope:** both
 - **Supersedes:** —
 - **Superseded by:** —
-- **Enforced by:** review only. Nothing stops a second engine being added. Related checks: backend `engine.test.ts` and `payroll-quote.test.ts` (what the one engine answers, and that a caller cannot supply bands); frontend `npm run verify-payroll` (the demo fixture reconciles; its cross-repo band check currently skips, see Consequences).
+- **Enforced by:** review only. Nothing stops a second engine being added. Related checks: backend `engine.test.ts` and `payroll-quote.test.ts` (what the one engine answers, and that a caller cannot supply bands); frontend `npm run verify-payroll` (the demo fixture reconciles; its cross-repo band check runs only where a backend checkout is beside this repo, so not in CI, see Consequences).
 - **Backfilled:** 2026-10-11 from HANDOVER.md § "The payroll engine exists ONCE" and § "The frontend engine is gone"; decision dated by aabf384a (frontend, 2026-08-21 19:09 UTC)
 
 ## Context
@@ -57,11 +57,12 @@ labelled illustrative, and refuses for a salary or settings it has no row for. I
     floors) is defined in both `src/lib/payroll/settings.ts` and the backend engine, and no check
     ties them together. The marketing PAYE page hard-codes the band table and a `× 0.025` in an
     explanatory sentence, which the guard does not read.
-  - `verify-payroll`'s band-for-band comparison looks for the backend at
-    `../../../approvehr-api` from `scripts/`. That path does not exist beside a checkout laid out as
-    `approvehr-frontend-v2` next to `approvehr-backend`, and CI checks out only this repo, so the
-    comparison skips with a message everywhere today. What it checks is that the fixture
-    reconciles in exact integer kobo, and that every demo salary has a row.
+  - `verify-payroll`'s band-for-band comparison finds the backend through `scripts/backend-source.ts`
+    (`APPROVEHR_BACKEND_DIR`, else a folder named `approvehr-api` or `approvehr-backend` beside this
+    repo or any folder above it). It used to look only at `../../../approvehr-api`, which matched
+    nothing, so it skipped on every machine until 2026-10-21. CI checks out only this repo, so there
+    it still skips: CI proves the fixture reconciles in exact integer kobo and that every demo salary
+    has a row, and a developer with both repos proves it is current.
   - The rule is held by review and by HANDOVER, not by a gate.
 - **Revisit if:** the product must produce authoritative payroll figures with no API reachable,
   which today it answers with labelled fixed figures, or the demo is retired and the fixture with it.

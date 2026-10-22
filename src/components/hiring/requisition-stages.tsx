@@ -274,7 +274,7 @@ export function RequisitionStages({
                   </div>
                 ) : (
                   <>
-                    <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                    <span className="flex min-w-48 flex-1 flex-wrap items-center gap-2">
                       <span className="text-body-sm font-medium text-ink">
                         {s.name}
                       </span>
@@ -304,7 +304,7 @@ export function RequisitionStages({
                       )}
                     </span>
                     {canManage && (
-                      <span className="flex items-center gap-1">
+                      <span className="flex shrink-0 items-center gap-1">
                         <IconButton
                           label={`Move ${s.name} up`}
                           size="sm"

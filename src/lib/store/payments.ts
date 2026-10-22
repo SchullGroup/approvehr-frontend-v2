@@ -751,7 +751,7 @@ export function usePaymentsSummary(): PaymentsSummaryState {
         provider: {
           connected: false,
           name: null,
-          note: "No payment provider is connected. Approve a batch and download the bank file — that is how payments go out today.",
+          note: "No payment provider is connected. Approve a batch and download the bank file, that is how payments go out today.",
         },
         primaryAccount:
           book.accounts.find((a) => a.isPrimary && !a.archived) ?? null,
@@ -1937,7 +1937,7 @@ function demoUpdateAccount(id: string, body: UpdateAccountBody) {
 
   if (body.isPrimary === false && existing.isPrimary) {
     refuse(
-      `${existing.bankName} is the account salaries come from. Make another account the primary one instead — there is always exactly one.`,
+      `${existing.bankName} is the account salaries come from. Make another account the primary one instead, there is always exactly one.`,
     );
   }
 
@@ -2009,7 +2009,7 @@ function demoArchiveAccount(id: string) {
     );
     if (alternatives.length > 0) {
       refuse(
-        `${account.bankName} is the account salaries come from. Make another account primary first — ${alternatives
+        `${account.bankName} is the account salaries come from. Make another account primary first, ${alternatives
           .map((row) => row.bankName)
           .join(", ")}.`,
       );
@@ -2037,7 +2037,7 @@ function demoArchiveAccount(id: string) {
  */
 export const NO_PROVIDER_REASON =
   "No payment provider is connected, so nothing was sent and no money moved. " +
-  "Download the bank file for this batch and upload it to your bank — that is " +
+  "Download the bank file for this batch and upload it to your bank, that is " +
   "how payments go out today.";
 
 export type PaymentActions = {

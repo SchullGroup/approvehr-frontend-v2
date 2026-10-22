@@ -11,9 +11,11 @@ import {
   CardHeader,
   Skeleton,
   Switch,
+  Tabs,
   TextLink,
   useToast,
 } from "@/components/ui";
+import type { TabItem } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { EmailTemplateEditor } from "@/components/hiring/email-template-editor";
 import type {
@@ -27,7 +29,9 @@ import {
   useEmailReadiness,
 } from "@/lib/hiring/pipeline/use-comms";
 import { usePipelineGateway } from "@/lib/hiring/pipeline/use-pipeline";
+import { useUrlTab } from "@/hooks/use-url-tab";
 import { HiringSettingsShell } from "../settings-shell";
+import { EMAIL_TABS, type EmailTabId } from "./tabs";
 
 /**
  * The company's emails to candidates.
@@ -46,7 +50,42 @@ import { HiringSettingsShell } from "../settings-shell";
  * what would stop an email going out, in the API's words.
  */
 
-export function EmailsScreen() {
+/**
+ * Thirteen kinds of email on one page was a 4,000px column. They split by who
+ * receives them and when: the applicant on their own, the applicant around an
+ * interview, and the panel. A kind the API adds that is not named here lands on
+ * the first tab, so nothing it sends can go missing from the list.
+ */
+const GROUP_OF: Record<string, EmailTabId> = {
+  ACKNOWLEDGE: "candidates",
+  DECLINE: "candidates",
+  STAGE_UPDATE: "candidates",
+  OFFER_SENT: "candidates",
+  INVITE: "interviews",
+  INTERVIEW_UPDATE: "interviews",
+  INTERVIEW_CANCELLED: "interviews",
+  INTERVIEW_REMINDER_CANDIDATE: "interviews",
+  PANELIST_INVITE: "panel",
+  PANELIST_UPDATE: "panel",
+  PANELIST_CANCELLED: "panel",
+  INTERVIEW_REMINDER_PANELIST: "panel",
+  SCORECARD_NUDGE: "panel",
+};
+
+const groupOf = (kind: string): EmailTabId => GROUP_OF[kind] ?? "candidates";
+
+const TAB_ITEMS: TabItem[] = [
+  { id: "candidates", label: "Applicants and offers" },
+  { id: "interviews", label: "Interviews" },
+  { id: "panel", label: "Interview panel" },
+];
+
+export function EmailsScreen({
+  initialTab = "candidates",
+}: {
+  initialTab?: EmailTabId;
+}) {
+  const [tab, changeTab] = useUrlTab<EmailTabId>(initialTab, EMAIL_TABS);
   const gateway = usePipelineGateway();
   const catalog = useEmailCatalog();
   const readiness = useEmailReadiness();
@@ -180,156 +219,178 @@ export function EmailsScreen() {
             </CardBody>
           </Card>
 
-          {data.kinds.map((kind) => {
-            const rows = data.templates.filter((t) => t.kind === kind.kind);
-            const live = rows.filter((t) => !t.archived);
-            const archived = rows.filter((t) => t.archived);
-            const hasDefault = live.some((t) => t.isDefault);
-            return (
-              <Card key={kind.kind}>
-                <CardHeader
-                  title={kind.label}
-                  description={kind.when}
-                  action={
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() =>
-                        setEditing({ template: null, kind: kind.kind })
-                      }
-                    >
-                      <Plus aria-hidden="true" className="size-3.5" />
-                      New
-                    </Button>
-                  }
-                />
-                <CardBody>
-                  <ul className="flex flex-col gap-2">
-                    {live.map((template) => (
-                      <li
-                        key={template.id}
-                        className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-line p-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-                            {template.name}
-                            {template.isDefault && (
-                              <Badge tone="accent" size="sm" icon={<Star />}>
-                                Used by default
-                              </Badge>
-                            )}
-                          </p>
-                          <p className="mt-0.5 truncate text-meta text-muted">
-                            {template.subject}
-                          </p>
-                          <p className="mt-0.5 text-meta text-faint">
-                            {template.usedByStages === 0
-                              ? "No stage sends it"
-                              : `Sent by ${String(template.usedByStages)} ${template.usedByStages === 1 ? "stage" : "stages"}`}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {!template.isDefault && (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              disabled={busy}
-                              onClick={() =>
-                                void act(
-                                  () =>
-                                    gateway.emails.update(template.id, {
-                                      isDefault: true,
-                                    }),
-                                  `${template.name} is the default for ${kind.label.toLowerCase()}`,
-                                )
-                              }
-                            >
-                              Use by default
-                            </Button>
-                          )}
+          <Tabs items={TAB_ITEMS} value={tab} onChange={changeTab}>
+            <div className="flex flex-col gap-5">
+              {data.kinds
+                .filter((kind) => groupOf(kind.kind) === tab)
+                .map((kind) => {
+                  const rows = data.templates.filter(
+                    (t) => t.kind === kind.kind,
+                  );
+                  const live = rows.filter((t) => !t.archived);
+                  const archived = rows.filter((t) => t.archived);
+                  const hasDefault = live.some((t) => t.isDefault);
+                  return (
+                    <Card key={kind.kind}>
+                      <CardHeader
+                        title={kind.label}
+                        description={kind.when}
+                        action={
                           <Button
                             variant="secondary"
                             size="sm"
                             disabled={busy}
                             onClick={() =>
-                              setEditing({ template, kind: template.kind })
+                              setEditing({ template: null, kind: kind.kind })
                             }
                           >
-                            <Pencil aria-hidden="true" className="size-3.5" />
-                            Edit
+                            <Plus aria-hidden="true" className="size-3.5" />
+                            New
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={busy}
-                            onClick={() =>
-                              void act(
-                                () => gateway.emails.archive(template.id),
-                                `${template.name} archived`,
-                              )
-                            }
-                          >
-                            <Archive aria-hidden="true" className="size-3.5" />
-                            Archive
-                          </Button>
-                        </div>
-                      </li>
-                    ))}
-
-                    {!hasDefault && (
-                      <li className="rounded-md border border-dashed border-line-strong p-3">
-                        <p className="text-body-sm font-medium text-ink">
-                          Built-in wording
-                        </p>
-                        <p className="mt-0.5 text-meta text-muted">
-                          Used when no email of this kind is the default:{" "}
-                          {kind.builtIn.subject}
-                        </p>
-                      </li>
-                    )}
-                  </ul>
-
-                  {archived.length > 0 && (
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-body-sm text-muted">
-                        Archived ({archived.length})
-                      </summary>
-                      <ul className="mt-2 flex flex-col gap-2">
-                        {archived.map((template) => (
-                          <li
-                            key={template.id}
-                            className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
-                          >
-                            <span className="text-body-sm text-muted">
-                              {template.name}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={busy}
-                              onClick={() =>
-                                void act(
-                                  () => gateway.emails.restore(template.id),
-                                  `${template.name} restored`,
-                                )
-                              }
+                        }
+                      />
+                      <CardBody>
+                        <ul className="flex flex-col gap-2">
+                          {live.map((template) => (
+                            <li
+                              key={template.id}
+                              className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-line p-3"
                             >
-                              <ArchiveRestore
-                                aria-hidden="true"
-                                className="size-3.5"
-                              />
-                              Restore
-                            </Button>
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  )}
-                </CardBody>
-              </Card>
-            );
-          })}
+                              <div className="min-w-0">
+                                <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                                  {template.name}
+                                  {template.isDefault && (
+                                    <Badge
+                                      tone="accent"
+                                      size="sm"
+                                      icon={<Star />}
+                                    >
+                                      Used by default
+                                    </Badge>
+                                  )}
+                                </p>
+                                <p className="mt-0.5 truncate text-meta text-muted">
+                                  {template.subject}
+                                </p>
+                                <p className="mt-0.5 text-meta text-faint">
+                                  {template.usedByStages === 0
+                                    ? "No stage sends it"
+                                    : `Sent by ${String(template.usedByStages)} ${template.usedByStages === 1 ? "stage" : "stages"}`}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {!template.isDefault && (
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      void act(
+                                        () =>
+                                          gateway.emails.update(template.id, {
+                                            isDefault: true,
+                                          }),
+                                        `${template.name} is the default for ${kind.label.toLowerCase()}`,
+                                      )
+                                    }
+                                  >
+                                    Use by default
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    setEditing({
+                                      template,
+                                      kind: template.kind,
+                                    })
+                                  }
+                                >
+                                  <Pencil
+                                    aria-hidden="true"
+                                    className="size-3.5"
+                                  />
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void act(
+                                      () => gateway.emails.archive(template.id),
+                                      `${template.name} archived`,
+                                    )
+                                  }
+                                >
+                                  <Archive
+                                    aria-hidden="true"
+                                    className="size-3.5"
+                                  />
+                                  Archive
+                                </Button>
+                              </div>
+                            </li>
+                          ))}
+
+                          {!hasDefault && (
+                            <li className="rounded-md border border-dashed border-line-strong p-3">
+                              <p className="text-body-sm font-medium text-ink">
+                                Built-in wording
+                              </p>
+                              <p className="mt-0.5 text-meta text-muted">
+                                Used when no email of this kind is the default:{" "}
+                                {kind.builtIn.subject}
+                              </p>
+                            </li>
+                          )}
+                        </ul>
+
+                        {archived.length > 0 && (
+                          <details className="mt-3">
+                            <summary className="cursor-pointer text-body-sm text-muted">
+                              Archived ({archived.length})
+                            </summary>
+                            <ul className="mt-2 flex flex-col gap-2">
+                              {archived.map((template) => (
+                                <li
+                                  key={template.id}
+                                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
+                                >
+                                  <span className="text-body-sm text-muted">
+                                    {template.name}
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      void act(
+                                        () =>
+                                          gateway.emails.restore(template.id),
+                                        `${template.name} restored`,
+                                      )
+                                    }
+                                  >
+                                    <ArchiveRestore
+                                      aria-hidden="true"
+                                      className="size-3.5"
+                                    />
+                                    Restore
+                                  </Button>
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+                      </CardBody>
+                    </Card>
+                  );
+                })}
+            </div>
+          </Tabs>
 
           <EmailTemplateEditor
             open={editing !== null}

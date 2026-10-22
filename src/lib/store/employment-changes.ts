@@ -57,7 +57,7 @@ export const DEMO_CHANGE_HEADING = "Promotions and transfers need the API";
 /** The non-obvious half: not "no server", but "nothing to run the sweep". */
 export const DEMO_CHANGE_REASON =
   "A change is agreed on one day and written on another, by a job that runs " +
-  "on the server — in a browser there is nothing to write it, so one agreed " +
+  "on the server, in a browser there is nothing to write it, so one agreed " +
   "here would never take effect.";
 
 export const DEMO_CHANGE_REFUSAL = `${DEMO_CHANGE_HEADING}. ${DEMO_CHANGE_REASON}`;
@@ -76,7 +76,7 @@ export function useEmploymentChanges() {
 
   return {
     rows: outcome?.value ?? [],
-    loading: isConnected && outcome === undefined,
+    loading: isConnected && outcome === null,
     error: outcome?.error ?? null,
     /** True offline. The screen states the reason rather than showing nothing. */
     unavailable: !isConnected,

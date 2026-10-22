@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { tabFromQuery } from "@/lib/url-tab";
 import { PeriodReportScreen } from "./report-screen";
+import { REPORT_TABS } from "./tabs";
 
 export const metadata: Metadata = {
   title: "Period report",
@@ -21,9 +23,17 @@ export const metadata: Metadata = {
  */
 export default async function PeriodReportPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string | string[] }>;
 }) {
   const { id } = await params;
-  return <PeriodReportScreen cycleId={id} />;
+  const { tab } = await searchParams;
+  return (
+    <PeriodReportScreen
+      cycleId={id}
+      initialTab={tabFromQuery(tab, REPORT_TABS, "marks")}
+    />
+  );
 }

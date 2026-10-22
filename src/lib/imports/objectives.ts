@@ -1,6 +1,7 @@
 import {
   buildDictionary,
   normalizeKey,
+  type CheckedRowFacts,
   type ColumnSpec,
   type Dictionary,
   type RowContext,
@@ -31,6 +32,15 @@ import {
  * all **whether this person may raise that objective for that person** are the
  * API's — it asks the same question the single form asks, with the uploader's
  * own authority. This file is allowed to lag the API and never to contradict it.
+ *
+ * ## The appraisal period is the clearest case of lagging
+ *
+ * A row with no period takes its parent's when that one is still open, and which
+ * parents exist and what period they are filed in is the database's to say. So
+ * this side can only be certain of the rows that have **neither** a period nor a
+ * parent, and warns on exactly those: it never claims a child with a parent will
+ * be filed in no period, because the API may well file it in one. The API warns on
+ * every row that really will be filed in none, which is a superset.
  */
 
 /** Rows per request, as the API caps it. */
@@ -98,7 +108,7 @@ const COLUMNS: readonly ColumnSpec<ObjectiveField>[] = [
     aliases: ["dept", "department_name", "team"],
     required: false,
     example: "Marketing",
-    note: "The department it belongs to, by name. Needed when nobody is assigned and there is no parent objective; a personal objective takes its parent's.",
+    note: "The department it belongs to, by name. With nobody assigned and no parent objective, blank makes a company objective, which needs the records permission. A personal objective takes its parent's.",
   },
   {
     field: "period",
@@ -115,7 +125,7 @@ const COLUMNS: readonly ColumnSpec<ObjectiveField>[] = [
     ],
     required: false,
     example: "H2 2026",
-    note: "The appraisal period it counts towards, by name, and it has to be one that is still open. Blank means it counts towards nobody's appraisal mark.",
+    note: "The appraisal period it counts towards, by name, and it has to be one that is still open. Blank takes the parent objective's period if that is still open, and otherwise counts towards nobody's appraisal mark.",
   },
   {
     field: "parent",
@@ -220,9 +230,19 @@ const PLAIN_NUMBER = /^-?\d{1,14}(\.\d{1,4})?$/;
 const titleKey = (value: string): string =>
   value.trim().replace(/\s+/g, " ").toLowerCase();
 
+/**
+ * What a row is told when it will be filed in no appraisal period.
+ *
+ * The API's base sentence, word for word: the two sides say the same thing about
+ * the same row, and the API adds a second sentence where it knows why a parent
+ * could not supply a period, which a browser cannot.
+ */
+export const NO_PERIOD_SENTENCE =
+  "No appraisal period, so this objective counts towards nobody's appraisal mark.";
+
 /** The rules the file alone settles. Everything else is the API's. */
 function objectiveRowRules(ctx: RowContext<ObjectiveField>): void {
-  const { text, error, tally, seen } = ctx;
+  const { text, error, warn, hasErrors, tally, seen } = ctx;
 
   const title = text("title");
   if (title !== "") {
@@ -251,7 +271,7 @@ function objectiveRowRules(ctx: RowContext<ObjectiveField>): void {
   if (owner !== "" && !owner.includes("@")) {
     error(
       "ownerEmail",
-      `"${owner}" is not a work email. The Assigned to column takes an email, not a name — two people can share a name. Leave it blank for a department or company objective.`,
+      `"${owner}" is not a work email. The Assigned to column takes an email, not a name, two people can share a name. Leave it blank for a department or company objective.`,
     );
   }
   if (owner === "" && title !== "") tally("ownerless");
@@ -293,7 +313,7 @@ function objectiveRowRules(ctx: RowContext<ObjectiveField>): void {
       );
     }
     if (target === "") {
-      error("target", "A measure needs a target — the number it has to reach.");
+      error("target", "A measure needs a target, the number it has to reach.");
     } else {
       const startText = start === "" ? "0" : tidyNumber(start);
       const targetText = tidyNumber(target);
@@ -343,9 +363,25 @@ function objectiveRowRules(ctx: RowContext<ObjectiveField>): void {
     if (first !== undefined) {
       error(
         "title",
-        `"${title}" is already on row ${first} of this file${owner ? ` for ${owner}` : ""}. Two rows cannot be the same objective — remove one.`,
+        `"${title}" is already on row ${first} of this file${owner ? ` for ${owner}` : ""}. Two rows cannot be the same objective, remove one.`,
       );
     }
+  }
+
+  /* ---- no period, and nothing to take one from ----
+     Last, after every error this row can have, and only for a row that will
+     import: "imports anyway" is false of one the report is skipping. A row that
+     names a parent is left alone even with the cell blank — it may take the
+     parent's period, which only the API can see — so this is a floor, not the
+     count. */
+  if (
+    title !== "" &&
+    !hasErrors() &&
+    text("period") === "" &&
+    text("parent") === ""
+  ) {
+    warn("period", NO_PERIOD_SENTENCE);
+    tally("unfiled");
   }
 }
 
@@ -356,7 +392,18 @@ function objectiveFileNotes(
   const notes: string[] = [];
   const ownerless = counts["ownerless"] ?? 0;
   const measures = counts["measures"] ?? 0;
+  const unfiled = counts["unfiled"] ?? 0;
 
+  /* The caution comes first, and says only what a file can know: these rows have
+     no period and no parent, so nothing can supply one. The second half is the
+     API's own wording. A row under a parent is not counted here — it may take the
+     parent's period — and the last sentence says so rather than letting a clean
+     count read as "everything else is filed". */
+  if (unfiled > 0) {
+    notes.push(
+      `${unfiled} ${unfiled === 1 ? "objective has" : "objectives have"} no Appraisal period and no parent objective to take one from, so ${unfiled === 1 ? "it is" : "they are"} filed in no appraisal period and ${unfiled === 1 ? "counts" : "count"} towards nobody's appraisal mark. ${unfiled === 1 ? "It still imports" : "They still import"}. To file ${unfiled === 1 ? "it" : "them"} in one, name a period that is still open under Appraisal period, or choose one with Edit on ${unfiled === 1 ? "the objective" : "each objective"} before it is agreed. A row under a parent objective takes the parent's period when that is still open, which is checked when you connect.`,
+    );
+  }
   if (ownerless > 0) {
     notes.push(
       `${ownerless} ${ownerless === 1 ? "row has" : "rows have"} nobody in Assigned to, so ${ownerless === 1 ? "it becomes a department or company objective" : "they become department or company objectives"}.`,
@@ -406,3 +453,29 @@ export const OBJECTIVES: Dictionary<ObjectiveField> = buildDictionary(
 export const OBJECTIVE_COLUMNS = OBJECTIVES.columns;
 
 export const HEADING = OBJECTIVES.heading;
+
+/**
+ * How many of the checked rows will be filed in no appraisal period.
+ *
+ * Counted from the rows' own warnings and not from a second reading of the file,
+ * so the number a screen prints is the number of rows that carry the warning — the
+ * API's, after it has let each child take its parent's period when that one is
+ * still open, or this file's own floor when there is no API. A row that is being
+ * skipped is not counted: it is not going to be filed at all.
+ *
+ * The warning is found by **field**, through the dictionary's own aliases, and not
+ * by its words: the API may reword it, and a count that stopped matching would fail
+ * silent, which is the worst way for a warning about nobody's marks to fail.
+ */
+export function countUnfiled(rows: readonly CheckedRowFacts[]): number {
+  return rows.filter(
+    (row) =>
+      row.action !== "skip" &&
+      row.problems.some(
+        (problem) =>
+          problem.severity === "warning" &&
+          OBJECTIVES.lookup.get(normalizeKey(problem.field))?.field ===
+            "period",
+      ),
+  ).length;
+}

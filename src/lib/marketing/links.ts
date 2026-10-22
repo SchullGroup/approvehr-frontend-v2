@@ -1,3 +1,5 @@
+import { isRedirectedOffSite } from "./redirected";
+
 /**
  * Where the signed-in product lives, as far as the marketing site is concerned.
  *
@@ -28,6 +30,16 @@ export function newTabIfApp(href: string) {
   return href === APP_URL
     ? { target: "_blank" as const, rel: "noopener noreferrer" }
     : {};
+}
+
+/**
+ * Spread onto a `Link` whose href may be one of the routes the proxy sends to the
+ * landing site (`redirected.ts`). A prefetch of such a route follows the redirect
+ * to another origin and is refused by the app's own CSP, so it is switched off
+ * for those and left on for the rest.
+ */
+export function noPrefetchIfOffSite(href: string) {
+  return isRedirectedOffSite(href) ? { prefetch: false as const } : {};
 }
 
 export type Cta = { href: string; label: string };

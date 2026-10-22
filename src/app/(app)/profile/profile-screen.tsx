@@ -28,10 +28,11 @@ import {
   CardHeader,
   DescriptionList,
   EmptyState,
+  LoadFailure,
+  LoadState,
   Money,
   ProgressMeter,
   Skeleton,
-  Spinner,
   Tabs,
   useToast,
 } from "@/components/ui";
@@ -60,6 +61,7 @@ import {
 import { self } from "@/lib/api/self";
 import { PROFILE_TABS, isProfileTab, type ProfileTab } from "./tabs";
 import { MyDetails } from "./my-details";
+import { TextMessagesCard } from "./text-messages-card";
 
 /**
  * The employee's own screen.
@@ -162,10 +164,38 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
 
   if (isLoading || record.loading) {
     return (
-      <PageBody className="flex items-center justify-center py-24">
-        <Spinner />
-        <span className="sr-only">Loading your profile</span>
-      </PageBody>
+      <>
+        <PageHeader title="My profile" />
+        <PageBody>
+          <LoadState
+            loading
+            error={null}
+            subject="your profile"
+            skeleton="detail"
+          >
+            {null}
+          </LoadState>
+        </PageBody>
+      </>
+    );
+  }
+
+  /* A request that failed is not an account with no employee record. The page
+     used to fall through to "No employee record: this account is not linked to
+     anyone on the payroll" — a claim about the company's records that nobody had
+     checked — beside a button to go home. */
+  if (record.error) {
+    return (
+      <>
+        <PageHeader title="My profile" />
+        <PageBody>
+          <LoadFailure
+            subject="your profile"
+            error={record.error}
+            onRetry={record.reload}
+          />
+        </PageBody>
+      </>
     );
   }
 
@@ -271,6 +301,10 @@ export function ProfileScreen({ initialTab }: { initialTab: ProfileTab }) {
               <div className="grid gap-6 lg:grid-cols-2">
                 <EmploymentCard employee={employee} />
                 <SecurityCard onSignOut={signOut} apiMode={mode === "api"} />
+                {/* Renders nothing unless the company has switched the weekly
+                    text on, or this person is already opted in and may need to
+                    stop it. The number offered is the one on their record. */}
+                <TextMessagesCard phone={employee.phone} />
               </div>
 
               {/* The employee's own door out, and the last thing on the tab for

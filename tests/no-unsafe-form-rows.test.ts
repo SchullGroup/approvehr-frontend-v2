@@ -52,14 +52,6 @@ const ALLOWED: Record<string, string> = {
     "input spans both, the select and the WIP limit drop to a row of their " +
     "own, and every cell is a shared `Input`/`Select` that is `min-w-0`. " +
     "Checked at 320px.",
-  "app/(app)/performance/appraiser-map.tsx":
-    "Two tracks, `minmax(0,1fr)` and `auto`, until `md` and three from there: " +
-    "the person's details take the first, the mark the second, and the assign " +
-    "select with its button sits in a cell that spans both and drops to a row " +
-    "of its own. The select's width is on a `min-w-0` wrapper because `Select` " +
-    "puts its className on the <select>, which otherwise sizes itself to its " +
-    "longest option. Checked at 320, 375, 412, 768 and 1366px: the page is " +
-    "exactly as wide as the window at all five.",
 };
 
 const CONTROLS = new Set([
@@ -199,7 +191,7 @@ describe("form rows on a phone", () => {
       offenders
         .map(
           (r) =>
-            `${r.file}:${r.line} ${r.detail} — use <FieldRow> (see tests/no-unsafe-form-rows.test.ts)`,
+            `${r.file}:${r.line} ${r.detail}, use <FieldRow> (see tests/no-unsafe-form-rows.test.ts)`,
         )
         .join("\n"),
     ).toEqual([]);
@@ -209,7 +201,7 @@ describe("form rows on a phone", () => {
     for (const file of Object.keys(ALLOWED)) {
       expect(
         rows.some((row) => row.file === file),
-        `${file} is allow-listed but no longer has a fixed-column row — remove it from ALLOWED`,
+        `${file} is allow-listed but no longer has a fixed-column row, remove it from ALLOWED`,
       ).toBe(true);
     }
   });
@@ -222,7 +214,7 @@ describe("form rows on a phone", () => {
     expect(
       rawPickers,
       rawPickers
-        .map((r) => `${r.file}:${r.line} ${r.detail} — use <Input type=…>`)
+        .map((r) => `${r.file}:${r.line} ${r.detail}, use <Input type=…>`)
         .join("\n"),
     ).toEqual([]);
   });

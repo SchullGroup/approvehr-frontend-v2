@@ -45,7 +45,7 @@ export function ResultsPanel({
       title={survey.title}
       description={
         survey.anonymous
-          ? "Anonymous — nobody's name is stored against these answers."
+          ? "Anonymous, nobody's name is stored against these answers."
           : "Answers on this survey carry a name."
       }
     >

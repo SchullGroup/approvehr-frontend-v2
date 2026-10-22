@@ -2,10 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ScoreBand } from "@/lib/api/performance";
+import { pct, points } from "@/components/performance/record-check";
 
-export const pct = (bp: number) => `${(bp / 100).toFixed(1)}%`;
-export const points = (bp: number) =>
-  `${bp > 0 ? "+" : bp < 0 ? "−" : ""}${Math.abs(bp / 100).toFixed(1)} pts`;
+export { pct, points };
 
 const DOMAIN = [4000, 8000] as const;
 
@@ -162,14 +161,14 @@ export function RangeChart({
 }
 
 export const BANDS: { key: ScoreBand; label: string; fill: string }[] = [
-  { key: "BELOW", label: "Below", fill: "var(--color-danger)" },
+  { key: "BELOW", label: "Below", fill: "var(--color-cat-4)" },
   {
     key: "PARTIALLY_MEETS",
     label: "Partially meets",
     fill: "var(--color-warning)",
   },
   { key: "MEETS", label: "Meets", fill: "var(--color-line-strong)" },
-  { key: "EXCEEDS", label: "Exceeds", fill: "var(--color-accent)" },
+  { key: "EXCEEDS", label: "Exceeds", fill: "var(--color-info)" },
   {
     key: "OUTSTANDING",
     label: "Outstanding",

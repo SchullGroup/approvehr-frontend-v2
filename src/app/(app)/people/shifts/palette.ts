@@ -57,9 +57,9 @@ const PALETTE: ShiftColour[] = [
     swatch: "bg-warning",
   },
   {
-    block: "bg-danger-soft border-danger-line",
-    bar: "bg-danger",
-    swatch: "bg-danger",
+    block: "bg-cat-5/10 border-cat-5/30",
+    bar: "bg-cat-5",
+    swatch: "bg-cat-5",
   },
   {
     block: "bg-sunken border-line-strong",

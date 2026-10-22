@@ -10,10 +10,10 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   SegmentedControl,
   Skeleton,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -23,6 +23,7 @@ import {
   TableWrap,
   TextLink,
   formatMoney,
+  ToggleFilter,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { BulkInviteButton } from "@/components/portal/bulk-invite";
@@ -50,8 +51,10 @@ import {
 import { useSession } from "@/lib/store/session";
 import { shortDate } from "@/lib/today";
 import { AttendanceSettingsButton } from "./capability-bar";
+import { AfterHoursPanel } from "./after-hours-panel";
 import { CorrectionDialog } from "./correction-dialog";
 import { MyAttendanceHistoryPanel } from "./my-attendance-history";
+import { useDismiss } from "@/hooks/use-dismiss";
 
 /**
  * The window both the table and its export ask for.
@@ -61,7 +64,25 @@ import { MyAttendanceHistoryPanel } from "./my-attendance-history";
  */
 const TIMESHEET_DAYS = 15;
 
-type View = "today" | "timesheet";
+type View = "today" | "timesheet" | "after-hours";
+
+/**
+ * The view toggle's options. "After hours" is door scans waiting for a
+ * decision about somebody's pay, so it is `EDIT_RECORDS` only — a manager
+ * who can see the roster still cannot count a scan.
+ */
+export function attendanceViews(canEditRecords: boolean): {
+  value: View;
+  label: string;
+}[] {
+  return [
+    { value: "today", label: "Today" },
+    { value: "timesheet", label: "Timesheet" },
+    ...(canEditRecords
+      ? [{ value: "after-hours" as const, label: "After hours" }]
+      : []),
+  ];
+}
 
 /**
  * Attendance.
@@ -184,10 +205,7 @@ export function AttendanceScreen() {
                   label="View"
                   value={view}
                   onChange={setView}
-                  options={[
-                    { value: "today", label: "Today" },
-                    { value: "timesheet", label: "Timesheet" },
-                  ]}
+                  options={attendanceViews(canEditRecords)}
                 />
               )}
               {canImport && (
@@ -220,14 +238,16 @@ export function AttendanceScreen() {
                 inline here and no longer is. Its own settings are reachable
                 from `AttendanceSettingsButton` in the header rather than a
                 second bar repeated inline here. */}
-            <MyClockCard />
+            <MyClockCard showFailure={false} />
 
             {/* Everybody clocks in above. Everybody else's day is a different
             question, and only a manager or `EDIT_RECORDS` gets to ask it —
             see "Who sees the roster" on this component. A plain employee
             gets their own recent attendance instead of the company's. */}
             {canSeeRoster ? (
-              view === "today" ? (
+              view === "after-hours" && canEditRecords ? (
+                <AfterHoursPanel />
+              ) : view === "today" || view === "after-hours" ? (
                 roster.date ? (
                   <TodayView
                     roster={roster}
@@ -326,7 +346,7 @@ function NoRecordHere({ canAddPeople }: { canAddPeople: boolean }) {
         <p className="max-w-prose text-body-sm leading-relaxed text-body">
           {canAddPeople
             ? "This account runs the company but is not on its payroll, so there is no record to clock in or out against. Add yourself as an employee and this becomes your own day."
-            : "This account is not linked to an employee record, so there is nothing to clock in or out against and no attendance of your own to show. Whoever looks after your people records can link it — ask them, and this becomes your own day."}
+            : "This account is not linked to an employee record, so there is nothing to clock in or out against and no attendance of your own to show. Whoever looks after your people records can link it, ask them, and this becomes your own day."}
         </p>
         {canAddPeople && (
           <ButtonLink href="/people/new" variant="secondary" size="sm">
@@ -369,7 +389,7 @@ function MyAttendanceSummary({
       />
       <CardBody>
         {mine ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatGrid>
             <Stat label="Present" value={String(mine.daysPresent)} />
             <Stat
               label="Late"
@@ -382,7 +402,7 @@ function MyAttendanceSummary({
               value={String(mine.daysUnexplained)}
               hint={`of ${mine.workingDays} working days`}
             />
-          </div>
+          </StatGrid>
         ) : (
           <p className="text-body-sm text-muted">
             Nothing recorded for you in this window yet.
@@ -447,7 +467,7 @@ function TodayView({
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatGrid>
         <Stat
           label="In today"
           /* Anybody with a clock-in, not `PRESENT + LATE`.
@@ -482,7 +502,7 @@ function TodayView({
             ? { hint: `${restDays} more off on the rota` }
             : {})}
         />
-      </div>
+      </StatGrid>
 
       <Card>
         <CardHeader title={`Roster · ${shortDate(roster.date)}`} />
@@ -694,6 +714,7 @@ function RowActions({
   onCorrect: (row: ApiRosterRow) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const { mounted, closing } = useDismiss(open, 170);
   const canApproveLeave = row.status === "ABSENT" && !off;
 
   if (!canApproveLeave && !canCorrect) return null;
@@ -711,16 +732,20 @@ function RowActions({
         <MoreHorizontal aria-hidden="true" className="size-4 text-muted" />
       </button>
 
-      {open && (
+      {mounted && (
         <>
           <div
-            className="fixed inset-0 z-40"
+            className={
+              closing
+                ? "pointer-events-none fixed inset-0 z-40"
+                : "fixed inset-0 z-40"
+            }
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
           <div
             role="menu"
-            className="animate-scale-in absolute right-0 z-50 mt-1.5 w-48 rounded-lg border border-line bg-surface p-1.5 shadow-lg"
+            className={`${closing ? "animate-scale-out" : "animate-scale-in"} origin-top-right absolute right-0 z-50 mt-1.5 w-48 rounded-lg border border-line bg-surface p-1.5 shadow-lg`}
           >
             {canApproveLeave && (
               <Link
@@ -789,10 +814,10 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                 export that does not need the pay permission. */}
             {sheet.source === "api" && mayExport && (
               <>
-                <Checkbox
+                <ToggleFilter
                   label="Exceptions only"
                   checked={exceptionsOnly}
-                  onChange={(e) => setExceptionsOnly(e.target.checked)}
+                  onChange={setExceptionsOnly}
                 />
                 <ExportButton
                   label="Download"
@@ -870,7 +895,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                       onRota
                         ? "text-muted"
                         : row.daysUnexplained > 0
-                          ? "font-medium text-danger-text"
+                          ? "font-medium text-warning-text"
                           : "text-muted",
                     )}
                   >
@@ -908,7 +933,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                       <TextLink href="/people/shifts">From their rota</TextLink>
                     ) : (row.proration.amount ?? 0) > 0 ? (
                       <span className="inline-flex flex-col items-end">
-                        <span className="inline-flex items-center gap-1.5 font-medium text-danger-text">
+                        <span className="inline-flex items-center gap-1.5 font-medium text-warning-text">
                           <TriangleAlert
                             aria-hidden="true"
                             className="size-3.5"

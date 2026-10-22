@@ -519,7 +519,7 @@ export function StackedBar({
             style={{
               width: `${Math.min((over / scale) * 100, 100)}%`,
               backgroundImage:
-                "repeating-linear-gradient(45deg, var(--color-danger) 0 4px, var(--color-danger-soft) 4px 8px)",
+                "repeating-linear-gradient(45deg, var(--color-warning) 0 4px, var(--color-warning-soft) 4px 8px)",
             }}
           />
         )}
@@ -547,7 +547,7 @@ export function StackedBar({
           </li>
         )}
         {over > 0 && (
-          <li className="text-meta font-medium text-danger-text">
+          <li className="text-meta font-medium text-warning-text">
             {format(over)} past the limit
           </li>
         )}
@@ -719,7 +719,7 @@ export function Sparkline({
   const stroke = {
     accent: "var(--color-accent)",
     success: "var(--color-success-strong)",
-    danger: "var(--color-danger)",
+    danger: "var(--color-warning-text)",
     muted: "var(--color-faint)",
   }[tone];
 

@@ -220,6 +220,49 @@ describe("locate", () => {
     expect(locate(tree, groups, "/payroll").activeHref).toBe("/payroll");
   });
 
+  it("lights the one row that owns the page, by its activePrefix when it has one", () => {
+    const hiring: NavGroup[] = [
+      moduleGroup("hiring", "Recruitment", [
+        item("Overview", {
+          href: "/hiring",
+          activeExcept: ["/hiring/requisitions"],
+        }),
+        item("New role", { href: "/hiring/requisitions/new" }),
+        item("Hiring settings", {
+          href: "/hiring/settings/pipelines",
+          activePrefix: "/hiring/settings",
+        }),
+      ]),
+    ];
+    const t = buildSidebar(hiring);
+    const at = (path: string) => locate(t, hiring, path).activeHref;
+    expect(at("/hiring/settings/tags")).toBe("/hiring/settings/pipelines");
+    expect(at("/hiring/settings/pipelines")).toBe("/hiring/settings/pipelines");
+    expect(at("/hiring/requisitions/new")).toBe("/hiring/requisitions/new");
+    /* An existing role has no row of its own: nothing lit, not New role. */
+    expect(at("/hiring/requisitions/r-1")).toBeNull();
+    /* ...but the Recruitment section stays open while reading it. */
+    const here = locate(t, hiring, "/hiring/requisitions/r-1");
+    expect(here.level).toBe("hiring");
+    expect(here.activeHref).toBeNull();
+    expect(locate(t, hiring, "/hiring/requisitions/new").level).toBe("hiring");
+    expect(at("/hiring")).toBe("/hiring");
+    expect(at("/hiring/talent-pool/x")).toBe("/hiring");
+  });
+
+  it("lights only Appraisal periods on a period's fairness page", () => {
+    const perf: NavGroup[] = [
+      moduleGroup("performance", "Performance", [
+        item("Overview", { href: "/performance" }),
+        item("Appraisal periods", { href: "/performance/periods" }),
+      ]),
+    ];
+    const t = buildSidebar(perf);
+    expect(locate(t, perf, "/performance/periods/p1/fairness").activeHref).toBe(
+      "/performance/periods",
+    );
+  });
+
   it("puts a top-level link at the top level", () => {
     const here = locate(tree, groups, "/dashboard");
     expect(here.level).toBe(ROOT);

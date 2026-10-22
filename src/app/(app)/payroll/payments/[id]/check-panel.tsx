@@ -173,9 +173,9 @@ export function CheckPanel({
                   <span className="flex min-w-0 items-start gap-2.5">
                     <TriangleAlert
                       aria-hidden="true"
-                      className="mt-0.5 size-4 shrink-0 text-danger-text"
+                      className="mt-0.5 size-4 shrink-0 text-warning-text"
                     />
-                    <span className="text-body-sm leading-relaxed text-danger-text">
+                    <span className="text-body-sm leading-relaxed text-warning-text">
                       <span className="sr-only">Blocked: </span>
                       {finding.message}
                     </span>
@@ -351,7 +351,7 @@ function Verified({
         ) : (
           <TriangleAlert
             aria-hidden="true"
-            className="size-3.5 shrink-0 text-danger-text"
+            className="size-3.5 shrink-0 text-warning-text"
           />
         )}
         <span className="sr-only">{ok ? "Matches: " : "Does not match: "}</span>

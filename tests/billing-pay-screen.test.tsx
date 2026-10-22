@@ -326,7 +326,7 @@ describe("polling while on the transfer step", () => {
   });
 });
 
-describe("the stale pre-order session (fix round 1, item 1 — CRITICAL)", () => {
+describe("the stale pre-order session (fix round 1, item 1. CRITICAL)", () => {
   /**
    * `billing` is the *last* `/auth/me`. For a `TRIALING`, `ACTIVE` or
    * `GRACE` company it already reads `order: null, entitled: true` before
@@ -516,7 +516,7 @@ describe("when payments are not configured", () => {
 
     expect(
       await screen.findByText(
-        "Online payment isn't available yet — contact support to subscribe.",
+        "Online payment isn't available yet, contact support to subscribe.",
       ),
     ).toBeInTheDocument();
   });
@@ -541,7 +541,7 @@ describe("when payments are not configured", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await screen.findByText(
-      "Online payment isn't available yet — contact support to subscribe.",
+      "Online payment isn't available yet, contact support to subscribe.",
     );
 
     await user.click(screen.getByRole("button", { name: "Back to plans" }));
@@ -552,7 +552,7 @@ describe("when payments are not configured", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByText(
-        "Online payment isn't available yet — contact support to subscribe.",
+        "Online payment isn't available yet, contact support to subscribe.",
       ),
     ).not.toBeInTheDocument();
   });

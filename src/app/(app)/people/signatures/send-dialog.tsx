@@ -93,7 +93,7 @@ export function SendDialog({
    */
   const wrongType =
     file !== null && file.mimeType !== SIGNABLE_CONTENT_TYPE
-      ? `That is a ${file.mimeType || "file of unknown type"}. Only a PDF can be sent for signature — it is the one format that renders the same for the signer as it does for you.`
+      ? `That is a ${file.mimeType || "file of unknown type"}. Only a PDF can be sent for signature, it is the one format that renders the same for the signer as it does for you.`
       : null;
 
   const ready =

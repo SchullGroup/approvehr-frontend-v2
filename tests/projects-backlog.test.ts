@@ -414,7 +414,7 @@ describe("sprint figures and the closing line", () => {
       openPoints: 4,
     };
     expect(completionLine("CHK Sprint 3", figures, { kind: "backlog" })).toBe(
-      "CHK Sprint 3 completed — 22 of 26 points done; 3 issues moved to the backlog",
+      "CHK Sprint 3 completed, 22 of 26 points done; 3 issues moved to the backlog",
     );
     expect(
       completionLine("CHK Sprint 3", figures, {
@@ -422,7 +422,7 @@ describe("sprint figures and the closing line", () => {
         name: "CHK Sprint 4",
       }),
     ).toBe(
-      "CHK Sprint 3 completed — 22 of 26 points done; 3 issues moved to CHK Sprint 4",
+      "CHK Sprint 3 completed, 22 of 26 points done; 3 issues moved to CHK Sprint 4",
     );
     expect(completionLine("CHK Sprint 3", figures, { kind: "new" })).toMatch(
       /3 issues moved to a new sprint$/,
@@ -443,7 +443,7 @@ describe("sprint figures and the closing line", () => {
         },
         { kind: "backlog" },
       ),
-    ).toBe("CHK Sprint 3 completed — 20 of 20 points done");
+    ).toBe("CHK Sprint 3 completed, 20 of 20 points done");
     expect(
       completionLine(
         "CHK Sprint 3",
@@ -458,7 +458,7 @@ describe("sprint figures and the closing line", () => {
         { kind: "backlog" },
       ),
     ).toBe(
-      "CHK Sprint 3 completed — 3 of 4 issues done; 1 issue moved to the backlog",
+      "CHK Sprint 3 completed, 3 of 4 issues done; 1 issue moved to the backlog",
     );
     expect(
       completionLine(

@@ -455,7 +455,7 @@ function GradeActions({
           size="sm"
           variant="ghost"
           loading={busy}
-          className="text-danger-text hover:bg-danger-soft hover:text-danger-text"
+          className="text-ink hover:bg-sunken"
           onClick={() => onAsk("REJECTED")}
         >
           Reject

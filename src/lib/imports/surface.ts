@@ -1,4 +1,4 @@
-import type { Dictionary } from "./spec";
+import type { CheckedRowFacts, Dictionary } from "./spec";
 import type { TemplateLists } from "./template-file";
 
 /**
@@ -31,6 +31,22 @@ export type ImportPrerequisite = {
   action?: { href: string; label: string };
 };
 
+/**
+ * A sentence about the whole file, said once above the report.
+ *
+ * For a consequence that no single row carries and that costs somebody something
+ * if it is missed. A warning on a cell is real and is already in the report, but
+ * the report groups the same warning from every row into one collapsed section,
+ * and `PARITY.md` Rule 5 is explicit that a reveal must not be the only place a
+ * thing that matters is said. Never a blocker: a row that will not import is
+ * `errors`, and says so on its own line.
+ */
+export type ImportCheckNotice = {
+  tone: "warning" | "info";
+  title: string;
+  body: string;
+};
+
 export type ImportSurface = {
   dictionary: Dictionary<string>;
   /** The page heading. Never carries "· ApproveHR". */
@@ -41,6 +57,18 @@ export type ImportSurface = {
   prerequisites: Readonly<Record<string, ImportPrerequisite>>;
   /** The demo-mode refusal, which has to name what would not have happened. */
   refusalWithoutApi: string;
+  /**
+   * What to say about the file as a whole, from the rows the check came back with.
+   *
+   * Handed the rows and nothing else, so the sentence is built from what the check
+   * itself reported — the API's own warnings when it answers, the browser's when it
+   * does not — and cannot disagree with the report beneath it. Absent for every
+   * entity whose only findings are rows; the first to use it is objectives, whose
+   * one finding that is not about a row is that nothing is filed in a period.
+   */
+  checkNotices?: (
+    rows: readonly CheckedRowFacts[],
+  ) => readonly ImportCheckNotice[];
   /**
    * Counts only this entity's writer can report, for the result screen.
    *
