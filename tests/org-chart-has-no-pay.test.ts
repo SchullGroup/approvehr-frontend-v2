@@ -88,3 +88,38 @@ describe("no pay on the org chart", () => {
     expect(source).toMatch(/departmentsApi\.tree/);
   });
 });
+
+/**
+ * The chart view is two more files, and the rule has to cover them or the
+ * "pay is one import away" argument above simply moves house. They are read the
+ * same way and for the same reason, and each is checked for the code it is
+ * supposed to contain so a path that stops resolving cannot pass on nothing.
+ */
+describe("no pay in the reporting chart either", () => {
+  const files: [string, RegExp][] = [
+    ["reporting-chart.tsx", /export function ReportingChart/],
+    ["tree-layout.ts", /export function layoutChart/],
+  ];
+
+  for (const [file, marker] of files) {
+    const source = withoutComments(
+      readFileSync(
+        path.resolve(
+          import.meta.dirname,
+          "../src/app/(app)/people/org-chart",
+          file,
+        ),
+        "utf8",
+      ),
+    );
+
+    it(`${file} renders and reads no money`, () => {
+      expect(source).toMatch(marker);
+      expect(source.length).toBeGreaterThan(1000);
+      expect(source).not.toMatch(/<Money\b/);
+      expect(source).not.toMatch(/payrollKobo|grossMonthly|salary/i);
+      expect(source).not.toMatch(/₦/);
+      expect(source).not.toMatch(/currency:\s*["']NGN["']/);
+    });
+  }
+});
