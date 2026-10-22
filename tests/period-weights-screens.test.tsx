@@ -258,6 +258,38 @@ describe("a period's own settings", () => {
     );
   });
 
+  it("a reset that lands on the same set clears what was typed", async () => {
+    const user = userEvent.setup();
+    render(<PeriodWeightsSection period={cycle()} onChanged={vi.fn()} />);
+    await user.clear(screen.getByLabelText("Weekly tasks"));
+    await user.type(screen.getByLabelText("Weekly tasks"), "10");
+    await user.click(
+      screen.getByRole("button", { name: "Use the company defaults" }),
+    );
+    await waitFor(() => expect(updateCycle).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.getByLabelText("Weekly tasks")).toHaveValue(0),
+    );
+    expect(
+      screen.getByRole("button", { name: "Save the weights" }),
+    ).toBeDisabled();
+  });
+
+  it("says which set a draft is using", () => {
+    const { unmount } = render(
+      <PeriodWeightsSection period={cycle()} onChanged={vi.fn()} />,
+    );
+    expect(screen.getByText("Using the company defaults.")).toBeInTheDocument();
+    unmount();
+    render(
+      <PeriodWeightsSection
+        period={cycle({ weights: { values: BP, basis: "period" } })}
+        onChanged={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Set for this period.")).toBeInTheDocument();
+  });
+
   it("shows the server's 409 message if one comes back", async () => {
     const { ApiError } = await import("@/lib/api/client");
     updateCycle.mockRejectedValue(

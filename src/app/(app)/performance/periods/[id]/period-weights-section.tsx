@@ -89,6 +89,10 @@ function DraftWeights({
     setError(null);
     try {
       await periods.updateCycle(period.id, body);
+      /* Back to what the server holds. The component is keyed by those values,
+         so it is only remounted when they change; when a reset lands on the
+         same set, this is what clears the text typed over it. */
+      if (body.weights === null) setValue(stored);
       onChanged();
       toast.push({ title: done, tone: "success" });
     } catch (caught) {
@@ -104,6 +108,11 @@ function DraftWeights({
 
   return (
     <div className="flex flex-col gap-3">
+      <p className="text-meta text-muted">
+        {period.weights.basis === "period"
+          ? "Set for this period."
+          : "Using the company defaults."}
+      </p>
       <PeriodWeights
         value={value}
         onChange={setValue}
