@@ -46,11 +46,14 @@ const visible = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-function renderLinks(overrides: Partial<ProjectContextValue> = {}) {
+function renderLinks(
+  overrides: Partial<ProjectContextValue> = {},
+  onChanged?: () => void,
+) {
   const ctx = contextFor(sampleData(), overrides);
   render(
     <ProjectProvider value={ctx}>
-      <LinkedTasks issueId="i1" />
+      <LinkedTasks issueId="i1" onChanged={onChanged} />
     </ProjectProvider>,
   );
   return ctx;
@@ -136,7 +139,79 @@ describe("the linked tasks list", () => {
   });
 });
 
+describe("keeping the list and history in step", () => {
+  it("drops the row and says so when removing a link that is already gone (404)", async () => {
+    api.links.mockResolvedValue([visible()]);
+    api.removeLink.mockRejectedValue(new ApiError(404, "x", "server words"));
+    renderLinks();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Remove/ }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "That link was already removed.",
+    );
+    expect(screen.queryByText("PAY-120")).not.toBeInTheDocument();
+  });
+
+  it("tells the drawer to reload after a remove", async () => {
+    api.links.mockResolvedValue([visible()]);
+    api.removeLink.mockResolvedValue(undefined);
+    const onChanged = vi.fn();
+    renderLinks({}, onChanged);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Remove/ }),
+    );
+    await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
+  });
+
+  it("tells the drawer to reload after an add", async () => {
+    api.searchIssues.mockResolvedValue([
+      {
+        id: "i2",
+        key: "PAY-120",
+        title: "Payslip PDF template",
+        projectName: "Payroll",
+      },
+    ]);
+    api.addLink.mockResolvedValue(visible());
+    const onChanged = vi.fn();
+    renderLinks({}, onChanged);
+    await userEvent.type(
+      await screen.findByLabelText("Find a task"),
+      "payslip",
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: /PAY-120/ }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Link" }));
+    await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
+  });
+});
+
 describe("adding a link", () => {
+  it("does not offer the task itself in the search results", async () => {
+    api.searchIssues.mockResolvedValue([
+      {
+        id: "i1",
+        key: "CHK-1",
+        title: "This very task",
+        projectName: "Checkout",
+      },
+      {
+        id: "i2",
+        key: "PAY-120",
+        title: "Payslip PDF template",
+        projectName: "Payroll",
+      },
+    ]);
+    renderLinks();
+    await userEvent.type(await screen.findByLabelText("Find a task"), "task");
+    expect(
+      await screen.findByRole("button", { name: /PAY-120/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("This very task")).not.toBeInTheDocument();
+  });
+
   async function pick(typeLabel: string) {
     await userEvent.selectOptions(
       await screen.findByLabelText("Link type"),

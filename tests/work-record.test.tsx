@@ -329,13 +329,37 @@ describe("the Work record panel", () => {
     ).toBeTruthy();
   });
 
-  it("shows the standard not-found state on a 404", async () => {
+  it("says the per-person record cannot be opened on a 404", async () => {
     workRecord.mockRejectedValue(
       new ApiError(404, "not_found", "That employee was not found."),
     );
     render(<WorkRecordPanel employeeId="emp-1" />);
     expect(
-      await screen.findByText(/That employee was not found|not here/i),
+      await screen.findByText("You can't open this person's work record."),
     ).toBeTruthy();
+    expect(screen.queryByText(/may have been removed/i)).toBeNull();
+  });
+
+  it("says there is no staff record for my own view on a 404", async () => {
+    myWorkRecord.mockRejectedValue(
+      new ApiError(404, "not_found", "No employee."),
+    );
+    render(<WorkRecordPanel />);
+    expect(
+      await screen.findByText(
+        "This sign-in has no staff record, so there is no work record to show.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("keeps the load failure for other errors", async () => {
+    workRecord.mockRejectedValue(new ApiError(500, "boom", "Server broke."));
+    render(<WorkRecordPanel employeeId="emp-1" />);
+    expect(
+      await screen.findByRole("button", { name: /try again|retry/i }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText("You can't open this person's work record."),
+    ).toBeNull();
   });
 });

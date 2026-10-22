@@ -16,6 +16,7 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { ApiError } from "@/lib/api/client";
 import {
   dayLabel,
   performanceApi,
@@ -92,6 +93,8 @@ export function WorkRecordPanel({ employeeId }: { employeeId?: string }) {
     load,
   );
   const record = fetched.data;
+  const notAvailable =
+    fetched.error instanceof ApiError && fetched.error.status === 404;
 
   return (
     <div className="flex flex-col gap-6">
@@ -134,11 +137,25 @@ export function WorkRecordPanel({ employeeId }: { employeeId?: string }) {
         </div>
       </div>
 
-      <LoadFailure
-        subject="this work record"
-        error={fetched.error}
-        onRetry={fetched.reload}
-      />
+      {notAvailable ? (
+        <Card>
+          <EmptyState
+            compact
+            icon={<ListChecks aria-hidden="true" />}
+            title={
+              employeeId
+                ? "You can't open this person's work record."
+                : "This sign-in has no staff record, so there is no work record to show."
+            }
+          />
+        </Card>
+      ) : (
+        <LoadFailure
+          subject="this work record"
+          error={fetched.error}
+          onRetry={fetched.reload}
+        />
+      )}
 
       {fetched.loading && !record && (
         <Card>
