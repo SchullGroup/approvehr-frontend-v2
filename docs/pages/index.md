@@ -6,11 +6,11 @@ it down.
 
 | Platform              | File                                           | Routes | What it is                                                                                                                                |
 | --------------------- | ---------------------------------------------- | -----: | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Frontend v2**       | [`frontend-v2.md`](frontend-v2.md)             |    145 | `approvehr-frontend-v2` — the current product. Next.js 16 App Router; the signed-in app and the public marketing site in one application. |
+| **Frontend v2**       | [`frontend-v2.md`](frontend-v2.md)             |    154 | `approvehr-frontend-v2` — the current product. Next.js 16 App Router; the signed-in app and the public marketing site in one application. |
 | **Platform frontend** | [`platform-frontend.md`](platform-frontend.md) |    152 | `approvehr-platform-frontend` — the React Router build of the product.                                                                    |
 | **Landing site**      | [`landing-frontend.md`](landing-frontend.md)   |     15 | `aprrovehr-frontend` — the standalone marketing and careers site.                                                                         |
 
-`approvehr-backend` has no pages. Its HTTP surface — 851 endpoints — is in
+`approvehr-backend` has no pages. Its HTTP surface — 930 endpoints — is in
 [`../components/backend-api.md`](../components/backend-api.md).
 
 ## How to read a row

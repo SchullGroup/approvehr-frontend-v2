@@ -6,12 +6,12 @@ design system" both have an answer you can scan.
 
 | Platform              | File                                           | Files | Components | Hooks | Functions |
 | --------------------- | ---------------------------------------------- | ----: | ---------: | ----: | --------: |
-| **Frontend v2**       | [`frontend-v2.md`](frontend-v2.md)             |  1043 |        865 |   379 |      1208 |
+| **Frontend v2**       | [`frontend-v2.md`](frontend-v2.md)             |  1133 |        939 |   408 |      1303 |
 | **Platform frontend** | [`platform-frontend.md`](platform-frontend.md) |   800 |        642 |   933 |       208 |
 | **Landing site**      | [`landing-frontend.md`](landing-frontend.md)   |    39 |         50 |     — |        17 |
-| **API**               | [`backend-api.md`](backend-api.md)             |   388 |          — |     — |      1743 |
+| **API**               | [`backend-api.md`](backend-api.md)             |   468 |          — |     — |      1970 |
 
-The API file also carries all **851 endpoints**, listed per module with their full mounted paths.
+The API file also carries all **930 endpoints**, listed per module with their full mounted paths.
 
 ## What the columns mean
 
