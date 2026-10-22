@@ -59,15 +59,17 @@ describe("the Accepted offers setting", () => {
     expect(
       await screen.findByText("How accepting an offer works now"),
     ).toBeInTheDocument();
+    /* The rest of it is behind the mark beside the title, and the icon's name is
+       the sentence, so it is read without a hover. */
     expect(
-      screen.getByText(
-        /Before the Hired list existed it also created the employee record straight away/,
-      ),
+      screen.getByRole("button", {
+        name: /Before the Hired list existed it also created the employee record straight away/,
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /the people who became employees show as Employee created/,
-      ),
+      screen.getByRole("button", {
+        name: /the people who became employees show as Employee created/,
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Open the Hired list" }),
@@ -154,9 +156,9 @@ describe("a company that kept the old behaviour", () => {
       screen.queryByText("How accepting an offer works now"),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(
-        /Companies that are new to hiring now start with the Hired list alone/,
-      ),
+      screen.getByRole("button", {
+        name: /Companies that are new to hiring now start with the Hired list alone/,
+      }),
     ).toBeInTheDocument();
     expect(choice(/Create their employee record at once/)).toBeChecked();
     expect(sentence()).toHaveTextContent(
@@ -185,9 +187,9 @@ describe("a company that kept the old behaviour", () => {
     renderInToasts(<AcceptedOffersScreen />);
     await screen.findByText("Accepting an offer makes the employee record");
     expect(
-      screen.getByText(
-        /no longer includes Core HR, though, so for now accepting an offer only adds the person to the Hired list/,
-      ),
+      screen.getByRole("button", {
+        name: /no longer includes Core HR, though, so for now accepting an offer only adds the person to the Hired list/,
+      }),
     ).toBeInTheDocument();
   });
 });

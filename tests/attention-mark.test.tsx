@@ -10,6 +10,7 @@ import {
   TR,
   TableWrap,
 } from "@/components/ui";
+import { InDialog } from "@/components/ui/in-dialog";
 
 /**
  * The replacement for the big banner.
@@ -132,12 +133,49 @@ describe("Callout is a sentence, never a box", () => {
     render(
       <Callout tone={tone} title="Heading">
         <span>
-          Body with <em>markup</em>.
+          Body with <a href="https://example.com/somewhere">a link</a>.
         </span>
       </Callout>,
     );
     expect(screen.getByText("Heading", { exact: false })).toBeInTheDocument();
-    expect(screen.getByText("markup")).toBeInTheDocument();
+    /* A link has to be usable, so it is on the page and not behind an icon. */
+    expect(screen.getByRole("link", { name: "a link" })).toBeInTheDocument();
+  });
+
+  it("reads formatting as words: on a page the second sentence goes behind the icon", () => {
+    render(
+      <Callout tone="info" title="Heading">
+        <span>
+          Body with <strong>bold</strong> and
+        </span>
+        <ul>
+          <li>one reason</li>
+          <li>another reason</li>
+        </ul>
+      </Callout>,
+    );
+    expect(screen.getByText("Heading")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Read more" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Body with bold and\s*one reason\s*another reason/),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps those words on the page inside a dialog, beside the button they are about", () => {
+    render(
+      <InDialog.Provider value>
+        <Callout tone="warning" title="This ends nothing on its own">
+          <span>
+            It moves the date, <strong>nothing</strong> else.
+          </span>
+        </Callout>
+      </InDialog.Provider>,
+    );
+    expect(screen.getByText("This ends nothing on its own")).toBeVisible();
+    expect(screen.getByText("nothing")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Read more" })).toBeNull();
   });
 
   it("says a failure in plain red words, with no icon", () => {

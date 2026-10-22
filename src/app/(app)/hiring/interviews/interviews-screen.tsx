@@ -251,7 +251,7 @@ function Diary() {
                     return (
                       <div
                         key={scorecard.id}
-                        className="flex flex-wrap items-center gap-3 rounded-lg border border-warning-line bg-warning-soft p-3"
+                        className="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3"
                       >
                         <Avatar name={name} size="sm" />
                         <div className="min-w-0 flex-1">

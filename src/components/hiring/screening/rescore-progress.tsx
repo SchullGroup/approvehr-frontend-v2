@@ -63,7 +63,7 @@ export function RescoreBar({
     <div
       role="status"
       aria-live="polite"
-      className="flex flex-col gap-2 rounded-lg border border-info-line bg-info-soft p-4"
+      className="flex flex-col gap-2 rounded-lg border border-line p-4"
     >
       {known ? (
         <ProgressMeter
@@ -74,12 +74,12 @@ export function RescoreBar({
           tone="info"
         />
       ) : (
-        <p className="flex items-center gap-2 text-body-sm font-medium text-info-text">
+        <p className="flex items-center gap-2 text-body-sm font-medium text-ink">
           <Spinner size="sm" label="Working" />
           {heading}
         </p>
       )}
-      <p className="text-meta text-info-text">
+      <p className="text-meta text-muted">
         {progress.cause === "PASS_MARK"
           ? "You can keep working. Nobody's score changes and nobody is rejected: this only decides who is flagged for a person to look at."
           : "You can keep working. Scores change to the new version as they are ready, and anybody still waiting is marked as scored with an older version."}
