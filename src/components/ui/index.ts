@@ -18,6 +18,7 @@ export {
   Callout,
 } from "./card";
 
+export { AttentionMark } from "./attention-mark";
 export { Badge, Tag, TierBadge } from "./badge";
 export type { BadgeTone, TierName } from "./badge";
 

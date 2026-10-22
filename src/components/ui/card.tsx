@@ -1,7 +1,8 @@
 import { createElement, useId } from "react";
 import { InfoTooltip } from "./field";
+import { AttentionMark } from "./attention-mark";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check, CircleAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 /* Surfaces. Stripe leans on hairlines and soft elevation rather than heavy
@@ -42,12 +43,19 @@ export function CardHeader({
   title,
   description,
   action,
+  mark,
   className,
   level = 3,
 }: {
   title: React.ReactNode;
   description?: React.ReactNode;
   action?: React.ReactNode;
+  /**
+   * Something about the whole section that is worth a look: "3 of these have
+   * ended", "2 have no end date". Shown as an `AttentionMark` after the title,
+   * with the sentence behind it, where a banner above the card used to be.
+   */
+  mark?: string | readonly (string | null | false | undefined)[] | null | false;
   className?: string;
   /** Keeps the document outline correct wherever the card is placed. */
   level?: 2 | 3 | 4;
@@ -77,6 +85,9 @@ export function CardHeader({
             `Disclosure` came to be 17px beside it. See `globals.css`. */}
         <Heading className="text-body-md font-semibold text-ink">
           {title}
+          {mark && (
+            <AttentionMark text={mark} className="ml-2 -translate-y-px" />
+          )}
         </Heading>
         {description && (
           <p className="mt-1 text-body-sm leading-relaxed text-muted">
@@ -181,11 +192,14 @@ export function Stat({
   hint,
   trend,
   icon,
+  mark,
   className,
 }: {
   label: string;
   value: React.ReactNode;
   hint?: string;
+  /** Something about this figure worth a look: an `AttentionMark` beside the label. */
+  mark?: string | readonly (string | null | false | undefined)[] | null | false;
   trend?: { direction: "up" | "down" | "flat"; label: string };
   icon?: React.ReactNode;
   className?: string;
@@ -206,7 +220,10 @@ export function Stat({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-body-sm font-medium text-muted">{label}</p>
+        <p className="text-body-sm font-medium text-muted">
+          {label}
+          {mark && <AttentionMark text={mark} className="ml-1.5" />}
+        </p>
         {icon && (
           <span aria-hidden="true" className="text-faint [&>svg]:size-4">
             {icon}
@@ -316,33 +333,73 @@ function plainText(children: React.ReactNode): string | null {
   return null;
 }
 
-/** A tinted callout. Used for AI output, regulatory notes and warnings. */
+/** Whether there is anything to draw: `{null}` and `{false}` are the common empties. */
+function hasContent(children: React.ReactNode): boolean {
+  return children !== null && children !== undefined && children !== false;
+}
+
+/**
+ * One sentence on the page, never a box.
+ *
+ * ## What this replaced
+ *
+ * A tinted panel: an icon, a heading, a paragraph and sometimes a button, laid
+ * over the page it was about. The owner does not want large banners anywhere.
+ * What each of them said now has a better home, and this is the floor that
+ * makes it impossible to fall back to a box:
+ *
+ * - **A fact about a person, a row or a section** belongs on it, as an
+ *   `AttentionMark` with the sentence behind it. That is a call-site decision and
+ *   is made at the call site; reaching for `Callout` for it is the thing to stop.
+ * - **A failure** (`danger`) is words on screen, because it is the one thing the
+ *   reader must read to carry on: a refused action, a failed load. Plain red
+ *   text, no fill, no border, no icon.
+ * - **Everything else** is a quiet line. The first sentence (or the title) is
+ *   visible; anything after it is behind an icon that shows it on hover, focus or
+ *   a tap. A `warning` carries the ochre mark, because it is the one that asks to
+ *   be noticed; the rest carry the grey help icon.
+ *
+ * `icon` is accepted and ignored, as `Badge`'s `tone` is: the glyph is decided
+ * here so that two callouts cannot disagree about what a warning looks like.
+ */
 export function Callout({
   tone = "info",
   title,
-  icon,
+  icon: _icon,
   className,
   children,
 }: {
   tone?: "info" | "success" | "warning" | "danger" | "accent" | "neutral";
   title?: string;
+  /** Kept for existing callers; has no visual effect. */
   icon?: React.ReactNode;
   className?: string;
   children: React.ReactNode;
 }) {
   const quiet = useId();
-  /* Information is not worth a coloured block on the page. It becomes a quiet
-     line, with anything past the first sentence behind an info icon that shows
-     it on hover or focus. Errors, successes and anything with something to
-     click stay as they are. */
+  void _icon;
   const text = plainText(children);
-  if (
-    text !== null &&
-    (tone === "info" ||
-      tone === "neutral" ||
-      tone === "accent" ||
-      tone === "warning")
-  ) {
+
+  /* A failure: plain red words, inline. No role is added: a failure shown on
+     arrival is announced by whoever raised it. The title is the heavier of the
+     two words, so a message after it reads as the rest of the sentence. */
+  if (tone === "danger") {
+    const message = hasContent(children);
+    return (
+      <div
+        className={cn(
+          "flex flex-wrap items-baseline gap-x-2 text-body-sm leading-relaxed text-danger-text",
+          className,
+        )}
+      >
+        {title && <span className="font-medium">{title}</span>}
+        {message && <div className="min-w-0">{children}</div>}
+      </div>
+    );
+  }
+
+  /* Words only: the first sentence, with the rest behind an icon. */
+  if (text !== null && tone !== "success") {
     const first = text.match(/^.*?[.!?](?:\s|$)/)?.[0].trim() ?? text;
     const visible = title ?? first;
     const detail = title ? text : text.slice(first.length).trim();
@@ -355,35 +412,40 @@ export function Callout({
       >
         <span className="min-w-0">{visible}</span>
         {detail.length > 0 && (
-          <InfoTooltip id={quiet} text={detail} label="Read more" />
+          <InfoTooltip
+            id={quiet}
+            text={detail}
+            label="Read more"
+            tone={tone === "warning" ? "attention" : "info"}
+          />
         )}
       </p>
     );
   }
 
-  const tones = {
-    info: "bg-info-soft border-info-line text-info-text",
-    success: "bg-accent-soft border-accent-line text-accent-text",
-    warning: "bg-warning-soft border-warning-line text-warning-text",
-    danger: "bg-warning-soft border-warning-line text-warning-text",
-    accent: "bg-accent-soft border-accent-line text-accent-text",
-    neutral: "bg-canvas border-line text-body",
-  } as const;
-
+  /* Something with markup in it, a name in bold or a link or a button: it has
+     to stay on the page, so it is a line of text with the markup where it was. */
   return (
     <div
-      className={cn("flex gap-3 rounded-lg border p-4", tones[tone], className)}
-    >
-      {icon && (
-        <span aria-hidden="true" className="shrink-0 mt-px [&>svg]:size-[18px]">
-          {icon}
-        </span>
+      className={cn(
+        "flex items-start gap-2 text-body-sm leading-relaxed text-muted",
+        className,
       )}
-      <div className="min-w-0 text-body-sm leading-relaxed">
-        {title && <p className="font-semibold mb-1">{title}</p>}
-        <div className={tone === "neutral" ? "" : "text-ink/85"}>
-          {children}
-        </div>
+    >
+      {tone === "warning" ? (
+        <CircleAlert
+          aria-hidden="true"
+          className="mt-0.5 size-4 shrink-0 text-warning-text"
+        />
+      ) : tone === "success" ? (
+        <Check
+          aria-hidden="true"
+          className="mt-0.5 size-4 shrink-0 text-accent-text"
+        />
+      ) : null}
+      <div className="min-w-0">
+        {title && <p className="font-medium text-ink">{title}</p>}
+        {hasContent(children) && <div>{children}</div>}
       </div>
     </div>
   );
