@@ -14,14 +14,13 @@ import {
   Field,
   Input,
   Modal,
-  Spinner,
   Textarea,
   useToast,
   FilterBar,
   Select,
+  LoadState,
 } from "@/components/ui";
 import { ExportButton } from "@/components/portal/export-button";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SendDialog } from "./send-dialog";
 import { ApiError } from "@/lib/api/client";
@@ -198,19 +197,21 @@ export function SignaturesScreen() {
           <Callout tone="info" title="This needs the API">
             {read.refusal}
           </Callout>
-        ) : read.error ? (
-          <LoadFailure
-            subject="signatures"
+        ) : read.error || read.loading || !read.data ? (
+          /* The one loading and failure rule. This screen lists a whole
+             module, so a 404 is the API not carrying it rather than a record
+             somebody deleted — see `MissingMeans`. Exactly the case that made
+             production look broken. */
+          <LoadState
+            loading={read.loading}
             error={read.error}
+            subject="signatures"
             onRetry={read.reload}
-            /* This screen lists a whole module, so a 404 is the API not
-             carrying it rather than a record somebody deleted — see
-             `MissingMeans`. Exactly the case that made production look
-             broken. */
             missingMeans="module"
-          />
-        ) : read.loading || !read.data ? (
-          <Spinner label="Loading" />
+            skeleton="list"
+          >
+            {null}
+          </LoadState>
         ) : read.data.length === 0 ? (
           /* Bare `EmptyState` has no edges of its own — see `feedback.tsx`.
              `approvals/inbox.tsx` wraps every empty state in a `Card` for

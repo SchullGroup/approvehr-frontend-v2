@@ -22,8 +22,8 @@ import {
   TR,
   TableWrap,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { Can } from "@/lib/permissions";
 import { FEATURE_COPY, useFeatureSettings } from "@/lib/store/features";
 import { useProbation } from "@/lib/store/probation";
@@ -50,13 +50,20 @@ export function ProbationScreen() {
   const overdue = due.filter((row) => row.daysRemaining < 0);
   const upcoming = due.filter((row) => row.daysRemaining >= 0);
 
-  if (error) {
+  /* The one loading and failure rule, as a gate over the whole screen: the
+     queue and the list of people with no end date both say who is, or is not,
+     due a decision, and a read that has not answered, or failed, cannot. */
+  if (error || loading) {
     return (
-      <LoadFailure
-        subject="the probation list"
+      <LoadState
+        loading={loading}
         error={error}
+        subject="the probation list"
         onRetry={reload}
-      />
+        skeleton="list"
+      >
+        {null}
+      </LoadState>
     );
   }
 

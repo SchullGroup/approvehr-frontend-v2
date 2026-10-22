@@ -18,8 +18,8 @@ import {
   THead,
   TR,
   TableWrap,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { Can, useCan } from "@/lib/permissions";
 import type { ApiEmploymentChangeRow } from "@/lib/api/endpoints";
 import {
@@ -58,13 +58,20 @@ export function ChangesScreen() {
      carries the same warning. */
   const canApprove = useCan("APPROVE_EMPLOYMENT_CHANGE");
 
-  if (error) {
+  /* The one loading and failure rule, as a gate over the whole screen: both
+     cards below say things about what is waiting and what is agreed, and a
+     read that has not answered, or failed, cannot say either. */
+  if (error || loading) {
     return (
-      <LoadFailure
-        subject="promotions and transfers"
+      <LoadState
+        loading={loading}
         error={error}
+        subject="promotions and transfers"
         onRetry={reload}
-      />
+        skeleton="list"
+      >
+        {null}
+      </LoadState>
     );
   }
 

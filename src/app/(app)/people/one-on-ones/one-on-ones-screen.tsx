@@ -14,7 +14,6 @@ import {
   Modal,
   SegmentedControl,
   Select,
-  Spinner,
   Stat,
   TBody,
   TD,
@@ -24,8 +23,8 @@ import {
   TableWrap,
   TextLink,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -210,17 +209,21 @@ function Mine({
       </Callout>
     );
   }
-  if (read.error) {
+  /* The one loading and failure rule, as a gate. */
+  if (read.error || read.loading || !read.data) {
     return (
-      <LoadFailure
-        subject="your one-to-ones"
+      <LoadState
+        loading={read.loading}
         error={read.error}
+        subject="your one-to-ones"
         onRetry={read.reload}
         missingMeans="module"
-      />
+        skeleton="list"
+      >
+        {null}
+      </LoadState>
     );
   }
-  if (read.loading || !read.data) return <Spinner label="Loading" />;
   if (read.data.length === 0) {
     /* Two different nils, and they need two different sentences.
        -------------------------------------------------------------------
@@ -356,17 +359,20 @@ function Coverage({ read }: { read: ReturnType<typeof useOneOnOneCoverage> }) {
       </Callout>
     );
   }
-  if (read.error) {
+  if (read.error || read.loading || !read.data) {
     return (
-      <LoadFailure
-        subject="coverage"
+      <LoadState
+        loading={read.loading}
         error={read.error}
+        subject="coverage"
         onRetry={read.reload}
         missingMeans="module"
-      />
+        skeleton="table"
+      >
+        {null}
+      </LoadState>
     );
   }
-  if (read.loading || !read.data) return <Spinner label="Loading" />;
 
   const { rows, counts } = read.data;
 

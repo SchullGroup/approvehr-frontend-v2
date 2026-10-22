@@ -24,8 +24,8 @@ import {
   TableWrap,
   useToast,
   RowActions,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -277,12 +277,6 @@ function AllOvertime() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <LoadFailure
-          subject={`the overtime for ${monthLabel(period)}`}
-          error={overtime.error}
-          onRetry={overtime.reload}
-        />
-
         {overtime.policyKnown && !policy.enabled && (
           <Card>
             <EmptyState
@@ -304,7 +298,7 @@ function AllOvertime() {
             description={
               overtime.loading ? (
                 "Reading the month…"
-              ) : shown.count === 0 ? (
+              ) : overtime.error ? undefined : shown.count === 0 ? (
                 "Nothing worked out yet."
               ) : (
                 <>
@@ -331,94 +325,107 @@ function AllOvertime() {
             }
           />
 
-          {overtime.rows.length === 0 ? (
-            <EmptyState
-              icon={<Clock aria-hidden="true" />}
-              title={
-                status === "ALL"
-                  ? `Nothing worked out for ${monthLabel(period)}`
-                  : `No ${(FILTERS.find((f) => f.value === status)?.label ?? "").toLowerCase()} overtime in ${monthLabel(period)}`
-              }
-              description={
-                status !== "ALL"
-                  ? undefined
-                  : canWorkOut
-                    ? "Overtime comes from the clock. Work the month out to see what the clock-outs add up to."
-                    : "Somebody who runs payroll works the month out from attendance."
-              }
-              action={
-                status !== "ALL" ? (
-                  <Button size="sm" onClick={() => setStatus("ALL")}>
-                    Show every status
-                  </Button>
-                ) : canWorkOut ? (
-                  workOutButton
-                ) : undefined
-              }
-            />
-          ) : (
-            <>
-              <div className="hidden sm:block">
-                <TableWrap
-                  className="rounded-none border-0 border-t"
-                  caption={`Overtime in ${monthLabel(period)}`}
-                >
-                  <THead>
-                    <TH>Who</TH>
-                    <TH>Day</TH>
-                    <TH align="right">Hours</TH>
-                    <TH>Kind</TH>
-                    <TH align="right">Comes to</TH>
-                    <TH>Status</TH>
-                    <TH>
-                      <span className="sr-only-focusable">Decision</span>
-                    </TH>
-                  </THead>
-                  <TBody>
-                    {overtime.rows.map((row) => (
-                      <Fragment key={row.id}>
-                        <OvertimeTableRow
-                          row={row}
-                          policy={policy}
-                          own={row.employeeId === overtime.ownEmployeeId}
-                          canDecide={canDecide}
-                          busy={busy === row.id}
-                          onApprove={async () => {
-                            setBusy(row.id);
-                            await run(
-                              () => overtime.approve(row.id),
-                              "Approved",
-                            );
-                            setBusy(null);
-                          }}
-                          onDecline={() => setDeclining(row)}
-                        />
-                      </Fragment>
-                    ))}
-                  </TBody>
-                </TableWrap>
-              </div>
+          {/* The one loading and failure rule. While the month was being read
+              this said "Nothing worked out for" it, and after a failure it said
+              so under the failure card. */}
+          <LoadState
+            loading={overtime.loading}
+            error={overtime.error}
+            subject={`the overtime for ${monthLabel(period)}`}
+            onRetry={overtime.reload}
+            skeleton="table"
+            hasData={overtime.rows.length > 0}
+            className="p-5"
+          >
+            {overtime.rows.length === 0 ? (
+              <EmptyState
+                icon={<Clock aria-hidden="true" />}
+                title={
+                  status === "ALL"
+                    ? `Nothing worked out for ${monthLabel(period)}`
+                    : `No ${(FILTERS.find((f) => f.value === status)?.label ?? "").toLowerCase()} overtime in ${monthLabel(period)}`
+                }
+                description={
+                  status !== "ALL"
+                    ? undefined
+                    : canWorkOut
+                      ? "Overtime comes from the clock. Work the month out to see what the clock-outs add up to."
+                      : "Somebody who runs payroll works the month out from attendance."
+                }
+                action={
+                  status !== "ALL" ? (
+                    <Button size="sm" onClick={() => setStatus("ALL")}>
+                      Show every status
+                    </Button>
+                  ) : canWorkOut ? (
+                    workOutButton
+                  ) : undefined
+                }
+              />
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap
+                    className="rounded-none border-0 border-t"
+                    caption={`Overtime in ${monthLabel(period)}`}
+                  >
+                    <THead>
+                      <TH>Who</TH>
+                      <TH>Day</TH>
+                      <TH align="right">Hours</TH>
+                      <TH>Kind</TH>
+                      <TH align="right">Comes to</TH>
+                      <TH>Status</TH>
+                      <TH>
+                        <span className="sr-only-focusable">Decision</span>
+                      </TH>
+                    </THead>
+                    <TBody>
+                      {overtime.rows.map((row) => (
+                        <Fragment key={row.id}>
+                          <OvertimeTableRow
+                            row={row}
+                            policy={policy}
+                            own={row.employeeId === overtime.ownEmployeeId}
+                            canDecide={canDecide}
+                            busy={busy === row.id}
+                            onApprove={async () => {
+                              setBusy(row.id);
+                              await run(
+                                () => overtime.approve(row.id),
+                                "Approved",
+                              );
+                              setBusy(null);
+                            }}
+                            onDecline={() => setDeclining(row)}
+                          />
+                        </Fragment>
+                      ))}
+                    </TBody>
+                  </TableWrap>
+                </div>
 
-              <ul className="divide-y divide-line border-t border-line sm:hidden">
-                {overtime.rows.map((row) => (
-                  <OvertimeCard
-                    key={row.id}
-                    row={row}
-                    policy={policy}
-                    own={row.employeeId === overtime.ownEmployeeId}
-                    canDecide={canDecide}
-                    busy={busy === row.id}
-                    onApprove={async () => {
-                      setBusy(row.id);
-                      await run(() => overtime.approve(row.id), "Approved");
-                      setBusy(null);
-                    }}
-                    onDecline={() => setDeclining(row)}
-                  />
-                ))}
-              </ul>
-            </>
-          )}
+                <ul className="divide-y divide-line border-t border-line sm:hidden">
+                  {overtime.rows.map((row) => (
+                    <OvertimeCard
+                      key={row.id}
+                      row={row}
+                      policy={policy}
+                      own={row.employeeId === overtime.ownEmployeeId}
+                      canDecide={canDecide}
+                      busy={busy === row.id}
+                      onApprove={async () => {
+                        setBusy(row.id);
+                        await run(() => overtime.approve(row.id), "Approved");
+                        setBusy(null);
+                      }}
+                      onDecline={() => setDeclining(row)}
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+          </LoadState>
 
           <CardFooter>
             <div className="min-w-0">

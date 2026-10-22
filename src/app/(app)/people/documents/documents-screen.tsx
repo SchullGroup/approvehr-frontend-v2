@@ -21,14 +21,13 @@ import {
   Field,
   Input,
   SegmentedControl,
-  Spinner,
   Stat,
   StatGrid,
   useToast,
   RowActions,
   Tabs,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import type { ApiComplianceRow, ApiDocumentRequest } from "@/lib/api/documents";
 import { useCan } from "@/lib/permissions";
@@ -225,21 +224,18 @@ export function DocumentsScreen() {
                 />
               }
             />
-            {expiring.error ? (
-              <CardBody role="alert">
-                <LoadFailure
-                  subject="the documents coming up for renewal"
-                  error={expiring.error}
-                  onRetry={expiring.reload}
-                />
-              </CardBody>
-            ) : expiring.loading ? (
-              <CardBody>
-                <span className="flex items-center gap-2 text-body-sm text-muted">
-                  <Spinner size="sm" />
-                  Reading the list
-                </span>
-              </CardBody>
+            {expiring.error || expiring.loading ? (
+              /* The one loading and failure rule, as a gate. */
+              <LoadState
+                loading={expiring.loading}
+                error={expiring.error}
+                subject="the documents coming up for renewal"
+                onRetry={expiring.reload}
+                skeleton="list"
+                className="p-5"
+              >
+                {null}
+              </LoadState>
             ) : expiring.rows.length === 0 ? (
               <EmptyState
                 compact
@@ -310,19 +306,17 @@ export function DocumentsScreen() {
                 />
               </Field>
 
-              {register.error ? (
-                <div role="alert">
-                  <LoadFailure
-                    subject="the documents you have asked for"
-                    error={register.error}
-                    onRetry={register.reload}
-                  />
-                </div>
-              ) : register.loading && register.requests.length === 0 ? (
-                <span className="flex items-center gap-2 text-body-sm text-muted">
-                  <Spinner size="sm" />
-                  Loading
-                </span>
+              {register.error ||
+              (register.loading && register.requests.length === 0) ? (
+                <LoadState
+                  loading={register.loading}
+                  error={register.error}
+                  subject="the documents you have asked for"
+                  onRetry={register.reload}
+                  skeleton="list"
+                >
+                  {null}
+                </LoadState>
               ) : register.requests.length === 0 ? (
                 <EmptyState
                   compact
