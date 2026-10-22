@@ -17,6 +17,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
+import { ReminderDelivery } from "./reminders-delivery";
 import { ApiError } from "@/lib/api/client";
 import type { ApiReminderPolicy } from "@/lib/api/wellness";
 import { useCan } from "@/lib/permissions";
@@ -52,11 +53,19 @@ import {
  * list of who has their own and no way to read one. The company default is the
  * only policy more than one person can see.
  *
- * ## What this screen does not do
+ * ## Nothing is sent until something is saved
  *
- * It stores the settings. Delivery is the client's job (a timer in the web app,
- * a local notification in the phone app) and is not built here, so nothing on
- * this screen says when or how a reminder appears.
+ * The API sends reminders from a scheduler, and only for a **saved** policy: a
+ * person's own, else the company's. Before either exists the API still answers
+ * with the built-in 15 and 30 minutes (`source: "DEFAULT"`) so the form has
+ * something to start from, and this screen used to draw that answer exactly as it
+ * draws a saved one, "Reminders: On, every 15 and 30 minutes", for somebody who
+ * would never be sent one. A policy that has not been saved is now drawn as
+ * suggestions, says nothing is being sent, and its button is the call to action
+ * ("Set up reminders", and then Save). The company default says the same about
+ * itself to the person who can save it.
+ *
+ * What delivery looks like, and its limits, is in `reminders-delivery.tsx`.
  */
 
 export function RemindersScreen() {
@@ -88,6 +97,8 @@ export function RemindersScreen() {
             title="Your reminders"
             policy={mine.data}
             description={SOURCE_LABEL[mine.data.source]}
+            notSent="Nothing is sent to you until you save reminders. These are the suggested times."
+            setUp="Set up reminders"
             onEdit={() => setEditing("personal")}
           />
           {canManage && (
@@ -95,9 +106,16 @@ export function RemindersScreen() {
               title="Company default"
               policy={settings.data.reminders}
               description="For people who set none of their own."
+              notSent="Nothing is sent to anybody until a default is saved. These are the suggested times."
+              setUp="Set up the default"
               onEdit={() => setEditing("organisation")}
             />
           )}
+        </div>
+      )}
+      {mine.data && settings.data && (
+        <div className="mt-5">
+          <ReminderDelivery />
         </div>
       )}
 
@@ -121,6 +139,8 @@ function PolicyCard({
   title,
   policy,
   description,
+  notSent,
+  setUp,
   onEdit,
   tooltip,
 }: {
@@ -128,9 +148,16 @@ function PolicyCard({
   policy: ApiReminderPolicy;
   /** One line under the title: whose it is, or who it applies to. */
   description: string;
+  /** What to say while nothing has been saved: that nothing is being sent. */
+  notSent: string;
+  /** The button's words while nothing has been saved. */
+  setUp: string;
   onEdit: () => void;
   tooltip?: string;
 }) {
+  /* The built-in answer is a starting point and not a policy: nothing is sent
+     for it. Every other source has been saved by somebody. */
+  const saved = policy.source !== "DEFAULT";
   const note =
     tooltip ??
     (policy.source === "PERSONAL"
@@ -155,17 +182,36 @@ function PolicyCard({
         }
         description={description}
         action={
-          <Button size="sm" variant="secondary" onClick={onEdit}>
-            Edit
-          </Button>
+          saved ? (
+            <Button size="sm" variant="secondary" onClick={onEdit}>
+              Edit
+            </Button>
+          ) : (
+            <Button size="sm" variant="accent" onClick={onEdit}>
+              {setUp}
+            </Button>
+          )
         }
       />
-      <CardBody>
+      <CardBody className="flex flex-col gap-3">
+        {!saved && <p className="text-body-sm text-warning-text">{notSent}</p>}
         <DescriptionList
           layout="rows"
           items={[
-            { term: "Reminders", value: policy.enabled ? "On" : "Off" },
-            { term: "Every", value: intervalsText(policy.intervals) },
+            {
+              term: "Reminders",
+              value: !saved ? (
+                <span className="text-warning-text">Not set up</span>
+              ) : policy.enabled ? (
+                "On"
+              ) : (
+                "Off"
+              ),
+            },
+            {
+              term: saved ? "Every" : "Suggested",
+              value: intervalsText(policy.intervals),
+            },
             {
               term: "Named breaks",
               value:
@@ -271,8 +317,12 @@ function PolicyDialog({
       title={personal ? "Your reminders" : "Company default"}
       description={
         personal
-          ? "Saving makes these your own settings."
-          : "Applies to everybody who has not set their own."
+          ? policy.source === "DEFAULT"
+            ? "These are suggestions. Nothing is sent until you press Save."
+            : "Saving makes these your own settings."
+          : policy.source === "DEFAULT"
+            ? "Applies to everybody who has not set their own. Nothing is sent until you press Save."
+            : "Applies to everybody who has not set their own."
       }
       footer={
         <>

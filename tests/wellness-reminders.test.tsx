@@ -47,9 +47,13 @@ beforeEach(() => {
   api.settings.mockResolvedValue(settings());
 });
 
+/* "Edit" once something is saved, "Set up ..." while nothing is: the card's one
+   button, whichever it says. */
+const EDIT = /^(Edit|Set up reminders|Set up the default)$/;
+
 const edit = async (which = 0) => {
   render(<RemindersScreen />);
-  const buttons = await screen.findAllByRole("button", { name: "Edit" });
+  const buttons = await screen.findAllByRole("button", { name: EDIT });
   await userEvent.click(buttons[which]!);
   return screen.findByRole("dialog");
 };
@@ -83,7 +87,7 @@ describe("what applies to you", () => {
     expect(
       screen.queryByRole("heading", { name: /Company default/ }),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: EDIT })).toHaveLength(1);
   });
 
   it("says it did not load, and does not show a policy it does not have", async () => {
@@ -218,7 +222,7 @@ describe("the company default", () => {
 
     expect(
       within(dialog).getByText(
-        "Applies to everybody who has not set their own.",
+        /Applies to everybody who has not set their own\./,
       ),
     ).toBeInTheDocument();
     expect(
