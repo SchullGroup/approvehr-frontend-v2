@@ -238,6 +238,29 @@ describe("the Work record panel", () => {
     expect(within(tile).getByText("—")).toBeTruthy();
   });
 
+  it("does not say 0 of 0 when none of the finished tasks had a due date", async () => {
+    workRecord.mockResolvedValue(
+      record({
+        summary: {
+          finished: 2,
+          withDueDate: 0,
+          onTime: 0,
+          completionRate: 50,
+          graded: 2,
+          linkedToObjective: 1,
+        },
+      }),
+    );
+    render(<WorkRecordPanel employeeId="emp-1" />);
+    await screen.findByText("Week of 19 Oct 2026");
+    const tile = screen
+      .getByText("Done by due date")
+      .closest("div.rounded-lg") as HTMLElement;
+    expect(within(tile).getByText("—")).toBeTruthy();
+    expect(within(tile).getByText("None of these had a due date")).toBeTruthy();
+    expect(screen.queryByText("0 of 0")).toBeNull();
+  });
+
   it("lists objectives with their counts, and the unlinked row", async () => {
     render(<WorkRecordPanel employeeId="emp-1" />);
     await screen.findByText("Week of 19 Oct 2026");

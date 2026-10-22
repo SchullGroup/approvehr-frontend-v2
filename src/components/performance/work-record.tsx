@@ -10,12 +10,11 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
+  LoadState,
   SegmentedControl,
-  Spinner,
   Stat,
   type BadgeTone,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import {
   dayLabel,
@@ -150,23 +149,21 @@ export function WorkRecordPanel({ employeeId }: { employeeId?: string }) {
           />
         </Card>
       ) : (
-        <LoadFailure
-          subject="this work record"
+        /* Loading, failure and the answer are one decision (`LoadState`): the
+           record, and its "nothing finished" empty state inside it, are drawn
+           only once the read has answered, and a failed read draws the failure
+           card and nothing under it. */
+        <LoadState
+          loading={fetched.loading}
           error={fetched.error}
+          subject="this work record"
           onRetry={fetched.reload}
-        />
+          hasData={record !== null}
+          skeleton="list"
+        >
+          {record && <Record record={record} />}
+        </LoadState>
       )}
-
-      {fetched.loading && !record && (
-        <Card>
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading the work record
-          </CardBody>
-        </Card>
-      )}
-
-      {record && <Record record={record} />}
     </div>
   );
 }
@@ -190,9 +187,20 @@ function Record({ record }: { record: ApiWorkRecord }) {
     <>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Tasks finished" value={summary.finished} />
+        {/* "0 of 0" would be a claim about due dates when none were set, so the
+            tile says so instead of dividing nothing by nothing. */}
         <Stat
           label="Done by due date"
-          value={`${summary.onTime} of ${summary.withDueDate}`}
+          value={
+            summary.withDueDate === 0 ? (
+              <span className="text-faint">—</span>
+            ) : (
+              `${summary.onTime} of ${summary.withDueDate}`
+            )
+          }
+          {...(summary.withDueDate === 0
+            ? { hint: "None of these had a due date" }
+            : {})}
         />
         <Stat
           label="Completion rate"

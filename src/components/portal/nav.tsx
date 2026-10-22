@@ -876,6 +876,9 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       href: "/performance/work-record",
       label: "My work record",
       icon: <ListChecks aria-hidden="true" />,
+      /* It lists what somebody finished on the project boards, so it exists for
+         a company that has Projects switched on and for nobody else. */
+      feature: "projects",
       always: true,
     },
     {
