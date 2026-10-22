@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ApiBoard } from "@/lib/api/announcements";
 import type { ApiDocument, ApiDocumentRequest } from "@/lib/api/documents";
@@ -43,6 +44,11 @@ describe("an instant renders in the company's zone, not UTC's", () => {
     };
 
     render(<AnnouncementsPanel board={board} />);
+
+    /* The noticeboard is a closed disclosure at the foot of the dashboard, and
+       a closed one holds none of its notices — so the date is only on screen
+       once it is opened, which is what a reader does before reading one. */
+    await userEvent.click(screen.getByRole("button", { name: /Noticeboard/ }));
 
     expect(screen.getByText(/24 Jul 2026/)).toBeInTheDocument();
     expect(screen.queryByText(/23 Jul 2026/)).not.toBeInTheDocument();
