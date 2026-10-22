@@ -16,8 +16,8 @@ import {
   StatGrid,
   TextLink,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import { usePermissions } from "@/lib/permissions";
@@ -160,74 +160,76 @@ function Diary() {
             action={<SourceBadge live={backlog.live} />}
           />
           <CardBody className="flex flex-col gap-4">
-            <LoadFailure
-              subject="the screening backlog"
+            {/* The one loading and failure rule. The three counts read 0, and
+                "queue is clear", while the backlog was still being read; after
+                a failure they read a dash under a failure card. */}
+            <LoadState
+              loading={backlog.loading}
               error={backlog.error}
+              subject="the screening backlog"
               onRetry={backlog.reload}
+              skeleton="stats"
             >
-              <Button variant="secondary" size="sm" onClick={backlog.reload}>
-                Try again
-              </Button>
-            </LoadFailure>
-            <StatGrid columns={3}>
-              <Link
-                href="/hiring/postings/applications?status=RECEIVED"
-                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                <Stat
-                  label="Waiting to be screened"
-                  value={countOrDash(backlog.error, backlog.numbers.waiting)}
-                  icon={<TriangleAlert aria-hidden="true" />}
-                  hint={
-                    backlog.error
-                      ? "could not be loaded"
-                      : backlog.numbers.waiting > 0
-                        ? "nobody has looked yet"
-                        : "queue is clear"
-                  }
-                  className="transition-colors group-hover:border-accent"
-                />
-              </Link>
-              <Link
-                href="/hiring/postings/applications?status=ADVANCED"
-                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                <Stat
-                  label="Screened in"
-                  value={countOrDash(backlog.error, backlog.numbers.advanced)}
-                  hint={
-                    backlog.error
-                      ? "could not be loaded"
-                      : "in a pipeline somewhere"
-                  }
-                  className="transition-colors group-hover:border-accent"
-                />
-              </Link>
-              <Link
-                href="/hiring/postings/applications?status=ALL"
-                className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                <Stat
-                  label="People who applied"
-                  value={countOrDash(
-                    backlog.error,
-                    backlog.numbers.applications,
-                  )}
-                  className="transition-colors group-hover:border-accent"
-                />
-              </Link>
-            </StatGrid>
-            {backlog.numbers.waiting > 0 && (
-              <ButtonLink
-                href="/hiring/postings/applications"
-                variant="accent"
-                size="sm"
-                className="self-start"
-              >
-                <Inbox aria-hidden="true" className="size-3.5" />
-                Screen {backlog.numbers.waiting} waiting
-              </ButtonLink>
-            )}
+              <StatGrid columns={3}>
+                <Link
+                  href="/hiring/postings/applications?status=RECEIVED"
+                  className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <Stat
+                    label="Waiting to be screened"
+                    value={countOrDash(backlog.error, backlog.numbers.waiting)}
+                    icon={<TriangleAlert aria-hidden="true" />}
+                    hint={
+                      backlog.error
+                        ? "could not be loaded"
+                        : backlog.numbers.waiting > 0
+                          ? "nobody has looked yet"
+                          : "queue is clear"
+                    }
+                    className="transition-colors group-hover:border-accent"
+                  />
+                </Link>
+                <Link
+                  href="/hiring/postings/applications?status=ADVANCED"
+                  className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <Stat
+                    label="Screened in"
+                    value={countOrDash(backlog.error, backlog.numbers.advanced)}
+                    hint={
+                      backlog.error
+                        ? "could not be loaded"
+                        : "in a pipeline somewhere"
+                    }
+                    className="transition-colors group-hover:border-accent"
+                  />
+                </Link>
+                <Link
+                  href="/hiring/postings/applications?status=ALL"
+                  className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <Stat
+                    label="People who applied"
+                    value={countOrDash(
+                      backlog.error,
+                      backlog.numbers.applications,
+                    )}
+                    className="transition-colors group-hover:border-accent"
+                  />
+                </Link>
+              </StatGrid>
+              {backlog.numbers.waiting > 0 && (
+                <ButtonLink
+                  href="/hiring/postings/applications"
+                  variant="accent"
+                  size="sm"
+                  className="self-start"
+                >
+                  <Inbox aria-hidden="true" className="size-3.5" />
+                  Screen {backlog.numbers.waiting} waiting
+                </ButtonLink>
+              )}
+            </LoadState>
           </CardBody>
         </Card>
 

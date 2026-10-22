@@ -16,8 +16,8 @@ import {
   Switch,
   Textarea,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import type {
@@ -204,28 +204,22 @@ function Settings() {
     Object.keys(changesFrom(fromSettings(settings), draft)).length > 0;
   useUnsavedGuard(dirty);
 
-  if (store.error && !settings) {
-    return (
-      <>
-        <PageHeader title="Careers page settings" breadcrumb={CRUMBS} />
-        <PageBody>
-          <LoadFailure
-            subject="these settings"
-            error={store.error}
-            onRetry={store.reload}
-          />
-        </PageBody>
-      </>
-    );
-  }
-
+  /* The one loading and failure rule, as a gate: nothing is said about the
+     settings until they have been read, and a failure is the whole page. */
   if (!settings) {
     return (
       <>
         <PageHeader title="Careers page settings" breadcrumb={CRUMBS} />
         <PageBody>
-          <Skeleton className="h-64 w-full" />
-          <span className="sr-only-focusable">Loading the settings</span>
+          <LoadState
+            loading={!store.error}
+            error={store.error}
+            subject="these settings"
+            onRetry={store.reload}
+            skeleton="detail"
+          >
+            {null}
+          </LoadState>
         </PageBody>
       </>
     );

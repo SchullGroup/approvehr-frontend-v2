@@ -9,11 +9,10 @@ import {
   EmptyState,
   Field,
   Input,
-  Skeleton,
   Tag,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { sentenceOf } from "@/lib/hiring/pipeline/errors";
 import type { Tag as TagRecord } from "@/lib/hiring/pipeline/model";
 import {
@@ -100,106 +99,103 @@ export function TagsScreen() {
         </p>
       )}
 
-      {tags.loading ? (
-        <>
-          <Skeleton className="h-28 w-full" />
-          <span className="sr-only-focusable">Loading the tags</span>
-        </>
-      ) : tags.error ? (
-        <LoadFailure
-          subject="the tags"
-          error={tags.error}
-          onRetry={tags.reload}
-        />
-      ) : tags.items.length === 0 ? (
-        <Card>
-          <EmptyState
-            title="No tags yet"
-            description="Add the first one above, then put it on people from the board."
-          />
-        </Card>
-      ) : (
-        <Card>
-          <ul className="divide-y divide-line">
-            {tags.items.map((tag) => (
-              <li
-                key={tag.id}
-                className="flex flex-wrap items-center gap-3 px-4 py-3"
-              >
-                {renaming === tag.id ? (
-                  <form
-                    className="flex min-w-64 flex-1 flex-wrap items-center gap-2"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void run(
-                        () => gateway.tags.rename(tag.id, draft.trim()),
-                        "Tag renamed",
-                      ).then((ok) => {
-                        if (ok) setRenaming(null);
-                      });
-                    }}
-                  >
-                    <Input
-                      value={draft}
-                      maxLength={40}
-                      aria-label={`Rename ${tag.name}`}
-                      className="min-w-48 flex-1"
-                      onChange={(event) => setDraft(event.target.value)}
-                    />
-                    <Button
-                      type="submit"
-                      size="sm"
-                      variant="secondary"
-                      disabled={draft.trim() === "" || busy}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setRenaming(null)}
-                    >
-                      Cancel
-                    </Button>
-                  </form>
-                ) : (
-                  <>
-                    <div className="min-w-48 flex-1">
-                      <Tag>{tag.name}</Tag>
-                      {tag.uses !== undefined && (
-                        <span className="ml-2 text-meta text-muted">
-                          On {tag.uses} {tag.uses === 1 ? "person" : "people"}
-                        </span>
-                      )}
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={`Rename ${tag.name}`}
-                      onClick={() => {
-                        setRenaming(tag.id);
-                        setDraft(tag.name);
+      <LoadState
+        loading={tags.loading}
+        subject="the tags"
+        error={tags.error}
+        onRetry={tags.reload}
+        skeleton="list"
+      >
+        {tags.items.length === 0 ? (
+          <Card>
+            <EmptyState
+              title="No tags yet"
+              description="Add the first one above, then put it on people from the board."
+            />
+          </Card>
+        ) : (
+          <Card>
+            <ul className="divide-y divide-line">
+              {tags.items.map((tag) => (
+                <li
+                  key={tag.id}
+                  className="flex flex-wrap items-center gap-3 px-4 py-3"
+                >
+                  {renaming === tag.id ? (
+                    <form
+                      className="flex min-w-64 flex-1 flex-wrap items-center gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void run(
+                          () => gateway.tags.rename(tag.id, draft.trim()),
+                          "Tag renamed",
+                        ).then((ok) => {
+                          if (ok) setRenaming(null);
+                        });
                       }}
                     >
-                      <Pencil aria-hidden="true" className="size-3.5" />
-                      Rename
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={`Delete ${tag.name}`}
-                      onClick={() => setRemoving(tag)}
-                    >
-                      <Trash2 aria-hidden="true" className="size-3.5" />
-                      Delete
-                    </Button>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
+                      <Input
+                        value={draft}
+                        maxLength={40}
+                        aria-label={`Rename ${tag.name}`}
+                        className="min-w-48 flex-1"
+                        onChange={(event) => setDraft(event.target.value)}
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        variant="secondary"
+                        disabled={draft.trim() === "" || busy}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setRenaming(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="min-w-48 flex-1">
+                        <Tag>{tag.name}</Tag>
+                        {tag.uses !== undefined && (
+                          <span className="ml-2 text-meta text-muted">
+                            On {tag.uses} {tag.uses === 1 ? "person" : "people"}
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`Rename ${tag.name}`}
+                        onClick={() => {
+                          setRenaming(tag.id);
+                          setDraft(tag.name);
+                        }}
+                      >
+                        <Pencil aria-hidden="true" className="size-3.5" />
+                        Rename
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`Delete ${tag.name}`}
+                        onClick={() => setRemoving(tag)}
+                      >
+                        <Trash2 aria-hidden="true" className="size-3.5" />
+                        Delete
+                      </Button>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+      </LoadState>
 
       <ConfirmDialog
         open={removing !== null}
