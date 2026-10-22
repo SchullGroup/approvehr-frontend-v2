@@ -390,10 +390,7 @@ export function CheckStep({
       lead="Press anything to change it. Nothing goes until you send it."
     >
       {outstanding.length > 0 && (
-        <p
-          role="alert"
-          className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
-        >
+        <p role="alert" className="text-body-sm text-danger-text">
           {outstanding.length === 1
             ? "1 question still needs an answer before this can go."
             : `${String(outstanding.length)} questions still need an answer before this can go.`}

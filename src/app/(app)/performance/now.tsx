@@ -478,7 +478,7 @@ export function WhatNeedsYouTab({
             {owesAnswer.map((review) => (
               <div
                 key={review.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-accent-line bg-accent-soft p-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
               >
                 <div className="min-w-0">
                   <p className="text-body-sm font-medium text-ink">

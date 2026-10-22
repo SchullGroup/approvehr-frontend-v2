@@ -1695,10 +1695,7 @@ function PeriodFramingEditor({
           />
         </Field>
         {error && (
-          <p
-            role="status"
-            className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink"
-          >
+          <p role="status" className="text-body-sm text-danger-text">
             {error}
           </p>
         )}

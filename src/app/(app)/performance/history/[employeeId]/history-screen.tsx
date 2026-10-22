@@ -420,8 +420,8 @@ function Point({ point }: { point: ApiHistoryPoint }) {
                 key={issue.code}
                 className={
                   issue.severity === "BLOCKER"
-                    ? "rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
-                    : "rounded-md border border-warning-line bg-warning-soft px-3.5 py-2.5 text-body-sm text-ink"
+                    ? "text-body-sm text-danger-text"
+                    : "text-body-sm text-muted"
                 }
               >
                 {issue.message}
