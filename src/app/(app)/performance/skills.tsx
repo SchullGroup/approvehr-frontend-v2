@@ -21,8 +21,10 @@ import {
   THead,
   TR,
   TableWrap,
+  Tabs,
   useToast,
 } from "@/components/ui";
+import type { TabItem } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import type { ApiCompetencyRow, ApiHeatmapRow } from "@/lib/api/performance";
@@ -34,7 +36,9 @@ import {
   useSkills,
 } from "@/lib/store/performance";
 import { useSession } from "@/lib/store/session";
+import { useUrlTab } from "@/hooks/use-url-tab";
 import { RecordLevelDialog } from "./rating-dialog";
+import { SKILLS_TABS, type SkillsTabId } from "./skills/tabs";
 
 /**
  * Skills: levels against the targets the company set.
@@ -58,13 +62,23 @@ import { RecordLevelDialog } from "./rating-dialog";
  * the number, never instead of it, and the pairs it uses are the ones the badge
  * palette already passes contrast on. A cell with people below their target
  * carries an icon and a spoken count as well.
+ *
+ * ## Three tabs, because they are three questions
+ *
+ * Where am I against my levels, who is below target, and how does each
+ * department stand. They share no row, so stacking them made a 4,800px page and
+ * somebody looking for the heatmap scrolled past 30 rows of gaps to reach it.
+ * Each tab is only offered to somebody the API would answer for it, and a reader
+ * who may see only their own skills gets the one panel with no tab strip.
  */
 export function SkillsTab({
   canSeeCompany,
   isManager,
+  initialTab = "mine",
 }: {
   canSeeCompany: boolean;
   isManager: boolean;
+  initialTab?: SkillsTabId;
 }) {
   const { isConnected, employeeId, actingId } = useSession();
   const me = isConnected ? employeeId : actingId;
@@ -76,6 +90,7 @@ export function SkillsTab({
   const toast = useToast();
 
   const [recording, setRecording] = useState(false);
+  const [tab, changeTab] = useUrlTab<SkillsTabId>(initialTab, SKILLS_TABS);
 
   const grouped = useMemo(() => {
     const rows = mine.skills?.rows ?? [];
@@ -96,74 +111,86 @@ export function SkillsTab({
 
   const summary = mine.skills?.summary ?? { total: 0, rated: 0, gaps: 0 };
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {DEMO_ENABLED && mine.source === "demo" && (
-          <Badge tone="warning" size="sm">
-            Demo · seeded assessments
-          </Badge>
-        )}
-        {(canSeeCompany || isManager) && rating.editable && (
-          <Button variant="accent" size="sm" onClick={() => setRecording(true)}>
-            Record a level
-          </Button>
-        )}
-      </div>
+  const showGaps = canSeeCompany || isManager;
+  const items: TabItem[] = [
+    { id: "mine", label: "Your skills" },
+    ...(showGaps
+      ? [
+          {
+            id: "gaps",
+            label: "Below target",
+            /* A count on a tab is a count, so it waits for the answer. */
+            count: gaps.loading ? undefined : gaps.gaps.length,
+          },
+        ]
+      : []),
+    ...(canSeeCompany ? [{ id: "heatmap", label: "Heatmap" }] : []),
+  ];
+  /* A `?tab=` for something this reader may not see falls back to their own
+     skills rather than an empty panel. */
+  const shown = items.some((item) => item.id === tab) ? tab : "mine";
 
-      <LoadFailure
-        subject="your skills framework"
-        error={mine.error}
-        onRetry={mine.reload}
-      />
-
-      <StatGrid columns={3}>
-        <Stat label="Skills on your framework" value={String(summary.total)} />
-        <Stat
-          label="Assessed so far"
-          value={`${summary.rated} of ${summary.total}`}
-        />
-        <Stat label="Below target" value={String(summary.gaps)} />
-      </StatGrid>
-
-      <Card>
-        <CardHeader title="Your skills" />
-        {mine.loading ? (
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading
-          </CardBody>
-        ) : grouped.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<GraduationCap aria-hidden="true" />}
-            title="No framework yet"
-            description="Finish setup and the four standard parts are created for you."
+  const panels = (
+    <>
+      {shown === "mine" && (
+        <div className="flex flex-col gap-6">
+          <LoadFailure
+            subject="your skills framework"
+            error={mine.error}
+            onRetry={mine.reload}
           />
-        ) : (
-          <CardBody className="flex flex-col gap-6">
-            {grouped.map((group) => (
-              <div key={group.category}>
-                <p className="flex flex-wrap items-center gap-2 text-body-sm font-semibold text-ink">
-                  {group.category}
-                  {group.category === "Leadership" && (
-                    <Badge tone="neutral" size="sm">
-                      Managers only
-                    </Badge>
-                  )}
-                </p>
-                <ul className="mt-2.5 flex flex-col gap-2.5">
-                  {group.rows.map((row) => (
-                    <SkillRow key={row.competencyId} row={row} />
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </CardBody>
-        )}
-      </Card>
 
-      {(canSeeCompany || isManager) && (
+          <StatGrid columns={3}>
+            <Stat
+              label="Skills on your framework"
+              value={String(summary.total)}
+            />
+            <Stat
+              label="Assessed so far"
+              value={`${summary.rated} of ${summary.total}`}
+            />
+            <Stat label="Below target" value={String(summary.gaps)} />
+          </StatGrid>
+
+          <Card>
+            <CardHeader title="Your skills" />
+            {mine.loading ? (
+              <CardBody className="flex items-center gap-2 text-body-sm text-muted">
+                <Spinner size="sm" />
+                Loading
+              </CardBody>
+            ) : grouped.length === 0 ? (
+              <EmptyState
+                compact
+                icon={<GraduationCap aria-hidden="true" />}
+                title="No framework yet"
+                description="Finish setup and the four standard parts are created for you."
+              />
+            ) : (
+              <CardBody className="flex flex-col gap-6">
+                {grouped.map((group) => (
+                  <div key={group.category}>
+                    <p className="flex flex-wrap items-center gap-2 text-body-sm font-semibold text-ink">
+                      {group.category}
+                      {group.category === "Leadership" && (
+                        <Badge tone="neutral" size="sm">
+                          Managers only
+                        </Badge>
+                      )}
+                    </p>
+                    <ul className="mt-2.5 flex flex-col gap-2.5">
+                      {group.rows.map((row) => (
+                        <SkillRow key={row.competencyId} row={row} />
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </CardBody>
+            )}
+          </Card>
+        </div>
+      )}
+      {shown === "gaps" && showGaps && (
         <Card>
           <CardHeader title="Where people are below target" />
           {gaps.loading ? (
@@ -247,7 +274,7 @@ export function SkillsTab({
         </Card>
       )}
 
-      {canSeeCompany && (
+      {shown === "heatmap" && canSeeCompany && (
         <Card>
           <CardHeader
             title="Department heatmap"
@@ -303,6 +330,31 @@ export function SkillsTab({
             </CardBody>
           )}
         </Card>
+      )}
+    </>
+  );
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {DEMO_ENABLED && mine.source === "demo" && (
+          <Badge tone="warning" size="sm">
+            Demo · seeded assessments
+          </Badge>
+        )}
+        {(canSeeCompany || isManager) && rating.editable && (
+          <Button variant="accent" size="sm" onClick={() => setRecording(true)}>
+            Record a level
+          </Button>
+        )}
+      </div>
+
+      {items.length > 1 ? (
+        <Tabs items={items} value={shown} onChange={changeTab}>
+          {panels}
+        </Tabs>
+      ) : (
+        panels
       )}
 
       <RecordLevelDialog
