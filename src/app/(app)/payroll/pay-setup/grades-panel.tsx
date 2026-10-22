@@ -1170,11 +1170,7 @@ function PreviewBody({
 
       {preview.leavingBand > 0 && (
         <Callout tone="warning" title="Some end up above the top of the band">
-          {preview.leavingBand === 1
-            ? "One person"
-            : `${preview.leavingBand} people`}{" "}
-          will be paid more than {grade.code} tops out at. Marked below. You can
-          apply it and widen the band afterwards, or go back and lower the rise.
+          {`${preview.leavingBand === 1 ? "One person" : `${preview.leavingBand} people`} will be paid more than ${grade.code} tops out at. Marked below. You can apply it and widen the band afterwards, or go back and lower the rise.`}
         </Callout>
       )}
 

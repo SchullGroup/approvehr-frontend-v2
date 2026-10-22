@@ -546,7 +546,7 @@ function ReviewHead({
         <th
           scope="colgroup"
           colSpan={adjustable}
-          className="border-b border-accent-line bg-accent-soft px-4 py-1.5 text-center text-meta font-medium text-accent-text"
+          className="border-b border-line px-4 py-1.5 text-center text-meta font-medium text-muted"
         >
           Can be adjusted
         </th>

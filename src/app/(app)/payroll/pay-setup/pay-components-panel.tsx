@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import {
   Badge,
   Button,
-  ButtonLink,
+  AttentionMark,
   Callout,
   Card,
   CardBody,
@@ -27,7 +27,9 @@ import {
   useToast,
   LoadState,
 } from "@/components/ui";
+import Link from "next/link";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { ApiError } from "@/lib/api/client";
 import {
   kobo,
@@ -158,21 +160,13 @@ export function PayComponentsPanel({
             there is nothing to show, and the "Salary a month" figure below
             already says so. A red banner repeating it is noise, not help. */}
         {issues.length > 0 && (
-          <Callout tone="danger" title="Payroll settings need attention first">
-            <ul className="flex flex-col gap-1">
-              {issues.map((issue) => (
-                <li key={issue.field}>{issue.message}</li>
-              ))}
-            </ul>
-            <ButtonLink
-              href="/settings/payroll"
-              variant="secondary"
-              size="sm"
-              className="mt-3"
-            >
+          <NoticeLine tone="danger">
+            <span>Payroll settings need attention first.</span>
+            <AttentionMark text={issues.map((issue) => issue.message)} />
+            <Link className={NOTICE_LINK} href="/settings/payroll">
               Fix payroll settings
-            </ButtonLink>
-          </Callout>
+            </Link>
+          </NoticeLine>
         )}
 
         <div className="grid gap-4 rounded-lg border border-line bg-canvas p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -522,7 +516,7 @@ function ChangeEffect({
   ];
 
   return (
-    <div className="rounded-lg border border-accent-line bg-accent-soft p-4">
+    <div className="rounded-lg border border-line bg-canvas p-4">
       <p className="flex items-center gap-2 text-h4 text-ink">
         {net > 0 ? (
           <ArrowUp aria-hidden="true" className="size-5 text-success-text" />
@@ -548,7 +542,7 @@ function ChangeEffect({
         ))}
       </dl>
 
-      <p className="mt-3 border-t border-accent-line pt-3 text-body-sm text-body">
+      <p className="mt-3 border-t border-line pt-3 text-body-sm text-body">
         Costs the company{" "}
         <span className="tabular font-medium text-ink">
           {change.employerCostKobo === 0

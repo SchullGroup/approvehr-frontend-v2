@@ -9,7 +9,7 @@ import {
   AreaChart,
   Badge,
   ButtonLink,
-  Callout,
+  AttentionMark,
   Card,
   CardBody,
   CardHeader,
@@ -348,34 +348,31 @@ export function PayrollScreen() {
                   finished thing does not need a card, and the description on
                   the header above already says so. */}
               {current.status === "APPROVED" && (
-                <Callout
-                  tone="warning"
-                  /* The amount, not a repeat of the header above it. The
-                     header states the fact — approved, nobody paid — and this
-                     is the thing that makes it urgent. Two cards saying the
-                     same sentence is one of them wasted. */
-                  title={`${formatKobo(current.netKobo)} still to go out`}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span>
-                      {/* `paidPeopleLabel`, never `headcountLabel`. The latter
-                          returns "9 of 10 — 1 excluded", which inside a
-                          sentence reads as though the money were being split
-                          with somebody who is not being paid. The exclusion
-                          has its own line on the card above. */}
-                      Approved for {paidPeopleLabel(current)} and not yet paid.
-                      Pay them from the wallet, or take the bank file to your
-                      bank.
-                    </span>
-                    <ButtonLink
-                      href={`/payroll/runs/new?period=${current.period}&step=approve`}
-                      size="sm"
-                      variant="accent"
-                    >
-                      Pay them
-                    </ButtonLink>
-                  </div>
-                </Callout>
+                /* The amount, not a repeat of the header above it. The header
+                   states the fact (approved, nobody paid) and this is the thing
+                   that makes it urgent. A line with the one button, and the
+                   rest of the sentence behind the mark: two cards saying the
+                   same thing is one of them wasted.
+
+                   `paidPeopleLabel`, never `headcountLabel`. The latter returns
+                   "9 of 10 \u2014 1 excluded", which inside a sentence reads as
+                   though the money were being split with somebody who is not
+                   being paid. The exclusion has its own line on the card above. */
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-body-sm text-muted">
+                  <span className="font-medium text-ink">
+                    {formatKobo(current.netKobo)} still to go out
+                  </span>
+                  <AttentionMark
+                    text={`Approved for ${paidPeopleLabel(current)} and not yet paid. Pay them from the wallet, or take the bank file to your bank.`}
+                  />
+                  <ButtonLink
+                    href={`/payroll/runs/new?period=${current.period}&step=approve`}
+                    size="sm"
+                    variant="accent"
+                  >
+                    Pay them
+                  </ButtonLink>
+                </div>
               )}
 
               <TotalsPanel run={current} />

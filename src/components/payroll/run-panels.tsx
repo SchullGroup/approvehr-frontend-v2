@@ -421,14 +421,7 @@ function ExceptionRow({
   const quiet = plain && !blocking;
 
   return (
-    <div
-      className={cn(
-        "flex flex-wrap items-start gap-3 rounded-md border p-3",
-        quiet
-          ? "border-line bg-surface"
-          : "border-warning-line bg-warning-soft",
-      )}
-    >
+    <div className="flex flex-wrap items-start gap-3 rounded-md border border-line bg-surface p-3">
       {!quiet && (
         <span
           aria-hidden="true"
@@ -607,7 +600,7 @@ export function DiscrepancyPanel({
         {discrepancies.map((d, i) => (
           <div
             key={`${d.code}-${d.employeeId ?? "run"}-${i}`}
-            className="rounded-md border border-danger-line bg-danger-soft p-3"
+            className="rounded-md border border-line p-3"
           >
             <div className="flex items-start gap-3">
               <span
