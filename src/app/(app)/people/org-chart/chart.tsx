@@ -437,15 +437,11 @@ export function OrgChartScreen() {
                   tone="warning"
                   title="Some reporting lines loop back on themselves"
                 >
-                  {fetched.chart.detached
-                    .map((person) => person.name)
-                    .join(", ")}{" "}
-                  ,{" "}
-                  {fetched.chart.detached.length === 1
-                    ? "this person reports"
-                    : "these people report"}{" "}
-                  into a circle, so they are shown without a manager until
-                  somebody corrects who they report to.
+                  {`${fetched.chart.detached.map((person) => person.name).join(", ")}, ${
+                    fetched.chart.detached.length === 1
+                      ? "this person reports"
+                      : "these people report"
+                  } into a circle, so they are shown without a manager until somebody corrects who they report to.`}
                 </Callout>
               )}
 
@@ -453,8 +449,8 @@ export function OrgChartScreen() {
                 <Callout tone="info" title="Arranging">
                   Drag a person onto a department to move them, or drag a
                   department onto another to nest it. Every change saves as you
-                  make it. The <strong>Move</strong> button beside each one does
-                  the same thing without a mouse.
+                  make it. The Move button beside each one does the same thing
+                  without a mouse.
                 </Callout>
               )}
 

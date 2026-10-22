@@ -57,9 +57,10 @@ vi.mock("@/lib/store/offboarding", () => ({
 
 /* The page chrome, the checklist and the interview are other files' business. */
 vi.mock("@/components/portal/shell", () => ({
-  PageHeader: ({ title }: { title: string }) => (
+  PageHeader: ({ title, meta }: { title: string; meta?: React.ReactNode }) => (
     <header>
       <h1>{title}</h1>
+      {meta}
     </header>
   ),
   PageBody: ({ children }: { children: React.ReactNode }) => (
@@ -225,11 +226,15 @@ describe("HR taking back somebody else's", () => {
 });
 
 describe("an exit request that has been withdrawn", () => {
-  it("says so in the banner, in the same words", () => {
+  it("says so beside its status, in the same words", () => {
     exit = { ...IN_PROGRESS, status: "CANCELLED", statusLabel: "Cancelled" };
     mount();
 
-    expect(screen.getByText("Exit request withdrawn")).toBeInTheDocument();
+    /* A mark by the status, not a banner over the page: the icon's name is the
+       sentence, so it is read without being hovered. */
+    expect(
+      screen.getByRole("button", { name: /^Exit request withdrawn\./ }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Emeka is staying")).toBeNull();
     /* Closed: there is nothing left to withdraw. */
     expect(

@@ -12,6 +12,7 @@ import {
 import {
   Badge,
   Button,
+  AttentionMark,
   Callout,
   Card,
   CardBody,
@@ -496,9 +497,6 @@ function TeamDrawer({
   const memberIds = new Set(
     (team?.members ?? []).map((member) => member.employeeId),
   );
-  const mismatches = (team?.members ?? []).filter(
-    (member) => member.departmentMismatch,
-  );
 
   return (
     <>
@@ -577,16 +575,6 @@ function TeamDrawer({
                 )}
               </div>
 
-              {mismatches.length > 0 && (
-                <Callout tone="warning" title="Somebody's department disagrees">
-                  {mismatches.map((member) => member.name).join(", ")}{" "}
-                  {mismatches.length === 1 ? "is" : "are"} on this team but
-                  recorded under a different department. Nothing has been
-                  changed for them: moving a cost centre is not a repair. Fix it
-                  on their record, or move the team.
-                </Callout>
-              )}
-
               {team.members.length === 0 ? (
                 <EmptyState
                   compact
@@ -606,6 +594,15 @@ function TeamDrawer({
                           <TextLink href={`/people/${member.employeeId}`}>
                             {member.name}
                           </TextLink>
+                          {member.departmentMismatch && (
+                            <AttentionMark
+                              className="ml-1.5"
+                              text={[
+                                "Their department disagrees with this team's.",
+                                "They are on this team but recorded under a different department. Nothing has been changed for them: moving a cost centre is not a repair. Fix it on their record, or move the team.",
+                              ]}
+                            />
+                          )}
                         </p>
                         <p className="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
                           <span>{member.jobTitle}</span>

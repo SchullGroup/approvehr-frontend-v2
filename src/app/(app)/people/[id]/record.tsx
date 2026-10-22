@@ -15,7 +15,6 @@ import {
   MapPin,
   Phone,
   PiggyBank,
-  ShieldAlert,
   TrendingUp,
   UserMinus,
   UserRound,
@@ -27,6 +26,7 @@ import {
   Badge,
   Button,
   ButtonLink,
+  AttentionMark,
   Callout,
   Card,
   CardBody,
@@ -479,6 +479,40 @@ export function EmployeeRecord({
             />
           </CardBody>
 
+          {/* What stops a payslip. It was a red banner over the whole record
+              with a button; it is the same list as the one below it, with the
+              mark that says why. Each is a way straight to its field. */}
+          {firstBlocking && (
+            <CardBody className="border-t border-line">
+              <p className="mb-2 flex items-center gap-1.5 text-meta font-medium text-muted">
+                {isSelf
+                  ? "Missing before you can be paid"
+                  : "Needed before payroll can run"}
+                <AttentionMark
+                  text={[
+                    `${payrollBlocking.length} field${payrollBlocking.length > 1 ? "s" : ""} missing before payroll can run.`,
+                    `${payrollBlocking.map((g) => g.label).join(", ")}.`,
+                    firstBlocking.consequence,
+                  ]}
+                />
+              </p>
+              <ul className="flex flex-col gap-1.5">
+                {payrollBlocking.map((g) => (
+                  <li key={g.field}>
+                    <button
+                      type="button"
+                      onClick={() => jumpTo("pay", g.field)}
+                      className="text-meta leading-relaxed text-body underline decoration-dotted underline-offset-2 hover:text-accent-text hover:decoration-solid"
+                      title={g.consequence}
+                    >
+                      {g.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </CardBody>
+          )}
+
           {/* Whether they can sign in, and where the invitation got to.
 
               The feedback asks for "Sent / Accepted / In Progress / Expired"
@@ -668,31 +702,6 @@ export function EmployeeRecord({
 
       {/* Detail */}
       <div className="flex min-w-0 flex-col gap-5">
-        {/* Split by what the engine actually does, not just "is it filled in":
-            a missing bank account blocks approval, a missing pension PIN (when
-            the company operates one) only leaves the remittance schedule
-            incomplete, and a missing TIN does nothing to the run at all. Three
-            fields in one red callout claiming the same fate for all of them was
-            the bug — see `payrollGapsFor`. */}
-        {firstBlocking && (
-          <Callout
-            tone="danger"
-            icon={<ShieldAlert aria-hidden="true" />}
-            title={`${payrollBlocking.length} field${payrollBlocking.length > 1 ? "s" : ""} missing before payroll can run`}
-          >
-            {payrollBlocking.map((g) => g.label).join(", ")}.{" "}
-            {firstBlocking.consequence}
-            <Button
-              variant="secondary"
-              size="sm"
-              className="mt-3"
-              onClick={() => jumpTo("pay", firstBlocking.field)}
-            >
-              Fix it now
-            </Button>
-          </Callout>
-        )}
-
         {employee.endDate && (
           <Callout tone="warning" title="Leaving the company">
             Last day is {employee.endDate}. Check final settlement, outstanding

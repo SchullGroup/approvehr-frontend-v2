@@ -4,8 +4,8 @@ import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
 import { sourceNote } from "@/lib/demo";
 import {
+  AttentionMark,
   Badge,
-  Callout,
   Card,
   EmptyState,
   TBody,
@@ -67,11 +67,17 @@ export function IncompleteRecordsScreen() {
       return a.employee.lastName.localeCompare(b.employee.lastName);
     });
 
-  const blockingRows = rows.filter((r) => r.blocking.length > 0);
-  /* Every blocking gap today is a missing bank account, and `payrollGapsFor`
-     words its consequence the same way for all of them — reused verbatim
-     rather than a second sentence saying the same thing. */
-  const blockingConsequence = blockingRows[0]?.blocking[0]?.consequence;
+  /* A person who cannot be paid carries a mark beside their name saying so.
+     Every blocking gap today is a missing bank account, and `payrollGapsFor`
+     words its consequence the same way for all of them, so the sentences are
+     the gaps' own, once each. */
+  const cannotBePaid = (blocking: PayrollGap[]) =>
+    blocking.length === 0
+      ? null
+      : [
+          "Cannot be paid until this is fixed.",
+          ...new Set(blocking.map((gap) => gap.consequence)),
+        ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -109,16 +115,6 @@ export function IncompleteRecordsScreen() {
           </Card>
         ) : (
           <>
-            {blockingRows.length > 0 && (
-              <Callout
-                tone="danger"
-                icon={<ShieldAlert aria-hidden="true" />}
-                title={`${blockingRows.length} ${blockingRows.length === 1 ? "person" : "people"} cannot be paid until this is fixed`}
-              >
-                {blockingConsequence}
-              </Callout>
-            )}
-
             <div className="rounded-lg border border-line bg-surface">
               <div className="hidden sm:block">
                 <TableWrap
@@ -139,6 +135,7 @@ export function IncompleteRecordsScreen() {
                             </TextLink>
                           }
                           subtitle={`${employee.jobTitle} · ${employee.employeeNo}`}
+                          mark={cannotBePaid(blocking)}
                         />
                         <TD>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -182,6 +179,10 @@ export function IncompleteRecordsScreen() {
                       >
                         {fullName(employee)}
                       </TextLink>
+                      <AttentionMark
+                        text={cannotBePaid(blocking)}
+                        className="ml-1.5"
+                      />
                       <p className="mt-0.5 text-meta text-muted">
                         {employee.jobTitle} · {employee.employeeNo}
                       </p>

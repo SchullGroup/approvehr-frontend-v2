@@ -6,7 +6,6 @@ import { CalendarClock } from "lucide-react";
 import {
   Badge,
   Button,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -29,6 +28,18 @@ import { FEATURE_COPY, useFeatureSettings } from "@/lib/store/features";
 import { useProbation } from "@/lib/store/probation";
 import type { ApiProbationRow } from "@/lib/api/endpoints";
 import { ProbationDecisionDialog } from "./decision-dialog";
+
+/** What the mark on a row says about a probation that has already ended. */
+const ALREADY_ENDED = [
+  "Their probation has already ended.",
+  "Somebody working past the end of their probation is, in practice, confirmed. The record saying otherwise is the part that causes trouble later.",
+];
+
+/** What the mark on the table's title says when there is no API behind it. */
+const READ_ONLY_NOTE = [
+  "Probation decisions need the API.",
+  "This browser has no probation table behind it. The people below are the demo directory's own staff still marked as on probation, which is the state this screen exists to surface, but confirming somebody moves their employment status, and a status changed here would never reach a payroll run, a payslip or a letter.",
+];
 
 /**
  * Whose probation is ending, and who is on one nobody dated.
@@ -69,30 +80,10 @@ export function ProbationScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      {readOnly && (
-        <Callout tone="info" title="Probation decisions need the API">
-          This browser has no probation table behind it. The people below are
-          the demo directory&apos;s own staff still marked as on probation —
-          which is the state this screen exists to surface, but confirming
-          somebody moves their employment status, and a status changed here
-          would never reach a payroll run, a payslip or a letter.
-        </Callout>
-      )}
-
-      {overdue.length > 0 && (
-        <Callout
-          tone="danger"
-          title={`${overdue.length} ${overdue.length === 1 ? "probation has" : "probations have"} already ended`}
-        >
-          Somebody working past the end of their probation is, in practice,
-          confirmed. The record saying otherwise is the part that causes trouble
-          later.
-        </Callout>
-      )}
-
       <Card>
         <CardHeader
           title="Probations ending"
+          mark={readOnly ? READ_ONLY_NOTE : null}
           description={
             due.length === 0
               ? undefined
@@ -132,6 +123,7 @@ export function ProbationScreen() {
                       </Link>
                     }
                     subtitle={row.employeeNo}
+                    mark={row.daysRemaining < 0 ? ALREADY_ENDED : null}
                   />
                   <TD>{row.jobTitle}</TD>
                   <TD className="tabular-nums">{row.probationEndsAt}</TD>
@@ -323,6 +315,14 @@ function ProbationPolicyCard({
       <CardHeader
         title="How probation works here"
         level={3}
+        mark={
+          !demo && !tracking && undated > 0
+            ? [
+                "Switching this on changes nothing above.",
+                `It decides what happens to the next person who joins. The ${undated} ${undated === 1 ? "person" : "people"} already on a probation with no date keep their record as it is, put a date on each from their own employment tab.`,
+              ]
+            : null
+        }
         description={
           demo
             ? "Which end date a new hire gets is decided when the record is created, which happens on the API. There is nothing here to switch."
@@ -332,20 +332,6 @@ function ProbationPolicyCard({
         }
       />
       <CardBody className="flex flex-col gap-4">
-        {/* Stated where the switch is, because this is the question somebody
-            asks the moment they read the list above and reach for the fix. */}
-        {!demo && !tracking && undated > 0 && (
-          <Callout
-            tone="warning"
-            title="Switching this on changes nothing above"
-          >
-            It decides what happens to the <strong>next</strong> person who
-            joins. The {undated} {undated === 1 ? "person" : "people"} already
-            on a probation with no date keep their record as it is, put a date
-            on each from their own employment tab.
-          </Callout>
-        )}
-
         <Switch
           label={FEATURE_COPY.probationTracking.label}
           description={FEATURE_COPY.probationTracking.line}

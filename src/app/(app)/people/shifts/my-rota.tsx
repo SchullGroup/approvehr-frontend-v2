@@ -125,7 +125,7 @@ export function MyRota({ className }: { className?: string }) {
               {(myRota?.awaitingMe ?? []).map((swap) => (
                 <div
                   key={swap.id}
-                  className="flex flex-wrap items-center gap-3 rounded-md border border-warning-line bg-warning-soft px-3.5 py-3"
+                  className="flex flex-wrap items-center gap-3 rounded-md border border-line px-3.5 py-3"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-body-sm font-semibold text-ink">

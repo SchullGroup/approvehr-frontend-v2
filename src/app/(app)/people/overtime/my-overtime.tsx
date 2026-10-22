@@ -80,7 +80,7 @@ export function MyOvertime({
         ) : (
           <>
             {waiting.count > 0 && (
-              <div className="rounded-md border border-warning-line bg-warning-soft px-3.5 py-3">
+              <div>
                 <p className="text-body-sm font-semibold text-ink">
                   <Money amount={naira(waiting.amountKobo)} decimals /> waiting
                   for approval
