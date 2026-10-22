@@ -28,8 +28,8 @@ import {
   Tabs,
   useToast,
   type TabItem,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { ApiError } from "@/lib/api/client";
@@ -138,6 +138,9 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
 
   const catalogue = useShiftCatalogue();
   const grid = useRota({ from, to, includeUnrostered: everybody });
+  /* The three figures count what the rota returned: nothing, both before it
+     answers and after it fails. A dash, not a 0. */
+  const gridReady = !grid.loading && !grid.error;
 
   const [opened, setOpened] = useState<{
     row: ApiRotaRow;
@@ -245,27 +248,27 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
         <FeatureOffLine feature="shifts" />
         <Tabs items={TABS} value={tab} onChange={changeTab}>
           <div className="flex flex-col gap-6">
-            <LoadFailure
-              subject="the rota"
-              error={grid.error}
-              onRetry={grid.reload}
-            />
-
             {tab === "rota" ? (
               <>
                 <StatGrid columns={3}>
                   <Stat
                     label="On the rota"
-                    value={String(grid.rota?.totals.people ?? 0)}
+                    value={
+                      gridReady ? String(grid.rota?.totals.people ?? 0) : "—"
+                    }
                     hint={`${shortDay(from)} to ${shortDay(to)}`}
                   />
                   <Stat
                     label="Rostered days"
-                    value={String(grid.rota?.totals.rosteredDays ?? 0)}
+                    value={
+                      gridReady
+                        ? String(grid.rota?.totals.rosteredDays ?? 0)
+                        : "—"
+                    }
                   />
                   <Stat
                     label="Days with nobody on"
-                    value={String(uncovered)}
+                    value={gridReady ? String(uncovered) : "—"}
                     {...(uncovered > 0
                       ? {
                           trend: {
@@ -328,57 +331,61 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
                       />
                     </div>
 
-                    {grid.loading ? (
-                      <span className="flex items-center gap-2 text-body-sm text-muted">
-                        <Spinner size="sm" />
-                        Loading the rota
-                      </span>
-                    ) : !grid.rota || grid.rota.rows.length === 0 ? (
-                      <EmptyState
-                        compact
-                        icon={<CalendarRange aria-hidden="true" />}
-                        title={
-                          noShiftsYet
-                            ? "No shifts defined yet"
-                            : "Nobody on this week"
-                        }
-                        description={
-                          noShiftsYet
-                            ? "Add an early, a late and a night, then build a cycle out of them."
-                            : "Put a crew on a cycle, or turn on Show everybody to pick names."
-                        }
-                        action={
-                          canEdit ? (
-                            noShiftsYet ? (
-                              <Button
-                                variant="accent"
-                                onClick={() => changeTab("catalogue")}
-                              >
-                                Add a shift
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="accent"
-                                onClick={() => setAssigning(true)}
-                              >
-                                Put people on the rota
-                              </Button>
-                            )
-                          ) : undefined
-                        }
-                      />
-                    ) : (
-                      <RotaGrid
-                        rota={grid.rota}
-                        colours={colours}
-                        onOpenCell={(row, date, cell) => {
-                          /* Nothing to offer on an empty day to somebody who cannot
+                    <LoadState
+                      loading={grid.loading}
+                      error={grid.error}
+                      subject="the rota"
+                      onRetry={grid.reload}
+                      hasData={Boolean(grid.rota)}
+                      skeleton="table"
+                    >
+                      {!grid.rota || grid.rota.rows.length === 0 ? (
+                        <EmptyState
+                          compact
+                          icon={<CalendarRange aria-hidden="true" />}
+                          title={
+                            noShiftsYet
+                              ? "No shifts defined yet"
+                              : "Nobody on this week"
+                          }
+                          description={
+                            noShiftsYet
+                              ? "Add an early, a late and a night, then build a cycle out of them."
+                              : "Put a crew on a cycle, or turn on Show everybody to pick names."
+                          }
+                          action={
+                            canEdit ? (
+                              noShiftsYet ? (
+                                <Button
+                                  variant="accent"
+                                  onClick={() => changeTab("catalogue")}
+                                >
+                                  Add a shift
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="accent"
+                                  onClick={() => setAssigning(true)}
+                                >
+                                  Put people on the rota
+                                </Button>
+                              )
+                            ) : undefined
+                          }
+                        />
+                      ) : (
+                        <RotaGrid
+                          rota={grid.rota}
+                          colours={colours}
+                          onOpenCell={(row, date, cell) => {
+                            /* Nothing to offer on an empty day to somebody who cannot
                              edit the rota, so it does not open. */
-                          if (!cell && !canEdit) return;
-                          setOpened({ row, date, cell });
-                        }}
-                      />
-                    )}
+                            if (!cell && !canEdit) return;
+                            setOpened({ row, date, cell });
+                          }}
+                        />
+                      )}
+                    </LoadState>
                   </CardBody>
                 </Card>
 

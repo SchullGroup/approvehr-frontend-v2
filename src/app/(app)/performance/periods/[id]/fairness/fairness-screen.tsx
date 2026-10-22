@@ -12,7 +12,6 @@ import {
   Disclosure,
   EmptyState,
   SegmentedControl,
-  Spinner,
   Stat,
   TBody,
   TD,
@@ -21,8 +20,8 @@ import {
   TR,
   TableWrap,
   Tabs,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import type {
   ApiFairness,
@@ -121,80 +120,74 @@ export function FairnessScreen({
           <Callout tone="neutral">{FAIRNESS_OFFLINE}</Callout>
         ) : null}
 
-        <LoadFailure
-          subject="the fairness check"
+        <LoadState
+          loading={detail.loading}
           error={detail.error}
+          subject="the fairness check"
           onRetry={detail.reload}
-        />
-
-        {detail.loading && !data && (
-          <Card>
-            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-              <Spinner size="sm" />
-              Working out the fairness check
-            </CardBody>
-          </Card>
-        )}
-
-        {data && (
-          <>
-            <Summary data={data} periods={periods} />
-            <Tabs
-              items={[
-                {
-                  id: "groups",
-                  label: "Groups",
-                  count: flagCount(data) || undefined,
-                },
-                { id: "managers", label: "Managers" },
-                {
-                  id: "people",
-                  label: "People to review",
-                  count: flaggedCount(review.flags) || undefined,
-                },
-              ]}
-              value={tab}
-              onChange={(id) => setTab(id as Tab)}
-            >
-              {tab === "groups" && <Groups data={data} />}
-              {tab === "managers" && <Managers data={data} />}
-              {tab === "people" && (
-                <PeopleToReview
-                  cycleId={cycleId}
-                  flags={review.flags}
-                  loading={review.loading}
-                  error={review.error}
-                  reload={review.reload}
-                  stage={detail.cycle?.stage ?? null}
-                />
+          hasData={Boolean(data)}
+          skeleton="detail"
+        >
+          {data && (
+            <>
+              <Summary data={data} periods={periods} />
+              <Tabs
+                items={[
+                  {
+                    id: "groups",
+                    label: "Groups",
+                    count: flagCount(data) || undefined,
+                  },
+                  { id: "managers", label: "Managers" },
+                  {
+                    id: "people",
+                    label: "People to review",
+                    count: flaggedCount(review.flags) || undefined,
+                  },
+                ]}
+                value={tab}
+                onChange={(id) => setTab(id as Tab)}
+              >
+                {tab === "groups" && <Groups data={data} />}
+                {tab === "managers" && <Managers data={data} />}
+                {tab === "people" && (
+                  <PeopleToReview
+                    cycleId={cycleId}
+                    flags={review.flags}
+                    loading={review.loading}
+                    error={review.error}
+                    reload={review.reload}
+                    stage={detail.cycle?.stage ?? null}
+                  />
+                )}
+              </Tabs>
+              {tab !== "people" && (
+                <Disclosure title="How flags work" region={false}>
+                  <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">
+                    <li>
+                      Marks are compared before calibration. Any moves made
+                      during calibration are shown on the period page.
+                    </li>
+                    <li>
+                      A group is flagged when its gap is at least{" "}
+                      {pct(data.rules.minGapBp).replace("%", "")} points and the
+                      likely range doesn&apos;t cross zero.
+                    </li>
+                    <li>
+                      Groups under {data.rules.minGroup} people are hidden.
+                      Religion and state of origin aren&apos;t checked.
+                    </li>
+                    <li>
+                      A manager is flagged at{" "}
+                      {pct(data.managers.rules.apartBp).replace("%", "")} points
+                      from everyone else, or when their marks barely vary.
+                    </li>
+                  </ul>
+                </Disclosure>
               )}
-            </Tabs>
-            {tab !== "people" && (
-              <Disclosure title="How flags work" region={false}>
-                <ul className="list-disc space-y-1 pl-5 text-body-sm text-body">
-                  <li>
-                    Marks are compared before calibration. Any moves made during
-                    calibration are shown on the period page.
-                  </li>
-                  <li>
-                    A group is flagged when its gap is at least{" "}
-                    {pct(data.rules.minGapBp).replace("%", "")} points and the
-                    likely range doesn&apos;t cross zero.
-                  </li>
-                  <li>
-                    Groups under {data.rules.minGroup} people are hidden.
-                    Religion and state of origin aren&apos;t checked.
-                  </li>
-                  <li>
-                    A manager is flagged at{" "}
-                    {pct(data.managers.rules.apartBp).replace("%", "")} points
-                    from everyone else, or when their marks barely vary.
-                  </li>
-                </ul>
-              </Disclosure>
-            )}
-          </>
-        )}
+            </>
+          )}
+        </LoadState>
       </PageBody>
     </>
   );

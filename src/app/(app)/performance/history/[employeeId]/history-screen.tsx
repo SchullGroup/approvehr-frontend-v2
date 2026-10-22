@@ -16,14 +16,13 @@ import {
   CardHeader,
   DescriptionList,
   EmptyState,
-  Spinner,
   Stat,
   StatGrid,
   TextLink,
   type BadgeTone,
+  LoadState,
 } from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
   changeLabel,
@@ -103,63 +102,56 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
           </Callout>
         )}
 
-        {/* A 403 here reaches the reader as the server's own sentence, which is
-            the one that names the rule: self, direct report, or the records
-            permission. An appraiser assigned to one period is refused on
-            purpose, and only the server can say so. */}
-        <LoadFailure
-          subject="this person's score history"
+        {/* The one loading and failure rule. A 403 here reaches the reader as the
+            server's own sentence, which is the one that names the rule: self,
+            direct report, or the records permission. An appraiser assigned to
+            one period is refused on purpose, and only the server can say so. */}
+        <LoadState
+          loading={detail.loading}
           error={detail.error}
+          subject="this person's score history"
           onRetry={detail.reload}
-        />
+          skeleton="detail"
+        >
+          {history && (
+            <>
+              <Who history={history} />
 
-        {detail.loading && (
-          <Card>
-            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-              <Spinner size="sm" />
-              Loading every period
-            </CardBody>
-          </Card>
-        )}
-
-        {history && (
-          <>
-            <Who history={history} />
-
-            {/* The API's own sentence, on its own line. The heading over it
+              {/* The API's own sentence, on its own line. The heading over it
                 said what the sentence already says. */}
-            {history.withheldNote && (
-              <NoticeLine tone="muted">{history.withheldNote}</NoticeLine>
-            )}
+              {history.withheldNote && (
+                <NoticeLine tone="muted">{history.withheldNote}</NoticeLine>
+              )}
 
-            {history.points.length === 0 ? (
-              <Card>
-                <EmptyState
-                  compact
-                  icon={<TriangleAlert aria-hidden="true" />}
-                  title="No appraisal period has covered them yet"
-                  description="Someone shows up here once an appraisal period they are part of has started. A period that has not started has no marks yet."
-                />
-              </Card>
-            ) : (
-              <>
-                <Trend history={history} />
-                {history.unscoredCycles.length > 0 && (
-                  <NoMark cycles={history.unscoredCycles} />
-                )}
-                {history.truncated && (
-                  <p className="text-body-sm text-muted">
-                    The {history.limit} most recent periods are shown. Older
-                    ones exist and are not on this page.
-                  </p>
-                )}
-                {[...history.points].reverse().map((point) => (
-                  <Point key={point.cycleId} point={point} />
-                ))}
-              </>
-            )}
-          </>
-        )}
+              {history.points.length === 0 ? (
+                <Card>
+                  <EmptyState
+                    compact
+                    icon={<TriangleAlert aria-hidden="true" />}
+                    title="No appraisal period has covered them yet"
+                    description="Someone shows up here once an appraisal period they are part of has started. A period that has not started has no marks yet."
+                  />
+                </Card>
+              ) : (
+                <>
+                  <Trend history={history} />
+                  {history.unscoredCycles.length > 0 && (
+                    <NoMark cycles={history.unscoredCycles} />
+                  )}
+                  {history.truncated && (
+                    <p className="text-body-sm text-muted">
+                      The {history.limit} most recent periods are shown. Older
+                      ones exist and are not on this page.
+                    </p>
+                  )}
+                  {[...history.points].reverse().map((point) => (
+                    <Point key={point.cycleId} point={point} />
+                  ))}
+                </>
+              )}
+            </>
+          )}
+        </LoadState>
       </PageBody>
     </>
   );
