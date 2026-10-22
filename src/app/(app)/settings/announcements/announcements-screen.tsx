@@ -52,6 +52,7 @@ import {
 import { useDepartments } from "@/lib/store/departments";
 import { useSession } from "@/lib/store/session";
 import { AnnouncementForm, type Draft } from "./announcement-form";
+import { ReadersDrawer } from "./readers-drawer";
 
 /**
  * The noticeboard, from the side that writes it.
@@ -121,6 +122,7 @@ export function AnnouncementsScreen() {
   );
   if (editing !== null && editing !== editedNotice) setEditedNotice(editing);
   const [takingDown, setTakingDown] = useState<ApiAnnouncement | null>(null);
+  const [reading, setReading] = useState<ApiAnnouncement | null>(null);
   const [deleting, setDeleting] = useState<ApiAnnouncement | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -406,6 +408,7 @@ export function AnnouncementsScreen() {
                                 busy={busy}
                                 onEdit={() => setEditing(notice)}
                                 onTakeDown={() => setTakingDown(notice)}
+                                onReaders={() => setReading(notice)}
                                 onPublish={() =>
                                   void run(
                                     () => mutations.publish(notice.id),
@@ -471,6 +474,7 @@ export function AnnouncementsScreen() {
                           busy={busy}
                           onEdit={() => setEditing(notice)}
                           onTakeDown={() => setTakingDown(notice)}
+                          onReaders={() => setReading(notice)}
                           onPublish={() =>
                             void run(
                               () => mutations.publish(notice.id),
@@ -552,6 +556,9 @@ export function AnnouncementsScreen() {
           if (ok) setEditing(null);
         }}
       />
+
+      {/* Read-only, and only ever opened from a published row. */}
+      <ReadersDrawer notice={reading} onClose={() => setReading(null)} />
 
       {/* Reversible, and the dialog says so — but it changes what every member
           of staff sees, so it is asked first. */}
@@ -658,6 +665,7 @@ function NoticeRowActions({
   busy,
   onEdit,
   onTakeDown,
+  onReaders,
   onPublish,
   onDelete,
 }: {
@@ -665,6 +673,7 @@ function NoticeRowActions({
   busy: boolean;
   onEdit: () => void;
   onTakeDown: () => void;
+  onReaders: () => void;
   onPublish: () => void;
   onDelete: () => void;
 }) {
@@ -673,7 +682,14 @@ function NoticeRowActions({
       {/* The one act worth a button: putting a draft up. Everything else is in
           the menu, so a row is never a line of small buttons, and the delete is
           never one mis-tap from a neighbour. */}
-      {!notice.published && (
+      {notice.published ? (
+        /* A draft has no readers (the API refuses its list with a 409), so only a
+           notice that is up offers it. An expired one still does: the final rate
+           is what HR asks about afterwards. */
+        <Button variant="secondary" size="sm" onClick={onReaders}>
+          Who has read it
+        </Button>
+      ) : (
         <Button variant="accent" size="sm" disabled={busy} onClick={onPublish}>
           Publish
         </Button>

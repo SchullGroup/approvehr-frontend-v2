@@ -28,6 +28,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/store/session", () => ({
   useSession: () => ({ isConnected: true }),
+  useOrgTimezone: () => "Africa/Lagos",
 }));
 vi.mock("@/lib/permissions", () => ({
   useCan: () => true,
@@ -44,6 +45,20 @@ vi.mock("@/lib/store/announcements", () => ({
     error: null,
     source: "api",
     editable: true,
+    reload: vi.fn(),
+  }),
+  /* The drawer's own behaviour is held in announcement-readers.test.tsx; here it
+     only has to open on the right notice. */
+  useAnnouncementReaders: (id: string | null) => ({
+    rows: [],
+    meta: null,
+    total: null,
+    hasMore: false,
+    loading: id !== null,
+    error: null,
+    loadingMore: false,
+    moreError: null,
+    loadMore: vi.fn(),
     reload: vi.fn(),
   }),
   useAnnouncementMutations: () => ({
@@ -105,6 +120,53 @@ describe("the list", () => {
     expect(
       within(rowOf("Notice a")).getByText("Must read").className,
     ).not.toMatch(/danger|red/);
+  });
+});
+
+describe("who has read it", () => {
+  it("is offered on a notice that is up, and not on a draft", () => {
+    store.rows = [
+      notice("a"),
+      notice("d", { published: false, publishedAt: null }),
+    ];
+    renderInToasts(<AnnouncementsScreen />);
+    expect(
+      within(rowOf("Notice a")).getByRole("button", {
+        name: "Who has read it",
+      }),
+    ).toBeInTheDocument();
+    /* A draft has no readers, and the API refuses its list. It offers Publish. */
+    expect(
+      within(rowOf("Notice d")).queryByRole("button", {
+        name: "Who has read it",
+      }),
+    ).toBeNull();
+    expect(
+      within(rowOf("Notice d")).getByRole("button", { name: "Publish" }),
+    ).toBeInTheDocument();
+  });
+
+  it("is offered on an expired notice, where the final rate is the question", () => {
+    store.rows = [notice("x", { expired: true, expiresOn: "2026-10-01" })];
+    renderInToasts(<AnnouncementsScreen />);
+    expect(
+      within(rowOf("Notice x")).getByRole("button", {
+        name: "Who has read it",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens a drawer for that notice", async () => {
+    const user = userEvent.setup();
+    renderInToasts(<AnnouncementsScreen />);
+    await user.click(
+      within(rowOf("Notice b")).getByRole("button", {
+        name: "Who has read it",
+      }),
+    );
+    expect(
+      await screen.findByRole("dialog", { name: "Who has read “Notice b”" }),
+    ).toBeInTheDocument();
   });
 });
 

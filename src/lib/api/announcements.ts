@@ -120,6 +120,48 @@ export type ApiMarkedRead = {
   alreadyRead: boolean;
 };
 
+/** Which of a notice's two lists: who has opened it, or who still has to. */
+export type ReaderState = "read" | "unread";
+
+/**
+ * One account on a notice's reader list.
+ *
+ * Per **account**, not per employee: an owner with no staff record can read a
+ * company-wide notice and appears here with `employeeId: null` and no department.
+ */
+export type ApiReader = {
+  userId: string;
+  name: string;
+  employeeId: string | null;
+  department: string | null;
+  /** When they first opened it. Null in the "still to read" list, by definition. */
+  readAt: string | null;
+};
+
+/**
+ * What comes with either list, so one screen can say "7 of 12, 58%" above
+ * whichever tab is open.
+ *
+ * `reach` is the accounts that could read the notice now (everybody for a
+ * company-wide one, the chosen departments' staff otherwise), and is always
+ * `read + unread`. A receipt from somebody who has since left or moved out of the
+ * audience is kept by the API and counts in neither, which is what keeps the rate
+ * at or under 100%.
+ */
+export type ApiReadersMeta = {
+  counts: { reach: number; read: number; unread: number };
+  /** A whole percent, or null when nobody is in the audience: never a 0. */
+  readRate: number | null;
+  /** Whether staff are expected to open the notice. */
+  mandatory: boolean;
+};
+
+export type ReadersParams = {
+  state: ReaderState;
+  page?: number;
+  pageSize?: number;
+};
+
 export type ApiPublishResult = {
   announcement: ApiAnnouncement;
   /** How many accounts can now read it. */
@@ -243,6 +285,26 @@ export const announcementsApi = {
       query: { ...params },
       ...(signal ? { signal } : {}),
     });
+  },
+
+  /**
+   * Who has opened a notice and who still has to, for the notice's own audience.
+   * Needs `MANAGE_SETTINGS`: an employee gets 403 whatever the notice, even one
+   * addressed to them, and sees only their own receipt on Today.
+   *
+   * `read` is the evidence (newest first) and `unread` the chase list (by name).
+   * A draft or a notice taken down is a 409, because nobody can have read it, and
+   * an expired one still answers so HR can see the final rate.
+   */
+  readers(
+    id: string,
+    params: ReadersParams,
+    signal?: AbortSignal,
+  ): Promise<Paged<ApiReader, ApiReadersMeta>> {
+    return requestPaged<ApiReader, ApiReadersMeta>(
+      `/announcements/${id}/readers`,
+      { query: { ...params }, ...(signal ? { signal } : {}) },
+    );
   },
 
   get(id: string, signal?: AbortSignal): Promise<ApiAnnouncement> {
