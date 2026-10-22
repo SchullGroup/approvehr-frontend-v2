@@ -166,11 +166,7 @@ export function RequestSwapModal({
       }
     >
       <div className="flex flex-col gap-5">
-        {error && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink">
-            {error}
-          </p>
-        )}
+        {error && <p className="text-body-sm text-danger-text">{error}</p>}
 
         <Field label="Find a colleague" hideLabel>
           {/* `Input` has no prefix prop — the icon is positioned, the input padded. */}

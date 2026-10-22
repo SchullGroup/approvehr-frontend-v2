@@ -332,7 +332,7 @@ export function ActionRow({
           )}
 
           {action.disputeNote && (
-            <p className="mt-1.5 rounded-md border border-danger-line bg-danger-soft p-2.5 text-body-sm leading-relaxed text-body">
+            <p className="mt-1.5 text-body-sm leading-relaxed text-danger-text">
               <span className="font-medium text-ink">They disagree: </span>
               {action.disputeNote}
             </p>

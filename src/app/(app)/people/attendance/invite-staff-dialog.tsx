@@ -205,7 +205,7 @@ export function InviteStaffDialog({
                 {result.failed.map((f) => (
                   <li
                     key={f.employeeId}
-                    className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm"
+                    className="text-body-sm text-danger-text"
                   >
                     <span className="font-medium text-ink">{f.name}</span>
                     <span className="text-body">{", " + f.message}</span>
@@ -251,10 +251,7 @@ export function InviteStaffDialog({
     >
       <div className="flex flex-col gap-4">
         {banner && (
-          <p
-            role="status"
-            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
-          >
+          <p role="status" className="text-body-sm text-danger-text">
             {banner}
           </p>
         )}
