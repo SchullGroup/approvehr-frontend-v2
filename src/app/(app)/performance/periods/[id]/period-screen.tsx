@@ -50,6 +50,7 @@ import { ApiError } from "@/lib/api/client";
 import {
   ratingWordsFrom,
   scoreLabel,
+  visibleComponents,
   weightLabel,
   weightsFromNote,
   type ApiComponentScore,
@@ -1448,8 +1449,8 @@ function RegisterCard({
  * absent is not zero, here as everywhere.
  */
 function ScoreParts({ components }: { components: ApiComponentScore[] }) {
-  if (components.length === 0) return null;
   const { counted, leftOut } = splitComponents(components);
+  if (counted.length === 0 && leftOut.length === 0) return null;
   return (
     <span className="mt-1 block text-meta leading-relaxed text-muted">
       {counted.map((part, index) => (
@@ -1469,7 +1470,8 @@ function ScoreParts({ components }: { components: ApiComponentScore[] }) {
   );
 }
 
-function splitComponents(components: ApiComponentScore[]) {
+function splitComponents(all: ApiComponentScore[]) {
+  const components = visibleComponents(all);
   const counted = components.filter(
     (part) => part.included && part.scoreBp !== null,
   );

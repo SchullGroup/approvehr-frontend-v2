@@ -59,10 +59,12 @@ function Harness({
   start,
   onValue,
   readOnly,
+  basis,
 }: {
   start?: WeightText;
   onValue?: (value: WeightText) => void;
   readOnly?: boolean;
+  basis?: "period" | "company" | "frozen";
 }) {
   const [value, setValue] = useState<WeightText>(
     start ??
@@ -81,6 +83,7 @@ function Harness({
       }}
       companyDefaults={defaults}
       {...(readOnly ? { readOnly: true } : {})}
+      {...(basis ? { basis } : {})}
     />
   );
 }
@@ -207,7 +210,7 @@ describe("<PeriodWeights />", () => {
   });
 
   it("is read-only once the period has started", () => {
-    render(<Harness readOnly />);
+    render(<Harness readOnly basis="frozen" />);
     expect(screen.queryAllByRole("spinbutton")).toHaveLength(0);
     expect(
       screen.queryByRole("button", { name: "Use the company defaults" }),
@@ -223,5 +226,17 @@ describe("<PeriodWeights />", () => {
       .getByText("Delivery against objectives")
       .closest("[data-weight-row]") as HTMLElement;
     expect(within(obj).getByText("40%")).toBeInTheDocument();
+  });
+
+  it("does not claim a started period was fixed when it follows the company", () => {
+    render(<Harness readOnly basis="company" />);
+    expect(
+      screen.queryByText("Fixed when this period started."),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This period follows the company's weights as they are today.",
+      ),
+    ).toBeInTheDocument();
   });
 });

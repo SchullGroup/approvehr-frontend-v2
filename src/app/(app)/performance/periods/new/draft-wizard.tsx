@@ -260,7 +260,8 @@ export function DraftPeriodWizard() {
   const questionDraft = usePeriodQuestionDraft();
   const cycles = useCycleMutations();
   const kpis = useKpiMutations();
-  const { weights: companyWeights } = useScoringWeights();
+  const { weights: companyWeights, loading: companyWeightsLoading } =
+    useScoringWeights();
 
   const [step, setStep] = useState<StepId>("describe");
   const [name, setName] = useState("");
@@ -285,10 +286,12 @@ export function DraftPeriodWizard() {
       )
     : null;
   const weightText = weightEdit ?? defaultText;
+  /* Only a set somebody typed here is held to the whole-percent rule. Left
+     alone, the period follows the company defaults, which Settings lets carry
+     two decimals — 33.33 there is not a mistake to block a draft on. */
   const weightsProblem =
-    weightText === null
-      ? "The weights have not loaded."
-      : periodWeightsProblem(weightText);
+    weightEdit === null ? null : periodWeightsProblem(weightEdit);
+  const weightsMissing = companyWeights === null && !companyWeightsLoading;
 
   /* The edits, over the draft. Nothing seeds these — see `GoalEdit`. */
   const [goalEdits, setGoalEdits] = useState<Record<string, GoalEdit>>({});
@@ -466,11 +469,10 @@ export function DraftPeriodWizard() {
       const cycle = await cycles.createCycle(
         name.trim(),
         dueDate === "" ? undefined : dueDate,
-        /* Always sent, even when they equal the company defaults: what the
-           person saw on this screen is what the period carries, and a later
-           change to the company's set cannot move a period somebody has
-           already set up. */
-        weightText === null ? {} : { weights: weightsFromText(weightText) },
+        /* Sent only when they were edited here. Untouched, the period has
+           none of its own and follows the company defaults until it starts,
+           when whatever the company holds then is fixed onto it. */
+        weightEdit === null ? {} : { weights: weightsFromText(weightEdit) },
       );
       cycleId = cycle.id;
 
@@ -597,6 +599,11 @@ export function DraftPeriodWizard() {
                       companyDefaults={companyWeights}
                       onUseDefaults={() => setWeightEdit(null)}
                     />
+                  )}
+                  {weightText === null && weightsMissing && (
+                    <p role="status" className="text-body-sm text-muted">
+                      The weights have not loaded.
+                    </p>
                   )}
 
                   {goalDraft.error && (

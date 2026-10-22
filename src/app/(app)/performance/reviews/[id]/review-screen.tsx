@@ -24,6 +24,7 @@ import {
   dayOf,
   ratingWordsFrom,
   scoreLabel,
+  visibleComponents,
   weightLabel,
   weightsFromNote,
   type ApiComponentScore,
@@ -833,7 +834,7 @@ function ScorePanel({
         </div>
 
         <ul className="flex flex-col gap-3">
-          {score.components.map((component) => (
+          {visibleComponents(score.components).map((component) => (
             <ComponentRow key={component.component} component={component} />
           ))}
         </ul>

@@ -10,7 +10,7 @@ import {
   type WeightText,
 } from "@/components/performance/period-weights";
 import { ApiError } from "@/lib/api/client";
-import type { ApiCycle } from "@/lib/api/performance";
+import type { ApiCycle, CycleWeights } from "@/lib/api/performance";
 import { useCycleMutations, useScoringWeights } from "@/lib/store/performance";
 
 /**
@@ -31,13 +31,19 @@ export function PeriodWeightsSection({
 }) {
   const { weights: companyDefaults } = useScoringWeights();
 
+  /* An API older than per-period weights sends none. There is nothing true to
+     show, so the section is not there at all rather than crashing the page. */
+  const weights = period.weights;
+  if (!weights) return null;
+
   if (period.stage !== "DRAFT") {
     return (
       <Card>
         <CardBody>
           <PeriodWeights
             readOnly
-            value={weightsToText(period.weights.values)}
+            basis={weights.basis}
+            value={weightsToText(weights.values)}
             onChange={() => undefined}
             companyDefaults={companyDefaults}
           />
@@ -52,8 +58,9 @@ export function PeriodWeightsSection({
         {/* Keyed by what the server holds, so a save or a reset replaces the
             typed text with the stored set instead of leaving it to drift. */}
         <DraftWeights
-          key={JSON.stringify(period.weights.values)}
+          key={JSON.stringify(weights.values)}
           period={period}
+          weights={weights}
           companyDefaults={companyDefaults}
           onChanged={onChanged}
         />
@@ -64,16 +71,18 @@ export function PeriodWeightsSection({
 
 function DraftWeights({
   period,
+  weights,
   companyDefaults,
   onChanged,
 }: {
   period: ApiCycle;
+  weights: CycleWeights;
   companyDefaults: ReturnType<typeof useScoringWeights>["weights"];
   onChanged: () => void;
 }) {
   const periods = useCycleMutations();
   const toast = useToast();
-  const stored = weightsToText(period.weights.values);
+  const stored = weightsToText(weights.values);
   const [value, setValue] = useState<WeightText>(stored);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +118,7 @@ function DraftWeights({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-meta text-muted">
-        {period.weights.basis === "period"
+        {weights.basis === "period"
           ? "Set for this period."
           : "Using the company defaults."}
       </p>

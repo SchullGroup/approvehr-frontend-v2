@@ -427,8 +427,11 @@ export type ApiCycle = {
    * from a live one cannot tell whether the mark on screen is the one awarded.
    */
   scoringFrozen: boolean;
-  /** How the mark is made up for this period, and whether it is still open to change. */
-  weights: CycleWeights;
+  /**
+   * How the mark is made up for this period, and whether it is still open to
+   * change. Absent from an API older than per-period weights, so optional.
+   */
+  weights?: CycleWeights;
   /** Empty means everybody — see `createCycle`'s own note. */
   departmentIds: string[];
   /** Null means no automatic reminder, which is the default. */
@@ -948,6 +951,21 @@ export function weightsFromNote(from: WeightsFrom): string | null {
   return from === "period"
     ? "Previewed with the weights set for this period."
     : null;
+}
+
+/**
+ * The components a breakdown shows. Weekly tasks weighted at nothing is
+ * dropped: every period set up before it became a component carries it at 0%,
+ * and "Weekly tasks: weighted at 0%" on every mark says nothing. Every other
+ * exclusion stays, in the API's words.
+ */
+export function visibleComponents<
+  T extends Pick<ApiComponentScore, "component" | "excludedBecause">,
+>(components: T[]): T[] {
+  return components.filter(
+    (part) =>
+      !(part.component === "TASKS" && part.excludedBecause === "NOT_WEIGHTED"),
+  );
 }
 
 export type ApiComponentScore = {

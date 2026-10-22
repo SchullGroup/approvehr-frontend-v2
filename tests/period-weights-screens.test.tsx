@@ -41,6 +41,12 @@ const defaults: ApiScoringWeights = {
   selfAssessmentNote: "Self-assessment is weighted at 0%.",
 };
 
+/* What `useScoringWeights` hands back; a test may swap it for a failed load. */
+let companySet: { weights: ApiScoringWeights | null; error: unknown } = {
+  weights: defaults,
+  error: null,
+};
+
 const save = vi.fn();
 const createCycle = vi.fn();
 const updateCycle = vi.fn();
@@ -90,9 +96,9 @@ vi.mock("@/lib/store/ai", () => ({
 }));
 vi.mock("@/lib/store/performance", () => ({
   useScoringWeights: () => ({
-    weights: defaults,
+    weights: companySet.weights,
     loading: false,
-    error: null,
+    error: companySet.error,
     source: "api",
     editable: true,
     refusal: "",
@@ -112,6 +118,7 @@ const { PeriodWeightsSection } =
 
 beforeEach(() => {
   vi.clearAllMocks();
+  companySet = { weights: defaults, error: null };
   save.mockResolvedValue({ ...defaults, saved: true, frozenCycles: [] });
   createCycle.mockResolvedValue({ id: "c-1" });
   updateCycle.mockResolvedValue({});
@@ -213,6 +220,62 @@ describe("the new-period wizard", () => {
     );
     await waitFor(() => expect(createCycle).toHaveBeenCalledTimes(1));
     expect(createCycle.mock.calls[0]![2]).toMatchObject({ weights: BP });
+  });
+
+  const createIt = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole("button", { name: /Draft it/ }));
+    for (const label of [/Next|Continue|Questions/i, /Next|Continue|Review/i]) {
+      await user.click(await screen.findByRole("button", { name: label }));
+    }
+    await user.click(
+      await screen.findByRole("button", { name: /^Create H1 2027/ }),
+    );
+    await waitFor(() => expect(createCycle).toHaveBeenCalledTimes(1));
+  };
+
+  it("does not hold up untouched company defaults, and sends no weights for them", async () => {
+    /* Settings takes two decimals, so a company can hold 33.33 / 33.33 / 33.34.
+       Left alone, the period follows the company; the whole-percent rule is
+       for a set somebody types here. */
+    companySet = {
+      weights: {
+        ...defaults,
+        rows: defaults.rows.map((row) => ({
+          ...row,
+          weightBp:
+            row.component === "OBJECTIVES" ||
+            row.component === "CORE_COMPETENCY"
+              ? 3333
+              : row.component === "BEHAVIOURAL_COMPETENCY"
+                ? 3334
+                : 0,
+        })),
+      },
+      error: null,
+    };
+    const user = userEvent.setup();
+    render(<DraftPeriodWizard />);
+    await toReview(user);
+    expect(screen.getByRole("button", { name: /Draft it/ })).toBeEnabled();
+    await createIt(user);
+    expect(createCycle.mock.calls[0]![2] ?? {}).not.toHaveProperty("weights");
+  });
+
+  it("says so when the weights did not load, and still lets the period be drafted", async () => {
+    const { ApiError } = await import("@/lib/api/client");
+    companySet = {
+      weights: null,
+      error: new ApiError(500, "INTERNAL", "Down."),
+    };
+    const user = userEvent.setup();
+    render(<DraftPeriodWizard />);
+    await toReview(user);
+    expect(
+      screen.getByText("The weights have not loaded."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Draft it/ })).toBeEnabled();
+    await createIt(user);
+    expect(createCycle.mock.calls[0]![2] ?? {}).not.toHaveProperty("weights");
   });
 });
 
@@ -333,6 +396,39 @@ describe("a period's own settings", () => {
     expect(within(row).getByText("15%")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Save the weights" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("says a started period without a snapshot follows the company today", () => {
+    render(
+      <PeriodWeightsSection
+        period={cycle({
+          stage: "SELF",
+          weights: { values: BP, basis: "company" },
+        })}
+        onChanged={vi.fn()}
+      />,
+    );
+    expect(
+      screen.queryByText("Fixed when this period started."),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This period follows the company's weights as they are today.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("renders nothing for a period from an API that sends no weights", () => {
+    const { container } = render(
+      <PeriodWeightsSection
+        period={cycle({ weights: undefined })}
+        onChanged={vi.fn()}
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
+    expect(
+      screen.queryByText("How the mark is made up"),
     ).not.toBeInTheDocument();
   });
 });

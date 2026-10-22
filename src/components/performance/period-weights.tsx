@@ -7,6 +7,7 @@ import {
   SCORE_COMPONENT_ORDER,
   weightLabel,
   type ApiScoringWeights,
+  type CycleWeights,
   type ScoreComponent,
   type WeightSet,
 } from "@/lib/api/performance";
@@ -101,6 +102,7 @@ export function PeriodWeights({
   companyDefaults,
   onUseDefaults,
   disabled = false,
+  basis,
 }: {
   value: WeightText;
   onChange: (next: WeightText) => void;
@@ -111,6 +113,12 @@ export function PeriodWeights({
   /** Overrides the reset, for a caller that has to tell the server. */
   onUseDefaults?: () => void;
   disabled?: boolean;
+  /**
+   * Where a read-only set comes from. Only `frozen` was fixed at the start; a
+   * period that started before snapshots existed reports `company` and moves
+   * with the company's weights, so it must not be told it was fixed.
+   */
+  basis?: CycleWeights["basis"];
 }) {
   const labelOf = (component: ScoreComponent) =>
     companyDefaults?.rows.find((row) => row.component === component)?.label ??
@@ -222,7 +230,15 @@ export function PeriodWeights({
       </p>
 
       {readOnly ? (
-        <p className="text-meta text-muted">Fixed when this period started.</p>
+        basis === "frozen" ? (
+          <p className="text-meta text-muted">
+            Fixed when this period started.
+          </p>
+        ) : basis === "company" ? (
+          <p className="text-meta text-muted">
+            This period follows the company&apos;s weights as they are today.
+          </p>
+        ) : null
       ) : (
         <div>
           <Button
