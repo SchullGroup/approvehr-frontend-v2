@@ -4,19 +4,9 @@
   "src/app/(app)/hiring/my-interviews/[id]/my-application-screen.tsx",
   "src/app/(app)/hiring/postings/[id]/posting-screen.tsx",
   "src/app/(app)/hiring/postings/[id]/preview/posting-preview.tsx",
-  "src/app/(app)/payroll/pay-setup/benefits-panel.tsx",
-  "src/app/(app)/payroll/pay-setup/components-panel.tsx",
-  "src/app/(app)/payroll/pay-setup/grades-panel.tsx",
-  "src/app/(app)/payroll/pay-setup/pay-components-panel.tsx",
   "src/app/(app)/payroll/payroll-screen.tsx",
   "src/app/(app)/people/[id]/record-page.tsx",
   "src/app/(app)/reports/builder/builder-screen.tsx",
   "src/app/(app)/reports/explore/explore-screen.tsx",
-  "src/app/(app)/settings/announcements/announcements-screen.tsx",
-  "src/app/(app)/settings/bank-accounts/bank-accounts-screen.tsx",
-  "src/app/(app)/settings/integrations/list.tsx",
-  "src/app/(app)/settings/integrations/work-trackers/[id]/connection-screen.tsx",
-  "src/app/(app)/settings/notifications/settings.tsx",
-  "src/app/(app)/settings/payroll/form.tsx",
-  "src/app/(app)/surveys/surveys-screen.tsx"
+  "src/app/(app)/settings/bank-accounts/bank-accounts-screen.tsx"
 ]

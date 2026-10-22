@@ -27,6 +27,7 @@ import {
   TableWrap,
   useToast,
   ToggleFilter,
+  LoadState,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { AssignComponentToManyDialog } from "./assign-to-many-dialog";
@@ -176,12 +177,6 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
         </Callout>
       )}
 
-      <LoadFailure
-        subject={`the ${copy.plural}`}
-        error={components.error}
-        onRetry={components.reload}
-      />
-
       <Card>
         <CardHeader
           level={2}
@@ -217,7 +212,10 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
               />
             </div>
             <div className="flex items-center gap-4">
-              <p className="text-body-sm text-muted">{onCount} switched on</p>
+              {/* Counted from the rows, so not before they have arrived. */}
+              {!components.loading && !components.error && (
+                <p className="text-body-sm text-muted">{onCount} switched on</p>
+              )}
               <ToggleFilter
                 label="Show archived"
                 checked={includeArchived}
@@ -226,98 +224,95 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
             </div>
           </div>
 
-          {components.rows.length === 0 ? (
-            <EmptyState
-              compact
-              icon={copy.icon}
-              title={
-                components.loading
-                  ? "Loading…"
-                  : search
-                    ? "Nothing matches that"
-                    : copy.empty
-              }
-              description={
-                components.loading
-                  ? undefined
-                  : search
-                    ? "Try a different name."
-                    : copy.emptyHint
-              }
-              action={
-                !components.loading && !search && components.editable ? (
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    onClick={() => setCreating(true)}
-                  >
-                    <Plus aria-hidden="true" className="size-4" />
-                    {copy.add}
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <>
-              <div className="hidden sm:block">
-                <TableWrap caption={copy.caption}>
-                  <THead>
-                    <TH>Name</TH>
-                    <TH>How much</TH>
-                    <TH>What it does</TH>
-                    <TH align="right">People</TH>
-                    <TH>Status</TH>
-                    <TH>
-                      <span className="sr-only-focusable">Actions</span>
-                    </TH>
-                  </THead>
-                  <TBody>
-                    {components.rows.map((row) => (
-                      <ComponentRow
-                        key={row.id}
-                        row={row}
-                        rates={settings.pension}
-                        editable={components.editable}
-                        onView={() => setViewing(row)}
-                        onEdit={() => setEditing(row)}
-                        onArchive={() => setArchiving(row)}
-                        onToggle={() =>
-                          void run(
-                            () => components.setActive(row.id, !row.active),
-                            row.active
-                              ? `${row.name} is off. The next run will not include it.`
-                              : `${row.name} is on again.`,
-                          )
-                        }
-                      />
-                    ))}
-                  </TBody>
-                </TableWrap>
-              </div>
+          <LoadState
+            loading={components.loading}
+            error={components.error}
+            subject={`the ${copy.plural}`}
+            onRetry={components.reload}
+            hasData={components.rows.length > 0}
+            skeleton="table"
+          >
+            {components.rows.length === 0 ? (
+              <EmptyState
+                compact
+                icon={copy.icon}
+                title={search ? "Nothing matches that" : copy.empty}
+                description={search ? "Try a different name." : copy.emptyHint}
+                action={
+                  !search && components.editable ? (
+                    <Button
+                      variant="accent"
+                      size="sm"
+                      onClick={() => setCreating(true)}
+                    >
+                      <Plus aria-hidden="true" className="size-4" />
+                      {copy.add}
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap caption={copy.caption}>
+                    <THead>
+                      <TH>Name</TH>
+                      <TH>How much</TH>
+                      <TH>What it does</TH>
+                      <TH align="right">People</TH>
+                      <TH>Status</TH>
+                      <TH>
+                        <span className="sr-only-focusable">Actions</span>
+                      </TH>
+                    </THead>
+                    <TBody>
+                      {components.rows.map((row) => (
+                        <ComponentRow
+                          key={row.id}
+                          row={row}
+                          rates={settings.pension}
+                          editable={components.editable}
+                          onView={() => setViewing(row)}
+                          onEdit={() => setEditing(row)}
+                          onArchive={() => setArchiving(row)}
+                          onToggle={() =>
+                            void run(
+                              () => components.setActive(row.id, !row.active),
+                              row.active
+                                ? `${row.name} is off. The next run will not include it.`
+                                : `${row.name} is on again.`,
+                            )
+                          }
+                        />
+                      ))}
+                    </TBody>
+                  </TableWrap>
+                </div>
 
-              <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
-                {components.rows.map((row) => (
-                  <ComponentCard
-                    key={row.id}
-                    row={row}
-                    rates={settings.pension}
-                    editable={components.editable}
-                    onView={() => setViewing(row)}
-                    onEdit={() => setEditing(row)}
-                    onArchive={() => setArchiving(row)}
-                    onToggle={() =>
-                      void run(
-                        () => components.setActive(row.id, !row.active),
-                        row.active
-                          ? `${row.name} is off. The next run will not include it.`
-                          : `${row.name} is on again.`,
-                      )
-                    }
-                  />
-                ))}
-              </ul>
-            </>
-          )}
+                <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
+                  {components.rows.map((row) => (
+                    <ComponentCard
+                      key={row.id}
+                      row={row}
+                      rates={settings.pension}
+                      editable={components.editable}
+                      onView={() => setViewing(row)}
+                      onEdit={() => setEditing(row)}
+                      onArchive={() => setArchiving(row)}
+                      onToggle={() =>
+                        void run(
+                          () => components.setActive(row.id, !row.active),
+                          row.active
+                            ? `${row.name} is off. The next run will not include it.`
+                            : `${row.name} is on again.`,
+                        )
+                      }
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+          </LoadState>
         </CardBody>
       </Card>
 

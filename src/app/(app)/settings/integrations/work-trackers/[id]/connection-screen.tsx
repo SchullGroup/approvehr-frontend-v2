@@ -27,6 +27,7 @@ import {
   TableWrap,
   Tabs,
   type BadgeTone,
+  LoadState,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -190,11 +191,14 @@ export function ConnectionScreen({ id }: { id: string }) {
       <>
         {header()}
         <PageBody>
-          <LoadFailure
-            subject="this connection"
+          <LoadState
+            loading={false}
             error={state.error}
+            subject="this connection"
             onRetry={state.reload}
-          />
+          >
+            {null}
+          </LoadState>
         </PageBody>
       </>
     );
@@ -453,32 +457,34 @@ function ProjectsPanel({
         }
       />
       <CardBody>
-        <LoadFailure
-          subject="the tool's projects"
+        <LoadState
+          loading={remote.loading}
           error={remote.error}
+          subject="the tool's projects"
           onRetry={remote.reload}
-        />
-        {remote.loading ? (
-          <Skeleton className="h-24 w-full" />
-        ) : remote.projects.length === 0 && !remote.error ? (
-          <EmptyState
-            compact
-            title="No projects"
-            description="This account cannot see any projects in the tool."
-          />
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {remote.projects.map((project) => (
-              <Checkbox
-                key={project.key}
-                label={project.name}
-                description={project.key}
-                checked={chosen.includes(project.key)}
-                onChange={(e) => toggle(project.key, e.target.checked)}
-              />
-            ))}
-          </div>
-        )}
+          hasData={remote.projects.length > 0}
+          skeleton="list"
+        >
+          {remote.projects.length === 0 && !remote.error ? (
+            <EmptyState
+              compact
+              title="No projects"
+              description="This account cannot see any projects in the tool."
+            />
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {remote.projects.map((project) => (
+                <Checkbox
+                  key={project.key}
+                  label={project.name}
+                  description={project.key}
+                  checked={chosen.includes(project.key)}
+                  onChange={(e) => toggle(project.key, e.target.checked)}
+                />
+              ))}
+            </div>
+          )}
+        </LoadState>
       </CardBody>
     </Card>
   );

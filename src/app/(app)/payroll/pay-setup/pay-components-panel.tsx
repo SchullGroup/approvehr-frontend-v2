@@ -25,6 +25,7 @@ import {
   TR,
   TableWrap,
   useToast,
+  LoadState,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
@@ -95,6 +96,13 @@ export function PayComponentsPanel({
   className?: string;
 }) {
   const lines = useEmployeePayComponents(employeeId);
+  /* "No monthly pay set" is not a failure of the read: the salary figure above
+     already says so and a banner repeating it is noise. Every other failure is
+     the failure card. */
+  const linesError =
+    lines.error && !lines.error.message.includes("no monthly pay set")
+      ? lines.error
+      : null;
   const baseline = usePayPreview(employeeId);
   const { settings } = usePayrollSettings();
   const toast = useToast();
@@ -149,14 +157,6 @@ export function PayComponentsPanel({
         {/* "No monthly pay set" is not a load failure — it is the reason
             there is nothing to show, and the "Salary a month" figure below
             already says so. A red banner repeating it is noise, not help. */}
-        {lines.error && !lines.error.message.includes("no monthly pay set") && (
-          <LoadFailure
-            subject="this person's pay lines"
-            error={lines.error}
-            onRetry={lines.reload}
-          />
-        )}
-
         {issues.length > 0 && (
           <Callout tone="danger" title="Payroll settings need attention first">
             <ul className="flex flex-col gap-1">
@@ -238,182 +238,189 @@ export function PayComponentsPanel({
           </p>
         )}
 
-        {assignments.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<Coins aria-hidden="true" />}
-            title={lines.loading ? "Loading…" : "Nothing on top of salary"}
-            description={
-              lines.loading
-                ? undefined
-                : lines.editable
+        <LoadState
+          loading={lines.loading}
+          error={linesError}
+          subject="this person's pay lines"
+          onRetry={lines.reload}
+          hasData={assignments.length > 0}
+          skeleton="list"
+        >
+          {assignments.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<Coins aria-hidden="true" />}
+              title="Nothing on top of salary"
+              description={
+                lines.editable
                   ? "Add anything that is not the base salary: a car allowance, a cooperative deduction, a salary advance being recovered."
                   : /* Without `MANAGE_PAY_STRUCTURE` there is no Add button, so
                        an instruction to add one is an instruction to nobody.
                        State what the emptiness means instead. */
                     "Nothing is added to or taken off this salary: no car allowance, no cooperative deduction, no advance being recovered."
-            }
-            action={
-              !lines.loading && lines.editable ? (
-                <Button
-                  variant="accent"
-                  size="sm"
-                  onClick={() => setAdding(true)}
-                >
-                  <Plus aria-hidden="true" className="size-4" />
-                  Add the first line
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <>
-            <div className="hidden sm:block">
-              <TableWrap caption="Allowances and deductions on this person's pay">
-                <THead>
-                  <TH>Line</TH>
-                  <TH>How it is worked out</TH>
-                  <TH>What it does</TH>
-                  <TH align="right">This month</TH>
-                  <TH>
-                    <span className="sr-only-focusable">Actions</span>
-                  </TH>
-                </THead>
-                <TBody>
-                  {assignments.map((row) => {
-                    const chips = flagChips(row, settings.pension);
-                    const allowance = row.kind === "ALLOWANCE";
-                    return (
-                      <TR key={row.id}>
-                        <TDPrimary
-                          title={row.name}
-                          subtitle={
-                            row.effectiveTo
-                              ? `${shortDate(row.effectiveFrom)} to ${shortDate(row.effectiveTo)}`
-                              : `From ${shortDate(row.effectiveFrom)}, every month`
-                          }
-                        />
-                        <TD>
-                          <span className="text-body-sm text-body">
-                            {assignmentLine(row)}
-                          </span>
-                          {row.note && (
-                            <span className="mt-0.5 block text-meta text-muted">
-                              {row.note}
+              }
+              action={
+                lines.editable ? (
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => setAdding(true)}
+                  >
+                    <Plus aria-hidden="true" className="size-4" />
+                    Add the first line
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <>
+              <div className="hidden sm:block">
+                <TableWrap caption="Allowances and deductions on this person's pay">
+                  <THead>
+                    <TH>Line</TH>
+                    <TH>How it is worked out</TH>
+                    <TH>What it does</TH>
+                    <TH align="right">This month</TH>
+                    <TH>
+                      <span className="sr-only-focusable">Actions</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {assignments.map((row) => {
+                      const chips = flagChips(row, settings.pension);
+                      const allowance = row.kind === "ALLOWANCE";
+                      return (
+                        <TR key={row.id}>
+                          <TDPrimary
+                            title={row.name}
+                            subtitle={
+                              row.effectiveTo
+                                ? `${shortDate(row.effectiveFrom)} to ${shortDate(row.effectiveTo)}`
+                                : `From ${shortDate(row.effectiveFrom)}, every month`
+                            }
+                          />
+                          <TD>
+                            <span className="text-body-sm text-body">
+                              {assignmentLine(row)}
                             </span>
-                          )}
-                        </TD>
-                        <TD>
-                          <span className="flex flex-wrap gap-1.5">
-                            {chips.map((chip) => (
-                              <span key={chip.label} title={chip.why}>
-                                <Badge
-                                  size="sm"
-                                  tone={chip.tone}
-                                  className="cursor-help"
-                                >
-                                  {chip.label}
-                                </Badge>
+                            {row.note && (
+                              <span className="mt-0.5 block text-meta text-muted">
+                                {row.note}
                               </span>
-                            ))}
-                          </span>
-                        </TD>
-                        <TD align="right">
-                          <span
-                            className={cn(
-                              "tabular text-body-sm font-medium",
-                              allowance ? "text-ink" : "text-body",
                             )}
-                          >
-                            {allowance
-                              ? signedMoney(row.resolvedKobo)
-                              : signedMoney(-row.resolvedKobo)}
-                          </span>
-                        </TD>
-                        <TD align="right">
-                          {lines.editable && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setRemoving(row)}
+                          </TD>
+                          <TD>
+                            <span className="flex flex-wrap gap-1.5">
+                              {chips.map((chip) => (
+                                <span key={chip.label} title={chip.why}>
+                                  <Badge
+                                    size="sm"
+                                    tone={chip.tone}
+                                    className="cursor-help"
+                                  >
+                                    {chip.label}
+                                  </Badge>
+                                </span>
+                              ))}
+                            </span>
+                          </TD>
+                          <TD align="right">
+                            <span
+                              className={cn(
+                                "tabular text-body-sm font-medium",
+                                allowance ? "text-ink" : "text-body",
+                              )}
                             >
-                              Stop it
-                            </Button>
+                              {allowance
+                                ? signedMoney(row.resolvedKobo)
+                                : signedMoney(-row.resolvedKobo)}
+                            </span>
+                          </TD>
+                          <TD align="right">
+                            {lines.editable && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setRemoving(row)}
+                              >
+                                Stop it
+                              </Button>
+                            )}
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
+                {assignments.map((row) => {
+                  const chips = flagChips(row, settings.pension);
+                  const allowance = row.kind === "ALLOWANCE";
+                  return (
+                    <li key={row.id} className="flex flex-col gap-2 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-body-sm font-medium text-ink">
+                            {row.name}
+                          </p>
+                          <p className="mt-0.5 text-meta text-muted">
+                            {row.effectiveTo
+                              ? `${shortDate(row.effectiveFrom)} to ${shortDate(row.effectiveTo)}`
+                              : `From ${shortDate(row.effectiveFrom)}, every month`}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "tabular text-body-sm font-medium",
+                            allowance ? "text-ink" : "text-body",
                           )}
-                        </TD>
-                      </TR>
-                    );
-                  })}
-                </TBody>
-              </TableWrap>
-            </div>
-
-            <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
-              {assignments.map((row) => {
-                const chips = flagChips(row, settings.pension);
-                const allowance = row.kind === "ALLOWANCE";
-                return (
-                  <li key={row.id} className="flex flex-col gap-2 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-body-sm font-medium text-ink">
-                          {row.name}
-                        </p>
-                        <p className="mt-0.5 text-meta text-muted">
-                          {row.effectiveTo
-                            ? `${shortDate(row.effectiveFrom)} to ${shortDate(row.effectiveTo)}`
-                            : `From ${shortDate(row.effectiveFrom)}, every month`}
-                        </p>
-                      </div>
-                      <span
-                        className={cn(
-                          "tabular text-body-sm font-medium",
-                          allowance ? "text-ink" : "text-body",
-                        )}
-                      >
-                        {allowance
-                          ? signedMoney(row.resolvedKobo)
-                          : signedMoney(-row.resolvedKobo)}
-                      </span>
-                    </div>
-
-                    <p className="text-body-sm text-body">
-                      {assignmentLine(row)}
-                    </p>
-                    {row.note && (
-                      <p className="text-meta text-muted">{row.note}</p>
-                    )}
-
-                    <div className="flex flex-wrap gap-1.5">
-                      {chips.map((chip) => (
-                        <span key={chip.label} title={chip.why}>
-                          <Badge
-                            size="sm"
-                            tone={chip.tone}
-                            className="cursor-help"
-                          >
-                            {chip.label}
-                          </Badge>
+                        >
+                          {allowance
+                            ? signedMoney(row.resolvedKobo)
+                            : signedMoney(-row.resolvedKobo)}
                         </span>
-                      ))}
-                    </div>
+                      </div>
 
-                    {lines.editable && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="self-start"
-                        onClick={() => setRemoving(row)}
-                      >
-                        Stop it
-                      </Button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        )}
+                      <p className="text-body-sm text-body">
+                        {assignmentLine(row)}
+                      </p>
+                      {row.note && (
+                        <p className="text-meta text-muted">{row.note}</p>
+                      )}
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {chips.map((chip) => (
+                          <span key={chip.label} title={chip.why}>
+                            <Badge
+                              size="sm"
+                              tone={chip.tone}
+                              className="cursor-help"
+                            >
+                              {chip.label}
+                            </Badge>
+                          </span>
+                        ))}
+                      </div>
+
+                      {lines.editable && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="self-start"
+                          onClick={() => setRemoving(row)}
+                        >
+                          Stop it
+                        </Button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </LoadState>
       </CardBody>
 
       <AddLineDialog

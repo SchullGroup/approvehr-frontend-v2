@@ -40,6 +40,7 @@ import {
   useToast,
   ToggleFilter,
   RowActions,
+  LoadState,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
@@ -104,6 +105,9 @@ export function GradesPanel() {
     pageSize: 100,
   });
   const totals = useGradeTotals(grades.rows);
+  /* The four figures total what the read returned: nothing, both before it
+     answers and after it fails. A dash, not a 0 and not ₦0.00. */
+  const gradesReady = !grades.loading && !grades.error;
   const increase = useGradeIncrease();
   const toast = useToast();
 
@@ -153,40 +157,36 @@ export function GradesPanel() {
         </Callout>
       )}
 
-      {grades.error && (
-        <LoadFailure
-          subject="the salary bands"
-          error={grades.error}
-          onRetry={grades.reload}
-        />
-      )}
-
       <StatGrid>
         <Stat
           label="Salary grades"
-          value={String(totals.grades)}
+          value={gradesReady ? String(totals.grades) : "—"}
           hint="on the ladder"
         />
         <Stat
           label="People on a grade"
-          value={String(totals.employees)}
+          value={gradesReady ? String(totals.employees) : "—"}
           hint="active records"
         />
         <Stat
           label="Monthly cost"
           value={
-            <Money
-              amount={naira(totals.monthlyPayrollKobo)}
-              decimals
-              size="xl"
-            />
+            gradesReady ? (
+              <Money
+                amount={naira(totals.monthlyPayrollKobo)}
+                decimals
+                size="xl"
+              />
+            ) : (
+              "—"
+            )
           }
           hint="gross, before employer pension"
         />
         <Stat
           label="Outside their band"
-          value={String(totals.outsideBand)}
-          {...(totals.outsideBand > 0
+          value={gradesReady ? String(totals.outsideBand) : "—"}
+          {...(gradesReady && totals.outsideBand > 0
             ? { trend: { direction: "down" as const, label: "Worth a look" } }
             : {})}
           hint={totals.outsideBand === 1 ? "one person" : "people"}
@@ -233,96 +233,97 @@ export function GradesPanel() {
             />
           </div>
 
-          {grades.rows.length === 0 ? (
-            <EmptyState
-              compact
-              icon={<Layers aria-hidden="true" />}
-              title={
-                grades.loading
-                  ? "Loading…"
-                  : search
-                    ? "Nothing matches that"
-                    : "No grades yet"
-              }
-              description={
-                grades.loading
-                  ? undefined
-                  : search
+          <LoadState
+            loading={grades.loading}
+            error={grades.error}
+            subject="the salary bands"
+            onRetry={grades.reload}
+            hasData={grades.rows.length > 0}
+            skeleton="table"
+          >
+            {grades.rows.length === 0 ? (
+              <EmptyState
+                compact
+                icon={<Layers aria-hidden="true" />}
+                title={search ? "Nothing matches that" : "No grades yet"}
+                description={
+                  search
                     ? "Try a different code or name."
                     : "A grade is a band around a monthly gross. Add one and you can raise everybody on it at once."
-              }
-              action={
-                !grades.loading && !search && grades.editable ? (
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    onClick={() => setCreating(true)}
-                  >
-                    <Plus aria-hidden="true" className="size-4" />
-                    Add the first grade
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <>
-              <div className="hidden sm:block">
-                <TableWrap caption="Salary grades, ordered by level">
-                  <THead>
-                    <TH className="w-16">Level</TH>
-                    <TH>Grade</TH>
-                    <TH>Band a month</TH>
-                    <TH align="right">People</TH>
-                    <TH align="right">Monthly cost</TH>
-                    <TH>
-                      <span className="sr-only-focusable">Actions</span>
-                    </TH>
-                  </THead>
-                  <TBody>
-                    {grades.rows.map((row) => (
-                      <GradeRow
-                        key={row.id}
-                        row={row}
-                        editable={grades.editable}
-                        canApply={increase.canApply}
-                        onView={() => setViewing(row)}
-                        onRaise={() => setRaising(row)}
-                        onEdit={() => setEditing(row)}
-                        onArchive={() => setArchiving(row)}
-                        onRestore={() =>
-                          void run(
-                            () => grades.restore(row.id),
-                            `${row.code} is back on the ladder`,
-                          )
-                        }
-                      />
-                    ))}
-                  </TBody>
-                </TableWrap>
-              </div>
+                }
+                action={
+                  !search && grades.editable ? (
+                    <Button
+                      variant="accent"
+                      size="sm"
+                      onClick={() => setCreating(true)}
+                    >
+                      <Plus aria-hidden="true" className="size-4" />
+                      Add the first grade
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap caption="Salary grades, ordered by level">
+                    <THead>
+                      <TH className="w-16">Level</TH>
+                      <TH>Grade</TH>
+                      <TH>Band a month</TH>
+                      <TH align="right">People</TH>
+                      <TH align="right">Monthly cost</TH>
+                      <TH>
+                        <span className="sr-only-focusable">Actions</span>
+                      </TH>
+                    </THead>
+                    <TBody>
+                      {grades.rows.map((row) => (
+                        <GradeRow
+                          key={row.id}
+                          row={row}
+                          editable={grades.editable}
+                          canApply={increase.canApply}
+                          onView={() => setViewing(row)}
+                          onRaise={() => setRaising(row)}
+                          onEdit={() => setEditing(row)}
+                          onArchive={() => setArchiving(row)}
+                          onRestore={() =>
+                            void run(
+                              () => grades.restore(row.id),
+                              `${row.code} is back on the ladder`,
+                            )
+                          }
+                        />
+                      ))}
+                    </TBody>
+                  </TableWrap>
+                </div>
 
-              <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
-                {grades.rows.map((row) => (
-                  <GradeCard
-                    key={row.id}
-                    row={row}
-                    editable={grades.editable}
-                    canApply={increase.canApply}
-                    onView={() => setViewing(row)}
-                    onRaise={() => setRaising(row)}
-                    onEdit={() => setEditing(row)}
-                    onArchive={() => setArchiving(row)}
-                    onRestore={() =>
-                      void run(
-                        () => grades.restore(row.id),
-                        `${row.code} is back on the ladder`,
-                      )
-                    }
-                  />
-                ))}
-              </ul>
-            </>
-          )}
+                <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
+                  {grades.rows.map((row) => (
+                    <GradeCard
+                      key={row.id}
+                      row={row}
+                      editable={grades.editable}
+                      canApply={increase.canApply}
+                      onView={() => setViewing(row)}
+                      onRaise={() => setRaising(row)}
+                      onEdit={() => setEditing(row)}
+                      onArchive={() => setArchiving(row)}
+                      onRestore={() =>
+                        void run(
+                          () => grades.restore(row.id),
+                          `${row.code} is back on the ladder`,
+                        )
+                      }
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+          </LoadState>
         </CardBody>
       </Card>
 
