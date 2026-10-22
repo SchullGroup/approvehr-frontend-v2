@@ -301,6 +301,19 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(function Switch(
             "peer-checked:translate-x-5",
           )}
         />
+        {/* The track is 44 by 24, and a thumb has to land on 24 of those 44
+            pixels' height. On a phone the same switch gets a transparent label
+            over it that reaches 44 each way: nothing moves on screen, and a
+            toggle stops being something to aim at. A label rather than a taller
+            input, because the input is the visible track. Phones only — with a
+            pointer the 24px is fine, and this would overlap the row above. */}
+        {!disabled && (
+          <label
+            htmlFor={id}
+            aria-hidden="true"
+            className="absolute -inset-x-1 -inset-y-2.5 sm:hidden"
+          />
+        )}
       </span>
     </div>
   );
