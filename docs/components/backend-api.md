@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-backend` · _Generated from_ `src/**/*.ts` (tests excluded)
 
-_Snapshot:_ `origin/staging` at `d1e5a3e` (2026-10-21) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ `origin/staging` at `08c78d6` (2026-10-21) · regenerate with `npm run docs`, never by hand
 
 This platform has no pages. It is Express 5 + Prisma, arranged as one folder per module, each with the
 same three files: `router.ts` (the HTTP surface), `schemas.ts` (what a request may contain) and
@@ -13,25 +13,27 @@ Constants and types are counted rather than listed. Endpoint paths below are the
 
 | Module                                                                              |   Files | Exported functions | Endpoints |
 | ----------------------------------------------------------------------------------- | ------: | -----------------: | --------: |
-| [`src/modules/admin`](#srcmodulesadmin)                                             |       6 |                 22 |        31 |
-| [`src/modules/advances`](#srcmodulesadvances)                                       |       3 |                 12 |         9 |
+| [`src/modules/admin`](#srcmodulesadmin)                                             |       6 |                 22 |        36 |
+| [`src/modules/advances`](#srcmodulesadvances)                                       |       3 |                 14 |         9 |
 | [`src/modules/ai`](#srcmodulesai)                                                   |      10 |                 20 |         9 |
 | [`src/modules/ai2`](#srcmodulesai2)                                                 |       7 |                 19 |         4 |
-| [`src/modules/announcements`](#srcmodulesannouncements)                             |       3 |                  8 |         8 |
+| [`src/modules/announcements`](#srcmodulesannouncements)                             |       4 |                 16 |        10 |
 | [`src/modules/approvals`](#srcmodulesapprovals)                                     |       5 |                 13 |        10 |
 | [`src/modules/assets`](#srcmodulesassets)                                           |       3 |                 24 |        22 |
-| [`src/modules/attendance`](#srcmodulesattendance)                                   |      12 |                 55 |        28 |
+| [`src/modules/attendance`](#srcmodulesattendance)                                   |      22 |                 81 |        31 |
 | [`src/modules/audit`](#srcmodulesaudit)                                             |       6 |                 14 |         5 |
 | [`src/modules/auth`](#srcmodulesauth)                                               |       7 |                 44 |        21 |
 | [`src/modules/benefits`](#srcmodulesbenefits)                                       |       3 |                  8 |         8 |
 | [`src/modules/billing`](#srcmodulesbilling)                                         |       7 |                 29 |         4 |
-| [`src/modules/careers`](#srcmodulescareers)                                         |      17 |                 96 |        43 |
+| [`src/modules/careers`](#srcmodulescareers)                                         |      18 |                 99 |        43 |
 | [`src/modules/company`](#srcmodulescompany)                                         |       3 |                  8 |         9 |
 | [`src/modules/conduct`](#srcmodulesconduct)                                         |       3 |                 14 |        14 |
+| [`src/modules/delivery-report`](#srcmodulesdelivery-report)                         |       3 |                  1 |         1 |
 | [`src/modules/demo-requests`](#srcmodulesdemo-requests)                             |       3 |                  1 |         1 |
 | [`src/modules/departments`](#srcmodulesdepartments)                                 |       3 |                  8 |         9 |
 | [`src/modules/documents`](#srcmodulesdocuments)                                     |       3 |                 14 |        15 |
 | [`src/modules/employees`](#srcmodulesemployees)                                     |       8 |                 45 |        20 |
+| [`src/modules/engagement`](#srcmodulesengagement)                                   |       5 |                  4 |         1 |
 | [`src/modules/exports`](#srcmodulesexports)                                         |       2 |                  4 |         3 |
 | [`src/modules/grades`](#srcmodulesgrades)                                           |       3 |                 10 |         9 |
 | [`src/modules/helpdesk`](#srcmoduleshelpdesk)                                       |       5 |                 33 |        18 |
@@ -42,6 +44,7 @@ Constants and types are counted rather than listed. Endpoint paths below are the
 | [`src/modules/knowledge`](#srcmodulesknowledge)                                     |       5 |                 26 |        16 |
 | [`src/modules/leave`](#srcmodulesleave)                                             |      12 |                 54 |        17 |
 | [`src/modules/loans`](#srcmodulesloans)                                             |       3 |                 16 |        10 |
+| [`src/modules/me`](#srcmodulesme)                                                   |      14 |                  3 |         2 |
 | [`src/modules/notifications`](#srcmodulesnotifications)                             |       3 |                  7 |         5 |
 | [`src/modules/offboarding`](#srcmodulesoffboarding)                                 |       4 |                 22 |        19 |
 | [`src/modules/onboarding`](#srcmodulesonboarding)                                   |       4 |                 17 |        13 |
@@ -49,8 +52,9 @@ Constants and types are counted rather than listed. Endpoint paths below are the
 | [`src/modules/overtime`](#srcmodulesovertime)                                       |       3 |                 10 |         6 |
 | [`src/modules/pay-components`](#srcmodulespay-components)                           |       3 |                 19 |        12 |
 | [`src/modules/payments`](#srcmodulespayments)                                       |      22 |                 69 |        24 |
-| [`src/modules/payroll`](#srcmodulespayroll)                                         |      16 |                 70 |        34 |
-| [`src/modules/performance`](#srcmodulesperformance)                                 |       9 |                137 |        93 |
+| [`src/modules/payroll`](#srcmodulespayroll)                                         |      17 |                 71 |        34 |
+| [`src/modules/pension-top-up`](#srcmodulespension-top-up)                           |       4 |                  8 |         7 |
+| [`src/modules/performance`](#srcmodulesperformance)                                 |       9 |                142 |        95 |
 | [`src/modules/permissions`](#srcmodulespermissions)                                 |       3 |                 23 |        11 |
 | [`src/modules/projects`](#srcmodulesprojects)                                       |      11 |                 50 |        23 |
 | [`src/modules/push`](#srcmodulespush)                                               |       2 |                  3 |         4 |
@@ -61,12 +65,14 @@ Constants and types are counted rather than listed. Endpoint paths below are the
 | [`src/modules/setup`](#srcmodulessetup)                                             |       4 |                  8 |         7 |
 | [`src/modules/shifts`](#srcmodulesshifts)                                           |       3 |                 21 |        18 |
 | [`src/modules/signatures`](#srcmodulessignatures)                                   |       4 |                 12 |         9 |
+| [`src/modules/sms`](#srcmodulessms)                                                 |      20 |                 60 |        10 |
 | [`src/modules/surveys`](#srcmodulessurveys)                                         |       3 |                 12 |        11 |
 | [`src/modules/teams`](#srcmodulesteams)                                             |       3 |                  9 |         8 |
 | [`src/modules/webhooks`](#srcmoduleswebhooks)                                       |       8 |                 35 |        10 |
+| [`src/modules/wellness`](#srcmoduleswellness)                                       |      13 |                 57 |        30 |
 | [`src/modules/work-trackers`](#srcmoduleswork-trackers)                             |      13 |                 46 |        19 |
-| [Shared — everything outside `src/modules`](#shared--everything-outside-srcmodules) |      32 |                104 |         — |
-| **Total**                                                                           | **390** |           **1760** |   **858** |
+| [Shared — everything outside `src/modules`](#shared--everything-outside-srcmodules) |      32 |                103 |         — |
+| **Total**                                                                           | **462** |           **1937** |   **921** |
 
 ---
 
@@ -81,7 +87,7 @@ Constants and types are counted rather than listed. Endpoint paths below are the
 | `src/modules/admin/router.ts`       | —                                                                                                                                                                                        | 1 const           |
 | `src/modules/admin/service.ts`      | `encodeKey`, `decodeKey`, `coerceValue`, `displayValue`, `buildWriteData`, `toUniqueWhere`, `searchableFields`, `list`, `get`, `create`, `update`, `archiveOrDelete`, `recordAdminAudit` | —                 |
 
-**Endpoints — 31**
+**Endpoints — 36**
 
 | Method | Path                                               |
 | ------ | -------------------------------------------------- |
@@ -91,11 +97,16 @@ Constants and types are counted rather than listed. Endpoint paths below are the
 | `POST` | `/admin/logout`                                    |
 | `GET`  | `/admin/logout-form`                               |
 | `GET`  | `/admin/`                                          |
+| `GET`  | `/admin/tuya-devices`                              |
+| `POST` | `/admin/tuya-devices/:tuyaId/assign`               |
+| `POST` | `/admin/tuya-devices/:tuyaId/unassign`             |
 | `GET`  | `/admin/payments`                                  |
 | `GET`  | `/admin/payments/:id/wallet`                       |
 | `POST` | `/admin/payments/:id/provider`                     |
 | `POST` | `/admin/payments/:id/reserved-account`             |
 | `POST` | `/admin/payments/:id/reserved-account/9japay`      |
+| `GET`  | `/admin/early-pay`                                 |
+| `POST` | `/admin/early-pay/:id`                             |
 | `GET`  | `/admin/billing`                                   |
 | `POST` | `/admin/billing/enforcement`                       |
 | `POST` | `/admin/billing/start-trials`                      |
@@ -121,11 +132,11 @@ Constants and types are counted rather than listed. Endpoint paths below are the
 
 ## `src/modules/advances`
 
-| File                              | Exported functions                                                                                                                             | Also              |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `src/modules/advances/router.ts`  | —                                                                                                                                              | 1 const           |
-| `src/modules/advances/schemas.ts` | —                                                                                                                                              | 5 const · 2 types |
-| `src/modules/advances/service.ts` | `policy`, `setPolicy`, `eligibility`, `list`, `get`, `request`, `approve`, `decline`, `cancel`, `markPaid`, `dueAdvancesFor`, `recordRecovery` | 2 const · 5 types |
+| File                              | Exported functions                                                                                                                                                                              | Also              |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `src/modules/advances/router.ts`  | —                                                                                                                                                                                               | 1 const           |
+| `src/modules/advances/schemas.ts` | —                                                                                                                                                                                               | 5 const · 2 types |
+| `src/modules/advances/service.ts` | `platformAllows`, `policy`, `setPolicy`, `eligibility`, `list`, `get`, `request`, `approve`, `decline`, `cancel`, `markPaid`, `dueAdvancesFor`, `assertPayslipsMatchAdvances`, `recordRecovery` | 4 const · 5 types |
 
 **Endpoints — 9**
 
@@ -203,17 +214,20 @@ Read-only questions about the company's own records, answered by Gemini with eve
 
 ## `src/modules/announcements`
 
-| File                                   | Exported functions                                                              | Also              |
-| -------------------------------------- | ------------------------------------------------------------------------------- | ----------------- |
-| `src/modules/announcements/router.ts`  | —                                                                               | 1 const           |
-| `src/modules/announcements/schemas.ts` | —                                                                               | 3 const · 3 types |
-| `src/modules/announcements/service.ts` | `list`, `get`, `boardFor`, `create`, `update`, `publish`, `unpublish`, `remove` | 1 const · 5 types |
+| File                                   | Exported functions                                                                                                                                       | Also              |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `src/modules/announcements/reads.ts`   | `markRead`, `readersOf`, `todayNotices`                                                                                                                  | 1 const · 3 types |
+| `src/modules/announcements/router.ts`  | —                                                                                                                                                        | 1 const           |
+| `src/modules/announcements/schemas.ts` | —                                                                                                                                                        | 4 const · 4 types |
+| `src/modules/announcements/service.ts` | `startOfDay`, `namesFor`, `list`, `get`, `boardFor`, `visibleWhere`, `toBoardNotice`, `create`, `update`, `publish`, `unpublish`, `remove`, `reachWhere` | 2 const · 6 types |
 
-**Endpoints — 8**
+**Endpoints — 10**
 
 | Method   | Path                           |
 | -------- | ------------------------------ |
 | `GET`    | `/announcements/board`         |
+| `POST`   | `/announcements/:id/read`      |
+| `GET`    | `/announcements/:id/readers`   |
 | `GET`    | `/announcements/`              |
 | `GET`    | `/announcements/:id`           |
 | `POST`   | `/announcements/`              |
@@ -290,22 +304,32 @@ Read-only questions about the company's own records, answered by Gemini with eve
 
 ## `src/modules/attendance`
 
-| File                                                | Exported functions                                                                                                                                                                                                                         | Also                |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
-| `src/modules/attendance/auto-checkout-scheduler.ts` | `sweepAutoCheckouts`, `startAutoCheckoutScheduler`, `stopAutoCheckoutScheduler`                                                                                                                                                            | 1 type              |
-| `src/modules/attendance/corrections.ts`             | `requestCorrection`, `decideCorrection`, `myCorrections`                                                                                                                                                                                   | —                   |
-| `src/modules/attendance/day-status.ts`              | `minutesOf`, `isoWeekday`, `lateAfterMinutes`, `earlyBeforeMinutes`, `dayKind`, `resolveDayStatus`, `employedOn`, `employedWithin`, `wasEmployedOn`                                                                                        | 1 const · 3 types   |
-| `src/modules/attendance/devices.ts`                 | `requireDevice`, `listDevices`, `getDevice`, `createDevice`, `updateDevice`, `archiveDevice`, `restoreDevice`, `rotateSecret`, `listEnrolments`, `mapEnrolment`, `unmapEnrolment`, `deviceBySerialForIngestion`, `dbForDevice`, `markSeen` | 4 types             |
-| `src/modules/attendance/geofence.ts`                | `distanceMetres`, `describeDistance`, `judgeFence`                                                                                                                                                                                         | 1 const · 4 types   |
-| `src/modules/attendance/ingest.ts`                  | —                                                                                                                                                                                                                                          | 3 const             |
-| `src/modules/attendance/locations.ts`               | `list`, `update`, `restore`                                                                                                                                                                                                                | 1 type              |
-| `src/modules/attendance/punches.ts`                 | `recordPunches`, `interpretDay`, `attributeBacklog`                                                                                                                                                                                        | 2 types             |
-| `src/modules/attendance/router.ts`                  | —                                                                                                                                                                                                                                          | 1 const             |
-| `src/modules/attendance/schemas.ts`                 | —                                                                                                                                                                                                                                          | 17 const · 14 types |
-| `src/modules/attendance/service.ts`                 | `timeOf`, `timezoneOf`, `hasDirectReports`, `getPolicy`, `updatePolicy`, `roster`, `timesheet`, `history`, `clockIn`, `reopenClockOut`, `clockOut`, `autoCloseAbandoned`, `correct`, `createLocation`, `archiveLocation`, `listLocations`  | 1 const · 3 types   |
-| `src/modules/attendance/summary.ts`                 | `monthSummary`                                                                                                                                                                                                                             | 2 types             |
+| File                                                | Exported functions                                                                                                                                                                                                                                         | Also                |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `src/modules/attendance/after-hours.ts`             | `listAfterHours`, `dismissAfterHours`, `countAfterHours`                                                                                                                                                                                                   | 1 type              |
+| `src/modules/attendance/auto-checkout-scheduler.ts` | `sweepAutoCheckouts`, `startAutoCheckoutScheduler`, `stopAutoCheckoutScheduler`                                                                                                                                                                            | 1 type              |
+| `src/modules/attendance/closing-scheduler.ts`       | `sweepClosing`, `startClosingScheduler`, `stopClosingScheduler`                                                                                                                                                                                            | 1 type              |
+| `src/modules/attendance/closing.ts`                 | `closeEntryOnlyDays`                                                                                                                                                                                                                                       | —                   |
+| `src/modules/attendance/corrections.ts`             | `requestCorrection`, `decideCorrection`, `myCorrections`                                                                                                                                                                                                   | —                   |
+| `src/modules/attendance/day-status.ts`              | `minutesOf`, `isoWeekday`, `lateAfterMinutes`, `earlyBeforeMinutes`, `dayKind`, `resolveDayStatus`, `employedOn`, `employedWithin`, `wasEmployedOn`                                                                                                        | 1 const · 3 types   |
+| `src/modules/attendance/devices.ts`                 | `requireDevice`, `listDevices`, `getDevice`, `createDevice`, `updateDevice`, `archiveDevice`, `restoreDevice`, `rotateSecret`, `listEnrolments`, `listUnmapped`, `mapEnrolment`, `unmapEnrolment`, `deviceBySerialForIngestion`, `dbForDevice`, `markSeen` | 5 types             |
+| `src/modules/attendance/geofence.ts`                | `distanceMetres`, `describeDistance`, `judgeFence`                                                                                                                                                                                                         | 1 const · 4 types   |
+| `src/modules/attendance/ingest.ts`                  | —                                                                                                                                                                                                                                                          | 3 const             |
+| `src/modules/attendance/locations.ts`               | `list`, `update`, `restore`                                                                                                                                                                                                                                | 1 type              |
+| `src/modules/attendance/punches.ts`                 | `recordPunches`, `interpretDay`, `attributeBacklog`                                                                                                                                                                                                        | 2 const · 2 types   |
+| `src/modules/attendance/router.ts`                  | —                                                                                                                                                                                                                                                          | 1 const             |
+| `src/modules/attendance/schemas.ts`                 | —                                                                                                                                                                                                                                                          | 20 const · 15 types |
+| `src/modules/attendance/service.ts`                 | `timeOf`, `timezoneOf`, `hasDirectReports`, `getPolicy`, `updatePolicy`, `roster`, `timesheet`, `history`, `clockIn`, `reopenClockOut`, `clockOut`, `autoCloseAbandoned`, `correct`, `createLocation`, `archiveLocation`, `listLocations`                  | 1 const · 3 types   |
+| `src/modules/attendance/summary.ts`                 | `monthSummary`                                                                                                                                                                                                                                             | 2 types             |
+| `src/modules/attendance/tuya/client.ts`             | `resetTuyaTokenCache`, `createTuyaClient`, `tuyaIsConfigured`, `tuyaClient`                                                                                                                                                                                | 1 const · 5 types   |
+| `src/modules/attendance/tuya/constants.ts`          | —                                                                                                                                                                                                                                                          | 2 const             |
+| `src/modules/attendance/tuya/fake.ts`               | `setFakeTuyaDevices`, `setFakeTuyaRecords`, `resetFakeTuya`, `setTuyaClientForTests`, `setTuyaUnconfiguredForTests`, `tuyaForcedUnconfigured`, `tuyaOverride`                                                                                              | 1 const             |
+| `src/modules/attendance/tuya/records.ts`            | `toPunches`                                                                                                                                                                                                                                                | —                   |
+| `src/modules/attendance/tuya/sync-scheduler.ts`     | `startTuyaSyncScheduler`, `stopTuyaSyncScheduler`                                                                                                                                                                                                          | —                   |
+| `src/modules/attendance/tuya/sync.ts`               | `syncTuyaDevice`, `sweepTuya`                                                                                                                                                                                                                              | 1 type              |
+| `src/modules/attendance/working-day.ts`             | `closingInstant`, `isNonWorkingDay`                                                                                                                                                                                                                        | —                   |
 
-**Endpoints — 28**
+**Endpoints — 31**
 
 | Method   | Path                                           |
 | -------- | ---------------------------------------------- |
@@ -327,6 +351,9 @@ Read-only questions about the company's own records, answered by Gemini with eve
 | `POST`   | `/attendance/clock-out`                        |
 | `POST`   | `/attendance/clock-out/undo`                   |
 | `PATCH`  | `/attendance/entries/:employeeId/:date`        |
+| `GET`    | `/attendance/after-hours`                      |
+| `POST`   | `/attendance/after-hours/:id/dismiss`          |
+| `POST`   | `/attendance/after-hours/:id/count`            |
 | `GET`    | `/attendance/devices`                          |
 | `GET`    | `/attendance/devices/:id`                      |
 | `POST`   | `/attendance/devices`                          |
@@ -457,6 +484,7 @@ Plans, the company's subscription and checkout, and the paywall that refuses a m
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
 | `src/modules/careers/ack.ts`       | `pendingInlineAcknowledgements`, `flushInlineAcknowledgements`, `scheduleAcknowledgement`, `runAcknowledgement`, `sweepAcknowledgements`, `startAckScheduler`, `stopAckScheduler`, `startAckWorker`                                                                                        | 2 types                                                                         |
 | `src/modules/careers/captcha.ts`   | `useCaptchaFetch`, `captchaEnabled`, `verifyCaptcha`                                                                                                                                                                                                                                       | `CaptchaRequiredError`, `CaptchaFailedError`, `CaptchaUnavailableError` (class) |
+| `src/modules/careers/close.ts`     | `closeLivePostings`                                                                                                                                                                                                                                                                        | —                                                                               |
 | `src/modules/careers/cv.ts`        | `cvFolder`, `cvKeyBelongsTo`, `verifyCvKey`, `openCv`                                                                                                                                                                                                                                      | `StorageUnavailableError` (class) · 2 types                                     |
 | `src/modules/careers/digest.ts`    | `pendingInlineDigests`, `flushInlineDigests`, `scheduleDigest`, `runDigest`, `sweepDigests`, `startDigestScheduler`, `stopDigestScheduler`, `startDigestWorker`                                                                                                                            | 2 types                                                                         |
 | `src/modules/careers/form.ts`      | `formCatalogue`, `parseChoices`, `publicQuestion`, `getForm`, `choicesJson`, `putForm`, `parseScreening`, `copyScreeningQuestions`, `loadApplyForm`, `countWords`, `checkApplication`                                                                                                      | 3 const · 9 types                                                               |
@@ -471,7 +499,7 @@ Plans, the company's subscription and checkout, and the paywall that refuses a m
 | `src/modules/careers/service.ts`   | `isOpen`, `answerText`, `listPostings`, `getPosting`, `createPosting`, `updatePosting`, `publishPosting`, `closePosting`, `listApplications`, `getApplication`, `openApplicationCv`, `shareLinksFor`, `openApplicationAnswerFile`, `exportApplications`, `advance`, `decline`, `analytics` | 1 const · 2 types                                                               |
 | `src/modules/careers/settings.ts`  | `loadSettings`, `brandName`, `defaultNoticeText`, `effectiveNotice`, `updateSettings`, `remindersView`, `organisationOf`, `logoUrlFor`, `ackBlockers`, `candidateEmailBlockers`, `getSettingsView`                                                                                         | 4 const · 3 types                                                               |
 | `src/modules/careers/share.ts`     | `careersBaseUrl`, `buildShareLinks`                                                                                                                                                                                                                                                        | 1 type                                                                          |
-| `src/modules/careers/storage.ts`   | `useCvStore`, `cvStoreWired`, `cvSummary`                                                                                                                                                                                                                                                  | 1 const · 3 types                                                               |
+| `src/modules/careers/storage.ts`   | `useCvStore`, `cvStoreWired`, `warnIfNoCvStore`, `warnCvUnavailable`, `cvSummary`                                                                                                                                                                                                          | 1 const · 3 types                                                               |
 
 **Endpoints — 43**
 
@@ -573,6 +601,22 @@ Plans, the company's subscription and checkout, and the paywall that refuses a m
 | `PATCH` | `/conduct/actions/:id`                   |
 | `GET`   | `/conduct/employees/:id/actions`         |
 | `POST`  | `/conduct/actions/:id/acknowledge`       |
+
+---
+
+## `src/modules/delivery-report`
+
+| File                                     | Exported functions | Also             |
+| ---------------------------------------- | ------------------ | ---------------- |
+| `src/modules/delivery-report/router.ts`  | —                  | 1 const          |
+| `src/modules/delivery-report/schemas.ts` | —                  | 1 const · 1 type |
+| `src/modules/delivery-report/service.ts` | `deliveryReport`   | —                |
+
+**Endpoints — 1**
+
+| Method | Path                |
+| ------ | ------------------- |
+| `GET`  | `/delivery-report/` |
 
 ---
 
@@ -687,6 +731,24 @@ The staff record, the reporting line and the directory.
 | `GET`    | `/employees/employment-changes/:id`          |
 | `POST`   | `/employees/employment-changes/:id/decision` |
 | `POST`   | `/employees/employment-changes/:id/cancel`   |
+
+---
+
+## `src/modules/engagement`
+
+| File                                 | Exported functions          | Also             |
+| ------------------------------------ | --------------------------- | ---------------- |
+| `src/modules/engagement/app-open.ts` | `recordAppOpen`             | —                |
+| `src/modules/engagement/floor.ts`    | `aggregateFloor`            | —                |
+| `src/modules/engagement/router.ts`   | —                           | 1 const          |
+| `src/modules/engagement/schemas.ts`  | —                           | 1 const · 1 type |
+| `src/modules/engagement/weekly.ts`   | `summarise`, `weeklyActive` | 2 types          |
+
+**Endpoints — 1**
+
+| Method | Path                        |
+| ------ | --------------------------- |
+| `GET`  | `/engagement/weekly-active` |
 
 ---
 
@@ -987,6 +1049,34 @@ The catalogue of the company's job roles, with a target level per competency for
 
 ---
 
+## `src/modules/me`
+
+| File                                       | Exported functions | Also               |
+| ------------------------------------------ | ------------------ | ------------------ |
+| `src/modules/me/context.ts`                | `makeContext`      | 1 type             |
+| `src/modules/me/router.ts`                 | —                  | 1 const            |
+| `src/modules/me/schemas.ts`                | —                  | 1 const · 1 type   |
+| `src/modules/me/sections/advance.ts`       | —                  | 1 const            |
+| `src/modules/me/sections/announcements.ts` | —                  | 1 const            |
+| `src/modules/me/sections/clock-in.ts`      | —                  | 1 const            |
+| `src/modules/me/sections/index.ts`         | —                  | 1 const            |
+| `src/modules/me/sections/leave.ts`         | —                  | 1 const            |
+| `src/modules/me/sections/one-on-one.ts`    | —                  | 1 const            |
+| `src/modules/me/sections/pay.ts`           | —                  | 1 const            |
+| `src/modules/me/sections/policies.ts`      | —                  | 1 const            |
+| `src/modules/me/sections/tasks.ts`         | —                  | 1 const            |
+| `src/modules/me/today.ts`                  | `buildToday`       | 1 const · 2 types  |
+| `src/modules/me/types.ts`                  | `unavailable`      | 1 const · 13 types |
+
+**Endpoints — 2**
+
+| Method | Path           |
+| ------ | -------------- |
+| `GET`  | `/me/today`    |
+| `POST` | `/me/app-open` |
+
+---
+
 ## `src/modules/notifications`
 
 In-app messages. Nothing here sends email.
@@ -1228,6 +1318,7 @@ The statutory engine, the run lifecycle, exclusions, hand adjustments and the re
 | `src/modules/payroll/service.ts`           | `prepare`, `excludeFromRun`, `putBackOnRun`, `setTaxOverride`, `clearTaxOverride`, `setDeductionOverride`, `clearDeductionOverride`, `approve`, `detail`, `payslips`, `assertRegisterWithinCap`, `bankRegister`, `payslipsForEmployee`, `payslipById`, `list`, `cancel`, `preview`, `quotePure`, `quote`, `settings`, `updateSettings`, `setOvertimeOverride`, `clearOvertimeOverride`, `setMonthlyPay`, `setBonus`, `linesFor`, `lineSummaryForRun`, `setLines`, `clearBonus` | 1 const · 9 types   |
 | `src/modules/payroll/statutory.ts`         | `dueDateFor`, `schedulesFor`, `writeSchedules`, `schedulesForRun`, `markFiled`, `scheduleFile`                                                                                                                                                                                                                                                                                                                                                                                 | 4 const · 4 types   |
 | `src/modules/payroll/switches.ts`          | `bonusesOperated`, `assertBonusesOperated`, `assertOvertimeOperated`                                                                                                                                                                                                                                                                                                                                                                                                           | —                   |
+| `src/modules/payroll/top-up.ts`            | `computeWithTopUp`                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 4 const · 3 types   |
 | `src/modules/payroll/working.ts`           | `payeWorkingFor`, `pensionWorkingFor`, `nhfWorkingFor`, `rateSettingsFor`                                                                                                                                                                                                                                                                                                                                                                                                      | 2 types             |
 
 **Endpoints — 34**
@@ -1271,23 +1362,46 @@ The statutory engine, the run lifecycle, exclusions, hand adjustments and the re
 
 ---
 
+## `src/modules/pension-top-up`
+
+| File                                    | Exported functions                                                                                                | Also              |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `src/modules/pension-top-up/copy.ts`    | —                                                                                                                 | 3 const · 1 type  |
+| `src/modules/pension-top-up/router.ts`  | —                                                                                                                 | 1 const           |
+| `src/modules/pension-top-up/schemas.ts` | —                                                                                                                 | 4 const · 2 types |
+| `src/modules/pension-top-up/service.ts` | `topUpEnabled`, `settings`, `setEnabled`, `earliestOpenMonth`, `electionsFor`, `stateFor`, `elect`, `listCurrent` | 5 types           |
+
+**Endpoints — 7**
+
+| Method  | Path                                    |
+| ------- | --------------------------------------- |
+| `GET`   | `/pension-top-up/settings`              |
+| `PATCH` | `/pension-top-up/settings`              |
+| `GET`   | `/pension-top-up/me`                    |
+| `PUT`   | `/pension-top-up/me`                    |
+| `GET`   | `/pension-top-up/`                      |
+| `GET`   | `/pension-top-up/employees/:employeeId` |
+| `PUT`   | `/pension-top-up/employees/:employeeId` |
+
+---
+
 ## `src/modules/performance`
 
 Appraisal periods, objectives, competencies, scoring, sign-off and the nine-box.
 
-| File                                      | Exported functions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Also                |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| `src/modules/performance/fairness.ts`     | `wholeYears`, `groupOf`, `analyseFairness`, `analyseMoves`, `referenceDate`, `analyseManagers`, `weightsKey`, `earlierCycles`, `toFairnessPerson`, `cycleFairness`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 4 const · 3 types   |
-| `src/modules/performance/framework.ts`    | `seedAppraisalFramework`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 2 const · 1 type    |
-| `src/modules/performance/nine-box.ts`     | `nineBox`, `setPotential`, `clearPotential`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 10 const · 6 types  |
-| `src/modules/performance/reminders.ts`    | `sweepReminders`, `reminderSchedulerRunning`, `startReminderScheduler`, `stopReminderScheduler`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 1 type              |
-| `src/modules/performance/review-flags.ts` | `reviewFlags`, `reviewFlag`, `reviewNote`, `reviewBriefing`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 1 const · 5 types   |
-| `src/modules/performance/router.ts`       | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 1 const             |
-| `src/modules/performance/schemas.ts`      | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 43 const · 41 types |
-| `src/modules/performance/scoring.ts`      | `readRatingScale`, `saveRatingScale`, `ratingScale`, `formatBp`, `assertWeightsWhole`, `readWeights`, `saveWeights`, `captureScoringSnapshot`, `levelsFromSnapshot`, `weightsFromSnapshot`, `levelToBp`, `renormalise`, `bandFor`, `periodSubjectsWhere`, `scoreRegister`, `distributionOf`, `scoreHistory`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 13 const · 14 types |
-| `src/modules/performance/service.ts`      | `ledTeamOf`, `leadsWorkOf`, `assertSeesEmployee`, `keyResultPercent`, `keyResultMet`, `assertDirection`, `visibleGoals`, `assertSeesGoal`, `listGoals`, `myGoals`, `teamGoals`, `getGoal`, `mayRaiseForOthers`, `assertMayCreateGoal`, `createGoal`, `assignObjective`, `updateGoal`, `removeGoal`, `publishGoal`, `completeGoal`, `cancelGoal`, `submitObjective`, `agreeObjective`, `sendBackObjective`, `rejectObjective`, `reviseObjective`, `objectiveApprovalQueue`, `addKeyResult`, `updateKeyResult`, `recordProgress`, `weekStartOf`, `taskPeriodFor`, `submitTask`, `listTasks`, `gradeTask`, `taskCompletionRate`, `taskIntensityByDepartment`, `listTasksForGrading`, `listMyTasks`, `promotionReadiness`, `listSections`, `createSection`, `updateSection`, `deleteSection`, `listCompetencies`, `getCompetency`, `createCompetency`, `updateCompetency`, `archiveCompetency`, `rateCompetency`, `employeeCompetencies`, `competencyGaps`, `competencyHeatmap`, `listCycles`, `getCycle`, `addStandardQuestions`, `createCycle`, `updateCycle`, `removeCycle`, `activateCycle`, `closeCycle`, `cycleParticipants`, `remindCycle`, `listQuestions`, `addQuestion`, `addManagerQuestion`, `calibrateScore`, `clearCalibration`, `calibrationHistory`, `requestRevision`, `listRevisionRequests`, `copyQuestionsFrom`, `updateQuestion`, `removeQuestion`, `reorderQuestions`, `listReviews`, `getReview`, `myReviews`, `respond`, `evidenceContent`, `hrSignOffReview`, `submitReview`, `finaliseReview`, `acknowledgeReview`, `disputeReview`, `requestPeerReviews`, `appraiserMap`, `setAppraisers`, `autoAssignFromReportingLine`, `appraisersOf`, `ratingScaleFor`, `setRatingScale`, `scoringWeights`, `setScoringWeights`, `cycleScores`, `employeeScore`, `cycleReport`, `employeeScoreHistory` | 5 const · 16 types  |
+| File                                      | Exported functions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Also                |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
+| `src/modules/performance/fairness.ts`     | `wholeYears`, `groupOf`, `analyseFairness`, `analyseMoves`, `referenceDate`, `analyseManagers`, `weightsKey`, `earlierCycles`, `toFairnessPerson`, `cycleFairness`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | 4 const · 3 types   |
+| `src/modules/performance/framework.ts`    | `seedAppraisalFramework`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 2 const · 1 type    |
+| `src/modules/performance/nine-box.ts`     | `nineBox`, `setPotential`, `clearPotential`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 10 const · 6 types  |
+| `src/modules/performance/reminders.ts`    | `sweepReminders`, `reminderSchedulerRunning`, `startReminderScheduler`, `stopReminderScheduler`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | 1 type              |
+| `src/modules/performance/review-flags.ts` | `reviewFlags`, `reviewFlag`, `reviewNote`, `reviewBriefing`, `markStands`, `reopenFlag`, `publishBlocker`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 1 const · 6 types   |
+| `src/modules/performance/router.ts`       | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 1 const             |
+| `src/modules/performance/schemas.ts`      | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 44 const · 41 types |
+| `src/modules/performance/scoring.ts`      | `readRatingScale`, `saveRatingScale`, `ratingScale`, `formatBp`, `assertWeightsWhole`, `readWeights`, `saveWeights`, `captureScoringSnapshot`, `levelsFromSnapshot`, `weightsFromSnapshot`, `levelToBp`, `renormalise`, `bandFor`, `periodSubjectsWhere`, `scoreRegister`, `distributionOf`, `scoreHistory`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 13 const · 14 types |
+| `src/modules/performance/service.ts`      | `isHr`, `ledTeamOf`, `leadsWorkOf`, `assertSeesEmployee`, `keyResultPercent`, `keyResultMet`, `assertDirection`, `visibleGoals`, `assertSeesGoal`, `listGoals`, `myGoals`, `teamGoals`, `getGoal`, `mayRaiseForOthers`, `assertMayCreateGoal`, `createGoal`, `assignObjective`, `updateGoal`, `removeGoal`, `publishGoal`, `completeGoal`, `cancelGoal`, `submitObjective`, `agreeObjective`, `sendBackObjective`, `rejectObjective`, `reviseObjective`, `objectiveApprovalQueue`, `addKeyResult`, `updateKeyResult`, `recordProgress`, `weekStartOf`, `taskPeriodFor`, `submitTask`, `listTasks`, `gradeTask`, `rateFromGradedTasks`, `taskCompletionRate`, `taskIntensityByDepartment`, `listTasksForGrading`, `listMyTasks`, `promotionReadiness`, `listSections`, `createSection`, `updateSection`, `deleteSection`, `listCompetencies`, `getCompetency`, `createCompetency`, `updateCompetency`, `archiveCompetency`, `rateCompetency`, `employeeCompetencies`, `competencyGaps`, `competencyHeatmap`, `listCycles`, `getCycle`, `addStandardQuestions`, `createCycle`, `updateCycle`, `removeCycle`, `activateCycle`, `closeCycle`, `cycleParticipants`, `remindCycle`, `listQuestions`, `addQuestion`, `addManagerQuestion`, `calibrateScore`, `clearCalibration`, `calibrationHistory`, `requestRevision`, `listRevisionRequests`, `copyQuestionsFrom`, `updateQuestion`, `removeQuestion`, `reorderQuestions`, `listReviews`, `getReview`, `myReviews`, `respond`, `evidenceContent`, `hrSignOffReview`, `submitReview`, `finaliseReview`, `acknowledgeReview`, `disputeReview`, `requestPeerReviews`, `appraiserMap`, `setAppraisers`, `autoAssignFromReportingLine`, `appraisersOf`, `ratingScaleFor`, `setRatingScale`, `scoringWeights`, `setScoringWeights`, `cycleScores`, `employeeScore`, `cycleReport`, `employeeScoreHistory` | 5 const · 16 types  |
 
-**Endpoints — 93**
+**Endpoints — 95**
 
 | Method   | Path                                                        |
 | -------- | ----------------------------------------------------------- |
@@ -1352,6 +1466,8 @@ Appraisal periods, objectives, competencies, scoring, sign-off and the nine-box.
 | `GET`    | `/performance/cycles/:id/review-flags/:employeeId`          |
 | `POST`   | `/performance/cycles/:id/review-flags/briefing`             |
 | `POST`   | `/performance/cycles/:id/review-flags/:employeeId/note`     |
+| `POST`   | `/performance/cycles/:id/review-flags/:employeeId/decision` |
+| `DELETE` | `/performance/cycles/:id/review-flags/:employeeId/decision` |
 | `GET`    | `/performance/cycles/:id/fairness`                          |
 | `GET`    | `/performance/cycles/:id/nine-box`                          |
 | `GET`    | `/performance/cycles/:id/task-intensity`                    |
@@ -1815,6 +1931,48 @@ The first-run wizard, the feature switches and the readiness checklist.
 
 ---
 
+## `src/modules/sms`
+
+| File                                          | Exported functions                                                                                                                      | Also                                      |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `src/modules/sms/boot.ts`                     | `wireSms`                                                                                                                               | 2 types                                   |
+| `src/modules/sms/consent.ts`                  | `consentText`, `subscriptionFor`, `optIn`, `optOut`, `maskedNumberOf`                                                                   | 1 const · 3 types                         |
+| `src/modules/sms/content.ts`                  | `digestIsEmpty`, `toSmsSafe`, `segmentsFor`, `smsOrganisationName`, `buildDigestBody`, `buildConfirmationBody`, `assertSafeSmsBody`     | `UnsafeSmsContentError` (class) · 3 types |
+| `src/modules/sms/digest.ts`                   | `collectDigestSummary`, `digestKey`, `planWeeklyDigests`                                                                                | 1 type                                    |
+| `src/modules/sms/inbound.ts`                  | `useInboundAdapter`, `inboundAdapterFor`, `clearInboundAdaptersForTests`, `genericInbound`, `applyInbound`                              | 3 types                                   |
+| `src/modules/sms/keywords.ts`                 | `normalizeKeyword`, `isStopKeyword`                                                                                                     | —                                         |
+| `src/modules/sms/optout-link.ts`              | `signOptOutToken`, `verifyOptOutToken`, `optOutUrl`, `optOutFooter`                                                                     | 1 type                                    |
+| `src/modules/sms/outbox.ts`                   | `drainOutbox`, `enqueueConfirmation`                                                                                                    | 3 const · 2 types                         |
+| `src/modules/sms/phone.ts`                    | `normalizeNigerianMobile`, `maskPhone`                                                                                                  | —                                         |
+| `src/modules/sms/providers/termii-config.ts`  | `termiiIsConfigured`, `termiiConfig`                                                                                                    | 2 types                                   |
+| `src/modules/sms/providers/termii-webhook.ts` | `termiiInbound`                                                                                                                         | —                                         |
+| `src/modules/sms/providers/termii.ts`         | `termii`                                                                                                                                | 1 type                                    |
+| `src/modules/sms/public-router.ts`            | `webhookLimiter`                                                                                                                        | 2 const                                   |
+| `src/modules/sms/router.ts`                   | —                                                                                                                                       | 1 const                                   |
+| `src/modules/sms/schedule.ts`                 | `isoWeekKey`, `inSendWindow`, `digestWeek`                                                                                              | 4 const · 1 type                          |
+| `src/modules/sms/scheduler.ts`                | `sweepSms`, `startSmsScheduler`, `stopSmsScheduler`                                                                                     | 1 type                                    |
+| `src/modules/sms/schemas.ts`                  | —                                                                                                                                       | 3 const · 3 types                         |
+| `src/modules/sms/service.ts`                  | `myState`, `optInSelf`, `optOutSelf`, `recordConsentFor`, `optOutFor`, `listSubscriptions`, `status`                                    | 4 types                                   |
+| `src/modules/sms/suppression.ts`              | `isSuppressed`, `suppress`, `clearSuppression`, `applyStop`                                                                             | 1 type                                    |
+| `src/modules/sms/transport.ts`                | `useSmsTransport`, `currentSmsTransport`, `smsCanSend`, `warnIfNoSmsTransport`, `sendSms`, `resetSmsTransportForTests`, `warnThrottled` | 1 const · 3 types                         |
+
+**Endpoints — 10**
+
+| Method | Path                             |
+| ------ | -------------------------------- |
+| `POST` | `/sms/webhooks/:provider`        |
+| `GET`  | `/sms/o/:token`                  |
+| `POST` | `/sms/o/:token`                  |
+| `GET`  | `/sms/me`                        |
+| `POST` | `/sms/me/opt-in`                 |
+| `POST` | `/sms/me/opt-out`                |
+| `GET`  | `/sms/status`                    |
+| `GET`  | `/sms/subscriptions`             |
+| `POST` | `/sms/subscriptions/:id/consent` |
+| `POST` | `/sms/subscriptions/:id/opt-out` |
+
+---
+
 ## `src/modules/surveys`
 
 Staff surveys: on an anonymous survey a response never records who wrote it, and results are withheld below a minimum number of responses.
@@ -1896,6 +2054,61 @@ Staff surveys: on an anonymous survey a response never records who wrote it, and
 
 ---
 
+## `src/modules/wellness`
+
+| File                                  | Exported functions                                                                                                                                                                              | Also                                     |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `src/modules/wellness/access.ts`      | `actorOf`, `requireEmployee`, `canSeeEmployerResults`, `wellnessIsOn`, `requireWellnessOn`                                                                                                      | `ModuleOffError` (class) · 1 type        |
+| `src/modules/wellness/boards.ts`      | `participantBoard`, `employerResults`                                                                                                                                                           | —                                        |
+| `src/modules/wellness/challenges.ts`  | `statusOf`, `serializeChallenge`, `requireChallenge`, `createChallenge`, `patchChallenge`, `cancelChallenge`, `listChallenges`, `myTeams`, `challengeDetail`, `joinChallenge`, `leaveChallenge` | 2 const · 1 type                         |
+| `src/modules/wellness/consent.ts`     | `joinStatement`, `hasConsent`, `requireConsent`, `requireTracking`, `myConsents`, `grantConsent`, `withdrawConsent`                                                                             | `ConsentRequiredError` (class) · 1 const |
+| `src/modules/wellness/dates.ts`       | `todayOf`, `addDays`, `dayLabel`, `daysBetween`, `laterOf`, `earlierOf`                                                                                                                         | 1 const                                  |
+| `src/modules/wellness/device.ts`      | `ingestDeviceDays`, `deviceDays`, `eraseDeviceDays`                                                                                                                                             | 1 type                                   |
+| `src/modules/wellness/logs.ts`        | `effectiveDailyValues`, `addEntry`, `deleteEntry`, `eraseAll`, `listEntries`, `summary`, `dailyRowsFor`                                                                                         | 3 const · 2 types                        |
+| `src/modules/wellness/privacy.ts`     | `effectiveFloor`, `privacyFloorOf`, `aboveFloor`, `withheldNote`, `contributionNote`                                                                                                            | 3 const · 2 types                        |
+| `src/modules/wellness/recognition.ts` | `giveRecognition`, `feed`, `mineList`, `removeRecognition`                                                                                                                                      | 1 const                                  |
+| `src/modules/wellness/reminders.ts`   | `organisationReminders`, `myReminders`, `setOrganisationPolicy`, `setMyPolicy`, `clearMyPolicy`                                                                                                 | 1 type                                   |
+| `src/modules/wellness/router.ts`      | —                                                                                                                                                                                               | 1 const                                  |
+| `src/modules/wellness/schemas.ts`     | —                                                                                                                                                                                               | 20 const · 8 types                       |
+| `src/modules/wellness/settings.ts`    | `readSettings`, `updateSettings`                                                                                                                                                                | —                                        |
+
+**Endpoints — 30**
+
+| Method   | Path                                      |
+| -------- | ----------------------------------------- |
+| `POST`   | `/wellness/me/consents/:purpose/withdraw` |
+| `DELETE` | `/wellness/me/logs`                       |
+| `DELETE` | `/wellness/me/logs/:id`                   |
+| `DELETE` | `/wellness/me/device-days`                |
+| `POST`   | `/wellness/challenges/:id/leave`          |
+| `GET`    | `/wellness/settings`                      |
+| `PATCH`  | `/wellness/settings`                      |
+| `PUT`    | `/wellness/reminders/policy`              |
+| `GET`    | `/wellness/me/reminders`                  |
+| `PUT`    | `/wellness/me/reminders`                  |
+| `DELETE` | `/wellness/me/reminders`                  |
+| `GET`    | `/wellness/me/consents`                   |
+| `PUT`    | `/wellness/me/consents/:purpose`          |
+| `GET`    | `/wellness/me/logs`                       |
+| `GET`    | `/wellness/me/summary`                    |
+| `POST`   | `/wellness/me/logs`                       |
+| `PUT`    | `/wellness/me/device-days`                |
+| `GET`    | `/wellness/me/device-days`                |
+| `GET`    | `/wellness/challenges`                    |
+| `POST`   | `/wellness/challenges`                    |
+| `GET`    | `/wellness/challenges/:id`                |
+| `PATCH`  | `/wellness/challenges/:id`                |
+| `POST`   | `/wellness/challenges/:id/cancel`         |
+| `POST`   | `/wellness/challenges/:id/join`           |
+| `GET`    | `/wellness/challenges/:id/board`          |
+| `GET`    | `/wellness/challenges/:id/results`        |
+| `GET`    | `/wellness/recognitions`                  |
+| `GET`    | `/wellness/recognitions/mine`             |
+| `POST`   | `/wellness/recognitions`                  |
+| `DELETE` | `/wellness/recognitions/:id`              |
+
+---
+
 ## `src/modules/work-trackers`
 
 Connections to Jira, Asana, ClickUp, Monday.com and Trello that pull in each person's tickets as evidence and file a finished ticket as an ungraded weekly task for a person to grade.
@@ -1966,7 +2179,7 @@ Database and tenancy, middleware, config, helpers, scripts and the server entry 
 | `src/lib/logger.ts`                 | —                                                                                                                                                                            | 1 const                                                                                                                                                                                                                    |
 | `src/lib/mail-template.ts`          | `reachableFromAnInbox`, `renderEmail`                                                                                                                                        | 3 types                                                                                                                                                                                                                    |
 | `src/lib/mail.ts`                   | `senderAddress`, `cleanDisplayName`, `senderFor`, `canCarryReplyTo`, `mailIsConfigured`, `sendEmail`                                                                         | 3 types                                                                                                                                                                                                                    |
-| `src/lib/money.ts`                  | `toKobo`, `grossKoboOrNull`, `toNaira`, `rateOf`, `formatNaira`, `allocate`                                                                                                  | —                                                                                                                                                                                                                          |
+| `src/lib/money.ts`                  | `toKobo`, `grossKoboOrNull`, `toNaira`, `rateOf`, `formatNaira`                                                                                                              | —                                                                                                                                                                                                                          |
 | `src/lib/pdf.ts`                    | `money`, `widthOf`, `wrap`, `renderPdf`                                                                                                                                      | `Page` (class) · 2 const · 2 types                                                                                                                                                                                         |
 | `src/lib/rate-limit.ts`             | `memoryStore`, `redisStore`, `useCounterStore`, `counterStore`                                                                                                               | 3 types                                                                                                                                                                                                                    |
 | `src/lib/rich-text.ts`              | `decodeEntities`, `safeHref`, `sanitizeRichText`, `plainToRichText`, `richTextToPlain`                                                                                       | 1 const                                                                                                                                                                                                                    |
