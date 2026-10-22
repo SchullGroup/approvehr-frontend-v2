@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   Button,
+  Callout,
   Checkbox,
   Field,
   Input,
@@ -137,6 +138,26 @@ export const quarterText = (quarter: string) => {
 /* -------------------------------------------------------------------------- */
 
 /**
+ * Whether a KPI has to be filed in an appraisal period, and the one sentence
+ * that says so.
+ *
+ * A KPI is a person's own work, and an objective filed in no period "counts
+ * towards nobody's appraisal mark, even once it is agreed": it is tracked,
+ * agreed and scored for nobody, with nothing on the screen to say so. So when
+ * there is a period to choose, choosing one is not optional.
+ *
+ * Only a **personal** one, and only while there is a period to choose. A shared
+ * objective (the company's, a department's) is a standing target that may
+ * belong to no cycle, and a company that has no open period yet has nothing to
+ * file anything under, which is said in words rather than by refusing to save.
+ *
+ * The API still accepts an objective with no period: this is the form's rule,
+ * not the server's.
+ */
+const NEEDS_PERIOD =
+  "Choose the appraisal period this is scored in. A KPI with none counts towards nobody's mark, even once it is agreed.";
+
+/**
  * The form for a new KPI, and — in `objective` mode — for a new objective.
  *
  * Same fields, same save, same rules on the API. The mode changes what the
@@ -206,7 +227,7 @@ export function NewKpiDialog({
    * A published one is absent: its marks are a record, and filing a new
    * objective into it would change a score somebody has already been told.
    */
-  const { cycles } = useAppraisals();
+  const { cycles, loading: periodsLoading } = useAppraisals();
   const openPeriods = cycles.filter((cycle) => cycle.stage !== "PUBLISHED");
 
   const quarters = quarterOptions(useQuarterToday());
@@ -217,9 +238,13 @@ export function NewKpiDialog({
      have loaded. */
   const [chosenOwner, setChosenOwner] = useState<string | null>(null);
   const [quarter, setQuarter] = useState(quarters[1] ?? quarters[0] ?? "");
-  /** Empty means no period, which is a real choice — see the copy below. */
-  const [reviewCycleId, setReviewCycleId] = useState("");
+  /* `null` is "not chosen yet", for the same reason as the owner above: when a
+     KPI has exactly one period to go in, that is the starting answer, and it
+     follows the periods as they arrive instead of being fixed at mount. Empty
+     is a real choice only for a shared objective — see the copy below. */
+  const [chosenPeriod, setChosenPeriod] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [periodError, setPeriodError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   /* A blank form on every open. This dialog stays mounted between uses so its
@@ -234,8 +259,9 @@ export function NewKpiDialog({
       setDescription("");
       setChosenOwner(null);
       setQuarter(quarters[1] ?? quarters[0] ?? "");
-      setReviewCycleId("");
+      setChosenPeriod(null);
       setError(null);
+      setPeriodError(null);
     }
   }
 
@@ -247,6 +273,10 @@ export function NewKpiDialog({
     canSetCompanyWide,
   });
   const owner = chosenOwner ?? (objective ? whose.fallback : "me");
+  const personal = owner !== "company" && !owner.startsWith("dept:");
+  const needsPeriod = !objective && personal && openPeriods.length > 0;
+  const onlyPeriod = openPeriods.length === 1 ? (openPeriods[0]?.id ?? "") : "";
+  const reviewCycleId = chosenPeriod ?? (needsPeriod ? onlyPeriod : "");
 
   /**
    * Suggestions, only under a parent.
@@ -262,6 +292,10 @@ export function NewKpiDialog({
   const submit = async () => {
     if (title.trim().length < 3) {
       setError("Give it a title of at least three characters.");
+      return;
+    }
+    if (needsPeriod && reviewCycleId === "") {
+      setPeriodError(NEEDS_PERIOD);
       return;
     }
     setError(null);
@@ -308,6 +342,10 @@ export function NewKpiDialog({
           <Button
             variant="accent"
             loading={saving}
+            /* While the company's periods are still arriving there is no way
+               to know whether this has one to be filed in, and a KPI saved in
+               that moment would be filed in none. */
+            disabled={periodsLoading === true && cycles.length === 0}
             onClick={() => void submit()}
           >
             {objective ? "Create objective" : "Create KPI"}
@@ -385,7 +423,7 @@ export function NewKpiDialog({
                     fact. */}
                 {mine.map((department) => (
                   <option key={department.id} value={`dept:${department.id}`}>
-                    {department.name} — the whole department
+                    {department.name}, the whole department
                   </option>
                 ))}
                 {/* The API's own rule, not a longer list than it will accept,
@@ -430,19 +468,31 @@ export function NewKpiDialog({
 
         {openPeriods.length > 0 && (
           <Field
-            optional
+            {...(needsPeriod ? { required: true } : { optional: true })}
             label="Appraisal period"
+            {...(periodError ? { error: periodError } : {})}
             help={
               reviewCycleId
                 ? "Counts towards this person's mark for that period, once somebody agrees it."
-                : "Without an appraisal period, this objective will not count towards anyone's mark, even once it is agreed."
+                : needsPeriod
+                  ? "Pick the period this is scored in."
+                  : "Without an appraisal period, this objective will not count towards anyone's mark, even once it is agreed."
             }
           >
             <Select
               value={reviewCycleId}
-              onChange={(event) => setReviewCycleId(event.target.value)}
+              onChange={(event) => {
+                setChosenPeriod(event.target.value);
+                setPeriodError(null);
+              }}
             >
-              <option value="">Not part of an appraisal period</option>
+              {needsPeriod ? (
+                reviewCycleId === "" && (
+                  <option value="">Choose an appraisal period</option>
+                )
+              ) : (
+                <option value="">Not part of an appraisal period</option>
+              )}
               {openPeriods.map((period) => (
                 <option key={period.id} value={period.id}>
                   {period.name}
@@ -451,6 +501,20 @@ export function NewKpiDialog({
             </Select>
           </Field>
         )}
+
+        {/* Said in words, because there is nothing to choose and nothing to
+            refuse: a company that has not started a period yet is not stopped
+            from writing its KPIs down. Not while the list is still arriving. */}
+        {!objective &&
+          personal &&
+          openPeriods.length === 0 &&
+          periodsLoading !== true && (
+            <Callout tone="warning">
+              No appraisal period is open, so this KPI will count towards
+              nobody&apos;s mark. Start a period first, then edit the KPI to
+              file it in that period.
+            </Callout>
+          )}
 
         <Field optional label="Description">
           <Textarea
@@ -1035,6 +1099,7 @@ export function EditGoalDialog({
   const [quarter, setQuarter] = useState("");
   const [reviewCycleId, setReviewCycleId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [periodError, setPeriodError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   /* Filled from the objective each time it opens. The dialog stays mounted so
@@ -1050,6 +1115,7 @@ export function EditGoalDialog({
       setQuarter(goal.dueQuarter ?? "");
       setReviewCycleId(goal.reviewCycleId ?? "");
       setError(null);
+      setPeriodError(null);
     }
   }
 
@@ -1062,6 +1128,10 @@ export function EditGoalDialog({
     (cycle) => cycle.stage !== "PUBLISHED" || cycle.id === goal?.reviewCycleId,
   );
   const word = goal ? goalWord(goal) : "objective";
+  /* A KPI that is somebody's own has to be filed in a period, whenever there is
+     one to file it in. Editing an old one that was never filed asks for it,
+     which is the way out the upload's notes already point to. */
+  const needsPeriod = word === "KPI" && periods.length > 0;
 
   const body: UpdateGoalBody = {};
   if (goal) {
@@ -1082,6 +1152,10 @@ export function EditGoalDialog({
     if (!goal) return;
     if (title.trim().length < 3) {
       setError("Give it a title of at least three characters.");
+      return;
+    }
+    if (needsPeriod && reviewCycleId === "") {
+      setPeriodError(NEEDS_PERIOD);
       return;
     }
     setError(null);
@@ -1142,19 +1216,31 @@ export function EditGoalDialog({
 
         {periods.length > 0 && (
           <Field
-            optional
+            {...(needsPeriod ? { required: true } : { optional: true })}
             label="Appraisal period"
+            {...(periodError ? { error: periodError } : {})}
             help={
               reviewCycleId
                 ? "Counts towards this person's mark for that period, once somebody agrees it."
-                : "Nothing here reaches an appraisal mark. A quarter alone lets the objective be agreed and still score nothing."
+                : needsPeriod
+                  ? "Pick the period this is scored in."
+                  : "Nothing here reaches an appraisal mark. A quarter alone lets the objective be agreed and still score nothing."
             }
           >
             <Select
               value={reviewCycleId}
-              onChange={(event) => setReviewCycleId(event.target.value)}
+              onChange={(event) => {
+                setReviewCycleId(event.target.value);
+                setPeriodError(null);
+              }}
             >
-              <option value="">Not part of an appraisal period</option>
+              {needsPeriod ? (
+                reviewCycleId === "" && (
+                  <option value="">Choose an appraisal period</option>
+                )
+              ) : (
+                <option value="">Not part of an appraisal period</option>
+              )}
               {periods.map((period) => (
                 <option key={period.id} value={period.id}>
                   {period.name}

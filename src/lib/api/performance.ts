@@ -1889,6 +1889,75 @@ export function potentialReasonProblem(reason: string): string | null {
   );
 }
 
+/* ------------------------------------------------------------ work record */
+
+export type ApiWorkRecordPeriod = "day" | "week" | "month" | "quarter";
+
+export type ApiWorkRecordIssue = {
+  id: string;
+  key: string;
+  title: string;
+  projectId: string;
+  projectName: string;
+  type: string;
+  labels: string[];
+  doneAt: string;
+  /** A calendar date, `YYYY-MM-DD`. */
+  dueDate: string | null;
+  /** `null` when the issue has no due date. */
+  onTime: boolean | null;
+  grade: ApiTaskGrade | null;
+  gradedByName: string | null;
+  /** True when a weekly task of theirs is attached and still ungraded. */
+  waitingForGrade: boolean;
+  /** `otherKey` is `null` when the viewer may not open the other task. */
+  links: { label: string; otherKey: string | null }[];
+};
+
+/**
+ * What somebody finished on the project boards in a day, week, month or
+ * quarter — `GET /performance/employees/:id/work-record`, or `/work-record/mine`.
+ * `period.start` is inclusive and `period.end` exclusive, both instants.
+ */
+export type ApiWorkRecord = {
+  employee: {
+    id: string;
+    name: string;
+    jobTitle: string;
+    departmentName: string | null;
+  };
+  period: {
+    kind: ApiWorkRecordPeriod;
+    start: string;
+    end: string;
+    label: string;
+  };
+  summary: {
+    finished: number;
+    withDueDate: number;
+    onTime: number;
+    /** 0 to 100, or `null` when nothing in the period has been graded. */
+    completionRate: number | null;
+    graded: number;
+    linkedToObjective: number;
+  };
+  byObjective: {
+    /** `null` for the row of issues with no objective. */
+    goalId: string | null;
+    title: string;
+    keyResultTitle?: string;
+    finished: number;
+    completionRate: number | null;
+  }[];
+  days: { date: string; issues: ApiWorkRecordIssue[] }[];
+};
+
+export type WorkRecordParams = {
+  period: ApiWorkRecordPeriod;
+  /** Any day inside the period. Omit for today. */
+  date?: string | undefined;
+};
+
 export const performanceApi = {
   /* ------------------------------------------------------------------ goals */
 
@@ -2579,6 +2648,27 @@ export const performanceApi = {
       `/performance/employees/${employeeId}/score-history`,
       signalOf(signal),
     ),
+
+  /**
+   * What somebody finished on the boards. Their own, or somebody they lead
+   * (HR, their manager, their department's head); anybody else gets the same
+   * 404 a missing employee gets.
+   */
+  workRecord: (
+    employeeId: string,
+    params: WorkRecordParams,
+    signal?: AbortSignal,
+  ) =>
+    request<ApiWorkRecord>(`/performance/employees/${employeeId}/work-record`, {
+      query: { period: params.period, date: params.date },
+      ...signalOf(signal),
+    }),
+
+  myWorkRecord: (params: WorkRecordParams, signal?: AbortSignal) =>
+    request<ApiWorkRecord>("/performance/work-record/mine", {
+      query: { period: params.period, date: params.date },
+      ...signalOf(signal),
+    }),
 
   /** A manager or `EDIT_RECORDS`: nobody else knows who a person's peers are. */
   askPeers: (cycleId: string, subjectId: string, peerIds: string[]) =>

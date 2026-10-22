@@ -77,7 +77,10 @@ const labels = () =>
 const findBox = () => screen.getByRole("combobox", { name: "Find a page" });
 const row = (id: string) =>
   nav().querySelector<HTMLElement>(`button[data-nav-row="${id}"]`)!;
-const heading = () => nav().querySelector("h2")?.textContent ?? null;
+/* The section title is the label on the back row (one button, not a button and a
+   heading), so "which section am I in" reads that row's text. */
+const heading = () =>
+  nav().querySelector("[data-nav-back]")?.textContent ?? null;
 const current = () =>
   Array.from(nav().querySelectorAll('[aria-current="page"]')).map(
     (node) => node.querySelector("[data-nav-label]")?.textContent,
@@ -222,7 +225,7 @@ describe("drilling in and back", () => {
       "Payment history",
     ]);
     expect(
-      screen.getByRole("button", { name: "Back to main menu" }),
+      screen.getByRole("button", { name: /back to main menu/i }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Home" })).toBeNull();
   });
@@ -233,7 +236,9 @@ describe("drilling in and back", () => {
     expect(
       Array.from(nav().querySelectorAll("h3")).map((h) => h.textContent),
     ).toEqual(["People", "Lifecycle", "Engagement", "Records"]);
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     await user.click(row("desk"));
     expect(nav().querySelectorAll("h3")).toHaveLength(0);
   });
@@ -241,7 +246,9 @@ describe("drilling in and back", () => {
   it("goes back without going anywhere", async () => {
     const { user, onNavigate } = setup(admin);
     await user.click(row("payroll"));
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     expect(heading()).toBeNull();
     expect(labels()[0]).toBe("Home");
     expect(push).not.toHaveBeenCalled();
@@ -253,7 +260,7 @@ describe("drilling in and back", () => {
     row("performance").focus();
     await user.keyboard("{Enter}");
     expect(
-      screen.getByRole("button", { name: "Back to main menu" }),
+      screen.getByRole("button", { name: /back to main menu/i }),
     ).toHaveFocus();
     await user.keyboard("{Enter}");
     expect(row("performance")).toHaveFocus();
@@ -274,7 +281,9 @@ describe("drilling in and back", () => {
     expect(live()).toBe("Main menu");
     await user.click(row("hiring"));
     expect(live()).toBe("Recruitment menu");
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     expect(live()).toBe("Main menu");
   });
 
@@ -323,7 +332,9 @@ describe("knowing where you are", () => {
   it("marks the row the page is inside, once you are back at the top", async () => {
     const { user } = setup(admin, { pathname: "/payroll/loans" });
     expect(heading()).toBe("Payroll");
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     expect(row("payroll")).toHaveAttribute("aria-current", "true");
     expect(row("payroll")).toHaveAttribute("data-current", "true");
     expect(row("hiring")).not.toHaveAttribute("aria-current");
@@ -347,7 +358,9 @@ describe("knowing where you are", () => {
 
   it("keeps your own choice for the page you made it on, and lets the route win after", async () => {
     const { user, go } = setup(admin, { pathname: "/people/leave" });
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     go("/people/leave");
     expect(heading()).toBeNull();
     go("/payroll");
@@ -356,7 +369,9 @@ describe("knowing where you are", () => {
 
   it("lets you open a section other than the one the page is in", async () => {
     const { user } = setup(admin, { pathname: "/people/leave" });
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     await user.click(row("payroll"));
     expect(heading()).toBe("Payroll");
     expect(current()).toEqual([]);
@@ -717,7 +732,9 @@ describe("absent, not disabled", () => {
     await user.click(row("payroll"));
     expect(labels()).not.toContain("Loans");
     expect(labels()).not.toContain("Expenses");
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     await user.type(findBox(), "loan");
     expect(
       screen.queryByRole("option", { name: /Payroll › Loans/ }),
@@ -750,9 +767,11 @@ describe("on a phone, in the drawer", () => {
     for (const node of nav().querySelectorAll("a[href]")) {
       expect(node.className).toContain("min-h-11");
     }
+    /* The back row is one full-width button, 44px tall, with the 44px chevron
+       cell inside it; it is no longer a square icon button. */
     expect(
-      screen.getByRole("button", { name: "Back to main menu" }).className,
-    ).toContain("size-11");
+      screen.getByRole("button", { name: /back to main menu/i }).className,
+    ).toContain("min-h-11");
   });
 
   it("closes on navigation", async () => {
@@ -818,7 +837,9 @@ describe("motion", () => {
     const { user } = setup(admin);
     await user.click(row("payroll"));
     expect(panel().className).toContain("animate-drill-in");
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     expect(panel().className).toContain("animate-drill-back");
   });
 
@@ -827,7 +848,9 @@ describe("motion", () => {
     const { user } = setup(admin);
     await user.click(row("payroll"));
     expect(panel().className).not.toContain("animate-drill");
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     expect(panel().className).not.toContain("animate-drill");
   });
 

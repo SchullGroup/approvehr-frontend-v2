@@ -21,6 +21,7 @@ import {
   EmptyState,
   Input,
   Modal,
+  SegmentedControl,
   Select,
   Stat,
   useToast,
@@ -47,9 +48,29 @@ import {
   type ChartPerson,
 } from "./model";
 import { DragGhost, useDragInto } from "@/components/ui/drag-into";
+import { ReportingChart } from "./reporting-chart";
+
+type View = "chart" | "departments";
 
 /**
  * The org chart: who is where, and a way to change it.
+ *
+ * ## Two views of one company
+ *
+ * **Chart** is the reporting line drawn the way an org chart is drawn: a card
+ * per person, joined to their manager (`reporting-chart.tsx`). **By department**
+ * is the list below, which is also where everything can be rearranged. They
+ * answer different questions, "who reports to whom" and "who is in which cost
+ * centre", and a company that has filled in only one of the two still gets a
+ * useful screen, which is why neither replaces the other.
+ *
+ * It opens on the chart when anybody has a manager set, and on the departments
+ * when nobody does: a chart of a company with no reporting lines is a single
+ * card over a row of strangers, which is the "At the top, 27, nobody above
+ * them" screen the next section is about. The reader can still switch.
+ * Arranging is a department act (it moves people between departments and
+ * departments between parents) so the button is absent on the chart rather than
+ * present and doing nothing.
  *
  * ## What was wrong with the last one
  *
@@ -129,6 +150,9 @@ export function OrgChartScreen() {
   const canArrange = canStructure || canMovePeople;
 
   const [arranging, setArranging] = useState(false);
+  /* Null until somebody chooses, so the default can follow the data once it
+     arrives instead of being fixed before anything is known. */
+  const [view, setView] = useState<View | null>(null);
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -204,6 +228,10 @@ export function OrgChartScreen() {
     if (!fetched?.chart) return null;
     return buildModel(fetched.chart, fetched.tree, fetched.flat);
   }, [fetched]);
+
+  const hasReportingLines =
+    model !== null && model.withoutManager < model.people;
+  const mode: View = view ?? (hasReportingLines ? "chart" : "departments");
 
   const needle = query.trim().toLowerCase();
   const shown = useMemo(() => {
@@ -332,7 +360,7 @@ export function OrgChartScreen() {
       <PageHeader
         title="Org chart"
         action={
-          canArrange && model !== null ? (
+          canArrange && model !== null && mode === "departments" ? (
             <Button
               type="button"
               variant={arranging ? "accent" : "secondary"}

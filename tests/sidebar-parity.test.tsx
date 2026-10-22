@@ -76,7 +76,7 @@ function drill(container: HTMLElement): { doors: string[]; topRows: number } {
       nav().querySelector(`button[data-nav-row="${id}"]`) as HTMLElement,
     );
     doors.push(...read());
-    fireEvent.click(screen.getByRole("button", { name: "Back to main menu" }));
+    fireEvent.click(screen.getByRole("button", { name: /back to main menu/i }));
   }
   return { doors, topRows };
 }

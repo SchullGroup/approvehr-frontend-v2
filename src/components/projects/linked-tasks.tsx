@@ -28,10 +28,17 @@ export const LINK_CHOICES: { label: string; value: LinkChoice }[] = [
 const capital = (text: string) =>
   text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
 
-/** The server's own words, except for the two it is told how to phrase. */
-function explain(error: unknown): string {
+/**
+ * The server's own words, except for the ones it is told how to phrase. A 404
+ * means "no such task" only when adding; on remove it means the link is gone.
+ */
+function explain(error: unknown, path: "add" | "remove" = "add"): string {
   if (error instanceof ApiError) {
-    if (error.status === 404) return "No task with that key that you can open";
+    if (error.status === 404) {
+      return path === "remove"
+        ? "That link was already removed."
+        : "No task with that key that you can open";
+    }
     if (error.status === 409) return "These tasks are already linked that way";
     return error.message;
   }
@@ -46,7 +53,14 @@ function explain(error: unknown): string {
  * it (otherwise the row says "A task you can't open"). Editing a link's reason is
  * not offered here; the API supports it.
  */
-export function LinkedTasks({ issueId }: { issueId: string }) {
+export function LinkedTasks({
+  issueId,
+  onChanged,
+}: {
+  issueId: string;
+  /** Called after a link is added or removed, so the history can catch up. */
+  onChanged?: () => void;
+}) {
   const { project, canWork, openIssue } = useProject();
   const router = useRouter();
   const base = useId();
@@ -74,22 +88,26 @@ export function LinkedTasks({ issueId }: { issueId: string }) {
     return () => controller.abort();
   }, [issueId]);
 
-  const search = useCallback((text: string) => {
-    setQuery(text);
-    const seq = ++searchSeq.current;
-    if (text.trim().length < 2) {
-      setHits([]);
-      return;
-    }
-    projectsApi
-      .searchIssues(text.trim())
-      .then((found) => {
-        if (seq === searchSeq.current) setHits(found);
-      })
-      .catch(() => {
-        if (seq === searchSeq.current) setHits([]);
-      });
-  }, []);
+  const search = useCallback(
+    (text: string) => {
+      setQuery(text);
+      const seq = ++searchSeq.current;
+      if (text.trim().length < 2) {
+        setHits([]);
+        return;
+      }
+      projectsApi
+        .searchIssues(text.trim())
+        .then((found) => {
+          if (seq === searchSeq.current)
+            setHits(found.filter((h) => h.id !== issueId));
+        })
+        .catch(() => {
+          if (seq === searchSeq.current) setHits([]);
+        });
+    },
+    [issueId],
+  );
 
   async function add() {
     if (!picked || busy) return;
@@ -107,6 +125,7 @@ export function LinkedTasks({ issueId }: { issueId: string }) {
       setQuery("");
       setHits([]);
       setNote("");
+      onChanged?.();
     } catch (error) {
       setAddError(explain(error));
     } finally {
@@ -119,8 +138,13 @@ export function LinkedTasks({ issueId }: { issueId: string }) {
     try {
       await projectsApi.removeLink(link.id);
       setLinks((current) => (current ?? []).filter((l) => l.id !== link.id));
+      onChanged?.();
     } catch (error) {
-      setRemoveError(explain(error));
+      if (error instanceof ApiError && error.status === 404) {
+        setLinks((current) => (current ?? []).filter((l) => l.id !== link.id));
+        onChanged?.();
+      }
+      setRemoveError(explain(error, "remove"));
     }
   }
 
