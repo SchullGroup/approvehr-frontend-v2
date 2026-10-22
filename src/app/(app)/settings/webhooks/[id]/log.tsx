@@ -181,7 +181,7 @@ export function DeliveryLog({
         </FilterBar>
 
         {!retriesRunning && (
-          <p className="flex items-start gap-2 rounded-md border border-warning-line bg-warning-soft p-3 text-body-sm text-warning-text">
+          <p className="flex items-start gap-2 rounded-md border border-line p-3 text-body-sm text-muted">
             <AlertTriangle
               aria-hidden="true"
               className="mt-0.5 size-4 shrink-0"

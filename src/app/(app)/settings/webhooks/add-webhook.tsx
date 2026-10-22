@@ -142,7 +142,7 @@ export function AddWebhookModal({
         }
       >
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2 rounded-md border border-accent-line bg-accent-soft p-4">
+          <div className="flex flex-col gap-2 rounded-md border border-line bg-canvas p-4">
             <p className="flex items-center gap-2 text-body-sm font-semibold text-ink">
               <KeyRound aria-hidden="true" className="size-4" />
               Your signing secret

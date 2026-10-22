@@ -268,7 +268,7 @@ function Rules() {
 
         {protectedOff.length > 0 && (
           <Callout
-            tone="danger"
+            tone="warning"
             title={`${protectedOff[0].event} is now silent`}
           >
             This one is a control, not a convenience. With it off, a bank
