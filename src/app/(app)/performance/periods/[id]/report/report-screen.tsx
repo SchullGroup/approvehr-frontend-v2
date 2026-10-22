@@ -36,6 +36,7 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
   scoreLabel,
   weightLabel,
+  weightsFromNote,
   type ApiBandCount,
   type ApiCycleReport,
   type ApiNamedOnList,
@@ -323,12 +324,18 @@ function Headline({ report }: { report: ApiCycleReport }) {
       <Stat
         label="Weights used"
         value={
-          report.weightsFrom === "snapshot" ? "Locked in" : "Company's current"
+          report.weightsFrom === "snapshot"
+            ? "Locked in"
+            : report.weightsFrom === "period"
+              ? "This period's own"
+              : "Company's current"
         }
         hint={
-          report.weightsFrom === "snapshot"
-            ? `Set when the period started, adding up to ${weightLabel(report.weightsTotalBp)}`
-            : `This period never locked in its own weights, so changing the company's weights would change these marks`
+          report.weightsFrom === "period"
+            ? `${weightsFromNote("period")} They lock in when the period starts`
+            : report.weightsFrom === "snapshot"
+              ? `Set when the period started, adding up to ${weightLabel(report.weightsTotalBp)}`
+              : `This period never locked in its own weights, so changing the company's weights would change these marks`
         }
       />
     </div>

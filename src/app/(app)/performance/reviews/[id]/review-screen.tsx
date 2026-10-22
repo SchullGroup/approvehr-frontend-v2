@@ -25,6 +25,7 @@ import {
   ratingWordsFrom,
   scoreLabel,
   weightLabel,
+  weightsFromNote,
   type ApiComponentScore,
   type ApiEmployeeScore,
   type ApiReviewDetail,
@@ -877,9 +878,11 @@ function ScorePanel({
         >
           <div className="flex flex-col gap-3 text-body-sm leading-relaxed text-body">
             <p>
-              {score.weightsFrom === "snapshot"
-                ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this mark."
-                : "Scored on the company's weights as they are today. This period never locked in its own set, so changing the company's weights would change this mark, even though it has already been given."}
+              {score.weightsFrom === "period"
+                ? weightsFromNote("period")
+                : score.weightsFrom === "snapshot"
+                  ? "Scored on the weights locked in when this period started. Changing the company's weights later will not move this mark."
+                  : "Scored on the company's weights as they are today. This period never locked in its own set, so changing the company's weights would change this mark, even though it has already been given."}
             </p>
             <p className="flex items-start gap-2 text-muted">
               <ShieldCheck

@@ -934,7 +934,21 @@ export type CycleWeights = {
 };
 
 /** Why a component did not enter the arithmetic. Null means it did. */
-export type ScoreExclusionReason = "NOT_WEIGHTED" | "NO_DATA" | "NOT_A_MANAGER";
+export type ScoreExclusionReason =
+  "NOT_WEIGHTED" | "NO_DATA" | "NOT_A_MANAGER" | "NO_GRADED_TASKS";
+
+/**
+ * Where a score's weights came from. `"period"` is a draft previewing the set
+ * it holds for itself, before it has started and been frozen.
+ */
+export type WeightsFrom = "snapshot" | "period" | "current";
+
+/** The sentence for a draft scored on its own weights. One copy, four screens. */
+export function weightsFromNote(from: WeightsFrom): string | null {
+  return from === "period"
+    ? "Previewed with the weights set for this period."
+    : null;
+}
 
 export type ApiComponentScore = {
   component: ScoreComponent;
@@ -1071,8 +1085,8 @@ export type ApiScoreRegister = {
   cycleName: string;
   stage: ReviewCycleStage;
   started: boolean;
-  /** `"snapshot"` for a frozen set, `"current"` for the company's live one. */
-  weightsFrom: "snapshot" | "current";
+  /** `"snapshot"` frozen, `"period"` a draft's own, `"current"` the company's live set. */
+  weightsFrom: WeightsFrom;
   weights: { component: ScoreComponent; label: string; weightBp: number }[];
   /** Published rather than left to be added up. 10000 for anything saved here. */
   weightsTotalBp: number;
@@ -1094,7 +1108,7 @@ export type ApiEmployeeScore = ApiScoreRow & {
   cycleId: string;
   cycleName: string;
   stage: ReviewCycleStage;
-  weightsFrom: "snapshot" | "current";
+  weightsFrom: WeightsFrom;
 };
 
 export type ApiScoringWeights = {
@@ -1355,8 +1369,8 @@ export type ApiCycleReport = {
   stage: ReviewCycleStage;
   started: boolean;
   published: boolean;
-  /** `"snapshot"` for a frozen set, `"current"` for the company's live one. */
-  weightsFrom: "snapshot" | "current";
+  /** `"snapshot"` frozen, `"period"` a draft's own, `"current"` the company's live set. */
+  weightsFrom: WeightsFrom;
   weights: { component: ScoreComponent; label: string; weightBp: number }[];
   weightsTotalBp: number;
   distribution: ApiScoreDistribution;
@@ -1400,7 +1414,7 @@ export type ApiHistoryPoint = {
   cycleName: string;
   stage: ReviewCycleStage;
   dueDate: string | null;
-  weightsFrom: "snapshot" | "current";
+  weightsFrom: WeightsFrom;
   scoreBp: number | null;
   scorePercent: number | null;
   band: ScoreBand | null;

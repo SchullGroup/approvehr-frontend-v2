@@ -51,6 +51,7 @@ import {
   ratingWordsFrom,
   scoreLabel,
   weightLabel,
+  weightsFromNote,
   type ApiComponentScore,
   type ReviewCycleStage,
   type ApiCycle,
@@ -1106,9 +1107,11 @@ function Register({
       <CardHeader
         title="Where the marks stand"
         description={
-          register.weightsFrom === "snapshot"
-            ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these marks.`
-            : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every mark here, including ones already given.`
+          register.weightsFrom === "period"
+            ? `${weightsFromNote("period")} Totalling ${weightLabel(register.weightsTotalBp)}. They lock in when the period starts.`
+            : register.weightsFrom === "snapshot"
+              ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these marks.`
+              : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every mark here, including ones already given.`
         }
         action={
           <span className="flex flex-wrap gap-2">
@@ -1484,7 +1487,7 @@ function leftOutSentence(leftOut: ApiComponentScore[]): string {
 }
 
 /** The whole account of a mark in one sentence, for the table's tooltip. */
-function breakdownSentence(components: ApiComponentScore[]): string {
+export function breakdownSentence(components: ApiComponentScore[]): string {
   const { counted, leftOut } = splitComponents(components);
   const parts = counted
     .map((part) => `${part.label} ${scoreLabel(part.scoreBp ?? 0)}`)
