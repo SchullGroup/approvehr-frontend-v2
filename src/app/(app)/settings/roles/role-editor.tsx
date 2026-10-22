@@ -20,6 +20,27 @@ import { PermissionMatrix } from "./permission-matrix";
 import { useRoleMembers, type RoleView } from "@/lib/store/permissions";
 import { AddPeopleDialog } from "./add-people";
 
+type RoleEditorProps = {
+  /** `null` while closed — the parent clears it the instant it closes this. */
+  role: RoleView | null;
+  catalogue: Catalogue;
+  /** What the person editing holds. Drives the escalation guard. */
+  held: PermissionSet;
+  canManage: boolean;
+  /** Every role's id, for the add-people picker. See its header. */
+  roleIds: string[];
+  open: boolean;
+  onClose: () => void;
+  onSave: (patch: {
+    name?: string;
+    description?: string | null;
+    permissions?: PermissionKey[];
+  }) => Promise<boolean>;
+  onDuplicate: () => void;
+  onAddPeople: (userIds: string[]) => Promise<boolean>;
+  onRemovePerson: (userId: string, name: string) => Promise<boolean>;
+};
+
 /**
  * One role, open for editing.
  *
@@ -64,9 +85,53 @@ import { AddPeopleDialog } from "./add-people";
  * cannot give out is disabled and says so in one line. Turning one **off** is
  * never blocked, which matches the API — HR has to be able to remove a
  * departing payroll officer without being able to approve payroll themselves.
+ *
+ * ## Seeded each time a role is opened, not once
+ *
+ * The screen keeps this mounted all the time — `Drawer` has to see `open` go
+ * false to run its own exit animation — so the first render happens with
+ * **no role at all**. The form's fields used to take their starting values from
+ * `useState(role?.name ?? "")` in that render and never again, so opening any
+ * role showed a blank Name and nothing ticked, whatever the role held. A custom
+ * role could not be saved until its name was typed again, and ticking one box
+ * on a built-in role and saving would have replaced every permission it had
+ * with that one box.
+ *
+ * So the form is its own component, and this wrapper hands it a new `key`
+ * whenever a role is opened: when the drawer goes from closed to open, when a
+ * different role arrives, and when the first role ever arrives. That reseeds
+ * the fields from the role as it is then, and also drops anything typed into a
+ * session that was cancelled. A role that is refreshed *while* it is open (the
+ * list reloads on window focus) keeps what has been typed: only the baseline
+ * the changes are measured against moves.
  */
-export function RoleEditor({
-  role: roleProp,
+export function RoleEditor(props: RoleEditorProps) {
+  const { role: roleProp, open } = props;
+  /* The last real role: the parent clears its prop to null the instant it
+     closes this, but the drawer has to stay mounted — with real content — so
+     `Drawer` can see `open` go false and animate its own close, rather than
+     this whole thing (and everything it renders, down to `AddPeopleDialog`)
+     being torn out from under it. */
+  const [seen, setSeen] = useState({
+    role: roleProp,
+    open,
+    session: 0,
+  });
+  let next = seen;
+  if (roleProp && roleProp !== next.role) next = { ...next, role: roleProp };
+  const opened =
+    (open && !seen.open) ||
+    (roleProp !== null && (seen.role === null || roleProp.id !== seen.role.id));
+  if (opened) next = { ...next, session: next.session + 1 };
+  if (open !== next.open) next = { ...next, open };
+  if (next !== seen) setSeen(next);
+
+  if (!next.role) return null;
+  return <RoleEditorForm key={next.session} {...props} role={next.role} />;
+}
+
+function RoleEditorForm({
+  role,
   catalogue,
   held,
   canManage,
@@ -77,40 +142,12 @@ export function RoleEditor({
   onDuplicate,
   onAddPeople,
   onRemovePerson,
-}: {
-  /** `null` while closed — the parent clears it the instant it closes this. */
-  role: RoleView | null;
-  catalogue: Catalogue;
-  /** What the person editing holds. Drives the escalation guard. */
-  held: PermissionSet;
-  canManage: boolean;
-  /** Every role's id, for the add-people picker. See its header. */
-  roleIds: string[];
-  open: boolean;
-  onClose: () => void;
-  onSave: (patch: {
-    name?: string;
-    description?: string | null;
-    permissions?: PermissionKey[];
-  }) => Promise<boolean>;
-  onDuplicate: () => void;
-  onAddPeople: (userIds: string[]) => Promise<boolean>;
-  onRemovePerson: (userId: string, name: string) => Promise<boolean>;
-}) {
-  /* Remembers the last real role: the parent clears its prop to null the
-     instant it closes this, but the drawer has to stay mounted — with real
-     content — so `Drawer` below can see `open` go false and animate its own
-     close, rather than this whole thing (and everything it renders below,
-     down to `AddPeopleDialog`) being torn out from under it. Everything past
-     the guard reads `role`, never `roleProp`. */
-  const [role, setRole] = useState(roleProp);
-  if (roleProp && roleProp !== role) setRole(roleProp);
-
+}: Omit<RoleEditorProps, "role"> & { role: RoleView }) {
   const [tab, setTab] = useState<"permissions" | "people">("permissions");
 
-  const [name, setName] = useState(role?.name ?? "");
-  const [description, setDescription] = useState(role?.description ?? "");
-  const [draft, setDraft] = useState<PermissionKey[]>(role?.permissions ?? []);
+  const [name, setName] = useState(role.name);
+  const [description, setDescription] = useState(role.description ?? "");
+  const [draft, setDraft] = useState<PermissionKey[]>(role.permissions);
   const [saving, setSaving] = useState(false);
 
   /* Two locks, not one. See the header: the name is identity, the permission
@@ -119,19 +156,12 @@ export function RoleEditor({
      on the name the seed writes; if a tenant has no role by that name then
      nothing here is locked, and the server's own last-holder guard is what
      stops a lockout. */
-  const nameLocked = role?.isSystem ?? false;
-  const grantsLocked = (role?.isSystem ?? false) && role?.name === "Owner";
+  const nameLocked = role.isSystem;
+  const grantsLocked = role.isSystem && role.name === "Owner";
 
   /* What changed, so the save button can say so and stay off when nothing did. */
   const changes = useMemo(() => {
     const list: string[] = [];
-    if (!role) {
-      return {
-        list,
-        added: [] as PermissionKey[],
-        removed: [] as PermissionKey[],
-      };
-    }
     if (!nameLocked && name.trim() !== role.name) list.push("name");
     if (description.trim() !== (role.description ?? ""))
       list.push("description");
@@ -141,8 +171,6 @@ export function RoleEditor({
     if (removed.length > 0) list.push(`${removed.length} removed`);
     return { list, added, removed };
   }, [name, description, draft, role, nameLocked]);
-
-  if (!role) return null;
 
   const readOnly = !canManage;
   const dirty = changes.list.length > 0;

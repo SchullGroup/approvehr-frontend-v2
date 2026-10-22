@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -18,12 +19,14 @@ import {
   EmptyState,
   Stat,
   StatGrid,
+  Tabs,
   TextLink,
   type BadgeTone,
   LoadState,
 } from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { WorkRecordPanel } from "@/components/performance/work-record";
 import {
   changeLabel,
   dayLabel,
@@ -72,6 +75,7 @@ import { BAND_TONE, useScoreHistory } from "@/lib/store/performance";
 export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
   const detail = useScoreHistory(employeeId, true);
   const history = detail.history;
+  const [tab, setTab] = useState("history");
 
   return (
     <>
@@ -96,11 +100,14 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {DEMO_ENABLED && !detail.available && (
-          <Callout tone="warning" title="Demo data, this browser only">
-            <p>{detail.refusal}</p>
-          </Callout>
-        )}
+        <Tabs
+          items={[
+            { id: "history", label: "Appraisal history" },
+            { id: "work-record", label: "Work record" },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
 
         {/* The one loading and failure rule. A 403 here reaches the reader as the
             server's own sentence, which is the one that names the rule: self,

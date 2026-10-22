@@ -284,7 +284,12 @@ describe("filters", () => {
       screen.getByRole("textbox", { name: /Find a candidate/ }),
       "ifeanyi",
     );
-    await waitFor(() => expect(peopleIn("Interview")).toEqual(["Ifeanyi Obi"]));
+    /* The search settles after a pause and the board is read again: a busy
+       machine needs longer than the default second, as the test below does. */
+    await waitFor(
+      () => expect(peopleIn("Interview")).toEqual(["Ifeanyi Obi"]),
+      { timeout: 5000 },
+    );
     expect(
       screen.getByRole("region", { name: "Sourced, 0 people" }),
     ).toBeVisible();
