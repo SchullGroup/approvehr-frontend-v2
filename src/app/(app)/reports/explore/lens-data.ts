@@ -34,17 +34,18 @@ export type Lens = {
 };
 
 /**
- * One muted, earthy family rather than four unrelated hues at different
- * saturations — the stock traffic-light red/amber/green read as borrowed,
- * not designed. Same semantic meaning as before (danger is still the red
- * family, success still green), same two tones everywhere on the screen,
- * just redrawn so the four read as one considered set.
+ * The app's two hues, drawn for a dark scene: indigo for "good", and ochre for
+ * "look at this", with the two ochres told apart by how loud they are. Red is
+ * kept for a request that failed and an act that cannot be undone, and an
+ * off-track goal is neither, so it is the stronger ochre rather than a red.
+ * Same four tones and the same meanings as before, and the legend still names
+ * each one in words, so the colour is never the only signal.
  */
 export const LENS_COLORS: Record<LensTone, string> = {
   neutral: "#8492a0",
-  success: "#6fa87d",
-  warning: "#c98a3d",
-  danger: "#c65d52",
+  success: "#8f9bd6",
+  warning: "#cdb88a",
+  danger: "#d19a3e",
 };
 
 /**

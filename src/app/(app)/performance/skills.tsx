@@ -438,7 +438,7 @@ function Legend() {
     { label: "Under 2.5", className: "bg-warning-soft text-warning-text" },
     { label: "2.5 to 3.4", className: "bg-sunken text-body" },
     { label: "3.5 to 4.4", className: "bg-accent-soft text-accent-text" },
-    { label: "4.5 and above", className: "bg-accent-soft text-accent-text" },
+    { label: "4.5 and above", className: "bg-accent-line text-accent-text" },
   ];
   return (
     <ul className="flex flex-wrap items-center gap-2">
@@ -455,7 +455,7 @@ function bandFor(average: number): string {
   if (average < 2.5) return "bg-warning-soft text-warning-text";
   if (average < 3.5) return "bg-sunken text-body";
   if (average < 4.5) return "bg-accent-soft text-accent-text";
-  return "bg-accent-soft text-accent-text";
+  return "bg-accent-line text-accent-text";
 }
 
 function HeatRow({ row, scaleMax }: { row: ApiHeatmapRow; scaleMax: number }) {

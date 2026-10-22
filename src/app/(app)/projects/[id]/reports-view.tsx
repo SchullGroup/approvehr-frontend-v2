@@ -55,7 +55,7 @@ const CATEGORY_COLOR: Record<StatusCategory, string> = {
 const TYPE_COLOR: Partial<Record<IssueType, string>> = {
   STORY: "var(--color-success-strong)",
   TASK: "var(--color-info)",
-  BUG: "var(--color-danger)",
+  BUG: "var(--color-cat-4)",
   SUBTASK: "var(--color-faint)",
 };
 

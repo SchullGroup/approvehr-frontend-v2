@@ -463,7 +463,7 @@ function PayrollBreakdown({
                   {row.accountNumberOk ? (
                     row.accountNumber
                   ) : (
-                    <span className="text-danger-text">
+                    <span className="text-warning-text">
                       {row.accountNumber === ""
                         ? "None on file"
                         : `${row.accountNumber} (not ten digits)`}

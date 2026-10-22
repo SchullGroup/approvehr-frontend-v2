@@ -531,10 +531,10 @@ function TopPerformers({ register }: { register: ApiScoreRegister | null }) {
  * in `store/performance.ts` would be one more thing to keep in step.
  */
 const BAND_FILL: Record<ScoreBand, string> = {
-  BELOW: "var(--color-danger)",
+  BELOW: "var(--color-cat-4)",
   PARTIALLY_MEETS: "var(--color-warning)",
   MEETS: "var(--color-line-strong)",
-  EXCEEDS: "var(--color-accent)",
+  EXCEEDS: "var(--color-info)",
   OUTSTANDING: "var(--color-success-strong)",
 };
 

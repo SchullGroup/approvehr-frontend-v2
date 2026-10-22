@@ -1217,7 +1217,7 @@ function TimesheetPayrollEffect({
   if ((row.proration.amount ?? 0) > 0) {
     return (
       <span className="inline-flex flex-col items-end">
-        <span className="inline-flex items-center gap-1.5 font-medium text-danger-text">
+        <span className="inline-flex items-center gap-1.5 font-medium text-warning-text">
           <TriangleAlert aria-hidden="true" className="size-3.5" />
           {`−${formatMoney(row.proration.amount ?? 0, "NGN", { decimals: true })}`}
         </span>

@@ -368,7 +368,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {badges.unreadNotifications > 0 && (
                 <span
                   aria-hidden="true"
-                  className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-danger ring-2 ring-surface"
+                  className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-accent ring-2 ring-surface"
                 />
               )}
             </Link>

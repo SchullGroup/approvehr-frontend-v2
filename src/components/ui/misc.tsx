@@ -93,7 +93,7 @@ export function Timeline({
     neutral: "bg-line-strong",
     success: "bg-success",
     warning: "bg-warning",
-    danger: "bg-danger",
+    danger: "bg-warning",
     accent: "bg-accent",
   } as const;
 
