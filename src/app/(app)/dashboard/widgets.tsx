@@ -40,6 +40,7 @@ import { formatKobo } from "@/lib/api/payroll";
 import {
   employmentTypeLabel,
   naira,
+  printableHeadline,
   runStatusLabel,
   type DashboardData,
   type ReportsData,
@@ -216,13 +217,16 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
 
 /**
  * One sentence from the workforce explorer's own priority order — see
- * `insights/headline.ts` on the API. Renders nothing for `"none"`, the same
- * choice `NeedsYou` makes: a card saying nothing stands out is furniture,
- * not information, on the screen with the least room for it.
+ * `insights/headline.ts` on the API. Renders nothing when there is nothing to
+ * say, the same choice `NeedsYou` makes: a card saying nothing stands out is
+ * furniture, not information, on the screen with the least room for it.
+ * "Nothing to say" is decided by `printableHeadline`, which also refuses a
+ * rule this build does not know. It must leave no child nodes at all, or the
+ * grid's `empty:hidden` stops closing the row.
  */
 const WorkforceHeadline: WidgetComponent = ({ dashboard }) => {
-  const headline = dashboard.workforceHeadline;
-  if (!headline || headline.rule === "none") return null;
+  const headline = printableHeadline(dashboard.workforceHeadline);
+  if (!headline) return null;
 
   return (
     <Card as="article">

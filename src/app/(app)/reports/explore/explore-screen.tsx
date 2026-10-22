@@ -138,7 +138,7 @@ export function ExploreScreen() {
       />
 
       <PageBody className="flex flex-col gap-4">
-        {headline && headline.rule !== "none" && (
+        {headline && (
           <p className="flex items-start gap-2 text-body-sm text-body">
             <span
               aria-hidden="true"

@@ -5,7 +5,11 @@ import { useSession } from "@/lib/store/session";
 import { useCan } from "@/lib/permissions";
 import { reportsApi } from "@/lib/api/reports";
 import { performanceApi } from "@/lib/api/performance";
-import { insightsApi, type ApiWorkforceHeadline } from "@/lib/api/insights";
+import {
+  insightsApi,
+  printableHeadline,
+  type ApiWorkforceHeadline,
+} from "@/lib/api/insights";
 import {
   goalLens,
   intensityLens,
@@ -136,6 +140,11 @@ export function useLenses(): LensesState {
  * screen does not pull the whole dashboard payload for one sentence. Same
  * gate, same "absent, not disabled" shape as every lens above — see that
  * header.
+ *
+ * `null` is a clean absence: no permission, no connection, a failed request,
+ * the API saying nothing stands out, or a rule this build does not print. The
+ * screen draws nothing for all of them, not a placeholder.
+ * `printableHeadline` decides, so this and the dashboard cannot disagree.
  */
 export function useWorkforceHeadline(): ApiWorkforceHeadline | null {
   const { isConnected } = useSession();
@@ -160,5 +169,5 @@ export function useWorkforceHeadline(): ApiWorkforceHeadline | null {
     };
   }, [canSeeLenses]);
 
-  return canSeeLenses ? headline : null;
+  return canSeeLenses ? printableHeadline(headline) : null;
 }
