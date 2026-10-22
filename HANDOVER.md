@@ -9222,3 +9222,57 @@ Not fixed, on purpose: an objective with several measures cannot be uploaded in 
 row), and the upload cannot add a measure to an existing objective. The Add multiple window has no
 `maxLength` on title and description; the 140 and 2,000 limits are enforced at Check with a clear
 message, and a hard cap would silently truncate pasted text.
+
+---
+
+# No banners anywhere: a fact goes beside the thing it is about
+
+The owner does not want large banners. *"The big banner like '1 probation has already ended' should not be
+used… maybe a tooltip, maybe an icon that draws users' attention… on the table where we have user
+information."* This is what replaced them, and the rule for what to reach for.
+
+## The rule
+
+| What it is | What it becomes |
+|---|---|
+| **A fact about a person, a row, a section or a status** | `AttentionMark` beside it: a small ochre icon, the sentence behind it. `TDPrimary`, `CardHeader` and `Stat` take a `mark` prop; `PageHeader` takes one in `meta`. |
+| **A failure** that has to be read to carry on (a refused action, a failed load) | Plain red words, no box: `Callout tone="danger"`. |
+| **A call to action** | A button, link or row action on one line, with the mark beside it saying why: `NoticeLine` + `AttentionMark` + `NOTICE_LINK`. |
+
+A status stays plain muted text; the mark is the only colour on a row. `tone="info"` is the grey glyph for
+what a state means once somebody has seen it (closed, repaid); the default ochre is for what to look at.
+
+## `AttentionMark` is not hover-only
+
+It is a real button, and **the icon's accessible name is the message**, so a screen reader reads the reason
+on arrival. It opens on hover, on keyboard focus and on a tap (and stays open on a tap), and Escape or a
+press elsewhere closes it. It reuses `InfoTooltip`'s portalled panel; `InfoTooltip` gained `tone` and an
+optional `id`. Where the sentence has to be found by text in a test, use `getByRole("button", { name })`.
+
+## `Callout` can no longer draw a box
+
+It lives in `components/ui/callout.tsx` (re-exported from `card.tsx`, which Server Components import and
+which therefore cannot read a context). Failure: red words. Words only: the heading, the rest behind the
+icon (an ochre one for `warning`). Words with a name in bold or a list of reasons: read as words and treated
+the same way **on a page**. Anything with a link, a button or a component of ours stays on the page as a line.
+
+**Inside a `Modal` or `Drawer` it never hides its words** (`InDialog`, set by both). That is where the
+sentence beside the deciding button is read, "this ends nothing on its own" among them, and a consequence
+that needs a hover to be read is one that gets agreed to unread.
+
+If you are about to write a tinted `div` for a message, write a `Callout` or an `AttentionMark` instead.
+`npm run verify-no-banners` refuses a class string that gives the warning or danger tint a border and
+padding (accent and info tints are selection states and are left alone; `ALLOWED` in the script says why
+each exempt file is). The check in a browser is the one that counts: tinted blocks over 280px wide with
+text in them, across every static route, was **17 before and 0 after** on the demo company.
+
+## Things to know
+
+- **A `TDPrimary` mark lands inside a row header**, so the row's accessible name includes the sentence.
+  Verbose for a screen reader moving across a row, and the reason it is one sentence or two, not a paragraph.
+- Rows that carried a tint to say "late" (documents, exceptions, checks) are plain hairline rows now. The
+  state is in their words; the tint was the second cue and is gone.
+- Not touched, on purpose: the payslip document's unpaid-days note (it prints), selection and drag-over
+  highlights, the shift palette's categorical colours, icon chips, and the `recruitment-coming-soon` empty state.
+- `docs/components` and `docs/pages` were not regenerated. New exports for the generator: `AttentionMark`,
+  `InDialog`, the `callout.tsx` module, and `mark` on `TDPrimary`, `CardHeader` and `Stat`.

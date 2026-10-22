@@ -364,7 +364,7 @@ function SignatureCard({
         )}
 
         {record.status === "DECLINED" && record.declineReason && (
-          <Callout tone="danger" title="Declined">
+          <Callout tone="warning" title="Declined">
             {record.declineReason}
           </Callout>
         )}
