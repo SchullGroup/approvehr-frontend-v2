@@ -166,6 +166,23 @@ describe("LoadState once it has answered", () => {
 });
 
 describe("useHasAnswered", () => {
+  it("is not answered by a hook that was never asked", () => {
+    /* `loading: false` on the first render is "has not started", not "has
+       answered": the session still resolving, a permission still arriving.
+       Calling it an answer drew the first real request over stale emptiness. */
+    const { result, rerender } = renderHook(
+      ({ loading }: { loading: boolean }) => useHasAnswered(loading),
+      { initialProps: { loading: false } },
+    );
+    expect(result.current).toBe(false);
+
+    rerender({ loading: true });
+    expect(result.current).toBe(false);
+
+    rerender({ loading: false });
+    expect(result.current).toBe(true);
+  });
+
   it("is false until the first answer, and stays true through a reload", () => {
     const { result, rerender } = renderHook(
       ({ loading }: { loading: boolean }) => useHasAnswered(loading),

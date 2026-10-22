@@ -112,11 +112,25 @@ export function loadPhase({
  *
  * Derived during render rather than in an effect, which would be a synchronous
  * `setState` and a cascaded render.
+ *
+ * Only meaningful as `hasData` for a `LoadState` that stays mounted, where it
+ * decides whether a *reload* keeps what is on screen. It must not gate a screen
+ * on its own (`if (!answered) return …`): a read that is never seen to load
+ * stays unanswered for ever, and that gate would be a blank page.
  */
 export function useHasAnswered(loading: boolean): boolean {
-  const [answered, setAnswered] = useState(!loading);
-  if (!loading && !answered) setAnswered(true);
-  return answered;
+  /* "Has answered" is a read that was seen to start and seen to finish. It is
+     not "is not loading": a hook that reports `loading: false` on its first
+     render because it has not been asked yet — the session still resolving, a
+     permission still arriving — has answered nothing, and calling that an
+     answer meant the first real request was drawn over stale emptiness: the
+     screen said "nothing waiting" while the request was in flight. */
+  const [seen, setSeen] = useState<"idle" | "loading" | "answered">(
+    loading ? "loading" : "idle",
+  );
+  if (loading && seen === "idle") setSeen("loading");
+  if (!loading && seen === "loading") setSeen("answered");
+  return seen === "answered";
 }
 
 /* -------------------------------------------------------------------------- */

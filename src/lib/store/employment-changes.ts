@@ -76,7 +76,7 @@ export function useEmploymentChanges() {
 
   return {
     rows: outcome?.value ?? [],
-    loading: isConnected && outcome === undefined,
+    loading: isConnected && outcome === null,
     error: outcome?.error ?? null,
     /** True offline. The screen states the reason rather than showing nothing. */
     unavailable: !isConnected,

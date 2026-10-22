@@ -102,7 +102,7 @@ export function useSurveys() {
 
   return {
     surveys: outcome?.value ?? [],
-    loading: isConnected && outcome === undefined,
+    loading: isConnected && outcome === null,
     error: outcome?.error ?? null,
     unavailable: !isConnected,
     reload: useCallback(() => all.refresh("all"), []),
@@ -116,7 +116,7 @@ export function useMySurveys() {
 
   return {
     invites: outcome?.value ?? [],
-    loading: isConnected && outcome === undefined,
+    loading: isConnected && outcome === null,
     error: outcome?.error ?? null,
     unavailable: !isConnected,
     reload: useCallback(() => mineRes.refresh("mine"), []),
@@ -130,7 +130,7 @@ export function useSurvey(id: string | null) {
 
   return {
     survey: outcome?.value ?? null,
-    loading: key !== null && outcome === undefined,
+    loading: key !== null && outcome === null,
     error: outcome?.error ?? null,
     unavailable: !isConnected,
     reload: useCallback(() => {
@@ -153,7 +153,7 @@ export function useSurveyResults(id: string | null) {
 
   return {
     results: outcome?.value ?? null,
-    loading: key !== null && outcome === undefined,
+    loading: key !== null && outcome === null,
     error: outcome?.error ?? null,
     unavailable: !isConnected,
     reload: useCallback(() => {

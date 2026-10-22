@@ -139,7 +139,7 @@ export function useJobRoles() {
 
   return {
     roles: outcome?.value ?? [],
-    loading: outcome === undefined,
+    loading: outcome === null,
     error: outcome?.error ?? null,
     readOnly: false,
     reload,
@@ -168,7 +168,7 @@ export function useJobRole(id: string | null) {
 
   return {
     role: outcome?.value ?? null,
-    loading: key !== null && outcome === undefined,
+    loading: key !== null && outcome === null,
     error: outcome?.error ?? null,
     reload: () => {
       if (key) oneRole.refresh(key);
