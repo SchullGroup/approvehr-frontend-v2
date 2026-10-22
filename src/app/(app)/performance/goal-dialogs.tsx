@@ -385,7 +385,7 @@ export function NewKpiDialog({
                     fact. */}
                 {mine.map((department) => (
                   <option key={department.id} value={`dept:${department.id}`}>
-                    {department.name} — the whole department
+                    {department.name}, the whole department
                   </option>
                 ))}
                 {/* The API's own rule, not a longer list than it will accept,
