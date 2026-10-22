@@ -23,10 +23,10 @@ import {
   useToast,
   Tabs,
   type TabItem,
+  LoadState,
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
 import { DecidedCard } from "@/components/payroll/decided-card";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -229,16 +229,22 @@ function Mine({
   read: ReturnType<typeof useMyAdvance>;
   onAsk: () => void;
 }) {
-  if (read.error) {
+  /* The one loading and failure rule, as a gate: skeleton while it asks, the
+     failure card after it could not, and only a read that has answered goes on
+     to say what has been earned. */
+  if (read.error || read.loading || !read.data) {
     return (
-      <LoadFailure
-        subject="what you have earned"
+      <LoadState
+        loading={read.loading}
         error={read.error}
+        subject="what you have earned"
         onRetry={read.reload}
-      />
+        skeleton="detail"
+      >
+        {null}
+      </LoadState>
     );
   }
-  if (read.loading || !read.data) return <Spinner label="Working it out" />;
 
   const { earned, eligibility } = read.data;
 
@@ -343,7 +349,21 @@ function Waiting({
   const [busy, setBusy] = useState(false);
   const [declining, setDeclining] = useState<ApiAdvance | null>(null);
 
-  if (read.loading || !read.data) return null;
+  /* Was `return null` for all three of these, so a failed read drew nothing at
+     all: no card, no reason, no retry. */
+  if (read.error || read.loading || !read.data) {
+    return (
+      <LoadState
+        loading={read.loading}
+        error={read.error}
+        subject="the advances waiting on you"
+        onRetry={read.reload}
+        skeleton="list"
+      >
+        {null}
+      </LoadState>
+    );
+  }
   if (read.data.length === 0) {
     return (
       <Callout tone="success" title="Nothing waiting on you">
@@ -432,7 +452,19 @@ function History({ read }: { read: ReturnType<typeof useAdvances> }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
 
-  if (read.loading || !read.data) return null;
+  if (read.error || read.loading || !read.data) {
+    return (
+      <LoadState
+        loading={read.loading}
+        error={read.error}
+        subject="the advances"
+        onRetry={read.reload}
+        skeleton="list"
+      >
+        {null}
+      </LoadState>
+    );
+  }
   if (read.data.length === 0) {
     return (
       <EmptyState

@@ -27,8 +27,8 @@ import {
   THead,
   TR,
   TableWrap,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { naira, type ApiWalletMovement } from "@/lib/api/payments";
 import {
   usePaymentBatch,
@@ -123,85 +123,85 @@ export function WalletStatement({
         description="Every movement in and out, and what the balance was either side of it. Newest first."
       />
 
-      {statement.error && (
-        <CardBody>
-          <LoadFailure
-            subject="the wallet statement"
-            error={statement.error}
-            onRetry={statement.reload}
-          />
-        </CardBody>
-      )}
-
-      {statement.loading ? (
-        <CardBody className="flex justify-center py-10">
-          <Spinner />
-        </CardBody>
-      ) : !held ? (
-        /* Not an empty state: absent and empty are different claims about a
+      {/* The one loading and failure rule. After a failed read `held` is null
+          too, so this used to follow the failure card with "Not available
+          here ... nothing to show offline", which blamed the connection for a
+          server fault. */}
+      <LoadState
+        loading={statement.loading}
+        error={statement.error}
+        subject="the wallet statement"
+        onRetry={statement.reload}
+        skeleton="table"
+        hasData={held !== null && held !== undefined}
+        className="p-5"
+      >
+        {!held ? (
+          /* Not an empty state: absent and empty are different claims about a
            company's money, and `useWalletStatement` returns null for loading,
            failure and offline alike. */
-        <CardBody>
-          <Callout tone="info" title="Not available here">
-            The statement is a live read from the API. There is nothing to show
-            offline, and an empty table here would read as a wallet that has
-            never moved.
-          </Callout>
-        </CardBody>
-      ) : held.transactions.length === 0 ? (
-        <EmptyState
-          icon={<Wallet aria-hidden="true" />}
-          title="Nothing has moved yet"
-          description="Transfer into one of the accounts above and the credit shows up here, with the balance before and after it. Paying a payroll from the wallet appears the same way, as money out."
-        />
-      ) : (
-        <>
-          <TableWrap
-            className="rounded-none border-0"
-            caption="Wallet movements, newest first"
-          >
-            <THead>
-              <TH>Date</TH>
-              <TH>What moved it</TH>
-              <TH align="right">In</TH>
-              <TH align="right">Out</TH>
-              <TH align="right">Balance before</TH>
-              <TH align="right">Balance after</TH>
-              <TH align="right">
-                <span className="sr-only">Details</span>
-              </TH>
-            </THead>
-            <TBody>
-              {held.transactions.map((movement) => (
-                <MovementRow
-                  key={movement.id}
-                  movement={movement}
-                  open={openId === movement.id}
-                  onToggle={() =>
-                    setOpenId((current) =>
-                      current === movement.id ? null : movement.id,
-                    )
-                  }
-                />
-              ))}
-            </TBody>
-          </TableWrap>
-
-          <CardBody className="border-t border-line">
-            <Pagination
-              page={page}
-              pageSize={pageSize}
-              /* The server's count, so the pager knows about movements this
-                 page does not hold. */
-              total={held.total}
-              onPageChange={onPageChange}
-              onPageSizeChange={onPageSizeChange}
-              noun={["movement", "movements"]}
-              loading={statement.loading}
-            />
+          <CardBody>
+            <Callout tone="info" title="Not available here">
+              The statement is a live read from the API. There is nothing to
+              show offline, and an empty table here would read as a wallet that
+              has never moved.
+            </Callout>
           </CardBody>
-        </>
-      )}
+        ) : held.transactions.length === 0 ? (
+          <EmptyState
+            icon={<Wallet aria-hidden="true" />}
+            title="Nothing has moved yet"
+            description="Transfer into one of the accounts above and the credit shows up here, with the balance before and after it. Paying a payroll from the wallet appears the same way, as money out."
+          />
+        ) : (
+          <>
+            <TableWrap
+              className="rounded-none border-0"
+              caption="Wallet movements, newest first"
+            >
+              <THead>
+                <TH>Date</TH>
+                <TH>What moved it</TH>
+                <TH align="right">In</TH>
+                <TH align="right">Out</TH>
+                <TH align="right">Balance before</TH>
+                <TH align="right">Balance after</TH>
+                <TH align="right">
+                  <span className="sr-only">Details</span>
+                </TH>
+              </THead>
+              <TBody>
+                {held.transactions.map((movement) => (
+                  <MovementRow
+                    key={movement.id}
+                    movement={movement}
+                    open={openId === movement.id}
+                    onToggle={() =>
+                      setOpenId((current) =>
+                        current === movement.id ? null : movement.id,
+                      )
+                    }
+                  />
+                ))}
+              </TBody>
+            </TableWrap>
+
+            <CardBody className="border-t border-line">
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                /* The server's count, so the pager knows about movements this
+                 page does not hold. */
+                total={held.total}
+                onPageChange={onPageChange}
+                onPageSizeChange={onPageSizeChange}
+                noun={["movement", "movements"]}
+                loading={statement.loading}
+              />
+            </CardBody>
+          </>
+        )}
+      </LoadState>
     </Card>
   );
 }

@@ -11,7 +11,6 @@ import {
   Callout,
   EmptyState,
   Input,
-  Skeleton,
   TBody,
   TD,
   TDPrimary,
@@ -20,8 +19,8 @@ import {
   TR,
   TableWrap,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ExportButton } from "@/components/portal/export-button";
 import { ApiError } from "@/lib/api/client";
 import { formatKobo, periodLabel } from "@/lib/api/payroll";
@@ -72,14 +71,18 @@ export function SchedulesTable() {
     );
   }
 
-  if (state.loading) return <Skeleton className="h-64 w-full" />;
-  if (state.error) {
+  /* The one loading and failure rule, as a gate. */
+  if (state.loading || state.error) {
     return (
-      <LoadFailure
-        subject="the remittance schedules"
+      <LoadState
+        loading={state.loading}
         error={state.error}
+        subject="the remittance schedules"
         onRetry={state.reload}
-      />
+        skeleton="table"
+      >
+        {null}
+      </LoadState>
     );
   }
 
