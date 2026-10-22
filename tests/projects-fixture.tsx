@@ -65,6 +65,7 @@ export function fakeActions(): {
       Promise.resolve({ ok: true, value: { key: "CHK-99", ...input } }),
     ),
     patchIssue: resolved(),
+    refreshIssue: resolved(),
     deleteIssue: resolved(),
     addComment: resolved(),
     editComment: resolved(),

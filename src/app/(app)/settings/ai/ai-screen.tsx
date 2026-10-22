@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   CircleDashed,
   ListChecks,
@@ -253,12 +254,16 @@ export function AiScreen() {
             </p>
             <p className="text-muted">
               Whichever provider is answering is named in the{" "}
-              <a
+              {/* Not prefetched: `/dpa` is served by the landing site and the
+                  proxy answers it with a redirect there, which a prefetch
+                  would turn into a blocked cross-origin request. */}
+              <Link
                 href="/dpa"
+                prefetch={false}
                 className="text-accent-text underline hover:text-ink"
               >
                 data processing agreement
-              </a>{" "}
+              </Link>{" "}
               along with what reaches it.
             </p>
           </div>

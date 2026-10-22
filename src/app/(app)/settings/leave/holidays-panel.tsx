@@ -1,17 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
+  CalendarCheck,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Pencil,
   Plus,
   Trash2,
 } from "lucide-react";
 import {
   Badge,
   Button,
-  ButtonLink,
   Callout,
   Card,
   CardBody,
@@ -19,6 +21,7 @@ import {
   ConfirmDialog,
   EmptyState,
   IconButton,
+  RowActions,
   Spinner,
   TBody,
   TD,
@@ -30,6 +33,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { ApiError } from "@/lib/api/client";
 import {
   HOLIDAY_DELETE_EFFECTS,
@@ -112,8 +116,11 @@ function weekdayOf(isoDate: string): string {
 /* Text, not a colour. The calendar card carries the same distinction as fill
    against dashed outline. */
 function HolidayStatusBadge({ holiday }: { holiday: PublicHolidayRow }) {
+  /* Neutral for the ordinary case: twelve green pills down a column say
+     "all good" about a list that has no good or bad in it, and leave the one
+     that needs attention no louder than the rest. */
   return holiday.confirmed ? (
-    <Badge tone="success" size="sm">
+    <Badge tone="neutral" size="sm">
       Gazetted
     </Badge>
   ) : (
@@ -123,9 +130,11 @@ function HolidayStatusBadge({ holiday }: { holiday: PublicHolidayRow }) {
   );
 }
 
-/** Mark confirmed (unconfirmed only), Edit, Remove — one copy shared by the
-    desktop row and the mobile card. */
-function HolidayRowActions({
+/** Mark confirmed (unconfirmed only), Edit, Remove — one menu on every row, on
+    both layouts. Three buttons on a row was the busiest column on the screen
+    for the least-used acts; "Mark confirmed" is the one that is a task, and it
+    is first. */
+function HolidayRowMenu({
   holiday,
   busy,
   onConfirm,
@@ -139,24 +148,33 @@ function HolidayRowActions({
   onDelete: () => void;
 }) {
   return (
-    <>
-      {!holiday.confirmed && (
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={busy}
-          onClick={onConfirm}
-        >
-          Mark confirmed
-        </Button>
-      )}
-      <Button variant="ghost" size="sm" onClick={onEdit}>
-        Edit
-      </Button>
-      <IconButton label={`Remove ${holiday.name}`} size="sm" onClick={onDelete}>
-        <Trash2 aria-hidden="true" className="size-3.5" />
-      </IconButton>
-    </>
+    <RowActions
+      label={`More actions for ${holiday.name}`}
+      items={[
+        ...(holiday.confirmed
+          ? []
+          : [
+              {
+                label: "Mark confirmed",
+                icon: <CalendarCheck aria-hidden="true" />,
+                disabled: busy,
+                onSelect: onConfirm,
+              },
+            ]),
+        {
+          label: "Edit",
+          icon: <Pencil aria-hidden="true" />,
+          onSelect: onEdit,
+        },
+        "separator" as const,
+        {
+          label: "Remove",
+          icon: <Trash2 aria-hidden="true" />,
+          tone: "danger" as const,
+          onSelect: onDelete,
+        },
+      ]}
+    />
   );
 }
 
@@ -214,6 +232,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
                 <IconButton
                   label={`Show ${year - 1}`}
                   size="sm"
+                  className="size-11 sm:size-8"
                   onClick={() => setYear((y) => y - 1)}
                 >
                   <ChevronLeft aria-hidden="true" className="size-4" />
@@ -224,6 +243,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
                 <IconButton
                   label={`Show ${year + 1}`}
                   size="sm"
+                  className="size-11 sm:size-8"
                   onClick={() => setYear((y) => y + 1)}
                 >
                   <ChevronRight aria-hidden="true" className="size-4" />
@@ -233,6 +253,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
                 <Button
                   variant="accent"
                   size="sm"
+                  className="min-h-11 sm:min-h-8"
                   onClick={() => setAdding(true)}
                 >
                   <Plus aria-hidden="true" className="size-4" />
@@ -243,7 +264,7 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
           }
         />
 
-        <CardBody className="flex flex-col gap-4 pb-0">
+        <CardBody className="flex flex-col gap-3 pb-3">
           <LoadFailure
             subject={`the ${year} holiday calendar`}
             error={calendar.error}
@@ -267,38 +288,36 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
           )}
 
           {awaiting !== null && awaiting > 0 && (
+            /* Plain text, so it is one quiet line with the consequence behind
+               an info icon rather than a coloured block of three paragraphs. */
             <Callout
               tone="info"
               title={`${awaiting} ${awaiting === 1 ? "date is" : "dates are"} awaiting proclamation`}
             >
-              <span className="flex flex-col gap-1.5 text-body-sm leading-relaxed">
-                <span>{UNCONFIRMED_HOLIDAY_EFFECT.acts}</span>
-                <span>{UNCONFIRMED_HOLIDAY_EFFECT.waits}</span>
-                {canManage && (
-                  <span>
-                    Confirm one as soon as it is gazetted and both catch up.
-                  </span>
-                )}
-              </span>
+              {[
+                UNCONFIRMED_HOLIDAY_EFFECT.acts,
+                UNCONFIRMED_HOLIDAY_EFFECT.waits,
+                canManage
+                  ? "Confirm one as soon as it is gazetted and both catch up."
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
             </Callout>
           )}
 
           {canManage && suggested !== null && suggested > 0 && (
-            <Callout
-              tone="accent"
-              title={`${suggested} suggested ${suggested === 1 ? "holiday is" : "holidays are"} waiting in Approvals`}
-            >
-              <span className="flex flex-col items-start gap-2.5 text-body-sm leading-relaxed">
-                <span>
-                  Worked out from Nigeria&rsquo;s public holidays, up to ninety
-                  days ahead. None of them is on this calendar, or changes
-                  anybody&rsquo;s pay, until somebody approves it.
-                </span>
-                <ButtonLink href="/approvals" variant="secondary" size="sm">
-                  Open approvals
-                </ButtonLink>
+            <NoticeLine tone="accent">
+              <span>
+                {suggested} suggested{" "}
+                {suggested === 1 ? "holiday is" : "holidays are"} waiting in
+                Approvals. None changes anybody&rsquo;s pay until it is
+                approved.
               </span>
-            </Callout>
+              <Link href="/approvals" className={NOTICE_LINK}>
+                Open approvals
+              </Link>
+            </NoticeLine>
           )}
 
           {!canManage && (
@@ -357,20 +376,18 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
                       </TD>
                       {canManage && (
                         <TD align="right">
-                          <div className="flex justify-end gap-1.5">
-                            <HolidayRowActions
-                              holiday={holiday}
-                              busy={busy}
-                              onConfirm={() =>
-                                void run(
-                                  () => mutations.confirm(holiday.id),
-                                  `${holiday.name} confirmed`,
-                                )
-                              }
-                              onEdit={() => setEditing(holiday)}
-                              onDelete={() => setDeleting(holiday)}
-                            />
-                          </div>
+                          <HolidayRowMenu
+                            holiday={holiday}
+                            busy={busy}
+                            onConfirm={() =>
+                              void run(
+                                () => mutations.confirm(holiday.id),
+                                `${holiday.name} confirmed`,
+                              )
+                            }
+                            onEdit={() => setEditing(holiday)}
+                            onDelete={() => setDeleting(holiday)}
+                          />
                         </TD>
                       )}
                     </TR>
@@ -379,45 +396,38 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
               </TableWrap>
             </div>
 
+            {/* Two lines a row, as on the desktop: the name and its date on the
+                left, the status and the menu on the right. Five lines of label
+                and value pairs per holiday was thirteen holidays of them. */}
             <ul className="divide-y divide-line sm:hidden">
               {calendar.holidays.map((holiday) => (
-                <li key={holiday.id} className="flex flex-col gap-2 p-4">
-                  <div className="min-w-0">
-                    <p className="text-body-sm font-medium text-ink">
+                <li
+                  key={holiday.id}
+                  className="flex items-center gap-3 px-4 py-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-body-sm font-medium text-ink">
                       {holiday.name}
                     </p>
-                    <p className="mt-0.5 text-meta text-muted">
-                      {weekdayOf(holiday.date)}
+                    <p className="tabular truncate text-meta text-muted">
+                      {weekdayOf(holiday.date).slice(0, 3)},{" "}
+                      {longDate(holiday.date)}
                     </p>
                   </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-body-sm text-muted">Date</span>
-                    <span className="tabular text-body-sm text-body">
-                      {longDate(holiday.date)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-body-sm text-muted">Status</span>
-                    <HolidayStatusBadge holiday={holiday} />
-                  </div>
-
+                  <HolidayStatusBadge holiday={holiday} />
                   {canManage && (
-                    <div className="flex flex-wrap gap-1.5">
-                      <HolidayRowActions
-                        holiday={holiday}
-                        busy={busy}
-                        onConfirm={() =>
-                          void run(
-                            () => mutations.confirm(holiday.id),
-                            `${holiday.name} confirmed`,
-                          )
-                        }
-                        onEdit={() => setEditing(holiday)}
-                        onDelete={() => setDeleting(holiday)}
-                      />
-                    </div>
+                    <HolidayRowMenu
+                      holiday={holiday}
+                      busy={busy}
+                      onConfirm={() =>
+                        void run(
+                          () => mutations.confirm(holiday.id),
+                          `${holiday.name} confirmed`,
+                        )
+                      }
+                      onEdit={() => setEditing(holiday)}
+                      onDelete={() => setDeleting(holiday)}
+                    />
                   )}
                 </li>
               ))}

@@ -23,6 +23,7 @@ import {
   SegmentedControl,
   Spinner,
   Stat,
+  StatGrid,
   Switch,
   Tabs,
   useToast,
@@ -252,7 +253,7 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
 
             {tab === "rota" ? (
               <>
-                <div className="grid gap-4 sm:grid-cols-3">
+                <StatGrid columns={3}>
                   <Stat
                     label="On the rota"
                     value={String(grid.rota?.totals.people ?? 0)}
@@ -274,7 +275,7 @@ export function ShiftsScreen({ initialTab }: { initialTab: ShiftTab }) {
                         }
                       : {})}
                   />
-                </div>
+                </StatGrid>
 
                 <Card>
                   <CardHeader

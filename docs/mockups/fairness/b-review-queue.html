@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fairness check — B: review queue</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      .top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 16px;
+        flex-wrap: wrap;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 20px;
+      }
+      .mode {
+        margin-top: 20px;
+      }
+      .queue {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        gap: 48px;
+        margin-top: 28px;
+      }
+      .rail {
+        position: sticky;
+        top: 24px;
+        align-self: start;
+      }
+      .rail h3 {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--faint);
+        margin: 0 0 8px;
+      }
+      .rail ol {
+        list-style: none;
+        margin: 0 0 20px;
+        padding: 0;
+      }
+      .rail li button {
+        all: unset;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        padding: 7px 10px;
+        border-radius: 6px;
+        font-size: 14px;
+        color: var(--body);
+      }
+      .rail li button:hover {
+        background: var(--canvas);
+      }
+      .rail li button.on {
+        background: var(--sunken);
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .rail li .done {
+        color: var(--success-text);
+      }
+      .rail p {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .step {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+      }
+      .pos {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .nav {
+        display: flex;
+        gap: 8px;
+      }
+      .btn {
+        all: unset;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 7px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--line-strong);
+        color: var(--ink);
+      }
+      .btn.primary {
+        background: var(--ink);
+        color: #fff;
+        border-color: var(--ink);
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .progress {
+        height: 3px;
+        background: var(--sunken);
+        border-radius: 2px;
+        margin-bottom: 28px;
+      }
+      .progress i {
+        display: block;
+        height: 100%;
+        background: var(--accent);
+        border-radius: 2px;
+        transition: width 0.2s;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 36px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        flex-wrap: wrap;
+      }
+      .groupsLink {
+        font-size: 14px;
+        color: var(--accent);
+        text-decoration: none;
+      }
+      @media (max-width: 860px) {
+        .queue {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 0;
+        }
+        .rail {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <nav class="side">
+        <b>ApproveHR</b>
+        <div>Home</div>
+        <div>Employees</div>
+        <div class="on">Performance</div>
+        <div>Monthly payroll</div>
+      </nav>
+      <main>
+        <div class="top">
+          <div>
+            <div class="crumb">Performance / H2 2026 appraisal</div>
+            <h1>Fairness check <span class="stage">Calibration</span></h1>
+          </div>
+          <a class="groupsLink" href="#"
+            >Groups, managers and calibration moves →</a
+          >
+        </div>
+        <div class="queue">
+          <div class="rail">
+            <h3>Below their record</h3>
+            <ol id="below"></ol>
+            <h3>Above their record</h3>
+            <ol id="above"></ol>
+            <p>6 more can’t be checked — not enough evidence.</p>
+          </div>
+          <div>
+            <div class="step">
+              <span class="pos" id="pos"></span>
+              <div class="nav">
+                <button class="btn" id="prev">← Previous</button
+                ><button class="btn" id="next">Next →</button>
+              </div>
+            </div>
+            <div class="progress"><i id="bar"></i></div>
+            <div id="detail"></div>
+            <div class="actions">
+              <button class="btn primary" id="raise">
+                Raise at calibration
+              </button>
+              <button class="btn" id="ok">Mark as checked</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+    <a class="pick" href="index.html">← All options</a>
+    <script src="data.js"></script>
+    <script>
+      const P = FAIRNESS.people;
+      let i = 0;
+      const checked = new Set();
+      function rail() {
+        for (const dir of ["below", "above"]) {
+          document.getElementById(dir).innerHTML = P.map((p, k) =>
+            p.dir !== dir
+              ? ""
+              : `<li><button class="${k === i ? "on" : ""}" data-k="${k}"><span>${p.name}</span><span class="${checked.has(k) ? "done" : "warn"}">${checked.has(k) ? "✓" : (dir === "below" ? "↓ " : "↑ ") + fmt(Math.abs(gapOf(p)))}</span></button></li>`,
+          ).join("");
+        }
+      }
+      function show() {
+        document.getElementById("detail").innerHTML = personDetail(P[i]);
+        document.getElementById("pos").textContent =
+          `${i + 1} of ${P.length} to review · ${checked.size} checked`;
+        document.getElementById("bar").style.width =
+          `${(checked.size / P.length) * 100}%`;
+        document.getElementById("prev").disabled = i === 0;
+        document.getElementById("next").disabled = i === P.length - 1;
+        rail();
+      }
+      document.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-k]");
+        if (b) {
+          i = +b.dataset.k;
+          show();
+        }
+      });
+      document.getElementById("prev").onclick = () => {
+        i--;
+        show();
+      };
+      document.getElementById("next").onclick = () => {
+        i++;
+        show();
+      };
+      document.getElementById("ok").onclick = document.getElementById(
+        "raise",
+      ).onclick = () => {
+        checked.add(i);
+        if (i < P.length - 1) i++;
+        show();
+      };
+      show();
+    </script>
+  </body>
+</html>

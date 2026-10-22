@@ -1,4 +1,5 @@
-import { createElement } from "react";
+import { createElement, useId } from "react";
+import { InfoTooltip } from "./field";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -189,17 +190,18 @@ export function Stat({
   icon?: React.ReactNode;
   className?: string;
 }) {
+  /* Never red and green. A trend is a remark on a figure, not an alarm: the
+     good direction takes the brand colour and the rest stay quiet. */
   const trendTone =
-    trend?.direction === "up"
-      ? "text-success-text"
-      : trend?.direction === "down"
-        ? "text-danger-text"
-        : "text-muted";
+    trend?.direction === "up" ? "text-accent-text" : "text-muted";
 
   return (
     <div
       className={cn(
-        "rounded-lg border border-line bg-surface p-5 min-w-0",
+        /* Compact below `sm`, roomy from there up. A phone shows these two to a
+           row (see `StatGrid`), so the padding that suits a 300px card is far
+           too much for a 170px one. */
+        "min-w-0 rounded-lg border border-line bg-surface p-3.5 sm:p-5",
         className,
       )}
     >
@@ -253,7 +255,66 @@ export function Stat({
   );
 }
 
+/**
+ * A row of `Stat`s, two to a row on a phone.
+ *
+ * Four stat cards stacked one to a row took more than a screen before the page's
+ * own content began, on a dozen screens (payroll, payslips, the period screen,
+ * the directory, departments, hiring, leave, shifts, KPIs and more). Two across
+ * is the shape a phone can hold — with `Stat`'s own padding and figure size
+ * stepping down to match — so four become a 2×2 block under the header and the
+ * content is back in the first screenful.
+ *
+ * From `sm` up it is the layout every screen already had, so a desktop does not
+ * change: two across at `sm`, and `columns` across from `xl` (or from `sm` for
+ * three). An odd stat out spans the phone's full width rather than leaving a
+ * hole beside it.
+ *
+ * This is the one place that decides how a row of metrics lays out. A screen
+ * that writes its own `grid` around `Stat`s is the thing this replaces.
+ */
+export function StatGrid({
+  columns = 4,
+  className,
+  children,
+}: {
+  /** How many across on a wide screen. Two across on a phone whatever this is. */
+  columns?: 2 | 3 | 4;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-3 sm:gap-4",
+        columns === 3 && "sm:grid-cols-3",
+        columns === 4 && "xl:grid-cols-4",
+        /* The last of an odd number takes the whole row on a phone. */
+        "[&>:last-child:nth-child(odd)]:col-span-2 sm:[&>:last-child:nth-child(odd)]:col-span-1",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
+
+/** The words of a callout whose children are only words, or null. */
+function plainText(children: React.ReactNode): string | null {
+  if (typeof children === "string") return children;
+  if (typeof children === "number") return String(children);
+  if (
+    Array.isArray(children) &&
+    children.every(
+      (child) => typeof child === "string" || typeof child === "number",
+    )
+  ) {
+    return children.join("");
+  }
+  return null;
+}
 
 /** A tinted callout. Used for AI output, regulatory notes and warnings. */
 export function Callout({
@@ -269,11 +330,42 @@ export function Callout({
   className?: string;
   children: React.ReactNode;
 }) {
+  const quiet = useId();
+  /* Information is not worth a coloured block on the page. It becomes a quiet
+     line, with anything past the first sentence behind an info icon that shows
+     it on hover or focus. Errors, successes and anything with something to
+     click stay as they are. */
+  const text = plainText(children);
+  if (
+    text !== null &&
+    (tone === "info" ||
+      tone === "neutral" ||
+      tone === "accent" ||
+      tone === "warning")
+  ) {
+    const first = text.match(/^.*?[.!?](?:\s|$)/)?.[0].trim() ?? text;
+    const visible = title ?? first;
+    const detail = title ? text : text.slice(first.length).trim();
+    return (
+      <p
+        className={cn(
+          "inline-flex max-w-full items-center gap-2 text-body-sm text-muted",
+          className,
+        )}
+      >
+        <span className="min-w-0">{visible}</span>
+        {detail.length > 0 && (
+          <InfoTooltip id={quiet} text={detail} label="Read more" />
+        )}
+      </p>
+    );
+  }
+
   const tones = {
     info: "bg-info-soft border-info-line text-info-text",
-    success: "bg-success-soft border-success-line text-success-text",
+    success: "bg-accent-soft border-accent-line text-accent-text",
     warning: "bg-warning-soft border-warning-line text-warning-text",
-    danger: "bg-danger-soft border-danger-line text-danger-text",
+    danger: "bg-warning-soft border-warning-line text-warning-text",
     accent: "bg-accent-soft border-accent-line text-accent-text",
     neutral: "bg-canvas border-line text-body",
   } as const;

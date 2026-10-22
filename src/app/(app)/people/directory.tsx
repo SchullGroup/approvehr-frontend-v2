@@ -37,9 +37,11 @@ import {
   Pagination,
   Select,
   SegmentedControl,
-  Skeleton,
+  LoadState,
+  useHasAnswered,
   SortableTH,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -75,6 +77,7 @@ import { MissingDetailsDialog } from "@/components/people/missing-details-dialog
 import { useOrgTimezone } from "@/lib/store/session";
 import { todayIn } from "@/lib/time";
 import { DirectoryFieldSettings } from "./directory-settings";
+import { useDismiss } from "@/hooks/use-dismiss";
 
 const STATUS: Record<EmploymentStatus, { tone: BadgeTone; label: string }> = {
   active: { tone: "success", label: "Active" },
@@ -211,6 +214,10 @@ export function Directory({
     reload,
   } = useEmployeeDirectory(params);
   const summary = useDirectorySummary(params);
+  /* Searching and filtering change the request; once the directory has answered
+     the filter bar must survive the next one, so a reload replaces the table
+     rather than blanking the screen. */
+  const answered = useHasAnswered(loading);
 
   /**
    * Headcount by status, in the order `STATUS` declares.
@@ -397,10 +404,6 @@ export function Directory({
             {sourceNote(connected)}
           </Badge>
         )}
-        {loading && <span className="text-meta text-muted">Loading…</span>}
-        {error && (
-          <span className="text-meta text-danger-text">{error.message}</span>
-        )}
       </div>
 
       <DirectoryFieldSettings />
@@ -436,7 +439,7 @@ export function Directory({
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatGrid>
         <Stat
           label="Employees"
           value={count(summary.total)}
@@ -504,7 +507,7 @@ export function Directory({
             hint="missing bank, PIN or TIN: only a missing bank account blocks pay"
           />
         </Link>
-      </div>
+      </StatGrid>
 
       <FilterBar
         search={list.search}
@@ -583,321 +586,321 @@ export function Directory({
         </Field>
       </FilterBar>
 
-      {rows.length === 0 && loading ? (
-        <Card>
-          {/* Shape-matched, same pattern as record-history.tsx — the header
-              row above already carries a "Loading…" text cue, but that is
-              easy to miss above a blank table; this is what the content area
-              itself shows while there is genuinely nothing to render yet. */}
-          <div className="flex flex-col gap-2 p-1">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <span className="sr-only">Loading the employee directory</span>
-          </div>
-        </Card>
-      ) : rows.length === 0 && !loading ? (
-        <Card>
-          <EmptyState
-            icon={<Search aria-hidden="true" />}
-            title={
-              view === "archived"
-                ? "Nobody archived"
-                : applied.length > 0
-                  ? "No matches"
-                  : "Nothing here"
-            }
-            description={
-              view === "archived"
-                ? "Archived records stay resolvable so payroll history keeps working."
-                : applied.length > 0
-                  ? "Clear a filter, or search for something else."
-                  : "Add somebody to get started."
-            }
-            action={
-              view !== "archived" ? (
-                <ButtonLink href="/people/new" variant="accent" size="sm">
-                  <Plus aria-hidden="true" className="size-4" />
-                  Add employee
-                </ButtonLink>
-              ) : undefined
-            }
-          />
-        </Card>
-      ) : (
-        <div className="rounded-lg border border-line bg-surface">
-          {/* Above the table, and only when something is ticked. A permanently
+      {/* The table is the part that says who is on the payroll, so it is not
+          said until the directory has answered. After a failure the old page
+          showed the error as one red line and then "Nothing here — add
+          somebody" under it, which is a claim that the company has no staff. */}
+      <LoadState
+        loading={loading}
+        error={error}
+        subject="the employee directory"
+        onRetry={reload}
+        hasData={answered}
+        skeleton="table"
+      >
+        {rows.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon={<Search aria-hidden="true" />}
+              title={
+                view === "archived"
+                  ? "Nobody archived"
+                  : applied.length > 0
+                    ? "No matches"
+                    : "Nothing here"
+              }
+              description={
+                view === "archived"
+                  ? "Archived records stay resolvable so payroll history keeps working."
+                  : applied.length > 0
+                    ? "Clear a filter, or search for something else."
+                    : "Add somebody to get started."
+              }
+              action={
+                view !== "archived" ? (
+                  <ButtonLink href="/people/new" variant="accent" size="sm">
+                    <Plus aria-hidden="true" className="size-4" />
+                    Add employee
+                  </ButtonLink>
+                ) : undefined
+              }
+            />
+          </Card>
+        ) : (
+          <div className="rounded-lg border border-line bg-surface">
+            {/* Above the table, and only when something is ticked. A permanently
               visible bar with disabled controls is furniture. */}
-          {mayEdit && selection.count > 0 && (
-            <div className="p-3 pb-0">
-              <BulkAssignBar
-                ids={[...selection.selected]}
-                departments={departments.flat.map((d) => ({
-                  id: d.id,
-                  name: d.name,
-                }))}
-                locations={locations.locations.map((l) => ({
-                  id: l.id,
-                  name: l.name,
-                }))}
-                onDone={reload}
-                onClear={selection.clear}
-              />
-            </div>
-          )}
-          <div className="hidden sm:block">
-            <TableWrap
-              className="rounded-b-none border-0"
-              caption="Employee directory with role, department, salary and status"
-            >
-              <THead>
-                {mayEdit && (
-                  <TH>
-                    <Checkbox
-                      /* A visually hidden label rather than `aria-label`:
+            {mayEdit && selection.count > 0 && (
+              <div className="p-3 pb-0">
+                <BulkAssignBar
+                  ids={[...selection.selected]}
+                  departments={departments.flat.map((d) => ({
+                    id: d.id,
+                    name: d.name,
+                  }))}
+                  locations={locations.locations.map((l) => ({
+                    id: l.id,
+                    name: l.name,
+                  }))}
+                  onDone={reload}
+                  onClear={selection.clear}
+                />
+              </div>
+            )}
+            <div className="hidden sm:block">
+              <TableWrap
+                className="rounded-b-none border-0"
+                caption="Employee directory with role, department, salary and status"
+              >
+                <THead>
+                  {mayEdit && (
+                    <TH>
+                      <Checkbox
+                        /* A visually hidden label rather than `aria-label`:
                        `Checkbox` renders its label in a `<label>` tied to the
                        input, which is what makes the tick itself clickable and
                        is stronger than an attribute. In a table cell it must
                        not be drawn. */
-                      label={
-                        <span className="sr-only-focusable">
-                          Select every row on this page
-                        </span>
-                      }
-                      checked={selection.allSelected(pageIds)}
-                      indeterminate={selection.someSelected(pageIds)}
-                      onChange={() => selection.toggleAll(pageIds)}
-                    />
-                  </TH>
-                )}
-                <SortableTH
-                  column="lastName"
-                  active={list.sort}
-                  order={list.order}
-                  onSort={list.toggleSort}
-                >
-                  Employee
-                </SortableTH>
-                <TH>Department</TH>
-                <TH>Location</TH>
-                <SortableTH
-                  column="grossMonthly"
-                  active={list.sort}
-                  order={list.order}
-                  onSort={list.toggleSort}
-                  align="right"
-                  startDescending
-                >
-                  Gross monthly
-                </SortableTH>
-                <SortableTH
-                  column="startDate"
-                  active={list.sort}
-                  order={list.order}
-                  onSort={list.toggleSort}
-                  startDescending
-                >
-                  Started
-                </SortableTH>
-                <TH>Status</TH>
-                <TH align="right">Actions</TH>
-              </THead>
-              <TBody>
-                {rows.map((e) => {
-                  const gaps = payrollGapsFor(payrollFieldsForDisplay(e));
-                  const blocking = gaps.filter((g) => g.blocking);
-                  return (
-                    <TR
-                      key={e.id}
-                      interactive
-                      onClick={rowClick(() => router.push(`/people/${e.id}`))}
-                    >
-                      {mayEdit && (
-                        <TD>
-                          {/* The row navigates; the checkbox must not. Without
+                        label={
+                          <span className="sr-only-focusable">
+                            Select every row on this page
+                          </span>
+                        }
+                        checked={selection.allSelected(pageIds)}
+                        indeterminate={selection.someSelected(pageIds)}
+                        onChange={() => selection.toggleAll(pageIds)}
+                      />
+                    </TH>
+                  )}
+                  <SortableTH
+                    column="lastName"
+                    active={list.sort}
+                    order={list.order}
+                    onSort={list.toggleSort}
+                  >
+                    Employee
+                  </SortableTH>
+                  <TH>Department</TH>
+                  <TH>Location</TH>
+                  <SortableTH
+                    column="grossMonthly"
+                    active={list.sort}
+                    order={list.order}
+                    onSort={list.toggleSort}
+                    align="right"
+                    startDescending
+                  >
+                    Gross monthly
+                  </SortableTH>
+                  <SortableTH
+                    column="startDate"
+                    active={list.sort}
+                    order={list.order}
+                    onSort={list.toggleSort}
+                    startDescending
+                  >
+                    Started
+                  </SortableTH>
+                  <TH>Status</TH>
+                  <TH align="right">Actions</TH>
+                </THead>
+                <TBody>
+                  {rows.map((e) => {
+                    const gaps = payrollGapsFor(payrollFieldsForDisplay(e));
+                    const blocking = gaps.filter((g) => g.blocking);
+                    return (
+                      <TR
+                        key={e.id}
+                        interactive
+                        onClick={rowClick(() => router.push(`/people/${e.id}`))}
+                      >
+                        {mayEdit && (
+                          <TD>
+                            {/* The row navigates; the checkbox must not. Without
                             this, ticking somebody opens their record and the
                             selection is lost on the way. */}
-                          <span
-                            onClick={(event) => event.stopPropagation()}
-                            role="presentation"
-                          >
-                            <Checkbox
-                              label={
-                                <span className="sr-only-focusable">
-                                  Select {fullName(e)}
-                                </span>
-                              }
-                              checked={selection.isSelected(e.id)}
-                              onChange={() => selection.toggle(e.id)}
-                            />
-                          </span>
+                            <span
+                              onClick={(event) => event.stopPropagation()}
+                              role="presentation"
+                            >
+                              <Checkbox
+                                label={
+                                  <span className="sr-only-focusable">
+                                    Select {fullName(e)}
+                                  </span>
+                                }
+                                checked={selection.isSelected(e.id)}
+                                onChange={() => selection.toggle(e.id)}
+                              />
+                            </span>
+                          </TD>
+                        )}
+                        <TDPrimary
+                          title={
+                            <TextLink href={`/people/${e.id}`}>
+                              {fullName(e)}
+                            </TextLink>
+                          }
+                          subtitle={`${e.jobTitle} · ${e.employeeNo}`}
+                        />
+                        <TD>{e.department}</TD>
+                        <TD>{e.location}</TD>
+                        <TD
+                          align="right"
+                          className="tabular font-medium text-ink"
+                        >
+                          <Money amount={e.grossMonthly} />
                         </TD>
-                      )}
-                      <TDPrimary
-                        title={
-                          <TextLink href={`/people/${e.id}`}>
-                            {fullName(e)}
-                          </TextLink>
-                        }
-                        subtitle={`${e.jobTitle} · ${e.employeeNo}`}
-                      />
-                      <TD>{e.department}</TD>
-                      <TD>{e.location}</TD>
-                      <TD
-                        align="right"
-                        className="tabular font-medium text-ink"
-                      >
-                        <Money amount={e.grossMonthly} />
-                      </TD>
-                      <TD className="tabular text-muted">{e.startDate}</TD>
-                      <TD>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge tone={STATUS[e.status].tone} size="sm" dot>
-                            {STATUS[e.status].label}
-                          </Badge>
-                          {gaps.length > 0 && (
-                            /* Red only when something here actually blocks a
+                        <TD className="tabular text-muted">{e.startDate}</TD>
+                        <TD>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge tone={STATUS[e.status].tone} size="sm" dot>
+                              {STATUS[e.status].label}
+                            </Badge>
+                            {gaps.length > 0 && (
+                              /* Red only when something here actually blocks a
                              payslip (a missing bank account). A pension PIN or
                              TIN alone is worth fixing, not worth the same
                              colour as "will not be paid". */
-                            <span
-                              title={gaps
-                                .map((g) => `${g.label}: ${g.consequence}`)
-                                .join(" ")}
-                            >
-                              <Badge
-                                tone={
-                                  blocking.length > 0 ? "danger" : "warning"
-                                }
-                                size="sm"
+                              <span
+                                title={gaps
+                                  .map((g) => `${g.label}: ${g.consequence}`)
+                                  .join(" ")}
                               >
-                                {gaps.length} missing
-                              </Badge>
-                            </span>
-                          )}
-                        </div>
-                      </TD>
-                      <TD align="right">
-                        <DirectoryRowAction
-                          employee={e}
-                          gaps={gaps}
-                          archived={view === "archived"}
-                          onFillMissing={() => setFilling(e.id)}
-                          onRestore={() => void restoreEmployee(e)}
-                        />
-                      </TD>
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </TableWrap>
-          </div>
+                                <Badge
+                                  tone={
+                                    blocking.length > 0 ? "danger" : "warning"
+                                  }
+                                  size="sm"
+                                >
+                                  {gaps.length} missing
+                                </Badge>
+                              </span>
+                            )}
+                          </div>
+                        </TD>
+                        <TD align="right">
+                          <DirectoryRowAction
+                            employee={e}
+                            gaps={gaps}
+                            archived={view === "archived"}
+                            onFillMissing={() => setFilling(e.id)}
+                            onRestore={() => void restoreEmployee(e)}
+                          />
+                        </TD>
+                      </TR>
+                    );
+                  })}
+                </TBody>
+              </TableWrap>
+            </div>
 
-          <ul className="divide-y divide-line sm:hidden">
-            {rows.map((e) => {
-              const gaps = payrollGapsFor(payrollFieldsForDisplay(e));
-              const blocking = gaps.filter((g) => g.blocking);
-              return (
-                <li
-                  key={e.id}
-                  onClick={rowClick(() => router.push(`/people/${e.id}`))}
-                  className="flex flex-col gap-2 p-4"
-                >
-                  <div className="flex items-start gap-3">
-                    {mayEdit && (
-                      <span
-                        onClick={(event) => event.stopPropagation()}
-                        role="presentation"
-                        className="pt-0.5"
-                      >
-                        <Checkbox
-                          label={
-                            <span className="sr-only-focusable">
-                              Select {fullName(e)}
-                            </span>
-                          }
-                          checked={selection.isSelected(e.id)}
-                          onChange={() => selection.toggle(e.id)}
-                        />
-                      </span>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <TextLink
-                        href={`/people/${e.id}`}
-                        className="block text-body-sm"
-                      >
-                        {fullName(e)}
-                      </TextLink>
-                      <p className="mt-0.5 text-meta text-muted">
-                        {e.jobTitle} · {e.employeeNo}
-                      </p>
-                    </div>
-                    <DirectoryRowAction
-                      employee={e}
-                      gaps={gaps}
-                      archived={view === "archived"}
-                      onFillMissing={() => setFilling(e.id)}
-                      onRestore={() => void restoreEmployee(e)}
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <Badge tone={STATUS[e.status].tone} size="sm" dot>
-                      {STATUS[e.status].label}
-                    </Badge>
-                    {gaps.length > 0 && (
-                      <span
-                        title={gaps
-                          .map((g) => `${g.label}: ${g.consequence}`)
-                          .join(" ")}
-                      >
-                        <Badge
-                          tone={blocking.length > 0 ? "danger" : "warning"}
-                          size="sm"
+            <ul className="divide-y divide-line sm:hidden">
+              {rows.map((e) => {
+                const gaps = payrollGapsFor(payrollFieldsForDisplay(e));
+                const blocking = gaps.filter((g) => g.blocking);
+                return (
+                  <li
+                    key={e.id}
+                    onClick={rowClick(() => router.push(`/people/${e.id}`))}
+                    className="flex flex-col gap-2 p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      {mayEdit && (
+                        <span
+                          onClick={(event) => event.stopPropagation()}
+                          role="presentation"
+                          className="pt-0.5"
                         >
-                          {gaps.length} missing
-                        </Badge>
-                      </span>
-                    )}
-                  </div>
+                          <Checkbox
+                            label={
+                              <span className="sr-only-focusable">
+                                Select {fullName(e)}
+                              </span>
+                            }
+                            checked={selection.isSelected(e.id)}
+                            onChange={() => selection.toggle(e.id)}
+                          />
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <TextLink
+                          href={`/people/${e.id}`}
+                          className="block text-body-sm"
+                        >
+                          {fullName(e)}
+                        </TextLink>
+                        <p className="mt-0.5 text-meta text-muted">
+                          {e.jobTitle} · {e.employeeNo}
+                        </p>
+                      </div>
+                      <DirectoryRowAction
+                        employee={e}
+                        gaps={gaps}
+                        archived={view === "archived"}
+                        onFillMissing={() => setFilling(e.id)}
+                        onRestore={() => void restoreEmployee(e)}
+                      />
+                    </div>
 
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
-                    <span>{e.department}</span>
-                    <span>{e.location}</span>
-                    <span className="tabular">{e.startDate}</span>
-                  </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge tone={STATUS[e.status].tone} size="sm" dot>
+                        {STATUS[e.status].label}
+                      </Badge>
+                      {gaps.length > 0 && (
+                        <span
+                          title={gaps
+                            .map((g) => `${g.label}: ${g.consequence}`)
+                            .join(" ")}
+                        >
+                          <Badge
+                            tone={blocking.length > 0 ? "danger" : "warning"}
+                            size="sm"
+                          >
+                            {gaps.length} missing
+                          </Badge>
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="tabular font-medium text-ink">
-                    <Money amount={e.grossMonthly} />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                      <span>{e.department}</span>
+                      <span>{e.location}</span>
+                      <span className="tabular">{e.startDate}</span>
+                    </div>
 
-          <MissingDetailsDialog
-            open={filling !== null}
-            employee={
-              filling ? (rows.find((e) => e.id === filling) ?? null) : null
-            }
-            onClose={() => setFilling(null)}
-            onSaved={() => {
-              setFilling(null);
-              reload();
-            }}
-          />
+                    <div className="tabular font-medium text-ink">
+                      <Money amount={e.grossMonthly} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
 
-          <Pagination
-            page={list.page}
-            pageSize={list.pageSize}
-            total={summary.total}
-            onPageChange={list.setPage}
-            onPageSizeChange={list.setPageSize}
-            noun={["employee", "employees"]}
-            loading={loading}
-          />
-        </div>
-      )}
+            <MissingDetailsDialog
+              open={filling !== null}
+              employee={
+                filling ? (rows.find((e) => e.id === filling) ?? null) : null
+              }
+              onClose={() => setFilling(null)}
+              onSaved={() => {
+                setFilling(null);
+                reload();
+              }}
+            />
+
+            <Pagination
+              page={list.page}
+              pageSize={list.pageSize}
+              total={summary.total}
+              onPageChange={list.setPage}
+              onPageSizeChange={list.setPageSize}
+              noun={["employee", "employees"]}
+              loading={loading}
+            />
+          </div>
+        )}
+      </LoadState>
 
       {/* Absent without `EXPORT_DATA`, rather than present and refused. A button
           whose only outcome is a refusal teaches people the product is broken —
@@ -920,7 +923,7 @@ export function Directory({
             <p className="text-meta text-muted">
               {connected ? (
                 <>
-                  Exports everyone matching the filters above — the whole set,
+                  Exports everyone matching the filters above, the whole set,
                   not just this page. Pay is included only if you are allowed to
                   see it. Archived records are hidden from the directory and the
                   payroll run, but stay resolvable so past payslips keep
@@ -1010,6 +1013,7 @@ function RowActions({
   onFillMissing: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const { mounted, closing } = useDismiss(open, 170);
 
   if (gaps.length === 0) return null;
 
@@ -1026,16 +1030,20 @@ function RowActions({
         <MoreHorizontal aria-hidden="true" className="size-4 text-muted" />
       </button>
 
-      {open && (
+      {mounted && (
         <>
           <div
-            className="fixed inset-0 z-40"
+            className={
+              closing
+                ? "pointer-events-none fixed inset-0 z-40"
+                : "fixed inset-0 z-40"
+            }
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
           <div
             role="menu"
-            className="animate-scale-in absolute right-0 z-50 mt-1.5 w-56 rounded-lg border border-line bg-surface p-1.5 shadow-lg"
+            className={`${closing ? "animate-scale-out" : "animate-scale-in"} origin-top-right absolute right-0 z-50 mt-1.5 w-56 rounded-lg border border-line bg-surface p-1.5 shadow-lg`}
           >
             <button
               type="button"

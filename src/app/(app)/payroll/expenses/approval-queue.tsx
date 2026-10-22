@@ -18,6 +18,7 @@ import {
   TR,
   TableWrap,
   Textarea,
+  RowActions,
 } from "@/components/ui";
 import {
   daysSince,
@@ -182,36 +183,34 @@ export function ApprovalQueue({
                         </TD>
 
                         <TD align="right">
-                          <div className="flex justify-end gap-1.5">
-                            {mine ? (
-                              <span className="self-center text-meta text-muted">
-                                Not yours to approve
-                              </span>
-                            ) : (
-                              <Button
-                                variant="approve"
-                                size="sm"
-                                loading={busy}
-                                disabled={busy}
-                                onClick={() => void approve(claim)}
-                              >
-                                <Check
-                                  aria-hidden="true"
-                                  className="size-3.5"
-                                />
-                                Approve
-                              </Button>
-                            )}
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              disabled={busy}
-                              onClick={() => setDeclining(claim)}
-                            >
-                              <X aria-hidden="true" className="size-3.5" />
-                              Decline
-                            </Button>
-                          </div>
+                          <RowActions
+                            label={`More actions for ${claim.employeeName}'s claim`}
+                            items={[
+                              ...(mine
+                                ? []
+                                : [
+                                    {
+                                      label: "Approve",
+                                      icon: (
+                                        <Check
+                                          aria-hidden="true"
+                                          className="size-4"
+                                        />
+                                      ),
+                                      disabled: busy,
+                                      onSelect: () => void approve(claim),
+                                    },
+                                  ]),
+                              {
+                                label: "Decline",
+                                icon: (
+                                  <X aria-hidden="true" className="size-4" />
+                                ),
+                                disabled: busy,
+                                onSelect: () => setDeclining(claim),
+                              },
+                            ]}
+                          />
                         </TD>
                       </TR>
                     );

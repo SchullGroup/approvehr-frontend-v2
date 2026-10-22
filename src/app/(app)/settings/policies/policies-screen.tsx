@@ -7,7 +7,6 @@ import {
   ClipboardCopy,
   FileText,
   Plus,
-  Search,
   Users,
 } from "lucide-react";
 import {
@@ -28,6 +27,7 @@ import {
   Switch,
   Textarea,
   useToast,
+  FilterBar,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -148,36 +148,31 @@ export function PoliciesScreen() {
           />
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="relative w-full max-w-xs">
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted"
-            />
-            <Input
-              value={query}
-              onChange={(e) => {
-                const v = e.target.value;
-                setQuery(v);
-              }}
-              className="pl-9"
-              placeholder="Search the handbook"
-              aria-label="Search the handbook"
-            />
-          </div>
-
+        <FilterBar
+          search={query}
+          onSearchChange={setQuery}
+          searchPlaceholder="Search the handbook"
+          searchLabel="Search the handbook"
+          applied={
+            showAll && canManage && policies.editable
+              ? [
+                  {
+                    label: "Include",
+                    value: "Drafts and withdrawn",
+                    onClear: () => setShowAll(false),
+                  },
+                ]
+              : []
+          }
+        >
           {canManage && policies.editable && (
             <Switch
               label="Show drafts and withdrawn sections"
               checked={showAll}
-              onChange={(e) => {
-                const on = e.target.checked;
-                setShowAll(on);
-              }}
-              className="max-w-sm"
+              onChange={(event) => setShowAll(event.target.checked)}
             />
           )}
-        </div>
+        </FilterBar>
 
         {policies.loading && policies.policies.length === 0 ? (
           <Card>

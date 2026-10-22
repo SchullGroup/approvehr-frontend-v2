@@ -22,6 +22,7 @@ import {
   FolderKanban,
   FolderOpen,
   GraduationCap,
+  HeartPulse,
   History,
   Inbox,
   Laptop,
@@ -30,6 +31,7 @@ import {
   Megaphone,
   MessagesSquare,
   Network,
+  Scale,
   Orbit,
   Receipt,
   ReceiptText,
@@ -90,6 +92,19 @@ export type NavFacts = {
    * cache the shell already holds (`lib/store/ai.ts`).
    */
   assistantWired: boolean;
+  /**
+   * Whether ApproveHR lets this company offer early pay at all — `earlyPay` on
+   * `GET /setup/features`, which follows a switch only we can move, from the
+   * admin dashboard. Not a `FeatureKey`: the company cannot set it, and as a
+   * flag it would turn up as a toggle on `/settings/features` that always fails.
+   */
+  earlyPay: boolean;
+  /**
+   * True when the company has not switched on pay early **and** this reader
+   * cannot switch it on. Optional so every caller from before this question
+   * keeps compiling; absent reads as "show it".
+   */
+  earlyPayHidden?: boolean;
   /** One answer per row-level question. Total, so none can be forgotten. */
   rows: Record<NavRowFact, boolean>;
   /**
@@ -109,6 +124,7 @@ export type NavFacts = {
  */
 export const NOTHING_ANSWERED_YET: NavFacts = {
   assistantWired: false,
+  earlyPay: false,
   rows: { "one-on-ones": false, signatures: false, interviews: false },
   collaborator: false,
 };
@@ -117,6 +133,26 @@ export type NavItem = {
   href: string;
   label: string;
   icon: React.ReactNode;
+  /**
+   * The path this item owns, when `href` is only the door into a bigger area.
+   *
+   * "Hiring settings" opens on `/hiring/settings/pipelines`, but Tags, Scorecards
+   * and the other tabs live beside it, not under it — so a plain `href` prefix
+   * test never lit the row on them, and the module's Overview (`/hiring`, a
+   * prefix of everything) took the highlight instead. `resolveActiveHref`
+   * matches on this when set, still longest-match-wins.
+   */
+  activePrefix?: string;
+  /**
+   * Paths under this item's prefix that it must not claim.
+   *
+   * Overview (`/hiring`) is a prefix of everything in the module, so it lit on
+   * a requisition's own page (`/hiring/requisitions/:id`), which has no row of
+   * its own. Naming the path here leaves that page with nothing lit rather than
+   * the wrong row, and "New role" (`/hiring/requisitions/new`) still matches
+   * itself, being a longer match that is not excluded.
+   */
+  activeExcept?: string[];
   /** A fixed count, for modules with no store behind them yet. */
   badge?: number;
   /** Computed in the shell from a store. Takes precedence over `badge`. */
@@ -201,6 +237,19 @@ export type NavItem = {
   assistant?: true;
 
   /**
+   * Hidden unless ApproveHR allows this company early pay. See
+   * `NavFacts.earlyPay`. Like `assistant`, not a question about the reader, so
+   * `always` does not override it.
+   */
+  earlyPay?: true;
+
+  /**
+   * Hidden while `NavFacts.earlyPayHidden`. A row for something the company has
+   * not switched on leads to a screen that can only say no.
+   */
+  hideWhenEarlyPayOff?: true;
+
+  /**
    * Hidden unless the **rows** say this is the reader's.
    *
    * A fourth question, and separate from the three above for the same reason
@@ -228,7 +277,8 @@ export type NavItem = {
    * somebody's memory.
    *
    * Opts out of the **permission** check only. A `feature` still hides an item,
-   * and so does `assistant` — neither is a question about the reader.
+   * and so do `assistant` and `earlyPay` — none of them is a question about
+   * the reader.
    */
   always?: boolean;
 
@@ -323,6 +373,19 @@ const PERSONAL: NavItem[] = [
     label: "Projects",
     icon: <FolderKanban aria-hidden="true" />,
     feature: "projects",
+    always: true,
+  },
+  {
+    /* Here for the reason Projects is: it belongs to the person using it and to
+       no module the site sells. No permission, because every employee keeps
+       their own log and gives kudos; the screens narrow what a role sees (the
+       organisation's challenge and floor settings need `MANAGE_SETTINGS`) and
+       the API decides everything else. The flag is what keeps it out of a
+       company that has not switched it on. */
+    href: "/wellness",
+    label: "Wellness",
+    icon: <HeartPulse aria-hidden="true" />,
+    feature: "wellness",
     always: true,
   },
   /*
@@ -583,11 +646,16 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
          self-service act, and gating it behind a role would hide it from
          exactly the people it exists for. Whether they *can* is decided by the
          company's policy and by what they have earned — the screen asks the
-         API and renders its refusal. */
+         API and renders its refusal.
+
+         `earlyPay` is the one thing that removes it: ApproveHR switching the
+         company off from the admin dashboard. Then there is nothing to ask. */
       href: "/payroll/advances",
       label: "Pay early",
       icon: <Banknote aria-hidden="true" />,
       always: true,
+      earlyPay: true,
+      hideWhenEarlyPayOff: true,
     },
     {
       href: "/payroll/expenses",
@@ -642,6 +710,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     {
       href: "/hiring",
       label: "Overview",
+      activeExcept: ["/hiring/requisitions"],
       icon: <BriefcaseBusiness aria-hidden="true" />,
       anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
       feature: "hiring",
@@ -710,6 +779,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     {
       href: "/hiring/settings/pipelines",
       label: "Hiring settings",
+      activePrefix: "/hiring/settings",
       icon: <SlidersHorizontal aria-hidden="true" />,
       permission: "MANAGE_HIRING",
       feature: "hiring",
@@ -837,6 +907,15 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       icon: <Network aria-hidden="true" />,
       feature: "multiAppraiser",
       permission: "EDIT_RECORDS",
+    },
+    {
+      /* Was reachable only from inside one appraisal period. A module of its
+         own in Performance, for whoever may see it. */
+      href: "/performance/fairness",
+      label: "Fairness check",
+      icon: <Scale aria-hidden="true" />,
+      feature: "appraisals",
+      permission: "VIEW_FAIRNESS",
     },
   ],
 
@@ -1060,6 +1139,8 @@ export function visibleNav(
           return item.rows === "interviews" ? [item] : [];
         }
         if (item.assistant && !facts.assistantWired) return [];
+        if (item.earlyPay && !facts.earlyPay) return [];
+        if (item.hideWhenEarlyPayOff && facts.earlyPayHidden) return [];
         /* Before the permission checks, and before `always`, because it is a
            different question from all of them: `always` opts out of asking
            about the *reader*, and this is not about the reader. */

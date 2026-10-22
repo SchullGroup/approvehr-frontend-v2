@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { tabFromQuery } from "@/lib/url-tab";
 import { IntegrationsList } from "./list";
+import { INTEGRATION_TABS } from "./tabs";
 
 export const metadata: Metadata = {
   title: "Integrations",
@@ -20,6 +22,7 @@ export default async function IntegrationsPage({
     workTracker?: string | string[];
     reason?: string | string[];
     connectionId?: string | string[];
+    tab?: string | string[];
   }>;
 }) {
   const params = await searchParams;
@@ -34,6 +37,7 @@ export default async function IntegrationsPage({
         reason: one(params.reason),
         connectionId: one(params.connectionId),
       }}
+      initialTab={tabFromQuery(params.tab, INTEGRATION_TABS, "trackers")}
     />
   );
 }

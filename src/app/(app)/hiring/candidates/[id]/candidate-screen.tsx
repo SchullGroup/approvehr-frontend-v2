@@ -471,7 +471,7 @@ function Record({ id }: { id: string }) {
                 <CardBody className="flex flex-col items-start gap-3">
                   <p className="text-body-sm text-body">
                     {record?.waiting
-                      ? "Screen them in to start a pipeline record — stage, interviews, scorecards and any offer all live there once they are."
+                      ? "Screen them in to start a pipeline record, stage, interviews, scorecards and any offer all live there once they are."
                       : "Nobody has screened this person into a role's pipeline yet."}
                   </p>
                 </CardBody>
@@ -829,7 +829,7 @@ function Application({
               No CV is attached to this application.
             </span>
           ) : record.cvFlagged ? (
-            <span className="min-w-0 flex-1 text-body-sm text-danger-text">
+            <span className="min-w-0 flex-1 text-body-sm text-warning-text">
               The virus check flagged this file, so it cannot be opened. Ask the
               applicant for another copy.
             </span>

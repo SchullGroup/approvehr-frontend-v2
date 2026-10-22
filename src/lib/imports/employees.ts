@@ -302,7 +302,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     example: "ngozi.williams@company.com",
     note: "Their work email address.",
     recommended: {
-      why: "no work email — payslips cannot be sent to them, and a re-import cannot tell they are already on file",
+      why: "no work email, payslips cannot be sent to them, and a re-import cannot tell they are already on file",
     },
   },
   {
@@ -437,9 +437,9 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     ],
     required: false,
     example: "162,632.00",
-    note: "Monthly gross pay, in naira — not annual.",
+    note: "Monthly gross pay, in naira, not annual.",
     recommended: {
-      why: "Without it they are on the staff list and cannot be paid — every payroll will name them until it is set.",
+      why: "Without it they are on the staff list and cannot be paid, every payroll will name them until it is set.",
       important: true,
     },
   },
@@ -469,7 +469,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     note: "Their 10-digit account number.",
     recommended: {
       feature: "bankDetails",
-      why: "no account number — they will be on the payroll run and cannot be paid from it",
+      why: "no account number, they will be on the payroll run and cannot be paid from it",
       important: true,
     },
   },
@@ -482,7 +482,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     note: "Their RSA PIN (PEN + 9–12 digits).",
     recommended: {
       feature: "pensionSetup",
-      why: "no RSA PIN — their pension is deducted but the PenCom schedule cannot name them",
+      why: "no RSA PIN, their pension is deducted but the PenCom schedule cannot name them",
     },
   },
   {
@@ -500,7 +500,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     note: "Their Tax ID Number, 10 digits.",
     recommended: {
       feature: "taxSetup",
-      why: "no TIN — PAYE is still deducted and remitted, but the FIRS filing cannot name them",
+      why: "no TIN. PAYE is still deducted and remitted, but the FIRS filing cannot name them",
     },
   },
   {
@@ -516,10 +516,10 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     ],
     required: false,
     example: "1,800,000.00",
-    note: "Annual rent paid, in naira. Leave blank if not declared — 0 counts as declared.",
+    note: "Annual rent paid, in naira. Leave blank if not declared, 0 counts as declared.",
     recommended: {
       feature: "taxSetup",
-      why: "no rent declared — they get no rent relief and pay more PAYE until they declare",
+      why: "no rent declared, they get no rent relief and pay more PAYE until they declare",
     },
   },
   {
@@ -569,7 +569,7 @@ const COLUMNS: readonly ColumnSpec<EmployeeField>[] = [
     example: "14 Bishop Oluwole Street, Victoria Island, Lagos",
     note: "Their home address.",
     recommended: {
-      why: "Somebody has to be able to reach them off-site — a letter, a courier, an exit query.",
+      why: "Somebody has to be able to reach them off-site, a letter, a courier, an exit query.",
     },
   },
   {
@@ -718,7 +718,7 @@ function employeeRowRules(ctx: RowContext<EmployeeField>): void {
     if (first !== undefined) {
       error(
         "email",
-        `${email} is already on row ${first} of this file. Two people cannot share a work email — merge the rows, or correct one address.`,
+        `${email} is already on row ${first} of this file. Two people cannot share a work email, merge the rows, or correct one address.`,
       );
     }
   }

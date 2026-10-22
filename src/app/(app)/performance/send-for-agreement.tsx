@@ -141,7 +141,7 @@ export function SendForAgreementDialog({
               rather than after theirs. */}
           <p>
             {shown.ownerName
-              ? `It goes to whoever agrees ${shown.ownerName}'s objectives — their manager, or somebody who can edit records. Nobody agrees their own.`
+              ? `It goes to whoever agrees ${shown.ownerName}'s objectives, their manager, or somebody who can edit records. Nobody agrees their own.`
               : "It goes to somebody who can agree it. Nobody agrees their own."}
           </p>
           <p className="mt-2">
@@ -159,7 +159,7 @@ export function SendForAgreementDialog({
           {shown.reviewCycleId === null && (
             <p className="mt-2 text-warning-text">
               It is not in an appraisal period, so agreeing it counts towards
-              nobody&rsquo;s mark — and the period is one of the fields that
+              nobody&rsquo;s mark, and the period is one of the fields that
               freezes, so it cannot be added afterwards.
             </p>
           )}

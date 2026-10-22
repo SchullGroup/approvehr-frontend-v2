@@ -89,7 +89,7 @@ export function NoticeLine({
       className={cn(
         "flex flex-wrap items-baseline gap-x-2 gap-y-1 text-body-sm",
         tone === "danger"
-          ? "text-danger-text"
+          ? "text-warning-text"
           : tone === "accent"
             ? "text-accent-text"
             : tone === "warning"

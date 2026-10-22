@@ -60,14 +60,15 @@ function renderTypes() {
   return { onCreate, onUpdate };
 }
 
-/** The Edit button in the table row, not the duplicate in the phone list. */
+/** Edit, from the actions menu on the table row (not the phone list). */
 function edit(name: string) {
   fireEvent.click(
     within(screen.getByRole("row", { name: new RegExp(name) })).getByRole(
       "button",
-      { name: "Edit" },
+      { name: /More actions for/ },
     ),
   );
+  fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
 }
 
 function form() {

@@ -271,7 +271,7 @@ function objectiveRowRules(ctx: RowContext<ObjectiveField>): void {
   if (owner !== "" && !owner.includes("@")) {
     error(
       "ownerEmail",
-      `"${owner}" is not a work email. The Assigned to column takes an email, not a name — two people can share a name. Leave it blank for a department or company objective.`,
+      `"${owner}" is not a work email. The Assigned to column takes an email, not a name, two people can share a name. Leave it blank for a department or company objective.`,
     );
   }
   if (owner === "" && title !== "") tally("ownerless");
@@ -313,7 +313,7 @@ function objectiveRowRules(ctx: RowContext<ObjectiveField>): void {
       );
     }
     if (target === "") {
-      error("target", "A measure needs a target — the number it has to reach.");
+      error("target", "A measure needs a target, the number it has to reach.");
     } else {
       const startText = start === "" ? "0" : tidyNumber(start);
       const targetText = tidyNumber(target);
@@ -363,7 +363,7 @@ function objectiveRowRules(ctx: RowContext<ObjectiveField>): void {
     if (first !== undefined) {
       error(
         "title",
-        `"${title}" is already on row ${first} of this file${owner ? ` for ${owner}` : ""}. Two rows cannot be the same objective — remove one.`,
+        `"${title}" is already on row ${first} of this file${owner ? ` for ${owner}` : ""}. Two rows cannot be the same objective, remove one.`,
       );
     }
   }

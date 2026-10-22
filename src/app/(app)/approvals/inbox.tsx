@@ -2,6 +2,7 @@
 
 import { sourceNote } from "@/lib/demo";
 import { useState } from "react";
+import { LoadFailure } from "@/components/portal/load-failure";
 import Link from "next/link";
 import {
   BadgeCheck,
@@ -14,7 +15,6 @@ import {
   ClipboardList,
   Archive,
   ArchiveRestore,
-  Clock,
   FileText,
   Receipt,
   Undo2,
@@ -25,21 +25,23 @@ import { cn } from "@/lib/cn";
 import {
   Avatar,
   Badge,
+  FilterBar,
+  type AppliedFilter,
   Button,
   ButtonLink,
   Card,
   CardBody,
-  ConfirmDialog,
   EmptyState,
   Input,
+  LoadState,
   Money,
   SegmentedControl,
-  Stat,
+  useHasAnswered,
   useToast,
   type BadgeTone,
+  Select,
 } from "@/components/ui";
 import { DeclineDialog } from "@/components/portal/decline-dialog";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { employeeById } from "@/lib/mock/people";
 import type { ApprovalKind } from "@/lib/mock/workflows";
@@ -91,23 +93,19 @@ const ICON: Record<ApprovalKind, React.ReactNode> = {
   holiday: <CalendarCheck aria-hidden="true" />,
 };
 
+/* Every kind reads the same: colour is for something that needs attention, and
+   a list where each row has its own colour has no row that stands out. */
 const TONE: Record<ApprovalKind, BadgeTone> = {
-  leave: "info",
-  payroll_run: "accent",
-  offer: "success",
-  requisition: "warning",
+  leave: "neutral",
+  payroll_run: "neutral",
+  offer: "neutral",
+  requisition: "neutral",
   expense: "neutral",
   record_change: "neutral",
-  loan: "warning",
-  /* Warning rather than neutral: a confirmation carries a real deadline, and
-     an overdue one means somebody is working past the end of a probation
-     nobody decided. */
-  confirmation: "warning",
-  /* Warning for the same reason: the effective date is a real deadline, and a
-     promotion approved after it means somebody was paid the old figure for a
-     month they were owed the new one. */
-  employment_change: "warning",
-  holiday: "accent",
+  loan: "neutral",
+  confirmation: "neutral",
+  employment_change: "neutral",
+  holiday: "neutral",
 };
 
 /** Holiday rows were raised by the API, not a person, so they get their own copy. */
@@ -174,11 +172,6 @@ export function ApprovalInbox() {
   );
   const [filters, setFilters] = useState<QueueFilters>(START_FILTERS);
   const [declining, setDeclining] = useState<QueueItem | null>(null);
-  /* The rows the person is being asked to approve in one go. A snapshot taken
-     when they press the button, so what they read in the dialog and what is sent
-     are the same list even if the queue reloads underneath them. */
-  const [routineBatch, setRoutineBatch] = useState<QueueItem[] | null>(null);
-  const [sweeping, setSweeping] = useState(false);
   const [decidedOutcome, setDecidedOutcome] = useState<"approved" | "declined">(
     "approved",
   );
@@ -186,6 +179,9 @@ export function ApprovalInbox() {
     ...filters,
     archived: view === "archive",
   });
+  /* The filter changes the request, so `loading` goes true again; once the queue
+     has answered, a later read replaces it rather than blanking the controls. */
+  const answered = useHasAnswered(queue.loading);
   const sent = useSentApprovals();
   const decidedList = useDecidedApprovals(
     decidedOutcome,
@@ -280,7 +276,7 @@ export function ApprovalInbox() {
         title: archived ? "Put away" : "Back in your inbox",
         tone: "info",
         detail: archived
-          ? `${item.title} is in My archive. It is still waiting for a decision, and nobody else's inbox has changed.`
+          ? `${item.title} is in My archive.`
           : `${item.title} is waiting on you again.`,
       });
     } catch (failure) {
@@ -295,92 +291,42 @@ export function ApprovalInbox() {
     }
   };
 
-  const approveRoutine = async (batch: QueueItem[]) => {
-    setSweeping(true);
-    try {
-      const result = await queue.approveRoutine(batch);
-      /* The API's own reasons, deduplicated, never a sentence composed here.
-         It knows which rows it left and why — one may be a request the caller
-         raised themselves, another may need a permission they do not hold —
-         and the screen used to answer a zero with a fixed claim about
-         deadlines and five-day waits that its own counters could disprove. */
-      const reasons = [...new Set(result.skipped.map((row) => row.reason))];
-      if (result.decided === 0) {
-        toast.push({
-          title: "Nothing was approved",
-          tone: "info",
-          detail:
-            reasons.length > 0
-              ? reasons.join(" ")
-              : "Nothing waiting counts as routine. Anything with a deadline, or sitting five days, needs you to look at it.",
-        });
-        return;
-      }
-      toast.push({
-        title: `${result.decided} ${
-          result.decided === 1 ? "request" : "requests"
-        } approved`,
-        tone: "success",
-        detail:
-          result.skipped.length > 0
-            ? `${result.skipped.length} still waiting. ${reasons.join(" ")}`
-            : "Anything with a deadline was left for you to look at individually.",
-      });
-    } catch (failure) {
-      toast.push({
-        title: "That did not work",
-        tone: "danger",
-        detail:
-          failure instanceof ApiError
-            ? failure.message
-            : "Something went wrong. Try again.",
-      });
-    } finally {
-      setSweeping(false);
-      setRoutineBatch(null);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-6">
       {/* Which source these decisions are being written to, stated rather than
           implied. Connected, approving here writes to the database. */}
       <div className="flex flex-wrap items-center gap-2">
         {sourceNote(queue.connected) && (
-          <Badge tone="warning" size="sm" dot>
+          <Badge tone="neutral" size="sm" dot>
             {sourceNote(queue.connected)}
           </Badge>
         )}
-        {queue.loading && (
-          <span className="text-meta text-muted">Loading…</span>
-        )}
       </div>
-
-      <LoadFailure
-        subject="your approvals"
-        error={queue.error}
-        onRetry={queue.reload}
-      />
 
       {/* Two different questions, not two filters on one list: "what needs
           me" and "what did I send off, and who is it sitting with now" have
           different owners even for the same person, and conflating them
           would mean one of the two never gets its own empty state. */}
-      <SegmentedControl
-        label="Which approvals to show"
-        value={view}
-        onChange={setView}
-        options={[
-          { value: "waiting", label: "Waiting on you" },
-          /* Connected only: demo mode keeps its decisions in the local store and
-             shows them as "Just decided", so there is no second list to offer. */
-          ...(queue.connected
-            ? [{ value: "decided" as const, label: "Decided" }]
-            : []),
-          { value: "sent", label: "Sent by you" },
-          { value: "archive", label: "My archive" },
-        ]}
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SegmentedControl
+          label="Which approvals to show"
+          value={view}
+          onChange={setView}
+          options={[
+            { value: "waiting", label: "Waiting on you" },
+            /* Connected only: demo mode keeps its decisions in the local store and
+               shows them as "Just decided", so there is no second list to offer. */
+            ...(queue.connected
+              ? [{ value: "decided" as const, label: "Decided" }]
+              : []),
+            { value: "sent", label: "Sent by you" },
+            { value: "archive", label: "My archive" },
+          ]}
+        />
+        {(view !== "waiting" || canApprove) && view !== "sent" && (
+          <InboxFilters filters={filters} onChange={setFilters} />
+        )}
+      </div>
 
       {view === "sent" && <SentApprovalsList state={sent} />}
 
@@ -399,7 +345,6 @@ export function ApprovalInbox() {
               { value: "declined", label: "Declined" },
             ]}
           />
-          <InboxFilters filters={filters} onChange={setFilters} />
           <DecidedApprovalsList state={decidedList} outcome={decidedOutcome} />
         </>
       )}
@@ -410,7 +355,6 @@ export function ApprovalInbox() {
             Approvals you put away for later. They are still waiting for a
             decision, and putting one here changed nothing for anybody else.
           </p>
-          <InboxFilters filters={filters} onChange={setFilters} />
           {queue.items.length === 0 ? (
             <Card>
               <EmptyState
@@ -439,63 +383,25 @@ export function ApprovalInbox() {
 
       {view === "waiting" &&
         (canApprove ? (
-          <>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Stat
-                label="Waiting on you"
-                value={String(queue.counts.pending)}
-              />
-              <Stat
-                label="Value at stake"
-                value={
-                  <Money amount={queue.counts.atStake} decimals size="xl" />
-                }
-                hint="across every decision waiting"
-              />
-              <Stat
-                label="Has a deadline"
-                value={String(queue.counts.withDeadline)}
-                icon={<Clock aria-hidden="true" />}
-                trend={
-                  queue.counts.withDeadline > 0
-                    ? { direction: "down", label: "Time-bound" }
-                    : undefined
-                }
-              />
-              <Stat
-                label="Waiting 5+ days"
-                value={String(queue.counts.ageing)}
-                trend={
-                  queue.counts.ageing > 0
-                    ? { direction: "down", label: "Ageing" }
-                    : undefined
-                }
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <InboxFilters filters={filters} onChange={setFilters} />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setRoutineBatch(queue.routine)}
-                disabled={queue.routineCount === 0}
-              >
-                <Check aria-hidden="true" className="size-3.5" />
-                {queue.routineCount === 0
-                  ? "Nothing routine to approve"
-                  : `Approve ${queue.routineCount} routine ${
-                      queue.routineCount === 1 ? "item" : "items"
-                    }`}
-              </Button>
-            </div>
-
+          /* The counts, "Nothing waiting on you" and the ₦ at stake are all
+             statements about what is waiting, so none is said until the queue
+             has answered. They used to open on "Nothing waiting on you" and
+             ₦0.00 while it was still on its way, and after a failure showed the
+             failure callout and then the same reassurance under it. */
+          <LoadState
+            loading={queue.loading}
+            error={queue.error}
+            subject="your approvals"
+            onRetry={queue.reload}
+            hasData={answered}
+            className="flex flex-col gap-6"
+          >
             {queue.items.length === 0 ? (
               <Card>
                 <EmptyState
                   icon={<Check aria-hidden="true" />}
                   title="Nothing waiting on you"
-                  description="Everything routed to you has been actioned. New requests appear here the moment they are raised."
+                  description="New requests show up here."
                 />
               </Card>
             ) : (
@@ -528,7 +434,7 @@ export function ApprovalInbox() {
                         <Badge
                           tone={
                             halfway
-                              ? "warning"
+                              ? "neutral"
                               : decision === "approved"
                                 ? "success"
                                 : "neutral"
@@ -564,7 +470,7 @@ export function ApprovalInbox() {
                 </CardBody>
               </Card>
             )}
-          </>
+          </LoadState>
         ) : (
           /* Not a smaller version of the queue above: it will read exactly zero
            forever, on every tile, for anybody who lands here. That is worse
@@ -578,38 +484,6 @@ export function ApprovalInbox() {
             />
           </Card>
         ))}
-
-      <ConfirmDialog
-        open={routineBatch !== null}
-        onClose={() => {
-          if (!sweeping) setRoutineBatch(null);
-        }}
-        onConfirm={() => {
-          if (routineBatch) void approveRoutine(routineBatch);
-        }}
-        title={`Approve ${routineBatch?.length ?? 0} routine ${
-          routineBatch?.length === 1 ? "item" : "items"
-        }?`}
-        confirmLabel={`Approve ${routineBatch?.length ?? 0}`}
-        tone="primary"
-        loading={sweeping}
-        body={
-          <div className="flex flex-col gap-3">
-            <p>
-              These are approved now, and the people who asked are told. Each
-              one is checked again as it goes: anything that is no longer
-              routine, or that you cannot approve, stays where it is.
-            </p>
-            <ul className="max-h-56 overflow-y-auto rounded-lg border border-line p-2 text-body-sm text-body">
-              {(routineBatch ?? []).map((item) => (
-                <li key={item.id} className="truncate py-0.5">
-                  {item.title}
-                </li>
-              ))}
-            </ul>
-          </div>
-        }
-      />
 
       <DeclineDialog
         open={declining !== null}
@@ -655,29 +529,70 @@ const MODULE_OPTIONS: { value: QueueFilters["module"]; label: string }[] = [
 function InboxFilters({
   filters,
   onChange,
+  actions,
 }: {
   filters: QueueFilters;
   onChange: (next: QueueFilters) => void;
+  actions?: React.ReactNode;
 }) {
-  const hasDates = filters.from !== "" || filters.to !== "";
+  const moduleLabel = MODULE_OPTIONS.find(
+    (o) => o.value === filters.module,
+  )?.label;
+  const applied: AppliedFilter[] = [];
+  if (filters.module !== "all" && moduleLabel) {
+    applied.push({
+      label: "Module",
+      value: moduleLabel,
+      onClear: () => onChange({ ...filters, module: "all" }),
+    });
+  }
+  if (filters.from !== "") {
+    applied.push({
+      label: "Raised from",
+      value: filters.from,
+      onClear: () => onChange({ ...filters, from: "" }),
+    });
+  }
+  if (filters.to !== "") {
+    applied.push({
+      label: "Raised to",
+      value: filters.to,
+      onClear: () => onChange({ ...filters, to: "" }),
+    });
+  }
   return (
-    <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
-      <SegmentedControl
-        label="Filter approvals by module"
-        value={filters.module}
-        onChange={(module) => onChange({ ...filters, module })}
-        options={MODULE_OPTIONS}
-      />
+    <FilterBar
+      applied={applied}
+      onClearAll={() =>
+        onChange({ ...filters, module: "all", from: "", to: "" })
+      }
+      actions={actions}
+    >
+      <label className="flex flex-col gap-1 text-meta text-muted">
+        Module
+        <Select
+          value={filters.module}
+          onChange={(e) =>
+            onChange({
+              ...filters,
+              module: e.target.value as QueueFilters["module"],
+            })
+          }
+        >
+          {MODULE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      </label>
       <label className="flex flex-col gap-1 text-meta text-muted">
         Raised from
         <Input
           type="date"
           value={filters.from}
           max={filters.to || undefined}
-          onChange={(e) => {
-            const from = e.target.value;
-            onChange({ ...filters, from });
-          }}
+          onChange={(e) => onChange({ ...filters, from: e.target.value })}
         />
       </label>
       <label className="flex flex-col gap-1 text-meta text-muted">
@@ -686,22 +601,10 @@ function InboxFilters({
           type="date"
           value={filters.to}
           min={filters.from || undefined}
-          onChange={(e) => {
-            const to = e.target.value;
-            onChange({ ...filters, to });
-          }}
+          onChange={(e) => onChange({ ...filters, to: e.target.value })}
         />
       </label>
-      {hasDates && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onChange({ ...filters, from: "", to: "" })}
-        >
-          Clear dates
-        </Button>
-      )}
-    </div>
+    </FilterBar>
   );
 }
 
@@ -767,40 +670,38 @@ function SentApprovalsList({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
         {sourceNote(state.connected) && (
-          <Badge tone="warning" size="sm" dot>
+          <Badge tone="neutral" size="sm" dot>
             {sourceNote(state.connected)}
           </Badge>
         )}
-        {state.loading && (
-          <span className="text-meta text-muted">Loading…</span>
-        )}
       </div>
 
-      <LoadFailure
-        subject="what you've sent"
+      <LoadState
+        loading={state.loading}
         error={state.error}
+        subject="what you've sent"
         onRetry={state.reload}
-      />
-
-      {!state.loading && !state.error && state.rows.length === 0 && (
-        <Card>
-          <EmptyState
-            icon={<ClipboardList aria-hidden="true" />}
-            title="Nothing sent yet"
-            description="A loan, an expense, a payroll run, leave: anything you raise that needs somebody else's decision appears here with its status, so you can see where it's sitting without having to ask."
-          />
-        </Card>
-      )}
-
-      {state.rows.length > 0 && (
-        <ul className="flex flex-col gap-3">
-          {state.rows.map((row) => (
-            <li key={row.id}>
-              <SentApprovalRow row={row} />
-            </li>
-          ))}
-        </ul>
-      )}
+        hasData={state.rows.length > 0}
+        skeleton="list"
+      >
+        {state.rows.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon={<ClipboardList aria-hidden="true" />}
+              title="Nothing sent yet"
+              description="A loan, an expense, a payroll run, leave: anything you raise that needs somebody else's decision appears here with its status, so you can see where it's sitting without having to ask."
+            />
+          </Card>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {state.rows.map((row) => (
+              <li key={row.id}>
+                <SentApprovalRow row={row} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </LoadState>
     </div>
   );
 }
@@ -866,9 +767,7 @@ function SentApprovalRow({
             )}
           </div>
           {row.status === "declined" && row.decisionNote && (
-            <p className="mt-2 text-body-sm text-danger-text">
-              {row.decisionNote}
-            </p>
+            <p className="mt-2 text-body-sm text-muted">{row.decisionNote}</p>
           )}
         </div>
 
@@ -942,7 +841,6 @@ function ApprovalRow({
     <Card
       className={cn(
         "group transition-shadow duration-200 hover:shadow-md",
-        item.deadline && "border-warning-line",
         item.pastDeadline && "border-danger-line",
       )}
     >
@@ -961,7 +859,7 @@ function ApprovalRow({
             </Badge>
             {item.deadline && (
               <Badge
-                tone={item.pastDeadline ? "danger" : "warning"}
+                tone={item.pastDeadline ? "danger" : "neutral"}
                 size="sm"
                 dot
               >

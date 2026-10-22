@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { ClipboardList } from "lucide-react";
 import {
   Badge,
@@ -153,9 +154,9 @@ export function MyTasksPanel() {
           <CardBody>
             <NoticeLine tone="muted">
               A task is logged against an objective your manager has agreed.
-              <a className={NOTICE_LINK} href="/performance/kpis">
+              <Link className={NOTICE_LINK} href="/performance/kpis">
                 Set one up
-              </a>
+              </Link>
             </NoticeLine>
           </CardBody>
         ) : (

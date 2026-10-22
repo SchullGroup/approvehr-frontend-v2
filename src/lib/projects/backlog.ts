@@ -345,8 +345,8 @@ export function completionLine(
   if (figures.issues > 0) {
     line +=
       figures.points > 0
-        ? ` — ${figures.donePoints} of ${figures.points} points done`
-        : ` — ${figures.doneIssues} of ${plural(figures.issues, "issue", "issues")} done`;
+        ? `, ${figures.donePoints} of ${figures.points} points done`
+        : `, ${figures.doneIssues} of ${plural(figures.issues, "issue", "issues")} done`;
   }
   if (figures.openIssues > 0) {
     const where =

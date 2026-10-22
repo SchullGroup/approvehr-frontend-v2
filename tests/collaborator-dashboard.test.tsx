@@ -40,9 +40,6 @@ vi.mock("@/lib/store/insights", () => ({
   }),
   useReports: () => ({ data: null, loading: false, error: null }),
 }));
-vi.mock("@/lib/store/dashboard-layout", () => ({
-  useDashboardLayout: () => ({ loading: false, widgets: [] }),
-}));
 vi.mock("@/lib/store/setup-checklist", () => ({
   useSetupChecklist: () => ({ facts: null, loading: false }),
 }));
@@ -59,7 +56,7 @@ describe("the dashboard, for a collaborator", () => {
     state.collaborator = true;
     render(<DashboardScreen />);
     expect(replace).toHaveBeenCalledWith("/hiring/my-interviews");
-    expect(screen.getByText("Loading your day…")).toBeInTheDocument();
+    expect(screen.getByText("Loading your day")).toBeInTheDocument();
     expect(screen.queryByText(/did not load/)).not.toBeInTheDocument();
   });
 

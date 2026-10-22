@@ -407,7 +407,7 @@ export function OrgChartScreen() {
                 title="Some reporting lines loop back on themselves"
               >
                 {fetched.chart.detached.map((person) => person.name).join(", ")}{" "}
-                —{" "}
+                ,{" "}
                 {fetched.chart.detached.length === 1
                   ? "this person reports"
                   : "these people report"}{" "}
@@ -1073,7 +1073,7 @@ function MoveDialog({
           aria-label="New parent department"
           onChange={(event) => setChoice(event.target.value)}
         >
-          <option value="">Top level — no parent</option>
+          <option value="">Top level, no parent</option>
           {targets.map((department) => (
             <option key={department.id} value={department.id}>
               Inside {department.name}

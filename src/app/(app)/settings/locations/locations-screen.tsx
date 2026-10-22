@@ -10,11 +10,11 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   ConfirmDialog,
   EmptyState,
   Spinner,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -23,6 +23,7 @@ import {
   TR,
   TableWrap,
   useToast,
+  ToggleFilter,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -270,7 +271,7 @@ export function LocationsScreen() {
           </Callout>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <StatGrid columns={3}>
           <Stat
             label="Locations"
             value={list.loading ? "—" : String(live.length)}
@@ -294,7 +295,7 @@ export function LocationsScreen() {
             }
             hint="Staff may clock in wherever they are."
           />
-        </div>
+        </StatGrid>
 
         <Card>
           <CardHeader
@@ -303,13 +304,10 @@ export function LocationsScreen() {
             title="Where people clock in"
             description={GEOFENCE_EXPLANATION}
             action={
-              <Checkbox
+              <ToggleFilter
                 label="Show switched-off locations"
                 checked={showArchived}
-                onChange={(e) => {
-                  const next = e.target.checked;
-                  setShowArchived(next);
-                }}
+                onChange={setShowArchived}
               />
             }
           />

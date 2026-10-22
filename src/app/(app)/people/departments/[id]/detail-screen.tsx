@@ -139,7 +139,7 @@ export function DepartmentDetailScreen({ id }: { id: string }) {
               }
               {...(withoutPay > 0
                 ? {
-                    hint: `over ${detail.directEmployees - withoutPay} of ${detail.directEmployees} — ${withoutPay} have no pay set`,
+                    hint: `over ${detail.directEmployees - withoutPay} of ${detail.directEmployees}, ${withoutPay} have no pay set`,
                   }
                 : { hint: "contractual gross, before deductions" })}
             />

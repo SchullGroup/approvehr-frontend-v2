@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   Building2,
   CalendarPlus,
@@ -8,10 +7,11 @@ import {
   FileUp,
   LogOut,
   Megaphone,
+  Plus,
   PlayCircle,
   UserPlus,
 } from "lucide-react";
-import { Card, CardBody, CardHeader } from "@/components/ui";
+import { RowActions, type RowActionItem } from "@/components/ui";
 import { usePermissions } from "@/lib/permissions";
 import type { PermissionKey } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
@@ -40,6 +40,15 @@ import type { FeatureKey } from "@/lib/api/setup";
  * That also keeps the promise the whole product is sold on. A five-person
  * business that said no to departments and hiring during setup sees three
  * tiles here, not seven with four of them dead.
+ *
+ * ## One menu in the page header, not eight tiles
+ *
+ * It was a card of eight bordered tiles, which on a phone was most of a screen
+ * of things nobody had come to start, and on a desktop was the widest block on
+ * the page for the least-used job. It is a **menu in the header** now — the
+ * same list, the same gates, the same links — so the page is the report and
+ * "Start something" is one button away from anywhere on it. Nothing was added
+ * or removed from the list; only where it lives.
  *
  * ## Why duplicating the nav is the point rather than the problem
  *
@@ -138,65 +147,34 @@ export function QuickActions() {
   const { permissions } = usePermissions();
   const features = useFeatures();
 
-  /* While the flags are still loading, nothing is claimed either way — a tile
-     that appears and then vanishes reads as a bug, and this section is never
-     the thing somebody is waiting on. */
+  /* While the flags are still loading, nothing is claimed either way — a menu
+     that appears and then loses entries reads as a bug, and this is never the
+     thing somebody is waiting on. */
   if (features.loading) return null;
 
-  const visible = ACTIONS.filter((action) => {
+  const items: RowActionItem[] = ACTIONS.filter((action) => {
     if (action.feature !== undefined && features[action.feature] === false) {
       return false;
     }
     return (
       action.permission === undefined || permissions.has(action.permission)
     );
-  });
+  }).map((action) => ({
+    key: action.href,
+    label: action.label,
+    hint: action.soon ? "Coming soon" : action.detail,
+    ...(action.soon ? { disabled: true } : { href: action.href }),
+    icon: action.icon,
+  }));
 
-  if (visible.length === 0) return null;
-
+  /* `RowActions` draws nothing for an empty list, which is the right answer
+     for somebody who may start none of these. */
   return (
-    <Card>
-      <CardHeader title="Start something" level={3} />
-      <CardBody className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {visible.map((action) => (
-          <Link
-            key={action.href}
-            href={action.href}
-            /* `min-w-0` on the grid ITEM, not only on the text inside it.
-               A `1fr` track is `minmax(auto, 1fr)`, and that automatic minimum
-               is the item's min-content width — so a grid item whose own
-               `min-width` is `auto` sets a floor the container cannot go below.
-               At 375px this single column resolved to 379px inside a 333px
-               card and gave the whole dashboard a sideways scroll. The
-               `min-w-0` already on the inner span could not help: the floor is
-               set by the item, one level up. Measured: track 379px -> 293px,
-               document 420px -> 375px. */
-            className="group flex min-w-0 items-center gap-3 rounded-lg border border-line bg-surface px-3.5 py-3 transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-          >
-            <span
-              aria-hidden="true"
-              className="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-text [&>svg]:size-4"
-            >
-              {action.icon}
-            </span>
-            <span className="min-w-0">
-              <span className="flex items-center gap-2">
-                <span className="block truncate text-body-sm font-medium text-ink">
-                  {action.label}
-                </span>
-                {action.soon && (
-                  <span className="shrink-0 text-meta font-normal text-faint">
-                    Coming soon
-                  </span>
-                )}
-              </span>
-              <span className="block truncate text-meta text-muted">
-                {action.detail}
-              </span>
-            </span>
-          </Link>
-        ))}
-      </CardBody>
-    </Card>
+    <RowActions
+      label="Start something"
+      triggerText="Start something"
+      triggerIcon={<Plus aria-hidden="true" className="size-4" />}
+      items={items}
+    />
   );
 }

@@ -17,12 +17,12 @@ import {
   Checkbox,
   EmptyState,
   ProgressMeter,
-  Skeleton,
   Stat,
+  StatGrid,
   TextLink,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { useCan } from "@/lib/permissions";
@@ -169,101 +169,99 @@ export function OnboardingScreen() {
               Ticks you make here are saved in this browser
             </Badge>
           )}
-          {loading && <span className="text-meta text-muted">Loading…</span>}
         </div>
 
-        {/* Out of the badge row. A failed read rendered at badge size, between a
-            source note and a count, reads as one more label about the page
-            rather than the reason the page is empty. */}
-        <LoadFailure
-          subject="the onboarding checklists"
+        {/* The one loading and failure rule, over the counts and the cards
+            together. "In onboarding 0" and "Nobody is onboarding right now"
+            were printed while the directory was still being read and after it
+            could not be, which tells somebody with new starters that they have
+            none. */}
+        <LoadState
+          loading={loading}
           error={error}
+          subject="the onboarding checklists"
           onRetry={reload}
-        />
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Stat label="In onboarding" value={String(employees.length)} />
-          <Stat
-            label="Steps complete"
-            value={stepCount === 0 ? "—" : `${stepsDone} of ${stepCount}`}
-            {...(stepCount === 0
-              ? {}
-              : {
-                  hint: `${Math.round((stepsDone / stepCount) * 100)}% done`,
-                })}
-          />
-          {/* Clickable, like the identical stat on the directory.
+          skeleton="page"
+          hasData={employees.length > 0}
+        >
+          <StatGrid columns={3}>
+            <Stat label="In onboarding" value={String(employees.length)} />
+            <Stat
+              label="Steps complete"
+              value={stepCount === 0 ? "—" : `${stepsDone} of ${stepCount}`}
+              {...(stepCount === 0
+                ? {}
+                : {
+                    hint: `${Math.round((stepsDone / stepCount) * 100)}% done`,
+                  })}
+            />
+            {/* Clickable, like the identical stat on the directory.
               -------------------------------------------------------
               `Stat` has no `href`, so the directory wraps it in a `Link` and
               this screen did not — leaving the population most likely to be
               blocked, new starters, with a count and no way through. Wrapped
               only when there is something to open: a link to an empty list is
               worse than none. */}
-          {blocked.length > 0 ? (
-            <Link
-              href="/people/incomplete"
-              /* `min-w-0` because this link is the GRID ITEM and `Stat` inside it is
+            {blocked.length > 0 ? (
+              <Link
+                href="/people/incomplete"
+                /* `min-w-0` because this link is the GRID ITEM and `Stat` inside it is
                  not. A `1fr` track floors at the widest item's min-content, and a
                  grid track is shared — so this one wrapper without the class made
                  all four stat cards 489px wide inside a 335px row and gave the
                  whole page a sideways scroll at 375px. The three bare `Stat`s
                  beside it already carried it; only the clickable one did not. */
-              className="block h-full min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-            >
+                className="block h-full min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+              >
+                <Stat
+                  label="Cannot be paid yet"
+                  value={String(blocked.length)}
+                  hint="missing a bank account. Open the list"
+                  className="h-full transition-colors hover:border-accent-line"
+                  trend={{
+                    direction: "down" as const,
+                    label: "Will miss this month's pay",
+                  }}
+                />
+              </Link>
+            ) : (
               <Stat
                 label="Cannot be paid yet"
                 value={String(blocked.length)}
-                hint="missing a bank account. Open the list"
-                className="h-full transition-colors hover:border-accent-line"
-                trend={{
-                  direction: "down" as const,
-                  label: "Will miss this month's pay",
-                }}
+                hint="missing a bank account"
               />
-            </Link>
-          ) : (
-            <Stat
-              label="Cannot be paid yet"
-              value={String(blocked.length)}
-              hint="missing a bank account"
-            />
-          )}
-        </div>
+            )}
+          </StatGrid>
 
-        {loading && employees.length === 0 ? (
-          <div className="grid gap-5 lg:grid-cols-2">
-            <Skeleton className="h-72 w-full" />
-            <Skeleton className="h-72 w-full" />
-            <span className="sr-only">Loading new starters</span>
-          </div>
-        ) : employees.length === 0 ? (
-          <Card>
-            <EmptyState
-              icon={<UserRoundPlus aria-hidden="true" />}
-              title="Nobody is onboarding right now"
-              description="Somebody appears here while their status is Onboarding, and drops off it the moment you finish them."
-              action={
-                <ButtonLink href="/people/new" variant="accent" size="sm">
-                  Add a new staff
-                </ButtonLink>
-              }
-            />
-          </Card>
-        ) : (
-          <div className="grid gap-5 lg:grid-cols-2">
-            {employees.map((employee) => (
-              <StarterCard
-                key={employee.id}
-                employee={employee}
-                steps={checklist.stepsFor(employee)}
-                onToggle={(stepId) => checklist.toggle(employee.id, stepId)}
-                canFinish={canEdit}
-                finishing={finishing === employee.id}
-                onFinish={() => void finish(employee)}
+          {employees.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={<UserRoundPlus aria-hidden="true" />}
+                title="Nobody is onboarding right now"
+                description="Somebody appears here while their status is Onboarding, and drops off it the moment you finish them."
+                action={
+                  <ButtonLink href="/people/new" variant="accent" size="sm">
+                    Add a new staff
+                  </ButtonLink>
+                }
               />
-            ))}
-          </div>
-        )}
+            </Card>
+          ) : (
+            <div className="grid gap-5 lg:grid-cols-2">
+              {employees.map((employee) => (
+                <StarterCard
+                  key={employee.id}
+                  employee={employee}
+                  steps={checklist.stepsFor(employee)}
+                  onToggle={(stepId) => checklist.toggle(employee.id, stepId)}
+                  canFinish={canEdit}
+                  finishing={finishing === employee.id}
+                  onFinish={() => void finish(employee)}
+                />
+              ))}
+            </div>
+          )}
+        </LoadState>
       </PageBody>
     </>
   );
@@ -470,7 +468,7 @@ function StepRow({
       <span
         className={cn(
           "shrink-0 text-meta tabular",
-          overdue ? "font-medium text-danger-text" : "text-faint",
+          overdue ? "font-medium text-warning-text" : "text-faint",
         )}
       >
         {shortDate(due)}

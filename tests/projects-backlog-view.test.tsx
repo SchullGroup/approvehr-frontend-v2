@@ -576,7 +576,7 @@ describe("completing a sprint", () => {
     expect(move).toBeNull();
     expect(
       await screen.findByText(
-        "CHK Sprint 3 completed — 9 of 27 points done; 4 issues moved to the backlog",
+        "CHK Sprint 3 completed, 9 of 27 points done; 4 issues moved to the backlog",
       ),
     ).toBeInTheDocument();
   });

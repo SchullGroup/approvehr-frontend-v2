@@ -179,7 +179,7 @@ export function IssuesView() {
                 <TD
                   className={cn(
                     "tabular whitespace-nowrap",
-                    overdue ? "font-medium text-danger-text" : "text-muted",
+                    overdue ? "font-medium text-warning-text" : "text-muted",
                   )}
                 >
                   {issue.dueDate ? shortDate(issue.dueDate) : ""}

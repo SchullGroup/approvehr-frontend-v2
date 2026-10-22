@@ -277,25 +277,24 @@ export type IconButtonProps = Omit<ButtonProps, "block" | "children"> & {
   children: React.ReactNode;
 };
 
-export function IconButton({
-  label,
-  size = "md",
-  variant = "ghost",
-  className,
-  children,
-  ...props
-}: IconButtonProps) {
-  const square = { sm: "size-8", md: "size-10", lg: "size-12" }[size];
-  return (
-    <Button
-      aria-label={label}
-      title={label}
-      variant={variant}
-      size={size}
-      className={cn("px-0", square, className)}
-      {...props}
-    >
-      {children}
-    </Button>
-  );
-}
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
+  function IconButton(
+    { label, size = "md", variant = "ghost", className, children, ...props },
+    ref,
+  ) {
+    const square = { sm: "size-8", md: "size-10", lg: "size-12" }[size];
+    return (
+      <Button
+        ref={ref}
+        aria-label={label}
+        title={label}
+        variant={variant}
+        size={size}
+        className={cn("px-0", square, className)}
+        {...props}
+      >
+        {children}
+      </Button>
+    );
+  },
+);

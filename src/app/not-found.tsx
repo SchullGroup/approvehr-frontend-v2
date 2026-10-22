@@ -14,17 +14,24 @@ export const metadata: Metadata = {
 };
 
 /**
- * Next's catch-all for any URL that matches no route at all. It renders
- * inside the bare root layout only — no `(marketing)` or `(app)` chrome
- * wraps it, because neither segment matched — so this page brings its own,
- * reusing the same marketing nav/footer rather than shipping Next's
- * unstyled default.
+ * The public site's 404, in its own chrome — and now **only** that.
  *
- * A route inside `(app)` that fails to resolve a record deliberately does
- * NOT reach this file — see the `notFound()` comments in the hiring and
- * payroll screens, which render an inline "not found" state instead so a
- * link the product itself gave someone never dead-ends. This page is only
- * for a URL nothing in the app recognises at all.
+ * Next sends here when nothing nearer catches a `notFound()`. It renders in the
+ * bare root layout, so this page brings the marketing nav and footer itself.
+ *
+ * Two things used to land here that should not have:
+ *
+ * - **A signed-in person's mistyped address.** They got the sales site, with a
+ *   Book a demo button, in the middle of the product. `(app)/[...rest]` now
+ *   claims every address no route matches and `(app)/not-found.tsx` answers it
+ *   inside the product's own layout.
+ * - **A public page that does not exist** (an unknown careers company). That
+ *   rendered inside the `(marketing)` layout, which already draws this same nav
+ *   and footer, so the page carried them twice. `(marketing)/not-found.tsx`
+ *   answers it with the body only.
+ *
+ * What still reaches this file is a `notFound()` from a route outside both
+ * groups, such as `/design-system` in a production build.
  */
 export default function NotFound() {
   return (

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { DoorOpen, ListChecks, Search, UserMinus } from "lucide-react";
+import { DoorOpen, ListChecks, UserMinus } from "lucide-react";
 import {
   Badge,
   Button,
@@ -10,13 +10,15 @@ import {
   Card,
   CardBody,
   EmptyState,
-  Input,
   ProgressMeter,
-  SegmentedControl,
   Skeleton,
   Stat,
+  StatGrid,
+  Field,
+  FilterBar,
+  Select,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { Can, useCan } from "@/lib/permissions";
 import { useExits } from "@/lib/store/offboarding";
@@ -98,14 +100,6 @@ export function OffboardingScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {exits.error && (
-          <LoadFailure
-            subject="the list"
-            error={exits.error}
-            onRetry={exits.reload}
-          />
-        )}
-
         {/* The reader's own door, for anybody who is not HR. This route is in
             everybody's sidebar now, and an employee who opens it came to hand
             in their notice or to see how theirs is going — the register below
@@ -125,20 +119,25 @@ export function OffboardingScreen() {
             something to count. "Leaving 0" over an employee's own screen is a
             claim about the company drawn from the one row they are allowed to
             read, which is the absent-is-not-zero mistake with a smaller sample. */}
-        {view === "open" && (isHr || exits.rows.length > 0) && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Stat
-              label="Leaving"
-              value={String(leavingSoon)}
-              hint="still open"
-            />
-            <Stat
-              label="Waiting on a decision"
-              value={String(waitingOnSomebody)}
-              hint="nobody has approved yet"
-            />
-          </div>
-        )}
+        {/* And not before the register has answered, nor after it failed: both
+            counts are drawn from `exits.rows`, which is empty in each case. */}
+        {view === "open" &&
+          !exits.loading &&
+          !exits.error &&
+          (isHr || exits.rows.length > 0) && (
+            <StatGrid columns={2}>
+              <Stat
+                label="Leaving"
+                value={String(leavingSoon)}
+                hint="still open"
+              />
+              <Stat
+                label="Waiting on a decision"
+                value={String(waitingOnSomebody)}
+                hint="nobody has approved yet"
+              />
+            </StatGrid>
+          )}
 
         {/* "Start an exit" above is the door for a layoff, a contract ending,
             or HR recording something on somebody's behalf — every exit
@@ -175,120 +174,137 @@ export function OffboardingScreen() {
           </p>
         </Can>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="relative w-full sm:w-80">
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-faint"
-            />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name, staff number or reason"
-              aria-label="Search exits"
-              className="pl-9"
-            />
-          </div>
-          <SegmentedControl
-            label="Which exits to show"
-            value={view}
-            onChange={setView}
-            options={[
-              { value: "open", label: "Open" },
-              { value: "closed", label: "Closed" },
-              { value: "all", label: "Everyone" },
-            ]}
-          />
-        </div>
+        <FilterBar
+          search={query}
+          onSearchChange={setQuery}
+          searchPlaceholder="Search name, staff number or reason"
+          searchLabel="Search exits"
+          applied={
+            view === "open"
+              ? []
+              : [
+                  {
+                    label: "Show",
+                    value: view === "closed" ? "Closed" : "Everyone",
+                    onClear: () => setView("open"),
+                  },
+                ]
+          }
+        >
+          <Field label="Which exits to show">
+            <Select
+              value={view}
+              onChange={(event) =>
+                setView(event.target.value as "open" | "closed" | "all")
+              }
+            >
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+              <option value="all">Everyone</option>
+            </Select>
+          </Field>
+        </FilterBar>
 
-        {exits.loading ? (
-          <Card>
-            <CardBody className="flex flex-col gap-3">
-              <Skeleton className="h-14" />
-              <Skeleton className="h-14" />
-              <Skeleton className="h-14" />
-            </CardBody>
-          </Card>
-        ) : exits.rows.length === 0 ? (
-          <Card>
-            <EmptyState
-              icon={<DoorOpen aria-hidden="true" />}
-              /* "Nobody is leaving" is a statement about the company, and only
+        {/* The one loading and failure rule. After a failed read this printed
+            "Nobody is leaving" under the failure card, which is the one
+            sentence about the company that nobody should be told on a guess. */}
+        <LoadState
+          loading={exits.loading}
+          error={exits.error}
+          subject="the exits"
+          onRetry={exits.reload}
+          hasData={exits.rows.length > 0}
+          skeleton={
+            <Card>
+              <CardBody className="flex flex-col gap-3">
+                <Skeleton className="h-14" />
+                <Skeleton className="h-14" />
+                <Skeleton className="h-14" />
+              </CardBody>
+            </Card>
+          }
+        >
+          {exits.rows.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={<DoorOpen aria-hidden="true" />}
+                /* "Nobody is leaving" is a statement about the company, and only
                  somebody who can read the whole register may make it. Anybody
                  else is looking at their own exit and their reports', so the
                  honest sentence is about what they can see. */
-              title={
-                query.trim()
-                  ? "Nobody matches that"
-                  : view === "closed"
-                    ? "No exits closed yet"
-                    : isHr
-                      ? "Nobody is leaving"
-                      : "No exits to show"
-              }
-              description={
-                query.trim()
-                  ? undefined
-                  : view === "closed"
-                    ? "Closed exits stay here for the record."
-                    : isHr
-                      ? "When somebody resigns, retires or their contract ends, they show up here with a checklist."
-                      : "Your own exit, and the exits of people who report to you, show up here with a checklist."
-              }
-              action={
-                isHr && !query.trim() && view !== "closed" ? (
-                  <Button variant="accent" onClick={() => setStarting(true)}>
-                    Start an exit
-                  </Button>
-                ) : undefined
-              }
-            />
-          </Card>
-        ) : (
-          <Card>
-            <CardBody className="flex flex-col gap-2">
-              {exits.rows.map((row) => (
-                <Link
-                  key={row.id}
-                  href={`/people/offboarding/${row.id}`}
-                  className="flex flex-wrap items-center gap-4 rounded-md border border-line p-3 transition-colors hover:bg-canvas"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-                      {row.employee.name}
-                      <Badge tone={statusTone(row.status)} size="sm">
-                        {row.statusLabel}
-                      </Badge>
-                    </p>
-                    <p className="mt-0.5 text-body-sm text-muted">
-                      {row.employee.jobTitle}
-                      {row.employee.departmentName
-                        ? ` · ${row.employee.departmentName}`
-                        : ""}{" "}
-                      · {row.kindLabel}
-                    </p>
-                  </div>
+                title={
+                  query.trim()
+                    ? "Nobody matches that"
+                    : view === "closed"
+                      ? "No exits closed yet"
+                      : isHr
+                        ? "Nobody is leaving"
+                        : "No exits to show"
+                }
+                description={
+                  query.trim()
+                    ? undefined
+                    : view === "closed"
+                      ? "Closed exits stay here for the record."
+                      : isHr
+                        ? "When somebody resigns, retires or their contract ends, they show up here with a checklist."
+                        : "Your own exit, and the exits of people who report to you, show up here with a checklist."
+                }
+                action={
+                  isHr && !query.trim() && view !== "closed" ? (
+                    <Button variant="accent" onClick={() => setStarting(true)}>
+                      Start an exit
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </Card>
+          ) : (
+            <Card>
+              <CardBody className="flex flex-col gap-2">
+                {exits.rows.map((row) => (
+                  <Link
+                    key={row.id}
+                    href={`/people/offboarding/${row.id}`}
+                    className="flex flex-wrap items-center gap-4 rounded-md border border-line p-3 transition-colors hover:bg-canvas"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                        {row.employee.name}
+                        <Badge tone={statusTone(row.status)} size="sm">
+                          {row.statusLabel}
+                        </Badge>
+                      </p>
+                      <p className="mt-0.5 text-body-sm text-muted">
+                        {row.employee.jobTitle}
+                        {row.employee.departmentName
+                          ? ` · ${row.employee.departmentName}`
+                          : ""}{" "}
+                        · {row.kindLabel}
+                      </p>
+                    </div>
 
-                  <div className="shrink-0 text-right">
-                    <p className="text-meta text-faint">Last day</p>
-                    <p className="tabular text-body-sm font-medium text-ink">
-                      {shortDate(row.lastWorkingDay)}
-                    </p>
-                  </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-meta text-faint">Last day</p>
+                      <p className="tabular text-body-sm font-medium text-ink">
+                        {shortDate(row.lastWorkingDay)}
+                      </p>
+                    </div>
 
-                  <ProgressMeter
-                    className="w-full sm:w-44"
-                    value={row.progress.percent}
-                    label={`${row.progress.done} of ${row.progress.total} done`}
-                    showValue={false}
-                    tone={row.progress.percent === 100 ? "success" : "accent"}
-                    size="sm"
-                  />
-                </Link>
-              ))}
-            </CardBody>
-          </Card>
-        )}
+                    <ProgressMeter
+                      className="w-full sm:w-44"
+                      value={row.progress.percent}
+                      label={`${row.progress.done} of ${row.progress.total} done`}
+                      showValue={false}
+                      tone={row.progress.percent === 100 ? "success" : "accent"}
+                      size="sm"
+                    />
+                  </Link>
+                ))}
+              </CardBody>
+            </Card>
+          )}
+        </LoadState>
       </PageBody>
 
       <StartExitDialog

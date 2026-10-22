@@ -2,6 +2,7 @@
 
 import { request, requestPaged, type Paged } from "@/lib/api/client";
 import { downloadBlob, fetchBinary } from "@/lib/api/download";
+import type { ApiSuggestOutcome } from "@/lib/api/ai";
 
 /**
  * KPIs, appraisals and skills — `/api/v1/performance`.
@@ -1218,6 +1219,63 @@ export type ApiFairnessMove = {
   at: string;
 };
 
+export type ApiReviewStatus = "below" | "above" | "matches" | "unclear";
+
+export type ApiFlagResolution =
+  | { state: "open" }
+  | { state: "waiting"; since: string; reason: string }
+  | { state: "moved"; by: string | null; at: string; reason: string }
+  | { state: "stands"; by: string | null; at: string; note: string | null };
+
+export type ApiReviewFlag = {
+  employeeId: string;
+  name: string;
+  firstName: string;
+  managerName: string | null;
+  jobTitle: string;
+  department: string | null;
+  markBp: number;
+  expectedBp: number | null;
+  gapBp: number | null;
+  status: ApiReviewStatus;
+  evidence: {
+    objectives: { agreed: number; measured: number; scoreBp: number | null };
+    peers: { responses: number; averageBp: number | null } | null;
+    history: { periods: number; averageBp: number } | null;
+  };
+  patterns: { kind: string; text: string }[];
+  /** What has been done about a flagged mark. Null when the mark isn't flagged. */
+  resolution: ApiFlagResolution | null;
+  /** Whether there is a submitted manager review that could be sent back. */
+  managerReviewSubmitted: boolean;
+};
+
+export type ApiClaim = {
+  author: string;
+  rating: string | null;
+  summary: string | null;
+  answers: { question: string; answer: string }[];
+};
+
+export type ApiClaims = {
+  manager: ApiClaim[];
+  employee: (ApiClaim & { onFinalMark: string | null }) | null;
+};
+
+export type ApiReviewFlags = {
+  cycle: { id: string; name: string };
+  rules: { gapBp: number; peerFloor: number };
+  counts: Record<ApiReviewStatus, number> & {
+    /** Flagged marks that stand or were moved. */
+    decided: number;
+    /** Flagged marks whose review is back with the manager. */
+    waiting: number;
+    /** Flagged marks nobody has acted on yet. */
+    open: number;
+  };
+  people: ApiReviewFlag[];
+};
+
 export type ApiFairness = {
   cycle: { id: string; name: string; stage: string };
   referenceDate: string;
@@ -1810,7 +1868,7 @@ export const POTENTIAL_MEANING: Record<ApiPotentialLevel, string> = {
   HIGH: "Could take on a substantially bigger or different role within a year or two.",
   MEDIUM:
     "Could grow further in this kind of role, or take a bigger one in time.",
-  LOW: "Well placed where they are. This is not a judgement of their value — most people are here, and it is what makes a company work.",
+  LOW: "Well placed where they are. This is not a judgement of their value, most people are here, and it is what makes a company work.",
 };
 
 export const PERFORMANCE_AXIS_LABELS: Record<ApiPerformanceAxis, string> = {
@@ -1825,7 +1883,7 @@ export const POTENTIAL_REASON_MIN = 10;
 export function potentialReasonProblem(reason: string): string | null {
   if (reason.trim().length >= POTENTIAL_REASON_MIN) return null;
   return (
-    `Say why in a sentence — at least ${String(POTENTIAL_REASON_MIN)} characters. ` +
+    `Say why in a sentence, at least ${String(POTENTIAL_REASON_MIN)} characters. ` +
     "This placement is read by the people who decide promotions, and one " +
     "nobody can explain should not be deciding anything."
   );
@@ -2394,6 +2452,50 @@ export const performanceApi = {
       signalOf(signal),
     ),
 
+  reviewFlags: (cycleId: string, signal?: AbortSignal) =>
+    request<ApiReviewFlags>(
+      `/performance/cycles/${cycleId}/review-flags`,
+      signalOf(signal),
+    ),
+
+  reviewFlag: (cycleId: string, employeeId: string, signal?: AbortSignal) =>
+    request<{ flag: ApiReviewFlag; claims: ApiClaims }>(
+      `/performance/cycles/${cycleId}/review-flags/${employeeId}`,
+      signalOf(signal),
+    ),
+
+  markStands: (cycleId: string, employeeId: string, note: string | null) =>
+    request<{ flag: ApiReviewFlag }>(
+      `/performance/cycles/${cycleId}/review-flags/${employeeId}/decision`,
+      { method: "POST", body: { note } },
+    ),
+
+  reopenFlag: (cycleId: string, employeeId: string) =>
+    request<{ flag: ApiReviewFlag }>(
+      `/performance/cycles/${cycleId}/review-flags/${employeeId}/decision`,
+      { method: "DELETE" },
+    ),
+
+  reviewNote: ({
+    cycleId,
+    employeeId,
+  }: {
+    cycleId: string;
+    employeeId: string;
+  }) =>
+    request<ApiSuggestOutcome>(
+      `/performance/cycles/${cycleId}/review-flags/${employeeId}/note`,
+      { method: "POST" },
+    ),
+
+  reviewBriefing: ({ cycleId }: { cycleId: string }) =>
+    request<ApiSuggestOutcome>(
+      `/performance/cycles/${cycleId}/review-flags/briefing`,
+      {
+        method: "POST",
+      },
+    ),
+
   cycleFairness: (
     cycleId: string,
     periods: FairnessPeriods,
@@ -2852,7 +2954,7 @@ export const RATING_LABELS: Record<number, string> = {
 export const RATING_MEANING: Record<number, string> = {
   5: "Consistently well beyond what the role asks for, and others learn from how they do it.",
   4: "Delivers more than the role asks for, reliably.",
-  3: "Does what the role asks for. The ordinary, good outcome — most people, most periods.",
+  3: "Does what the role asks for. The ordinary, good outcome, most people, most periods.",
   2: "Falls short of what the role asks for in ways that need addressing.",
   1: "Well short of what the role asks for.",
 };

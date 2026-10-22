@@ -150,7 +150,7 @@ const SEED: Seed[] = DEMO_ENABLED
         entity: {
           type: "leave_requests",
           id: "lv-02",
-          label: "Annual leave — Chidi Nwosu",
+          label: "Annual leave. Chidi Nwosu",
           noun: "leave request",
         },
         details: [
@@ -255,7 +255,7 @@ const SEED: Seed[] = DEMO_ENABLED
         entity: {
           type: "loans",
           id: "ln-02",
-          label: "Loan — Musa Ibrahim",
+          label: "Loan. Musa Ibrahim",
           noun: "loan",
         },
         details: [
@@ -331,7 +331,7 @@ const SEED: Seed[] = DEMO_ENABLED
         entity: {
           type: "reimbursements",
           id: "rb-04",
-          label: "Client dinner — Fatima Bello",
+          label: "Client dinner. Fatima Bello",
           noun: "expense claim",
         },
         details: [{ field: "amountKobo", label: "Amount", value: 2_850_000 }],

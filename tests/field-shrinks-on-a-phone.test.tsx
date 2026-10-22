@@ -58,7 +58,7 @@ describe("Field", () => {
 });
 
 describe("a hidden label", () => {
-  it("is left exactly as it was — it lives in a 1px box and must not be made to wrap in it", () => {
+  it("is left exactly as it was, it lives in a 1px box and must not be made to wrap in it", () => {
     render(
       <Field label="Search" hideLabel>
         <Input />

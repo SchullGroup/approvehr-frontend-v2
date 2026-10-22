@@ -12,6 +12,7 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  StatGrid,
   Tag,
   TBody,
   TD,
@@ -20,8 +21,10 @@ import {
   THead,
   TR,
   TableWrap,
+  Tabs,
   useToast,
 } from "@/components/ui";
+import type { TabItem } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import type { ApiCompetencyRow, ApiHeatmapRow } from "@/lib/api/performance";
@@ -33,7 +36,9 @@ import {
   useSkills,
 } from "@/lib/store/performance";
 import { useSession } from "@/lib/store/session";
+import { useUrlTab } from "@/hooks/use-url-tab";
 import { RecordLevelDialog } from "./rating-dialog";
+import { SKILLS_TABS, type SkillsTabId } from "./skills/tabs";
 
 /**
  * Skills: levels against the targets the company set.
@@ -57,13 +62,23 @@ import { RecordLevelDialog } from "./rating-dialog";
  * the number, never instead of it, and the pairs it uses are the ones the badge
  * palette already passes contrast on. A cell with people below their target
  * carries an icon and a spoken count as well.
+ *
+ * ## Three tabs, because they are three questions
+ *
+ * Where am I against my levels, who is below target, and how does each
+ * department stand. They share no row, so stacking them made a 4,800px page and
+ * somebody looking for the heatmap scrolled past 30 rows of gaps to reach it.
+ * Each tab is only offered to somebody the API would answer for it, and a reader
+ * who may see only their own skills gets the one panel with no tab strip.
  */
 export function SkillsTab({
   canSeeCompany,
   isManager,
+  initialTab = "mine",
 }: {
   canSeeCompany: boolean;
   isManager: boolean;
+  initialTab?: SkillsTabId;
 }) {
   const { isConnected, employeeId, actingId } = useSession();
   const me = isConnected ? employeeId : actingId;
@@ -75,6 +90,7 @@ export function SkillsTab({
   const toast = useToast();
 
   const [recording, setRecording] = useState(false);
+  const [tab, changeTab] = useUrlTab<SkillsTabId>(initialTab, SKILLS_TABS);
 
   const grouped = useMemo(() => {
     const rows = mine.skills?.rows ?? [];
@@ -95,80 +111,86 @@ export function SkillsTab({
 
   const summary = mine.skills?.summary ?? { total: 0, rated: 0, gaps: 0 };
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {DEMO_ENABLED && mine.source === "demo" && (
-          <Badge tone="warning" size="sm">
-            Demo · seeded assessments
-          </Badge>
-        )}
-        {(canSeeCompany || isManager) && rating.editable && (
-          <Button variant="accent" size="sm" onClick={() => setRecording(true)}>
-            Record a level
-          </Button>
-        )}
-      </div>
+  const showGaps = canSeeCompany || isManager;
+  const items: TabItem[] = [
+    { id: "mine", label: "Your skills" },
+    ...(showGaps
+      ? [
+          {
+            id: "gaps",
+            label: "Below target",
+            /* A count on a tab is a count, so it waits for the answer. */
+            count: gaps.loading ? undefined : gaps.gaps.length,
+          },
+        ]
+      : []),
+    ...(canSeeCompany ? [{ id: "heatmap", label: "Heatmap" }] : []),
+  ];
+  /* A `?tab=` for something this reader may not see falls back to their own
+     skills rather than an empty panel. */
+  const shown = items.some((item) => item.id === tab) ? tab : "mine";
 
-      <LoadFailure
-        subject="your skills framework"
-        error={mine.error}
-        onRetry={mine.reload}
-      />
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Skills on your framework" value={String(summary.total)} />
-        <Stat
-          label="Assessed so far"
-          value={`${summary.rated} of ${summary.total}`}
-        />
-        <Stat
-          label="Below target"
-          value={String(summary.gaps)}
-          {...(summary.gaps > 0
-            ? { trend: { direction: "down" as const, label: "Needs work" } }
-            : {})}
-        />
-      </div>
-
-      <Card>
-        <CardHeader title="Your skills" />
-        {mine.loading ? (
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading
-          </CardBody>
-        ) : grouped.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<GraduationCap aria-hidden="true" />}
-            title="No framework yet"
-            description="Finish setup and the four standard parts are created for you."
+  const panels = (
+    <>
+      {shown === "mine" && (
+        <div className="flex flex-col gap-6">
+          <LoadFailure
+            subject="your skills framework"
+            error={mine.error}
+            onRetry={mine.reload}
           />
-        ) : (
-          <CardBody className="flex flex-col gap-6">
-            {grouped.map((group) => (
-              <div key={group.category}>
-                <p className="flex flex-wrap items-center gap-2 text-body-sm font-semibold text-ink">
-                  {group.category}
-                  {group.category === "Leadership" && (
-                    <Badge tone="neutral" size="sm">
-                      Managers only
-                    </Badge>
-                  )}
-                </p>
-                <ul className="mt-2.5 flex flex-col gap-2.5">
-                  {group.rows.map((row) => (
-                    <SkillRow key={row.competencyId} row={row} />
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </CardBody>
-        )}
-      </Card>
 
-      {(canSeeCompany || isManager) && (
+          <StatGrid columns={3}>
+            <Stat
+              label="Skills on your framework"
+              value={String(summary.total)}
+            />
+            <Stat
+              label="Assessed so far"
+              value={`${summary.rated} of ${summary.total}`}
+            />
+            <Stat label="Below target" value={String(summary.gaps)} />
+          </StatGrid>
+
+          <Card>
+            <CardHeader title="Your skills" />
+            {mine.loading ? (
+              <CardBody className="flex items-center gap-2 text-body-sm text-muted">
+                <Spinner size="sm" />
+                Loading
+              </CardBody>
+            ) : grouped.length === 0 ? (
+              <EmptyState
+                compact
+                icon={<GraduationCap aria-hidden="true" />}
+                title="No framework yet"
+                description="Finish setup and the four standard parts are created for you."
+              />
+            ) : (
+              <CardBody className="flex flex-col gap-6">
+                {grouped.map((group) => (
+                  <div key={group.category}>
+                    <p className="flex flex-wrap items-center gap-2 text-body-sm font-semibold text-ink">
+                      {group.category}
+                      {group.category === "Leadership" && (
+                        <Badge tone="neutral" size="sm">
+                          Managers only
+                        </Badge>
+                      )}
+                    </p>
+                    <ul className="mt-2.5 flex flex-col gap-2.5">
+                      {group.rows.map((row) => (
+                        <SkillRow key={row.competencyId} row={row} />
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </CardBody>
+            )}
+          </Card>
+        </div>
+      )}
+      {shown === "gaps" && showGaps && (
         <Card>
           <CardHeader title="Where people are below target" />
           {gaps.loading ? (
@@ -196,7 +218,6 @@ export function SkillsTab({
                     <TH>Skill</TH>
                     <TH align="right">Level</TH>
                     <TH align="right">Target</TH>
-                    <TH align="right">Gap</TH>
                   </THead>
                   <TBody>
                     {gaps.gaps.map((gap) => (
@@ -215,15 +236,6 @@ export function SkillsTab({
                         </TD>
                         <TD align="right" className="tabular">
                           {gap.target}
-                        </TD>
-                        <TD align="right">
-                          <Badge
-                            tone="warning"
-                            size="sm"
-                            icon={<AlertTriangle aria-hidden="true" />}
-                          >
-                            {gap.gap === 1 ? "1 level" : `${gap.gap} levels`}
-                          </Badge>
                         </TD>
                       </TR>
                     ))}
@@ -247,13 +259,6 @@ export function SkillsTab({
                           {gap.sectionName && ` · ${gap.sectionName}`}
                         </p>
                       </div>
-                      <Badge
-                        tone="warning"
-                        size="sm"
-                        icon={<AlertTriangle aria-hidden="true" />}
-                      >
-                        {gap.gap === 1 ? "1 level" : `${gap.gap} levels`}
-                      </Badge>
                     </div>
                     <div className="flex items-center gap-4 text-body-sm text-muted">
                       <span className="tabular">
@@ -269,7 +274,7 @@ export function SkillsTab({
         </Card>
       )}
 
-      {canSeeCompany && (
+      {shown === "heatmap" && canSeeCompany && (
         <Card>
           <CardHeader
             title="Department heatmap"
@@ -326,6 +331,31 @@ export function SkillsTab({
           )}
         </Card>
       )}
+    </>
+  );
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {DEMO_ENABLED && mine.source === "demo" && (
+          <Badge tone="warning" size="sm">
+            Demo · seeded assessments
+          </Badge>
+        )}
+        {(canSeeCompany || isManager) && rating.editable && (
+          <Button variant="accent" size="sm" onClick={() => setRecording(true)}>
+            Record a level
+          </Button>
+        )}
+      </div>
+
+      {items.length > 1 ? (
+        <Tabs items={items} value={shown} onChange={changeTab}>
+          {panels}
+        </Tabs>
+      ) : (
+        panels
+      )}
 
       <RecordLevelDialog
         open={recording}
@@ -363,8 +393,6 @@ export function SkillsTab({
 /* -------------------------------------------------------------------------- */
 
 function SkillRow({ row }: { row: ApiCompetencyRow }) {
-  const gap = row.gap ?? 0;
-
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
       <div className="min-w-0">
@@ -380,27 +408,6 @@ function SkillRow({ row }: { row: ApiCompetencyRow }) {
 
       <div className="flex flex-wrap items-center gap-3">
         <Pips level={row.level} target={row.target} scaleMax={row.scaleMax} />
-        {row.level === null ? (
-          <Badge tone="neutral" size="sm">
-            Not assessed
-          </Badge>
-        ) : gap > 0 ? (
-          <Badge
-            tone="warning"
-            size="sm"
-            icon={<AlertTriangle aria-hidden="true" />}
-          >
-            {gap === 1 ? "1 level below target" : `${gap} levels below target`}
-          </Badge>
-        ) : row.target !== null ? (
-          <Badge tone="accent" size="sm">
-            At target
-          </Badge>
-        ) : (
-          <Badge tone="neutral" size="sm">
-            No target set
-          </Badge>
-        )}
       </div>
     </li>
   );
@@ -480,10 +487,10 @@ function Pips({
 /** Four bands. The key to the tint, which is never the only signal. */
 function Legend() {
   const bands = [
-    { label: "Under 2.5", className: "bg-danger-soft text-danger-text" },
-    { label: "2.5 to 3.4", className: "bg-warning-soft text-warning-text" },
-    { label: "3.5 to 4.4", className: "bg-info-soft text-info-text" },
-    { label: "4.5 and above", className: "bg-accent-soft text-accent-text" },
+    { label: "Under 2.5", className: "bg-warning-soft text-warning-text" },
+    { label: "2.5 to 3.4", className: "bg-sunken text-body" },
+    { label: "3.5 to 4.4", className: "bg-accent-soft text-accent-text" },
+    { label: "4.5 and above", className: "bg-accent-line text-accent-text" },
   ];
   return (
     <ul className="flex flex-wrap items-center gap-2">
@@ -497,10 +504,10 @@ function Legend() {
 }
 
 function bandFor(average: number): string {
-  if (average < 2.5) return "bg-danger-soft text-danger-text";
-  if (average < 3.5) return "bg-warning-soft text-warning-text";
-  if (average < 4.5) return "bg-info-soft text-info-text";
-  return "bg-accent-soft text-accent-text";
+  if (average < 2.5) return "bg-warning-soft text-warning-text";
+  if (average < 3.5) return "bg-sunken text-body";
+  if (average < 4.5) return "bg-accent-soft text-accent-text";
+  return "bg-accent-line text-accent-text";
 }
 
 function HeatRow({ row, scaleMax }: { row: ApiHeatmapRow; scaleMax: number }) {

@@ -3,18 +3,21 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronDown, ChevronLeft, Menu, Search, X } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  ChevronLeft,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useCanGoBack } from "@/lib/nav-history";
 import { Logo } from "@/components/brand/logo";
-import {
-  Avatar,
-  Badge,
-  MoneyPrivacyToggle,
-  ThemeToggle,
-} from "@/components/ui";
+import { Avatar, Badge } from "@/components/ui";
 import { CommandPalette } from "./command-palette";
-import { ClockMenu } from "./clock-menu";
 import { GuidedTour, openTour } from "./tour/guided-tour";
 import { NAV, visibleNav, type BadgeSource, type NavFacts } from "./nav";
 import { SidebarNav } from "./sidebar";
@@ -45,6 +48,7 @@ import { VerificationBanner } from "./verification-banner";
 import { BillingBanner } from "./billing-banner";
 import { BillingGate } from "./billing-gate";
 import { useBilling } from "@/lib/billing";
+import { useDismiss } from "@/hooks/use-dismiss";
 
 /**
  * The app shell. The sidebar is a light surface rather than a saturated slab:
@@ -54,6 +58,30 @@ import { useBilling } from "@/lib/billing";
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  /* Desktop only: hide the sidebar for a full-width page. Remembered per browser. */
+  const [collapsed, setCollapsed] = useState(false);
+  /* Off until the saved choice has been read, so a page that opens collapsed
+     is collapsed at once rather than seen closing. */
+  const [eased, setEased] = useState(false);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read after mount to match the server render
+      setCollapsed(localStorage.getItem("sidebar-collapsed") === "1");
+    } catch {
+      /* storage unavailable: stay open */
+    }
+    const frame = requestAnimationFrame(() => setEased(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  const toggleCollapsed = () =>
+    setCollapsed((was) => {
+      try {
+        localStorage.setItem("sidebar-collapsed", was ? "0" : "1");
+      } catch {
+        /* not remembered */
+      }
+      return !was;
+    });
   const [searchOpen, setSearchOpen] = useState(false);
   /* What the header search opens with. Empty from the button and from `/`; the
      sidebar's Find hands over what was typed when it has no page to offer. */
@@ -148,6 +176,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      with no reports, once per session, and the answer is usually an empty
      list. */
   const inAOneOnOne = useAmIInAOneOnOne(!isManager);
+  /* Whoever sets the pay-early policy still needs the row, or nobody could ever
+     switch it on. */
+  const canSetEarlyPay = hasPermission(permissions, "MANAGE_PAY_STRUCTURE");
 
   /* Signatures: showing to somebody who can send, or who has one of their own.
      ---------------------------------------------------------------------
@@ -166,6 +197,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const facts: NavFacts = useMemo(
     () => ({
       assistantWired,
+      earlyPay: features.earlyPay,
+      earlyPayHidden: features.earnedWage === false && !canSetEarlyPay,
       rows: {
         "one-on-ones": isManager || inAOneOnOne,
         signatures: canSendForSignature || haveSignatures,
@@ -175,6 +208,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }),
     [
       assistantWired,
+      features.earlyPay,
+      features.earnedWage,
+      canSetEarlyPay,
       isManager,
       inAOneOnOne,
       canSendForSignature,
@@ -254,8 +290,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               }}
               data-tour="search"
               className={cn(
-                "ml-auto hidden items-center gap-2 rounded-md border border-line bg-canvas",
-                "px-3 py-1.5 text-body-sm text-muted transition-colors",
+                /* The same field as the sidebar's Find: one height, one border,
+                   one fill and one icon size, so the two read as the same
+                   control. */
+                "ml-auto hidden h-10 items-center gap-2 rounded-md border border-field-line bg-surface",
+                "px-3 text-body-sm text-muted transition-colors",
                 /* Three widths rather than one fixed 16rem, and no shrinking.
                  ----------------------------------------------------------
                  It was `md:w-64` and could not give way, so at 768 — the
@@ -267,11 +306,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                  is narrow. A control that cannot show what it is should get
                  smaller in steps somebody chose, and never below its own
                  name. */
-                "hover:border-control-line hover:text-body md:flex",
+                "hover:border-ink-soft hover:text-body md:flex",
                 "md:w-40 lg:w-64",
               )}
             >
-              <Search aria-hidden="true" className="size-3.5 shrink-0" />
+              <Search aria-hidden="true" className="size-4 shrink-0" />
               {/* Short at `md`, where the field is 10rem and the full sentence
                 would be clipped mid-word. */}
               <span className="flex-1 truncate text-left lg:hidden">
@@ -305,16 +344,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 notices the room has got dark. The Appearance screen keeps the
                 explanation — including that this is per-browser and not synced
                 — and this is the same one setting, in the chrome. */}
-            <ThemeToggle />
-
-            {!collaborator && <MoneyPrivacyToggle />}
 
             {/* Clocking in and out without leaving the page you are on.
                 Absent for an account with no employee record, and for a
                 company that has never clocked anybody in — see the header of
                 `clock-menu.tsx` for both, and for the day-one consequence of
                 the second. */}
-            <ClockMenu roster={roster} />
 
             {/* Was a button that did nothing, labelled "3 unread" whatever the
                 truth was. Now a link to the inbox with the real count — the
@@ -333,7 +368,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {badges.unreadNotifications > 0 && (
                 <span
                   aria-hidden="true"
-                  className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-danger ring-2 ring-surface"
+                  className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-accent ring-2 ring-surface"
                 />
               )}
             </Link>
@@ -351,9 +386,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             its own Find text and drill state, both derived from the route. */}
         <aside
           data-tour="nav"
-          className="no-print sidebar-surface hidden w-60 shrink-0 border-r border-line lg:block"
+          id="portal-nav-desktop"
+          inert={collapsed}
+          className={cn(
+            /* Width and the hairline ease together, and the column inside keeps
+               its own width so the labels slide out of view instead of
+               reflowing as the box narrows.
+
+               `overflow-clip`, not `overflow-hidden`: hidden makes this box a
+               scroll container, and a sticky child then sticks to *it*, which
+               never scrolls, so the menu rode away with the page and only the
+               Collapse button was left in view. Clip cuts the overflow without
+               becoming a scroller. */
+            "no-print sidebar-surface hidden shrink-0 overflow-clip border-r lg:block",
+            eased &&
+              "transition-[width,border-color,opacity] duration-300 ease-[var(--ease-in-out-soft)] motion-reduce:transition-none",
+            collapsed
+              ? "border-transparent opacity-0 lg:w-0"
+              : "border-line opacity-100 lg:w-60",
+          )}
         >
-          <div className="sticky top-14 flex h-[calc(100dvh-3.5625rem)] flex-col">
+          <div className="sticky top-14 flex h-[calc(100dvh-3.5625rem)] w-60 flex-col">
             <SidebarNav
               groups={groups}
               pathname={pathname}
@@ -362,6 +415,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onSearchPeople={collaborator ? undefined : searchPeople}
               variant="desktop"
             />
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              aria-expanded
+              aria-controls="portal-nav-desktop"
+              className="mx-3 mb-3 mt-1 flex items-center gap-2 rounded-md px-3 py-2 text-body-sm text-muted hover:bg-canvas hover:text-ink"
+            >
+              <PanelLeftClose aria-hidden="true" className="size-4" />
+              Collapse
+            </button>
           </div>
         </aside>
 
@@ -389,6 +452,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-expanded={false}
+          aria-controls="portal-nav-desktop"
+          aria-label="Show sidebar"
+          tabIndex={collapsed ? 0 : -1}
+          className={cn(
+            "no-print fixed left-2 top-[4.25rem] z-20 hidden rounded-md border border-line bg-surface p-2 text-muted shadow-sm hover:text-ink lg:block",
+            eased &&
+              "transition-[opacity,transform] duration-300 ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+            collapsed
+              ? "translate-x-0 opacity-100"
+              : "pointer-events-none -translate-x-2 opacity-0",
+          )}
+        >
+          <PanelLeftOpen aria-hidden="true" className="size-4" />
+        </button>
 
         <main id="main" className="min-w-0 flex-1">
           {/* One sticky wrapper for all four, not one each. Each banner used
@@ -540,6 +622,7 @@ export { isNavItemActive } from "./sidebar-model";
 function UserMenu() {
   const { displayName, employee, user, mode, signOut } = useSession();
   const [open, setOpen] = useState(false);
+  const { mounted, closing } = useDismiss(open, 170);
   /* Invited to help hire: no personnel file, so no profile and no documents of their
      own to open, and no sidebar to take a tour of. */
   const collaborator = useIsCollaborator();
@@ -564,9 +647,9 @@ function UserMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2.5 rounded-md border border-line px-2 py-1.5 text-left hover:bg-canvas"
+        className="flex items-center gap-2.5 rounded-full py-1 pl-1 pr-2 text-left hover:bg-canvas"
       >
-        <Avatar name={name} size="xs" tone="accent" />
+        <Avatar name={name} size="xl" tone="accent" />
         {/* Name, subtitle and role badge from `lg`, not `sm`.
             ----------------------------------------------------
             The note further up this file records the same class of bug being
@@ -588,9 +671,11 @@ function UserMenu() {
           <span className="block truncate text-body-sm font-medium leading-tight text-ink">
             {name}
           </span>
-          <span className="block truncate text-meta leading-tight text-muted">
-            {subtitle}
-          </span>
+          {employee?.jobTitle && (
+            <span className="block truncate text-meta leading-tight text-muted">
+              {subtitle}
+            </span>
+          )}
         </span>
         <SessionRoleBadge className="hidden shrink-0 xl:inline-flex" />
         <ChevronDown
@@ -599,16 +684,20 @@ function UserMenu() {
         />
       </button>
 
-      {open && (
+      {mounted && (
         <>
           <div
-            className="fixed inset-0 z-40"
+            className={
+              closing
+                ? "pointer-events-none fixed inset-0 z-40"
+                : "fixed inset-0 z-40"
+            }
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
           <div
             role="menu"
-            className="animate-scale-in absolute right-0 z-50 mt-1.5 w-64 rounded-lg border border-line bg-surface p-1.5 shadow-lg"
+            className={`${closing ? "animate-scale-out" : "animate-scale-in"} origin-top-right absolute right-0 z-50 mt-1.5 w-64 rounded-lg border border-line bg-surface p-1.5 shadow-lg`}
           >
             <div className="border-b border-line px-2.5 py-2">
               <p className="truncate text-body-sm font-medium text-ink">
@@ -768,6 +857,29 @@ function CompanySwitcher() {
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * How wide a page's content column is allowed to get.
+ *
+ * The app is drawn for a 1,440px window, which is a 1,200px column beside the
+ * sidebar. Nothing stopped that column growing with the screen, so on a 2,560px
+ * monitor a directory row was 2,300px from name to status and the eye had to
+ * cross a metre of white to find who it belonged to. `page` caps the column at
+ * 90rem (1,440px) and centres it, which leaves a 1,440px window and a laptop
+ * untouched and gives a large one margins instead of stretch.
+ *
+ * The cap is on the content, not on the header band: the hairline under the
+ * title still runs edge to edge, and the title row and the body are capped to
+ * the **same** width so their left edges line up. A page that is genuinely a
+ * canvas (the org chart, a board, a rota) passes `width="full"` to **both**
+ * `PageHeader` and `PageBody`.
+ */
+export type PageWidth = "page" | "full";
+
+const PAGE_WIDTH: Record<PageWidth, string> = {
+  page: "mx-auto w-full max-w-[90rem]",
+  full: "",
+};
+
 export function PageHeader({
   title,
   breadcrumb,
@@ -775,7 +887,10 @@ export function PageHeader({
   meta,
   description,
   tabs,
+  width = "page",
 }: {
+  /** See `PageWidth`. Must match the page's `PageBody`. */
+  width?: PageWidth;
   title: string;
   breadcrumb?: { href: string; label: string }[];
   action?: React.ReactNode;
@@ -823,96 +938,126 @@ export function PageHeader({
         : breadcrumb[breadcrumb.length - 1]!
       : null;
 
+  /*
+   * One way back and one trail, never two saying the same thing.
+   *
+   * "Back to Monthly payroll" beside "Monthly payroll / Run payroll" was the same
+   * sentence twice on every detail screen (the wizard, a period, a review, a
+   * payslip, a candidate, a record). The explicit back control is worth having —
+   * the crumbs read as a location, not as something to press — and the trail is
+   * worth having when it says *where you are* rather than only *where you came
+   * from*. So the trail is drawn when it adds something:
+   *
+   * - **There is real history to go back through.** The control then reads just
+   *   "Back", names no destination, and the trail is what says where this page
+   *   sits.
+   * - **It is deeper than a parent and the page.** Two crumbs are the parent and
+   *   this page, and "Back to <parent>" plus the page's own title already says
+   *   both. Three or more name a place between them that nothing else does.
+   */
+  const showTrail = Boolean(breadcrumb && (canGoBack || breadcrumb.length > 2));
+
   return (
     <div className="grid-fade border-b border-line">
       <div className="px-5 pt-6 sm:px-7">
-        {breadcrumb && breadcrumb.length > 0 && (
-          <div className="mb-2.5 flex flex-wrap items-center gap-2.5">
-            {/*
-             * An explicit way back — real navigation history when this visit
-             * actually has any, the deterministic **parent** link otherwise.
-             *
-             * The crumbs were already links, and that was not enough on its
-             * own: they read as a location rather than as a control, so people
-             * used the browser's back button instead — which is not always the
-             * same journey. Arriving here from a notification, from search, or
-             * from a bookmark means `router.back()` goes somewhere unrelated to
-             * the page you are on, or after a redirect, nowhere at all. That
-             * case still gets the fixed parent link, labelled with its name.
-             *
-             * But arriving here by clicking *into* this page from somewhere
-             * else in the product is the common case, not the exotic one, and
-             * a fixed parent cannot serve it — a payroll exception's "Add
-             * account number" link lands on an employee record, and that
-             * record's own breadcrumb has no way to know it should say "Back
-             * to Run payroll" instead of "Back to Employees". Only real
-             * history knows that, which is what `useCanGoBack` reports: has
-             * this tab actually navigated to a different page since it opened.
-             * When it has, this becomes a real "back" rather than a link to a
-             * fixed destination, and the label drops "to X" rather than name a
-             * destination it cannot promise.
-             */}
-            {canGoBack ? (
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-              >
-                <ChevronLeft aria-hidden="true" className="size-3.5" />
-                Back
-              </button>
-            ) : (
-              backCrumb && (
-                <Link
-                  href={backCrumb.href}
+        <div className={PAGE_WIDTH[width]}>
+          {breadcrumb && breadcrumb.length > 0 && (
+            <div className="mb-2.5 flex flex-wrap items-center gap-2.5">
+              {/*
+               * An explicit way back — real navigation history when this visit
+               * actually has any, the deterministic **parent** link otherwise.
+               *
+               * The crumbs were already links, and that was not enough on its
+               * own: they read as a location rather than as a control, so people
+               * used the browser's back button instead — which is not always the
+               * same journey. Arriving here from a notification, from search, or
+               * from a bookmark means `router.back()` goes somewhere unrelated to
+               * the page you are on, or after a redirect, nowhere at all. That
+               * case still gets the fixed parent link, labelled with its name.
+               *
+               * But arriving here by clicking *into* this page from somewhere
+               * else in the product is the common case, not the exotic one, and
+               * a fixed parent cannot serve it — a payroll exception's "Add
+               * account number" link lands on an employee record, and that
+               * record's own breadcrumb has no way to know it should say "Back
+               * to Run payroll" instead of "Back to Employees". Only real
+               * history knows that, which is what `useCanGoBack` reports: has
+               * this tab actually navigated to a different page since it opened.
+               * When it has, this becomes a real "back" rather than a link to a
+               * fixed destination, and the label drops "to X" rather than name a
+               * destination it cannot promise.
+               */}
+              {canGoBack ? (
+                <button
+                  type="button"
+                  onClick={() => router.back()}
                   className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   <ChevronLeft aria-hidden="true" className="size-3.5" />
-                  Back to {backCrumb.label}
-                </Link>
-              )
-            )}
+                  Back
+                </button>
+              ) : (
+                backCrumb && (
+                  <Link
+                    href={backCrumb.href}
+                    className="inline-flex items-center gap-1 rounded-md text-meta font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    <ChevronLeft aria-hidden="true" className="size-3.5" />
+                    Back to {backCrumb.label}
+                  </Link>
+                )
+              )}
 
-            <span aria-hidden="true" className="text-line-strong">
-              |
-            </span>
+              {showTrail && (
+                <>
+                  <span aria-hidden="true" className="text-line-strong">
+                    |
+                  </span>
 
-            <nav aria-label="Breadcrumb">
-              <ol className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
-                {breadcrumb.map((crumb, i) => (
-                  <li key={crumb.href} className="flex items-center gap-1.5">
-                    {i > 0 && (
-                      <span aria-hidden="true" className="text-line-strong">
-                        /
-                      </span>
-                    )}
-                    <Link href={crumb.href} className="hover:text-ink">
-                      {crumb.label}
-                    </Link>
-                  </li>
-                ))}
-              </ol>
-            </nav>
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-start justify-between gap-4 pb-5">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-h3 text-ink">{title}</h1>
-              {meta}
+                  <nav aria-label="Breadcrumb">
+                    <ol className="flex flex-wrap items-center gap-1.5 text-meta text-muted">
+                      {breadcrumb.map((crumb, i) => (
+                        <li
+                          key={crumb.href}
+                          className="flex items-center gap-1.5"
+                        >
+                          {i > 0 && (
+                            <span
+                              aria-hidden="true"
+                              className="text-line-strong"
+                            >
+                              /
+                            </span>
+                          )}
+                          <Link href={crumb.href} className="hover:text-ink">
+                            {crumb.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ol>
+                  </nav>
+                </>
+              )}
             </div>
-            {description && (
-              /* `max-w-2xl` so a sentence does not run the full width of a
+          )}
+
+          <div className="flex flex-wrap items-start justify-between gap-4 pb-5">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="text-h3 text-ink">{title}</h1>
+                {meta}
+              </div>
+              {description && (
+                /* `max-w-2xl` so a sentence does not run the full width of a
                  desktop — a line somebody has to track across 1600px is a line
                  they skip, which defeats the point of having written it. */
-              <p className="mt-1.5 max-w-2xl text-body-sm leading-relaxed text-body">
-                {description}
-              </p>
-            )}
-          </div>
-          {action && (
-            /* Wraps, and is allowed to shrink.
+                <p className="mt-1.5 max-w-2xl text-body-sm leading-relaxed text-body">
+                  {description}
+                </p>
+              )}
+            </div>
+            {action && (
+              /* Wraps, and is allowed to shrink.
                ---------------------------------------------------------------
                `shrink-0` with no wrap made this an unbreakable block as wide as
                the sum of its buttons. On `/people` that is three buttons at
@@ -926,20 +1071,21 @@ export function PageHeader({
                row *alone* exceeds the width — the phone case — does it wrap
                internally, which is what we want. Measured on `/people` at 375px:
                501px -> 335px. */
-            <div className="flex flex-wrap items-center gap-2">{action}</div>
-          )}
-        </div>
+              <div className="flex flex-wrap items-center gap-2">{action}</div>
+            )}
+          </div>
 
-        {tabs && (
-          /* The title row above carries its own `pb-5`, which is the header's
+          {tabs && (
+            /* The title row above carries its own `pb-5`, which is the header's
              breathing room before the `border-b` on the outer wrapper — fine
              when tabs are absent, since that row is then the last thing in the
              header. When tabs are present they render as a sibling after it
              with no padding of their own, so they sat flush against the
              divider. Same `pb-5` here gives whichever section actually ends
              the header the same gap before the line. */
-          <div className="pb-5">{tabs}</div>
-        )}
+            <div className="pb-5">{tabs}</div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -948,11 +1094,21 @@ export function PageHeader({
 export function PageBody({
   className,
   children,
+  width = "page",
 }: {
   className?: string;
   children: React.ReactNode;
+  /** See `PageWidth`. Must match the page's `PageHeader`. */
+  width?: PageWidth;
 }) {
-  return <div className={cn("px-5 py-6 sm:px-7", className)}>{children}</div>;
+  /* Two boxes: the outer keeps the gutters and the inner is the capped column,
+     which is where a page's own `className` (the flex column and its gap, the
+     centring of a spinner) belongs. */
+  return (
+    <div className="px-5 py-6 sm:px-7">
+      <div className={cn(PAGE_WIDTH[width], className)}>{children}</div>
+    </div>
+  );
 }
 
 /** Sticky helper for empty "not built yet" routes so the nav stays honest. */

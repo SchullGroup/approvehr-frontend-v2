@@ -60,7 +60,7 @@ export function AssignHeadDialog({
           {employees.map((employee) => (
             <option key={employee.id} value={employee.id}>
               {employee.name}
-              {employee.jobTitle ? ` — ${employee.jobTitle}` : ""}
+              {employee.jobTitle ? `, ${employee.jobTitle}` : ""}
             </option>
           ))}
         </Select>

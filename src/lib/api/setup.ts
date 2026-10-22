@@ -47,6 +47,9 @@ export const MODULE_FEATURE_KEYS = [
   /* Projects, issues, sprints and a board. Off by default like every module: a
      five-person business has no use for a tracker and should not be shown one. */
   "projects",
+  /* Break reminders, water and steps, challenges and kudos. Off by default like
+     every module, and the API refuses every route while it is off. */
+  "wellness",
 ] as const;
 
 /**
@@ -86,7 +89,13 @@ export const RECORD_FIELD_KEYS = [
  * The API refuses turning it on while `appraisals` is off, and turns it off with
  * appraisals. Nothing is deleted either way.
  */
-export const ADVANCED_FEATURE_KEYS = ["multiAppraiser", "twoFactor"] as const;
+export const ADVANCED_FEATURE_KEYS = [
+  "multiAppraiser",
+  "twoFactor",
+  /* One mark per person per day that the app was opened, so HR can see how many
+     of the team use it each week. Off by default; see `lib/api/me.ts`. */
+  "appOpenTracking",
+] as const;
 
 /**
  * How a module's own workflow is configured. A fourth kind of switch.
@@ -130,6 +139,12 @@ export const ADVANCED_FEATURE_KEYS = ["multiAppraiser", "twoFactor"] as const;
 export const WORKFLOW_FEATURE_KEYS = [
   "leaveTwoStepApproval",
   "probationTracking",
+  /* The weekly text message digest. Same family and same placement: it is not
+     rendered on `/settings/features`, its switch is on `/settings/sms` beside
+     the people who have opted in and whether anything can be sent at all. A
+     company switching it on is changing nothing for anybody until an employee
+     opts in, which is the sentence that screen leads with. */
+  "smsDigest",
 ] as const;
 
 /** The acts a company can put a code in front of. Mirrors `StepUpAction`. */
@@ -199,6 +214,11 @@ export type ApiFeatures = {
    * it, and a missing answer reads as off rather than as a type error.
    */
   projects?: boolean;
+  /**
+   * Wellness. Optional for the same reason as `projects`: an API one deploy
+   * behind does not send it, and a missing answer reads as off.
+   */
+  wellness?: boolean;
   /** PAYE state, TIN and the annual rent declaration. */
   taxSetup: boolean;
   /** RSA PIN, pension fund administrator, NHF number. */
@@ -211,10 +231,36 @@ export type ApiFeatures = {
   leaveTwoStepApproval: boolean;
   /** New hires get a probation end date, and it is chased. Off by default. */
   probationTracking: boolean;
+  /**
+   * The weekly text message digest. Off by default.
+   *
+   * Optional because an API one deploy behind does not send it, and a company
+   * that was never asked is a company without it.
+   */
+  smsDigest?: boolean;
   /** The default length, in months. Only read when tracking is on. */
   probationMonths: number;
+  /**
+   * Whether ApproveHR lets this company offer early pay. Read-only: only the
+   * admin dashboard moves it, and `PATCH /setup/features` ignores it. Optional
+   * because an API one deploy behind does not send it.
+   */
+  earlyPay?: boolean;
+  /**
+   * Whether the company has switched on drawing pay early. Read-only here: it
+   * is the pay-early policy's own switch, set from the Pay early screen.
+   * Optional because only `GET /setup/features` sends it, and an API one deploy
+   * behind sends it nowhere.
+   */
+  earnedWage?: boolean;
   /** Whether a second factor is asked for at all. Off by default. */
   twoFactor: boolean;
+  /**
+   * Whether opening the app is recorded, one mark per person per day. Off by
+   * default. Optional because an API one deploy behind does not send it, and a
+   * missing answer reads as off.
+   */
+  appOpenTracking?: boolean;
   /** Which acts need a code, when `twoFactor` is on. Empty means sign-in only. */
   stepUpActions: StepUpAction[];
   setupStep: number;

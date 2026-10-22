@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { tabFromQuery } from "@/lib/url-tab";
 import { RolesScreen } from "./roles-screen";
+import { ROLES_TABS } from "./tabs";
 
 export const metadata: Metadata = {
   title: "Roles and permissions",
@@ -17,9 +19,14 @@ export const metadata: Metadata = {
 export default async function RolesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ open?: string | string[] }>;
+  searchParams: Promise<{ open?: string | string[]; tab?: string | string[] }>;
 }) {
-  const { open } = await searchParams;
+  const { open, tab } = await searchParams;
   const single = Array.isArray(open) ? open[0] : open;
-  return <RolesScreen initialOpenId={single?.trim() ? single.trim() : null} />;
+  return (
+    <RolesScreen
+      initialOpenId={single?.trim() ? single.trim() : null}
+      initialTab={tabFromQuery(tab, ROLES_TABS, "roles")}
+    />
+  );
 }

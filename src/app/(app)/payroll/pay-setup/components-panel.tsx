@@ -9,7 +9,6 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   ConfirmDialog,
   Drawer,
   EmptyState,
@@ -27,6 +26,7 @@ import {
   TR,
   TableWrap,
   useToast,
+  ToggleFilter,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { AssignComponentToManyDialog } from "./assign-to-many-dialog";
@@ -218,13 +218,10 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
             </div>
             <div className="flex items-center gap-4">
               <p className="text-body-sm text-muted">{onCount} switched on</p>
-              <Checkbox
+              <ToggleFilter
                 label="Show archived"
                 checked={includeArchived}
-                onChange={(e) => {
-                  const value = e.target.checked;
-                  setIncludeArchived(value);
-                }}
+                onChange={setIncludeArchived}
               />
             </div>
           </div>
@@ -765,7 +762,7 @@ function AssigneesDrawer({
                 key={chip.label}
                 className="text-body-sm leading-relaxed text-body"
               >
-                <span className="font-medium text-ink">{chip.label}</span> —{" "}
+                <span className="font-medium text-ink">{chip.label}</span>:{" "}
                 {chip.why}
               </li>
             ))}

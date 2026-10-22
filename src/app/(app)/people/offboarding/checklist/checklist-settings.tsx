@@ -16,8 +16,8 @@ import {
   Modal,
   Select,
   Skeleton,
-  Switch,
   useToast,
+  ToggleFilter,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -151,10 +151,10 @@ export function ChecklistSettingsScreen() {
             {templates.counts.active} on the list · {templates.counts.mandatory}{" "}
             must be done before an exit can close
           </p>
-          <Switch
-            checked={showOff}
-            onChange={(e) => setShowOff(e.target.checked)}
+          <ToggleFilter
             label="Show switched-off lines"
+            checked={showOff}
+            onChange={setShowOff}
           />
         </div>
 

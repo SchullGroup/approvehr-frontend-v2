@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { ToastProvider } from "@/components/ui";
@@ -16,7 +16,7 @@ const row: QueueItem = {
   id: "ap1",
   kind: "record_change",
   kindLabel: "Record change",
-  title: "Bank details — Femi Balogun",
+  title: "Bank details. Femi Balogun",
   summary: "Bank: Access Bank → GTBank",
   requestedAt: "13 Oct",
   waitingDays: 2,
@@ -77,17 +77,22 @@ beforeEach(() => {
 });
 
 describe("the inbox filters", () => {
-  it("filters by module, not by a priority nobody set", () => {
+  it("filters by module, not by a priority nobody set", async () => {
     show();
+    await userEvent.click(screen.getByRole("button", { name: "Filters" }));
+    const moduleSelect = screen.getByLabelText("Module");
     for (const label of ["All", "Payroll", "Leave", "Hiring", "Core HR"]) {
-      expect(screen.getByRole("radio", { name: label })).toBeInTheDocument();
+      expect(
+        within(moduleSelect).getByRole("option", { name: label }),
+      ).toBeInTheDocument();
     }
     expect(screen.queryByText("Moves money")).not.toBeInTheDocument();
     expect(screen.queryByText("Needs attention")).not.toBeInTheDocument();
   });
 
-  it("offers a date range", () => {
+  it("offers a date range", async () => {
     show();
+    await userEvent.click(screen.getByRole("button", { name: "Filters" }));
     expect(screen.getByLabelText("Raised from")).toBeInTheDocument();
     expect(screen.getByLabelText("Raised to")).toBeInTheDocument();
   });
@@ -98,7 +103,7 @@ describe("archiving", () => {
     show();
     await userEvent.click(
       screen.getByRole("button", {
-        name: "Archive Bank details — Femi Balogun",
+        name: "Archive Bank details. Femi Balogun",
       }),
     );
     expect(setArchived).toHaveBeenCalledWith(row, true);

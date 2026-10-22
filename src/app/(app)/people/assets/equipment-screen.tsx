@@ -13,6 +13,7 @@ import {
   Select,
   Spinner,
   Stat,
+  StatGrid,
   Switch,
   Tabs,
   formatMoney,
@@ -364,7 +365,7 @@ function Register() {
           <LoadFailure subject="the equipment register" error={loadError} />
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatGrid>
           {/* "Free to hand out" and the filter's "Nobody has it" are
               deliberately different words, because they are different sets: this
               is `status = AVAILABLE`, and the filter is the API's `unassigned`,
@@ -396,7 +397,7 @@ function Register() {
               summary.counts.total === 1 ? "thing" : "things"
             } on the register`}
           />
-        </div>
+        </StatGrid>
 
         {/*
           A callout naming lost items used to sit here, full width, on every

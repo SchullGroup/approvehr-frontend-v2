@@ -21,6 +21,7 @@ const HR = new Set<PermissionKey>(["MANAGE_HIRING", "APPROVE_HIRING"]);
 
 const facts = (interviews: boolean): NavFacts => ({
   assistantWired: true,
+  earlyPay: true,
   rows: { "one-on-ones": false, signatures: false, interviews },
 });
 

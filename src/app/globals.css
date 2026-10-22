@@ -67,45 +67,48 @@
   --color-accent-line: #c8cfe8;
 
   /* ---- Semantic. Two tone: -text for copy, base for fills. ----------- */
-  /* success base is the brand green: ink on it reads 8.6:1.             */
-  --color-success: #8ac97d;
-  --color-success-strong: #529546;
-  --color-success-text: #417739; /* 5.4:1                              */
-  --color-success-soft: #f1f8ef;
-  --color-success-line: #c1e0b8;
+  /* Two hues for status, not four. "Good" and "informational" share the brand
+     indigo; "look at this" and "problem" share a muted ochre, its complement.
+     Red stays only for form validation copy and destructive buttons. */
+  --color-success: #8f9bd6;
+  --color-success-strong: #2b3990;
+  --color-success-text: #2b3990;
+  --color-success-soft: #f0f2f9;
+  --color-success-line: #c8cfe8;
 
-  --color-warning: #d99400;
-  --color-warning-text: #8a5a00; /* 5.9:1 */
-  --color-warning-soft: #fdf8ec;
-  --color-warning-line: #f0dcae;
+  --color-warning: #c9a96e;
+  --color-warning-text: #7a5a1c; /* 6.2:1 */
+  --color-warning-soft: #faf5ea;
+  --color-warning-line: #e8d9b8;
 
   --color-danger: #dc3b32;
   --color-danger-text: #b3261e; /* 6.5:1 */
-  --color-danger-soft: #fdf2f1;
-  --color-danger-line: #f5cdc9;
+  /* The box colours are the ochre, so a "problem" panel is no longer a red
+     slab; the red above is for words that must read as an error. */
+  --color-danger-soft: #faf5ea;
+  --color-danger-line: #e8d9b8;
   /* Fixed, same reasoning as --color-fill-strong above: danger-text is both
      error COPY (must invert for dark mode) and a destructive button's FILL
      (must not). This is the fill half, equal to danger-text's current value. */
   --color-danger-fill: #b3261e;
 
-  --color-info: #2b87c4;
-  --color-info-text: #1a5f8a; /* 6.9:1 */
-  --color-info-soft: #eff7fc;
-  --color-info-line: #c2ddef;
+  /* Informational is the brand indigo's lighter step, not a second blue. */
+  --color-info: #5f73c7;
+  --color-info-text: #2b3990;
+  --color-info-soft: #f0f2f9;
+  --color-info-line: #c8cfe8;
 
   /* ---- Categorical. Charts and pipeline stages only, never status. --- */
+  /* One family around the brand indigo, not a rainbow: the base, a lighter
+     step of it, a cool neighbour (teal), a warm neighbour (violet), the muted
+     complement (ochre) and a slate. Each clears 3:1 against the canvas, which
+     `scripts/verify-contrast.ts` checks. */
   --color-cat-1: #2b3990;
-  --color-cat-2: #12a374;
-  /* #d99400 (== --color-warning) and #c8873c were both below the 3:1 non-text
-     minimum against canvas — 2.43:1 and 2.85:1 — with nothing checking a
-     categorical colour until scripts/verify-contrast.ts gained that matrix.
-     Darkened just enough to clear it; --color-warning itself is untouched,
-     since a chart series needing its own contrast guarantee is a different
-     question from a status dot's. */
-  --color-cat-3: #bf8200;
-  --color-cat-4: #7c5cd6;
-  --color-cat-5: #2b87c4;
-  --color-cat-6: #c0823a;
+  --color-cat-2: #5f73c7;
+  --color-cat-3: #3d8798;
+  --color-cat-4: #a67c2b;
+  --color-cat-5: #7a6bb8;
+  --color-cat-6: #5d6b8a;
 
   /* ---- Typography ---------------------------------------------------- */
   /* Geist is a neo grotesque in the same lineage as Stripe's Sohne. */
@@ -308,28 +311,28 @@
   --color-accent-soft: #1b2242;
   --color-accent-line: #3d4a78;
 
-  --color-success-text: #8fd67f;
-  --color-success-soft: #142a16;
-  --color-success-line: #335a30;
+  --color-success-text: #aab8f5;
+  --color-success-soft: #1b2242;
+  --color-success-line: #3d4a78;
 
   --color-warning-text: #f0b33e;
   --color-warning-soft: #2e2308;
   --color-warning-line: #5c4519;
 
   --color-danger-text: #f1857b;
-  --color-danger-soft: #301512;
-  --color-danger-line: #5c2a24;
+  --color-danger-soft: #2e2308;
+  --color-danger-line: #5c4519;
 
-  --color-info-text: #7ec1ee;
-  --color-info-soft: #10222c;
-  --color-info-line: #295068;
+  --color-info-text: #aab8f5;
+  --color-info-soft: #1b2242;
+  --color-info-line: #3d4a78;
 
   --color-cat-1: #8c99ee;
-  --color-cat-2: #3adaa5;
-  --color-cat-3: #f0b33e; /* = warning-text, same reuse light mode already makes */
-  --color-cat-4: #b39cfb;
-  --color-cat-5: #7ec1ee; /* = info-text, same reuse light mode already makes */
-  --color-cat-6: #e2ac71;
+  --color-cat-2: #6f86d6;
+  --color-cat-3: #6fb3c4;
+  --color-cat-4: #d1ad66;
+  --color-cat-5: #a99be0;
+  --color-cat-6: #8e9bbb;
 
   /* An ink-tinted shadow at 4-9% opacity is invisible on a near-black ground.
      Every Card/Modal/Drawer already carries `border border-line` unconditionally,
@@ -805,6 +808,12 @@
 
 @utility animate-fade {
   animation: ahr-fade 0.4s var(--ease-out-soft) both;
+}
+
+/* A quick settle for something that opens under its trigger: shorter than
+   `animate-fade`, which is for whole screens. */
+@utility animate-open {
+  animation: ahr-fade 0.18s var(--ease-out-soft) both;
 }
 
 @utility animate-scale-in {

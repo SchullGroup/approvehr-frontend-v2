@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Megaphone, Pin, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowDownToLine,
+  Megaphone,
+  Pencil,
+  Pin,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -12,11 +19,10 @@ import {
   CardHeader,
   ConfirmDialog,
   EmptyState,
-  IconButton,
-  Input,
-  SegmentedControl,
+  RowActions,
   SkeletonText,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -25,6 +31,9 @@ import {
   TR,
   TableWrap,
   useToast,
+  Field,
+  FilterBar,
+  Select,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -43,6 +52,7 @@ import {
 import { useDepartments } from "@/lib/store/departments";
 import { useSession } from "@/lib/store/session";
 import { AnnouncementForm, type Draft } from "./announcement-form";
+import { ReadersDrawer } from "./readers-drawer";
 
 /**
  * The noticeboard, from the side that writes it.
@@ -100,7 +110,19 @@ export function AnnouncementsScreen() {
 
   const [writing, setWriting] = useState(false);
   const [editing, setEditing] = useState<ApiAnnouncement | null>(null);
+  /* The notice the edit form was last opened on, kept after it closes.
+     `AnnouncementForm` reads its fields from `notice` once, when it mounts, so
+     it has to be mounted afresh for each notice: without a key it opened on the
+     blank state it was first mounted with, and a save of an untouched edit wrote
+     that blank state over the notice. Kept rather than reset to null on close so
+     the form's exit does not flash its "write a notice" heading on the way out.
+     Adjusting state during render is the documented way to derive this. */
+  const [editedNotice, setEditedNotice] = useState<ApiAnnouncement | null>(
+    null,
+  );
+  if (editing !== null && editing !== editedNotice) setEditedNotice(editing);
   const [takingDown, setTakingDown] = useState<ApiAnnouncement | null>(null);
+  const [reading, setReading] = useState<ApiAnnouncement | null>(null);
   const [deleting, setDeleting] = useState<ApiAnnouncement | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -235,7 +257,7 @@ export function AnnouncementsScreen() {
           onRetry={board.reload}
         />
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <StatGrid columns={3}>
           <Stat
             label="On the board"
             value={String(live.length)}
@@ -256,7 +278,7 @@ export function AnnouncementsScreen() {
                 : "Nothing has expired"
             }
           />
-        </div>
+        </StatGrid>
 
         <Card>
           <CardHeader
@@ -264,29 +286,35 @@ export function AnnouncementsScreen() {
             description="Newest first. Pinning changes the order staff see, not this one: this is a work list."
           />
 
-          <CardBody className="flex flex-wrap items-center gap-3">
-            <SegmentedControl<Filter>
-              label="Which notices to show"
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { value: "all", label: "All" },
-                { value: "published", label: "Published" },
-                { value: "draft", label: "Drafts" },
-              ]}
-            />
-            <div className="min-w-[13rem] flex-1">
-              <Input
-                type="search"
-                value={search}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setSearch(next);
-                }}
-                placeholder="Find a notice by title or wording"
-                aria-label="Find a notice by title or wording"
-              />
-            </div>
+          <CardBody>
+            <FilterBar
+              search={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Find a notice by title or wording"
+              searchLabel="Find a notice by title or wording"
+              applied={
+                filter === "all"
+                  ? []
+                  : [
+                      {
+                        label: "Show",
+                        value: filter === "draft" ? "Drafts" : "Published",
+                        onClear: () => setFilter("all"),
+                      },
+                    ]
+              }
+            >
+              <Field label="Which notices to show">
+                <Select
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value as Filter)}
+                >
+                  <option value="all">All</option>
+                  <option value="published">Published</option>
+                  <option value="draft">Drafts</option>
+                </Select>
+              </Field>
+            </FilterBar>
           </CardBody>
 
           {board.loading ? (
@@ -340,6 +368,11 @@ export function AnnouncementsScreen() {
                           title={
                             <span className="flex flex-wrap items-center gap-2">
                               {notice.title}
+                              {notice.mandatory && (
+                                <Badge tone="accent" size="sm">
+                                  Must read
+                                </Badge>
+                              )}
                               {notice.pinned && (
                                 <Badge
                                   tone="accent"
@@ -375,6 +408,7 @@ export function AnnouncementsScreen() {
                                 busy={busy}
                                 onEdit={() => setEditing(notice)}
                                 onTakeDown={() => setTakingDown(notice)}
+                                onReaders={() => setReading(notice)}
                                 onPublish={() =>
                                   void run(
                                     () => mutations.publish(notice.id),
@@ -399,6 +433,11 @@ export function AnnouncementsScreen() {
                     <div className="min-w-0">
                       <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
                         {notice.title}
+                        {notice.mandatory && (
+                          <Badge tone="accent" size="sm">
+                            Must read
+                          </Badge>
+                        )}
                         {notice.pinned && (
                           <Badge
                             tone="accent"
@@ -435,6 +474,7 @@ export function AnnouncementsScreen() {
                           busy={busy}
                           onEdit={() => setEditing(notice)}
                           onTakeDown={() => setTakingDown(notice)}
+                          onReaders={() => setReading(notice)}
                           onPublish={() =>
                             void run(
                               () => mutations.publish(notice.id),
@@ -479,8 +519,9 @@ export function AnnouncementsScreen() {
       />
 
       <AnnouncementForm
+        key={editedNotice?.id ?? "none"}
         open={editing !== null}
-        notice={editing ?? undefined}
+        notice={editedNotice ?? undefined}
         departments={pickable}
         onClose={() => setEditing(null)}
         onSave={async (draft, publish) => {
@@ -494,6 +535,13 @@ export function AnnouncementsScreen() {
                 audience: draft.audience,
                 departmentIds: draft.departmentIds,
                 pinned: draft.pinned,
+                /* Only when it moved. The API records a change to it as an
+                   event of its own and says nothing about a repeat, so this is
+                   not for its sake; it keeps the edit's own record to what was
+                   actually changed. */
+                ...(draft.mandatory !== target.mandatory
+                  ? { mandatory: draft.mandatory }
+                  : {}),
                 /* An empty date clears it. `null` and absent mean different
                  things to the API, and this is the one that means "clear". */
                 expiresOn: draft.expiresOn === "" ? null : draft.expiresOn,
@@ -509,6 +557,9 @@ export function AnnouncementsScreen() {
         }}
       />
 
+      {/* Read-only, and only ever opened from a published row. */}
+      <ReadersDrawer notice={reading} onClose={() => setReading(null)} />
+
       {/* Reversible, and the dialog says so — but it changes what every member
           of staff sees, so it is asked first. */}
       <ConfirmDialog
@@ -518,7 +569,7 @@ export function AnnouncementsScreen() {
         tone="primary"
         title={`Take “${takingDown?.title ?? ""}” off the board?`}
         confirmLabel="Take it down"
-        body="Staff stop seeing it straight away. The wording is kept as a draft — publish it again whenever you like."
+        body="Staff stop seeing it straight away. The wording is kept as a draft, publish it again whenever you like."
         onConfirm={() => {
           const target = takingDown;
           if (!target) return;
@@ -614,6 +665,7 @@ function NoticeRowActions({
   busy,
   onEdit,
   onTakeDown,
+  onReaders,
   onPublish,
   onDelete,
 }: {
@@ -621,33 +673,50 @@ function NoticeRowActions({
   busy: boolean;
   onEdit: () => void;
   onTakeDown: () => void;
+  onReaders: () => void;
   onPublish: () => void;
   onDelete: () => void;
 }) {
   return (
     <>
-      <Button variant="ghost" size="sm" disabled={busy} onClick={onEdit}>
-        Edit
-      </Button>
-
+      {/* The one act worth a button: putting a draft up. Everything else is in
+          the menu, so a row is never a line of small buttons, and the delete is
+          never one mis-tap from a neighbour. */}
       {notice.published ? (
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={busy}
-          onClick={onTakeDown}
-        >
-          Take it down
+        /* A draft has no readers (the API refuses its list with a 409), so only a
+           notice that is up offers it. An expired one still does: the final rate
+           is what HR asks about afterwards. */
+        <Button variant="secondary" size="sm" onClick={onReaders}>
+          Who has read it
         </Button>
       ) : (
         <Button variant="accent" size="sm" disabled={busy} onClick={onPublish}>
           Publish
         </Button>
       )}
-
-      <IconButton label={`Delete ${notice.title}`} size="sm" onClick={onDelete}>
-        <Trash2 aria-hidden="true" className="size-3.5" />
-      </IconButton>
+      <RowActions
+        label={`More actions for ${notice.title}`}
+        disabled={busy}
+        items={[
+          { label: "Edit", icon: <Pencil />, onSelect: onEdit },
+          ...(notice.published
+            ? [
+                {
+                  label: "Take it down",
+                  icon: <ArrowDownToLine />,
+                  onSelect: onTakeDown,
+                },
+              ]
+            : []),
+          "separator",
+          {
+            label: "Delete",
+            icon: <Trash2 />,
+            tone: "danger" as const,
+            onSelect: onDelete,
+          },
+        ]}
+      />
     </>
   );
 }
@@ -659,6 +728,7 @@ function bodyFrom(draft: Draft, publish: boolean) {
     audience: draft.audience,
     departmentIds: draft.departmentIds,
     pinned: draft.pinned,
+    mandatory: draft.mandatory,
     publish,
     ...(draft.expiresOn ? { expiresOn: draft.expiresOn } : {}),
   };

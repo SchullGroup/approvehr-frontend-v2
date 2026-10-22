@@ -14,6 +14,7 @@ import {
   Skeleton,
   Spinner,
   Stat,
+  StatGrid,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { usePermissions } from "@/lib/permissions";
@@ -275,7 +276,7 @@ function Reports() {
       <PageHeader
         title="Reports"
         action={
-          <>
+          <div className="flex flex-wrap items-end gap-3">
             {/* These charts answer a fixed set of questions about one month.
                 Anything else is the builder's job, and a screen nobody can
                 find is a screen nobody has. */}
@@ -283,12 +284,12 @@ function Reports() {
               Build a report
             </ButtonLink>
             {monthPicker}
-          </>
+          </div>
         }
       />
 
       <PageBody className="flex flex-col gap-6">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatGrid>
           <Stat label="On the payroll" value={totalPeople.toLocaleString()} />
           <Stat
             label="Departments"
@@ -304,7 +305,7 @@ function Reports() {
             label="Waiting for a decision"
             value={operationalLoad.approvalsPending.toLocaleString()}
           />
-        </div>
+        </StatGrid>
 
         {/* ---- Who works here, over time --------------------------------- */}
         <Card>
@@ -338,7 +339,7 @@ function Reports() {
                     value: row.headcount,
                   }))}
                 />
-                <div className="grid gap-4 sm:grid-cols-3">
+                <StatGrid columns={3}>
                   <Stat
                     label="Employed now"
                     value={workforce.headcountNow.toLocaleString()}
@@ -363,7 +364,7 @@ function Reports() {
                     }
                     hint="people employed now"
                   />
-                </div>
+                </StatGrid>
               </>
             )}
           </CardBody>

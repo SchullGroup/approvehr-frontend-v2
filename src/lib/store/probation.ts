@@ -131,7 +131,7 @@ export function useProbation(): ProbationState {
   return {
     due: outcome?.value.due ?? [],
     needsADate: outcome?.value.needsADate ?? [],
-    loading: outcome === undefined,
+    loading: outcome === null,
     error: outcome?.error ?? null,
     readOnly: false,
     reload,
@@ -146,7 +146,7 @@ export function useEmploymentChanges(employeeId: string | null) {
 
   return {
     changes: outcome?.value ?? [],
-    loading: key !== null && outcome === undefined,
+    loading: key !== null && outcome === null,
     error: outcome?.error ?? null,
     reload: useCallback(() => {
       if (key) employmentChanges.refresh(key);

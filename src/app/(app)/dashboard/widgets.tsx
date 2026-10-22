@@ -32,6 +32,8 @@ import {
 import { AskPanel } from "@/components/portal/ask-panel";
 import { MyClockCard } from "@/components/portal/my-clock-card";
 import { AnnouncementsPanel } from "./announcements-panel";
+import { AppUseCard } from "./app-use-card";
+import { TodayPanel } from "./today-panel";
 import { QuickActions } from "./quick-actions";
 import { AppraisalsCard } from "./appraisals-card";
 import { formatKobo } from "@/lib/api/payroll";
@@ -87,16 +89,16 @@ type WidgetComponent = (props: WidgetProps) => React.ReactNode;
 /** A card with a heading, for the widgets that are a card. */
 function Panel({
   title,
-  description,
   children,
 }: {
   title: string;
+  /** Accepted so callers can keep their wording; the card shows the title and the figures. */
   description?: string;
   children: React.ReactNode;
 }) {
   return (
     <Card as="article" className="h-full">
-      <CardHeader title={title} level={3} description={description} />
+      <CardHeader title={title} level={3} />
       <CardBody>{children}</CardBody>
     </Card>
   );
@@ -148,63 +150,65 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
 
   return (
     <Card as="article">
-      <CardHeader title="Needs you" />
-      <CardBody className="flex flex-col gap-3">
-        {nobodyOnPayroll && canAddEmployee && (
-          <Row
-            href="/people/new"
-            label="Nobody's on the payroll yet"
-            detail="Add your first person to start paying them"
-            action="Add employee"
-          />
-        )}
-        {approvals.waiting > 0 && (
-          <Row
-            href="/approvals"
-            label={`${String(approvals.waiting)} ${approvals.waiting === 1 ? "request" : "requests"} waiting for a decision`}
-            detail={
-              approvals.overdue > 0
-                ? `${String(approvals.overdue)} past the deadline`
-                : undefined
-            }
-            action="Open approvals"
-            urgent={approvals.overdue > 0}
-          />
-        )}
-        {headcount.incomplete > 0 && (
-          <Row
-            href="/people"
-            label={`${String(headcount.incomplete)} ${headcount.incomplete === 1 ? "person" : "people"} cannot be paid yet`}
-            detail="No account number or no pension PIN on file"
-            action="Fix records"
-            urgent
-          />
-        )}
-        {exits && exitsHeldUp > 0 && (
-          <Row
-            href="/people/offboarding"
-            label={`${String(exitsHeldUp)} ${exitsHeldUp === 1 ? "person is" : "people are"} leaving with things still outstanding`}
-            detail={`Equipment, access or final pay not signed off · ${String(exitsHeldUp)} of ${String(exits.open)} open ${exits.open === 1 ? "exit" : "exits"}`}
-            action="Open exits"
-          />
-        )}
-        {onboarding && onboardingHeldUp > 0 && (
-          <Row
-            href="/people/onboarding"
-            label={`${String(onboardingHeldUp)} ${onboardingHeldUp === 1 ? "starter has" : "starters have"} mandatory checklist items outstanding`}
-            detail={`${String(onboardingHeldUp)} of ${String(onboarding.open)} active ${onboarding.open === 1 ? "starter" : "starters"} not yet complete`}
-            action="Open onboarding"
-          />
-        )}
-        {payroll && payroll.blockers > 0 && (
-          <Row
-            href="/payroll"
-            label={`${payroll.period} payroll has ${String(payroll.blockers)} ${payroll.blockers === 1 ? "problem" : "problems"} to fix`}
-            detail={`It cannot be approved until ${payroll.blockers === 1 ? "it is" : "they are"} cleared`}
-            action="Open payroll"
-            urgent
-          />
-        )}
+      <CardHeader title="Needs you" level={3} />
+      <CardBody>
+        <ul className="divide-y divide-line">
+          {nobodyOnPayroll && canAddEmployee && (
+            <Row
+              href="/people/new"
+              label="Nobody's on the payroll yet"
+              detail="Add your first person to start paying them"
+              action="Add employee"
+            />
+          )}
+          {approvals.waiting > 0 && (
+            <Row
+              href="/approvals"
+              label={`${String(approvals.waiting)} ${approvals.waiting === 1 ? "request" : "requests"} waiting for a decision`}
+              detail={
+                approvals.overdue > 0
+                  ? `${String(approvals.overdue)} past the deadline`
+                  : undefined
+              }
+              action="Open approvals"
+              urgent={approvals.overdue > 0}
+            />
+          )}
+          {headcount.incomplete > 0 && (
+            <Row
+              href="/people"
+              label={`${String(headcount.incomplete)} ${headcount.incomplete === 1 ? "person" : "people"} cannot be paid yet`}
+              detail="No account number or no pension PIN on file"
+              action="Fix records"
+              urgent
+            />
+          )}
+          {exits && exitsHeldUp > 0 && (
+            <Row
+              href="/people/offboarding"
+              label={`${String(exitsHeldUp)} ${exitsHeldUp === 1 ? "person is" : "people are"} leaving with things still outstanding`}
+              detail={`Equipment, access or final pay not signed off · ${String(exitsHeldUp)} of ${String(exits.open)} open ${exits.open === 1 ? "exit" : "exits"}`}
+              action="Open exits"
+            />
+          )}
+          {onboarding && onboardingHeldUp > 0 && (
+            <Row
+              href="/people/onboarding"
+              label={`${String(onboardingHeldUp)} ${onboardingHeldUp === 1 ? "starter has" : "starters have"} mandatory checklist items outstanding`}
+              detail={`${String(onboardingHeldUp)} of ${String(onboarding.open)} active ${onboarding.open === 1 ? "starter" : "starters"} not yet complete`}
+              action="Open onboarding"
+            />
+          )}
+          {payroll && payroll.blockers > 0 && (
+            <Row
+              href="/payroll"
+              label={`${payroll.period} payroll has ${String(payroll.blockers)} ${payroll.blockers === 1 ? "problem" : "problems"} to fix`}
+              detail={`It cannot be approved until ${payroll.blockers === 1 ? "it is" : "they are"} cleared`}
+              action="Open payroll"
+              urgent
+            />
+          )}
+        </ul>
       </CardBody>
     </Card>
   );
@@ -246,6 +250,12 @@ const WorkforceHeadline: WidgetComponent = ({ dashboard }) => {
 const MyQueue: WidgetComponent = ({ dashboard }) => {
   const me = dashboard.me;
   if (!me) return null;
+  /* Anybody the company-wide approvals block was sent to has "Needs you", which
+     says how many are waiting and carries the button. This tile counted the
+     caller's own queue and read "Nothing needs you" beside a card saying six
+     requests did — two answers to one question, side by side. It is for the
+     people who have no such card: a line manager, a member of staff. */
+  if (dashboard.approvals) return null;
   return (
     <Tile
       href="/approvals"
@@ -361,14 +371,15 @@ const WhoIsIn: WidgetComponent = ({ dashboard }) => {
           {
             label: "Clocked in",
             value: today.clockedIn,
-            color: "var(--color-success-strong)",
+            color: "var(--color-cat-1)",
           },
           ...(today.late > 0
             ? [
                 {
                   label: "Late",
                   value: today.late,
-                  color: "var(--color-warning)",
+                  color:
+                    "color-mix(in srgb, var(--color-cat-4) 55%, var(--color-surface))",
                 },
               ]
             : []),
@@ -377,7 +388,7 @@ const WhoIsIn: WidgetComponent = ({ dashboard }) => {
                 {
                   label: "On leave",
                   value: today.onLeave,
-                  color: "var(--color-accent-line)",
+                  color: "var(--color-cat-3)",
                 },
               ]
             : []),
@@ -386,7 +397,7 @@ const WhoIsIn: WidgetComponent = ({ dashboard }) => {
                 {
                   label: "Not accounted for",
                   value: today.unaccountedFor,
-                  color: "var(--color-danger)",
+                  color: "var(--color-cat-4)",
                 },
               ]
             : []),
@@ -427,35 +438,16 @@ const PayrollMonth: WidgetComponent = ({ dashboard }) => {
           <div className="flex flex-wrap items-baseline gap-3">
             <Money amount={naira(payroll.netKobo)} decimals size="xl" />
             <Badge
-              tone={payroll.status === "APPROVED" ? "success" : "neutral"}
+              tone={payroll.status === "APPROVED" ? "accent" : "neutral"}
               size="sm"
             >
               {runStatusLabel(payroll.status)}
             </Badge>
           </div>
           <p className="text-body-sm text-muted">
-            {/* `employeeCount` is payslips. Beside a net figure it reads as the
-                headcount, so the excluded are named in the same breath. */}
             Net pay for {payroll.employeeCount}{" "}
             {payroll.employeeCount === 1 ? "person" : "people"}
-            {payroll.excludedCount > 0
-              ? ` of ${String(payroll.employeeCount + payroll.excludedCount)}`
-              : ""}{" "}
-            · gross <Money amount={naira(payroll.grossKobo)} decimals />
           </p>
-          {payroll.excludedCount > 0 && (
-            <p className="text-body-sm text-warning-text">
-              {payroll.excludedCount}{" "}
-              {payroll.excludedCount === 1 ? "person is" : "people are"}{" "}
-              deliberately not on this payroll, with the reason recorded
-            </p>
-          )}
-          {payroll.warnings > 0 && (
-            <p className="text-body-sm text-warning-text">
-              {payroll.warnings} {payroll.warnings === 1 ? "thing" : "things"}{" "}
-              worth checking before you approve
-            </p>
-          )}
           <ButtonLink href="/payroll" variant="secondary" size="sm">
             Open payroll
           </ButtonLink>
@@ -575,7 +567,7 @@ const JoinersLeavers: WidgetComponent = ({ reports, reportsLoading }) => {
             value: row.leavers,
           }))}
           height={110}
-          tones={["var(--color-warning)"]}
+          tones={["var(--color-cat-4)"]}
           format={(n) => String(n)}
           caption="People who left, by month."
         />
@@ -751,7 +743,7 @@ const MyLeave: WidgetComponent = ({ dashboard }) => {
   return (
     <Link
       href="/people/leave"
-      className="group flex min-w-0 flex-col gap-3 self-start rounded-xl border border-line bg-surface p-4 transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text sm:p-5"
+      className="group flex min-w-0 flex-col gap-3 h-full rounded-xl border border-line bg-surface p-4 transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text sm:p-5"
     >
       <span className="flex items-center gap-2.5">
         <span
@@ -788,7 +780,7 @@ const MyLeave: WidgetComponent = ({ dashboard }) => {
           Somebody who has taken their annual leave has used a thing they are
           owed, and reddening the bar for it would be the product
           editorialising about time off. */}
-      <ul className="flex flex-col gap-2.5">
+      <ul className="flex flex-1 flex-col justify-evenly gap-2.5">
         {leave.map((row) => (
           <li key={row.leaveType}>
             <ProgressMeter
@@ -815,6 +807,11 @@ const MyLeave: WidgetComponent = ({ dashboard }) => {
 
 const MyClock: WidgetComponent = () => <MyClockCard />;
 
+/* Both read their own request, so neither takes the dashboard's payload. See
+   `TodayPanel` and `AppUseCard`: each draws nothing when it has nothing to say. */
+const Today: WidgetComponent = () => <TodayPanel />;
+const AppUse: WidgetComponent = () => <AppUseCard />;
+
 /* ------------------------------------------------------------------ tools */
 
 const Appraisals: WidgetComponent = () => <AppraisalsCard />;
@@ -837,11 +834,13 @@ const Noticeboard: WidgetComponent = ({ dashboard }) => (
 export const WIDGET_COMPONENTS: Readonly<Record<string, WidgetComponent>> = {
   "needs-you": NeedsYou,
   "workforce-headline": WorkforceHeadline,
+  today: Today,
   "my-queue": MyQueue,
   "stat-headcount": StatHeadcount,
   "stat-approvals": StatApprovals,
   "stat-records": StatRecords,
   "stat-attendance": StatAttendance,
+  "app-use": AppUse,
   "who-is-in": WhoIsIn,
   "payroll-month": PayrollMonth,
   "money-owed": MoneyOwed,
@@ -869,9 +868,7 @@ export const WIDGET_COMPONENTS: Readonly<Record<string, WidgetComponent>> = {
 function Row({
   href,
   label,
-  detail,
   action,
-  urgent = false,
 }: {
   href: string;
   label: string;
@@ -879,24 +876,19 @@ function Row({
   action: string;
   urgent?: boolean;
 }) {
+  /* A list with dividers, as the Today panel beside it is, rather than a stack
+     of bordered boxes: two cards that are both lists of "a thing and the button
+     for it" should read as the same kind of list. The label may take two lines
+     and no more; the button keeps its place at the end. */
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
-      <div className="min-w-0">
-        <p className="text-body-sm font-medium">
-          {/* Urgency carries a word as well as a colour. */}
-          {urgent && (
-            <span className="mr-2 text-meta font-semibold text-danger-text">
-              Overdue
-            </span>
-          )}
-          {label}
-        </p>
-        {detail && <p className="mt-0.5 text-body-sm text-muted">{detail}</p>}
-      </div>
+    <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-3">
+      <p className="min-w-40 flex-1 text-body-sm font-medium text-ink">
+        {label}
+      </p>
       <ButtonLink href={href} variant="secondary" size="sm">
         {action}
       </ButtonLink>
-    </div>
+    </li>
   );
 }
 
@@ -962,22 +954,16 @@ function Tile({
   hint?: string;
   tone?: "neutral" | "accent" | "warning";
 }) {
-  const chip = {
-    neutral: "bg-sunken text-muted",
-    accent: "bg-accent-soft text-accent-text",
-    warning: "bg-warning-soft text-warning-text",
-  }[tone];
-  const hintTone = {
-    neutral: "text-faint",
-    accent: "text-accent-text",
-    warning: "text-warning-text",
-  }[tone];
+  /* One quiet colour for every tile. A tinted chip on some of them taught
+     people to read colour as alarm, and the figure is what matters. */
+  void tone;
+  const chip = "bg-sunken text-muted";
 
   /* Two returns rather than one polymorphic element: `Link` requires `href`,
      so a shared component variable widens it to `string | undefined` and does
      not typecheck. The body is shared; only the shell differs. */
   const shell = cn(
-    "group flex min-w-0 flex-col gap-3 self-start rounded-xl border border-line bg-surface p-4 sm:p-5",
+    "group flex min-w-0 flex-col gap-3 h-full rounded-xl border border-line bg-surface p-4 sm:p-5",
     href &&
       "transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text",
   );
@@ -987,13 +973,15 @@ function Tile({
         <span
           aria-hidden="true"
           className={cn(
-            "flex size-7 shrink-0 items-center justify-center rounded-lg",
+            /* Not on a phone: two tiles across leave each about 140px of text,
+               and a chip, a label and an arrow in that width left "On the pa…". */
+            "hidden size-7 shrink-0 items-center justify-center rounded-lg sm:flex",
             chip,
           )}
         >
           {icon}
         </span>
-        <span className="min-w-0 flex-1 truncate text-meta text-muted">
+        <span className="min-w-0 flex-1 text-meta text-muted sm:truncate">
           {label}
         </span>
         {href && (
@@ -1006,13 +994,11 @@ function Tile({
       <span className="flex flex-col gap-1.5">
         {/* `break-words` rather than `truncate`: a long money figure is the
             whole point of the tile, so it wraps rather than losing its tail. */}
-        <span className="text-h2 leading-none font-semibold break-words text-ink">
+        <span className="text-h3 leading-none font-semibold break-words text-ink sm:text-h2">
           {value}
         </span>
-        {/* Absent, not an empty line: a figure that needs no caption should
-            not reserve the space for one and leave the row ragged. */}
         {hint !== undefined && (
-          <span className={cn("text-meta", hintTone)}>{hint}</span>
+          <span className="text-meta text-faint">{hint}</span>
         )}
       </span>
     </>
@@ -1030,7 +1016,6 @@ function Tile({
 function Figure({
   label,
   value,
-  warn = false,
 }: {
   label: string;
   value: number;
@@ -1038,9 +1023,7 @@ function Figure({
 }) {
   return (
     <div>
-      <p className={warn ? "text-h3 text-warning-text" : "text-h3 text-ink"}>
-        {value.toLocaleString()}
-      </p>
+      <p className="text-h3 text-ink">{value.toLocaleString()}</p>
       <p className="mt-0.5 text-body-sm text-muted">{label}</p>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import { EMPLOYEES } from "@/lib/mock/people";
+import { todayDate } from "@/lib/today";
 import type { Employee } from "@/lib/types";
 import { createPersistedState } from "./persisted";
 
@@ -262,8 +263,7 @@ export function validateEmployee(patch: Partial<Employee>): FieldError[] {
 
   if (has("dateOfBirth") && patch.dateOfBirth) {
     const dob = new Date(patch.dateOfBirth);
-    const age =
-      (new Date("2026-08-19").getTime() - dob.getTime()) / 31_557_600_000;
+    const age = (todayDate().getTime() - dob.getTime()) / 31_557_600_000;
     if (Number.isNaN(age)) {
       errors.push({ field: "dateOfBirth", message: "Enter a valid date." });
     } else if (age < 15) {

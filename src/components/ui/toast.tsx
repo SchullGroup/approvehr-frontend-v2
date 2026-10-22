@@ -52,10 +52,10 @@ const ICONS = {
 } as const;
 
 const TONES = {
-  success: "border-success-line bg-success-soft text-success-text",
+  success: "border-accent-line bg-accent-soft text-accent-text",
   warning: "border-warning-line bg-warning-soft text-warning-text",
-  danger: "border-danger-line bg-danger-soft text-danger-text",
-  info: "border-info-line bg-info-soft text-info-text",
+  danger: "border-warning-line bg-warning-soft text-warning-text",
+  info: "border-accent-line bg-accent-soft text-accent-text",
 } as const;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -111,7 +111,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   <div className="min-w-0 flex-1">
                     <p className="text-body-sm font-semibold">{toast.title}</p>
                     {toast.detail && (
-                      <p className="mt-0.5 text-meta leading-relaxed text-ink/80">
+                      <p
+                        className="mt-0.5 line-clamp-2 text-meta leading-relaxed text-ink/80"
+                        title={toast.detail}
+                      >
                         {toast.detail}
                       </p>
                     )}

@@ -10,10 +10,12 @@ import {
   Field,
   FilterBar,
   Input,
+  LoadState,
   SegmentedControl,
   Select,
   Tabs,
   formatMoney,
+  useHasAnswered,
   useToast,
   type AppliedFilter,
   type TabItem,
@@ -186,6 +188,15 @@ export function ExpensesScreen() {
 
   const awaiting = canApprove ? summary.awaitingDecision : own.awaitingDecision;
 
+  /* Which read the two figures stand on. They are a claim about money owed, so
+     they are drawn only once that read has answered: while it is in flight they
+     were ₦0.00 and "Nothing outstanding. Every approved claim has been paid",
+     and after it failed they stayed that way beneath the failure card. A
+     refetch after somebody decides a claim keeps the figures on screen. */
+  const figuresLoading = canApprove ? summary.loading : own.loading;
+  const figuresError = canApprove ? summary.error : own.error;
+  const figuresAnswered = useHasAnswered(figuresLoading);
+
   /**
    * What is narrowing the register, as removable chips.
    *
@@ -295,8 +306,8 @@ export function ExpensesScreen() {
     return items;
   }, [seesEverybody, canApprove, queue.claims.length]);
 
-  const loadError =
-    types.error ?? register.error ?? queue.error ?? summary.error ?? own.error;
+  /* The figures' own read answers for itself, in `LoadState` below. */
+  const loadError = types.error ?? queue.error;
 
   return (
     <>
@@ -325,84 +336,97 @@ export function ExpensesScreen() {
         {loadError && <LoadFailure subject="expenses" error={loadError} />}
 
         {/* The liability, first. */}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          <Card>
-            <CardBody className="flex flex-wrap items-start justify-between gap-5">
-              <div className="min-w-0">
-                <p className="text-body-sm font-medium text-muted">
-                  {canApprove ? "Owed to staff" : "Owed to you"}
-                </p>
-                <p className="tabular mt-1 text-h2 text-ink">
-                  {money(owed.amount)}
-                </p>
-                <p className="mt-1.5 text-body-sm text-body">
-                  {owed.claimCount === 0
-                    ? "Nothing outstanding. Every approved claim has been paid."
-                    : `${owed.claimCount} approved ${
-                        owed.claimCount === 1 ? "claim" : "claims"
-                      }, not paid yet.${
-                        owed.oldestIncurredOn
-                          ? ` The oldest money went out ${daysSince(owed.oldestIncurredOn, timeZone)} days ago.`
-                          : ""
-                      }`}
-                </p>
+        <LoadState
+          loading={figuresLoading}
+          error={figuresError}
+          subject="the expense totals"
+          skeleton="list"
+          hasData={figuresAnswered}
+          {...(canApprove ? {} : { onRetry: own.reload })}
+        >
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            <Card>
+              <CardBody className="flex flex-wrap items-start justify-between gap-5">
+                <div className="min-w-0">
+                  <p className="text-body-sm font-medium text-muted">
+                    {canApprove ? "Owed to staff" : "Owed to you"}
+                  </p>
+                  <p className="tabular mt-1 text-h2 text-ink">
+                    {money(owed.amount)}
+                  </p>
+                  <p className="mt-1.5 text-body-sm text-body">
+                    {owed.claimCount === 0
+                      ? "Nothing outstanding. Every approved claim has been paid."
+                      : `${owed.claimCount} approved ${
+                          owed.claimCount === 1 ? "claim" : "claims"
+                        }, not paid yet.${
+                          owed.oldestIncurredOn
+                            ? ` The oldest money went out ${daysSince(owed.oldestIncurredOn, timeZone)} days ago.`
+                            : ""
+                        }`}
+                  </p>
 
-                {canApprove && summary.byType.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
-                    {summary.byType.map((row) => (
-                      <span
-                        key={row.typeId}
-                        className="text-body-sm text-muted"
-                      >
-                        {row.type}{" "}
-                        <span className="tabular font-medium text-ink">
-                          {money(row.amount)}
+                  {canApprove && summary.byType.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
+                      {summary.byType.map((row) => (
+                        <span
+                          key={row.typeId}
+                          className="text-body-sm text-muted"
+                        >
+                          {row.type}{" "}
+                          <span className="tabular font-medium text-ink">
+                            {money(row.amount)}
+                          </span>
                         </span>
-                      </span>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {owed.claimCount > 0 && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={showWhatIsOwed}
+                  >
+                    Show what is owed
+                  </Button>
                 )}
-              </div>
+              </CardBody>
+            </Card>
 
-              {owed.claimCount > 0 && (
-                <Button variant="secondary" size="sm" onClick={showWhatIsOwed}>
-                  Show what is owed
-                </Button>
-              )}
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardBody className="flex h-full flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-body-sm font-medium text-muted">
-                  Waiting for a decision
-                </p>
-                <p className="tabular mt-1 text-h3 text-ink">
-                  {money(awaiting.amount)}
-                </p>
-                <p className="mt-1.5 text-body-sm text-body">
-                  {awaiting.claimCount === 0
-                    ? "Nothing waiting."
-                    : `${awaiting.claimCount} ${
-                        awaiting.claimCount === 1 ? "claim" : "claims"
-                      }. Not owed until ${canApprove ? "you approve" : "somebody approves"} ${
-                        awaiting.claimCount === 1 ? "it" : "them"
-                      }.`}
-                </p>
-              </div>
-              {canApprove && awaiting.claimCount > 0 && (
-                <Button
-                  variant="accent"
-                  size="sm"
-                  onClick={() => setTab("queue")}
-                >
-                  Decide them
-                </Button>
-              )}
-            </CardBody>
-          </Card>
-        </div>
+            <Card>
+              <CardBody className="flex h-full flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-body-sm font-medium text-muted">
+                    Waiting for a decision
+                  </p>
+                  <p className="tabular mt-1 text-h3 text-ink">
+                    {money(awaiting.amount)}
+                  </p>
+                  <p className="mt-1.5 text-body-sm text-body">
+                    {awaiting.claimCount === 0
+                      ? "Nothing waiting."
+                      : `${awaiting.claimCount} ${
+                          awaiting.claimCount === 1 ? "claim" : "claims"
+                        }. Not owed until ${canApprove ? "you approve" : "somebody approves"} ${
+                          awaiting.claimCount === 1 ? "it" : "them"
+                        }.`}
+                  </p>
+                </div>
+                {canApprove && awaiting.claimCount > 0 && (
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => setTab("queue")}
+                  >
+                    Decide them
+                  </Button>
+                )}
+              </CardBody>
+            </Card>
+          </div>
+        </LoadState>
 
         <Tabs
           items={tabs}
@@ -424,6 +448,8 @@ export function ExpensesScreen() {
               claims={register.claims}
               types={types.types}
               loading={register.loading}
+              error={register.error}
+              onRetry={register.reload}
               showWho={seesEverybody}
               canSettle={canApprove}
               myEmployeeId={register.myEmployeeId}

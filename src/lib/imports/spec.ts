@@ -495,7 +495,7 @@ export function buildDictionary<Field extends string>(
       const claimed = owner.get(normalized);
       if (claimed !== undefined && claimed !== spec.field) {
         throw new Error(
-          `Import dictionary "${identity.slug}": "${key}" is claimed by both ${claimed} and ${spec.field}. One heading cannot mean two things — rename one alias.`,
+          `Import dictionary "${identity.slug}": "${key}" is claimed by both ${claimed} and ${spec.field}. One heading cannot mean two things, rename one alias.`,
         );
       }
       if (!lookup.has(normalized)) {

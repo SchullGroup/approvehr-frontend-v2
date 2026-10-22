@@ -18,7 +18,7 @@ const decidedRow: ApprovalRow = {
   kindLabel: "Record change",
   subjectType: "employees",
   subjectId: "e1",
-  title: "Bank details — Femi Balogun",
+  title: "Bank details. Femi Balogun",
   summary: "Bank: Access Bank → GTBank",
   amount: null,
   deadlineAt: null,

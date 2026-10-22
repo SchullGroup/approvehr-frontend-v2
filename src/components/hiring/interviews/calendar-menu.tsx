@@ -13,6 +13,7 @@ import {
 import type { CalendarFile } from "@/lib/hiring/interviews/gateway";
 import type { InterviewView } from "@/lib/hiring/interviews/model";
 import { cn } from "@/lib/cn";
+import { useDismiss } from "@/hooks/use-dismiss";
 
 /**
  * "Add to calendar" for one interview.
@@ -65,6 +66,7 @@ export function CalendarMenu({
   className,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const { mounted, closing } = useDismiss(open, 170);
   const [busy, setBusy] = useState(false);
   const toast = useToast();
   const id = useId();
@@ -151,10 +153,14 @@ export function CalendarMenu({
         <ChevronDown aria-hidden="true" className="size-3.5 text-muted" />
       </button>
 
-      {open && (
+      {mounted && (
         <>
           <div
-            className="fixed inset-0 z-40"
+            className={
+              closing
+                ? "pointer-events-none fixed inset-0 z-40"
+                : "fixed inset-0 z-40"
+            }
             onClick={close}
             aria-hidden="true"
           />
@@ -162,7 +168,7 @@ export function CalendarMenu({
             id={`${id}-menu`}
             role="menu"
             aria-label="Add to calendar"
-            className="animate-scale-in absolute left-0 z-50 mt-1.5 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface p-1.5 shadow-lg"
+            className={`${closing ? "animate-scale-out" : "animate-scale-in"} origin-top-left absolute left-0 z-50 mt-1.5 w-56 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface p-1.5 shadow-lg`}
           >
             <a
               ref={first}

@@ -34,17 +34,18 @@ export type Lens = {
 };
 
 /**
- * One muted, earthy family rather than four unrelated hues at different
- * saturations — the stock traffic-light red/amber/green read as borrowed,
- * not designed. Same semantic meaning as before (danger is still the red
- * family, success still green), same two tones everywhere on the screen,
- * just redrawn so the four read as one considered set.
+ * The app's two hues, drawn for a dark scene: indigo for "good", and ochre for
+ * "look at this", with the two ochres told apart by how loud they are. Red is
+ * kept for a request that failed and an act that cannot be undone, and an
+ * off-track goal is neither, so it is the stronger ochre rather than a red.
+ * Same four tones and the same meanings as before, and the legend still names
+ * each one in words, so the colour is never the only signal.
  */
 export const LENS_COLORS: Record<LensTone, string> = {
   neutral: "#8492a0",
-  success: "#6fa87d",
-  warning: "#c98a3d",
-  danger: "#c65d52",
+  success: "#8f9bd6",
+  warning: "#cdb88a",
+  danger: "#d19a3e",
 };
 
 /**
@@ -193,17 +194,17 @@ export function scoreLens(rows: readonly ApiScoreRow[]): Lens {
     } else if (below > 0) {
       byDepartment.set(department, {
         tone: "danger",
-        detail: `${String(scored)} of ${String(total)} scored — ${String(below)} below expectations`,
+        detail: `${String(scored)} of ${String(total)} scored, ${String(below)} below expectations`,
       });
     } else if (partial > 0) {
       byDepartment.set(department, {
         tone: "warning",
-        detail: `${String(scored)} of ${String(total)} scored — ${String(partial)} partially meeting`,
+        detail: `${String(scored)} of ${String(total)} scored, ${String(partial)} partially meeting`,
       });
     } else {
       byDepartment.set(department, {
         tone: "success",
-        detail: `${String(scored)} of ${String(total)} scored — meeting or exceeding`,
+        detail: `${String(scored)} of ${String(total)} scored, meeting or exceeding`,
       });
     }
   }
@@ -244,12 +245,12 @@ export function intensityLens(
     if (silent > logging) {
       byDepartment.set(departmentName, {
         tone: "danger",
-        detail: `${base} — ${String(silent)} silent this cycle`,
+        detail: `${base}, ${String(silent)} silent this cycle`,
       });
     } else if (silent > 0) {
       byDepartment.set(departmentName, {
         tone: "warning",
-        detail: `${base} — ${String(silent)} silent this cycle`,
+        detail: `${base}, ${String(silent)} silent this cycle`,
       });
     } else {
       byDepartment.set(departmentName, { tone: "success", detail: base });
@@ -306,7 +307,7 @@ export function topScorerLens(rows: readonly ApiScoreRow[]): Lens {
     const percent = top[0]!.scorePercent ?? Math.round(topScoreBp / 100);
     byDepartment.set(department, {
       tone: "success",
-      detail: `${names} — ${top[0]!.bandLabel ?? "Scored"} at ${String(percent)}%, ${String(appraisers)} ${appraisers === 1 ? "appraiser" : "appraisers"} weighted`,
+      detail: `${names}, ${top[0]!.bandLabel ?? "Scored"} at ${String(percent)}%, ${String(appraisers)} ${appraisers === 1 ? "appraiser" : "appraisers"} weighted`,
     });
   }
 
@@ -341,7 +342,7 @@ export function promotionReadyLens(
     const [, latestCycle] = people[0]!.cycles;
     byDepartment.set(departmentName, {
       tone: "success",
-      detail: `${names} — top band two cycles running (through ${latestCycle}), meeting every expected competency`,
+      detail: `${names}, top band two cycles running (through ${latestCycle}), meeting every expected competency`,
     });
   }
 

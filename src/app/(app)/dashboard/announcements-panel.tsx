@@ -1,14 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { Megaphone, Pin } from "lucide-react";
-import { Badge, Button, Card, CardBody, CardHeader } from "@/components/ui";
+import { Pin } from "lucide-react";
+import { Badge, Button, Disclosure } from "@/components/ui";
 import type { ApiBoard, ApiBoardNotice } from "@/lib/api/announcements";
 import { useOrgTimezone } from "@/lib/store/session";
 import { formatDateShort } from "@/lib/time";
 
 /**
  * The noticeboard on the dashboard.
+ *
+ * ## Closed, and last
+ *
+ * It used to be a full-width card of up to three whole notices, under the Today
+ * panel that lists the very same unread ones. Two presentations of one notice on
+ * one screen, and they disagreed about what reading means: Today records a
+ * receipt when a notice is opened and this never did. So the Today panel is the
+ * place an unread notice is read, and this is what is left that Today cannot be
+ * — **everything on the board right now, read or not**. Today lists unread ones
+ * only; without this, a notice read at nine could not be found again at ten.
+ *
+ * It is one closed line with a count, at the foot of the page. Opening it shows
+ * the notices in full, as before, and still records nothing: a receipt given by
+ * expanding a list that holds ten notices would be evidence of nothing.
  *
  * ## It renders nothing when there is nothing
  *
@@ -58,18 +72,16 @@ export function AnnouncementsPanel({ board }: { board: ApiBoard }) {
   const beyondTheCap = board.total - board.notices.length;
 
   return (
-    <Card>
-      <CardHeader
-        title="Noticeboard"
-        level={3}
-        description={
-          board.total === 1
-            ? "One notice from your company."
-            : `${board.total} notices from your company.`
-        }
-        action={<Megaphone aria-hidden="true" className="size-4 text-faint" />}
-      />
-      <CardBody className="flex flex-col gap-4">
+    <Disclosure
+      title="Noticeboard"
+      level={3}
+      meta={<Badge size="sm">{board.total}</Badge>}
+    >
+      <div className="flex flex-col gap-4">
+        <p className="text-meta text-muted">
+          Everything on the board now, read or not. To record that you have read
+          one, open it from Today.
+        </p>
         {visible.map((notice) => (
           <Notice key={notice.id} notice={notice} />
         ))}
@@ -91,8 +103,8 @@ export function AnnouncementsPanel({ board }: { board: ApiBoard }) {
             Showing the {board.notices.length} most recent of {board.total}.
           </p>
         )}
-      </CardBody>
-    </Card>
+      </div>
+    </Disclosure>
   );
 }
 
@@ -104,6 +116,13 @@ function Notice({ notice }: { notice: ApiBoardNotice }) {
   return (
     <article className="border-l-2 border-line pl-3.5">
       <div className="flex flex-wrap items-center gap-2">
+        {notice.mandatory && (
+          /* The indigo, and a word: a notice staff are expected to open is not
+             a warning. */
+          <Badge tone="accent" size="sm">
+            Must read
+          </Badge>
+        )}
         {notice.pinned && (
           /* A word as well as an icon. An icon alone is a colour-and-shape cue
              that a screen reader has to guess at. */

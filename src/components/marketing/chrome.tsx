@@ -15,6 +15,7 @@ import {
 import { LEGAL_LINKS } from "@/lib/marketing/legal";
 import { SOCIAL_PROFILES } from "@/lib/marketing/site";
 import { Pill } from "./pill";
+import { prefetchFor } from "@/lib/marketing/redirected";
 
 /**
  * Sitewide offer banner. Sits above the nav on every marketing page.
@@ -346,6 +347,7 @@ export function MarketingFooter() {
                   <li key={label}>
                     <Link
                       href={href}
+                      {...prefetchFor(href)}
                       {...newTabIfApp(href)}
                       {...noPrefetchIfOffSite(href)}
                       className="text-body-sm text-slate-soft transition-colors hover:text-slate"

@@ -82,18 +82,18 @@ describe("the tiles", () => {
     });
   });
 
-  it("shows open bugs and how many are high priority, in red while there are any", () => {
+  it("shows open bugs and how many are high priority, in the warning colour while there are any", () => {
     renderReports();
     const bugs = tile("Open bugs");
     expect(bugs).toMatchObject({ value: "2", hint: "1 high priority" });
-    expect(within(bugs.el).getByText("2")).toHaveClass("text-danger-text");
+    expect(within(bugs.el).getByText("2")).toHaveClass("text-warning-text");
   });
 
-  it("shows what is overdue, in red while there is any", () => {
+  it("shows what is overdue, in the warning colour while there is any", () => {
     renderReports();
     const overdue = tile("Overdue");
     expect(overdue.value).toBe("1");
-    expect(within(overdue.el).getByText("1")).toHaveClass("text-danger-text");
+    expect(within(overdue.el).getByText("1")).toHaveClass("text-warning-text");
   });
 
   it("is calm when nothing is wrong, and says one point as one point", () => {
@@ -104,7 +104,7 @@ describe("the tiles", () => {
     });
     const bugs = tile("Open bugs");
     expect(bugs.value).toBe("0");
-    expect(within(bugs.el).getByText("0")).not.toHaveClass("text-danger-text");
+    expect(within(bugs.el).getByText("0")).not.toHaveClass("text-warning-text");
     expect(tile("Overdue").value).toBe("0");
   });
 

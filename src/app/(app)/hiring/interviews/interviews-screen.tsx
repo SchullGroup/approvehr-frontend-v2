@@ -13,6 +13,7 @@ import {
   EmptyState,
   Skeleton,
   Stat,
+  StatGrid,
   TextLink,
   useToast,
 } from "@/components/ui";
@@ -168,7 +169,7 @@ function Diary() {
                 Try again
               </Button>
             </LoadFailure>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <StatGrid columns={3}>
               <Link
                 href="/hiring/postings/applications?status=RECEIVED"
                 className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -215,7 +216,7 @@ function Diary() {
                   className="transition-colors group-hover:border-accent"
                 />
               </Link>
-            </div>
+            </StatGrid>
             {backlog.numbers.waiting > 0 && (
               <ButtonLink
                 href="/hiring/postings/applications"

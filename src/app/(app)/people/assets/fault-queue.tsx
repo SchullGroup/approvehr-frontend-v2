@@ -246,7 +246,7 @@ function MoveDialog({
       open
       onClose={onClose}
       title={ACTION_LABEL[to]}
-      description={`${request.assetName} — ${request.assetTag}. ${request.raisedByName} will be told, and will see this on their own record.`}
+      description={`${request.assetName}, ${request.assetTag}. ${request.raisedByName} will be told, and will see this on their own record.`}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>
@@ -271,7 +271,7 @@ function MoveDialog({
           value={note}
           rows={3}
           onChange={(event) => setNote(event.target.value)}
-          placeholder="With the vendor — they think it is the display cable."
+          placeholder="With the vendor, they think it is the display cable."
         />
       </Field>
     </Modal>

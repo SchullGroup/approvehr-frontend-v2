@@ -35,6 +35,7 @@ import {
   useEmployeeScore,
   useRatingScale,
   useReview,
+  useReviewFlag,
   useSignOff,
   useSubjectSelfReview,
 } from "@/lib/store/performance";
@@ -47,6 +48,10 @@ import {
 import { WorkEvidence } from "@/components/performance/work-evidence";
 import { FinaliseDialog } from "./finalise-dialog";
 import { SignOffDialog } from "./sign-off-dialog";
+import {
+  RecordCheck,
+  StatusBadge,
+} from "@/components/performance/record-check";
 
 /**
  * One appraisal, projected by who is reading it.
@@ -145,6 +150,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
   const ratingWords = ratingWordsFrom(scale.levels);
   const { actingId } = useSession();
   const canSeeCompany = useCan("EDIT_RECORDS");
+  const canSeeFairness = useCan("VIEW_FAIRNESS");
   const signOff = useSignOff();
   const toast = useToast();
 
@@ -167,6 +173,16 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     review !== null &&
       review.kind === "MANAGER" &&
       (isSubject || review.mine || canSeeCompany),
+  );
+
+  const record = useReviewFlag(
+    review?.cycleId ?? null,
+    review?.subjectId ?? null,
+    review !== null &&
+      review.kind === "MANAGER" &&
+      canSeeFairness &&
+      !isSubject &&
+      !review.mine,
   );
 
   if (loading && !review) {
@@ -491,6 +507,22 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             />
           )}
 
+          {review.kind === "MANAGER" && record.flag && (
+            <Card>
+              <CardHeader
+                title="Mark against the evidence"
+                description="Their mark beside what their objectives, peer feedback and past marks suggest. Their manager doesn't see this."
+                action={<StatusBadge status={record.flag.status} />}
+              />
+              <CardBody>
+                <RecordCheck
+                  cycleId={review.cycleId}
+                  flag={record.flag}
+                  claims={record.claims}
+                />
+              </CardBody>
+            </Card>
+          )}
           {/* ---------------------------------------- tickets from connected tools */}
           <WorkEvidence
             employeeId={review.subjectId}

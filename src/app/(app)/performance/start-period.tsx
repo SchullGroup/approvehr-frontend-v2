@@ -252,7 +252,7 @@ export function StartPeriodDialog({
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             optional
-            label="Period covered — from"
+            label="Period covered, from"
             {...(errors["period"] ? { error: errors["period"] } : {})}
           >
             <Input
@@ -290,7 +290,7 @@ export function StartPeriodDialog({
           meta={
             instructions.trim()
               ? `${String(instructions.trim().split(/\s+/).length)} words`
-              : "Nothing yet"
+              : undefined
           }
           hint="Shown above the first question on everybody's form."
         >
@@ -334,7 +334,7 @@ export function StartPeriodDialog({
           title="Who it covers"
           meta={
             scope.length === 0
-              ? "Everybody"
+              ? undefined
               : `${scope.length} department${scope.length === 1 ? "" : "s"}`
           }
           hint="Everybody, unless you pick specific departments below."
@@ -377,7 +377,7 @@ export function StartPeriodDialog({
           meta={
             remind
               ? `${remind} day${remind === "1" ? "" : "s"} before`
-              : "Switched off"
+              : undefined
           }
           hint="One reminder to whoever still owes a form."
         >
@@ -405,7 +405,7 @@ export function StartPeriodDialog({
 
         <Disclosure
           title="Let managers add their own questions"
-          meta={managersCanAddQuestions ? "On" : "Off"}
+          meta={managersCanAddQuestions ? "On" : undefined}
           hint="On top of the standard questions, scoped to their own team."
         >
           <Checkbox
@@ -472,11 +472,14 @@ export function StartPeriodDialog({
  * scanning a closed disclosure needs to know who is left out, not which way a
  * switch is pointing.
  */
-export function appraiserSummary(owner: boolean, hr: boolean): string {
+export function appraiserSummary(
+  owner: boolean,
+  hr: boolean,
+): string | undefined {
   if (owner && hr) return "Both";
   if (owner) return "Owner only";
   if (hr) return "HR manager only";
-  return "Nobody";
+  return undefined;
 }
 
 /**

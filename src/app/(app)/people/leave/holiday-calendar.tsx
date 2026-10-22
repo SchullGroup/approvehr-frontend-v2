@@ -165,7 +165,7 @@ function MiniMonth({
                       {day}
                       <span className="sr-only">
                         {" "}
-                        {marked.map((row) => row.name).join(", ")} —{" "}
+                        {marked.map((row) => row.name).join(", ")},{" "}
                         {holiday.confirmed
                           ? "public holiday"
                           : "public holiday awaiting proclamation"}

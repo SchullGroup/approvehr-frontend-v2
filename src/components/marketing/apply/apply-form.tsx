@@ -792,9 +792,17 @@ function Sent({
   client: ApplyClient;
   onAgain: () => void;
 }) {
+  const card = useRef<HTMLDivElement | null>(null);
   const heading = useRef<HTMLHeadingElement | null>(null);
   useEffect(() => {
-    heading.current?.focus();
+    /* The site header is `sticky top-0`, so a plain focus() scrolled the
+       heading to the very top of the window, under the header: the person saw
+       a card with its title hidden. Scroll the card itself, with the margin
+       set by `scroll-mt-28` below (the header's height and a little air), and
+       focus without letting the browser scroll a second time. `scrollIntoView`
+       is absent in jsdom, hence the guard. */
+    card.current?.scrollIntoView?.({ block: "start" });
+    heading.current?.focus({ preventScroll: true });
   }, []);
 
   const real = client.mode === "live";
@@ -802,8 +810,9 @@ function Sent({
 
   return (
     <div
+      ref={card}
       role="status"
-      className="rounded-3xl border border-sand-line bg-white/70 p-10 text-center"
+      className="scroll-mt-28 rounded-3xl border border-sand-line bg-white/70 p-10 text-center"
     >
       <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-success">
         <Check

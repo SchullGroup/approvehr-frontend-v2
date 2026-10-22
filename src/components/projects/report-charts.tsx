@@ -260,7 +260,7 @@ export function BurndownChart({
                 x2={todayAt}
                 y1={PAD.top}
                 y2={PAD.top + ih}
-                stroke="var(--color-danger-text)"
+                stroke="var(--color-accent-text)"
                 strokeWidth="1.5"
                 strokeDasharray="3 3"
               />
@@ -270,7 +270,7 @@ export function BurndownChart({
                 textAnchor="middle"
                 fontSize="14"
                 fontWeight="600"
-                fill="var(--color-danger-text)"
+                fill="var(--color-accent-text)"
               >
                 Today
               </text>
@@ -321,7 +321,7 @@ export function BurndownChart({
           <li className="flex items-center gap-2">
             <span
               aria-hidden="true"
-              className="h-3.5 w-0 border-l-2 border-dashed border-danger-text"
+              className="h-3.5 w-0 border-l-2 border-dashed border-accent-text"
             />
             Today
           </li>

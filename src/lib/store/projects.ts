@@ -522,6 +522,30 @@ async function apiPatchIssue(
   }
 }
 
+/**
+ * Ask the server for one issue again and lay it over the cached one.
+ *
+ * For what a write changes beyond the fields it sent: linking a finished issue
+ * to an objective makes the weekly-task bridge file a task, and that line
+ * (`issue.weeklyTask`) is the server's to say, so the prediction in
+ * `apiPatchIssue` cannot know it and kept the old "Not counted" until a reload.
+ * Quiet on failure: the next load corrects it, and the write itself succeeded.
+ */
+async function apiRefreshIssue(
+  owner: string,
+  projectId: string,
+  issueId: string,
+): Promise<Result<Issue>> {
+  claim(owner);
+  try {
+    const fresh = await projectsApi.getIssue(issueId);
+    if (pendingOf(projectId) === 0) upsertIssues(projectId, [fresh]);
+    return ok(fresh);
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 async function apiCreateIssue(
   owner: string,
   projectId: string,
@@ -1127,6 +1151,8 @@ export type ProjectActions = {
     patch: IssuePatch,
     options?: Quiet,
   ) => Promise<Result<Issue>>;
+  /** Re-read one issue from the API. A no-op in the demo, which has no bridge to ask. */
+  refreshIssue: (issue: Pick<Issue, "id">) => Promise<Result<Issue | null>>;
   deleteIssue: (
     issue: Pick<Issue, "id" | "key">,
     options?: Quiet,
@@ -1245,6 +1271,9 @@ export function useProjectActions(projectId: string): ProjectActions {
           `Could not update ${issue.key}`,
           options,
         ),
+
+      refreshIssue: async (issue) =>
+        api ? apiRefreshIssue(api, projectId, issue.id) : ok(null),
 
       deleteIssue: async (issue, options) =>
         settle(
