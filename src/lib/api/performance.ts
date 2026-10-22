@@ -427,6 +427,8 @@ export type ApiCycle = {
    * from a live one cannot tell whether the mark on screen is the one awarded.
    */
   scoringFrozen: boolean;
+  /** How the mark is made up for this period, and whether it is still open to change. */
+  weights: CycleWeights;
   /** Empty means everybody — see `createCycle`'s own note. */
   departmentIds: string[];
   /** Null means no automatic reminder, which is the default. */
@@ -891,10 +893,45 @@ export type ApiAutoAssigned = {
 /** Mirrors `ScoreComponent`. Self-assessment ships weighted at zero. */
 export type ScoreComponent =
   | "OBJECTIVES"
+  | "TASKS"
   | "CORE_COMPETENCY"
   | "BEHAVIOURAL_COMPETENCY"
   | "LEADERSHIP"
   | "SELF_ASSESSMENT";
+
+/**
+ * The components in the order they are listed everywhere, which is the order
+ * the API sends them: Weekly tasks sits straight after objectives, because both
+ * are measured delivery.
+ */
+export const SCORE_COMPONENT_ORDER: readonly ScoreComponent[] = [
+  "OBJECTIVES",
+  "TASKS",
+  "CORE_COMPETENCY",
+  "BEHAVIOURAL_COMPETENCY",
+  "LEADERSHIP",
+  "SELF_ASSESSMENT",
+];
+
+/**
+ * A whole weight set, in basis points (10000 = 100%).
+ *
+ * All six keys, always. The API refuses a partial set on a period, because a
+ * missing key is a weight nobody chose.
+ */
+export type WeightSet = Record<ScoreComponent, number>;
+
+/**
+ * Where a period's weights come from, as the API reports it.
+ *
+ * - `period`: somebody set them on this draft period.
+ * - `company`: a draft with none of its own, so it follows the company defaults.
+ * - `frozen`: the period has started and these are the ones it was fixed with.
+ */
+export type CycleWeights = {
+  values: WeightSet;
+  basis: "period" | "company" | "frozen";
+};
 
 /** Why a component did not enter the arithmetic. Null means it did. */
 export type ScoreExclusionReason = "NOT_WEIGHTED" | "NO_DATA" | "NOT_A_MANAGER";
@@ -2199,6 +2236,8 @@ export const performanceApi = {
      */
     appraiseOwner?: boolean;
     appraiseHrManager?: boolean;
+    /** The whole set, in basis points. Omitted means the company defaults. */
+    weights?: WeightSet;
   }) => request<ApiCycle>("/performance/cycles", { method: "POST", body }),
 
   /**
@@ -2216,6 +2255,11 @@ export const performanceApi = {
       departmentIds?: string[];
       remindDaysBefore?: number | null;
       managersCanAddQuestions?: boolean;
+      /**
+       * The whole set, or `null` to go back to the company defaults. Refused
+       * (409) once the period has started: the weights are fixed by then.
+       */
+      weights?: WeightSet | null;
       /**
        * Nullable, unlike on create: clearing a period is a real edit, and
        * `null` is how it is said. Both together or neither — the API checks the
@@ -2474,7 +2518,7 @@ export const performanceApi = {
    * why the incumbent needs a "Resolve Weights" button and this does not — there
    * is never an unbalanced state to resolve.
    */
-  setScoringWeights: (weights: Record<ScoreComponent, number>) =>
+  setScoringWeights: (weights: WeightSet) =>
     request<ApiScoringWeightsSaved>("/performance/scoring-weights", {
       method: "PUT",
       body: weights,

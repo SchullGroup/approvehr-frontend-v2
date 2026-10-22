@@ -74,6 +74,7 @@ import { SectionsDialog } from "../../sections-dialog";
 import { AskPeersButton } from "./ask-peers";
 import { CalibrationAudit } from "./fairness/calibration-audit";
 import { FairnessStatus, publishLock } from "./fairness/fairness-status";
+import { PeriodWeightsSection } from "./period-weights-section";
 
 /**
  * Running one appraisal period.
@@ -559,6 +560,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 />
               </CardBody>
             </Card>
+          )}
+
+          {/* Editable on a draft, and read-only from the moment it starts, so
+              it is shown to anybody who can read the period. */}
+          {period && (canManage || !draft) && (
+            <PeriodWeightsSection
+              period={period}
+              onChanged={() => detail.reload()}
+            />
           )}
 
           {/* A line each. These were two tinted panels, each with a heading, a

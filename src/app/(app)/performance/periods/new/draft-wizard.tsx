@@ -30,7 +30,19 @@ import {
   usePeriodGoalDraft,
   usePeriodQuestionDraft,
 } from "@/lib/store/ai";
-import { useCycleMutations, useKpiMutations } from "@/lib/store/performance";
+import {
+  useCycleMutations,
+  useKpiMutations,
+  useScoringWeights,
+} from "@/lib/store/performance";
+import {
+  PeriodWeights,
+  periodWeightsProblem,
+  weightsFromText,
+  weightsToText,
+  type WeightText,
+} from "@/components/performance/period-weights";
+import { SCORE_COMPONENT_ORDER, type WeightSet } from "@/lib/api/performance";
 
 /**
  * A whole appraisal period, from a paragraph.
@@ -248,12 +260,35 @@ export function DraftPeriodWizard() {
   const questionDraft = usePeriodQuestionDraft();
   const cycles = useCycleMutations();
   const kpis = useKpiMutations();
+  const { weights: companyWeights } = useScoringWeights();
 
   const [step, setStep] = useState<StepId>("describe");
   const [name, setName] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [text, setText] = useState("");
   const [saving, setSaving] = useState(false);
+
+  /* What was typed over the company defaults, or null while it is untouched.
+     Derived rather than seeded, for the reason `GoalEdit` gives: the defaults
+     arrive after the first render and nothing should have to decide when to
+     copy them in. */
+  const [weightEdit, setWeightEdit] = useState<WeightText | null>(null);
+  const defaultText: WeightText | null = companyWeights
+    ? weightsToText(
+        Object.fromEntries(
+          SCORE_COMPONENT_ORDER.map((c) => [
+            c,
+            companyWeights.rows.find((row) => row.component === c)?.weightBp ??
+              0,
+          ]),
+        ) as WeightSet,
+      )
+    : null;
+  const weightText = weightEdit ?? defaultText;
+  const weightsProblem =
+    weightText === null
+      ? "The weights have not loaded."
+      : periodWeightsProblem(weightText);
 
   /* The edits, over the draft. Nothing seeds these — see `GoalEdit`. */
   const [goalEdits, setGoalEdits] = useState<Record<string, GoalEdit>>({});
@@ -431,6 +466,11 @@ export function DraftPeriodWizard() {
       const cycle = await cycles.createCycle(
         name.trim(),
         dueDate === "" ? undefined : dueDate,
+        /* Always sent, even when they equal the company defaults: what the
+           person saw on this screen is what the period carries, and a later
+           change to the company's set cannot move a period somebody has
+           already set up. */
+        weightText === null ? {} : { weights: weightsFromText(weightText) },
       );
       cycleId = cycle.id;
 
@@ -550,6 +590,15 @@ export function DraftPeriodWizard() {
                     />
                   </Field>
 
+                  {weightText !== null && (
+                    <PeriodWeights
+                      value={weightText}
+                      onChange={setWeightEdit}
+                      companyDefaults={companyWeights}
+                      onUseDefaults={() => setWeightEdit(null)}
+                    />
+                  )}
+
                   {goalDraft.error && (
                     <Callout tone="danger" title="That did not work">
                       {goalDraft.error}
@@ -560,7 +609,11 @@ export function DraftPeriodWizard() {
                     <Button
                       variant="accent"
                       onClick={() => void draft()}
-                      disabled={name.trim() === "" || text.trim().length < 20}
+                      disabled={
+                        name.trim() === "" ||
+                        text.trim().length < 20 ||
+                        weightsProblem !== null
+                      }
                     >
                       Draft it
                       <ArrowRight aria-hidden="true" className="size-3.5" />
