@@ -17,7 +17,9 @@ import {
 import { useOvertimePolicy } from "@/lib/store/overtime";
 import { usePayrollActions } from "@/lib/store/payroll";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
+import type { ApiScheduledAllowance } from "@/lib/api/pay-components";
 import { AmountForm, HoursForm } from "./adjust-forms";
+import { allowanceLine } from "./scheduled-note";
 import { TOUCH } from "./drawer-parts";
 import { LinesEditor } from "./lines-editor";
 import {
@@ -89,6 +91,7 @@ export function AdjustDrawer({
   employees,
   warnings,
   typedDeduction,
+  scheduled,
   showOvertime,
   showBonus,
   onClose,
@@ -109,6 +112,12 @@ export function AdjustDrawer({
   warnings: readonly RunException[];
   /** What the run says about hand-typed deduction lines for this person. */
   typedDeduction: LineSummary | undefined;
+  /**
+   * This person's allowances on a schedule, as the API reports them for an open
+   * run. Absent when there is no answer, which says nothing; empty never occurs,
+   * because only people with one are in the read.
+   */
+  scheduled?: readonly ApiScheduledAllowance[] | undefined;
   showOvertime: boolean;
   showBonus: boolean;
   onClose: () => void;
@@ -280,6 +289,16 @@ export function AdjustDrawer({
                 ))}
               </ul>
             </Callout>
+          )}
+
+          {scheduled && scheduled.length > 0 && (
+            <ul className="flex flex-col gap-1 text-body-sm text-muted">
+              {scheduled.map((allowance) => (
+                <li key={allowance.assignmentId ?? allowance.componentId}>
+                  {allowanceLine(allowance)}
+                </li>
+              ))}
+            </ul>
           )}
 
           <div

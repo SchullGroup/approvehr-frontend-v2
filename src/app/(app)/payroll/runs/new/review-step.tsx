@@ -38,6 +38,8 @@ import { useOvertimePolicy } from "@/lib/store/overtime";
 import { usePayrollActions } from "@/lib/store/payroll";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { AdjustDrawer } from "./adjust-drawer";
+import { ScheduledNote } from "./scheduled-note";
+import type { ScheduledAllowancesState } from "@/lib/store/scheduled-allowances";
 import { TOUCH } from "./drawer-parts";
 import {
   ADJUSTMENT_LABEL,
@@ -99,8 +101,11 @@ export function ReviewStep({
   onViewChange,
   onSaved,
   onAdjusted,
+  scheduled,
 }: {
   run: PayrollRunDetail;
+  /** Which allowances fall due this month, and which are held back. */
+  scheduled?: ScheduledAllowancesState;
   /** "September 2026". */
   periodLabel: string;
   /** Just enough of the directory to price overtime. */
@@ -232,6 +237,15 @@ export function ReviewStep({
     change({ ...view, sort: { column, order } });
   };
 
+  /* Who is on the run, by id: the read says employee ids, the screen says names. */
+  const names = useMemo(
+    () => new Map(payslips.map((slip) => [slip.employeeId, slip.name])),
+    [payslips],
+  );
+  const heldBack = scheduled ? (
+    <ScheduledNote scheduled={scheduled} names={names} mode="held" />
+  ) : null;
+
   const shown = visible.slice(0, limit);
   const rest = visible.length - shown.length;
   const narrowed = visible.length !== payslips.length;
@@ -270,6 +284,9 @@ export function ReviewStep({
               {note}
             </p>
           </CardBody>
+        )}
+        {scheduled && heldBack && (
+          <CardBody className="border-b border-line">{heldBack}</CardBody>
         )}
 
         <div className="flex flex-col gap-3 border-b border-line px-5 py-4">
@@ -500,6 +517,11 @@ export function ReviewStep({
         warnings={adjusting ? (warnings.get(adjusting.employeeId) ?? []) : []}
         typedDeduction={
           adjusting ? typedDeductions?.[adjusting.employeeId] : undefined
+        }
+        scheduled={
+          adjusting
+            ? scheduled?.byEmployee.get(adjusting.employeeId)
+            : undefined
         }
         showOvertime={showOvertime}
         showBonus={showBonus}

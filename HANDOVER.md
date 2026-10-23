@@ -9276,3 +9276,71 @@ text in them, across every static route, was **17 before and 0 after** on the de
   highlights, the shift palette's categorical colours, icon chips, and the `recruitment-coming-soon` empty state.
 - `docs/components` and `docs/pages` were not regenerated. New exports for the generator: `AttentionMark`,
   `InDialog`, the `callout.tsx` module, and `mark` on `TDPrimary`, `CardHeader` and `Stat`.
+
+---
+
+# An allowance has a schedule, and the screen only says what the API says
+
+The owner's request was that each allowance in Pay setup can wait for a period of service and then be
+paid monthly, every few months or years, or once, with an optional stop. The rules, the wording and the
+dates are the API's (`POST /pay-components/schedule-preview`, `scheduleStatus.text`, `held`,
+`GET /payroll/runs/:id/scheduled-allowances`). The web collects six choices and shows what came back.
+**Nothing here works out when an allowance falls due or what a payment comes to.** If a figure is on
+screen, the API sent it; if the API did not send one, the screen says nothing.
+
+## What is where
+
+| File | What and why |
+| ---- | ------------ |
+| `lib/pay/schedule.ts` | Pure. Years to months and back, the form's draft and its conversion to the six fields, `sameSchedule`, the "Paid" text, the sentence after a save, the warning before an edit. `scheduleText(undefined)` is **"Monthly"**, never blank. |
+| `lib/store/schedule-preview.ts` | The debounced preview of the typed schedule. Exempt in `verify-revalidate` with its reason: it answers what is typed, not something another screen can change. |
+| `lib/store/scheduled-allowances.ts` | What a run holds back and lets through. Read again when the run is calculated again; **unavailable says nothing**, never "nothing held back". |
+| `pay-setup/schedule-fields.tsx` | The "Applies" section of the form, and the whole of the **Change schedule** dialog. |
+| `runs/new/scheduled-note.tsx` | The one quiet line on the run, with the detail behind an `AttentionMark`. |
+
+## Decisions worth not undoing
+
+- **Six fields, every time, in months.** A change to the schedule sends the whole schedule, never one
+  field, because a partial one is merged by the API and the form cannot see what it was merged with. An
+  edit that did not touch the schedule sends none (`sameSchedule`). Years are the form's, months the wire's.
+- **The amount is "per payment", not "a month", the moment an allowance is on a schedule** (the library,
+  a person's line, the add-a-line dialog and the effect on take-home: "₦41,000.00 more in the account in
+  a month it is paid"). "A month" would claim it is paid every month, which is what a schedule says it is not.
+- **A line that is not due says when, not `₦0.00`.** A zero beside an allowance reads as an amount somebody
+  chose. The API's sentence ("Next due Oct 2028") replaces it, as plain muted text.
+- **Assignments send `effectiveFrom` explicitly** (the company's own day when the field is blank). Left to
+  the API it is the first of the month in UTC, which in the first hours of a month in Lagos is last
+  month, and moves a count that starts from the day it was given.
+- **"Counts from the day it is given to them" is not offered for an allowance that applies to everybody**
+  (`PERMANENT`): nobody is given it, so it counts from each person's start date. The control is disabled
+  with the reason beside it, not removed, because that is the one place where the choice exists and is closed.
+- **Defining a schedule needs `MANAGE_PAY_STRUCTURE`, and without it the controls are hidden.** The "Paid"
+  text stays: reading what an allowance does is not defining it.
+- **Changing a schedule moves it for everybody on it, from the next run that has not been prepared, and
+  history does not change.** That sentence is behind the ochre mark on the form and the toast after a save
+  names each open payroll and says it picks the new schedule up when it is calculated again.
+- **The run's note follows the schedule as it stands, not the last calculation.** It says so, and tells
+  the reader to calculate again so the payslips match. A payslip prints a due allowance and nothing for one
+  that is not due.
+- **No banner and no pill.** Not due, held back and due this month are each a line of muted text; the
+  detail is behind the mark.
+
+## Open questions, kept easy to change
+
+The brief had ten that the owner has not answered. The screen uses the API's defaults and the wording that
+depends on them is in `lib/pay/schedule.ts` (the sentence after a save, the warning before an edit, the
+words "Their start date" and "The day it is given to them" are in `schedule-fields.tsx`). Nothing in the
+UI decides one.
+
+## Verified
+
+`tests/pay-schedule.test.ts` (24), `allowance-schedule-form.test.tsx` (22), `pay-lines-schedule.test.tsx`
+(11) and `scheduled-note.test.tsx` (13), including the absent cases: no schedule shows "Monthly", no
+answer shows nothing, a run that is not open shows nothing, a percentage allowance shows no amount.
+`npm run check` and the full vitest (only the three known files fail). In a browser against the demo API,
+as the administrator: create with a schedule and see the API's dates for a sample start date, the "Paid"
+column, Change schedule, a person's lines (due this month, next due Oct 2028, no ₦0.00), the run's Review
+line and the Approve step's mention. At 1440 and 390.
+
+**Not exercised:** a user without `MANAGE_PAY_STRUCTURE` in a browser (covered by a test), and a run
+approved with a scheduled allowance on it.
