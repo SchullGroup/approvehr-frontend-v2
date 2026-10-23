@@ -122,7 +122,7 @@ export function MyPolicies({ className }: { className?: string }) {
               {mine.outstanding.map((policy) => (
                 <div
                   key={policy.id}
-                  className="flex flex-wrap items-center gap-3 rounded-md border border-warning-line bg-warning-soft p-3"
+                  className="flex flex-wrap items-center gap-3 rounded-md border border-line p-3"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-body-sm font-medium text-ink">

@@ -183,7 +183,7 @@ function TestResult({ result }: { result: ApiTestResult }) {
       </div>
 
       {result.error && (
-        <p className="rounded-md border border-danger-line bg-danger-soft p-3 text-body-sm text-danger-text">
+        <p className="text-body-sm text-danger-text">
           {result.error}
           {result.error.startsWith("No answer within") &&
             ` We wait ${Math.round(result.timeoutMs / 1000)} seconds and no longer.`}

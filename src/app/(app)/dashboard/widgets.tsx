@@ -234,25 +234,22 @@ const WorkforceHeadline: WidgetComponent = () => {
   if (!headline) return null;
 
   return (
-    <Card as="article">
-      <CardBody className="flex items-start gap-3">
-        <span className="mt-0.5 shrink-0 rounded-full bg-accent-soft p-2 text-accent-text">
-          <FileChartColumn aria-hidden="true" className="size-4" />
-        </span>
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-body-sm font-medium text-ink">
-            {headline.sentence}
-          </p>
-          <Link
-            href="/reports/company"
-            className="inline-flex w-fit items-center gap-1 text-meta text-accent-text hover:underline"
-          >
-            Open the company report
-            <ArrowRight aria-hidden="true" className="size-3" />
-          </Link>
-        </div>
-      </CardBody>
-    </Card>
+    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+      <span className="inline-flex items-center gap-2">
+        <FileChartColumn
+          aria-hidden="true"
+          className="size-4 shrink-0 text-accent-text"
+        />
+        <span className="font-medium text-ink">{headline.sentence}</span>
+      </span>
+      <Link
+        href="/reports/company"
+        className="inline-flex w-fit items-center gap-1 text-meta text-accent-text hover:underline"
+      >
+        Open the company report
+        <ArrowRight aria-hidden="true" className="size-3" />
+      </Link>
+    </p>
   );
 };
 

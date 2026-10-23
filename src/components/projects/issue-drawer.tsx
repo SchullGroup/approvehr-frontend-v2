@@ -289,7 +289,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
         <div
           role="alertdialog"
           aria-label={`Delete ${issue.key}`}
-          className="flex flex-wrap items-center gap-3 rounded-md border border-danger-line bg-danger-soft px-4 py-3 text-body-sm text-ink"
+          className="flex flex-wrap items-center gap-3 rounded-md border border-line px-4 py-3 text-body-sm text-danger-text"
         >
           <span className="min-w-0 flex-1">
             Delete <strong>{issue.key}</strong>

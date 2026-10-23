@@ -15,7 +15,6 @@ import {
 } from "@/components/ui";
 import { ExportButton } from "@/components/portal/export-button";
 import { ApiError } from "@/lib/api/client";
-import { cn } from "@/lib/cn";
 import type { ApiDocument, ApiDocumentRequest } from "@/lib/api/documents";
 import {
   STATUS_LABELS,
@@ -382,14 +381,7 @@ function SignatureRow({ record }: { record: ApiSignature }) {
     .join(" · ");
 
   return (
-    <div
-      className={cn(
-        "flex flex-wrap items-center gap-3 rounded-md border p-3",
-        overdueDays !== null && overdueDays > 0
-          ? "border-danger-line bg-danger-soft/40"
-          : "border-line",
-      )}
-    >
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-line p-3">
       <span
         aria-hidden="true"
         className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sunken text-muted [&>svg]:size-4"

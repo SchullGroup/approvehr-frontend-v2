@@ -124,7 +124,7 @@ export function HolidayBanner() {
 
   return (
     <div
-      className="flex items-start gap-3 border-b border-line bg-accent-soft px-5 py-3"
+      className="flex items-start gap-3 border-b border-line bg-surface px-5 py-2"
       role="region"
       aria-label="Public holiday"
     >
@@ -132,20 +132,19 @@ export function HolidayBanner() {
         aria-hidden="true"
         className="mt-0.5 size-4 shrink-0 text-accent-text"
       />
-      <div className="min-w-0 flex-1">
-        <p className="text-body-sm font-medium text-ink">
+      <p className="min-w-0 flex-1 text-body-sm text-muted">
+        <span className="font-medium text-ink">
           {due.name} is {isToday ? "today" : "tomorrow"}
-        </p>
-        <p className="mt-0.5 text-meta text-body">
-          {longDate(due.date)} is a public holiday.{" "}
-          <Link
-            href="/people/leave"
-            className="underline underline-offset-2 hover:text-ink"
-          >
-            View the leave calendar
-          </Link>
-        </p>
-      </div>
+        </span>
+        <span aria-hidden="true"> · </span>
+        {longDate(due.date)} is a public holiday.{" "}
+        <Link
+          href="/people/leave"
+          className="underline underline-offset-2 hover:text-ink"
+        >
+          View the leave calendar
+        </Link>
+      </p>
       <button
         type="button"
         onClick={close}

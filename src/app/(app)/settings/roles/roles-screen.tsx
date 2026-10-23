@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import {
   Copy,
-  Eye,
   Lock,
   Mail,
   Plus,
@@ -15,7 +14,6 @@ import { cn } from "@/lib/cn";
 import {
   Badge,
   Button,
-  Callout,
   ButtonLink,
   Card,
   CardBody,
@@ -238,20 +236,18 @@ export function RolesScreen({
 
       <PageBody className="flex flex-col gap-6">
         {preview.role && (
-          <Callout tone="accent" icon={<Eye aria-hidden="true" />}>
-            <p className="font-medium text-ink">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-body-sm">
+            <span className="font-medium text-ink">
               You are seeing the app as {preview.role.name}.
-            </p>
-            <div className="mt-2.5">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => preview.set(null)}
-              >
-                Stop previewing
-              </Button>
-            </div>
-          </Callout>
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => preview.set(null)}
+            >
+              Stop previewing
+            </Button>
+          </div>
         )}
 
         {/* The one loading and failure rule, over the counts and the tabs that
@@ -289,20 +285,21 @@ export function RolesScreen({
           </div>
 
           {conflicted.map((role) => (
-            <Callout key={role.id} tone="warning">
-              <p className="font-medium text-ink">
+            <div
+              key={role.id}
+              className="flex flex-wrap items-center gap-x-3 gap-y-2 text-body-sm"
+            >
+              <span className="font-medium text-ink">
                 {role.name}: {role.warnings[0]}
-              </p>
-              <div className="mt-2.5">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setOpenId(role.id)}
-                >
-                  Split it
-                </Button>
-              </div>
-            </Callout>
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setOpenId(role.id)}
+              >
+                Split it
+              </Button>
+            </div>
           ))}
 
           {/* Three questions the page answers, one at a time: which roles there
