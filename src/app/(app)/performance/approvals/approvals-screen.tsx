@@ -22,6 +22,8 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   formatMeasure,
+  hasNoReading,
+  isDoneMeasure,
   quarterLabel,
   type ApiGoal,
 } from "@/lib/api/performance";
@@ -402,10 +404,17 @@ function ObjectiveCard({
             <li key={measure.id} className="text-body-sm text-body">
               <span className="font-medium text-ink">{measure.label}</span>
               {", "}
-              <span className="tabular">
-                {formatMeasure(measure.startValue, measure.unit)} to{" "}
-                {formatMeasure(measure.targetValue, measure.unit)}
-              </span>
+              {/* A done-or-not-done measure has no range: the server keeps a 0
+                  and a 1 for it, and "0 to 1" would read as a target somebody
+                  chose. */}
+              {isDoneMeasure(measure) ? (
+                "done or not done"
+              ) : (
+                <span className="tabular">
+                  {formatMeasure(measure.startValue, measure.unit)} to{" "}
+                  {formatMeasure(measure.targetValue, measure.unit)}
+                </span>
+              )}
               {measure.lowerIsBetter && " (counting down)"}
               {/* Where it stands now, beside what is being asked for.
                   ----------------------------------------------------------
@@ -418,14 +427,28 @@ function ObjectiveCard({
                   Three readings, kept apart, because "no progress recorded"
                   and "recorded as still at the starting figure" are the same
                   number and not the same fact — the first is silence and the
-                  second is a measurement. `currentValue` equal to
-                  `startValue` is the API's own way of saying nothing has been
-                  recorded, so it is not dressed up as a reading. */}
-              {measure.met ? (
+                  second is a measurement. The server says which
+                  (`lastReadAt`); on one that does not, a figure still equal to
+                  `startValue` is taken as silence, as it always was here, and
+                  is not dressed up as a reading.
+
+                  A done-or-not-done measure has no figure to compare: it is
+                  done once somebody has confirmed it, and a confirmation that
+                  already exists is the same post-hoc target as one already
+                  at its figure. */}
+              {isDoneMeasure(measure) ? (
+                measure.confirmedAt ? (
+                  <span className="ml-1.5 font-medium text-warning-text">
+                    · already confirmed as done
+                  </span>
+                ) : (
+                  <span className="ml-1.5 text-muted">· not done yet</span>
+                )
+              ) : measure.met ? (
                 <span className="ml-1.5 font-medium text-warning-text">
                   · already at target
                 </span>
-              ) : measure.currentValue === measure.startValue ? (
+              ) : hasNoReading(measure) ? (
                 <span className="ml-1.5 text-muted">
                   · nothing recorded yet
                 </span>

@@ -16,7 +16,7 @@ it appears.
 [The whole thing on one line](#3-the-whole-thing-on-one-line) ·
 [The walkthrough](#4-the-walkthrough) ·
 [Four seats](#5-the-same-period-from-four-seats) ·
-[Nine surprises](#6-nine-things-that-will-surprise-you) ·
+[Eleven surprises](#6-eleven-things-that-will-surprise-you) ·
 [What the badges mean](#7-what-the-badges-in-this-document-actually-mean) ·
 [A twenty-minute demo](#8-a-twenty-minute-demo-in-order)
 
@@ -45,11 +45,16 @@ department.
 
 ### Measure
 
-The number under an objective. "Offers accepted", starting at 2, aiming at 8. Progress is worked out
-from it automatically.
+What an objective is judged by. There are two kinds. **A number to reach**: "Offers accepted",
+starting at 2, aiming at 8, with progress worked out from it automatically. **Done or not done**:
+"Both engineers hired", which has no number at all and counts as not done until a manager confirms
+it.
 
 > _An objective with no measure still works — it is then judged on a stated figure by a human rather
 > than tracked._
+
+A measure is also **read** or **not read yet**. A number nobody has entered a figure for is not at 0%:
+it is unmeasured, and it is left out of the objective's progress until somebody enters one.
 
 ### Competency
 
@@ -87,7 +92,7 @@ opens is empty, and says so in a sentence.
 | Sidebar item            | Route                       | What it is for                                                                                                                  | Who sees it                                                                                                |
 | ----------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | **Overview**            | `/performance`              | Your landing. What is open, what is waiting on you, what is waiting on somebody else. Start here every time.                    | Everyone                                                                                                   |
-| **KPIs**                | `/performance/kpis`         | The objective tree. Create, give out, add measures, record progress, send for agreement.                                        | Everyone                                                                                                   |
+| **KPIs**                | `/performance/kpis`         | The objective tree. Create, give out, add measures, record progress, confirm a done-or-not-done measure, send for agreement.                                        | Everyone                                                                                                   |
 | **Weekly tasks**        | `/performance/review-tasks` | Staff log what they did each week against an objective; managers grade it. This is the evidence a delivery score is built from. | Everyone                                                                                                   |
 | **Competency ratings**  | `/performance/skills`       | Record a level against a skill for one person. Also shows who is below target, and a department heatmap.                        | Everyone                                                                                                   |
 | **Appraisal periods**   | `/performance/periods`      | The list of periods. Open one to set it up, start it, move it along, and read the register of everybody in it.                  | HR / Owner                                                                                                 |
@@ -403,21 +408,58 @@ person's objectives under those. You can start anywhere.
 > for one that other objectives ladder up to (move or delete those first). **Who it is assigned to**
 > is not in Edit: handing an objective to somebody else is a separate act.
 
-#### 11. Put a number on it
+#### 11. Put a measure on it
 
 A measure is what makes progress track itself. Without one, somebody has to state a figure by hand
-at the end.
+at the end. It is added in two steps: what kind of measure it is, then what that kind needs.
 
 |                |                                                                       |
 | -------------- | --------------------------------------------------------------------- |
 | **Where**      | `/performance/kpis` → open the card                                   |
 | **Who**        | Line manager · the owner                                              |
 | **Click**      | **Add a measure**                                                     |
-| **You'll see** | **Measure**, **Starting value**, **Target value**, and a unit |
+| **You'll see** | A window called **Add a measure** that first asks **What kind of measure is this?**: **A number to reach** (already chosen) or **Done or not done**, with **Cancel** and **Next**. A number then asks for **Measure**, **Starting value**, **Target value**, **Current value**, **Unit** and a tick box, **This number should go down**. Done or not done asks one thing, **What does done mean?**. **Back** returns to the question and **Add measure** saves it |
 
 > 💡 **For things that should go down** — cost, days-to-hire, complaints. Tick **This number should
 > go down** and progress becomes how far it has fallen. Without the tick, a target below the start is
 > refused with an explanation rather than silently scored backwards.
+
+> 💡 **Leave Current value blank if nothing has been measured yet.** The measure is then **Not read
+> yet**, and it is left out of the objective's progress instead of being counted as 0%. The message
+> after you add it says so: _No reading yet, so it is left out of progress until there is one._ A
+> figure typed there is a reading, and so is the starting figure typed later as a first reading, because
+> 0 can be the honest answer.
+
+**A number: enter a reading.** An unread number says **Not read yet** and **No reading yet · target 40
+leads · started at 10 leads**, and offers an empty box with the placeholder **First reading**. Type a
+figure and press **Save**; after that it shows **Now …** and a bar like any other. Under the
+objective's own bar a line says how much of that figure is a reading:
+
+- some read: **2 of 3 measures read. The others are left out of the figure above until somebody enters a
+  reading.**, and the bar is labelled **Progress, from the measures read so far**
+- none read: **0 of 3 measures read. Nothing is counted yet, so the figure above is not a result.**
+  (**Its measure has not been read. …** when there is only one), the bar is labelled **Progress,
+  nothing read yet**, and no percentage is drawn
+- all read: no line at all
+
+On the list the card does the same in four words: **No reading yet** where the percentage would be, or
+**1 of 3 read** under it. The window closes after a save, as it does for any change on this screen; open
+the card again.
+
+**Done or not done: a manager confirms it.** The row shows **Not done yet**. Whoever the objective
+belongs to sees **Your manager confirms it when it is done.** and no button, because a yes typed by the
+person being judged is the weakest evidence there is. Anybody who may agree the objective (their line
+manager, the head of their department, HR / Owner) sees **Confirm it is done**. It asks for **A note, or
+a link to the evidence (optional)**, then **Confirm** (or **Cancel**), and the row becomes **Done** with
+**Confirmed by Adaeze Okonkwo on 23 Oct 2026.** and the note, in which a link is clickable. **Take it
+back** undoes it. A company or department objective has no owner, so confirming one needs the records
+permission. It still works once the objective is agreed, because progress is the half that does not
+freeze.
+
+> ⚠️ **Until it is confirmed a milestone counts as not done**, at 0% in the average, from the day it is
+> made. That is deliberate: a milestone nobody confirmed by the end of the period was not met, and
+> leaving it out of the average would let a miss disappear. The message after you add one says so:
+> _Done or not done. It counts as not done until it is confirmed._
 
 #### 12. _Optional_ — add several objectives in one go
 
@@ -528,6 +570,13 @@ Sign in as the manager. This is the queue screen, and it has one job.
 | **Who**        | Line manager · HR / Owner                                                      |
 | **Click**      | **Agree it** on the row, then confirm                                          |
 | **You'll see** | The row leaves the queue and the objective's badge becomes _Agreed_ everywhere |
+
+Each row lists its measures so you can see what you are agreeing to: **Offers accepted, 0 to 10 · now
+5**, or **Both engineers hired, done or not done · not done yet**. A number nobody has entered a
+figure for reads **· nothing recorded yet**, and one already at its target reads **· already at
+target**, which is worth stopping on: a target agreed after the work was done is the one this step
+exists to catch. A milestone somebody already confirmed reads **· already confirmed as done** for the
+same reason.
 
 There are three answers, and they end differently:
 
@@ -955,7 +1004,7 @@ Not a role at all — anybody can be asked, once, about one person.
 
 ---
 
-## 6. Nine things that will surprise you
+## 6. Eleven things that will surprise you
 
 Every one of these is deliberate. If you are demonstrating the product, several are worth pointing at
 on purpose — they are the arguments the module is built on.
@@ -970,6 +1019,8 @@ on purpose — they are the arguments the module is built on.
 | **A refusal is final.** | A refused objective cannot be resubmitted. The answer to a refused objective is a *different* objective, so the refusal stays on the record instead of being written over. |
 | **Changing the weights does not move a running period.** | A period keeps the weights and the scale words it started with. Otherwise a mark somebody was told in March would quietly become a different mark in June. |
 | **"Make it final" only appears at calibration.** | A manager at the manager-review stage has nothing to make final and correctly sees no such button. Move the period to calibration and the rows appear. |
+| **A measure nobody has read is not a measure at 0%.** | A number added with no current value reads *Not read yet* and is left out of the objective's progress until somebody enters a figure, and an objective with nothing read shows *No reading yet* instead of a percentage. A zero would claim the work had not moved, which is a different fact from nobody having looked. Typing the starting figure as a first reading is a reading. |
+| **Only a manager says a milestone is done.** | A *Done or not done* measure has no number to type, and the person whose work it is never sees a Confirm button. Until it is confirmed it counts as *not done*, because a milestone nobody confirmed by the end of the period was not met. |
 | **The Owner and the HR manager get no form.** | Both off on every new period, and each is its own tick box. The Owner reports to nobody, so the reporting line has no one to put on their form; the HR manager would otherwise be marking themselves against questions they wrote. Neither is let off anything — both still appraise their own teams. Tick either box on the period to include them (step 8). |
 
 ---

@@ -9222,3 +9222,145 @@ Not fixed, on purpose: an objective with several measures cannot be uploaded in 
 row), and the upload cannot add a measure to an existing objective. The Add multiple window has no
 `maxLength` on title and description; the 140 and 2,000 limits are enforced at Check with a clear
 message, and a hard cap would silently truncate pasted text.
+
+---
+
+# A measure has a kind, and a measure nobody has read is not at 0%
+
+Step 1 of the measures report (a Claude Docs document; its nine decisions were settled with the owner
+on 2026-10-23). Backend `feat/measure-kinds` into `staging`, frontend `feat/measure-kinds` into `dev`,
+neither merged when this was written. The backend's own note is `docs/backend/measure-kinds-handover.md`
+in that repo; read it for the routes and the exact refusals.
+
+The defect it removes: a new measure began with its current value equal to its start, so it showed 0%
+whether somebody had measured it at 0 or nobody had measured it at all, and the objective's average
+counted that 0. A 0 that is not a result is the failure ADR 0003 names, in a place where it moves a mark.
+
+## What changed
+
+- **A measure has a kind.** `NUMBER` (a number to reach: what every measure was) or `DONE` (done or not
+  done: no number, and a manager confirms it). Both reduce to the same 0 to 100%, so objective progress,
+  the Objectives component and the mark are unchanged for everything that already exists. More kinds are
+  step 2.
+- **A measure is read or not.** `lastReadAt`: `null` is unread. A number added with no current value is
+  unread; a reading stamps it. A `DONE` measure is read from the day it is made, at 0%, because "not done
+  yet" is an answer: a milestone nobody confirmed by the end of the period was not met, and leaving it out
+  of the average would let a miss disappear. Every existing measure was backfilled to `lastReadAt =
+  updatedAt`, so no running period moved.
+- **An objective's progress is the average of the measures read.** `measuredProgress` is `null` when none
+  has been, and the objective then keeps its stored progress instead of being overwritten with a figure the
+  measures do not support. This is the one change that moves a number: an objective with one read measure
+  and one unread now averages the read one alone.
+- **A manager confirms a milestone.** `POST` and `DELETE /performance/key-results/:id/confirm`, for the
+  people who may agree the objective and never its owner. A company or department objective has no owner,
+  so confirming one needs the records permission.
+- **Add a measure is two steps.** `AddMeasureDialog` asks the kind, then the fields that kind needs. A
+  number sends no `kind` (a server that predates kinds has a strict body and would refuse the key). Done or
+  not done sends the kind and its words and nothing else. It starts clean every time it opens, by bumping a
+  key when `open` turns true, so the last measure's fields are never shown against another objective.
+
+## Where "not read" is said, and what is drawn instead of a 0%
+
+`goalFacts` carries `reads` (from `readCount`) so the card and the window cannot differ. It is `null` unless
+some measure is unread, which is deliberate: "4 of 4 read" on every card is noise.
+
+| Where | With nothing read | With some read |
+| ----- | ----------------- | -------------- |
+| The card's face | **No reading yet**, no percentage | the percentage and **1 of 3 read** under it |
+| The objective's window | the bar is labelled **Progress, nothing read yet**, no figure beside it, and a line: **0 of 3 measures read. Nothing is counted yet, so the figure above is not a result.** | **Progress, from the measures read so far** and **1 of 3 measures read. The others are left out of the figure above until somebody enters a reading.** |
+| One measure's row | **Not read yet**, no bar, **No reading yet · target 40 leads · started at 10 leads**, an empty **First reading** box | as before |
+| The average stat | an objective with nothing read is left out, and the caption counts what it averaged: **across 5 of 6 KPIs, the rest not read yet** | |
+| The self-review's "Your objectives" | **No reading entered yet, so there is no figure to show.** | the bar as before |
+| The toast after adding | **No reading yet, so it is left out of progress until there is one.** | the figures alone |
+| The approvals row | **· nothing recorded yet** | **· now 5** |
+
+What being unread costs is said **once**, under the objective's own bar, and not again under each unread
+measure. The first version said it four times in a few lines to somebody with one unread measure.
+
+## Decisions not to undo
+
+- **A server that does not say makes no claim.** `isUnread` is true only when `lastReadAt` is `null`; an
+  absent field is a server that predates the column, and calling those measures unread would tell every user
+  of an older server that nothing they track has been read. `readCount` returns `null` if any measure's
+  field is absent, and `hasNoReading` falls back to the old inference (a figure still equal to its start)
+  only where the field is absent. Each has a test with the field missing.
+- **The Confirm button is offered where it could work.** Never to the owner (the API refuses them in words
+  about confirming, and a yes typed by the person being judged is the weakest evidence there is), and on a
+  company or department objective only to somebody holding the records permission. The owner sees **Your
+  manager confirms it when it is done.** instead of a control that returns a refusal.
+- **A confirmation that did not save keeps the note being typed.** `confirm` resolves `false` when the
+  screen already said why, and the row only closes its box on `true`.
+- **`GoalCard` and `MeasureRow` are exported for tests.** The face and the unread row are where a 0% would
+  do the harm, and neither can be reached from outside `kpis.tsx` otherwise.
+- **Demo mode refuses to confirm**, with the reason. Whether somebody's work is done is a judgement about
+  another person, and one kept in this browser would never reach their review. Demo measures are all
+  `NUMBER` and all read, so the demo stages no unread measure it could not also stage the consequences of.
+- **The Badge on "Not read yet" is `tone="warning"`.** On `dev` that draws an amber chip; on `staging`
+  `Badge` ignores its tone and draws plain muted text, which is what the no-banners rule asks for. Nothing
+  here needs changing when the two meet, and `verify-no-banners` passed on a merge of the two.
+
+## Found, and not changed
+
+- **The window closes after any save.** Saving a reading, confirming a milestone and taking one back all
+  reload the list, which remounts the card and loses its `open` state. It is how the screen behaved before
+  this (a saved reading did the same), so confirming behaves like everything else here, but it means a
+  manager confirming two milestones on one objective opens the card twice.
+- **An uploaded measure is always unread.** The importer has no current-value column, so every measure it
+  creates has a start and a target and no reading. That is the honest reading of such a file, but the
+  column note still says **Where the number is today**, which sits oddly beside a measure that says it has
+  not been read. Whether an uploaded baseline should count as a first reading is a product question; it was
+  not decided here. The importer also has no kind column: an uploaded measure is a number.
+- **Goals created through the AI period draft** add measures with a target and no current value, so they
+  are unread too.
+
+## Verified, and what was not
+
+Frontend. `npm run check` exit 0 (typecheck, lint with the 8 warnings that were already there, and every
+gate), run with `APPROVEHR_BACKEND_DIR` pointing at the unmerged backend so the four cross-repo gates compared
+against it instead of printing `skip`. `next build` exit 0 for production with `NEXT_PUBLIC_DEMO=off`, and `verify-demo`'s bundle half against that
+build: 3034 built files, none carrying demo copy or a seed persona. 77 new
+tests in six files (`measure-kinds` 29, `add-measure-dialog` 12, `done-measure-row` 15, `unread-measure-row` 9,
+`goal-card-face` 8, `self-evidence-readings` 4); with the neighbouring performance, import and bulk-create
+tests that is 18 files and 258 tests, all passing. The whole suite (295 files, 4,227 tests) had 16
+failures, all recruitment screens (the applications queue, the pipeline board, the hired list and the
+screening pass mark) timing out under load in files nothing here touches; those seven files pass on their
+own (116 tests). Each rule was broken on purpose and the test that guards it
+failed: a number sending `kind`, the owner being offered Confirm, a missing field read as unread, the toast
+going back to "0 to 1", the card's face printing a 0%, and the window's bar printing one.
+
+Backend. `tsc`, lint, `format:check` and the six `verify-*` gates exit 0. Ten test files and 445 tests pass on
+the squashed commit, among them `tests/measure-kinds.test.ts` (24) and `tests/tenant-isolation.test.ts`. The
+whole backend suite was not run locally, so CI is its first full run.
+
+Merged with `staging` in a throwaway worktree: typecheck exit 0, `verify-no-banners` passes, and the eight test
+files that cover this pass (122 tests). Both branches also merge cleanly with the two open pull requests that
+change scoring (backend #214, frontend #449).
+
+**In a browser**, against a scratch API on a real Postgres and a production build of this branch, as three
+people (the owner, her manager and an administrator), replayed from fresh data on the build of the final
+commit: 35 of 36, 17 of 17 and 18 of 18 checks. The one miss is the console check of the first stage, which
+flagged a 401 on first load while a saved session's expired token refreshed; every functional check passed. It
+exercised:
+the card's face and the window for an objective with nothing read, one half read and all read; a first reading
+typed as the starting figure; the Add a measure dialog for both kinds, its refusal of an empty answer and its
+toasts; the approvals screen's measure lines; confirming a milestone with a link in the note, taking it back
+and confirming it again; a company milestone that the line manager is not offered a button for and the
+administrator is; and, at 375px with a touch pointer, no sideways scroll on the list, the window or either
+step, and a 16px text field. Three defects were found by
+looking at it and fixed: the window's bar printed **0%** beside "nothing read yet", an unread measure said the
+same thing four times in a few lines, and the average's caption said "across 6" over a mean of five.
+
+**Not exercised:** demo mode in a browser (the walk was connected; the demo's refusal to confirm is one `guard`
+call and is covered by `tsc` alone), the self-review list in a browser (a test covers it), iOS Safari or any real
+device, and the backend suite beyond the ten files above.
+
+## Order, and what was left
+
+The backend goes first. Against a server that predates this, every field is absent and every screen behaves
+as it did, with one exception: the dialog still offers **Done or not done**, and the older server will
+refuse the `kind` key with its own sentence. That is the reason for the order, as with the importer's
+headings.
+
+Not built, on purpose: more kinds (a rate, a limit, a range, milestones), a readings table, per-measure
+weights, the starter library by department, a kind column in the importer, and showing the date of the last
+reading. Each is step 2 or later, and the model and the routes were shaped so each is an addition.

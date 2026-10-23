@@ -125,6 +125,11 @@ export type ApiKeyResult = {
   id: string;
   goalId: string;
   label: string;
+  /**
+   * What the measure is. Absent on a server that predates measure kinds, and
+   * absent means a number, which is all there was.
+   */
+  kind?: MeasureKind;
   /** "₦", "%", "customers". Free text: every company invents its own. */
   unit: string | null;
   startValue: string;
@@ -132,11 +137,30 @@ export type ApiKeyResult = {
   currentValue: string;
   /** True when success means the number going down. */
   lowerIsBetter: boolean;
-  /** 0–100, honouring `lowerIsBetter`. Read this; do not derive it. */
+  /**
+   * 0–100, honouring `lowerIsBetter`. Read this; do not derive it.
+   *
+   * **A number even when nobody has read the measure**, where it is the 0 it
+   * started at. `lastReadAt` says whether it means anything: read it before
+   * drawing a bar, or an unread measure shows as a result.
+   */
   percent: number;
   met: boolean;
+  /**
+   * When a reading was last entered. **Null is unread**, which is a different
+   * fact from "no movement". Absent (a server that predates this) makes no
+   * claim either way, so a screen must not call that measure unread.
+   */
+  lastReadAt?: string | null;
+  /** A done-or-not-done measure's confirmation. Null until a manager says so. */
+  confirmedAt?: string | null;
+  confirmedByName?: string | null;
+  confirmNote?: string | null;
   updatedAt: string;
 };
+
+/** What a measure is. A closed list: see the design report. */
+export type MeasureKind = "NUMBER" | "DONE";
 
 export type ApiGoal = {
   id: string;
@@ -160,9 +184,17 @@ export type ApiGoal = {
   parentId: string | null;
   parentTitle: string | null;
   status: GoalStatus;
-  /** The stored figure. Equal to `measuredProgress` whenever there are measures. */
+  /**
+   * The stored figure. Equal to `measuredProgress` whenever it is not null; when
+   * it is null this is what the goal was created with, or the owner's own
+   * figure, and is not a result.
+   */
   progress: number;
-  /** From the measures. Null when the goal has none and progress is by hand. */
+  /**
+   * From the measures **that have been read**. Null when the goal has none, so
+   * progress is by hand, and also when it has measures and none has been read:
+   * there is nothing to average, and `progress` must not be shown as one.
+   */
   measuredProgress: number | null;
   dueQuarter: string | null;
   /**
@@ -255,7 +287,10 @@ export type ApiGoalCancelled = ApiGoal & {
 
 /** Every key-result write returns the goal's recomputed progress beside it. */
 export type ApiKeyResultWritten = ApiKeyResult & {
-  /** Null only when the goal somehow has no measures left. */
+  /**
+   * Null when the goal has no measures, and also when none of them has been read
+   * yet: there is nothing to average, so the goal keeps the figure it had.
+   */
   goalProgress: number | null;
 };
 
@@ -1638,10 +1673,13 @@ export type UpdateGoalBody = {
 
 export type CreateKeyResultBody = {
   label: string;
+  /** Absent means a number. A done-or-not-done measure sends only `label`. */
+  kind?: MeasureKind;
   unit?: string;
   /** Decimal strings. See the header on why these are not numbers. */
   startValue?: string;
-  targetValue: string;
+  /** Required for a number, and refused for a done-or-not-done measure. */
+  targetValue?: string;
   currentValue?: string;
   lowerIsBetter?: boolean;
 };
@@ -2114,6 +2152,27 @@ export const performanceApi = {
         method: "POST",
         body: note === undefined ? { currentValue } : { currentValue, note },
       },
+    ),
+
+  /**
+   * A manager says a done-or-not-done measure is done. The note is free text and
+   * is where a link to the evidence goes.
+   *
+   * The owner is refused, and so is anyone who may not agree their objective:
+   * the API says which, in words about confirming, and that sentence is shown
+   * as it arrives.
+   */
+  confirmMeasure: (id: string, note?: string) =>
+    request<ApiKeyResultWritten & { met: boolean }>(
+      `/performance/key-results/${id}/confirm`,
+      { method: "POST", body: note === undefined ? {} : { note } },
+    ),
+
+  /** Takes a confirmation back, by the same people. The measure stays read. */
+  unconfirmMeasure: (id: string) =>
+    request<ApiKeyResultWritten & { met: boolean }>(
+      `/performance/key-results/${id}/confirm`,
+      { method: "DELETE" },
     ),
 
   /* ----------------------------------------------------------- competencies */
@@ -3154,6 +3213,56 @@ export function ratingWordsFrom(
 export function parseMeasure(value: string): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** Is this a done-or-not-done measure? Absent `kind` is a number. */
+export function isDoneMeasure(measure: Pick<ApiKeyResult, "kind">): boolean {
+  return measure.kind === "DONE";
+}
+
+/**
+ * Has nobody entered a reading on this measure yet?
+ *
+ * **True only when the server said so** (`lastReadAt` is null). An absent field
+ * is a server that predates the column, and calling those measures unread would
+ * tell every user of an older server that nothing they track has been read.
+ */
+export function isUnread(measure: Pick<ApiKeyResult, "lastReadAt">): boolean {
+  return measure.lastReadAt === null;
+}
+
+/**
+ * Has nothing been recorded on this measure, for a screen that has always said
+ * so and has to keep saying it on a server that predates `lastReadAt`?
+ *
+ * The server's word wins when it gives one. Without it, a figure still equal to
+ * where it started is taken as unrecorded, which is the inference the approvals
+ * screen was built on: it was the only signal there was. It is no longer exact
+ * (a reading of the starting figure is a reading), which is why the field
+ * exists, and why this prefers it.
+ */
+export function hasNoReading(
+  measure: Pick<ApiKeyResult, "lastReadAt" | "currentValue" | "startValue">,
+): boolean {
+  if (measure.lastReadAt !== undefined) return measure.lastReadAt === null;
+  return measure.currentValue === measure.startValue;
+}
+
+/**
+ * How many of a goal's measures have been read, or null when that is not worth
+ * saying: no measures, an older server, or every one of them read.
+ *
+ * Null for "all read" is deliberate. "4 of 4 measures read" on every card is
+ * noise that teaches people to skip the line, so the count appears only when it
+ * is a warning: some figure on this objective is not a reading.
+ */
+export function readCount(
+  measures: readonly Pick<ApiKeyResult, "lastReadAt">[],
+): { read: number; of: number } | null {
+  if (measures.length === 0) return null;
+  if (measures.some((measure) => measure.lastReadAt === undefined)) return null;
+  const read = measures.filter((measure) => measure.lastReadAt !== null).length;
+  return read === measures.length ? null : { read, of: measures.length };
 }
 
 /**
