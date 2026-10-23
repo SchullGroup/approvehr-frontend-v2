@@ -106,3 +106,6 @@ export {
   SERIES,
 } from "./chart";
 export type { Point, Segment } from "./chart";
+
+export { BubbleChart } from "./bubble-chart";
+export type { BubbleChartProps, BubblePoint } from "./bubble-chart";
