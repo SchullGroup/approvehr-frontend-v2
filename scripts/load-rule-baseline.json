@@ -7,6 +7,5 @@
   "src/app/(app)/payroll/payroll-screen.tsx",
   "src/app/(app)/people/[id]/record-page.tsx",
   "src/app/(app)/reports/builder/builder-screen.tsx",
-  "src/app/(app)/reports/explore/explore-screen.tsx",
   "src/app/(app)/settings/bank-accounts/bank-accounts-screen.tsx"
 ]

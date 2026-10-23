@@ -162,62 +162,7 @@ export type DashboardData = {
     expensesApprovedUnpaidKobo: number;
     overtimeAwaitingApprovalKobo: number;
   };
-  /** Absent on the same `EDIT_RECORDS` gate as `hiring`. See `ApiWorkforceHeadline`. */
-  workforceHeadline?: ApiWorkforceHeadline;
 };
-
-/**
- * One sentence picked from the workforce explorer's own lenses — which
- * department has the most off-track goals, or who has cleared the promotion
- * bar — in that priority order, or an honest "nothing stands out". Never a
- * model call.
- *
- * There used to be a third rule, `"task-intensity-outlier"`, naming the
- * department with the weakest task-logging. It is gone from the API and from
- * this union: it counted tasks a manager had *graded* as if staff had logged
- * them, and could only ever name the one department where anybody had
- * anything graded. Read the header of `insights/headline.ts` on the API for
- * the long form. Do not add it back without a measure that tells "did not
- * log" from "was not graded".
- */
-export type ApiWorkforceHeadline = {
-  cycleId: string | null;
-  cycleName: string | null;
-  rule: "off-track-goals" | "promotion-ready" | "none";
-  departments: string[];
-  sentence: string;
-};
-
-/** The rules a screen may print. `"none"` is the API saying nothing stands
-    out, which is a reason to draw nothing and not a sentence to draw. */
-const PRINTABLE_RULES: readonly string[] = [
-  "off-track-goals",
-  "promotion-ready",
-];
-
-/**
- * The headline a screen should print, or `null` for a clean absence.
- *
- * Null for: no headline at all (a caller without `EDIT_RECORDS`, a request
- * that failed), `"none"`, an empty sentence, and **any rule this build does
- * not know**. The last one is not defensiveness. A browser cannot pin the
- * version of the API it talks to, and a deploy puts this bundle in front of
- * people while the API behind it may still be the one that sends
- * `"task-intensity-outlier"` — which is exactly the sentence that must not
- * reach a screen. Printing only rules this build was written against means
- * the retired one is silent the moment this ships, whatever the API does.
- *
- * Every surface that prints the headline goes through here, so "nothing to
- * say" cannot be decided two ways.
- */
-export function printableHeadline(
-  headline: ApiWorkforceHeadline | null | undefined,
-): ApiWorkforceHeadline | null {
-  if (!headline) return null;
-  if (!PRINTABLE_RULES.includes(headline.rule)) return null;
-  if (headline.sentence.trim() === "") return null;
-  return headline;
-}
 
 export type ReportsData = {
   /**
@@ -354,15 +299,6 @@ export const insightsApi = {
     request<ReportsData>(
       period ? `/insights/reports?period=${period}` : "/insights/reports",
     ),
-
-  /**
-   * The same sentence `dashboard().workforceHeadline` carries, on its own —
-   * for a screen that wants it without the rest of the dashboard payload.
-   * `EDIT_RECORDS` directly, unlike `dashboard` itself: there is no
-   * partially-permitted reading of this one.
-   */
-  workforceHeadline: (signal?: AbortSignal): Promise<ApiWorkforceHeadline> =>
-    request<ApiWorkforceHeadline>("/insights/workforce-headline", { signal }),
 };
 
 /** `FULL_TIME` → `Full time`. The API returns the enum; people read words. */

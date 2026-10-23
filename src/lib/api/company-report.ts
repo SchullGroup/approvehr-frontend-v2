@@ -213,8 +213,9 @@ export type CompanyHeadlineAnswer = {
  * The headlines this build knows how to print.
  *
  * A browser cannot pin the version of the API it talks to, so a headline with a
- * rule this build was not written against is not printed. See `printableHeadline`
- * in `insights.ts` for the same rule applied to the retired explorer headline.
+ * rule this build was not written against is not printed. (The explorer headline
+ * this replaces had a rule that blamed staff for a manager's grading backlog; it
+ * is gone from the API, and a stale API that still sends it reaches nothing here.)
  */
 const KNOWN_RULES: readonly string[] = ["H1", "H2", "H3", "H4", "H5"];
 
