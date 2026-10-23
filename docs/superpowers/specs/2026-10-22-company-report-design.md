@@ -83,14 +83,15 @@ have one     are set      have one            3 groups not shown
 
 [ Overview ]  [ Departments ]
 
-01 Method and privacy
-02 Findings   (Results / Process / Fairness, in that order)
-03 What is working
-04 Priority actions   [button] [button] [button]
+Findings   (Results / Process / Fairness, in that order)
+What is working
+Priority actions   [button] [button] [button]
+Method and privacy   (closed, at the foot)
 ```
 
-Overview holds sections 01 to 04. Departments holds the comparison (see g). Both tabs are
-`Tabs` with the period picker and PDF button in the header.
+Overview holds those four. Departments holds the comparison (see g). Both tabs are
+`Tabs` with the period picker and PDF button in the header. The coverage strip is eight cells as built: Marks,
+Appraisers, Agreed objectives, Manager reviews, Fairness check, Nine-box, Weekly tasks, Payroll.
 
 The header's period picker defaults to the period in play (`periodInPlay` in
 `lib/api/performance.ts`) and falls back to the latest published one. It must **not** default to
@@ -235,10 +236,10 @@ Initial catalogue. Order within an axis is by status (blocks first), then by the
 | F3  | Process  | marks with no agreed objective                                            | 12 of 61 marks have no agreed objective                                                                                                   | the objectives part is left out of those marks, so they are less like the others | Performance, approvals          | `EDIT_RECORDS`  |
 | F4  | Process  | people missing from the nine-box                                          | 40 of 61 are on the nine-box. 17 have no potential assessed and 4 have no mark                                                            | a talent decision rests on a partial grid                                        | Performance, nine-box           | `EDIT_RECORDS`  |
 | F5  | Process  | staff records incomplete                                                  | 52 of 62 staff records lack a bank account, pension PIN or tax ID                                                                         | payroll cannot file for them                                                     | People, incomplete records      | `EDIT_RECORDS`  |
-| F6  | Fairness | department or manager group flagged                                       | Finance's average mark is 16.4 points above everyone else's (likely range 7.1 to 25.6). One manager's group of 11 is flagged the same way | decisions that use marks will treat the gap as real                              | Fairness check, department view | `VIEW_FAIRNESS` |
+| F6  | Fairness | department or manager group flagged                                       | Finance's average mark is 16.4 points above everyone else's (likely range 7.1 to 25.6). One manager's group of 11 is flagged the same way | none stated (no rule of the system backs one)                                    | Fairness check, department view | `VIEW_FAIRNESS` |
 | F7  | Fairness | groups hidden                                                             | 7 people in two contract types and 1 manager's 4 people are not compared                                                                  | those groups cannot be checked                                                   | Fairness check                  | `VIEW_FAIRNESS` |
 | F8  | Results  | people with no mark, or a disputed rating                                 | 4 people have no mark. 1 rating is disputed                                                                                               | they finish with no mark, and the dispute stays open                             | Performance, period             | `EDIT_RECORDS`  |
-| F9  | Results  | weekly tasks barely graded (**held back**, see (k))                       | "1 of 61 people has a graded task"                                                                                                        | none stated                                                                      | Performance, review tasks       | `EDIT_RECORDS`  |
+| F9  | Results  | people who logged weekly tasks have no graded task (**live**, see (k))    | "6 of the 45 people who logged weekly tasks have no graded task"                                                                          | none stated                                                                      | Performance, review tasks       | `EDIT_RECORDS`  |
 | F10 | Results  | a department of five or more has marks                                    | Highest mark in each department, with its basis. Engineering: the highest of 17 scored is 85.2%, one appraiser                            | none stated                                                                      | Performance, nine-box           | `EDIT_RECORDS`  |
 | F11 | Results  | somebody held the top band two cycles running and meets every role target | 1 person has been in the top band two cycles running and meets 3 of 3 role targets                                                        | none stated                                                                      | Performance, nine-box           | `EDIT_RECORDS`  |
 
@@ -248,9 +249,10 @@ Notes:
   manager's group are flagged by the Fairness check, and they may be the same people. The panel says
   so ("Check whether these are the same people") and does not guess. The manager is named in the
   Fairness check, not in this report's body.
-- **F9 stays off** until `taskCoverage` separates logged from graded. Until then it would blame staff
-  for what is a manager's grading backlog. When it ships its wording is about _grading coverage_, and
-  the owner of the fix is the manager.
+- **F9 is on**, now that `taskCoverageByDepartment` separates logged from graded. Its wording is about
+  _grading coverage_ and the owner of the fix is the manager. It never says "yet": `gradeTask` refuses a
+  week that has closed, so an ungraded task in a closed week stays ungraded, and the finding says a week can be
+  graded only while it is open.
 - A finding appears only when its rule fires. There is no "all clear" card per rule. A clean report
   is a short report.
 
@@ -378,7 +380,7 @@ bottom:
 
 ## (h) Privacy, honesty and the PDF
 
-### Method and privacy (section 01 of the Overview)
+### Method and privacy (the closed section at the foot of the Overview)
 
 Draft copy. No em dashes.
 
@@ -501,30 +503,21 @@ Sections are **optional by type**, for the reason `ReportsData` already gives: a
 API version. The web guards each one.
 
 ```ts
-type CompanyReport = {
-  asOf: string;
-  cycle: {
-    id: string;
-    name: string;
-    stage: ReviewCycleStage;
-    published: boolean;
-    marksMayMove: boolean; // true in CALIBRATION
-  };
-  cycles: { id: string; name: string; stage: ReviewCycleStage }[]; // newest first, for the picker
-  headline?: {
-    // OMITTED when nothing qualifies
-    rule: "H1" | "H2" | "H3" | "H4" | "H5";
-    sentence: string;
-    figure: { n: number; of: number };
-    firstStep: { sentence: string; action?: ActionRef };
-  };
-  coverage: { cells: CoverageCell[]; notMeasured: NotMeasured[] };
-  findings: Finding[];
-  strengths?: Strength[];
-  actions: ActionRef[]; // already filtered to what this caller may do
-  departments?: DepartmentRow[]; // EDIT_RECORDS. Cost keys omitted without VIEW_SALARIES
-  fairnessRules?: { minGroup: number; minGapBp: number }; // present with VIEW_FAIRNESS
-};
+type ReviewStage = "DRAFT" | "SELF" | "MANAGER" | "CALIBRATION" | "PUBLISHED";
+
+type StageLabel =
+  | "Draft"
+  | "Self-reviews open"
+  | "Manager reviews open"
+  | "In calibration"
+  | "Published";
+
+type ReportAxis = "results" | "process" | "fairness";
+
+type ReportBand =
+  "OUTSTANDING" | "EXCEEDS" | "MEETS" | "PARTIALLY_MEETS" | "BELOW";
+
+type ReportAction = { id: string; label: string; href: string };
 
 type CoverageCell = {
   key: string;
@@ -533,41 +526,60 @@ type CoverageCell = {
   of: number;
   note?: string;
 };
-type NotMeasured = { what: string; why: string };
-type ActionRef = { id: string; label: string; href: string };
 
-type Finding = {
-  id:
-    | "F1"
-    | "F2"
-    | "F3"
-    | "F4"
-    | "F5"
-    | "F6"
-    | "F7"
-    | "F8"
-    | "F9"
-    | "F10"
-    | "F11";
-  axis: "results" | "process" | "fairness";
-  status: "blocks" | "weakens" | "info";
-  title: string; // computed, contains the figure
-  figure: { n: number; of: number };
-  evidence: string; // source, period, date
-  ifNothingChanges?: string; // omitted when no system rule backs it
-  act?: { label: string; href: string };
-  departments?: string[]; // only groups of five or more
-  seeWho?: boolean; // true when the panel can list names
-  lines?: NamedLine[]; // F10 and F11 only. Grouped by department, sorted by name, never by score
-  caveats?: string[]; // "H2 2026 is in calibration...", "These departments are rated by different managers..."
-};
+type NotMeasured = { what: string; why: string };
 
 type NamedLine = {
-  department: string; // a group of five or more
+  department: string;
   employeeId: string;
   name: string;
-  basis: string; // one sentence: "Highest of the 17 marks in Engineering, 85.2%, one appraiser"
+  /** One sentence that says why this person is on the list. */
+  basis: string;
   marksMayMove: boolean;
+};
+
+type FindingId =
+  "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F7" | "F8" | "F9" | "F10" | "F11";
+
+type ReportFinding = {
+  id: FindingId;
+  axis: ReportAxis;
+  /** What the system will do about it, not a grade. */
+  status: "blocks" | "weakens" | "info";
+  statusLabel: string;
+  title: string;
+  figure: { n: number; of: number };
+  /** Source, period and date first, then any detail lines. */
+  evidence: string[];
+  /** Present only where a rule of the system backs it. Never a prediction. */
+  ifNothingChanges?: string;
+  act?: { label: string; href: string };
+  departments?: string[];
+  /** F10 and F11 only. Grouped by department, sorted by name, never by score. */
+  lines?: NamedLine[];
+  caveats?: string[];
+};
+
+type ReportStrength = {
+  id: string;
+  title: string;
+  figure: { n: number; of: number };
+  evidence: string;
+};
+
+type HeadlineRule = "H1" | "H2" | "H3" | "H4" | "H5";
+
+type ReportHeadline = {
+  rule: HeadlineRule;
+  sentence: string;
+  figure: { n: number; of: number };
+  firstStep: { sentence: string; action?: ReportAction };
+};
+
+type GoalFigures = {
+  objectives: number;
+  progressMean: number | null;
+  atRiskOrOff: number;
 };
 
 type DepartmentRow =
@@ -586,30 +598,97 @@ type DepartmentRow =
       people: number;
       shown: true;
       results: {
+        /** Basis points. Null when nobody in the department has a mark. */
         markMeanBp: number | null;
         scored: number;
-        bands: Record<ScoreBand, number>;
-        goalProgressMean: number | null;
-        objectives: number;
-        tasks: { people: number; withGraded: number; withLogged: number };
+        bands: Record<ReportBand, number>;
+        goals: GoalFigures;
+        tasks: { people: number; withLogged: number; withGraded: number };
       };
       process: {
         withAppraiser: number;
         withAgreedObjective: number;
         reviewsWritten: number;
         reviewsExpected: number;
-        flaggedOpen: number;
-        flaggedTotal: number;
+        /** Present with `VIEW_FAIRNESS`. */
+        flagged?: { open: number; total: number };
       };
+      /** Present with `VIEW_FAIRNESS`, and only when the rest of the company is big enough to compare with. */
       fairness?: {
         gapBp: number;
         lowBp: number | null;
         highBp: number | null;
         flagged: boolean;
       };
-      cost?: { perHeadKobo: number; totalKobo: number; period: string }; // integer kobo, VIEW_SALARIES only
+      /** Present with `VIEW_SALARIES`. Integer kobo. */
+      cost?: { perHeadKobo: number; totalKobo: number; paid: number };
     };
+
+type ShownDepartment = Extract<DepartmentRow, { shown: true }>;
+
+type ReportDepartments = {
+  rows: DepartmentRow[];
+  company: {
+    people: number;
+    markMeanBp: number | null;
+    goalProgressMean: number | null;
+    /** `VIEW_SALARIES` only. Integer kobo. */
+    perHeadKobo?: number;
+  };
+  /** Departments left out of the figures by the five-person rule. */
+  notShown: number;
+  /** The payroll the cost comes from. `VIEW_SALARIES` only. */
+  costFrom?: { period: string; status: string };
+  /** Said wherever departments are compared. */
+  caveat: string;
+};
+
+type CompanyReport = {
+  asOf: string;
+  cycle: {
+    id: string;
+    name: string;
+    stage: ReviewStage;
+    stageLabel: StageLabel;
+    published: boolean;
+    marksMayMove: boolean;
+  } | null;
+  cycles: {
+    id: string;
+    name: string;
+    stage: ReviewStage;
+    stageLabel: StageLabel;
+  }[];
+  /** **Absent** when nothing qualifies. A clean absence, not a placeholder. */
+  headline?: ReportHeadline;
+  coverage: { cells: CoverageCell[]; notMeasured: NotMeasured[] };
+  findings: ReportFinding[];
+  strengths?: ReportStrength[];
+  actions: ReportAction[];
+  departments?: ReportDepartments;
+  rules?: { minGroup: number };
+};
+
+type DepartmentPeople = {
+  department: { id: string; name: string };
+  cycle: { id: string; name: string; marksMayMove: boolean };
+  people: {
+    employeeId: string;
+    name: string;
+    jobTitle: string;
+    markBp: number | null;
+    bandLabel: string | null;
+    why: string[];
+  }[];
+  caveats: string[];
+};
 ```
+
+These are the types the web reads (`src/lib/api/company-report.ts`), which follow the API's response field for
+field. Four things differ from the first draft of this spec: `evidence` is a list of lines (source, period and date
+first, then detail), `departments` is an object (`rows`, `company`, `notShown`, `costFrom`, `caveat`) and not a
+bare list, `rules` carries only the group-size floor, and `seeWho` is gone because the panel decides that itself
+(a department of five or more has a list, one under five has a sentence).
 
 A `shown: false` row has **no figure keys at all**. `null` means the figure does not exist yet (nobody
 scored). `0` means it was computed and is zero.

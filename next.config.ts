@@ -245,6 +245,22 @@ const nextConfig: NextConfig = {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
 
+  /* Explore is gone. It drew the departments as spheres and carried no figure on
+     the canvas; Company reports replaced it (see
+     `docs/superpowers/specs/2026-10-22-company-report-design.md`). Anybody with
+     the old link, a bookmark or a note in a handover lands on the report rather
+     than on a 404. `permanent: false` so a browser does not cache the move
+     forever for a path nobody is meant to reuse. */
+  async redirects() {
+    return [
+      {
+        source: "/reports/explore",
+        destination: "/reports/company",
+        permanent: false,
+      },
+    ];
+  },
+
   /* Where the build lands. `.next` unless something asks otherwise.
    *
    * `scripts/verify-demo.ts` greps the *built* output, because that is the only

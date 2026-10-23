@@ -9,7 +9,7 @@ import {
   CalendarDays,
   Inbox,
   Hourglass,
-  Orbit,
+  FileChartColumn,
   TrendingDown,
   Users,
   Wallet,
@@ -40,13 +40,13 @@ import { formatKobo } from "@/lib/api/payroll";
 import {
   employmentTypeLabel,
   naira,
-  printableHeadline,
   runStatusLabel,
   type DashboardData,
   type ReportsData,
 } from "@/lib/api/insights";
 import { cn } from "@/lib/cn";
 import { useCan } from "@/lib/permissions";
+import { useCompanyHeadline } from "@/lib/store/company-report";
 import { formatDate } from "@/lib/time";
 
 /**
@@ -216,33 +216,38 @@ const NeedsYou: WidgetComponent = ({ dashboard }) => {
 };
 
 /**
- * One sentence from the workforce explorer's own priority order — see
- * `insights/headline.ts` on the API. Renders nothing when there is nothing to
- * say, the same choice `NeedsYou` makes: a card saying nothing stands out is
- * furniture, not information, on the screen with the least room for it.
- * "Nothing to say" is decided by `printableHeadline`, which also refuses a
- * rule this build does not know. It must leave no child nodes at all, or the
- * grid's `empty:hidden` stops closing the row.
+ * The one sentence the company report opens on, for somebody who runs the
+ * company, with a link to the report.
+ *
+ * Fetched on its own after first paint (`useCompanyHeadline`) rather than
+ * carried by `/insights/dashboard`: the sentence is worked out by the same rules
+ * as the report, which is dear, and the dashboard is the screen people open
+ * most. It draws **nothing** when there is nothing to say, when the read fails,
+ * or when the API sends a rule this build does not know (see
+ * `printableCompanyHeadline`). A card saying nothing stands out is furniture, and
+ * a card saying a read failed is worse on the owner's first screen than no card.
+ * It must leave no child nodes at all, or the grid's `empty:hidden` stops closing
+ * the row.
  */
-const WorkforceHeadline: WidgetComponent = ({ dashboard }) => {
-  const headline = printableHeadline(dashboard.workforceHeadline);
+const WorkforceHeadline: WidgetComponent = () => {
+  const headline = useCompanyHeadline(useCan("EDIT_RECORDS"));
   if (!headline) return null;
 
   return (
     <Card as="article">
       <CardBody className="flex items-start gap-3">
         <span className="mt-0.5 shrink-0 rounded-full bg-accent-soft p-2 text-accent-text">
-          <Orbit aria-hidden="true" className="size-4" />
+          <FileChartColumn aria-hidden="true" className="size-4" />
         </span>
         <div className="flex min-w-0 flex-col gap-1">
           <p className="text-body-sm font-medium text-ink">
             {headline.sentence}
           </p>
           <Link
-            href="/reports/explore"
+            href="/reports/company"
             className="inline-flex w-fit items-center gap-1 text-meta text-accent-text hover:underline"
           >
-            See it in the explorer
+            Open the company report
             <ArrowRight aria-hidden="true" className="size-3" />
           </Link>
         </div>

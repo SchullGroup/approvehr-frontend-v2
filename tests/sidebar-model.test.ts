@@ -52,7 +52,7 @@ describe("the model's own groups", () => {
     expect(company.map((g) => g.id)).toEqual(["reports", "settings"]);
     expect(company.flatMap((g) => g.items.map((i) => i.href))).toEqual([
       "/reports",
-      "/reports/explore",
+      "/reports/company",
       "/settings",
       "/settings/roles",
     ]);

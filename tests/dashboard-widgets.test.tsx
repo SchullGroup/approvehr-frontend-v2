@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { WIDGET_COMPONENTS } from "@/app/(app)/dashboard/widgets";
 import { WIDGETS, widgetById } from "@/app/(app)/dashboard/catalogue";
 import type {
-  ApiWorkforceHeadline,
   DashboardData,
   MyOverview as Data,
   ReportsData,
@@ -412,90 +411,6 @@ describe("monthLabel survives a malformed period", () => {
           pay: { period, netKobo: 500_000_00, paid: true },
         }),
       ).not.toThrow();
-    }
-  });
-});
-
-/**
- * The owner's banner draws a sentence only when there is one worth reading.
- *
- * Everything else leaves the grid's wrapper with no child nodes at all (see
- * "a quiet widget leaves nothing for the grid to hold" above), so the row
- * closes up. The retired `"task-intensity-outlier"` rule is in the list on
- * purpose: it named a department as the weakest task-logger when it was only
- * the one department anybody had graded a task for, and an API that has not
- * been redeployed yet still sends it. This build must be silent about it
- * whatever the API does.
- */
-describe("the workforce headline banner", () => {
-  const headline = (
-    over: Partial<Omit<ApiWorkforceHeadline, "rule">> & { rule: string },
-  ): ApiWorkforceHeadline =>
-    ({
-      cycleId: null,
-      cycleName: null,
-      departments: [],
-      sentence: "A sentence.",
-      ...over,
-    }) as ApiWorkforceHeadline;
-
-  const renderHeadline = (workforceHeadline?: ApiWorkforceHeadline) => {
-    const Widget = WIDGET_COMPONENTS["workforce-headline"];
-    if (!Widget) throw new Error("No component for workforce-headline");
-    return render(
-      <Widget
-        dashboard={{
-          ...EMPTY,
-          ...(workforceHeadline ? { workforceHeadline } : {}),
-        }}
-        reports={REPORTS}
-        reportsLoading={false}
-      />,
-    );
-  };
-
-  it("renders NOTHING when the API sent no headline", () => {
-    const { container } = renderHeadline();
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("renders NOTHING when the API says nothing stands out", () => {
-    const { container } = renderHeadline(
-      headline({
-        rule: "none",
-        sentence: "Nothing stands out this cycle.",
-      }),
-    );
-    expect(container).toBeEmptyDOMElement();
-    expect(screen.queryByText(/nothing stands out/i)).toBeNull();
-  });
-
-  it("renders NOTHING for the retired task-logging rule, even if an older API still sends it", () => {
-    const { container } = renderHeadline(
-      headline({
-        rule: "task-intensity-outlier",
-        departments: ["Engineering"],
-        sentence:
-          "Engineering has the weakest task-logging this cycle, 17 of 18 have logged nothing graded yet.",
-      }),
-    );
-    expect(container).toBeEmptyDOMElement();
-    expect(screen.queryByText(/weakest task-logging/i)).toBeNull();
-  });
-
-  it("renders NOTHING for a headline with an empty sentence", () => {
-    const { container } = renderHeadline(
-      headline({ rule: "off-track-goals", sentence: "   " }),
-    );
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("still prints the two rules that remain", () => {
-    for (const rule of ["off-track-goals", "promotion-ready"]) {
-      const sentence = `Sentence for ${rule}.`;
-      const { unmount } = renderHeadline(headline({ rule, sentence }));
-      expect(screen.getByText(sentence)).toBeInTheDocument();
-      unmount();
     }
   });
 });

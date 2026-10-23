@@ -33,7 +33,7 @@ import {
   MessagesSquare,
   Network,
   Scale,
-  Orbit,
+  FileChartColumn,
   Receipt,
   ReceiptText,
   Settings,
@@ -966,15 +966,16 @@ const REPORT_ITEMS: NavItem[] = [
     icon: <ChartNoAxesColumn aria-hidden="true" />,
     permission: "EXPORT_DATA",
   },
-  /* No permission: the department tree it draws is the same one the org
-     chart already shows with no gate — "gate the money, not the tree". A
-     later phase that adds a comparative lens (best-in-department, promotion
-     readiness) gates *that lens* on EDIT_RECORDS inside the screen, the way
-     the performance module's nine-box does, rather than gating the route. */
+  /* `EDIT_RECORDS`, like the register, the nine-box and the cycle report it is
+     built from: a comparison across people is only honest when the reader can
+     see everybody, so the item is absent for everybody else rather than shown
+     and refused. It replaced Explore, which had no gate on the route and gated
+     each lens inside the screen; see the spec. `/reports/explore` redirects. */
   {
-    href: "/reports/explore",
-    label: "Explore",
-    icon: <Orbit aria-hidden="true" />,
+    href: "/reports/company",
+    label: "Company reports",
+    icon: <FileChartColumn aria-hidden="true" />,
+    permission: "EDIT_RECORDS",
   },
 ];
 
