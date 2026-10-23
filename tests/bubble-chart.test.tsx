@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BubbleChart,
   layoutBubbles,
+  textWidth,
   type Box,
   type BubbleChartProps,
   type BubbleLayout,
@@ -18,10 +19,15 @@ import {
  *
  * Placement is asserted on `layoutBubbles`, which is pure, because jsdom has no
  * layout and a test that read box sizes out of a DOM would be asserting zeroes.
- * The text-width estimate behind it (8.5px a character at the 14px floor) was
- * checked in a real Chromium against `getBBox` on this chart's own labels, at
- * 14px Geist: widest label measured 7.9px a character against the 8.5
- * estimated, so a box is never narrower than its text.
+ * The text widths behind it are estimated per kind of character (see `charPx`
+ * in the component), and the estimate was checked in Chromium against
+ * `getComputedTextLength` for every line of text on this chart at 1,440px and at
+ * 390px, 45 lines in all, in 14px Geist: real width ran 0.84 to 1.00 of the
+ * estimate, so a box is never narrower than its text. The same page was also
+ * measured with `getBoundingClientRect` at 320, 375, 390, 768, 1,024 and
+ * 1,440px, on the eight-department data and on the crowded set below: no two
+ * labels overlapped, none ran off the SVG, and the page never scrolled
+ * sideways.
  */
 
 const naira = (v: number) => `N${String(v)}`;
@@ -110,6 +116,22 @@ const clustered = (): BubblePoint[] => [
     ),
   point("Outlier", 2_400_000, 90, 5),
 ];
+
+/**
+ * Twelve departments in a tight lattice with a little jitter: neighbours, not a
+ * pile. The axes fit them, so on screen they sit a bubble or two apart, which
+ * is what "close together" means for a real company. Deterministic, so a
+ * failure is the same failure on every machine.
+ */
+const neighbours = (): BubblePoint[] =>
+  Array.from({ length: 12 }, (_, i) =>
+    point(
+      names[i]!,
+      1_000_000 + (i % 4) * 40_000 + ((i * 7) % 5) * 3_000,
+      70 + Math.floor(i / 4) * 2 + ((i * 3) % 4) * 0.3,
+      6 + ((i * 13) % 34),
+    ),
+  );
 
 describe("naming every bubble", () => {
   it("draws each name as text and gives each bubble its detail as its name", () => {
@@ -300,52 +322,68 @@ describe("label placement", () => {
     [390, 340],
     [320, 340],
   ];
+  const options = {
+    formatX: naira,
+    formatY: percent,
+    referenceX: 1_010_000,
+    referenceY: 72.5,
+  };
+
+  /** Everything a label must stay clear of, asserted on the pure layout. */
+  function assertClear(
+    layout: BubbleLayout,
+    gap: number,
+    { mayBeCrowded = false }: { mayBeCrowded?: boolean } = {},
+  ) {
+    const boxes = layout.bubbles.map((b) => b.label.box);
+    const { plot } = layout;
+    if (!mayBeCrowded) {
+      for (const b of layout.bubbles) expect(b.label.crowded).toBe(false);
+    }
+
+    for (let i = 0; i < boxes.length; i += 1) {
+      for (let j = i + 1; j < boxes.length; j += 1) {
+        expect(
+          touches(boxes[i]!, boxes[j]!, gap),
+          `${layout.bubbles[i]?.id ?? ""} and ${layout.bubbles[j]?.id ?? ""}`,
+        ).toBe(false);
+      }
+      /* Inside the plot, so clear of both axes and of the tick labels. */
+      const box = boxes[i]!;
+      expect(box.x).toBeGreaterThan(plot.x);
+      expect(box.y).toBeGreaterThan(plot.y);
+      expect(box.x + box.width).toBeLessThan(plot.x + plot.width);
+      expect(box.y + box.height).toBeLessThan(plot.y + plot.height);
+    }
+    /* And clear of the average labels. */
+    for (const reference of [layout.referenceX, layout.referenceY]) {
+      expect(reference).not.toBeNull();
+      for (const box of boxes) {
+        expect(touches(box, reference!.label.box, gap)).toBe(false);
+      }
+    }
+  }
 
   for (const [w, h] of widths) {
-    /* No two boxes ever intersect, at any width. The 4px of clear space
-       between them is held wherever the plot has room for it, which is every
-       width here but the narrowest: 12 names in a clump plus two average
-       labels in a 240px plot leave one pair closer than 4px, never touching. */
-    const gap = w >= 360 ? 4 : 0;
-
-    it(`never overlaps two labels, or a label and an axis, with 12 crowded points at ${String(w)}px`, () => {
-      const layout = layoutBubbles(clustered(), w, h, {
-        formatX: naira,
-        formatY: percent,
-        referenceX: 1_010_000,
-        referenceY: 72.5,
-      });
+    /* The hard guarantee, on the worst shape there is: eleven departments
+       drawn on top of each other in one corner, plus two average labels. No
+       two boxes ever intersect, at any width. */
+    it(`never overlaps two labels, or a label and an axis, with 12 piled-up points at ${String(w)}px`, () => {
+      const layout = layoutBubbles(clustered(), w, h, options);
       expect(layout.bubbles).toHaveLength(12);
+      /* A label may admit to being crowded here (a leader through a name), but
+         no two boxes intersect and every one stays inside the plot. */
+      assertClear(layout, 0, { mayBeCrowded: true });
+    });
 
-      const boxes = layout.bubbles.map((b) => b.label.box);
-      for (const b of layout.bubbles) expect(b.label.crowded).toBe(false);
-
-      for (let i = 0; i < boxes.length; i += 1) {
-        for (let j = i + 1; j < boxes.length; j += 1) {
-          expect(
-            touches(boxes[i]!, boxes[j]!, gap),
-            `${layout.bubbles[i]?.id ?? ""} and ${layout.bubbles[j]?.id ?? ""}`,
-          ).toBe(false);
-        }
-        /* Inside the plot, so clear of both axes and of the tick labels. */
-        const box = boxes[i]!;
-        expect(box.x).toBeGreaterThan(layout.plot.x);
-        expect(box.y).toBeGreaterThan(layout.plot.y);
-        expect(box.x + box.width).toBeLessThan(
-          layout.plot.x + layout.plot.width,
-        );
-        expect(box.y + box.height).toBeLessThan(
-          layout.plot.y + layout.plot.height,
-        );
-      }
-
-      /* And clear of the reference labels too. */
-      for (const reference of [layout.referenceX, layout.referenceY]) {
-        expect(reference).not.toBeNull();
-        for (const box of boxes) {
-          expect(touches(box, reference!.label.box, gap)).toBe(false);
-        }
-      }
+    /* The softer one, on a realistic set: 4px of clear space as well, down to
+       the width of a phone. */
+    it(`keeps 4px between labels with 12 close-together points at ${String(w)}px`, () => {
+      const layout = layoutBubbles(neighbours(), w, h, options);
+      expect(layout.bubbles).toHaveLength(12);
+      /* Down to a phone. At 320px the plot is 236px wide, which is where the
+         last few pixels of breathing room are given up before anything touches. */
+      assertClear(layout, w >= 390 ? 4 : 0);
     });
   }
 
@@ -375,6 +413,60 @@ describe("label placement", () => {
       /* A leader starts on the bubble's edge, not its centre, and ends clear of it. */
       expect(Math.hypot(l.x1 - b.cx, l.y1 - b.cy)).toBeGreaterThan(b.r);
       expect(Math.hypot(l.x2 - b.cx, l.y2 - b.cy)).toBeGreaterThan(b.r);
+    }
+  });
+
+  it("never draws a leader line through another name", () => {
+    /* Found in a browser at 390px: "Customer Support" was joined to its bubble
+       by a line that ran straight through "Sales, 14". */
+    for (const [w, h] of widths) {
+      for (const make of [neighbours, clustered]) {
+        const layout = layoutBubbles(make(), w, h, options);
+        for (const b of layout.bubbles) {
+          const line = b.label.leader;
+          if (line === null) continue;
+          for (const other of layout.bubbles) {
+            /* A label that says it is crowded has admitted a crossing. The
+               piled-up set has some at the narrowest widths and the neighbours set
+               has none, which assertClear checks separately. */
+            if (other === b || b.label.crowded || other.label.crowded) continue;
+            const box = other.label.box;
+            for (let t = 0; t <= 1; t += 0.01) {
+              const x = line.x1 + (line.x2 - line.x1) * t;
+              const y = line.y1 + (line.y2 - line.y1) * t;
+              const through =
+                x > box.x &&
+                x < box.x + box.width &&
+                y > box.y &&
+                y < box.y + box.height;
+              expect(
+                through,
+                `${b.id}'s leader through ${other.id} at ${String(w)}px`,
+              ).toBe(false);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it("keeps each average label off its own line", () => {
+    /* Found in a browser at 390px: the label was pushed back inside the plot
+       and ended up with the dashed line running through its words. */
+    for (const [w, h] of widths) {
+      const layout = layoutBubbles(neighbours(), w, h, options);
+      const x = layout.referenceX!;
+      expect(
+        x.label.box.x > x.position ||
+          x.label.box.x + x.label.box.width < x.position,
+        `vertical at ${String(w)}px`,
+      ).toBe(true);
+      const y = layout.referenceY!;
+      expect(
+        y.label.box.y > y.position ||
+          y.label.box.y + y.label.box.height < y.position,
+        `horizontal at ${String(w)}px`,
+      ).toBe(true);
     }
   });
 
@@ -651,6 +743,65 @@ describe("axes", () => {
     expect(xs.at(-1)).toBeGreaterThanOrEqual(1_410_000);
     expect(ys[0]).toBeLessThanOrEqual(61);
     expect(ys.at(-1)).toBeGreaterThanOrEqual(84);
+  });
+
+  it("keeps the axis tight on a phone instead of stretching it to make room for labels", () => {
+    /* The first version limited the NUMBER of ticks by label width. With two
+       allowed, 0.7 to 1.4 million became 0 to 2 million and every bubble was
+       pushed into the middle third of the plot. */
+    const data = [point("a", 684_000, 62, 9), point("b", 1_412_000, 81, 18)];
+    for (const w of [320, 390]) {
+      const xs = layoutBubbles(data, w, 340, {
+        formatX: (v) => `N${String(v)}`,
+      }).xTicks;
+      expect(xs.length).toBeGreaterThanOrEqual(3);
+      expect(xs[0]!.value).toBeGreaterThanOrEqual(400_000);
+      expect(xs.at(-1)!.value).toBeLessThanOrEqual(1_800_000);
+    }
+  });
+
+  it("names fewer ticks, never more crowded ones, when the words are long", () => {
+    const data = [point("a", 684_000, 62, 9), point("b", 1_412_000, 81, 18)];
+    for (const w of [320, 390, 720]) {
+      const xs = layoutBubbles(data, w, 340, {
+        formatX: (v) => `Cost per head N${String(v)}`,
+      }).xTicks;
+      /* Every tick keeps its gridline; only the words are thinned. */
+      expect(xs.length).toBeGreaterThanOrEqual(3);
+      expect(xs.some((t) => !t.shown)).toBe(true);
+      const named = xs.filter((t) => t.shown);
+      expect(named.length).toBeGreaterThanOrEqual(1);
+      for (let i = 1; i < named.length; i += 1) {
+        const a = named[i - 1]!;
+        const b = named[i]!;
+        expect(b.position - a.position).toBeGreaterThanOrEqual(
+          (textWidth(a.text) + textWidth(b.text)) / 2 + 12,
+        );
+      }
+    }
+  });
+
+  it("names every tick when there is room, and draws only the named ones", () => {
+    const data = [point("a", 684_000, 62, 9), point("b", 1_412_000, 81, 18)];
+    const wide = layoutBubbles(data, 1100, 520, {
+      formatX: (v) => `N${String(v)}`,
+    });
+    expect(wide.xTicks.every((t) => t.shown)).toBe(true);
+
+    const { container } = render(
+      chart({
+        points: data,
+        formatX: (v) => `N${String(v)}`,
+        formatY: (v) => `Y${String(v)}`,
+      }),
+    );
+    const drawn = [...container.querySelectorAll("svg text")]
+      .map((t) => t.textContent ?? "")
+      .filter((t) => /^N\d/.test(t));
+    const expected = layoutBubbles(data, 720, 432, {
+      formatX: (v) => `N${String(v)}`,
+    }).xTicks.filter((t) => t.shown);
+    expect(drawn).toHaveLength(expected.length);
   });
 
   it("does not repeat a label when two ticks round to the same words", () => {

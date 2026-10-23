@@ -23,18 +23,28 @@ import { cn } from "@/lib/cn";
  * than a table. So every bubble carries visible text, and `layoutBubbles`
  * decides where it goes, deterministically:
  *
- *   1. the four spots touching the bubble (right, left, above, below);
- *   2. the same spots pushed outwards in steps, at twelve more angles, with a
- *      thin leader line back to the bubble;
- *   3. the same again but allowed to sit over a neighbouring bubble (the fill
+ *   1. the four spots touching the bubble (right, left, above, below), then
+ *      the same spots pushed outwards in steps and at twenty more angles, with
+ *      a thin leader line back to the bubble. The first spot that touches no
+ *      other label, no average label, no bubble, no leader line and not the
+ *      plot edge wins;
+ *   2. the same again but allowed to sit over a neighbouring bubble (the fill
  *      is translucent and the text has a halo, so it still reads);
- *   4. if the plot is simply full, the spot with the least overlap, and the
- *      label says so (`crowded`) rather than pretending.
+ *   3. if the plot is simply full, the least bad spot.
  *
- * Tiers 1 and 2 never overlap another label, a reference-line label or the plot
- * edge, which is the property the tests assert. Tier 4 is the honest limit: a
- * plot only so big holds only so many names, and the answer there is a wider
- * container or fewer groups, not a smaller font.
+ * Labels are placed greedily, so the ORDER matters. Up to thirteen deterministic
+ * orders are tried (largest first, tightest first, top to bottom, most isolated
+ * first, reversed, and eight rotations of the size order), each once with
+ * leader lines treated as obstacles and, only if that leaves something unclean,
+ * once with them ignored. Above 24 bubbles only the first five orders run, once. Layouts are then ranked on where everything actually ended
+ * up: fewest labels printed on top of other text, then fewest leader lines
+ * through a name, then fewest merely closer than 4px. The first clean one wins.
+ *
+ * `crowded` on a label is the layout admitting that tier 3 was needed. The
+ * guarantee is no overlap and no leader through a name for any realistic set,
+ * down to a phone; the honest limit is a pile of ten or more bubbles drawn on
+ * top of each other, or twenty-plus names in a plot under 300px, where the
+ * answer is a wider container or fewer groups, not a smaller font.
  *
  * ## Real pixels, not a scaled picture
  *
@@ -117,7 +127,11 @@ export type PlacedText = {
 export type PlacedLabel = PlacedText & {
   /** A thin line back to the bubble, only when the label sits clear of it. */
   leader: Leader | null;
-  /** True only when no free spot existed and this label overlaps another. */
+  /**
+   * True only when no free spot existed, and this label overlaps another or
+   * has a leader line drawn through one (or the reverse). It is the layout
+   * admitting the plot is full rather than pretending it is not.
+   */
   crowded: boolean;
 };
 
@@ -132,7 +146,18 @@ export type PlacedBubble = {
   label: PlacedLabel;
 };
 
-export type Tick = { value: number; position: number; text: string };
+export type Tick = {
+  value: number;
+  position: number;
+  text: string;
+  /**
+   * Whether its words are written. Every tick gets a gridline; when the labels
+   * would run into each other on a narrow screen only every second or third is
+   * named. Fewer labels is honest, a domain stretched to make room for them is
+   * not.
+   */
+  shown: boolean;
+};
 
 export type BubbleLayout = {
   width: number;
@@ -160,19 +185,61 @@ export type LayoutOptions = {
 /**
  * Text width cannot be measured here: the server and jsdom have no layout, and
  * a measured width would make the first paint differ from the second. So it is
- * estimated, at the 14px floor. Geist averages about 7.7px a letter and 8.4px
- * a digit at that size, and 8.5px a character errs on the wide side, which only
- * ever means labels sit a little further apart than strictly necessary. The
- * estimate was checked against `getBBox` in a real browser (see the note in the
- * test file) rather than trusted.
+ * estimated, per kind of character, at the 14px floor.
+ *
+ * The figures were measured in Chromium with Geist at 14px and then rounded UP,
+ * because a box that is a little too wide only ever costs a little space, and
+ * one that is too narrow lets two names touch. Measured averages: lowercase
+ * 7.2px (m and w reach 12), capitals 9.1 (W and M reach 13), tabular digits
+ * 8.4, space about 4, comma and full stop 2.8, percent 11.2, naira 10.7. The
+ * lowercase figure is rounded up furthest, because a medium-weight axis title
+ * and a word with an m in it ("Company average") both came out 2 to 3px wider
+ * than 7.5 a letter allowed for.
+ *
+ * Checked the same way against every line of text on the chart: real width
+ * runs 0.84 to 1.00 of the estimate, so no box is narrower than its text.
+ *
+ * A flat per-character figure was tried first and is wrong in both directions:
+ * 8.5px a character is a quarter too wide for ordinary words and slightly too
+ * narrow for "60%" or an all-capitals name, which is the case that matters.
  */
-export const CHAR_PX = 8.5;
+const charPx = (ch: string): number => {
+  if (ch === " ") return 4;
+  if (ch >= "0" && ch <= "9") return 8.5;
+  if (ch >= "A" && ch <= "Z") return 10;
+  if (ch >= "a" && ch <= "z") return 7.8;
+  switch (ch) {
+    case ",":
+    case ".":
+    case "'":
+    case "!":
+      return 3;
+    case ":":
+    case ";":
+      return 4.5;
+    case "(":
+    case ")":
+      return 4;
+    case "%":
+      return 11.5;
+    case "\u20A6":
+      return 11;
+    default:
+      return 8.5;
+  }
+};
+
+export const textWidth = (text: string): number =>
+  Math.ceil([...text].reduce((sum, ch) => sum + charPx(ch), 0));
+
 /** One line of 14px text and its leading. */
 export const LINE_PX = 18;
 /** From the top of a text box to the first baseline. */
 const BASELINE_PX = 13.5;
 /** Clear space kept between two label boxes. */
 const GAP_PX = 4;
+/** Clear space kept between two tick labels on the same axis. */
+const LABEL_GAP_PX = 12;
 /** Smallest a bubble is ever drawn. See `radiusFor`. */
 const MIN_RADIUS = 4;
 
@@ -180,11 +247,13 @@ export const DEFAULT_WIDTH = 720;
 const MIN_WIDTH = 240;
 const MAX_WIDTH = 1600;
 
-const MARGIN_TOP = 10;
+/* The y axis title is a row above the plot, left-aligned, not rotated up the
+   side. Rotated text is harder to read for the people this is sold to, and the
+   column it took cost every chart 24px of width: on a phone that was a seventh
+   of the plot, which is what decided whether eight names fitted. */
+const MARGIN_TOP = 34;
 /* Tick labels (a row) and the x axis title (a row) both live below the plot. */
 const MARGIN_BOTTOM = 56;
-/* The rotated y axis title lives left of the tick labels. */
-const Y_TITLE_PX = 24;
 
 /** Height follows width, with a floor so a phone still gets a usable plot. */
 export const heightFor = (width: number): number =>
@@ -192,8 +261,6 @@ export const heightFor = (width: number): number =>
 
 const clamp = (value: number, low: number, high: number): number =>
   Math.min(Math.max(value, low), high);
-
-const textWidth = (text: string): number => Math.ceil(text.length * CHAR_PX);
 
 const finiteOrNull = (value: number | undefined): number | null =>
   value !== undefined && Number.isFinite(value) ? value : null;
@@ -218,22 +285,30 @@ export const accessibleNameFor = (point: BubblePoint): string =>
 
 const ELLIPSIS = "…";
 
-const truncate = (text: string, maxChars: number): string =>
-  text.length <= maxChars
-    ? text
-    : `${text.slice(0, Math.max(1, maxChars - 1)).trimEnd()}${ELLIPSIS}`;
+/** Shortened with an ellipsis until it is no wider than `maxPx`. */
+function truncate(text: string, maxPx: number): string {
+  if (textWidth(text) <= maxPx) return text;
+  let end = text.length;
+  while (
+    end > 1 &&
+    textWidth(`${text.slice(0, end).trimEnd()}${ELLIPSIS}`) > maxPx
+  ) {
+    end -= 1;
+  }
+  return `${text.slice(0, end).trimEnd()}${ELLIPSIS}`;
+}
 
 /**
- * Greedy word wrap into at most `maxLines`, each at most `maxChars`. A label
+ * Greedy word wrap into at most `maxLines`, each at most `maxPx` wide. A label
  * wraps before it is shortened, and is shortened only past that: a phone is
  * narrow and "Customer Success, 18" is a real name.
  */
-function wrapLines(text: string, maxChars: number, maxLines: number): string[] {
+function wrapLines(text: string, maxPx: number, maxLines: number): string[] {
   const lines: string[] = [];
   let current = "";
   for (const word of text.split(" ")) {
     const next = current === "" ? word : `${current} ${word}`;
-    if (current === "" || next.length <= maxChars) {
+    if (current === "" || textWidth(next) <= maxPx) {
       current = next;
     } else {
       lines.push(current);
@@ -245,7 +320,7 @@ function wrapLines(text: string, maxChars: number, maxLines: number): string[] {
     lines.length <= maxLines
       ? lines
       : [...lines.slice(0, maxLines - 1), lines.slice(maxLines - 1).join(" ")];
-  return kept.map((line) => truncate(line, maxChars));
+  return kept.map((line) => truncate(line, maxPx));
 }
 
 const measure = (lines: readonly string[]): { w: number; h: number } => ({
@@ -281,6 +356,40 @@ const hitsCircle = (box: Box, circle: Circle, margin: number): boolean => {
     (nx - circle.cx) ** 2 + (ny - circle.cy) ** 2 < (circle.r + margin) ** 2
   );
 };
+
+/**
+ * Whether a straight line crosses a box (grown by `pad`). Liang-Barsky: clip the
+ * segment against each of the four sides in turn and see whether anything is
+ * left. Leader lines are obstacles too: a line drawn through another name is
+ * worse than a name a little further away.
+ */
+function segmentHitsBox(line: Leader, box: Box, pad: number): boolean {
+  const dx = line.x2 - line.x1;
+  const dy = line.y2 - line.y1;
+  const sides: [number, number][] = [
+    [-dx, line.x1 - (box.x - pad)],
+    [dx, box.x + box.width + pad - line.x1],
+    [-dy, line.y1 - (box.y - pad)],
+    [dy, box.y + box.height + pad - line.y1],
+  ];
+  let enter = 0;
+  let leave = 1;
+  for (const [direction, distance] of sides) {
+    if (direction === 0) {
+      if (distance < 0) return false;
+      continue;
+    }
+    const at = distance / direction;
+    if (direction < 0) {
+      if (at > leave) return false;
+      enter = Math.max(enter, at);
+    } else {
+      if (at < enter) return false;
+      leave = Math.min(leave, at);
+    }
+  }
+  return true;
+}
 
 const inside = (box: Box, region: Box): boolean =>
   box.x >= region.x - 0.5 &&
@@ -343,19 +452,35 @@ function niceScale(min: number, max: number, maxTicks: number): Scale {
   };
 }
 
-/** Ticks with their text. A tick whose text repeats the one before is dropped: two "73%" in a row say nothing. */
+/**
+ * Ticks with their text. A tick whose text repeats the one before is dropped:
+ * two "73%" in a row say nothing. Then the labels are thinned to every
+ * `stride`th, the smallest stride at which neighbours stay `LABEL_GAP_PX`
+ * apart, measured along the axis by `along` (a label's width on x, its height
+ * on y).
+ */
 function labelled(
   ticks: readonly number[],
   position: (value: number) => number,
   format: (value: number) => string,
+  along: (text: string) => number,
 ): Tick[] {
-  const out: Tick[] = [];
+  const kept: Omit<Tick, "shown">[] = [];
   for (const value of ticks) {
     const text = format(value);
-    if (out[out.length - 1]?.text === text) continue;
-    out.push({ value, position: position(value), text });
+    if (kept[kept.length - 1]?.text === text) continue;
+    kept.push({ value, position: position(value), text });
   }
-  return out;
+  const spacing = Math.min(
+    ...kept
+      .slice(1)
+      .map((t, i) => Math.abs(t.position - (kept[i]?.position ?? 0))),
+  );
+  const widest = Math.max(0, ...kept.map((t) => along(t.text)));
+  const stride = Number.isFinite(spacing)
+    ? Math.max(1, Math.ceil((widest + LABEL_GAP_PX) / spacing))
+    : 1;
+  return kept.map((t, i) => ({ ...t, shown: i % stride === 0 }));
 }
 
 /* ---- Label placement -------------------------------------------------------- */
@@ -364,10 +489,11 @@ function labelled(
    four are right, left, above, below, in that order; then the four diagonals;
    then the eight in between. */
 const ANGLES = [
-  0, 180, 270, 90, 315, 45, 225, 135, 330, 30, 210, 150, 300, 60, 240, 120,
+  0, 180, 270, 90, 315, 45, 225, 135, 345, 15, 195, 165, 330, 30, 210, 150, 300,
+  60, 240, 120, 285, 75, 255, 105,
 ];
 /* How far past touching a label may be pushed, in px. 0 is adjacent. */
-const PUSH = [0, 10, 22, 36, 54, 76, 104, 140, 180];
+const PUSH = [0, 8, 16, 26, 38, 52, 68, 86, 106, 130, 160, 200];
 /* A leader line is drawn only when the label is at least this far clear. */
 const LEADER_MIN = 8;
 
@@ -433,29 +559,58 @@ function candidateAt(
   return { box, anchor, leader };
 }
 
+/**
+ * Where one label goes, given everything placed before it.
+ *
+ * Tiers, each tried across every distance before the next: a spot that touches
+ * nothing; the same but allowed over a neighbouring bubble; and if neither
+ * exists, the least bad spot, scored. With `avoidLeaders` a leader line may not
+ * cross a name either, in either direction; without it only the boxes matter.
+ * Both are run (see `layoutBubbles`) because avoiding crossings early can use
+ * up the room a later label needed, and a line past a word is a smaller
+ * blemish than two words printed on top of each other.
+ *
+ * What is returned is only the spot. Whether it turned out overlapping,
+ * crossing or tight is judged afterwards on the finished layout, where it is
+ * true, rather than guessed here before the later labels exist.
+ */
 function placeLabel(args: {
   index: number;
   circles: readonly Circle[];
   ringPx: number;
   size: { w: number; h: number };
   placed: readonly Box[];
+  /** Leader lines already drawn. */
+  leaders: readonly Leader[];
+  avoidLeaders: boolean;
   region: Box;
-}): { candidate: Candidate; crowded: boolean } {
-  const { index, circles, ringPx, size, placed, region } = args;
+}): Candidate {
+  const {
+    index,
+    circles,
+    ringPx,
+    size,
+    placed,
+    leaders,
+    avoidLeaders,
+    region,
+  } = args;
   const own = circles[index];
   if (own === undefined)
     throw new Error("placeLabel: no circle for this bubble");
 
-  const all: Candidate[] = [];
-  for (const push of PUSH) {
-    for (const angle of ANGLES) {
-      all.push(candidateAt(own, ringPx, size, angle, push, region));
-    }
-  }
+  const all = PUSH.flatMap((push) =>
+    ANGLES.map((angle) => candidateAt(own, ringPx, size, angle, push, region)),
+  );
 
-  const clearOfLabels = (box: Box) =>
-    inside(box, region) &&
-    !placed.some((other) => intersects(box, other, GAP_PX));
+  const crossesName = (c: Candidate) =>
+    leaders.some((line) => segmentHitsBox(line, c.box, 2)) ||
+    (c.leader !== null &&
+      placed.some((other) => segmentHitsBox(c.leader!, other, 2)));
+  const clearOfLabels = (c: Candidate) =>
+    inside(c.box, region) &&
+    !placed.some((other) => intersects(c.box, other, GAP_PX)) &&
+    (!avoidLeaders || !crossesName(c));
   const clearOfOwn = (box: Box) => !hitsCircle(box, own, 2);
   const clearOfOthers = (box: Box) =>
     !circles.some((circle, j) => j !== index && hitsCircle(box, circle, 2));
@@ -463,89 +618,135 @@ function placeLabel(args: {
   /* Strict first, across every distance: a label that touches nothing beats a
      label that is nearer but sits on a neighbour. Then allow the neighbour. */
   const strict = all.find(
-    (c) => clearOfLabels(c.box) && clearOfOwn(c.box) && clearOfOthers(c.box),
+    (c) => clearOfLabels(c) && clearOfOwn(c.box) && clearOfOthers(c.box),
   );
-  if (strict) return { candidate: strict, crowded: false };
-  const relaxed = all.find((c) => clearOfLabels(c.box) && clearOfOwn(c.box));
-  if (relaxed) return { candidate: relaxed, crowded: false };
+  if (strict) return strict;
+  const relaxed = all.find((c) => clearOfLabels(c) && clearOfOwn(c.box));
+  if (relaxed) return relaxed;
 
-  /* Nothing is free. Take the least bad and say so. */
+  /* Nothing keeps its distance. Take the least bad: text on text counts most,
+     then a leader through a name, then merely being closer than GAP_PX, so a
+     spot 3px clear never scores as well as one with 40px to spare. */
   let best = all[0];
   let bestScore = Number.POSITIVE_INFINITY;
-  let bestOverlap = 0;
   for (const c of all) {
-    const labelOverlap = placed.reduce(
+    const grown: Box = {
+      x: c.box.x - GAP_PX,
+      y: c.box.y - GAP_PX,
+      width: c.box.width + 2 * GAP_PX,
+      height: c.box.height + 2 * GAP_PX,
+    };
+    const hard = placed.reduce(
       (sum, other) => sum + overlapArea(c.box, other),
       0,
     );
-    const outside = inside(c.box, region) ? 0 : 1;
+    const soft = placed.reduce(
+      (sum, other) => sum + overlapArea(grown, other),
+      0,
+    );
     const score =
-      labelOverlap +
+      hard * 10 +
+      soft +
+      (crossesName(c) ? 150 : 0) +
       (clearOfOwn(c.box) ? 0 : 5000) +
       (clearOfOthers(c.box) ? 0 : 300) +
-      outside * 2000;
+      (inside(c.box, region) ? 0 : 2000);
     if (score < bestScore) {
       best = c;
       bestScore = score;
-      bestOverlap = labelOverlap;
     }
   }
   if (best === undefined) throw new Error("placeLabel: no candidates");
-  return { candidate: best, crowded: bestOverlap > 0 };
+  return best;
 }
 
-/** A fixed label (the reference lines'): first spot that is free, else first that is at least in bounds. */
+type Spot = { x: number; y: number; anchor: PlacedText["anchor"] };
+
+/**
+ * A fixed label (a reference line's). It is tried in each of the ways its words
+ * can be broken into lines (one line, then stacked) at each spot, and the first
+ * that touches no label, does not straddle its own line and sits on no bubble
+ * wins. If every spot touches a bubble, the one touching the fewest does: an
+ * average line runs through the middle of the data by definition, so a plot
+ * can leave it nowhere clear.
+ */
 function placeFixed(args: {
-  lines: string[];
-  spots: readonly { x: number; y: number; anchor: PlacedText["anchor"] }[];
+  variants: readonly string[][];
+  spots: (size: { w: number; h: number }) => readonly Spot[];
+  /** The line this label belongs to, as a thin box. */
+  line: Box;
   region: Box;
   reserved: readonly Box[];
   circles: readonly Circle[];
 }): PlacedText {
-  const { lines, spots, region, reserved, circles } = args;
-  const size = measure(lines);
-  const make = (spot: (typeof spots)[number]): PlacedText => {
-    const x =
-      spot.anchor === "start"
-        ? spot.x
-        : spot.anchor === "end"
-          ? spot.x - size.w
-          : spot.x - size.w / 2;
-    const box: Box = {
-      x: clamp(
-        x,
-        region.x,
-        Math.max(region.x, region.x + region.width - size.w),
-      ),
-      y: clamp(
-        spot.y,
-        region.y,
-        Math.max(region.y, region.y + region.height - size.h),
-      ),
-      width: size.w,
-      height: size.h,
-    };
-    return {
-      lines,
-      anchor: spot.anchor,
-      x: anchorX(box, spot.anchor),
-      y: box.y + BASELINE_PX,
-      box,
-    };
-  };
-  const options = spots.map(make);
-  const free = options.find(
+  const { variants, spots, line, region, reserved, circles } = args;
+  const options: PlacedText[] = [];
+  for (const lines of variants) {
+    const size = measure(lines);
+    for (const spot of spots(size)) {
+      const x =
+        spot.anchor === "start"
+          ? spot.x
+          : spot.anchor === "end"
+            ? spot.x - size.w
+            : spot.x - size.w / 2;
+      const box: Box = {
+        x: clamp(
+          x,
+          region.x,
+          Math.max(region.x, region.x + region.width - size.w),
+        ),
+        y: clamp(
+          spot.y,
+          region.y,
+          Math.max(region.y, region.y + region.height - size.h),
+        ),
+        width: size.w,
+        height: size.h,
+      };
+      options.push({
+        lines,
+        anchor: spot.anchor,
+        x: anchorX(box, spot.anchor),
+        y: box.y + BASELINE_PX,
+        box,
+      });
+    }
+  }
+
+  const clear = options.filter(
     (o) =>
-      !reserved.some((box) => intersects(o.box, box, GAP_PX)) &&
-      !circles.some((circle) => hitsCircle(o.box, circle, 2)),
+      !intersects(o.box, line, 1) &&
+      !reserved.some((box) => intersects(o.box, box, GAP_PX)),
   );
-  const clear = options.find(
-    (o) => !reserved.some((box) => intersects(o.box, box, GAP_PX)),
-  );
+  let best: PlacedText | undefined;
+  let fewest = Number.POSITIVE_INFINITY;
+  for (const option of clear) {
+    const hits = circles.filter((c) => hitsCircle(option.box, c, 2)).length;
+    if (hits < fewest) {
+      best = option;
+      fewest = hits;
+      if (hits === 0) break;
+    }
+  }
   const first = options[0];
   if (first === undefined) throw new Error("placeFixed: no spots");
-  return free ?? clear ?? first;
+  return (
+    best ??
+    options.find(
+      (o) => !reserved.some((box) => intersects(o.box, box, GAP_PX)),
+    ) ??
+    first
+  );
 }
+
+/** "Company average 71.2%" on one line if it fits, and the same words stacked as a second choice. */
+const averageLabel = (value: string, maxPx: number): string[][] => {
+  const joined = wrapLines(`Company average ${value}`, maxPx, 2);
+  return joined.length === 1
+    ? [joined, ["Company average", truncate(value, maxPx)]]
+    : [joined];
+};
 
 /**
  * Everything the chart draws, as numbers. Pure: the same input gives the same
@@ -611,7 +812,7 @@ export function layoutBubbles(
   );
   const yTexts = yScale.ticks.map(formatY);
   const yLabelPx = Math.max(0, ...yTexts.map(textWidth));
-  const left = Y_TITLE_PX + yLabelPx + 10;
+  const left = yLabelPx + 12;
 
   /* The x labels are centred on their ticks, so the last one hangs over the
      plot's right edge by half its width less the padding inside the plot. The
@@ -629,10 +830,15 @@ export function layoutBubbles(
     width: Math.max(120, width - left - right),
     height: plotHeight,
   };
+  /* Gridlines are chosen for the plot's width alone. How many of them get a
+     label is decided afterwards, in `labelled`. The other way round (fewer
+     ticks because the labels are wide) stretches the axis: with two ticks
+     allowed, 0.7 to 1.4 million became 0 to 2 million and every bubble was
+     pushed into the middle third. */
   const xScale = niceScale(
     xMin,
     xMax,
-    clamp(Math.floor(plot.width / (xLabelPx + 18)), 2, 7),
+    clamp(Math.floor(plot.width / 55), 3, 8),
   );
 
   /* Area is proportional to size, so radius goes as its square root. The
@@ -642,7 +848,7 @@ export function layoutBubbles(
      about 100 times the smallest: a one-person department must still be
      visible, and the floor only ever bites there. */
   const sizeMax = Math.max(...plotted.map(({ point }) => point.size));
-  const rMax = clamp(Math.min(plot.width, plot.height) * 0.1, 12, 40);
+  const rMax = clamp(Math.min(plot.width, plot.height) * 0.085, 12, 40);
   const radiusFor = (size: number) =>
     Math.max(MIN_RADIUS, rMax * Math.sqrt(size / sizeMax));
 
@@ -675,23 +881,23 @@ export function layoutBubbles(
 
   /* The reference labels are placed before any bubble's, so they are the
      fixed furniture the bubble labels route around. */
-  const maxRefChars = Math.max(
-    16,
-    Math.floor(Math.min(plot.width * 0.5, 260) / CHAR_PX),
-  );
+  const maxRefPx = Math.max(100, Math.min(plot.width * 0.8, 260));
   const reserved: Box[] = [];
   let referenceX: BubbleLayout["referenceX"] = null;
   let referenceY: BubbleLayout["referenceY"] = null;
   if (refX !== null) {
     const position = xPos(refX);
     const label = placeFixed({
-      lines: wrapLines(`Company average ${formatX(refX)}`, maxRefChars, 3),
-      spots: [
-        { x: position + 6, y: plot.y + 4, anchor: "start" },
-        { x: position - 6, y: plot.y + 4, anchor: "end" },
-        { x: position + 6, y: plot.y + plot.height, anchor: "start" },
-        { x: position - 6, y: plot.y + plot.height, anchor: "end" },
-      ],
+      variants: averageLabel(formatX(refX), maxRefPx),
+      /* Top, then bottom; the right of the line before the left. Only the
+         ends: a label is context, and one placed part-way down the plot to
+         dodge a bubble takes room the bubbles' own names needed. */
+      spots: (size) =>
+        [plot.y + 4, plot.y + plot.height - size.h - 4].flatMap<Spot>((y) => [
+          { x: position + 6, y, anchor: "start" },
+          { x: position - 6, y, anchor: "end" },
+        ]),
+      line: { x: position - 0.5, y: plot.y, width: 1, height: plot.height },
       region,
       reserved,
       circles,
@@ -701,16 +907,22 @@ export function layoutBubbles(
   }
   if (refY !== null) {
     const position = yPos(refY);
-    const lines = wrapLines(`Company average ${formatY(refY)}`, maxRefChars, 3);
-    const h = measure(lines).h;
     const label = placeFixed({
-      lines,
-      spots: [
-        { x: plot.x + plot.width - 6, y: position - 3 - h, anchor: "end" },
-        { x: plot.x + 6, y: position - 3 - h, anchor: "start" },
-        { x: plot.x + plot.width - 6, y: position + 3, anchor: "end" },
-        { x: plot.x + 6, y: position + 3, anchor: "start" },
-      ],
+      variants: averageLabel(formatY(refY), maxRefPx),
+      /* The ends of the line, above then below it, the right before the left. */
+      spots: (size) => {
+        const above = position - 3 - size.h;
+        const below = position + 3;
+        const right = plot.x + plot.width - 6;
+        const left = plot.x + 6;
+        return [
+          { x: right, y: above, anchor: "end" },
+          { x: left, y: above, anchor: "start" },
+          { x: right, y: below, anchor: "end" },
+          { x: left, y: below, anchor: "start" },
+        ];
+      },
+      line: { x: plot.x, y: position - 0.5, width: plot.width, height: 1 },
       region,
       reserved,
       circles,
@@ -725,32 +937,60 @@ export function layoutBubbles(
      that leaves any label with nowhere free, three more fixed orders are tried
      and the one with the fewest crowded labels wins. All four are
      deterministic, so the answer is still the same every time it is asked. */
-  const maxLabelChars = Math.max(
-    10,
-    Math.floor(Math.min(plot.width * 0.65, 260) / CHAR_PX),
-  );
+  const maxLabelPx = Math.max(90, Math.min(plot.width * 0.65, 260));
   const wrapped = ordered.map(({ point }) =>
-    wrapLines(labelTextFor(point), maxLabelChars, 2),
+    wrapLines(labelTextFor(point), maxLabelPx, 2),
   );
 
-  const labelAll = (order: readonly number[]) => {
+  /**
+   * How a finished layout actually turned out, judged on where everything
+   * ended up. A label is `overlapping` if its words sit on another's, `crowded`
+   * if that or a leader line runs through a name (either way round), and
+   * `tight` if it is merely closer to another than GAP_PX.
+   */
+  const judge = (spots: readonly Candidate[]) => {
+    const verdicts = spots.map((spot, i) => {
+      const others = spots.filter((_, j) => j !== i);
+      const boxes = [...reserved, ...others.map((o) => o.box)];
+      const overlapping = boxes.some((box) => intersects(spot.box, box, 0));
+      const tight = boxes.some((box) => intersects(spot.box, box, GAP_PX));
+      const crossing =
+        (spot.leader !== null &&
+          boxes.some((box) => segmentHitsBox(spot.leader!, box, 2))) ||
+        others.some(
+          (o) => o.leader !== null && segmentHitsBox(o.leader, spot.box, 2),
+        );
+      return { overlapping, crowded: overlapping || crossing, tight };
+    });
+    return {
+      spots,
+      crowded: verdicts.map((v) => v.crowded),
+      overlapCount: verdicts.filter((v) => v.overlapping).length,
+      crowdedCount: verdicts.filter((v) => v.crowded).length,
+      tightCount: verdicts.filter((v) => v.tight).length,
+    };
+  };
+
+  const labelAll = (order: readonly number[], avoidLeaders: boolean) => {
     const placed: Box[] = [...reserved];
-    const result: ReturnType<typeof placeLabel>[] = [];
-    let crowdedCount = 0;
+    const leaders: Leader[] = [];
+    const spots: Candidate[] = [];
     for (const i of order) {
-      const placement = placeLabel({
+      const spot = placeLabel({
         index: i,
         circles,
         ringPx: ordered[i]?.point.flagged ? 8 : 5,
         size: measure(wrapped[i] ?? []),
         placed,
+        leaders,
+        avoidLeaders,
         region,
       });
-      placed.push(placement.candidate.box);
-      result[i] = placement;
-      if (placement.crowded) crowdedCount += 1;
+      placed.push(spot.box);
+      if (spot.leader) leaders.push(spot.leader);
+      spots[i] = spot;
     }
-    return { result, crowdedCount };
+    return judge(spots);
   };
 
   const identity = circles.map((_, i) => i);
@@ -775,22 +1015,66 @@ export function layoutBubbles(
         (circles[a]?.cy ?? 0) - (circles[b]?.cy ?? 0) ||
         (circles[a]?.cx ?? 0) - (circles[b]?.cx ?? 0),
     ),
+    /* The most isolated first: a bubble with room around it is the cheapest to
+       place, and doing it before the crowd has spread into its corner keeps
+       that room for it. */
+    [...identity].sort(
+      (a, b) => (nearest[b] ?? 0) - (nearest[a] ?? 0) || a - b,
+    ),
     [...identity].reverse(),
+    /* Then the size order started part-way through, a handful of times. Cheap,
+       deterministic, and the search stops at the first order that is clean, so
+       a plot that was never crowded never gets here. Skipped above 24 bubbles:
+       there a plot that cannot hold its names would spend a quarter of a second
+       discovering it, on every resize. */
+    ...Array.from(
+      {
+        length:
+          identity.length > 24
+            ? 0
+            : Math.min(8, Math.max(0, identity.length - 1)),
+      },
+      (_, k) => {
+        const turn = Math.max(1, Math.floor(identity.length / 8)) * (k + 1);
+        return [...identity.slice(turn), ...identity.slice(0, turn)];
+      },
+    ),
   ];
-  let chosen = labelAll(orders[0] ?? identity);
-  for (const order of orders.slice(1)) {
-    if (chosen.crowdedCount === 0) break;
-    const attempt = labelAll(order);
-    if (attempt.crowdedCount < chosen.crowdedCount) chosen = attempt;
+  /* Which attempt wins: fewest labels printed on top of other text first (the
+     worst, unreadable), then fewest leader lines through a name, then fewest
+     that are merely closer than the gap. Every order is tried with leaders
+     avoided; only if that leaves something unclean is every order tried again
+     with leaders ignored. The first attempt clean on all three ends the
+     search. Above 24 bubbles only the first pass runs: a plot that cannot hold
+     its names would otherwise spend a quarter of a second discovering it, on
+     every resize. */
+  type Attempt = ReturnType<typeof labelAll>;
+  const worse = (a: Attempt, b: Attempt) =>
+    a.overlapCount !== b.overlapCount
+      ? a.overlapCount > b.overlapCount
+      : a.crowdedCount !== b.crowdedCount
+        ? a.crowdedCount > b.crowdedCount
+        : a.tightCount > b.tightCount;
+  const clean = (a: Attempt) => a.crowdedCount === 0 && a.tightCount === 0;
+  let chosen: Attempt | null = null;
+  search: for (const avoidLeaders of identity.length > 24
+    ? [true]
+    : [true, false]) {
+    for (const order of orders) {
+      const attempt = labelAll(order, avoidLeaders);
+      if (chosen === null || worse(chosen, attempt)) chosen = attempt;
+      if (clean(chosen)) break search;
+    }
   }
+  if (chosen === null) throw new Error("layoutBubbles: nothing was placed");
+  const final = chosen;
 
   const bubbles: PlacedBubble[] = ordered.map(({ point, index }, i) => {
     const circle = circles[i];
-    const placement = chosen.result[i];
-    if (circle === undefined || placement === undefined) {
+    const candidate = final.spots[i];
+    if (circle === undefined || candidate === undefined) {
       throw new Error("layoutBubbles: a bubble was not placed");
     }
-    const { candidate, crowded } = placement;
     return {
       id: point.id,
       index,
@@ -805,7 +1089,7 @@ export function layoutBubbles(
         y: candidate.box.y + BASELINE_PX,
         box: candidate.box,
         leader: candidate.leader,
-        crowded,
+        crowded: final.crowded[i] ?? false,
       },
     };
   });
@@ -815,8 +1099,8 @@ export function layoutBubbles(
     height,
     plot,
     bubbles,
-    xTicks: labelled(xScale.ticks, xPos, formatX),
-    yTicks: labelled(yScale.ticks, yPos, formatY),
+    xTicks: labelled(xScale.ticks, xPos, formatX, textWidth),
+    yTicks: labelled(yScale.ticks, yPos, formatY, () => LINE_PX),
     referenceX,
     referenceY,
     skipped,
@@ -900,8 +1184,8 @@ export function BubbleChart({
     );
   }
 
-  const xTitle = truncate(xLabel, Math.floor((width - 16) / CHAR_PX));
-  const yTitle = truncate(yLabel, Math.floor(plot.height / CHAR_PX));
+  const xTitle = truncate(xLabel, width - 16);
+  const yTitle = truncate(yLabel, width - 8);
   const xTitleCentre = clamp(
     plot.x + plot.width / 2,
     textWidth(xTitle) / 2 + 8,
@@ -968,30 +1252,34 @@ export function BubbleChart({
             strokeWidth={1}
           />
 
-          {layout.yTicks.map((tick) => (
-            <text
-              key={`ty-${String(tick.value)}`}
-              x={plot.x - 8}
-              y={tick.position + 5}
-              textAnchor="end"
-              className="tabular text-meta"
-              fill="var(--color-muted)"
-            >
-              {tick.text}
-            </text>
-          ))}
-          {layout.xTicks.map((tick) => (
-            <text
-              key={`tx-${String(tick.value)}`}
-              x={tick.position}
-              y={tickRowY}
-              textAnchor="middle"
-              className="tabular text-meta"
-              fill="var(--color-muted)"
-            >
-              {tick.text}
-            </text>
-          ))}
+          {layout.yTicks
+            .filter((tick) => tick.shown)
+            .map((tick) => (
+              <text
+                key={`ty-${String(tick.value)}`}
+                x={plot.x - 8}
+                y={tick.position + 5}
+                textAnchor="end"
+                className="tabular text-meta"
+                fill="var(--color-muted)"
+              >
+                {tick.text}
+              </text>
+            ))}
+          {layout.xTicks
+            .filter((tick) => tick.shown)
+            .map((tick) => (
+              <text
+                key={`tx-${String(tick.value)}`}
+                x={tick.position}
+                y={tickRowY}
+                textAnchor="middle"
+                className="tabular text-meta"
+                fill="var(--color-muted)"
+              >
+                {tick.text}
+              </text>
+            ))}
 
           <text
             x={xTitleCentre}
@@ -1003,8 +1291,9 @@ export function BubbleChart({
             {xTitle}
           </text>
           <text
-            transform={`translate(17 ${String(plot.y + plot.height / 2)}) rotate(-90)`}
-            textAnchor="middle"
+            x={4}
+            y={20}
+            textAnchor="start"
             className="text-meta font-medium"
             fill="var(--color-body)"
           >
