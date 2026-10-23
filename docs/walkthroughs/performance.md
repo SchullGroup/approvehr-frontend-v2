@@ -99,6 +99,9 @@ opens is empty, and says so in a sentence.
 | **Objectives to agree** | `/performance/approvals`    | The queue. Somebody sent you a target; you agree it, send it back, or refuse it.                                                | Everyone — but the queue is narrowed to what you may answer, so most people find it empty and are told why |
 | **Who appraises whom**  | `/performance/appraisers`   | Only appears if the company has switched multiple appraisers on. Maps who marks whom, and for what share of the mark.           | HR / Owner                                                                                                 |
 
+A further item, **My work record** (`/performance/work-record`), sits beside these for a company that has
+Projects switched on, and for nobody else. It is open to everyone and shows only their own (step 33).
+
 More screens exist but have no sidebar item, because you reach them from something specific:
 
 | Route                                | What it is                                                                          |
@@ -384,9 +387,22 @@ person's objectives under those. You can start anywhere.
 | **Click**      | **New objective**, which opens it, with **Add a KPI under this** waiting in it                             |
 | **You'll see** | Four fields: **Objective title**, **Assigned to**, **Due quarter**, **Appraisal period** |
 
-> 🛑 **The field everybody misses.** **Appraisal period** is what files the objective against a period.
-> Leave it as _Not part of an appraisal period_ and the objective is a perfectly good tracker that
-> **counts towards nobody's mark**. It will not warn you.
+> 🛑 **A personal KPI has to be filed in an appraisal period.** **Appraisal period** is what files the
+> KPI against a period, and a KPI filed in none **counts towards nobody's mark**, even once it is
+> agreed. So whenever the company has an open period, the field is required on a KPI that is somebody's
+> own: it has no _Not part of an appraisal period_ choice, it starts on the period when there is only
+> one open, and **Create KPI** refuses with "Choose the appraisal period this is scored in. A KPI with
+> none counts towards nobody's mark, even once it is agreed." A published period is never offered.
+>
+> Two cases stay optional. A **company-wide or department objective** is a standing target and may
+> belong to no cycle, so it keeps _Not part of an appraisal period_. And a company with **no open
+> period yet** is not stopped from writing its KPIs down: a note reads "No appraisal period is open, so
+> this KPI will count towards nobody's mark. Start a period first, then edit the KPI to file it in
+> that period."
+>
+> The server still accepts an objective with no period. This is the form's rule, and it is why
+> **Upload objectives** and **Add several objectives** (step 12) warn about an unfiled row and do
+> not refuse it.
 
 > ⚠️ **Who you can pick under "Assigned to."** Yourself, plus each department you head.
 > The whole company, and every department, only if you hold the records permission. To put a KPI on
@@ -400,7 +416,7 @@ person's objectives under those. You can start anywhere.
 |---|---|
 | **Who** | Whoever can write the objective: its owner, their line manager, a department head, HR / Owner |
 | **Click** | Open the objective, then **Edit** or **Delete** (at the end of the buttons) |
-| **You'll see** | **Edit** opens **Objective title** (**KPI title** on a personal one), **Due quarter**, **Appraisal period** and **Description**; **Save changes** stays off until something differs. **Delete** asks "Delete this KPI?" ("Delete this objective?" on a company or department one) and says it also removes the measures |
+| **You'll see** | **Edit** opens **Objective title** (**KPI title** on a personal one), **Due quarter**, **Appraisal period** and **Description**; **Save changes** stays off until something differs. On a personal KPI the **Appraisal period** is required, as in step 9, so editing an old one that was never filed asks for it; that is the way out of the "no appraisal period" warnings an upload gives. **Delete** asks "Delete this KPI?" ("Delete this objective?" on a company or department one) and says it also removes the measures |
 
 > ⚠️ **Neither is offered once it is agreed.** An agreed target is the record of what two people
 > agreed, so **Edit** is replaced by **Reopen the target**, and **Delete** by **Stop this KPI**. The
@@ -917,7 +933,7 @@ else's review moves.
 | **Where**      | `/performance/history/{employeeId}`                                                        |
 | **Who**        | HR / Owner · their manager · themselves                                                    |
 | **Click**      | Reached from a person's record and from the appraisal screen                               |
-| **You'll see** | Every mark in order, with the change against the previous one, and what was said each time |
+| **You'll see** | Two tabs. **Appraisal history** is every mark in order, with the change against the previous one, and what was said each time. **Work record** is what they finished on the project boards (below) |
 
 > 💡 **Two details worth demonstrating.** A period where nothing was recorded is **skipped, not
 > plotted as zero** — the change is measured against the last period that actually has a mark, and the
@@ -926,6 +942,28 @@ else's review moves.
 >
 > The person themselves sees only finalised marks, and is told how many are withheld. A working
 > figure moves every time somebody records a rating, so they see it when it is final and not before.
+
+**The Work record tab, and My work record.** The same panel is on the **Work record** tab of this page
+and, for yourself, as **My work record** in the sidebar (`/performance/work-record`). It shows what a
+person finished on the project boards, for a **Period** of **Day**, **Week**, **Month** or **Quarter**,
+stepped with **Previous period** and **Next period**, and opens on the current week. Four tiles:
+
+| Tile                          | What it says                                                                                                                                  |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tasks finished**            | How many tasks were finished in the period                                                                                                    |
+| **Done by due date**          | "7 of 9": how many of the tasks that had a due date were finished by it. It shows a dash, with "None of these had a due date", when none did |
+| **Completion rate**           | The percentage, as the appraisal works it out from graded weekly tasks. A dash when the server has no rate to give                                       |
+| **Count toward an objective** | "6 of 9": how many are linked to an objective                                                                                                 |
+
+Under them, **By objective** lists each objective (and the KPI inside it) with how many were finished and
+the completion rate, with a line for "Not linked to an objective". Then one card per day, in the
+order the server sends them, each task with its key (which opens it on its project), its title, its project, its labels, its grade
+(**Completed**, **Partly completed**, **Not completed**, **Rejected**, or **Waiting for a grade** where a weekly
+task of theirs is attached and not yet graded) and any links to other tasks, such as "Blocks PRJ-12", or
+"Blocks a task you can't open". A period with nothing in it reads "Nothing finished on the board in this
+week." The figures are the server's own; the screen works nothing out. Where somebody may not open
+another person's record it says "You can't open this person's work record." It needs the server, so
+there is nothing to see in the demo.
 
 #### 34. Start the next one
 

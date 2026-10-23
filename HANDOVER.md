@@ -9225,6 +9225,81 @@ message, and a hard cap would silently truncate pasted text.
 
 ---
 
+# A role editor that seeded once, a sidebar that folds, and a KPI that needs a period
+
+Three small changes from the walk of the `dev` into `test` promotion (#440), recorded together because
+two of them were found by reading what the promotion carried and the third by looking at one screenshot.
+
+## The role editor opened every role blank
+
+`/settings/roles` keeps the editor drawer mounted all the time, because the drawer has to see `open` go
+false to run its exit animation. So its first render has no role, and the form took its starting values
+from that render with `useState(role?.name ?? "")` and never again. Every role opened with a blank
+**Name** and nothing ticked. A custom role could not be saved until its name was retyped, and ticking one
+box on a built-in role and saving would have replaced all of its permissions with that one box.
+
+`RoleEditor` is now a thin wrapper that decides when a new session starts (the drawer opens, or a
+different role is chosen) and renders `RoleEditorForm key={session}`, so the form is created afresh and
+seeds itself from the role it is given. A list refresh that hands over the same role as a new object does
+**not** start a session, so what somebody is typing survives it.
+
+The rule, for any form inside a drawer or dialog that stays mounted: **re-create it per open with a key;
+do not copy props into state once and hope.** An effect that re-seeds on every change of the prop would
+also fix the blank form, and would throw away what somebody typed when the roles list reloads on window
+focus. `tests/role-editor-seeds-on-open.test.tsx` has both halves; against the old file six of its seven
+tests fail.
+
+## The sidebar's back button, and sections that fold
+
+The back button inside a drilled level shows the section's name ("Core HR") and was announced as "Back to
+main menu", so saying its visible label did not reach it (WCAG 2.5.3, label in name). Its accessible name
+is now `<label>, back to main menu`: it starts with what is shown.
+
+A level of eight or more items is filed under small headings, and each heading is now a button that folds
+its section. These are the sections *inside* a level; the rows on the top level already open a level, so
+there was nothing there to fold.
+
+- **What is stored is what is folded, not what is open** (`lib/store/sidebar-sections.ts`, key
+  `approvehr.sidebar.sections`, one browser). Everything starts open, as the sidebar always was, so a
+  section that ships tomorrow is open for people who have folded every other one.
+- **The key is the level and the heading**, written in one place (`sectionKey`), so a second level that
+  one day has a heading called "People" folds on its own.
+- **The heading is still an `h3`**, with the button inside it: the outline a screen reader walks is
+  unchanged. The button reports `aria-expanded` and names the panel it controls.
+- **A fold hides no door.** A folded heading carries a dot when anything inside it has a count waiting
+  ("Lifecycle, needs attention") and a mark when the page you are on is inside it ("People, the page you
+  are on is in here"), and **Find a page** still finds a page inside a folded section.
+
+`tests/sidebar-sections-fold.test.tsx` (11) covers it. The store outlives a render and keeps its state in
+module memory, which clearing `localStorage` does not clear, so a test that folds a section has to open
+it again before it ends.
+
+## A personal KPI has to be filed in an appraisal period
+
+An objective counts towards somebody's appraisal mark only if it is filed in an appraisal period, and the
+New KPI form let you create one with none and said nothing. When there is an open period to choose, the
+**Appraisal period** field is now required on a KPI that is somebody's own: no "Not part of an appraisal
+period" choice, and the only open period is chosen already. **Edit** asks for it too, which is the way out
+for an old KPI that was never filed.
+
+Three things it deliberately does not do:
+
+- **It is the form's rule, not the server's.** The API still accepts an objective with no period. The
+  importer and the Add multiple window warn about an unfiled row and never refuse it, on purpose, so a
+  server-side refusal would be a separate decision with those two in it.
+- **A company-wide or department objective stays optional**: it is a standing target that may belong to
+  no cycle.
+- **A company with no open period yet is not stopped.** It gets a note saying the KPI will count towards
+  nobody's mark, in words, instead of a form that cannot be saved.
+
+While the periods are still loading the **Create** button waits, because a KPI saved in that moment would
+have been filed in none. `tests/kpi-requires-period.test.tsx` (11) covers it: 7 of the 11 fail against the
+previous `goal-dialogs.tsx`, and the other 4 are the controls that must hold either way.
+
+**Not exercised in a browser:** any of the three. They are covered by component tests and `npm run check`.
+
+---
+
 # A measure has a kind, and a measure nobody has read is not at 0%
 
 Step 1 of the measures report (a Claude Docs document; its nine decisions were settled with the owner

@@ -2,14 +2,14 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `dab4ca1f` (2026-10-21) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `ba343ca4` (2026-10-23) · regenerate with `npm run docs`, never by hand
 
-**153 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
+**154 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
 
 | Group         | Pages | What it is                                                                                                                                                                                                           |
 | ------------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `(app)`       |   133 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
+| `(app)`       |   134 | **The signed-in product.** Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sidebar; every item is filtered by permission and by feature switch.                                            |
 | `(marketing)` |    11 | **The public site.** Served from the same Next app, own chrome and footer. No authentication. Most of it is retired: `src/proxy.ts` sends those routes to the standalone landing site, and the rows below say which. |
 | `(auth)`      |     5 | **Sign-in and account recovery.** Reachable signed-out. The gate renders in place rather than redirecting, so a deep link survives sign-in.                                                                          |
 | `(setup)`     |     1 | **First-run wizard.** Seven questions that decide which modules a new company sees.                                                                                                                                  |
@@ -191,7 +191,7 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 ### Performance
 
-`/performance` — 17 pages
+`/performance` — 18 pages
 
 | Route                                | Title               | What it is                                                                                                                                                                                                       | File                                                       |
 | ------------------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
@@ -212,6 +212,7 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 | `/performance/review-tasks`          | Weekly tasks        | Log what you did toward your objectives, and grade what your team did.                                                                                                                                           | `src/app/(app)/performance/review-tasks/page.tsx`          |
 | `/performance/reviews/[id]`          | Appraisal           | One appraisal: the mark, what it is made of, who gave it, and the employee's reply.                                                                                                                              | `src/app/(app)/performance/reviews/[id]/page.tsx`          |
 | `/performance/skills`                | Competency ratings  | Where people stand against the levels the company set.                                                                                                                                                           | `src/app/(app)/performance/skills/page.tsx`                |
+| `/performance/work-record`           | My work record      | What you finished on the project boards, a day, week, month or quarter at a time.                                                                                                                                | `src/app/(app)/performance/work-record/page.tsx`           |
 
 ### Profile
 
