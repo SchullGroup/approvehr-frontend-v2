@@ -325,7 +325,12 @@ const bonus: ApiPayComponent = {
 };
 
 function editComponent(name: string) {
-  fireEvent.click(screen.getAllByRole("button", { name: `Edit ${name}` })[0]!);
+  /* The row's actions are behind one menu, as they are for a grade. The table
+     and the phone cards are both in the document, so the first is the table's. */
+  fireEvent.click(
+    screen.getAllByRole("button", { name: `More actions for ${name}` })[0]!,
+  );
+  fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
 }
 
 function componentForm() {
