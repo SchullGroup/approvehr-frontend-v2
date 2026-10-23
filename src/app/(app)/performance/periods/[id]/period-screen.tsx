@@ -50,7 +50,9 @@ import { ApiError } from "@/lib/api/client";
 import {
   ratingWordsFrom,
   scoreLabel,
+  visibleComponents,
   weightLabel,
+  weightsFromNote,
   type ApiComponentScore,
   type ReviewCycleStage,
   type ApiCycle,
@@ -74,6 +76,7 @@ import { SectionsDialog } from "../../sections-dialog";
 import { AskPeersButton } from "./ask-peers";
 import { CalibrationAudit } from "./fairness/calibration-audit";
 import { FairnessStatus, publishLock } from "./fairness/fairness-status";
+import { PeriodWeightsSection } from "./period-weights-section";
 
 /**
  * Running one appraisal period.
@@ -559,6 +562,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 />
               </CardBody>
             </Card>
+          )}
+
+          {/* Editable on a draft, and read-only from the moment it starts, so
+              it is shown to anybody who can read the period. */}
+          {period && (canManage || !draft) && (
+            <PeriodWeightsSection
+              period={period}
+              onChanged={() => detail.reload()}
+            />
           )}
 
           {/* A line each. These were two tinted panels, each with a heading, a
@@ -1096,9 +1108,11 @@ function Register({
       <CardHeader
         title="Where the marks stand"
         description={
-          register.weightsFrom === "snapshot"
-            ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these marks.`
-            : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every mark here, including ones already given.`
+          register.weightsFrom === "period"
+            ? `${weightsFromNote("period")} Totalling ${weightLabel(register.weightsTotalBp)}. They lock in when the period starts.`
+            : register.weightsFrom === "snapshot"
+              ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these marks.`
+              : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every mark here, including ones already given.`
         }
         action={
           <span className="flex flex-wrap gap-2">
@@ -1435,8 +1449,8 @@ function RegisterCard({
  * absent is not zero, here as everywhere.
  */
 function ScoreParts({ components }: { components: ApiComponentScore[] }) {
-  if (components.length === 0) return null;
   const { counted, leftOut } = splitComponents(components);
+  if (counted.length === 0 && leftOut.length === 0) return null;
   return (
     <span className="mt-1 block text-meta leading-relaxed text-muted">
       {counted.map((part, index) => (
@@ -1456,7 +1470,8 @@ function ScoreParts({ components }: { components: ApiComponentScore[] }) {
   );
 }
 
-function splitComponents(components: ApiComponentScore[]) {
+function splitComponents(all: ApiComponentScore[]) {
+  const components = visibleComponents(all);
   const counted = components.filter(
     (part) => part.included && part.scoreBp !== null,
   );
@@ -1474,7 +1489,7 @@ function leftOutSentence(leftOut: ApiComponentScore[]): string {
 }
 
 /** The whole account of a mark in one sentence, for the table's tooltip. */
-function breakdownSentence(components: ApiComponentScore[]): string {
+export function breakdownSentence(components: ApiComponentScore[]): string {
   const { counted, leftOut } = splitComponents(components);
   const parts = counted
     .map((part) => `${part.label} ${scoreLabel(part.scoreBp ?? 0)}`)

@@ -462,6 +462,11 @@ export type ApiCycle = {
    * from a live one cannot tell whether the mark on screen is the one awarded.
    */
   scoringFrozen: boolean;
+  /**
+   * How the mark is made up for this period, and whether it is still open to
+   * change. Absent from an API older than per-period weights, so optional.
+   */
+  weights?: CycleWeights;
   /** Empty means everybody — see `createCycle`'s own note. */
   departmentIds: string[];
   /** Null means no automatic reminder, which is the default. */
@@ -926,13 +931,77 @@ export type ApiAutoAssigned = {
 /** Mirrors `ScoreComponent`. Self-assessment ships weighted at zero. */
 export type ScoreComponent =
   | "OBJECTIVES"
+  | "TASKS"
   | "CORE_COMPETENCY"
   | "BEHAVIOURAL_COMPETENCY"
   | "LEADERSHIP"
   | "SELF_ASSESSMENT";
 
+/**
+ * The components in the order they are listed everywhere, which is the order
+ * the API sends them: Weekly tasks sits straight after objectives, because both
+ * are measured delivery.
+ */
+export const SCORE_COMPONENT_ORDER: readonly ScoreComponent[] = [
+  "OBJECTIVES",
+  "TASKS",
+  "CORE_COMPETENCY",
+  "BEHAVIOURAL_COMPETENCY",
+  "LEADERSHIP",
+  "SELF_ASSESSMENT",
+];
+
+/**
+ * A whole weight set, in basis points (10000 = 100%).
+ *
+ * All six keys, always. The API refuses a partial set on a period, because a
+ * missing key is a weight nobody chose.
+ */
+export type WeightSet = Record<ScoreComponent, number>;
+
+/**
+ * Where a period's weights come from, as the API reports it.
+ *
+ * - `period`: somebody set them on this draft period.
+ * - `company`: a draft with none of its own, so it follows the company defaults.
+ * - `frozen`: the period has started and these are the ones it was fixed with.
+ */
+export type CycleWeights = {
+  values: WeightSet;
+  basis: "period" | "company" | "frozen";
+};
+
 /** Why a component did not enter the arithmetic. Null means it did. */
-export type ScoreExclusionReason = "NOT_WEIGHTED" | "NO_DATA" | "NOT_A_MANAGER";
+export type ScoreExclusionReason =
+  "NOT_WEIGHTED" | "NO_DATA" | "NOT_A_MANAGER" | "NO_GRADED_TASKS";
+
+/**
+ * Where a score's weights came from. `"period"` is a draft previewing the set
+ * it holds for itself, before it has started and been frozen.
+ */
+export type WeightsFrom = "snapshot" | "period" | "current";
+
+/** The sentence for a draft scored on its own weights. One copy, four screens. */
+export function weightsFromNote(from: WeightsFrom): string | null {
+  return from === "period"
+    ? "Previewed with the weights set for this period."
+    : null;
+}
+
+/**
+ * The components a breakdown shows. Weekly tasks weighted at nothing is
+ * dropped: every period set up before it became a component carries it at 0%,
+ * and "Weekly tasks: weighted at 0%" on every mark says nothing. Every other
+ * exclusion stays, in the API's words.
+ */
+export function visibleComponents<
+  T extends Pick<ApiComponentScore, "component" | "excludedBecause">,
+>(components: T[]): T[] {
+  return components.filter(
+    (part) =>
+      !(part.component === "TASKS" && part.excludedBecause === "NOT_WEIGHTED"),
+  );
+}
 
 export type ApiComponentScore = {
   component: ScoreComponent;
@@ -1069,8 +1138,8 @@ export type ApiScoreRegister = {
   cycleName: string;
   stage: ReviewCycleStage;
   started: boolean;
-  /** `"snapshot"` for a frozen set, `"current"` for the company's live one. */
-  weightsFrom: "snapshot" | "current";
+  /** `"snapshot"` frozen, `"period"` a draft's own, `"current"` the company's live set. */
+  weightsFrom: WeightsFrom;
   weights: { component: ScoreComponent; label: string; weightBp: number }[];
   /** Published rather than left to be added up. 10000 for anything saved here. */
   weightsTotalBp: number;
@@ -1092,7 +1161,7 @@ export type ApiEmployeeScore = ApiScoreRow & {
   cycleId: string;
   cycleName: string;
   stage: ReviewCycleStage;
-  weightsFrom: "snapshot" | "current";
+  weightsFrom: WeightsFrom;
 };
 
 export type ApiScoringWeights = {
@@ -1353,8 +1422,8 @@ export type ApiCycleReport = {
   stage: ReviewCycleStage;
   started: boolean;
   published: boolean;
-  /** `"snapshot"` for a frozen set, `"current"` for the company's live one. */
-  weightsFrom: "snapshot" | "current";
+  /** `"snapshot"` frozen, `"period"` a draft's own, `"current"` the company's live set. */
+  weightsFrom: WeightsFrom;
   weights: { component: ScoreComponent; label: string; weightBp: number }[];
   weightsTotalBp: number;
   distribution: ApiScoreDistribution;
@@ -1398,7 +1467,7 @@ export type ApiHistoryPoint = {
   cycleName: string;
   stage: ReviewCycleStage;
   dueDate: string | null;
-  weightsFrom: "snapshot" | "current";
+  weightsFrom: WeightsFrom;
   scoreBp: number | null;
   scorePercent: number | null;
   band: ScoreBand | null;
@@ -2258,6 +2327,8 @@ export const performanceApi = {
      */
     appraiseOwner?: boolean;
     appraiseHrManager?: boolean;
+    /** The whole set, in basis points. Omitted means the company defaults. */
+    weights?: WeightSet;
   }) => request<ApiCycle>("/performance/cycles", { method: "POST", body }),
 
   /**
@@ -2275,6 +2346,11 @@ export const performanceApi = {
       departmentIds?: string[];
       remindDaysBefore?: number | null;
       managersCanAddQuestions?: boolean;
+      /**
+       * The whole set, or `null` to go back to the company defaults. Refused
+       * (409) once the period has started: the weights are fixed by then.
+       */
+      weights?: WeightSet | null;
       /**
        * Nullable, unlike on create: clearing a period is a real edit, and
        * `null` is how it is said. Both together or neither — the API checks the
@@ -2533,7 +2609,7 @@ export const performanceApi = {
    * why the incumbent needs a "Resolve Weights" button and this does not — there
    * is never an unbalanced state to resolve.
    */
-  setScoringWeights: (weights: Record<ScoreComponent, number>) =>
+  setScoringWeights: (weights: WeightSet) =>
     request<ApiScoringWeightsSaved>("/performance/scoring-weights", {
       method: "PUT",
       body: weights,

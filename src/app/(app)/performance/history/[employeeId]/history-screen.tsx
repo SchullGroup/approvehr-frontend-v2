@@ -32,6 +32,7 @@ import {
   changeLabel,
   dayLabel,
   scoreLabel,
+  visibleComponents,
   weightLabel,
   type ApiComponentScore,
   type ApiHistoryPoint,
@@ -465,7 +466,7 @@ function Components({ components }: { components: ApiComponentScore[] }) {
   return (
     <div className="rounded-md border border-line">
       <ul className="divide-y divide-line">
-        {components.map((part) => (
+        {visibleComponents(components).map((part) => (
           <li
             key={part.component}
             className="flex flex-wrap gap-x-4 gap-y-1 p-3"
