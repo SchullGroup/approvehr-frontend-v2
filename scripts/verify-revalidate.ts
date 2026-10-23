@@ -181,6 +181,8 @@ const EXEMPT: Record<string, string> = {
     "tabbed away. Worse here than there, because the turn is watched: a " +
     "stream would start writing into a screen the reader had walked away from",
   "payslip-quote.ts": "a computation over what the reader is typing",
+  "schedule-preview.ts":
+    "a computation over what the reader is typing — the sentence and the example dates for an allowance schedule being filled in, same class as the payslip quote above",
   "account-verification.ts":
     "a computation over what the reader is typing — BE-10's bank name and account number, same class as the payslip quote above",
 };
