@@ -1,13 +1,16 @@
 "use client";
 
+import { CheckCircle2, Target } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   Button,
   Callout,
   Checkbox,
   Field,
+  FieldSet,
   Input,
   Modal,
+  RadioCard,
   Select,
   Textarea,
 } from "@/components/ui";
@@ -21,6 +24,7 @@ import {
   type ApiGoal,
   type CreateGoalBody,
   type CreateKeyResultBody,
+  type MeasureKind,
   type UpdateGoalBody,
 } from "@/lib/api/performance";
 import { ApiError } from "@/lib/api/client";
@@ -792,7 +796,48 @@ export function AssignKpiDialog({
   );
 }
 
-export function AddMeasureDialog({
+/**
+ * Add a measure, in two steps: what kind it is, then the fields that kind needs.
+ *
+ * The first step is a question and not a form because a measure is not always a
+ * number. "Hire both engineers" typed as a start of 0 and a target of 1 reads as
+ * "0 of 1" and says nothing about being a yes or no, and a deadline typed as a
+ * percentage somebody worked out elsewhere is a figure that looks exact and
+ * means little. Two kinds ship now; the rest follow as their kinds do, and each
+ * is one more card here.
+ *
+ * ## It starts fresh every time it opens
+ *
+ * The old dialog kept the last measure's fields on screen the next time it was
+ * opened for another objective. The wrapper bumps a key when `open` turns true,
+ * which hands the form a clean state without an effect.
+ *
+ * ## What is sent for each kind
+ *
+ * A number sends no `kind`, deliberately: a server that predates kinds has a
+ * strict body schema and would refuse an unknown key, and "absent means a
+ * number" is what it has always meant. Done or not done sends the kind and the
+ * label and nothing else, because the API refuses a number, a unit or a
+ * direction on it by name.
+ */
+export function AddMeasureDialog(props: {
+  /** `null` while closed: see the freeze in the form. */
+  goalTitle: string | null;
+  open: boolean;
+  onClose: () => void;
+  onAdd: (body: CreateKeyResultBody) => Promise<void>;
+}) {
+  const [seen, setSeen] = useState({ open: props.open, session: 0 });
+  if (props.open !== seen.open) {
+    setSeen({
+      open: props.open,
+      session: props.open ? seen.session + 1 : seen.session,
+    });
+  }
+  return <AddMeasureForm key={seen.session} {...props} />;
+}
+
+function AddMeasureForm({
   goalTitle: goalTitleProp,
   open,
   onClose,
@@ -810,6 +855,11 @@ export function AddMeasureDialog({
   const [goalTitle, setGoalTitle] = useState(goalTitleProp);
   if (goalTitleProp && goalTitleProp !== goalTitle) setGoalTitle(goalTitleProp);
 
+  /* "choose" is the first step; the other two are the kind that was picked. A
+     number is pre-selected, because it is what every measure was until now. */
+  const [step, setStep] = useState<"choose" | MeasureKind>("choose");
+  const [picked, setPicked] = useState<MeasureKind>("NUMBER");
+
   const [label, setLabel] = useState("");
   const [unit, setUnit] = useState("");
   const [start, setStart] = useState("0");
@@ -824,20 +874,26 @@ export function AddMeasureDialog({
   const submit = async () => {
     const found: Record<string, string> = {};
     if (label.trim().length < 2)
-      found["label"] = "Name what is being measured.";
-    if (!target.trim()) found["target"] = "Set the number you are aiming at.";
+      found["label"] =
+        step === "DONE"
+          ? "Say what done means, in a few words."
+          : "Name what is being measured.";
 
-    const from = parseMeasure(start.trim() || "0");
-    const to = parseMeasure(target.trim() || "0");
-    if (target.trim() && from === to) {
-      found["target"] =
-        "That is the same as the starting number, so there is nothing to measure.";
-    } else if (target.trim() && countDown && to > from) {
-      found["target"] =
-        "This one counts down, so the target has to be below the starting number.";
-    } else if (target.trim() && !countDown && to < from) {
-      found["target"] =
-        "The target is below the starting number. Tick the box if it is meant to come down.";
+    if (step === "NUMBER") {
+      if (!target.trim()) found["target"] = "Set the number you are aiming at.";
+
+      const from = parseMeasure(start.trim() || "0");
+      const to = parseMeasure(target.trim() || "0");
+      if (target.trim() && from === to) {
+        found["target"] =
+          "That is the same as the starting number, so there is nothing to measure.";
+      } else if (target.trim() && countDown && to > from) {
+        found["target"] =
+          "This one counts down, so the target has to be below the starting number.";
+      } else if (target.trim() && !countDown && to < from) {
+        found["target"] =
+          "The target is below the starting number. Tick the box if it is meant to come down.";
+      }
     }
 
     setErrors(found);
@@ -845,6 +901,10 @@ export function AddMeasureDialog({
 
     setSaving(true);
     try {
+      if (step === "DONE") {
+        await onAdd({ kind: "DONE", label: label.trim() });
+        return;
+      }
       const body: CreateKeyResultBody = {
         label: label.trim(),
         targetValue: target.trim(),
@@ -859,6 +919,8 @@ export function AddMeasureDialog({
     }
   };
 
+  const choosing = step === "choose";
+
   return (
     <Modal
       open={open}
@@ -867,79 +929,128 @@ export function AddMeasureDialog({
       description={goalTitle}
       size="md"
       footer={
-        <>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button
-            variant="accent"
-            loading={saving}
-            onClick={() => void submit()}
-          >
-            Add measure
-          </Button>
-        </>
+        choosing ? (
+          <>
+            <Button onClick={onClose}>Cancel</Button>
+            <Button variant="accent" onClick={() => setStep(picked)}>
+              Next
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={() => setStep("choose")}>Back</Button>
+            <Button
+              variant="accent"
+              loading={saving}
+              onClick={() => void submit()}
+            >
+              Add measure
+            </Button>
+          </>
+        )
       }
     >
-      <div className="flex flex-col gap-4">
-        <Field
-          label="Measure"
-          required
-          {...(errors["label"] ? { error: errors["label"] } : {})}
-        >
-          <Input
-            value={label}
-            onChange={(event) => setLabel(event.target.value)}
-            placeholder="Offers accepted"
-          />
-        </Field>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Starting value" required>
-            <Input
-              inputMode="decimal"
-              value={start}
-              onChange={(event) => setStart(event.target.value)}
+      {choosing ? (
+        <FieldSet legend="What kind of measure is this?">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <RadioCard
+              name="measure-kind"
+              value="NUMBER"
+              checked={picked === "NUMBER"}
+              onChange={() => setPicked("NUMBER")}
+              icon={<Target aria-hidden="true" />}
+              label="A number to reach"
+              description="A figure that moves from where it is to a target: revenue of ₦40m, 12 hires, cost down to ₦300k."
             />
-          </Field>
+            <RadioCard
+              name="measure-kind"
+              value="DONE"
+              checked={picked === "DONE"}
+              onChange={() => setPicked("DONE")}
+              icon={<CheckCircle2 aria-hidden="true" />}
+              label="Done or not done"
+              description="Something that is finished or it is not: the filing is submitted. A manager confirms it when it is done."
+            />
+          </div>
+        </FieldSet>
+      ) : step === "DONE" ? (
+        <div className="flex flex-col gap-4">
           <Field
-            label="Target value"
+            label="What does done mean?"
             required
-            {...(errors["target"] ? { error: errors["target"] } : {})}
+            help="Say it so a manager can tell whether it happened. A manager confirms it when it is done, and until then it counts as not done."
+            {...(errors["label"] ? { error: errors["label"] } : {})}
           >
             <Input
-              inputMode="decimal"
-              value={target}
-              onChange={(event) => setTarget(event.target.value)}
-            />
-          </Field>
-          <Field
-            label="Current value"
-            help="Leave blank to use the starting value."
-          >
-            <Input
-              inputMode="decimal"
-              value={current}
-              onChange={(event) => setCurrent(event.target.value)}
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder="Both engineers hired"
             />
           </Field>
         </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <Field
+            label="Measure"
+            required
+            {...(errors["label"] ? { error: errors["label"] } : {})}
+          >
+            <Input
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder="Offers accepted"
+            />
+          </Field>
 
-        <Field
-          label="Unit"
-          help="₦, %, days, customers, whatever you say out loud."
-        >
-          <Input
-            value={unit}
-            onChange={(event) => setUnit(event.target.value)}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Starting value" required>
+              <Input
+                inputMode="decimal"
+                value={start}
+                onChange={(event) => setStart(event.target.value)}
+              />
+            </Field>
+            <Field
+              label="Target value"
+              required
+              {...(errors["target"] ? { error: errors["target"] } : {})}
+            >
+              <Input
+                inputMode="decimal"
+                value={target}
+                onChange={(event) => setTarget(event.target.value)}
+              />
+            </Field>
+            <Field
+              label="Current value"
+              help="Leave blank if nothing has been measured yet. The measure then counts as unread and stays out of the objective's progress until a reading is entered."
+            >
+              <Input
+                inputMode="decimal"
+                value={current}
+                onChange={(event) => setCurrent(event.target.value)}
+              />
+            </Field>
+          </div>
+
+          <Field
+            label="Unit"
+            help="₦, %, days, customers, whatever you say out loud."
+          >
+            <Input
+              value={unit}
+              onChange={(event) => setUnit(event.target.value)}
+            />
+          </Field>
+
+          <Checkbox
+            label="This number should go down"
+            description="Cost, days to hire, complaints. Progress is how far it has fallen."
+            checked={countDown}
+            onChange={(event) => setCountDown(event.target.checked)}
           />
-        </Field>
-
-        <Checkbox
-          label="This number should go down"
-          description="Cost, days to hire, complaints. Progress is how far it has fallen."
-          checked={countDown}
-          onChange={(event) => setCountDown(event.target.checked)}
-        />
-      </div>
+        </div>
+      )}
     </Modal>
   );
 }
