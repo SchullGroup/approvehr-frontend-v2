@@ -29,7 +29,6 @@ export function FairnessStatus({ cycleId }: { cycleId: string }) {
 
   if (!allowed || !isConnected) return null;
 
-
   const flagged = flaggedCount(review.flags);
   const href = `/performance/periods/${cycleId}/fairness`;
 
@@ -58,10 +57,15 @@ export function FairnessStatus({ cycleId }: { cycleId: string }) {
           <p className="mt-1 text-body-sm text-body">
             Review {flagged === 1 ? "them" : "each one"} in the fairness check
             before publishing. Their manager may have a good reason — the check
-            flags, it doesn't decide.
+            flags, it doesn’t decide.
           </p>
         </div>
-        <ButtonLink href={href} variant="secondary" size="sm" className="shrink-0">
+        <ButtonLink
+          href={href}
+          variant="secondary"
+          size="sm"
+          className="shrink-0"
+        >
           Open fairness check
         </ButtonLink>
       </div>

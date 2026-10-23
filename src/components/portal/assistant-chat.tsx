@@ -20,28 +20,61 @@ import {
   Textarea,
 } from "@/components/ui";
 import { MAX_CHAT_MESSAGE_CHARS } from "@/lib/api/ai";
+import { useCan, useIsManager } from "@/lib/permissions";
 import { useAssistantAvailable } from "@/lib/store/ai";
 import { useAssistantChat, type ChatTurn } from "@/lib/store/ai-chat";
 import { LiveTurn } from "@/components/ai/turn-progress";
 import { UsageGauge } from "@/components/ai/usage-gauge";
 import { AssistantOrb } from "./assistant-orb";
 
-const OPENERS = SALES_SCRIPT_ENABLED
-  ? [
-      "How many people have no bank account?",
-      "Whose leave requests are still waiting?",
-      "Is anyone missing something before payday?",
-      "How's the H2 2026 review going?",
-    ]
-  : [
-      "How many people have no bank account?",
-      "Whose leave requests are still waiting?",
+// Each opener only asks for what this person's lookups can actually answer.
+function openersFor({
+  records,
+  payroll,
+  manager,
+}: {
+  records: boolean;
+  payroll: boolean;
+  manager: boolean;
+}) {
+  if (records) {
+    return SALES_SCRIPT_ENABLED
+      ? [
+          "How many people have no bank account?",
+          "Whose leave requests are still waiting?",
+          "Is anyone missing something before payday?",
+          "How's the H2 2026 review going?",
+        ]
+      : [
+          "How many people have no bank account?",
+          "Whose leave requests are still waiting?",
+          ...(payroll ? ["Is anyone missing something before payday?"] : []),
+          "What can you do for me?",
+        ];
+  }
+  if (manager) {
+    return [
+      "Whose leave requests are waiting for me?",
+      "Who on my team is on leave?",
+      "What was my last net pay?",
       "What can you do for me?",
     ];
+  }
+  return [
+    "What was my last net pay?",
+    "What leave have I asked for?",
+    "Which review periods are running?",
+    "What can you do for me?",
+  ];
+}
 
 export function AssistantChat() {
   const assistant = useAssistantAvailable();
   const chat = useAssistantChat();
+  const records = useCan("EDIT_RECORDS");
+  const payroll = useCan("VIEW_SALARIES");
+  const manager = useIsManager();
+  const openers = openersFor({ records, payroll, manager });
   const [draft, setDraft] = useState("");
   const composer = useRef<HTMLDivElement>(null);
 
@@ -83,12 +116,16 @@ export function AssistantChat() {
             <div className="flex items-start gap-3">
               <AssistantOrb size={36} className="mt-0.5 shrink-0" />
               <p className="text-body-sm text-muted">
-                Ask about your people, your leave, your payroll runs, or what
-                you deduct. Try one of these:
+                {records
+                  ? "Ask about your people, your leave, your payroll runs, or what you deduct."
+                  : manager
+                    ? "Ask about your team's leave, your own pay, or the review periods."
+                    : "Ask about your own pay, your leave, or the review periods."}{" "}
+                Try one of these:
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {OPENERS.map((opener) => (
+              {openers.map((opener) => (
                 <button
                   key={opener}
                   type="button"

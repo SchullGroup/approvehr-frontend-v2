@@ -49,7 +49,10 @@ import {
 import { WorkEvidence } from "@/components/performance/work-evidence";
 import { FinaliseDialog } from "./finalise-dialog";
 import { SignOffDialog } from "./sign-off-dialog";
-import { RecordCheck, StatusBadge } from "@/components/performance/record-check";
+import {
+  RecordCheck,
+  StatusBadge,
+} from "@/components/performance/record-check";
 
 /**
  * One appraisal, projected by who is reading it.
@@ -169,18 +172,18 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
     review?.cycleId ?? null,
     review?.subjectId ?? null,
     review !== null &&
-    review.kind === "MANAGER" &&
-    (isSubject || review.mine || canSeeCompany),
+      review.kind === "MANAGER" &&
+      (isSubject || review.mine || canSeeCompany),
   );
 
   const record = useReviewFlag(
     review?.cycleId ?? null,
     review?.subjectId ?? null,
     review !== null &&
-    review.kind === "MANAGER" &&
-    canSeeFairness &&
-    !isSubject &&
-    !review.mine,
+      review.kind === "MANAGER" &&
+      canSeeFairness &&
+      !isSubject &&
+      !review.mine,
   );
 
   if (loading && !review) {
@@ -504,24 +507,22 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             />
           )}
 
-          {
-            review.kind === "MANAGER" && record.flag && (
-              <Card>
-                <CardHeader
-                  title="Mark against the evidence"
-                  description="Their mark beside what their objectives, peer feedback and past marks suggest. Their manager doesn't see this."
-                  action={<StatusBadge status={record.flag.status} />}
+          {review.kind === "MANAGER" && record.flag && (
+            <Card>
+              <CardHeader
+                title="Mark against the evidence"
+                description="Their mark beside what their objectives, peer feedback and past marks suggest. Their manager doesn't see this."
+                action={<StatusBadge status={record.flag.status} />}
+              />
+              <CardBody>
+                <RecordCheck
+                  cycleId={review.cycleId}
+                  flag={record.flag}
+                  claims={record.claims}
                 />
-                <CardBody>
-                  <RecordCheck
-                    cycleId={review.cycleId}
-                    flag={record.flag}
-                    claims={record.claims}
-                  />
-                </CardBody>
-              </Card>
-            )
-          }
+              </CardBody>
+            </Card>
+          )}
           {/* ---------------------------------------- tickets from connected tools */}
           <WorkEvidence
             employeeId={review.subjectId}
@@ -536,16 +537,16 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               description={unansweredLine(review)}
               {...(review.mine && !review.submitted
                 ? {
-                  action: (
-                    <ButtonLink
-                      href={`/performance/reviews/${review.id}/answer`}
-                      variant="accent"
-                      size="sm"
-                    >
-                      Fill it in
-                    </ButtonLink>
-                  ),
-                }
+                    action: (
+                      <ButtonLink
+                        href={`/performance/reviews/${review.id}/answer`}
+                        variant="accent"
+                        size="sm"
+                      >
+                        Fill it in
+                      </ButtonLink>
+                    ),
+                  }
                 : {})}
             />
             {review.questions.length === 0 ? (
@@ -583,8 +584,8 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
             loading={selfLoading}
             ratingWords={ratingWords}
           />
-        </div >
-      </PageBody >
+        </div>
+      </PageBody>
 
       {signingOff && (
         <SignOffDialog
@@ -602,8 +603,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               : null;
           }}
         />
-      )
-      }
+      )}
 
       <FinaliseDialog
         open={finalising}

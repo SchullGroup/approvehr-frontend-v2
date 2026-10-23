@@ -160,11 +160,11 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
                   <li>
                     A group is flagged when its gap is at least{" "}
                     {pct(data.rules.minGapBp).replace("%", "")} points and the
-                    likely range doesn't cross zero.
+                    likely range doesn’t cross zero.
                   </li>
                   <li>
                     Groups under {data.rules.minGroup} people are hidden.
-                    Religion and state of origin aren't checked.
+                    Religion and state of origin aren’t checked.
                   </li>
                   <li>
                     A manager is flagged at{" "}

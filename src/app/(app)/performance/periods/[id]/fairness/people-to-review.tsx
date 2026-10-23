@@ -1,7 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { Button, Select, Spinner } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { exactPct, exactPoints } from "@/components/performance/record-check";
@@ -240,9 +247,7 @@ function Person({
         ) : summary ? (
           <>
             <p className="mt-3 text-body-lg text-ink">{summary.detail}</p>
-            <p className="mt-3 text-meta text-muted">
-              Written by AI
-            </p>
+            <p className="mt-3 text-meta text-muted">Written by AI</p>
           </>
         ) : (
           <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -266,9 +271,11 @@ function Person({
           className="flex items-center gap-1 text-body-sm font-medium text-accent-text hover:underline"
         >
           {open ? "Hide what this is based on" : "See what this is based on"}
-          {open
-            ? <ChevronUp aria-hidden="true" className="size-3.5" />
-            : <ChevronDown aria-hidden="true" className="size-3.5" />}
+          {open ? (
+            <ChevronUp aria-hidden="true" className="size-3.5" />
+          ) : (
+            <ChevronDown aria-hidden="true" className="size-3.5" />
+          )}
         </button>
         {open && <Basis person={person} claims={claims} />}
       </section>
@@ -294,10 +301,12 @@ function Figures({ person }: { person: ApiReviewFlag }) {
         <div>
           <dt className="text-meta text-muted">Gap (points)</dt>
           <dd className="mt-1">
-            <span className={cn(
-              "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-h3 tabular-nums sm:text-h2",
-              "bg-warning-subtle text-warning-text",
-            )}>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-h3 tabular-nums sm:text-h2",
+                "bg-warning-subtle text-warning-text",
+              )}
+            >
               {exactPoints(person.gapBp).replace(" pts", "")}
             </span>
           </dd>
@@ -329,26 +338,26 @@ function Basis({
     ...(objectives.scoreBp === null
       ? []
       : [
-        [
-          "Objectives",
-          `${exactPct(objectives.scoreBp)} achieved · ${String(objectives.agreed)} agreed, ${String(objectives.measured)} measured by key results`,
-        ] as [string, string],
-      ]),
+          [
+            "Objectives",
+            `${exactPct(objectives.scoreBp)} achieved · ${String(objectives.agreed)} agreed, ${String(objectives.measured)} measured by key results`,
+          ] as [string, string],
+        ]),
     ...(peers?.averageBp != null
       ? [
-        [
-          "Peer feedback",
-          `${exactPct(peers.averageBp)} from ${String(peers.responses)} colleagues`,
-        ] as [string, string],
-      ]
+          [
+            "Peer feedback",
+            `${exactPct(peers.averageBp)} from ${String(peers.responses)} colleagues`,
+          ] as [string, string],
+        ]
       : []),
     ...(history
       ? [
-        [
-          "Previous periods",
-          `${exactPct(history.averageBp)} average over ${String(history.periods)}`,
-        ] as [string, string],
-      ]
+          [
+            "Previous periods",
+            `${exactPct(history.averageBp)} average over ${String(history.periods)}`,
+          ] as [string, string],
+        ]
       : []),
   ];
 
