@@ -9439,3 +9439,173 @@ headings.
 Not built, on purpose: more kinds (a rate, a limit, a range, milestones), a readings table, per-measure
 weights, the starter library by department, a kind column in the importer, and showing the date of the last
 reading. Each is step 2 or later, and the model and the routes were shaped so each is an addition.
+
+---
+
+# My tasks, Team tasks, and a task that has no board
+
+Joseph Chinedu's frontend #452 (the web half of backend #216), merged on 2026-10-25 as `0a2e4a8b`: 47 files,
++6,556 and −87. It gives everybody a list of their own to-dos that belongs to no project, gives a manager a
+view of what their people have on, and puts **Files** and **Watchers** in the task drawer. This entry records
+what it decided, and what walking it in a browser found, because one of those findings is a defect that is
+still open.
+
+## What changed
+
+| Where                                                    | What                                                                                                                                                                                                                                                         |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/projects/mine` (`my-tasks-screen.tsx`)                 | **My tasks**: your own list, apart from any project. A quick-add row (title, due date, **Attach files**, **Add details**), three groups (**To do**, **In progress**, and **Done this week**, closed), **Open / Done / Overdue** views, and "Set by …" on a task a leader gave you. |
+| `/projects/team` (`team-tasks-screen.tsx`)               | **Team tasks**: one block per person you manage or whose department you run, with a load strip and "2 overdue, 1 this week, 4 open, 2 done this week", **Give a task**, and **Move to…** on a personal task. **Overdue**, **Due this week** and **All open** views. |
+| `/projects/tasks/[id]` (`task-screen.tsx`)               | One task, by its id.                                                                                                                                                                                                                                         |
+| `personal-issue-drawer.tsx`, `reduced-issue-drawer.tsx`  | The drawer for a task with no board, and the read-only view a leader gets of a board task on a board they are not on.                                                                                                                                         |
+| `task-files.tsx`, `watchers.tsx`, `lib/projects/files.ts` | **Files** (thumbnails, attach or drop, open, remove) and **Watchers** in the drawer, and the three-step upload.                                                                                                                                              |
+| `lib/store/team-tasks.ts`                                | `useLeadsTeam`: whether the **Team tasks** nav row exists.                                                                                                                                                                                                   |
+| `next.config.ts`                                         | The policy's `img-src` admits the configured upload origins, for thumbnails.                                                                                                                                                                                 |
+
+The API half is backend #216: `/projects/mine/tasks`, `/projects/team-tasks` and `/leads`, `/issues/:id/move`,
+`/issues/:id/watch` and `/watchers`, and `/issues/:id/attachments` (an upload URL, then the record) with
+`/attachments/:id/url`.
+
+## Decisions not to undo
+
+1. **A personal task is an ordinary issue in a hidden project, so the drawer is the board's drawer.**
+   `PersonalIssueDrawer` builds the context `IssueDrawer` reads out of what the API gives for a task with no
+   board (`GET /projects/:id` is a 404 for its list): the issue with its list's columns, and the tasks the
+   caller already holds. Its actions are the issue endpoints, and every project-level action answers "A
+   personal list has no project to change." Sub-tasks, labels, links, comments, the objective link and the
+   Work record all work on a personal task with no second copy of any of them.
+
+2. **The drawer follows the API's flags and works out no rule itself.** `canEditDetails`,
+   `canManageWatchers` and `canAttachToTask` come with the task. On screen: the owner edits everything; the
+   leader who set a task edits its title, description and due date and nothing else (status, priority,
+   points and labels are greyed); a leader who did not set it has everything greyed, no attach button and a
+   comment box; somebody who holds `EDIT_RECORDS` reads and comments and cannot add a watcher. The API still
+   decides.
+
+3. **Absent, not empty, for somebody who leads nobody.** The **Team tasks** nav row exists only when
+   `GET /projects/team-tasks/leads` says yes. Somebody who leads nobody and types the address gets "Nobody
+   reports to you yet", never anybody's work. An empty page would claim a team that does not exist.
+
+4. **A key names nothing, so the task page takes an id.** Everybody's list has a `MY-1`.
+   `/projects/tasks/[id]` shows a personal task in its drawer over a plain page; a board task goes to
+   `/projects/{id}?issue=KEY`; a board task of somebody you lead, on a board you are not on, opens the
+   reduced view ("You can see this because Chidi Nwosu is in your team.", with status, start date, due date
+   and labels, and nothing to edit); and a task you may not see gets the same "We could not find that task"
+   as one that does not exist, so the page cannot be used to ask whether a task is there. Notifications and
+   the Work record's `MY-n` rows go to `/projects/tasks/{id}`, and that record's project column says
+   "Personal".
+
+5. **A task is created first, then its files, and a file that fails is retried without creating the task
+   twice.** Files go in three steps (ask the API for a signed URL, `PUT` to storage, record it), and nothing
+   is recorded before the `PUT` resolves. If storage refuses, the task still exists and the page says "MY-6
+   was added. These files didn't attach to it:" with the reason and **Try again**. The limits mirror the API:
+   10 files a task and 10 MB each (`MAX_DOCUMENT_BYTES`, not the 25 MB ceiling the storage module has for
+   presigned writes in general), image, PDF or Office only. A refused file stays listed beside its reason
+   while it is being staged and is dropped when the task is added; the "up to 10" sentence sits under the
+   list, not beside the eleventh.
+
+6. **Opening a file is a download.** The API's signed read link carries `attachment; filename="…"`
+   (`presignRead`: "a short-lived link to download one file"), so the click opens a blank tab, synchronously so
+   Safari allows it, and the browser downloads into it. Thumbnails use the same link in an `<img>`, which
+   `attachment` does not affect. If a thumbnail's first load fails it asks for a fresh link once and then
+   gives up, leaving the file name as its alt text.
+
+7. **`NEXT_PUBLIC_UPLOAD_ORIGINS` is now also an `img-src`.** Thumbnails need the storage origin in the
+   build, as the CV upload needs it in `connect-src`; only `https:` origins are admitted (and
+   `http://localhost` outside production). The real bucket needs a CORS rule that lets the app's origin
+   `PUT`, which the CV upload already depends on.
+
+8. **Overdue is the only red.** Counts bucket the way the API does: overdue (before today), due this week
+   (today to Sunday), later or no date, and the three add up to open. People are ordered by overdue count,
+   then name.
+
+9. **Move to… keeps the task and changes who set it.** The task keeps its id, takes the next number on the new
+   list (a `MY-4` became Emeka's `MY-1`), and the leader who moved it becomes who set it, so the new owner
+   sees "Set by" that leader. Only the people in the leader's own team are offered, and **Move task** waits
+   for a choice.
+
+10. **No demo-mode path.** In a development build with no API, **My tasks** (shown to everybody) opens on a
+    load failure and **Team tasks** is hidden; a production build has no demo mode. This is from the code,
+    not run.
+
+## Found by walking it, and not fixed
+
+### The personal-task drawer shows the old values after you save
+
+Open a personal task from **My tasks**, **Team tasks** or its own page, change its title, due date,
+description, priority, labels or status, and leave the drawer open. The save succeeds (`PATCH /issues/:id`
+answers 200 and the lists reload), the row behind the drawer shows the new value, **and the drawer's own field
+goes back to the old one and stays there** until the drawer is closed and opened again. After a save, a status
+of In progress reads "To do" in the drawer while the list behind it says In progress. Nothing is lost: the
+server has the new value, a reopened drawer shows it, and the next edit sends only its own field (a due-date
+change sent `{"dueDate": …}` and nothing else). But it reads as a save that did not take, on the control the
+person has just used. Comments, watchers and files are not affected; they hold their own state.
+
+The control is an ordinary board's drawer, which shows what was saved, so this belongs to the new drawer and
+not to the shared one. The cause is in `personal-issue-drawer.tsx`. The drawer builds the task from the
+caller's list, then from the copy it loaded when it opened (`detail.issue`), then from a short-lived overlay
+of what it has saved. The overlay is cleared whenever the caller's `issues` changes identity, and the callers
+all cause that: **My tasks** reloads its list after a save, and **Team tasks** and the task page pass a fresh
+`issues={[]}` on every render. With the overlay gone, the copy loaded at open time, which is older than the
+save, is applied over the fresh row. The likely fix is to keep the drawer's own copy current: after a
+successful save (and in `refreshIssue`), replace `loaded.detail.issue` with what the API returned. It needs a
+test that edits a field and reads it back after the parent re-renders. The tests for this drawer
+(`team-tasks.test.tsx`, `task-route.test.tsx`) open it; none edits a field, and there is no test file of its own.
+
+### Smaller things
+
+- A malformed id (`/projects/tasks/not-a-uuid`) says "This task did not load. Some fields are not valid.",
+  the API's own 400 sentence, where an unknown id gets the not-found page. Only a hand-typed link reaches it.
+- The delete confirmation, "Delete MY-3? This cannot be undone.", does not say that the task's files go with
+  it. They do: the stored objects and their records are both removed.
+- Under **Count toward**, a personal task is told to "link this issue or the project to an objective". It has
+  no project. The wording is the board drawer's.
+- Opening a file leaves its blank tab open in headless Chromium after the download starts. Whether desktop
+  Chrome or Safari close it was not seen.
+- A Playwright log shows `ERR_ABORTED` for every `DELETE` that answers 204, probably because the client
+  returns without reading the empty body. The delete lands; it is noise.
+
+## Verified, and what was not
+
+Reviewed against the merged backend (routes, query enums, limits, and the flags the drawer follows), and the
+whole suite was run on the merged tree: 303 files, 4,336 of 4,337 tests (the one failure, a recruitment
+test, passes on its own).
+
+**In a browser**, a production build of `dev` at `0a2e4a8b` against backend `staging` at `c11a5bc` on a
+scratch Postgres, as five seeded people: Chidi and Emeka lead nobody, Adaeze leads both and is on board PLT
+but not on BIL, Amara is the administrator and leads five. Storage was a stand-in that recomputes the
+signature of every presigned URL (so a `PUT` that sent a different `Content-Type` than was signed is
+refused), enforces expiry and answers the browser's preflight. Seen on the screen:
+
+- **My tasks**: the empty state; adding by the button and by Enter; a date in the past marking the row
+  Overdue; a task with details; the Open, Done and Overdue views and the closed **Done this week** group; a
+  task made by somebody else showing "Set by …"; the order (by due date, undated last).
+- **Files**: two files with a new task, a type that is not allowed, a file over 10 MB, eleven files, a
+  refusal beside a good file, a storage failure and its **Try again**, a drop onto the section, and a
+  thumbnail that fails once and then loads (and one that keeps failing, which stops after one retry).
+- **The drawer**: title, due date, description, priority, labels and status; two comments (the button and
+  Ctrl+Enter); watching, adding and removing a watcher; opening and removing a file (storage and the record
+  both go); deleting a task that has a file.
+- **Team tasks**: each person's counts against the database; the three views and their empty states;
+  **Give a task** (the database row, the notification, the counts moving); **Move to…**; a leader who set a
+  task and one who did not; the reduced view; an administrator reading a personal task; and, for somebody who
+  leads nobody, the nav row absent and the page empty.
+- **`/projects/tasks/[id]`**: a personal task, a board task, an unknown id and a malformed one, and another
+  person's task and a board's task by id for somebody who may not see them.
+- The Work record's key links, the notifications ("assigned MY-5 to you", "added you as a watcher"), the
+  board regression (create an issue with a file, comment with a file, attach, remove, watch), and, with
+  Projects switched off, the nav and all three routes ("Projects is not switched on").
+- At 390px with a touch pointer: no sideways scroll on My tasks, Team tasks or either drawer.
+
+**Not exercised:** a real bucket (the stand-in answers like one; a real one needs its CORS rule), Safari or
+any browser but Chromium, a leader who leads by heading a department and not by being a manager, a team of
+hundreds, two browsers on one task, email and push (none is configured), and demo mode (from the code only).
+
+## Order, and what was left
+
+Backend #216 is on `staging` already. The frontend needs the storage origin in `NEXT_PUBLIC_UPLOAD_ORIGINS`
+at build for thumbnails; a site that has it for CVs has it.
+
+Open: the drawer defect above. Not built, on purpose: a demo-mode path for the two new screens, sub-tasks in a
+personal task opened by id or from Team tasks (from the code: the drawer is handed no list to find them in),
+and inline viewing of an image or PDF in the new tab (the API's link says `attachment`).
