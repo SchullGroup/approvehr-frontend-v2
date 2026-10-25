@@ -156,7 +156,7 @@ describe("the Work record panel", () => {
     );
   });
 
-  it("shows a personal task as Personal, with no link to a project page", async () => {
+  it("shows a personal task as Personal, linked to the task's own page by id", async () => {
     const base = record();
     const day = base.days[0]!;
     workRecord.mockResolvedValue(
@@ -180,7 +180,10 @@ describe("the Work record panel", () => {
     );
     render(<WorkRecordPanel employeeId="emp-1" />);
     expect(await screen.findByText("Book the training room")).toBeTruthy();
-    expect(screen.getByText("MY-4").closest("a")).toBeNull();
+    /* The task page opens a personal task, and sends a board task to its board. */
+    expect(screen.getByText("MY-4").closest("a")?.getAttribute("href")).toBe(
+      "/projects/tasks/i-9",
+    );
     expect(screen.getByText("Personal")).toBeTruthy();
     expect(document.querySelector('a[href*="p-mine"]')).toBeNull();
   });

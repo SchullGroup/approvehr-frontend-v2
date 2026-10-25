@@ -368,6 +368,8 @@ export type PersonalTaskDetail = {
   statusName: string;
   statusCategory: StatusCategory;
   statuses: ProjectStatus[];
+  /** The reader may change title, description and due date: its owner, or the leader who set it. */
+  canEditDetails: boolean;
 };
 
 export type NewPersonalTaskInput = {
@@ -400,6 +402,7 @@ export function toPersonalTaskDetail(raw: Raw): PersonalTaskDetail {
     statusName: str(raw["statusName"]),
     statusCategory: categoryOf(raw["statusCategory"]),
     statuses: list(raw["statuses"]).map(toStatus),
+    canEditDetails: raw["canEditDetails"] === true,
   };
 }
 

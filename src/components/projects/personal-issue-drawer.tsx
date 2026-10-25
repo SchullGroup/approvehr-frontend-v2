@@ -29,7 +29,9 @@ import { ProjectProvider, type ProjectContextValue } from "./project-context";
  * (sub-tasks). Its actions call the issue endpoints directly.
  *
  * Reused by Team tasks, for a leader opening a person's personal task, and by
- * watchers. `canWork` is true only for the list's owner; the API still decides.
+ * watchers. `canWork` is true only for the list's owner; `canEditDetails` (title,
+ * description, due date) is what the API says, so the leader who set a task can
+ * fix those too. The API still decides.
  *
  * ## What it does not do
  *
@@ -278,6 +280,8 @@ export function PersonalIssueDrawer({
       meId,
       connected: true,
       canWork: meId !== null && meId === ownerId,
+      /* The API's word: the owner, or the leader who set it, fixes the details. */
+      canEditDetails: detail.canEditDetails,
       /* Everybody who can open somebody's task may comment on it: its owner,
          their leaders, HR and its watchers. */
       canComment: meId !== null,

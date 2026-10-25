@@ -463,6 +463,99 @@ describe("files on a comment", () => {
   });
 });
 
+describe("opening a file", () => {
+  /* Safari only lets a tab open inside the click itself, so the tab opens
+     first, blank, and is pointed at the file once its link is back. */
+  const tabFor = () => {
+    const tab = {
+      opener: {} as unknown,
+      location: { href: "" },
+      close: vi.fn(),
+    };
+    return tab;
+  };
+
+  it("opens a blank tab inside the click, then points it at the file", async () => {
+    const calls: string[] = [];
+    const tab = tabFor();
+    const open = vi.spyOn(window, "open").mockImplementation(() => {
+      calls.push("open");
+      return tab as unknown as Window;
+    });
+    api.attachmentUrl.mockImplementation(async () => {
+      calls.push("fetch");
+      return { url: "https://bucket.test/read", expiresAt: "x" };
+    });
+    thread = { ...thread, attachments: [attachment()] };
+    renderDrawer();
+    calls.length = 0;
+    await userEvent.click(
+      within(files()).getByRole("button", { name: /^spec\.pdf/ }),
+    );
+    await waitFor(() =>
+      expect(tab.location.href).toBe("https://bucket.test/read"),
+    );
+    expect(calls).toEqual(["open", "fetch"]);
+    expect(open).toHaveBeenCalledWith("", "_blank");
+    expect(tab.opener).toBeNull();
+    expect(tab.close).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it("closes the blank tab and says so when the link cannot be had", async () => {
+    const tab = tabFor();
+    const open = vi
+      .spyOn(window, "open")
+      .mockReturnValue(tab as unknown as Window);
+    api.attachmentUrl.mockRejectedValue(new ApiError(500, "INTERNAL", "Down"));
+    thread = { ...thread, attachments: [attachment()] };
+    renderDrawer();
+    await userEvent.click(
+      within(files()).getByRole("button", { name: /^spec\.pdf/ }),
+    );
+    await waitFor(() => expect(tab.close).toHaveBeenCalled());
+    expect(pushToast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Could not open spec.pdf" }),
+    );
+    open.mockRestore();
+  });
+
+  it("does the same for a comment's file", async () => {
+    const calls: string[] = [];
+    const tab = tabFor();
+    const open = vi.spyOn(window, "open").mockImplementation(() => {
+      calls.push("open");
+      return tab as unknown as Window;
+    });
+    api.attachmentUrl.mockImplementation(async () => {
+      calls.push("fetch");
+      return { url: "https://bucket.test/comment", expiresAt: "x" };
+    });
+    thread = {
+      ...thread,
+      comments: [
+        {
+          id: "c-1",
+          issueId: "x",
+          authorId: "p-03",
+          body: "",
+          editedAt: null,
+          createdAt: "2026-10-20T09:00:00.000Z",
+          attachments: [attachment({ id: "att-c", filename: "notes.pdf" })],
+        },
+      ],
+    };
+    renderDrawer();
+    calls.length = 0;
+    await userEvent.click(screen.getByRole("button", { name: /^notes\.pdf/ }));
+    await waitFor(() =>
+      expect(tab.location.href).toBe("https://bucket.test/comment"),
+    );
+    expect(calls).toEqual(["open", "fetch"]);
+    open.mockRestore();
+  });
+});
+
 describe("files while creating a task", () => {
   function renderCreate(overrides: Partial<ProjectContextValue> = {}) {
     const ctx = contextFor(sampleData(), { connected: true, ...overrides });

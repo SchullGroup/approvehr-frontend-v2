@@ -143,6 +143,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
     meId,
     canWork,
     canComment = canWork,
+    canEditDetails = canWork,
     canManage,
     connected,
     timeZone,
@@ -237,8 +238,6 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
     }
   }
 
-  const canDelete = (c: IssueComment) => canDeleteComment(actor, project, c);
-
   /* Files and watchers. Only the API keeps them, so the demo has neither. The
      issue's read says who may attach to the task itself and choose its
      watchers (`canAttachToTask`, `canManageWatchers`); everybody who can open
@@ -247,6 +246,12 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
      a board, the owner or their leader on a personal task. */
   const isOwner =
     Boolean(personal) && meId !== null && meId === issue.assigneeId;
+  /* On a personal task the author or its owner deletes a comment, as the API
+     rules; HR and leaders, who may manage a board, may not. */
+  const canDelete = (c: IssueComment) =>
+    personal
+      ? (meId !== null && c.authorId === meId) || isOwner
+      : canDeleteComment(actor, project, c);
   const canAttachToTask = connected && thread.canAttachToTask === true;
   const mayChooseWatchers = connected && thread.canManageWatchers === true;
   const mayRemoveWatcher = (w: Watcher) =>
@@ -354,7 +359,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
       <DraftHeading
         value={issue.title}
         aria-label="Summary"
-        disabled={!canWork}
+        disabled={!canEditDetails}
         clean={(draft) => (draft.trim() ? draft.trim() : null)}
         onCommit={(title) => save({ title })}
       />
@@ -371,9 +376,9 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             <DraftTextarea
               value={issue.description}
               rows={5}
-              disabled={!canWork}
+              disabled={!canEditDetails}
               placeholder={
-                canWork
+                canEditDetails
                   ? "Add context, acceptance criteria, links"
                   : "No description"
               }
@@ -837,7 +842,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             <Input
               id={`${base}-due`}
               type="date"
-              disabled={!canWork}
+              disabled={!canEditDetails}
               value={issue.dueDate ?? ""}
               onChange={(event) =>
                 save({ dueDate: event.target.value || null })

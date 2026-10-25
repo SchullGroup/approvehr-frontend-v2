@@ -310,11 +310,27 @@ export function StagedList({
   );
 }
 
-/** Open a file through a short-lived link, in a new tab. */
-async function openFile(id: string): Promise<void> {
-  const { url } = await projectsApi.attachmentUrl(id);
-  /* `noopener` because the target is storage's origin, not ours. */
-  window.open(url, "_blank", "noopener,noreferrer");
+/**
+ * Open a file through a short-lived link, in a new tab.
+ *
+ * The tab opens first, blank, while this is still the click (Safari blocks a
+ * tab opened after an `await`), and is pointed at the file once the link is
+ * back; on a failure it is closed again. The same pattern as
+ * `hiring/open-cv.tsx`. Resolves false when the browser stopped the tab.
+ */
+async function openFile(id: string): Promise<boolean> {
+  const tab = window.open("", "_blank");
+  /* The target is storage's origin, not ours: it gets no handle on this page. */
+  if (tab) tab.opener = null;
+  try {
+    const { url } = await projectsApi.attachmentUrl(id);
+    if (!tab) return false;
+    tab.location.href = url;
+    return true;
+  } catch (error) {
+    tab?.close();
+    throw error;
+  }
 }
 
 function Thumbnail({ attachment }: { attachment: IssueAttachment }) {
@@ -365,12 +381,21 @@ export function AttachmentList({
   const toast = useToast();
   if (attachments.length === 0) return null;
   const open = (attachment: IssueAttachment) =>
-    void openFile(attachment.id).catch((error: unknown) =>
-      toast.push({
-        tone: "danger",
-        title: `Could not open ${attachment.filename}`,
-        detail: uploadFailure(error),
-      }),
+    void openFile(attachment.id).then(
+      (opened) => {
+        if (opened) return;
+        toast.push({
+          tone: "info",
+          title: `Your browser stopped ${attachment.filename} opening`,
+          detail: "Allow pop-ups for this site, then open it again.",
+        });
+      },
+      (error: unknown) =>
+        toast.push({
+          tone: "danger",
+          title: `Could not open ${attachment.filename}`,
+          detail: uploadFailure(error),
+        }),
     );
   const images = attachments.filter((a) => isPreviewable(a.contentType));
   const others = attachments.filter((a) => !isPreviewable(a.contentType));

@@ -367,11 +367,49 @@ describe("quick add", () => {
 });
 
 describe("opening a task", () => {
-  const detail = (t: PersonalTask): PersonalTaskDetail => ({
+  const detail = (
+    t: PersonalTask,
+    canEditDetails = true,
+  ): PersonalTaskDetail => ({
     issue: t,
     statusName: t.statusName,
     statusCategory: t.statusCategory,
     statuses: STATUSES.map((s) => ({ ...s })),
+    canEditDetails,
+  });
+
+  it("lets a reader the API allows fix the details, while status stays the owner's", async () => {
+    /* p-01 reads a task p-02 owns and p-01 set. */
+    const set = task({
+      title: "Set for somebody",
+      assigneeId: "p-02",
+      reporterId: "p-01",
+    });
+    answer([set]);
+    personalTask.mockResolvedValue(detail(set, true));
+    render(<MyTasksScreen />);
+    await userEvent.click(await screen.findByText("Set for somebody"));
+    const drawer = await screen.findByRole("dialog");
+    expect(within(drawer).getByLabelText("Summary")).toBeEnabled();
+    expect(within(drawer).getByLabelText("Due")).toBeEnabled();
+    expect(
+      within(drawer).getByRole("combobox", { name: "Status" }),
+    ).toBeDisabled();
+  });
+
+  it("keeps the details read-only when the API says so", async () => {
+    const theirs = task({
+      title: "Not mine to fix",
+      assigneeId: "p-02",
+      reporterId: "p-02",
+    });
+    answer([theirs]);
+    personalTask.mockResolvedValue(detail(theirs, false));
+    render(<MyTasksScreen />);
+    await userEvent.click(await screen.findByText("Not mine to fix"));
+    const drawer = await screen.findByRole("dialog");
+    expect(within(drawer).getByLabelText("Summary")).toBeDisabled();
+    expect(within(drawer).getByLabelText("Due")).toBeDisabled();
   });
 
   it("opens the issue drawer, which says Personal and who set it, without a board", async () => {
