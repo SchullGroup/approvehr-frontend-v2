@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { Avatar, Button, IconButton, useToast } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { projectsApi } from "@/lib/api/projects";
-import type { WatchState } from "@/lib/projects/types";
+import type { Watcher, WatchState } from "@/lib/projects/types";
 import type { People } from "@/lib/store/project-session";
 import { PersonPicker } from "./person";
 
@@ -42,8 +42,8 @@ export function Watchers({
   candidates: readonly string[];
   /** Whether the reader may add somebody else. */
   mayChoose: boolean;
-  /** Whether the reader may take this person (never themselves) off. */
-  mayRemove: (employeeId: string) => boolean;
+  /** Whether the reader may take this watcher off (yourself included). */
+  mayRemove: (watcher: Watcher) => boolean;
   onChanged?: () => void;
 }) {
   const toast = useToast();
@@ -114,8 +114,18 @@ export function Watchers({
 
   const remove = (employeeId: string, name: string) =>
     run(
-      () => projectsApi.removeWatcher(issueId, employeeId),
-      () => toast.push({ tone: "success", title: `${name} stopped watching` }),
+      () =>
+        employeeId === meId
+          ? projectsApi.unwatch(issueId)
+          : projectsApi.removeWatcher(issueId, employeeId),
+      () =>
+        toast.push({
+          tone: "success",
+          title:
+            employeeId === meId
+              ? "You stopped watching this task"
+              : `${name} stopped watching`,
+        }),
       `Could not remove ${name}`,
       true,
     );
@@ -135,7 +145,6 @@ export function Watchers({
             size="sm"
             variant="secondary"
             disabled={busy}
-            aria-pressed={watching}
             onClick={() => void toggle()}
           >
             {watching ? "Stop watching" : "Watch"}
@@ -168,14 +177,16 @@ export function Watchers({
               key={w.id}
               className="inline-flex items-center gap-1 rounded-full border border-line bg-surface py-0.5 pl-2.5 pr-1 text-meta text-ink"
             >
-              <span
-                className={mayRemove(w.id) && w.id !== meId ? "" : "pr-1.5"}
-              >
-                {w.name}
+              <span className={mayRemove(w) ? "" : "pr-1.5"}>
+                {w.id === meId ? `${w.name} (you)` : w.name}
               </span>
-              {w.id !== meId && mayRemove(w.id) && (
+              {mayRemove(w) && (
                 <IconButton
-                  label={`Remove ${w.name} as a watcher`}
+                  label={
+                    w.id === meId
+                      ? "Remove yourself as a watcher"
+                      : `Remove ${w.name} as a watcher`
+                  }
                   size="sm"
                   className="size-6"
                   disabled={busy}

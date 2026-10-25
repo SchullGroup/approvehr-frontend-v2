@@ -53,7 +53,12 @@ function explain(error: unknown, path: "add" | "remove" = "add"): string {
  * it (otherwise the row says "A task you can't open"). Editing a link's reason is
  * not offered here; the API supports it.
  */
-/** A task on somebody's own list (`MY-4`); boards may not use the key `MY`. */
+/**
+ * A key that may be a task on somebody's own list (`MY-4`). A link does not say,
+ * and a board made before `MY` was reserved can carry it too, so such a task
+ * opens through `/projects/tasks/:id`, which asks the API and sends a board task
+ * on to its board.
+ */
 const isPersonalKey = (key: string) => /^MY-\d+$/.test(key);
 
 export function LinkedTasks({

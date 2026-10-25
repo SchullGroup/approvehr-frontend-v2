@@ -525,7 +525,7 @@ describe("attaching files while adding", () => {
 
     putToStorage.mockResolvedValue(undefined);
     await userEvent.click(
-      within(form).getByRole("button", { name: "Try again" }),
+      within(form).getByRole("button", { name: /Try again/ }),
     );
     await waitFor(() =>
       expect(recordAttachment).toHaveBeenCalledWith(
@@ -537,6 +537,46 @@ describe("attaching files while adding", () => {
     await waitFor(() =>
       expect(within(form).queryByText("terms.pdf")).toBeNull(),
     );
+  });
+
+  it("keeps the files that failed for each earlier task, not only the last", async () => {
+    putToStorage.mockRejectedValue(new Error("The upload was stopped."));
+    createMineTask
+      .mockResolvedValueOnce(task({ id: "t-a", key: "MY-7" }))
+      .mockResolvedValueOnce(task({ id: "t-b", key: "MY-8" }));
+    render(<MyTasksScreen />);
+    const form = await screen.findByRole("form", { name: "Add a task" });
+    for (const [title, name, key] of [
+      ["First", "one.pdf", "MY-7"],
+      ["Second", "two.pdf", "MY-8"],
+    ] as const) {
+      await userEvent.type(
+        within(form).getByRole("textbox", { name: "What needs doing?" }),
+        title,
+      );
+      await userEvent.upload(
+        within(form).getByLabelText("Attach files", { selector: "input" }),
+        pdf(name),
+      );
+      await userEvent.click(
+        within(form).getByRole("button", { name: "Add task" }),
+      );
+      await within(form).findByText(new RegExp(`${key} was added`));
+    }
+    expect(
+      within(
+        within(form).getByRole("list", {
+          name: "Files that didn't attach to MY-7",
+        }),
+      ).getByText("one.pdf"),
+    ).toBeInTheDocument();
+    expect(
+      within(
+        within(form).getByRole("list", {
+          name: "Files that didn't attach to MY-8",
+        }),
+      ).getByText("two.pdf"),
+    ).toBeInTheDocument();
   });
 
   it("refuses a file over 10 MB before adding anything", async () => {

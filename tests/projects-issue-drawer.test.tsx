@@ -418,7 +418,7 @@ describe("comments", () => {
     });
     const box = screen.getByLabelText("Add a comment");
     await userEvent.type(box, "hello");
-    await userEvent.click(screen.getByRole("button", { name: "Comment" }));
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
     await waitFor(() => expect(actions.addComment).toHaveBeenCalled());
     expect(box).toHaveValue("hello");
   });

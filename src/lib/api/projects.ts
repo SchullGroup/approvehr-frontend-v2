@@ -239,7 +239,11 @@ export function toAttachment(raw: Raw): IssueAttachment {
 export function toWatchState(raw: Raw): WatchState {
   return {
     watchers: list(raw["watchers"])
-      .map((w) => ({ id: str(w["id"]), name: str(w["name"]) }))
+      .map((w) => ({
+        id: str(w["id"]),
+        name: str(w["name"]),
+        addedById: strOrNull(w["addedById"]),
+      }))
       .filter((w) => w.id !== ""),
     watching: raw["watching"] === true,
   };
@@ -765,15 +769,15 @@ export const projectsApi = {
     }),
 
   /**
-   * A task by id, wherever it lives. A personal task's read carries its list's
-   * columns (`statuses`), which a board task's never does.
+   * A task by id, wherever it lives. The read says whether it is personal; the
+   * key cannot, since a board may be keyed `MY` too.
    */
   openTask: async (id: string, signal?: AbortSignal): Promise<TaskTarget> => {
     const raw = await request<Raw>(`/issues/${id}`, signalOf(signal));
     const read = toLeaderRead(raw);
     if (read.reduced) return { ...read, kind: "reduced" };
     const issue = toIssue(raw);
-    if (Array.isArray(raw["statuses"]) || /^MY-\d+$/.test(issue.key)) {
+    if (raw["personal"] === true) {
       return { kind: "personal", issue };
     }
     return { kind: "board", projectId: issue.projectId, key: issue.key };
@@ -816,6 +820,8 @@ export const projectsApi = {
       activity: list(issue["activity"]).map(toActivity),
       ...toWatchState(issue),
       attachments: list(issue["attachments"]).map(toAttachment),
+      canManageWatchers: issue["canManageWatchers"] === true,
+      canAttachToTask: issue["canAttachToTask"] === true,
     };
   },
 

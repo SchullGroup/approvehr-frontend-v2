@@ -50,7 +50,7 @@ export function MentionComposer({
   disabled = false,
   onPost,
   initial,
-  submitLabel = "Comment",
+  submitLabel = "Send",
   onCancel,
   label = "Add a comment",
   attach,

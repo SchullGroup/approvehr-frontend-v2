@@ -200,17 +200,21 @@ function QuickAdd({ onAdded }: { onAdded: () => void }) {
   const drop = useDropTarget((files) => staged.add(files));
   /* Files for the next task, and files that did not attach to one already added. */
   const fresh = staged.items.filter((item) => item.target === null);
-  /* The latest task a file did not attach to; older leftovers wait their turn. */
-  const leftFor =
-    staged.items.findLast((item) => item.target !== null)?.target ?? null;
-  const leftover = staged.items.filter(
-    (item) => item.target !== null && item.target.id === leftFor?.id,
-  );
+  /* Every task a file did not attach to, oldest first, each with its files. */
+  const leftovers = staged.items.reduce<
+    { task: { id: string; key: string }; items: typeof staged.items }[]
+  >((groups, item) => {
+    if (!item.target) return groups;
+    const group = groups.find((g) => g.task.id === item.target?.id);
+    if (group) group.items.push(item);
+    else groups.push({ task: item.target, items: [item] });
+    return groups;
+  }, []);
 
-  async function retry() {
-    if (busy || !leftFor) return;
+  async function retry(task: { id: string; key: string }, items: typeof fresh) {
+    if (busy) return;
     setBusy(true);
-    await attachStaged(leftFor, leftover, staged);
+    await attachStaged(task, items, staged);
     setBusy(false);
   }
 
@@ -314,30 +318,31 @@ function QuickAdd({ onAdded }: { onAdded: () => void }) {
         busy={busy}
         label="Files to attach"
       />
-      {leftFor && (
-        <div className="space-y-2">
+      {leftovers.map(({ task, items }) => (
+        <div key={task.id} className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p role="status" className="text-body-sm text-ink">
-              {leftFor.key} was added. These files didn&apos;t attach to it:
+              {task.key} was added. These files didn&apos;t attach to it:
             </p>
             <Button
               type="button"
               size="sm"
               variant="secondary"
               loading={busy}
-              onClick={() => void retry()}
+              aria-label={`Try again to attach files to ${task.key}`}
+              onClick={() => void retry(task, items)}
             >
               Try again
             </Button>
           </div>
           <StagedList
-            items={leftover}
+            items={items}
             onRemove={staged.remove}
             busy={busy}
-            label="Files that didn't attach"
+            label={`Files that didn't attach to ${task.key}`}
           />
         </div>
-      )}
+      ))}
     </form>
   );
 }

@@ -236,8 +236,8 @@ export type AttachmentRef = {
   contentType: string;
 };
 
-/** Somebody watching an issue. */
-export type Watcher = { id: string; name: string };
+/** Somebody watching an issue. `addedById` is a *user* id: who added them. */
+export type Watcher = { id: string; name: string; addedById?: string | null };
 
 /** Who is watching an issue, and whether the reader is. */
 export type WatchState = { watchers: Watcher[]; watching: boolean };
@@ -277,6 +277,9 @@ export type IssueThread = {
   watching?: boolean;
   /** The task's own files, not its comments'. */
   attachments?: IssueAttachment[];
+  /** What the API says the reader may do; absent in the demo. */
+  canManageWatchers?: boolean;
+  canAttachToTask?: boolean;
 };
 
 /** Everything the project screen needs about one project. */

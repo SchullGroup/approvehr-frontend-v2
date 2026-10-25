@@ -128,6 +128,8 @@ beforeEach(() => {
     watchers: [],
     watching: false,
     attachments: [],
+    canManageWatchers: true,
+    canAttachToTask: true,
   };
   api.attachmentUploadUrl.mockImplementation(async () => {
     keys += 1;
@@ -221,6 +223,17 @@ describe("the Files section", () => {
     );
   });
 
+  it("lights up only for a drag carrying files, and clears on drop", () => {
+    renderDrawer();
+    const box = files();
+    fireEvent.dragOver(box, { dataTransfer: { types: ["text/plain"] } });
+    expect(box.className).not.toContain("outline-dashed");
+    fireEvent.dragOver(box, { dataTransfer: { types: ["Files"] } });
+    expect(box.className).toContain("outline-dashed");
+    fireEvent.drop(box, { dataTransfer: { types: ["Files"], files: [] } });
+    expect(box.className).not.toContain("outline-dashed");
+  });
+
   it("refuses a file over 10 MB before uploading it", async () => {
     renderDrawer();
     await userEvent.upload(
@@ -247,7 +260,7 @@ describe("the Files section", () => {
     expect(input).toBeInTheDocument();
     expect(
       await within(files()).findByText(
-        "That kind of file can't be attached. Use an image, PDF, Office document or text file.",
+        "That kind of file can't be attached. Use an image, PDF or Office document.",
       ),
     ).toBeInTheDocument();
     expect(api.attachmentUploadUrl).not.toHaveBeenCalled();
@@ -310,12 +323,24 @@ describe("the Files section", () => {
     const issue = data.issues.find((i) => i.key === "CHK-10")!;
     issue.assigneeId = "p-04";
     issue.reporterId = "p-04";
-    thread = { ...thread, attachments: [attachment()] };
+    thread = {
+      ...thread,
+      attachments: [attachment()],
+      canAttachToTask: false,
+    };
     renderDrawer(
       { personal: { setByName: null }, canWork: false, canManage: false },
       data,
     );
     expect(within(files()).getByText("spec.pdf")).toBeInTheDocument();
+    expect(
+      within(files()).queryByRole("button", { name: "Attach files" }),
+    ).toBeNull();
+  });
+
+  it("hides Attach files whenever the API says the reader may not", () => {
+    thread = { ...thread, canAttachToTask: false };
+    renderDrawer();
     expect(
       within(files()).queryByRole("button", { name: "Attach files" }),
     ).toBeNull();
@@ -346,7 +371,7 @@ describe("files on a comment", () => {
     const actions = ctx.actions as unknown as {
       addComment: ReturnType<typeof vi.fn>;
     };
-    const send = screen.getByRole("button", { name: "Comment" });
+    const send = screen.getByRole("button", { name: "Send" });
     expect(send).toBeDisabled();
     await userEvent.upload(
       screen.getByLabelText("Attach files to your comment", {
@@ -404,7 +429,7 @@ describe("files on a comment", () => {
       }),
       file("photo.png", "image/png"),
     );
-    await userEvent.click(screen.getByRole("button", { name: "Comment" }));
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(
       await screen.findByText(
         "The upload did not finish. Check your connection and try again.",

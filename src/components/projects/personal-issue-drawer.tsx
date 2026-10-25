@@ -241,11 +241,6 @@ export function PersonalIssueDrawer({
     current && ownerId && current.reporterId !== ownerId
       ? people.nameOf(current.reporterId)
       : null;
-  /* Whether the reader may be one of the owner's leaders (who choose its
-     watchers). The client cannot tell which people somebody leads, so this is
-     the best guess; the API refuses anybody else, and says why. */
-  const leader =
-    meId !== ownerId && (actor.leadsPeople || actor.headsDepartment);
 
   const value = useMemo<ProjectContextValue | null>(() => {
     if (!detail) return null;
@@ -298,7 +293,7 @@ export function PersonalIssueDrawer({
         if (row) onOpen?.(row.id);
       },
       openCreate: () => {},
-      personal: { setByName, leader },
+      personal: { setByName },
     };
   }, [
     detail,
@@ -311,7 +306,6 @@ export function PersonalIssueDrawer({
     timeZone,
     today,
     setByName,
-    leader,
   ]);
 
   if (!value) return null;

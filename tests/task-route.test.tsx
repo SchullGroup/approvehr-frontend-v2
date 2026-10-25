@@ -108,6 +108,28 @@ describe("opening a task by id", () => {
     ).toBeInTheDocument();
   });
 
+  it("starts again when the id changes", async () => {
+    openTask.mockResolvedValueOnce({
+      kind: "personal",
+      issue: { ...issue(), id: "t-1", key: "MY-4" },
+    } satisfies TaskTarget);
+    const view = render(<TaskScreen id="t-1" />);
+    await screen.findByRole("dialog", { name: "Personal t-1" });
+    let finish: (t: TaskTarget) => void = () => {};
+    openTask.mockReturnValueOnce(
+      new Promise<TaskTarget>((done) => {
+        finish = done;
+      }),
+    );
+    view.rerender(<TaskScreen id="t-5" />);
+    expect(screen.queryByRole("dialog", { name: "Personal t-1" })).toBeNull();
+    expect(screen.getByLabelText("Opening the task")).toBeInTheDocument();
+    finish({ kind: "personal", issue: { ...issue(), id: "t-5", key: "MY-5" } });
+    expect(
+      await screen.findByRole("dialog", { name: "Personal t-5" }),
+    ).toBeInTheDocument();
+  });
+
   it("is the app's not-found when the task is not there for this reader", async () => {
     openTask.mockRejectedValue(
       new ApiError(404, "not_found", "That issue was not found."),

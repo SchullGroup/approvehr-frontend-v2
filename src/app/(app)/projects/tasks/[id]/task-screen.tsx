@@ -58,6 +58,13 @@ function Opened({ id }: { id: string }) {
   const [open, setOpen] = useState(true);
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
+  /* Another task's id (a link from inside the drawer): start again. */
+  const [seenId, setSeenId] = useState(id);
+  if (seenId !== id) {
+    setSeenId(id);
+    setState({ status: "loading" });
+    setOpen(true);
+  }
 
   useEffect(() => {
     const controller = new AbortController();

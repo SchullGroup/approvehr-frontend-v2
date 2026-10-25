@@ -58,6 +58,18 @@ vi.mock("@/lib/store/project-session", () => ({
   }),
 }));
 
+vi.mock("@/lib/store/session", async (original) => {
+  const real = await original<typeof import("@/lib/store/session")>();
+  return {
+    ...real,
+    /* The signed-in account: `addedById` on a watcher is a user id. */
+    useSession: () => ({
+      ...real.useSession(),
+      user: { id: "u-01" } as ReturnType<typeof real.useSession>["user"],
+    }),
+  };
+});
+
 const { IssueDrawer } = await import("@/components/projects/issue-drawer");
 
 function renderDrawer(
@@ -85,6 +97,8 @@ beforeEach(() => {
     watchers: [{ id: "p-03", name: "Chidi Nwosu" }],
     watching: false,
     attachments: [],
+    canManageWatchers: true,
+    canAttachToTask: true,
   };
 });
 
@@ -197,6 +211,7 @@ describe("adding somebody else", () => {
     issue.reporterId = "p-01";
     data.project.memberIds = ["p-01"];
     renderDrawer({ personal: { setByName: null }, canManage: false }, data);
+    /* `canManageWatchers` is true: the owner chooses. */
     await userEvent.click(
       within(section()).getByRole("combobox", { name: "Add a watcher" }),
     );
@@ -210,6 +225,7 @@ describe("adding somebody else", () => {
     const issue = data.issues.find((i) => i.key === "CHK-10")!;
     issue.assigneeId = "p-04";
     issue.reporterId = "p-04";
+    thread = { ...thread, canManageWatchers: false };
     renderDrawer(
       { personal: { setByName: null }, canWork: false, canManage: false },
       data,
@@ -241,12 +257,68 @@ describe("taking somebody else off", () => {
     );
   });
 
+  it("whoever added them can, though not the lead", async () => {
+    thread = {
+      ...thread,
+      watchers: [{ id: "p-03", name: "Chidi Nwosu", addedById: "u-01" }],
+    };
+    api.removeWatcher.mockResolvedValue({ watchers: [], watching: false });
+    renderDrawer({ canManage: false });
+    await userEvent.click(
+      within(section()).getByRole("button", {
+        name: "Remove Chidi Nwosu as a watcher",
+      }),
+    );
+    expect(api.removeWatcher).toHaveBeenCalledWith(expect.any(String), "p-03");
+  });
+
+  it("anybody can take themselves off", async () => {
+    thread = {
+      ...thread,
+      watchers: [{ id: "p-01", name: "Adaeze Okonkwo", addedById: "u-77" }],
+      watching: true,
+    };
+    api.unwatch.mockResolvedValue({ watchers: [], watching: false });
+    const { issue } = renderDrawer({ canManage: false });
+    await userEvent.click(
+      within(section()).getByRole("button", {
+        name: "Remove yourself as a watcher",
+      }),
+    );
+    expect(api.unwatch).toHaveBeenCalledWith(issue.id);
+  });
+
+  it("on a personal task, whoever may choose watchers may take anybody off", () => {
+    const data = sampleData();
+    const issue = data.issues.find((i) => i.key === "CHK-10")!;
+    issue.assigneeId = "p-04";
+    renderDrawer(
+      { personal: { setByName: null }, canWork: false, canManage: false },
+      data,
+    );
+    expect(
+      within(section()).getByRole("button", {
+        name: "Remove Chidi Nwosu as a watcher",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("a member who is not the lead cannot", () => {
     renderDrawer({ canManage: false });
     expect(
       within(section()).queryByRole("button", {
         name: "Remove Chidi Nwosu as a watcher",
       }),
+    ).toBeNull();
+  });
+});
+
+describe("the API's answer decides the picker", () => {
+  it("has no picker on a board task when the API says the reader may not choose", () => {
+    thread = { ...thread, canManageWatchers: false };
+    renderDrawer();
+    expect(
+      within(section()).queryByRole("combobox", { name: "Add a watcher" }),
     ).toBeNull();
   });
 });

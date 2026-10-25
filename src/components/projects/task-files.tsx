@@ -49,16 +49,25 @@ export type Staged = {
 let seq = 0;
 
 export function useStagedFiles(
-  /** How many more files may be added. */
-  room: number = MAX_FILES,
+  /** How many more files may be added, read when files arrive. */
+  room: number | (() => number) = MAX_FILES,
   full = `You can attach up to ${MAX_FILES} files.`,
 ) {
   const [items, setItems] = useState<Staged[]>([]);
+  /* The list as of the last change, not the last render: a second drop, or a
+     patch from an upload still running, must see what the first one did. */
+  const current = useRef<Staged[]>([]);
+  const commit = useCallback((next: Staged[]) => {
+    current.current = next;
+    setItems(next);
+  }, []);
 
   const add = useCallback(
     (incoming: Iterable<File>): Staged[] => {
+      const limit = typeof room === "function" ? room() : room;
       let space =
-        room - items.filter((i) => !i.refused && i.target === null).length;
+        limit -
+        current.current.filter((i) => !i.refused && i.target === null).length;
       const next = [...incoming].map((file): Staged => {
         seq += 1;
         let error = fileRefusal(file);
@@ -76,24 +85,26 @@ export function useStagedFiles(
           target: null,
         };
       });
-      setItems((prev) => [...prev, ...next]);
+      commit([...current.current, ...next]);
       return next;
     },
-    [items, room, full],
+    [room, full, commit],
   );
 
   const patch = useCallback(
     (id: string, change: Partial<Staged>) =>
-      setItems((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, ...change } : item)),
+      commit(
+        current.current.map((item) =>
+          item.id === id ? { ...item, ...change } : item,
+        ),
       ),
-    [],
+    [commit],
   );
   const remove = useCallback(
-    (id: string) => setItems((prev) => prev.filter((item) => item.id !== id)),
-    [],
+    (id: string) => commit(current.current.filter((item) => item.id !== id)),
+    [commit],
   );
-  const clear = useCallback(() => setItems([]), []);
+  const clear = useCallback(() => commit([]), [commit]);
 
   return { items, add, patch, remove, clear };
 }
@@ -133,7 +144,14 @@ export async function attachStaged(
   return failed;
 }
 
-/** Drag-and-drop onto any element: spread these onto it. */
+const carriesFiles = (event: React.DragEvent) =>
+  Array.from(event.dataTransfer?.types ?? []).includes("Files");
+
+/**
+ * Drag-and-drop onto any element: spread these onto it. Only a drag carrying
+ * files lights it up (not selected text, not a card), a drop always clears it,
+ * and moving over a child is not leaving.
+ */
 export function useDropTarget(
   onFiles: (files: File[]) => void,
   enabled = true,
@@ -144,15 +162,20 @@ export function useDropTarget(
     over,
     handlers: {
       onDragOver: (event: React.DragEvent) => {
+        if (!carriesFiles(event)) return;
         event.preventDefault();
-        setOver(true);
+        if (!over) setOver(true);
       },
-      onDragLeave: () => setOver(false),
+      onDragLeave: (event: React.DragEvent) => {
+        const to = event.relatedTarget;
+        if (to instanceof Node && event.currentTarget.contains(to)) return;
+        setOver(false);
+      },
       onDrop: (event: React.DragEvent) => {
+        setOver(false);
         const files = Array.from(event.dataTransfer?.files ?? []);
         if (files.length === 0) return;
         event.preventDefault();
-        setOver(false);
         onFiles(files);
       },
     },
@@ -278,9 +301,9 @@ export function StagedList({
               />
             </div>
           )}
-          {item.error && (
-            <p className="mt-1 text-meta text-danger-text">{item.error}</p>
-          )}
+          <p aria-live="polite" className="text-meta text-danger-text">
+            {item.error && <span className="mt-1 block">{item.error}</span>}
+          </p>
         </li>
       ))}
     </ul>
@@ -296,6 +319,8 @@ async function openFile(id: string): Promise<void> {
 
 function Thumbnail({ attachment }: { attachment: IssueAttachment }) {
   const [src, setSrc] = useState<string | null>(null);
+  /* A link that has expired (the drawer was left open) is fetched again, once. */
+  const [tries, setTries] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     projectsApi
@@ -304,12 +329,17 @@ function Thumbnail({ attachment }: { attachment: IssueAttachment }) {
       /* The name still shows; a thumbnail is a courtesy. */
       .catch(() => {});
     return () => controller.abort();
-  }, [attachment.id]);
+  }, [attachment.id, tries]);
   return src ? (
     // eslint-disable-next-line @next/next/no-img-element -- a presigned URL on storage's origin, not something next/image can optimise
     <img
       src={src}
       alt={attachment.filename}
+      onError={() => {
+        if (tries > 0) return;
+        setSrc(null);
+        setTries(1);
+      }}
       className="size-16 rounded-md border border-line object-cover"
     />
   ) : (

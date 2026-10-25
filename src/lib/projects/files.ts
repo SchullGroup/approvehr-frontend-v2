@@ -24,7 +24,7 @@ export const MAX_FILES = 10;
 
 export const FILE_TOO_BIG = "That file is over 10 MB. Attach a smaller one.";
 export const FILE_WRONG_KIND =
-  "That kind of file can't be attached. Use an image, PDF, Office document or text file.";
+  "That kind of file can't be attached. Use an image, PDF or Office document.";
 export const STORAGE_OFF = "File uploads aren't set up on this server.";
 
 /** `ALLOWED_CONTENT_TYPES` in the API's `src/lib/storage.ts`. */

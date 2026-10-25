@@ -42,6 +42,7 @@ import {
 } from "@/lib/projects/workflow";
 import { useIssueThread } from "@/lib/store/projects";
 import { useProjectActor } from "@/lib/store/project-session";
+import { useSession } from "@/lib/store/session";
 import { formatDateTimeShort } from "@/lib/time";
 import { CommentItem } from "./comment-item";
 import { DraftHeading, DraftInput, DraftTextarea } from "./draft-fields";
@@ -150,6 +151,8 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
   } = useProject();
   const toast = useToast();
   const actor = useProjectActor();
+  /* `addedById` on a watcher is a user id, not an employee id. */
+  const userId = useSession().user?.id ?? null;
   const { thread, reload: reloadThread } = useIssueThread(issue.id);
   const base = useId();
 
@@ -236,21 +239,20 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
 
   const canDelete = (c: IssueComment) => canDeleteComment(actor, project, c);
 
-  /* Files and watchers. Only the API keeps them, so the demo has neither. On a
-     personal task, its owner and the leader who set it attach to the task and
-     choose its watchers (so may the owner's other leaders); everybody else who
-     can open it comments, with files. On a board, anybody who can open it does
-     both, and the lead or HR removes what others added. The API decides. */
+  /* Files and watchers. Only the API keeps them, so the demo has neither. The
+     issue's read says who may attach to the task itself and choose its
+     watchers (`canAttachToTask`, `canManageWatchers`); everybody who can open
+     it comments, with files. A watcher can be taken off by themselves, by
+     whoever added them (a user id), or by whoever may manage: the lead or HR on
+     a board, the owner or their leader on a personal task. */
   const isOwner =
     Boolean(personal) && meId !== null && meId === issue.assigneeId;
-  const isSetter =
-    Boolean(personal) && !isOwner && meId !== null && meId === issue.reporterId;
-  const canAttachToTask =
-    connected && meId !== null && (!personal || isOwner || isSetter);
-  const mayChooseWatchers =
-    connected &&
-    meId !== null &&
-    (!personal || isOwner || isSetter || personal.leader === true);
+  const canAttachToTask = connected && thread.canAttachToTask === true;
+  const mayChooseWatchers = connected && thread.canManageWatchers === true;
+  const mayRemoveWatcher = (w: Watcher) =>
+    (meId !== null && w.id === meId) ||
+    (userId !== null && w.addedById === userId) ||
+    (personal ? mayChooseWatchers : canManage);
   const watchState = useMemo(
     () => ({
       watchers: thread.watchers ?? NO_WATCHERS,
@@ -509,7 +511,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
                 personal ? people.people.map((p) => p.id) : project.memberIds
               }
               mayChoose={mayChooseWatchers}
-              mayRemove={() => (personal ? mayChooseWatchers : canManage)}
+              mayRemove={mayRemoveWatcher}
               onChanged={reloadThread}
             />
           )}
