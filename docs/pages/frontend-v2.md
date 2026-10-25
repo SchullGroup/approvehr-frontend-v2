@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Framework:_ Next.js 16, App Router · _Generated from_ `src/app/**/page.tsx`
 
-_Snapshot:_ commit `0a2e4a8b` (2026-10-25) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `10bba0d7` (2026-10-25) · regenerate with `npm run docs`, never by hand
 
 **157 pages** in total. Route groups in brackets — `(app)`, `(marketing)` — are folders that organise the
 code and **do not appear in the URL**. A segment in square brackets is a parameter.
@@ -238,11 +238,11 @@ Everything behind sign-in. Shares the `AppShell` chrome and the left-hand sideba
 
 `/reports` — 3 pages
 
-| Route              | Title          | What it is                                                                                                                                 | File                                     |
-| ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
-| `/reports`         | Reports        | Headcount, payroll cost and operational load.                                                                                              | `src/app/(app)/reports/page.tsx`         |
-| `/reports/builder` | Build a report | Choose a dataset, the columns you want, a filter and a grouping, with every total saying how many rows it covers and how many it does not. | `src/app/(app)/reports/builder/page.tsx` |
-| `/reports/explore` | Explore        | The company's departments as a navigable 3D space, sized by headcount.                                                                     | `src/app/(app)/reports/explore/page.tsx` |
+| Route              | Title           | What it is                                                                                                                                 | File                                     |
+| ------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| `/reports`         | Reports         | Headcount, payroll cost and operational load.                                                                                              | `src/app/(app)/reports/page.tsx`         |
+| `/reports/builder` | Build a report  | Choose a dataset, the columns you want, a filter and a grouping, with every total saying how many rows it covers and how many it does not. | `src/app/(app)/reports/builder/page.tsx` |
+| `/reports/company` | Company reports | What the records say about the people side of the company: what needs a decision, what was measured, and how departments compare.          | `src/app/(app)/reports/company/page.tsx` |
 
 ### Settings
 
