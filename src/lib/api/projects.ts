@@ -356,6 +356,126 @@ export function toPersonalTaskDetail(raw: Raw): PersonalTaskDetail {
   };
 }
 
+/* ----------------------------------------------------------------- team tasks */
+
+export type TeamFilter = "open" | "overdue" | "due-week";
+
+export type TeamCounts = {
+  open: number;
+  overdue: number;
+  dueThisWeek: number;
+  laterOrNoDate: number;
+  doneThisWeek: number;
+};
+
+export type TeamTask = {
+  id: string;
+  key: string;
+  title: string;
+  /** Null for a personal task: its list is not a project anybody opens. */
+  projectId: string | null;
+  projectName: string;
+  personal: boolean;
+  statusName: string;
+  statusCategory: StatusCategory;
+  dueDate: string | null;
+  overdue: boolean;
+  labels: string[];
+};
+
+export type TeamPerson = {
+  employee: { id: string; name: string; jobTitle: string | null };
+  counts: TeamCounts;
+  tasks: TeamTask[];
+};
+
+export type GiveTaskInput = {
+  employeeId: string;
+  title: string;
+  description?: string;
+  dueDate?: string | null;
+  labels?: string[];
+};
+
+export function toTeamTask(raw: Raw): TeamTask {
+  return {
+    id: str(raw["id"]),
+    key: str(raw["key"]),
+    title: str(raw["title"]),
+    projectId: strOrNull(raw["projectId"]),
+    projectName: str(raw["projectName"]),
+    personal: raw["personal"] === true,
+    statusName: str(raw["statusName"]),
+    statusCategory: categoryOf(raw["statusCategory"]),
+    dueDate: day(raw["dueDate"]),
+    overdue: raw["overdue"] === true,
+    labels: Array.isArray(raw["labels"])
+      ? (raw["labels"] as unknown[]).filter(
+          (l): l is string => typeof l === "string",
+        )
+      : [],
+  };
+}
+
+export function toTeamPerson(raw: Raw): TeamPerson {
+  const who = (raw["employee"] ?? {}) as Raw;
+  const c = (raw["counts"] ?? {}) as Raw;
+  return {
+    employee: {
+      id: str(who["id"]),
+      name: str(who["name"]),
+      jobTitle: strOrNull(who["jobTitle"]),
+    },
+    counts: {
+      open: num(c["open"]),
+      overdue: num(c["overdue"]),
+      dueThisWeek: num(c["dueThisWeek"]),
+      laterOrNoDate: num(c["laterOrNoDate"]),
+      doneThisWeek: num(c["doneThisWeek"]),
+    },
+    tasks: list(raw["tasks"]).map(toTeamTask),
+  };
+}
+
+/**
+ * A board task read by somebody who leads its assignee but is not on its project
+ * (`GET /issues/:id` answers `reduced: true`): what it is and where it stands,
+ * never what is said about it. No description, comments or files.
+ */
+export type ReducedIssueDetail = {
+  issue: Issue;
+  projectName: string;
+  statusName: string;
+  statusCategory: StatusCategory;
+  subtasks: {
+    id: string;
+    key: string;
+    title: string;
+    statusCategory: StatusCategory;
+  }[];
+};
+
+/** What `GET /issues/:id` gave a leader: the full read, or the reduced one. */
+export type LeaderRead =
+  { reduced: false } | ({ reduced: true } & ReducedIssueDetail);
+
+export function toLeaderRead(raw: Raw): LeaderRead {
+  if (raw["reduced"] !== true) return { reduced: false };
+  return {
+    reduced: true,
+    issue: toIssue(raw),
+    projectName: str(raw["projectName"]),
+    statusName: str(raw["statusName"]),
+    statusCategory: categoryOf(raw["statusCategory"]),
+    subtasks: list(raw["subtasks"]).map((s) => ({
+      id: str(s["id"]),
+      key: str(s["key"]),
+      title: str(s["title"]),
+      statusCategory: categoryOf(s["statusCategory"]),
+    })),
+  };
+}
+
 const signalOf = (signal?: AbortSignal) => (signal ? { signal } : {});
 
 export type LoadedProject = ProjectData & {
@@ -560,6 +680,35 @@ export const projectsApi = {
   /** A personal task with the columns of the list it is on. */
   personalTask: async (id: string, signal?: AbortSignal) =>
     toPersonalTaskDetail(await request<Raw>(`/issues/${id}`, signalOf(signal))),
+
+  /* -------------------------------------------------------------- team tasks */
+
+  /** Your people's open work, most overdue first. `{ people: [] }` for a non-leader. */
+  teamTasks: async (
+    filter: TeamFilter,
+    signal?: AbortSignal,
+  ): Promise<TeamPerson[]> => {
+    const raw = await request<Raw>("/projects/team-tasks", {
+      query: { filter },
+      ...signalOf(signal),
+    });
+    return list(raw["people"]).map(toTeamPerson);
+  },
+
+  /** Puts a task on one of your people's own lists, set by you. */
+  giveTask: (input: GiveTaskInput) =>
+    request<Raw>("/projects/team-tasks", { method: "POST", body: input }),
+
+  /** Moves a personal task to somebody in your team. */
+  moveTask: (id: string, employeeId: string) =>
+    request<Raw>(`/issues/${id}/move`, {
+      method: "POST",
+      body: { employeeId },
+    }),
+
+  /** An issue as a leader reads it: in full, or reduced when not on its project. */
+  leaderRead: async (id: string, signal?: AbortSignal) =>
+    toLeaderRead(await request<Raw>(`/issues/${id}`, signalOf(signal))),
 
   /* ----------------------------------------------------------------- issues */
 

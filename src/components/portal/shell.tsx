@@ -37,6 +37,7 @@ import { useAttendanceRoster, type RosterState } from "@/lib/store/attendance";
 import { useIsCollaborator } from "@/lib/hiring/access/collaborator";
 import { CollaboratorGate } from "./collaborator-gate";
 import { useHaveInterviews } from "@/lib/hiring/pipeline/use-mine";
+import { useLeadsTeam } from "@/lib/store/team-tasks";
 import { useAmIInAOneOnOne } from "@/lib/store/one-on-ones";
 import { useHaveIAnySignatures } from "@/lib/store/signatures";
 import { APPROVE_PERMISSIONS } from "@/app/(app)/approvals/inbox";
@@ -194,6 +195,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
      the page, so no permission can answer it: one request per session. */
   const haveInterviews = useHaveInterviews(true);
 
+  /* Team tasks: showing to somebody who leads people, which only the rows can
+     say. One request per session, never waited on. */
+  const leadsTeam = useLeadsTeam(true);
+
   const facts: NavFacts = useMemo(
     () => ({
       assistantWired,
@@ -203,6 +208,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         "one-on-ones": isManager || inAOneOnOne,
         signatures: canSendForSignature || haveSignatures,
         interviews: haveInterviews || collaborator,
+        "team-tasks": leadsTeam,
       },
       collaborator,
     }),
@@ -216,6 +222,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       canSendForSignature,
       haveSignatures,
       haveInterviews,
+      leadsTeam,
       collaborator,
     ],
   );

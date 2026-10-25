@@ -76,7 +76,8 @@ export type BadgeSource =
  * unanswered fact does not compile. The alternative, a predicate function on
  * the item, would let one be added that nobody ever calls.
  */
-export type NavRowFact = "one-on-ones" | "signatures" | "interviews";
+export type NavRowFact =
+  "one-on-ones" | "signatures" | "interviews" | "team-tasks";
 
 /**
  * What the sidebar knows that is neither a permission nor a feature flag.
@@ -126,7 +127,12 @@ export type NavFacts = {
 export const NOTHING_ANSWERED_YET: NavFacts = {
   assistantWired: false,
   earlyPay: false,
-  rows: { "one-on-ones": false, signatures: false, interviews: false },
+  rows: {
+    "one-on-ones": false,
+    signatures: false,
+    interviews: false,
+    "team-tasks": false,
+  },
   collaborator: false,
 };
 
@@ -384,6 +390,17 @@ const PERSONAL: NavItem[] = [
     label: "My tasks",
     icon: <ListChecks aria-hidden="true" />,
     feature: "projects",
+    always: true,
+  },
+  {
+    /* Only for somebody who leads people: the rows decide, because no
+       permission says who has anybody reporting to them or a department to
+       head. Absent rather than an empty page that explains itself. */
+    href: "/projects/team",
+    label: "Team tasks",
+    icon: <Users aria-hidden="true" />,
+    feature: "projects",
+    rows: "team-tasks",
     always: true,
   },
   {

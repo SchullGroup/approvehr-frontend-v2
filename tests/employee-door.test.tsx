@@ -30,7 +30,12 @@ const ALL_FEATURES = {};
 const EVERYTHING_ANSWERED: NavFacts = {
   assistantWired: true,
   earlyPay: true,
-  rows: { "one-on-ones": true, signatures: true, interviews: true },
+  rows: {
+    "one-on-ones": true,
+    signatures: true,
+    interviews: true,
+    "team-tasks": false,
+  },
 };
 
 const hrefFor = (label: string, permissions: ReadonlySet<PermissionKey>) => {
