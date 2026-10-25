@@ -8,6 +8,7 @@ import {
   mayLinkIssueObjective,
   projectObjectiveOptions,
   projectSourceHref,
+  workIssueHref,
   readProjectSource,
   weeklyTaskLine,
   withCurrent,
@@ -332,5 +333,16 @@ describe("an objective in an issue's history", () => {
       { ...lookup, goalTitle: (id) => (id === "g1" ? "Grow revenue" : null) },
     );
     expect(text).toMatchObject({ from: "Grow revenue", to: "none" });
+  });
+});
+
+describe("workIssueHref", () => {
+  it("opens a MY-n task by id, and a board issue on its board", () => {
+    expect(workIssueHref({ id: "i-9", key: "MY-4", projectId: "p-mine" })).toBe(
+      "/projects/tasks/i-9",
+    );
+    expect(workIssueHref({ id: "i-1", key: "PAY-1", projectId: "p-1" })).toBe(
+      "/projects/p-1?issue=PAY-1",
+    );
   });
 });

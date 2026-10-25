@@ -53,6 +53,14 @@ function explain(error: unknown, path: "add" | "remove" = "add"): string {
  * it (otherwise the row says "A task you can't open"). Editing a link's reason is
  * not offered here; the API supports it.
  */
+/**
+ * A key that may be a task on somebody's own list (`MY-4`). A link does not say,
+ * and a board made before `MY` was reserved can carry it too, so such a task
+ * opens through `/projects/tasks/:id`, which asks the API and sends a board task
+ * on to its board.
+ */
+const isPersonalKey = (key: string) => /^MY-\d+$/.test(key);
+
 export function LinkedTasks({
   issueId,
   onChanged,
@@ -61,7 +69,7 @@ export function LinkedTasks({
   /** Called after a link is added or removed, so the history can catch up. */
   onChanged?: () => void;
 }) {
-  const { project, canWork, openIssue } = useProject();
+  const { project, canWork, openIssue, issueByKey } = useProject();
   const router = useRouter();
   const base = useId();
   const [links, setLinks] = useState<IssueLink[] | null>(null);
@@ -185,12 +193,16 @@ export function LinkedTasks({
                       onClick={() =>
                         /* The project screen only opens keys from its own
                            project, so another project's task is reached
-                           through that project's page. */
-                        other.projectId === project.id
+                           through that project's page. A personal task has
+                           no page of its list: it opens by id. */
+                        other.projectId === project.id &&
+                        (!isPersonalKey(other.key) || issueByKey.has(other.key))
                           ? openIssue({ key: other.key })
-                          : router.push(
-                              `/projects/${other.projectId}?issue=${encodeURIComponent(other.key)}`,
-                            )
+                          : isPersonalKey(other.key)
+                            ? router.push(`/projects/tasks/${other.id}`)
+                            : router.push(
+                                `/projects/${other.projectId}?issue=${encodeURIComponent(other.key)}`,
+                              )
                       }
                       className="tabular text-meta font-medium text-muted hover:underline"
                     >
