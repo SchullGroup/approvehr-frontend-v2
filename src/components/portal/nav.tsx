@@ -377,6 +377,16 @@ const PERSONAL: NavItem[] = [
     always: true,
   },
   {
+    /* Under Projects, for the reason Projects is here. Everybody with a staff
+       record has a list of their own; a sign-in with none is told so by the page
+       (the API refuses it) rather than the row vanishing and reappearing. */
+    href: "/projects/mine",
+    label: "My tasks",
+    icon: <ListChecks aria-hidden="true" />,
+    feature: "projects",
+    always: true,
+  },
+  {
     /* Here for the reason Projects is: it belongs to the person using it and to
        no module the site sells. No permission, because every employee keeps
        their own log and gives kudos; the screens narrow what a role sees (the

@@ -303,6 +303,59 @@ export function toIssueLink(raw: Raw): IssueLink {
   };
 }
 
+/* ------------------------------------------------------------- personal tasks */
+
+export type PersonalState = "open" | "done" | "overdue";
+
+/** A task on somebody's own list: an issue, the column it is in, and who set it. */
+export type PersonalTask = Issue & {
+  statusName: string;
+  statusCategory: StatusCategory;
+  /** Present only when somebody other than its owner put it on the list. */
+  setBy: { id: string; name: string } | null;
+};
+
+/** One personal task as the drawer needs it: the issue and its list's columns. */
+export type PersonalTaskDetail = {
+  issue: Issue;
+  statusName: string;
+  statusCategory: StatusCategory;
+  statuses: ProjectStatus[];
+};
+
+export type NewPersonalTaskInput = {
+  title: string;
+  description?: string;
+  dueDate?: string | null;
+  labels?: string[];
+  goalId?: string | null;
+};
+
+const categoryOf = (v: unknown): StatusCategory =>
+  (STATUS_CATEGORIES as readonly string[]).includes(str(v))
+    ? (v as StatusCategory)
+    : "TODO";
+
+export function toPersonalTask(raw: Raw): PersonalTask {
+  const by = raw["setBy"] as Raw | null | undefined;
+  return {
+    ...toIssue(raw),
+    statusName: str(raw["statusName"]),
+    statusCategory: categoryOf(raw["statusCategory"]),
+    setBy:
+      by && str(by["id"]) ? { id: str(by["id"]), name: str(by["name"]) } : null,
+  };
+}
+
+export function toPersonalTaskDetail(raw: Raw): PersonalTaskDetail {
+  return {
+    issue: toIssue(raw),
+    statusName: str(raw["statusName"]),
+    statusCategory: categoryOf(raw["statusCategory"]),
+    statuses: list(raw["statuses"]).map(toStatus),
+  };
+}
+
 const signalOf = (signal?: AbortSignal) => (signal ? { signal } : {});
 
 export type LoadedProject = ProjectData & {
@@ -484,6 +537,29 @@ export const projectsApi = {
         : null,
     };
   },
+
+  /* ---------------------------------------------------------- personal tasks */
+
+  /** The caller's own tasks. `overdue` is open and due before today. */
+  mineTasks: async (state: PersonalState, signal?: AbortSignal) =>
+    list(
+      await request<Raw[]>("/projects/mine/tasks", {
+        query: { state },
+        ...signalOf(signal),
+      }),
+    ).map(toPersonalTask),
+
+  createMineTask: async (input: NewPersonalTaskInput) =>
+    toPersonalTask(
+      await request<Raw>("/projects/mine/tasks", {
+        method: "POST",
+        body: input,
+      }),
+    ),
+
+  /** A personal task with the columns of the list it is on. */
+  personalTask: async (id: string, signal?: AbortSignal) =>
+    toPersonalTaskDetail(await request<Raw>(`/issues/${id}`, signalOf(signal))),
 
   /* ----------------------------------------------------------------- issues */
 

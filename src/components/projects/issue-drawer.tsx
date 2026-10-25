@@ -136,6 +136,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
     canWork,
     timeZone,
     openIssue,
+    personal,
   } = useProject();
   const toast = useToast();
   const actor = useProjectActor();
@@ -267,13 +268,15 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             {ISSUE_TYPE_LABEL[issue.type]}
           </span>
         </nav>
-        <IconButton
-          label="Copy link to this issue"
-          size="sm"
-          onClick={copyLink}
-        >
-          <Link2 className="size-4" />
-        </IconButton>
+        {!personal && (
+          <IconButton
+            label="Copy link to this issue"
+            size="sm"
+            onClick={copyLink}
+          >
+            <Link2 className="size-4" />
+          </IconButton>
+        )}
         {canWork && (
           <IconButton
             label="Delete this issue"
@@ -569,18 +572,34 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             </Select>
           </Row>
 
-          <Row label="Assignee">
-            <PersonPicker
-              people={people}
-              value={issue.assigneeId ?? ""}
-              ids={project.memberIds}
-              allowNone
-              disabled={!canWork}
-              aria-label="Assignee"
-              onChange={(id) => save({ assigneeId: id || null })}
-            />
-          </Row>
-          {canWork &&
+          {personal && (
+            <Row label="List">
+              <span className="text-body-sm text-ink">Personal</span>
+            </Row>
+          )}
+          {personal?.setByName && (
+            <Row label="Set by">
+              <span className="text-body-sm text-ink">
+                {personal.setByName}
+              </span>
+            </Row>
+          )}
+
+          {!personal && (
+            <Row label="Assignee">
+              <PersonPicker
+                people={people}
+                value={issue.assigneeId ?? ""}
+                ids={project.memberIds}
+                allowNone
+                disabled={!canWork}
+                aria-label="Assignee"
+                onChange={(id) => save({ assigneeId: id || null })}
+              />
+            </Row>
+          )}
+          {!personal &&
+            canWork &&
             meId &&
             issue.assigneeId !== meId &&
             project.memberIds.includes(meId) && (
@@ -601,9 +620,11 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             <p className="text-meta leading-snug text-muted">{bridgeNote}</p>
           )}
 
-          <Row label="Reporter">
-            <PersonName people={people} id={issue.reporterId} />
-          </Row>
+          {!personal && (
+            <Row label="Reporter">
+              <PersonName people={people} id={issue.reporterId} />
+            </Row>
+          )}
 
           <Row label="Type" htmlFor={`${base}-type`}>
             {isEpic || isSubtask ? (
@@ -695,7 +716,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             </Row>
           )}
 
-          {!isEpic && !isSubtask && (
+          {!personal && !isEpic && !isSubtask && (
             <Row label="Epic" htmlFor={`${base}-epic`}>
               <Select
                 id={`${base}-epic`}

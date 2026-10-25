@@ -179,8 +179,17 @@ export function readProjectSource(value: unknown): ProjectSource | null {
   return { key, projectId };
 }
 
+/**
+ * Whether a source is a task on somebody's own list. Those are keyed `MY-n`, and
+ * no board can take the key `MY`, so the key alone says so. They have no project
+ * page to open.
+ */
+export function isPersonalSource(source: ProjectSource): boolean {
+  return /^MY-\d+$/i.test(source.key);
+}
+
 /** Where the tag goes: the issue in its project, as the notifications link to it. */
 export function projectSourceHref(source: ProjectSource): string | null {
-  if (source.projectId === null) return null;
+  if (source.projectId === null || isPersonalSource(source)) return null;
   return `/projects/${encodeURIComponent(source.projectId)}?issue=${encodeURIComponent(source.key)}`;
 }

@@ -62,6 +62,13 @@ export type ProjectContextValue = {
   setFilter: (next: IssueFilter) => void;
   openIssue: (issue: Pick<Issue, "key">) => void;
   openCreate: (defaults?: Partial<NewIssueInput>) => void;
+  /**
+   * Set when the drawer is showing a task on somebody's own list ("My tasks"),
+   * which has no board, no assignee to pick, no epic and no link by key (every
+   * list has a `MY-1`). `setByName` is who put it there, when that was not its
+   * owner. Absent for a board issue.
+   */
+  personal?: { setByName: string | null };
 };
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
