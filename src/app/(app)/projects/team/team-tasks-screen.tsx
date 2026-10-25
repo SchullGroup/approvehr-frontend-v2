@@ -49,10 +49,11 @@ import { formatDateShort } from "@/lib/time";
  *   lead the assignee): a read-only viewer saying why they can see it.
  */
 
+/* Keyed by the filter it answers, so one filter's rows are never shown under another's. */
 type Loaded =
   | { status: "loading" }
-  | { status: "error"; error: unknown }
-  | { status: "ready"; people: TeamPerson[] };
+  | { status: "error"; filter: TeamFilter; error: unknown }
+  | { status: "ready"; filter: TeamFilter; people: TeamPerson[] };
 
 const EMPTY_BY_FILTER: Record<TeamFilter, string> = {
   overdue: "Nothing overdue in your team.",
@@ -86,7 +87,16 @@ function Team() {
   const router = useRouter();
   const timeZone = useOrgTimezone();
   const [filter, setFilter] = useState<TeamFilter>("open");
-  const [data, setData] = useState<Loaded>({ status: "loading" });
+  const [loaded, setData] = useState<Loaded>({ status: "loading" });
+  /* Another filter's answer is not this one's: show it loading until it lands. */
+  const data = useMemo<Loaded>(
+    () =>
+      loaded.status !== "loading" && loaded.filter !== filter
+        ? { status: "loading" }
+        : loaded,
+    [loaded, filter],
+  );
+  const [opening, setOpening] = useState(false);
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
 
@@ -108,7 +118,7 @@ function Team() {
     projectsApi
       .teamTasks(filter, controller.signal)
       .then((people) => {
-        setData({ status: "ready", people });
+        setData({ status: "ready", filter, people });
         setTeam((prev) =>
           filter === "open" || prev.length === 0
             ? people.map((p) => p.employee)
@@ -119,7 +129,9 @@ function Team() {
         if (controller.signal.aborted) return;
         /* With people already on screen a failed refresh stays quiet. */
         setData((prev) =>
-          prev.status === "ready" ? prev : { status: "error", error },
+          prev.status === "ready" && prev.filter === filter
+            ? prev
+            : { status: "error", filter, error },
         );
       });
     return () => controller.abort();
@@ -144,12 +156,20 @@ function Team() {
       setPersonalId(task.id);
       return;
     }
+    if (opening) return;
+    setOpening(true);
     try {
       const read = await projectsApi.leaderRead(task.id);
       if (read.reduced) {
         setReduced({ detail: read, assignee: person.employee.name });
       } else if (task.projectId) {
         router.push(`/projects/${task.projectId}?issue=${task.key}`);
+      } else {
+        toast.push({
+          tone: "danger",
+          title: "Could not open that task",
+          detail: "It has no project to open it in.",
+        });
       }
     } catch (error) {
       toast.push({
@@ -158,6 +178,8 @@ function Team() {
         detail:
           error instanceof ApiError ? error.message : "Try again in a moment.",
       });
+    } finally {
+      setOpening(false);
     }
   }
 
@@ -187,6 +209,7 @@ function Team() {
         {data.status === "loading" && (
           <div
             className="space-y-2"
+            role="status"
             aria-busy="true"
             aria-label="Loading team tasks"
           >
@@ -236,6 +259,7 @@ function Team() {
       </PageBody>
 
       <GiveTaskDialog
+        key={giving?.id ?? "none"}
         person={giving}
         onClose={() => setGiving(null)}
         onGiven={(name) => {
@@ -245,6 +269,7 @@ function Team() {
         }}
       />
       <MoveDialog
+        key={moving?.task.id ?? "none"}
         task={moving?.task ?? null}
         team={team.filter((p) => p.id !== moving?.ownerId)}
         onClose={() => setMoving(null)}
@@ -542,6 +567,12 @@ function GiveTaskDialog({
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           aria-label="Task title"
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void submit();
+            }
+          }}
           placeholder="What needs doing?"
           autoComplete="off"
           maxLength={240}

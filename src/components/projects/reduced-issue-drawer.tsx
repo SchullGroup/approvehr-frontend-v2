@@ -60,7 +60,7 @@ export function ReducedIssueDrawer({
       {detail && issue && (
         <div className="space-y-5 p-5 sm:p-6">
           <p className="text-body-sm text-muted">
-            You can see this because {assigneeName} reports to you.
+            You can see this because {assigneeName} is in your team.
           </p>
 
           <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-4 gap-y-2 text-body-sm">

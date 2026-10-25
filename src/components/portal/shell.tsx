@@ -197,7 +197,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   /* Team tasks: showing to somebody who leads people, which only the rows can
      say. One request per session, never waited on. */
-  const leadsTeam = useLeadsTeam(true);
+  const leadsTeam = useLeadsTeam(features.projects === true);
 
   const facts: NavFacts = useMemo(
     () => ({

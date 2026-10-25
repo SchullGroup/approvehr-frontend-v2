@@ -2,7 +2,11 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NAV, NOTHING_ANSWERED_YET, visibleNav } from "@/components/portal/nav";
-import type { TeamPerson, TeamTask } from "@/lib/api/projects";
+import {
+  toLeaderRead,
+  type TeamPerson,
+  type TeamTask,
+} from "@/lib/api/projects";
 import { people } from "./projects-fixture";
 
 /**
@@ -328,13 +332,205 @@ describe("team tasks", () => {
     });
     expect(
       within(dialog).getByText(
-        "You can see this because Ada Okafor reports to you.",
+        "You can see this because Ada Okafor is in your team.",
       ),
     ).toBeInTheDocument();
     expect(within(dialog).getByText("Write the query")).toBeInTheDocument();
     expect(within(dialog).getByText("finance")).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
     expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
+  });
+});
+
+describe("fix round 1", () => {
+  it("does not keep the last filter's rows when the new filter fails to load", async () => {
+    render(<TeamTasksScreen />);
+    await screen.findByText("Ada Okafor");
+    teamTasks.mockRejectedValue(new Error("down"));
+    await userEvent.click(screen.getByRole("radio", { name: "Overdue" }));
+    expect(
+      await screen.findByText("Team tasks did not load"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Ada Okafor")).not.toBeInTheDocument();
+  });
+
+  it("shows loading, not the old people, while another filter loads", async () => {
+    render(<TeamTasksScreen />);
+    await screen.findByText("Ada Okafor");
+    teamTasks.mockReturnValue(new Promise(() => {}));
+    await userEvent.click(screen.getByRole("radio", { name: "Overdue" }));
+    expect(
+      screen.getByRole("status", { name: "Loading team tasks" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Ada Okafor")).not.toBeInTheDocument();
+  });
+
+  it("says nothing is due this week", async () => {
+    render(<TeamTasksScreen />);
+    await screen.findByText("Ada Okafor");
+    teamTasks.mockResolvedValue([
+      person("e-ada", "Ada Okafor", { open: 2 }, []),
+    ]);
+    await userEvent.click(screen.getByRole("radio", { name: "Due this week" }));
+    expect(
+      await screen.findByText("Nothing due this week in your team."),
+    ).toBeInTheDocument();
+  });
+
+  it("does not carry a cancelled draft to the next person", async () => {
+    render(<TeamTasksScreen />);
+    await screen.findByText("Ada Okafor");
+    const giveFor = (name: string) =>
+      within(
+        screen.getByText(name).closest("[data-person-row]") as HTMLElement,
+      ).getByRole("button", { name: "Give a task" });
+    await userEvent.click(giveFor("Ada Okafor"));
+    let dialog = await screen.findByRole("dialog", { name: /Give a task/ });
+    await userEvent.type(
+      within(dialog).getByLabelText("Task title"),
+      "Old draft",
+    );
+    await userEvent.type(
+      within(dialog).getByLabelText("Description"),
+      "Old notes",
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Cancel" }),
+    );
+    await userEvent.click(giveFor("Bola Ade"));
+    dialog = await screen.findByRole("dialog", {
+      name: "Give a task to Bola Ade",
+    });
+    expect(within(dialog).getByLabelText("Task title")).toHaveValue("");
+    expect(within(dialog).getByLabelText("Description")).toHaveValue("");
+  });
+
+  it("submits the give dialog with Enter", async () => {
+    render(<TeamTasksScreen />);
+    await screen.findByText("Ada Okafor");
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Give a task" })[0]!,
+    );
+    const dialog = await screen.findByRole("dialog", { name: /Give a task/ });
+    await userEvent.type(
+      within(dialog).getByLabelText("Task title"),
+      "Quick one{Enter}",
+    );
+    await waitFor(() => expect(giveTask).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not keep a stale target in the move dialog", async () => {
+    render(<TeamTasksScreen />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Move to…" }),
+    );
+    let dialog = await screen.findByRole("dialog", { name: "Move to…" });
+    await userEvent.selectOptions(
+      within(dialog).getByLabelText("Move to"),
+      "e-bola",
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Cancel" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Move to…" }));
+    dialog = await screen.findByRole("dialog", { name: "Move to…" });
+    expect(within(dialog).getByLabelText("Move to")).toHaveValue("");
+    expect(
+      within(dialog).getByRole("button", { name: "Move task" }),
+    ).toBeDisabled();
+  });
+
+  it("says so when a board task cannot be read", async () => {
+    leaderRead.mockRejectedValue(new Error("nope"));
+    render(<TeamTasksScreen />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Open PAYV-12/ }),
+    );
+    await waitFor(() =>
+      expect(pushToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Could not open that task" }),
+      ),
+    );
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("says so when a board task has no project to open in", async () => {
+    teamTasks.mockResolvedValue([
+      person("e-ada", "Ada Okafor", { open: 1, overdue: 1 }, [
+        task({ key: "X-1", title: "Orphan", projectId: null, overdue: true }),
+      ]),
+    ]);
+    leaderRead.mockResolvedValue({ reduced: false });
+    render(<TeamTasksScreen />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Open X-1/ }),
+    );
+    await waitFor(() =>
+      expect(pushToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Could not open that task" }),
+      ),
+    );
+  });
+
+  it("opens a reduced task with no description, comments, watchers or files", async () => {
+    leaderRead.mockResolvedValue({
+      reduced: true,
+      projectName: "Payroll v2",
+      statusName: "To do",
+      statusCategory: "TODO",
+      subtasks: [],
+      issue: {
+        id: "i1",
+        key: "PAYV-12",
+        title: "Payslip download",
+        labels: [],
+        startDate: null,
+        dueDate: null,
+      },
+    });
+    render(<TeamTasksScreen />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Open PAYV-12/ }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Payslip download",
+    });
+    for (const word of [
+      /description/i,
+      /comment/i,
+      /watch/i,
+      /files?\b/i,
+      /attach/i,
+    ]) {
+      expect(within(dialog).queryByText(word)).not.toBeInTheDocument();
+    }
+  });
+});
+
+describe("toLeaderRead", () => {
+  it("keeps none of what a reduced reader may not see", () => {
+    const read = toLeaderRead({
+      reduced: true,
+      id: "i1",
+      key: "PAYV-12",
+      title: "Payslip download",
+      description: "SECRET description",
+      comments: [{ body: "SECRET comment" }],
+      attachments: [{ name: "SECRET.pdf" }],
+      watchers: [{ id: "w" }],
+      projectName: "Payroll v2",
+      statusName: "To do",
+      statusCategory: "TODO",
+      subtasks: [],
+    });
+    expect(read.reduced).toBe(true);
+    expect(JSON.stringify(read)).not.toMatch(/SECRET/);
+  });
+
+  it("reads a full payload as not reduced, carrying nothing", () => {
+    expect(toLeaderRead({ id: "i1", description: "SECRET" })).toEqual({
+      reduced: false,
+    });
   });
 });
 

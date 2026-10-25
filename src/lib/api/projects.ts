@@ -463,7 +463,13 @@ export function toLeaderRead(raw: Raw): LeaderRead {
   if (raw["reduced"] !== true) return { reduced: false };
   return {
     reduced: true,
-    issue: toIssue(raw),
+    /* Rebuilt from the fields a reduced read carries: if the API ever sent a
+       description or a comment count here, it would still not reach the screen. */
+    issue: toIssue({
+      ...raw,
+      description: "",
+      commentCount: 0,
+    }),
     projectName: str(raw["projectName"]),
     statusName: str(raw["statusName"]),
     statusCategory: categoryOf(raw["statusCategory"]),
@@ -693,6 +699,15 @@ export const projectsApi = {
       ...signalOf(signal),
     });
     return list(raw["people"]).map(toTeamPerson);
+  },
+
+  /** Whether the caller leads anybody: one cheap existence check for the nav. */
+  teamLeads: async (signal?: AbortSignal): Promise<boolean> => {
+    const raw = await request<Raw>(
+      "/projects/team-tasks/leads",
+      signalOf(signal),
+    );
+    return raw["leads"] === true;
   },
 
   /** Puts a task on one of your people's own lists, set by you. */

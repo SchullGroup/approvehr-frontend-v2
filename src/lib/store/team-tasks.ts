@@ -10,8 +10,8 @@ import { useSession } from "@/lib/store/session";
  * ## It is a question about the rows, so the rows are asked
  *
  * "Your people" is the reporting line plus the departments you head; no
- * permission says who has any. The API answers with an empty list for somebody
- * who leads nobody, so the shell asks once per session and the row is absent
+ * permission says who has any. The API answers `leads: false` for somebody
+ * who leads nobody, so the shell asks once per session (`GET /projects/team-tasks/leads`, an existence check that reads no tasks) and the row is absent
  * until the answer is yes. A row that appears a moment late is better than one
  * that appears and is taken away under somebody's pointer, and the sidebar
  * never waits on it.
@@ -21,11 +21,11 @@ import { useSession } from "@/lib/store/session";
  * seconds by the resource), which hides the row rather than showing a page
  * that cannot load.
  */
-const leadsAnyone = createSharedResource<boolean>(async (_key, signal) => {
-  const people = await projectsApi.teamTasks("open", signal);
-  return people.length > 0;
-});
+const leadsAnyone = createSharedResource<boolean>((_key, signal) =>
+  projectsApi.teamLeads(signal),
+);
 
+/** `enabled` is whether Projects is switched on: with it off nothing is asked. */
 export function useLeadsTeam(enabled: boolean): boolean {
   const { isConnected, employeeId } = useSession();
   const key = enabled && isConnected && employeeId ? `api:${employeeId}` : null;

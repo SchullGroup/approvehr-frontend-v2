@@ -26,7 +26,9 @@ const ALL_FEATURES = {};
 /* The row-level answers this file does not care about, set to whatever keeps
    the most items on screen — these tests are about permissions and feature
    flags, and a hidden row would be a false negative rather than a finding.
-   `one-on-ones` is exercised properly in `one-on-one-by-role.test.ts`. */
+   `one-on-ones` is exercised properly in `one-on-one-by-role.test.ts`.
+   `team-tasks` is the exception: it stays false because the fixture is about
+   an employee who leads nobody, and the row is covered in `team-tasks.test.tsx`. */
 const EVERYTHING_ANSWERED: NavFacts = {
   assistantWired: true,
   earlyPay: true,
