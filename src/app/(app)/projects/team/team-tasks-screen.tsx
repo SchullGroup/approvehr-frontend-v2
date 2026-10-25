@@ -259,7 +259,7 @@ function Team() {
       </PageBody>
 
       <GiveTaskDialog
-        key={giving?.id ?? "none"}
+        key={`give-${giving?.id ?? "none"}`}
         person={giving}
         onClose={() => setGiving(null)}
         onGiven={(name) => {
@@ -269,7 +269,7 @@ function Team() {
         }}
       />
       <MoveDialog
-        key={moving?.task.id ?? "none"}
+        key={`move-${moving?.task.id ?? "none"}`}
         task={moving?.task ?? null}
         team={team.filter((p) => p.id !== moving?.ownerId)}
         onClose={() => setMoving(null)}
