@@ -9,14 +9,12 @@ import {
   ConfirmDialog,
   Drawer,
   EmptyState,
-  Spinner,
   TextLink,
   useToast,
+  LoadState,
 } from "@/components/ui";
 import { ExportButton } from "@/components/portal/export-button";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
-import { cn } from "@/lib/cn";
 import type { ApiDocument, ApiDocumentRequest } from "@/lib/api/documents";
 import {
   STATUS_LABELS,
@@ -148,19 +146,17 @@ export function EmployeeFileDrawer({
           </div>
         }
       >
-        {file.loading ? (
-          <div className="flex items-center gap-2 py-8 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading the file
-          </div>
-        ) : file.error ? (
-          <div role="alert" className="py-6">
-            <LoadFailure
-              subject="this person's document file"
-              error={file.error}
-              onRetry={file.reload}
-            />
-          </div>
+        {file.loading || file.error ? (
+          /* The one loading and failure rule, as a gate. */
+          <LoadState
+            loading={file.loading}
+            error={file.error}
+            subject="this person's document file"
+            onRetry={file.reload}
+            skeleton="list"
+          >
+            {null}
+          </LoadState>
         ) : (
           <div className="flex flex-col gap-6">
             {outstanding.length > 0 && (
@@ -385,14 +381,7 @@ function SignatureRow({ record }: { record: ApiSignature }) {
     .join(" · ");
 
   return (
-    <div
-      className={cn(
-        "flex flex-wrap items-center gap-3 rounded-md border p-3",
-        overdueDays !== null && overdueDays > 0
-          ? "border-danger-line bg-danger-soft/40"
-          : "border-line",
-      )}
-    >
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-line p-3">
       <span
         aria-hidden="true"
         className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sunken text-muted [&>svg]:size-4"

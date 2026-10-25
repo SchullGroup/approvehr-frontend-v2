@@ -11,8 +11,8 @@ import {
   Field,
   FilterBar,
   Select,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ProjectKeyChip } from "@/components/projects/glyphs";
 import { ProjectsOff } from "@/components/projects/module-off";
@@ -132,24 +132,24 @@ function List() {
           </FilterBar>
         )}
 
-        {list.status === "loading" && (
-          <div
-            className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
-            aria-busy="true"
-            aria-label="Loading projects"
-          >
-            {[0, 1, 2].map((n) => (
-              <Skeleton key={n} className="h-44" />
-            ))}
-          </div>
-        )}
-
-        {list.status === "error" && (
-          <LoadFailure
+        {/* The one loading and failure rule: card-shaped skeletons while it
+            asks, the failure card (and nothing else) after it fails. */}
+        {(list.status === "loading" || list.status === "error") && (
+          <LoadState
+            loading={list.status === "loading"}
+            error={list.status === "error" ? list.error : null}
             subject="the projects"
-            error={list.error}
             onRetry={list.reload}
-          />
+            skeleton={
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {[0, 1, 2].map((n) => (
+                  <Skeleton key={n} className="h-44" />
+                ))}
+              </div>
+            }
+          >
+            {null}
+          </LoadState>
         )}
 
         {list.status === "ready" && projects.length === 0 && (

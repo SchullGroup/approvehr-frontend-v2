@@ -23,12 +23,11 @@ import {
   Modal,
   SegmentedControl,
   Select,
-  Skeleton,
   Stat,
   useToast,
+  LoadState,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
-import { LoadFailure } from "@/components/portal/load-failure";
 import {
   departments as departmentsApi,
   employees as employeesApi,
@@ -376,85 +375,86 @@ export function OrgChartScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {loading && !model ? (
-          <Skeleton className="h-72 w-full" />
-        ) : error ? (
-          <LoadFailure subject="the org chart" error={error} onRetry={reload} />
-        ) : !model ||
+        <LoadState
+          loading={loading}
+          error={error}
+          subject="the org chart"
+          onRetry={reload}
+          hasData={Boolean(model)}
+          skeleton="detail"
+        >
+          {!model ||
           (model.roots.length === 0 && model.unplaced.length === 0) ? (
-          <EmptyState
-            icon={<Building2 aria-hidden="true" />}
-            title="There is nobody to chart yet"
-            description="Add people and departments and the shape of the company appears here."
-          />
-        ) : (
-          <>
-            <div className="grid grid-cols-12 gap-4">
-              <Stat
-                className="col-span-12 sm:col-span-6 xl:col-span-3"
-                label="People"
-                value={model.people.toLocaleString()}
-                icon={<UserRound aria-hidden="true" />}
-              />
-              <Stat
-                className="col-span-12 sm:col-span-6 xl:col-span-3"
-                label="Departments"
-                value={model.flat.length.toLocaleString()}
-                {...(model.hidden.length > 0
-                  ? { hint: `${String(model.hidden.length)} hidden` }
-                  : {})}
-                icon={<Building2 aria-hidden="true" />}
-              />
-              <Stat
-                className="col-span-12 sm:col-span-6 xl:col-span-3"
-                label="Not in a department"
-                value={model.unplaced.length.toLocaleString()}
-                {...(model.unplaced.length > 0
-                  ? { hint: "they appear at the bottom" }
-                  : { hint: "everybody is placed" })}
-              />
-              {/* Replaces "At the top — nobody above them", which read as 27 of
+            <EmptyState
+              icon={<Building2 aria-hidden="true" />}
+              title="There is nobody to chart yet"
+              description="Add people and departments and the shape of the company appears here."
+            />
+          ) : (
+            <>
+              <div className="grid grid-cols-12 gap-4">
+                <Stat
+                  className="col-span-12 sm:col-span-6 xl:col-span-3"
+                  label="People"
+                  value={model.people.toLocaleString()}
+                  icon={<UserRound aria-hidden="true" />}
+                />
+                <Stat
+                  className="col-span-12 sm:col-span-6 xl:col-span-3"
+                  label="Departments"
+                  value={model.flat.length.toLocaleString()}
+                  {...(model.hidden.length > 0
+                    ? { hint: `${String(model.hidden.length)} hidden` }
+                    : {})}
+                  icon={<Building2 aria-hidden="true" />}
+                />
+                <Stat
+                  className="col-span-12 sm:col-span-6 xl:col-span-3"
+                  label="Not in a department"
+                  value={model.unplaced.length.toLocaleString()}
+                  {...(model.unplaced.length > 0
+                    ? { hint: "they appear at the bottom" }
+                    : { hint: "everybody is placed" })}
+                />
+                {/* Replaces "At the top — nobody above them", which read as 27 of
                   27 on a company that had simply not set anybody's manager.
                   This says the same fact as something somebody can act on. */}
-              <Stat
-                className="col-span-12 sm:col-span-6 xl:col-span-3"
-                label="Without a manager"
-                value={model.withoutManager.toLocaleString()}
-                {...(model.withoutManager === model.people && model.people > 0
-                  ? { hint: "nobody has one set yet" }
-                  : { hint: "set on their record" })}
-              />
-            </div>
+                <Stat
+                  className="col-span-12 sm:col-span-6 xl:col-span-3"
+                  label="Without a manager"
+                  value={model.withoutManager.toLocaleString()}
+                  {...(model.withoutManager === model.people && model.people > 0
+                    ? { hint: "nobody has one set yet" }
+                    : { hint: "set on their record" })}
+                />
+              </div>
 
-            {fetched?.chart && fetched.chart.detached.length > 0 && (
-              /* Named rather than quietly straightened out. A loop is somebody's
+              {fetched?.chart && fetched.chart.detached.length > 0 && (
+                /* Named rather than quietly straightened out. A loop is somebody's
                  record being wrong, and only a person can say which link is the
                  mistake. */
-              <Callout
-                tone="warning"
-                title="Some reporting lines loop back on themselves"
-              >
-                {fetched.chart.detached.map((person) => person.name).join(", ")}{" "}
-                ,{" "}
-                {fetched.chart.detached.length === 1
-                  ? "this person reports"
-                  : "these people report"}{" "}
-                into a circle, so they are shown without a manager until
-                somebody corrects who they report to.
-              </Callout>
-            )}
+                <Callout
+                  tone="warning"
+                  title="Some reporting lines loop back on themselves"
+                >
+                  {`${fetched.chart.detached.map((person) => person.name).join(", ")}, ${
+                    fetched.chart.detached.length === 1
+                      ? "this person reports"
+                      : "these people report"
+                  } into a circle, so they are shown without a manager until somebody corrects who they report to.`}
+                </Callout>
+              )}
 
-            {arranging && mode === "departments" && (
-              <Callout tone="info" title="Arranging">
-                Drag a person onto a department to move them, or drag a
-                department onto another to nest it. Every change saves as you
-                make it. The <strong>Move</strong> button beside each one does
-                the same thing without a mouse.
-              </Callout>
-            )}
+              {arranging && (
+                <Callout tone="info" title="Arranging">
+                  Drag a person onto a department to move them, or drag a
+                  department onto another to nest it. Every change saves as you
+                  make it. The Move button beside each one does the same thing
+                  without a mouse.
+                </Callout>
+              )}
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="w-full max-w-sm">
+              <div className="max-w-sm">
                 <Input
                   value={query}
                   placeholder="Find a person, a job title or a department"
@@ -462,101 +462,89 @@ export function OrgChartScreen() {
                   onChange={(event) => setQuery(event.target.value)}
                 />
               </div>
-              <SegmentedControl<View>
-                label="How to draw the company"
-                value={mode}
-                options={[
-                  { value: "chart", label: "Chart" },
-                  { value: "departments", label: "By department" },
-                ]}
-                onChange={(next) => {
-                  setView(next);
-                  if (next === "chart") setArranging(false);
-                }}
-              />
-            </div>
 
-            {mode === "chart" && fetched?.chart ? (
-              <ReportingChart roots={fetched.chart.roots} query={query} />
-            ) : shown.length === 0 && needle !== "" ? (
-              <p className="text-body-sm text-muted">
-                Nothing matches “{query.trim()}”.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {/* Where a nested department is dropped to become top-level.
+              {shown.length === 0 && needle !== "" ? (
+                <p className="text-body-sm text-muted">
+                  Nothing matches “{query.trim()}”.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {/* Where a nested department is dropped to become top-level.
                     Only while arranging and only when something is in the hand,
                     because an always-present strip is furniture. */}
-                {arranging && drag?.kind === "department" && (
-                  <div
-                    data-drop-id="top"
-                    className={cn(
-                      "rounded-lg border-2 border-dashed p-3 text-center text-body-sm transition-colors",
-                      drag.over === "top"
-                        ? "border-accent-text bg-accent-soft text-accent-text"
-                        : "border-line text-muted",
-                    )}
-                  >
-                    Drop here to make it a top-level department
-                  </div>
-                )}
+                  {arranging && drag?.kind === "department" && (
+                    <div
+                      data-drop-id="top"
+                      className={cn(
+                        "rounded-lg border-2 border-dashed p-3 text-center text-body-sm transition-colors",
+                        drag.over === "top"
+                          ? "border-accent-text bg-accent-soft text-accent-text"
+                          : "border-line text-muted",
+                      )}
+                    >
+                      Drop here to make it a top-level department
+                    </div>
+                  )}
 
-                {shown.map((node) => (
-                  <DepartmentCard
-                    key={node.department.id}
-                    node={node}
-                    depth={0}
-                    model={model}
-                    arranging={arranging}
-                    canStructure={canStructure}
-                    canMovePeople={canMovePeople}
-                    busy={busy}
-                    dragOver={drag?.over ?? null}
-                    dragging={drag?.id ?? null}
-                    onDragStart={start}
-                    collapsed={collapsed}
-                    onToggle={(id) =>
-                      setCollapsed((current) => {
-                        const next = new Set(current);
-                        if (next.has(id)) next.delete(id);
-                        else next.add(id);
-                        return next;
-                      })
-                    }
-                    expanded={expanded}
-                    onExpand={(id) =>
-                      setExpanded((current) => new Set(current).add(id))
-                    }
-                    onPick={setPicking}
-                    onHide={(target) =>
-                      void run(
-                        target.department.id,
-                        `${target.department.name} hidden`,
-                        () => departmentsApi.archive(target.department.id),
-                      )
-                    }
-                  />
-                ))}
+                  {shown.map((node) => (
+                    <DepartmentCard
+                      key={node.department.id}
+                      node={node}
+                      depth={0}
+                      model={model}
+                      arranging={arranging}
+                      canStructure={canStructure}
+                      canMovePeople={canMovePeople}
+                      busy={busy}
+                      dragOver={drag?.over ?? null}
+                      dragging={drag?.id ?? null}
+                      onDragStart={start}
+                      collapsed={collapsed}
+                      onToggle={(id) =>
+                        setCollapsed((current) => {
+                          const next = new Set(current);
+                          if (next.has(id)) next.delete(id);
+                          else next.add(id);
+                          return next;
+                        })
+                      }
+                      expanded={expanded}
+                      onExpand={(id) =>
+                        setExpanded((current) => new Set(current).add(id))
+                      }
+                      onPick={setPicking}
+                      onHide={(target) =>
+                        void run(
+                          target.department.id,
+                          `${target.department.name} hidden`,
+                          () => departmentsApi.archive(target.department.id),
+                        )
+                      }
+                    />
+                  ))}
 
-                {model.unplaced.length > 0 && (
-                  <UnplacedCard
-                    people={model.unplaced}
-                    arranging={arranging}
-                    canMovePeople={canMovePeople}
-                    busy={busy}
-                    dragging={drag?.id ?? null}
-                    onDragStart={start}
-                    expanded={expanded.has("unplaced")}
-                    onExpand={() =>
-                      setExpanded((current) => new Set(current).add("unplaced"))
-                    }
-                    onPick={setPicking}
-                  />
-                )}
-              </div>
-            )}
-          </>
-        )}
+                  {model.unplaced.length > 0 && (
+                    <UnplacedCard
+                      people={model.unplaced}
+                      arranging={arranging}
+                      canMovePeople={canMovePeople}
+                      busy={busy}
+                      dragging={drag?.id ?? null}
+                      onDragStart={start}
+                      expanded={expanded.has("unplaced")}
+                      onExpand={() =>
+                        setExpanded((current) =>
+                          new Set(current).add("unplaced"),
+                        )
+                      }
+                      onPick={setPicking}
+                    />
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </LoadState>
       </PageBody>
 
       {/* The keyboard path, and the one that works when the target is three

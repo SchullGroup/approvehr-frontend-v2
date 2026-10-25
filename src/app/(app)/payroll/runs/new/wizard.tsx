@@ -80,6 +80,7 @@ import { BankRegisterCard } from "./bank-register-card";
 import { RUN_BREADCRUMB } from "./breadcrumb";
 import { OverflowMenu } from "./overflow-menu";
 import { PreflightChecklist } from "./preflight-checklist";
+import { useScheduledAllowances } from "@/lib/store/scheduled-allowances";
 import { ReviewStep } from "./review-step";
 import { DEFAULT_REVIEW_VIEW, type ReviewView } from "./review-model";
 import type { RecordedPayment } from "@/components/payroll/record-paid-dialog";
@@ -423,6 +424,13 @@ export function PayrollRunWizard() {
       ? lastRun
       : null);
   const reviewRefreshing = run === null && reviewRun !== null;
+  /* Which allowances fall due on this payroll and which are held back, from the
+     API's own reading of their schedules. Asked for the run on screen, and again
+     when it is calculated again. */
+  const scheduled = useScheduledAllowances(
+    reviewRun?.id ?? null,
+    reviewRun?.preparedAt ?? null,
+  );
   /* Whether Review is looking at an approved run, from the run it is showing.
      `settled` reads the live run, which is absent during a reload, so for that
      moment it would call an approved payroll editable. */
@@ -1235,6 +1243,7 @@ export function PayrollRunWizard() {
                           : null
                     }
                     refreshing={reviewRefreshing}
+                    scheduled={scheduled}
                     view={reviewView}
                     onViewChange={setReviewView}
                     onSaved={() => void prepare()}
@@ -1283,6 +1292,7 @@ export function PayrollRunWizard() {
               blockers={counts.blockers}
               warnings={counts.warnings}
               onSeeChecks={() => stepper.goTo(1)}
+              scheduled={scheduled}
             />
           )}
 

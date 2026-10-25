@@ -20,8 +20,6 @@ import {
   Pagination,
   Select,
   SortableTH,
-  Stat,
-  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -319,39 +317,6 @@ function PayslipIndex() {
         )}
       </div>
 
-      <StatGrid columns={4}>
-        <Stat
-          label="Payslips"
-          /* The count and the headcount it covers: nine rows for a company of
-             ten is the answer to a different question. */
-          value={run ? headcountLabel(run) : "—"}
-        />
-        <Stat
-          label="Net to employees"
-          value={
-            run ? <Money amount={naira(run.netKobo)} decimals size="xl" /> : "—"
-          }
-          {...(run ? { hint: `Pays on ${run.payDate}` } : {})}
-        />
-        <Stat
-          label="Not sent"
-          /* The server's count across the whole run, not this page's. */
-          value={counts === undefined ? "—" : String(counts.notSent)}
-          {...(counts !== undefined && counts.notSent === 0
-            ? { hint: "All sent" }
-            : {})}
-        />
-        <Stat
-          label="Opened"
-          value={
-            counts === undefined || inRun === undefined
-              ? "—"
-              : `${counts.opened} of ${inRun}`
-          }
-          icon={<Mail aria-hidden="true" />}
-        />
-      </StatGrid>
-
       {run && (
         <SendPayslips
           runId={run.id}
@@ -368,7 +333,38 @@ function PayslipIndex() {
       )}
 
       <Card>
-        <CardHeader title="Distribution" />
+        <CardHeader
+          title="Distribution"
+          /* The three tiles that stood above the table are one hover away; the
+             money stays on the table, where the rows add up to it. */
+          mark={
+            run
+              ? [
+                  `${headcountLabel(run)} on this payroll.`,
+                  counts === undefined
+                    ? null
+                    : `${counts.notSent} not sent${
+                        inRun === undefined
+                          ? ""
+                          : `, ${counts.opened} of ${inRun} opened`
+                      }.`,
+                  `Pays on ${run.payDate}.`,
+                ]
+              : null
+          }
+          action={
+            run ? (
+              <span className="text-body-sm text-muted">
+                Net to employees{" "}
+                <Money
+                  amount={naira(run.netKobo)}
+                  decimals
+                  className="font-semibold text-ink"
+                />
+              </span>
+            ) : null
+          }
+        />
 
         <CardBody>
           <FilterBar

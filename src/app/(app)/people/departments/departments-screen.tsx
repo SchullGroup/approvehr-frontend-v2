@@ -307,20 +307,16 @@ export function DepartmentsScreen() {
                         : undefined
                     }
                     hint="people in no department"
+                    mark={
+                      departments.counts.unassignedEmployees > 0
+                        ? [
+                            "Some people are in no department.",
+                            "They will not appear in any department payroll report, and no head is responsible for them. Use Assign people on the department they belong to, or set it on their own record.",
+                          ]
+                        : null
+                    }
                   />
                 </StatGrid>
-
-                {departments.counts.unassignedEmployees > 0 && (
-                  <Callout
-                    tone="warning"
-                    title="Some people are in no department"
-                  >
-                    They will not appear in any department payroll report, and
-                    no head is responsible for them. Use{" "}
-                    <strong>Assign people</strong> on the department they belong
-                    to, or set it on their own record.
-                  </Callout>
-                )}
 
                 <Card>
                   <CardHeader

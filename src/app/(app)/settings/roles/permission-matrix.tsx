@@ -192,11 +192,11 @@ function ModuleBlock({
       {notes.map((note) => (
         <p
           key={note}
-          className="flex gap-2 rounded-md bg-warning-soft px-2.5 py-2 text-body-sm leading-relaxed text-warning-text"
+          className="flex gap-2 text-body-sm leading-relaxed text-muted"
         >
           <TriangleAlert
             aria-hidden="true"
-            className="mt-0.5 size-3.5 shrink-0"
+            className="mt-0.5 size-3.5 shrink-0 text-warning-text"
           />
           {note}
         </p>

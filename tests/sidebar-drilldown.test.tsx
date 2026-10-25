@@ -182,13 +182,15 @@ describe("the top level", () => {
     expect(row("hiring")).toBeNull();
   });
 
-  it("makes Explore alone a link, and Reports with Explore a row", () => {
+  it("shows an employee no Reports at all: Company reports is absent, not refused", () => {
     setup(employee);
-    expect(screen.getByRole("link", { name: "Explore" })).toHaveAttribute(
-      "href",
-      "/reports/explore",
-    );
+    expect(screen.queryByRole("link", { name: "Company reports" })).toBeNull();
     expect(row("reports")).toBeNull();
+  });
+
+  it("gives an administrator Company reports under a Reports row", () => {
+    setup(admin);
+    expect(row("reports")).not.toBeNull();
   });
 
   it("keeps the blocks apart with a hairline: yours, the modules, the company's", () => {

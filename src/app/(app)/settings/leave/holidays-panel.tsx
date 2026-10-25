@@ -22,7 +22,6 @@ import {
   EmptyState,
   IconButton,
   RowActions,
-  Spinner,
   TBody,
   TD,
   TDPrimary,
@@ -31,8 +30,8 @@ import {
   TR,
   TableWrap,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -265,12 +264,6 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
         />
 
         <CardBody className="flex flex-col gap-3 pb-3">
-          <LoadFailure
-            subject={`the ${year} holiday calendar`}
-            error={calendar.error}
-            onRetry={calendar.reload}
-          />
-
           {/* Demo mode has one honest gap the connected product does not, and it
               is exactly the kind of thing somebody would otherwise discover by
               wondering why a timesheet disagreed with a calendar they just
@@ -328,112 +321,117 @@ export function HolidaysPanel({ defaultYear }: { defaultYear: number }) {
           )}
         </CardBody>
 
-        {calendar.loading ? (
-          <CardBody className="flex justify-center py-10">
-            <Spinner />
-          </CardBody>
-        ) : calendar.holidays.length === 0 ? (
-          <EmptyState
-            icon={<CalendarDays aria-hidden="true" />}
-            title={`Nothing on the calendar for ${year}`}
-            description="Until a date is here, attendance treats it as an ordinary working day and payroll prorates it as one."
-            action={
-              canManage ? (
-                <Button variant="accent" onClick={() => setAdding(true)}>
-                  <Plus aria-hidden="true" className="size-4" />
-                  Add a holiday
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <>
-            <div className="hidden sm:block">
-              <TableWrap
-                className="rounded-none border-0"
-                caption={`Public holidays for ${year}`}
-              >
-                <THead>
-                  <TH>Holiday</TH>
-                  <TH>Date</TH>
-                  <TH>Status</TH>
-                  {canManage && (
-                    <TH align="right">
-                      <span className="sr-only">Actions</span>
-                    </TH>
-                  )}
-                </THead>
-                <TBody>
-                  {calendar.holidays.map((holiday) => (
-                    <TR key={holiday.id}>
-                      <TDPrimary
-                        title={holiday.name}
-                        subtitle={weekdayOf(holiday.date)}
-                      />
-                      <TD className="tabular">{longDate(holiday.date)}</TD>
-                      <TD>
-                        <HolidayStatusBadge holiday={holiday} />
-                      </TD>
-                      {canManage && (
-                        <TD align="right">
-                          <HolidayRowMenu
-                            holiday={holiday}
-                            busy={busy}
-                            onConfirm={() =>
-                              void run(
-                                () => mutations.confirm(holiday.id),
-                                `${holiday.name} confirmed`,
-                              )
-                            }
-                            onEdit={() => setEditing(holiday)}
-                            onDelete={() => setDeleting(holiday)}
-                          />
+        <LoadState
+          loading={calendar.loading}
+          error={calendar.error}
+          subject={`the ${year} holiday calendar`}
+          onRetry={calendar.reload}
+          hasData={calendar.holidays.length > 0}
+          skeleton="table"
+        >
+          {calendar.holidays.length === 0 ? (
+            <EmptyState
+              icon={<CalendarDays aria-hidden="true" />}
+              title={`Nothing on the calendar for ${year}`}
+              description="Until a date is here, attendance treats it as an ordinary working day and payroll prorates it as one."
+              action={
+                canManage ? (
+                  <Button variant="accent" onClick={() => setAdding(true)}>
+                    <Plus aria-hidden="true" className="size-4" />
+                    Add a holiday
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <>
+              <div className="hidden sm:block">
+                <TableWrap
+                  className="rounded-none border-0"
+                  caption={`Public holidays for ${year}`}
+                >
+                  <THead>
+                    <TH>Holiday</TH>
+                    <TH>Date</TH>
+                    <TH>Status</TH>
+                    {canManage && (
+                      <TH align="right">
+                        <span className="sr-only">Actions</span>
+                      </TH>
+                    )}
+                  </THead>
+                  <TBody>
+                    {calendar.holidays.map((holiday) => (
+                      <TR key={holiday.id}>
+                        <TDPrimary
+                          title={holiday.name}
+                          subtitle={weekdayOf(holiday.date)}
+                        />
+                        <TD className="tabular">{longDate(holiday.date)}</TD>
+                        <TD>
+                          <HolidayStatusBadge holiday={holiday} />
                         </TD>
-                      )}
-                    </TR>
-                  ))}
-                </TBody>
-              </TableWrap>
-            </div>
+                        {canManage && (
+                          <TD align="right">
+                            <HolidayRowMenu
+                              holiday={holiday}
+                              busy={busy}
+                              onConfirm={() =>
+                                void run(
+                                  () => mutations.confirm(holiday.id),
+                                  `${holiday.name} confirmed`,
+                                )
+                              }
+                              onEdit={() => setEditing(holiday)}
+                              onDelete={() => setDeleting(holiday)}
+                            />
+                          </TD>
+                        )}
+                      </TR>
+                    ))}
+                  </TBody>
+                </TableWrap>
+              </div>
 
-            {/* Two lines a row, as on the desktop: the name and its date on the
+              {/* Two lines a row, as on the desktop: the name and its date on the
                 left, the status and the menu on the right. Five lines of label
                 and value pairs per holiday was thirteen holidays of them. */}
-            <ul className="divide-y divide-line sm:hidden">
-              {calendar.holidays.map((holiday) => (
-                <li
-                  key={holiday.id}
-                  className="flex items-center gap-3 px-4 py-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-body-sm font-medium text-ink">
-                      {holiday.name}
-                    </p>
-                    <p className="tabular truncate text-meta text-muted">
-                      {weekdayOf(holiday.date).slice(0, 3)},{" "}
-                      {longDate(holiday.date)}
-                    </p>
-                  </div>
-                  <HolidayStatusBadge holiday={holiday} />
-                  {canManage && (
-                    <HolidayRowMenu
-                      holiday={holiday}
-                      busy={busy}
-                      onConfirm={() =>
-                        void run(
-                          () => mutations.confirm(holiday.id),
-                          `${holiday.name} confirmed`,
-                        )
-                      }
-                      onEdit={() => setEditing(holiday)}
-                      onDelete={() => setDeleting(holiday)}
-                    />
-                  )}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+              <ul className="divide-y divide-line sm:hidden">
+                {calendar.holidays.map((holiday) => (
+                  <li
+                    key={holiday.id}
+                    className="flex items-center gap-3 px-4 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-body-sm font-medium text-ink">
+                        {holiday.name}
+                      </p>
+                      <p className="tabular truncate text-meta text-muted">
+                        {weekdayOf(holiday.date).slice(0, 3)},{" "}
+                        {longDate(holiday.date)}
+                      </p>
+                    </div>
+                    <HolidayStatusBadge holiday={holiday} />
+                    {canManage && (
+                      <HolidayRowMenu
+                        holiday={holiday}
+                        busy={busy}
+                        onConfirm={() =>
+                          void run(
+                            () => mutations.confirm(holiday.id),
+                            `${holiday.name} confirmed`,
+                          )
+                        }
+                        onEdit={() => setEditing(holiday)}
+                        onDelete={() => setDeleting(holiday)}
+                      />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </LoadState>
       </Card>
 
       <HolidayForm

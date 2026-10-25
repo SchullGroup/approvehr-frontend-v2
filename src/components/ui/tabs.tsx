@@ -249,7 +249,8 @@ export function SegmentedControl<T extends string>({
   label,
   className,
 }: {
-  options: { value: T; label: string }[];
+  /** `disabled` is for a choice that is real but not available right now; say why beside the control. */
+  options: { value: T; label: string; disabled?: boolean }[];
   value: T;
   onChange: (v: T) => void;
   label: string;
@@ -278,12 +279,15 @@ export function SegmentedControl<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
+            disabled={opt.disabled}
             onClick={() => onChange(opt.value)}
             className={cn(
               "rounded-sm px-3 py-1.5 text-body-sm font-medium transition-colors duration-150",
               selected
                 ? "bg-surface text-ink shadow-xs"
-                : "text-muted hover:text-ink",
+                : opt.disabled
+                  ? "cursor-not-allowed text-faint"
+                  : "text-muted hover:text-ink",
             )}
           >
             {opt.label}

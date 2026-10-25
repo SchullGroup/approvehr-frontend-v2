@@ -10,11 +10,10 @@ import {
   EmptyState,
   Field,
   Input,
-  Skeleton,
   Switch,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { sentenceOf } from "@/lib/hiring/pipeline/errors";
 import {
   usePipelineGateway,
@@ -103,126 +102,123 @@ export function ReasonsScreen() {
         </p>
       )}
 
-      {reasons.loading ? (
-        <>
-          <Skeleton className="h-28 w-full" />
-          <span className="sr-only-focusable">Loading the reasons</span>
-        </>
-      ) : reasons.error ? (
-        <LoadFailure
-          subject="the reasons"
-          error={reasons.error}
-          onRetry={reasons.reload}
-        />
-      ) : reasons.items.length === 0 ? (
-        <Card>
-          <EmptyState
-            title="No reasons yet"
-            description="Add the first one above. Until there is one, nobody can be rejected."
-          />
-        </Card>
-      ) : (
-        <Card>
-          <ul className="divide-y divide-line">
-            {reasons.items.map((reason) => (
-              <li
-                key={reason.id}
-                className="flex flex-wrap items-center gap-3 px-4 py-3"
-              >
-                {renaming === reason.id ? (
-                  <form
-                    className="flex min-w-64 flex-1 flex-wrap items-center gap-2"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void run(
-                        () =>
-                          gateway.reasons.update(reason.id, {
-                            label: draft.trim(),
-                          }),
-                        "Reason renamed",
-                      ).then((ok) => {
-                        if (ok) setRenaming(null);
-                      });
-                    }}
-                  >
-                    <Input
-                      value={draft}
-                      maxLength={120}
-                      aria-label={`Rename ${reason.label}`}
-                      className="min-w-48 flex-1"
-                      onChange={(event) => setDraft(event.target.value)}
-                    />
-                    <Button
-                      type="submit"
-                      size="sm"
-                      variant="secondary"
-                      disabled={draft.trim() === "" || busy}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setRenaming(null)}
-                    >
-                      Cancel
-                    </Button>
-                  </form>
-                ) : (
-                  <>
-                    <div className="min-w-48 flex-1">
-                      <p className="flex flex-wrap items-center gap-2 text-body-sm text-ink">
-                        {reason.label}
-                        {!reason.active && (
-                          <Badge tone="neutral" size="sm">
-                            Switched off
-                          </Badge>
-                        )}
-                      </p>
-                      {reason.uses !== undefined && (
-                        <p className="text-meta text-muted">
-                          Given to {reason.uses}{" "}
-                          {reason.uses === 1 ? "person" : "people"}
-                        </p>
-                      )}
-                    </div>
-                    <Switch
-                      label="Offered"
-                      className="shrink-0"
-                      checked={reason.active}
-                      disabled={busy || (reason.active && switchedOn <= 1)}
-                      onChange={(event) =>
-                        void run(() =>
-                          gateway.reasons.update(reason.id, {
-                            active: event.target.checked,
-                          }),
-                        )
-                      }
-                    />
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={`Rename ${reason.label}`}
-                      onClick={() => {
-                        setRenaming(reason.id);
-                        setDraft(reason.label);
+      <LoadState
+        loading={reasons.loading}
+        subject="the reasons"
+        error={reasons.error}
+        onRetry={reasons.reload}
+        skeleton="list"
+      >
+        {reasons.items.length === 0 ? (
+          <Card>
+            <EmptyState
+              title="No reasons yet"
+              description="Add the first one above. Until there is one, nobody can be rejected."
+            />
+          </Card>
+        ) : (
+          <Card>
+            <ul className="divide-y divide-line">
+              {reasons.items.map((reason) => (
+                <li
+                  key={reason.id}
+                  className="flex flex-wrap items-center gap-3 px-4 py-3"
+                >
+                  {renaming === reason.id ? (
+                    <form
+                      className="flex min-w-64 flex-1 flex-wrap items-center gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void run(
+                          () =>
+                            gateway.reasons.update(reason.id, {
+                              label: draft.trim(),
+                            }),
+                          "Reason renamed",
+                        ).then((ok) => {
+                          if (ok) setRenaming(null);
+                        });
                       }}
                     >
-                      <Pencil aria-hidden="true" className="size-3.5" />
-                      Rename
-                    </Button>
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-          {switchedOn <= 1 && (
-            <CardBody className="border-t border-line text-meta text-muted">
-              One reason has to stay on, or nobody could be rejected.
-            </CardBody>
-          )}
-        </Card>
-      )}
+                      <Input
+                        value={draft}
+                        maxLength={120}
+                        aria-label={`Rename ${reason.label}`}
+                        className="min-w-48 flex-1"
+                        onChange={(event) => setDraft(event.target.value)}
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        variant="secondary"
+                        disabled={draft.trim() === "" || busy}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setRenaming(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="min-w-48 flex-1">
+                        <p className="flex flex-wrap items-center gap-2 text-body-sm text-ink">
+                          {reason.label}
+                          {!reason.active && (
+                            <Badge tone="neutral" size="sm">
+                              Switched off
+                            </Badge>
+                          )}
+                        </p>
+                        {reason.uses !== undefined && (
+                          <p className="text-meta text-muted">
+                            Given to {reason.uses}{" "}
+                            {reason.uses === 1 ? "person" : "people"}
+                          </p>
+                        )}
+                      </div>
+                      <Switch
+                        label="Offered"
+                        className="shrink-0"
+                        checked={reason.active}
+                        disabled={busy || (reason.active && switchedOn <= 1)}
+                        onChange={(event) =>
+                          void run(() =>
+                            gateway.reasons.update(reason.id, {
+                              active: event.target.checked,
+                            }),
+                          )
+                        }
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`Rename ${reason.label}`}
+                        onClick={() => {
+                          setRenaming(reason.id);
+                          setDraft(reason.label);
+                        }}
+                      >
+                        <Pencil aria-hidden="true" className="size-3.5" />
+                        Rename
+                      </Button>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {switchedOn <= 1 && (
+              <CardBody className="border-t border-line text-meta text-muted">
+                One reason has to stay on, or nobody could be rejected.
+              </CardBody>
+            )}
+          </Card>
+        )}
+      </LoadState>
     </HiringSettingsShell>
   );
 }

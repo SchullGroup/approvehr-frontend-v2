@@ -35,8 +35,8 @@ import {
   TextLink,
   useToast,
   type AppliedFilter,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { LoadMore } from "@/components/portal/load-more";
 import {
   BulkBar,
@@ -515,74 +515,71 @@ function Queue({
               />
             )}
 
-            {applications.loading ? (
-              <div>
-                <Skeleton className="h-32 w-full" />
-                <span className="sr-only-focusable">Loading the queue</span>
-              </div>
-            ) : applications.error ? (
-              <LoadFailure
-                subject="the queue"
-                error={applications.error}
-                onRetry={() => void applications.reload()}
-              />
-            ) : applications.applications.length === 0 && !stale ? (
-              <EmptyState
-                icon={<Inbox aria-hidden="true" />}
-                title={
-                  narrowed
-                    ? "Nobody matches"
-                    : status === "RECEIVED"
-                      ? "Nobody is waiting"
-                      : "Nothing to show"
-                }
-                description={
-                  narrowed
-                    ? "Nobody fits the search and filters above."
-                    : status === "RECEIVED"
-                      ? "New applications land here the moment somebody sends the form."
-                      : undefined
-                }
-                {...(narrowed
-                  ? {
-                      action: (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={clearAll}
-                        >
-                          Clear the search and filters
-                        </Button>
-                      ),
-                    }
-                  : {})}
-              />
-            ) : (
-              <QueueResults
-                key={selectionScope}
-                applications={applications}
-                index={index}
-                canOpenFiles={canOpenFiles}
-                filters={queueFilters}
-                chips={applied}
-                stale={stale}
-                onResults={setResults}
-                onAdvance={setAdvancing}
-                onDecline={setDeclining}
-                onCopyMessage={(application) => {
-                  void copyText(
-                    declineMessage(application),
-                    () =>
-                      toast.push({
-                        title: "Message copied",
-                        tone: "success",
-                        detail: `Send it to ${application.email}.`,
-                      }),
-                    fail,
-                  );
-                }}
-              />
-            )}
+            <LoadState
+              loading={applications.loading}
+              subject="the queue"
+              error={applications.error}
+              onRetry={() => void applications.reload()}
+              skeleton="table"
+            >
+              {applications.applications.length === 0 && !stale ? (
+                <EmptyState
+                  icon={<Inbox aria-hidden="true" />}
+                  title={
+                    narrowed
+                      ? "Nobody matches"
+                      : status === "RECEIVED"
+                        ? "Nobody is waiting"
+                        : "Nothing to show"
+                  }
+                  description={
+                    narrowed
+                      ? "Nobody fits the search and filters above."
+                      : status === "RECEIVED"
+                        ? "New applications land here the moment somebody sends the form."
+                        : undefined
+                  }
+                  {...(narrowed
+                    ? {
+                        action: (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={clearAll}
+                          >
+                            Clear the search and filters
+                          </Button>
+                        ),
+                      }
+                    : {})}
+                />
+              ) : (
+                <QueueResults
+                  key={selectionScope}
+                  applications={applications}
+                  index={index}
+                  canOpenFiles={canOpenFiles}
+                  filters={queueFilters}
+                  chips={applied}
+                  stale={stale}
+                  onResults={setResults}
+                  onAdvance={setAdvancing}
+                  onDecline={setDeclining}
+                  onCopyMessage={(application) => {
+                    void copyText(
+                      declineMessage(application),
+                      () =>
+                        toast.push({
+                          title: "Message copied",
+                          tone: "success",
+                          detail: `Send it to ${application.email}.`,
+                        }),
+                      fail,
+                    );
+                  }}
+                />
+              )}
+            </LoadState>
           </CardBody>
         </Card>
       </PageBody>

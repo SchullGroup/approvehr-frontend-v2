@@ -415,11 +415,7 @@ function ShiftForm({
       }
     >
       <div className="flex flex-col gap-4">
-        {error && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink">
-            {error}
-          </p>
-        )}
+        {error && <p className="text-body-sm text-danger-text">{error}</p>}
         <Field label="Name" required>
           <Input
             value={name}
@@ -579,11 +575,7 @@ function PatternForm({
       }
     >
       <div className="flex flex-col gap-4">
-        {error && (
-          <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink">
-            {error}
-          </p>
-        )}
+        {error && <p className="text-body-sm text-danger-text">{error}</p>}
 
         <Field label="Name" required>
           <Input

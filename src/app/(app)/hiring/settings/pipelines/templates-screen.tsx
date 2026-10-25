@@ -10,10 +10,9 @@ import {
   CardBody,
   ConfirmDialog,
   EmptyState,
-  Skeleton,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { TemplateEditor } from "@/components/hiring/template-editor";
 import { sentenceOf } from "@/lib/hiring/pipeline/errors";
 import type { PipelineTemplate } from "@/lib/hiring/pipeline/model";
@@ -80,135 +79,136 @@ export function TemplatesScreen() {
         </Button>
       }
     >
-      {templates.loading ? (
-        <>
-          <Skeleton className="h-28 w-full" />
-          <span className="sr-only-focusable">Loading the templates</span>
-        </>
-      ) : templates.error ? (
-        <LoadFailure
-          subject="the templates"
-          error={templates.error}
-          onRetry={templates.reload}
-        />
-      ) : templates.items.length === 0 ? (
-        <Card>
-          <EmptyState
-            title="No templates yet"
-            description="Make one and new roles will start from it."
-            action={
-              <Button
-                variant="accent"
-                size="sm"
-                onClick={() => setEditing("new")}
-              >
-                New template
-              </Button>
-            }
-          />
-        </Card>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {templates.items.map((template) => (
-            <li key={template.id}>
-              <Card>
-                <CardBody className="flex flex-col gap-3">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="flex flex-wrap items-center gap-2 text-body-sm font-semibold text-ink">
-                        {template.name}
-                        {template.isDefault && (
-                          <Badge tone="accent" size="sm" icon={<Star />}>
-                            Default for new roles
-                          </Badge>
+      <LoadState
+        loading={templates.loading}
+        subject="the templates"
+        error={templates.error}
+        onRetry={templates.reload}
+        skeleton="list"
+      >
+        {templates.items.length === 0 ? (
+          <Card>
+            <EmptyState
+              title="No templates yet"
+              description="Make one and new roles will start from it."
+              action={
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setEditing("new")}
+                >
+                  New template
+                </Button>
+              }
+            />
+          </Card>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {templates.items.map((template) => (
+              <li key={template.id}>
+                <Card>
+                  <CardBody className="flex flex-col gap-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="flex flex-wrap items-center gap-2 text-body-sm font-semibold text-ink">
+                          {template.name}
+                          {template.isDefault && (
+                            <Badge tone="accent" size="sm" icon={<Star />}>
+                              Default for new roles
+                            </Badge>
+                          )}
+                        </h3>
+                        <p className="mt-0.5 text-meta text-muted">
+                          {template.stages.length}{" "}
+                          {template.stages.length === 1 ? "stage" : "stages"}
+                          {template.usedBy !== undefined
+                            ? ` · used by ${String(template.usedBy)} ${template.usedBy === 1 ? "role" : "roles"}`
+                            : ""}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {!template.isDefault && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() =>
+                              void act(
+                                () =>
+                                  gateway.templates.makeDefault(template.id),
+                                `${template.name} is the default now`,
+                              )
+                            }
+                          >
+                            Make default
+                          </Button>
                         )}
-                      </h3>
-                      <p className="mt-0.5 text-meta text-muted">
-                        {template.stages.length}{" "}
-                        {template.stages.length === 1 ? "stage" : "stages"}
-                        {template.usedBy !== undefined
-                          ? ` · used by ${String(template.usedBy)} ${template.usedBy === 1 ? "role" : "roles"}`
-                          : ""}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {!template.isDefault && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => setEditing(template)}
+                        >
+                          <Pencil aria-hidden="true" className="size-3.5" />
+                          Edit
+                        </Button>
                         <Button
                           variant="secondary"
                           size="sm"
                           disabled={busy}
                           onClick={() =>
                             void act(
-                              () => gateway.templates.makeDefault(template.id),
-                              `${template.name} is the default now`,
+                              () => gateway.templates.duplicate(template.id),
+                              `${template.name} duplicated`,
                             )
                           }
                         >
-                          Make default
+                          <Copy aria-hidden="true" className="size-3.5" />
+                          Duplicate
                         </Button>
-                      )}
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => setEditing(template)}
-                      >
-                        <Pencil aria-hidden="true" className="size-3.5" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() =>
-                          void act(
-                            () => gateway.templates.duplicate(template.id),
-                            `${template.name} duplicated`,
-                          )
-                        }
-                      >
-                        <Copy aria-hidden="true" className="size-3.5" />
-                        Duplicate
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => setRemoving(template)}
-                      >
-                        <Trash2 aria-hidden="true" className="size-3.5" />
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-
-                  <ol
-                    aria-label={`Stages in ${template.name}`}
-                    className="flex flex-wrap items-center gap-1.5"
-                  >
-                    {template.stages.map((stage, index) => (
-                      <li key={stage.id} className="flex items-center gap-1.5">
-                        {index > 0 && (
-                          <span aria-hidden="true" className="text-faint">
-                            →
-                          </span>
-                        )}
-                        <Badge
-                          tone={STAGE_TYPE_TONE[stage.type]}
+                        <Button
+                          variant="ghost"
                           size="sm"
-                          title={STAGE_TYPE_LABEL[stage.type]}
+                          disabled={busy}
+                          onClick={() => setRemoving(template)}
                         >
-                          {stage.name}
-                        </Badge>
-                      </li>
-                    ))}
-                  </ol>
-                </CardBody>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      )}
+                          <Trash2 aria-hidden="true" className="size-3.5" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+
+                    <ol
+                      aria-label={`Stages in ${template.name}`}
+                      className="flex flex-wrap items-center gap-1.5"
+                    >
+                      {template.stages.map((stage, index) => (
+                        <li
+                          key={stage.id}
+                          className="flex items-center gap-1.5"
+                        >
+                          {index > 0 && (
+                            <span aria-hidden="true" className="text-faint">
+                              →
+                            </span>
+                          )}
+                          <Badge
+                            tone={STAGE_TYPE_TONE[stage.type]}
+                            size="sm"
+                            title={STAGE_TYPE_LABEL[stage.type]}
+                          >
+                            {stage.name}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ol>
+                  </CardBody>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        )}
+      </LoadState>
 
       <Callout tone="info" title="Roles you already have">
         Roles keep their own stages. To give an open role a stage from a
