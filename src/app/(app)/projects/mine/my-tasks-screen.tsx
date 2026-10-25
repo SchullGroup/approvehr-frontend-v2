@@ -18,11 +18,19 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ProjectsOff } from "@/components/projects/module-off";
 import { PersonalIssueDrawer } from "@/components/projects/personal-issue-drawer";
 import {
+  AttachButton,
+  StagedList,
+  attachStaged,
+  useDropTarget,
+  useStagedFiles,
+} from "@/components/projects/task-files";
+import {
   isModuleOff,
   projectsApi,
   type PersonalTask,
 } from "@/lib/api/projects";
 import { ApiError } from "@/lib/api/client";
+import { cn } from "@/lib/cn";
 import { useProjectsGate } from "@/lib/store/project-session";
 import { useOrgTimezone } from "@/lib/store/session";
 import { dayIn, formatDateShort, todayIn } from "@/lib/time";
@@ -35,8 +43,10 @@ import { dayIn, formatDateShort, todayIn } from "@/lib/time";
  * A row opens the issue drawer. "Set by" appears only when somebody else put the
  * task on your list.
  *
- * Attaching files while adding is Task 7's: the quick-add row has a place for it
- * (see `QuickAdd`), nothing more.
+ * "Attach files" sits beside the date, and the form takes files dropped on it.
+ * Adding makes the task first, then uploads and records each file on it. A file
+ * that fails stays listed with why, under "MY-7 was added", with Try again —
+ * the task is never added twice.
  */
 
 type Filter = "open" | "done" | "overdue";
@@ -186,13 +196,31 @@ function QuickAdd({ onAdded }: { onAdded: () => void }) {
   const [details, setDetails] = useState(false);
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
+  const staged = useStagedFiles();
+  const drop = useDropTarget((files) => staged.add(files));
+  /* Files for the next task, and files that did not attach to one already added. */
+  const fresh = staged.items.filter((item) => item.target === null);
+  /* The latest task a file did not attach to; older leftovers wait their turn. */
+  const leftFor =
+    staged.items.findLast((item) => item.target !== null)?.target ?? null;
+  const leftover = staged.items.filter(
+    (item) => item.target !== null && item.target.id === leftFor?.id,
+  );
+
+  async function retry() {
+    if (busy || !leftFor) return;
+    setBusy(true);
+    await attachStaged(leftFor, leftover, staged);
+    setBusy(false);
+  }
 
   async function submit() {
     const name = text.trim();
     if (!name || busy) return;
     setBusy(true);
+    const files = fresh;
     try {
-      await projectsApi.createMineTask({
+      const made = await projectsApi.createMineTask({
         title: name,
         ...(description.trim() ? { description: description.trim() } : {}),
         ...(due ? { dueDate: due } : {}),
@@ -203,6 +231,9 @@ function QuickAdd({ onAdded }: { onAdded: () => void }) {
       setDetails(false);
       onAdded();
       title.current?.focus();
+      /* Refused files were never going anywhere; the task exists now. */
+      for (const item of files) if (item.refused) staged.remove(item.id);
+      await attachStaged({ id: made.id, key: made.key }, files, staged);
     } catch (error) {
       toast.push({
         tone: "danger",
@@ -220,7 +251,11 @@ function QuickAdd({ onAdded }: { onAdded: () => void }) {
   return (
     <form
       aria-label="Add a task"
-      className="space-y-3 rounded-lg border border-line bg-canvas p-4"
+      {...drop.handlers}
+      className={cn(
+        "space-y-3 rounded-lg border border-line bg-canvas p-4",
+        drop.over && "outline-2 outline-offset-2 outline-dashed outline-accent",
+      )}
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
@@ -244,7 +279,11 @@ function QuickAdd({ onAdded }: { onAdded: () => void }) {
           aria-label="Due date"
           className="w-auto"
         />
-        {/* Task 7 adds "Attach files" here, beside the date. */}
+        <AttachButton
+          size="md"
+          disabled={busy}
+          onFiles={(files) => void staged.add(files)}
+        />
         <Button type="submit" variant="primary" disabled={!text.trim() || busy}>
           Add task
         </Button>
@@ -266,8 +305,38 @@ function QuickAdd({ onAdded }: { onAdded: () => void }) {
           onChange={(event) => setDescription(event.target.value)}
           rows={4}
           aria-label="Description"
-          placeholder="Say more about it, if that helps"
+          placeholder="Say more about it, if that helps. Drop files here to attach them."
         />
+      )}
+      <StagedList
+        items={fresh}
+        onRemove={staged.remove}
+        busy={busy}
+        label="Files to attach"
+      />
+      {leftFor && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p role="status" className="text-body-sm text-ink">
+              {leftFor.key} was added. These files didn&apos;t attach to it:
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              loading={busy}
+              onClick={() => void retry()}
+            >
+              Try again
+            </Button>
+          </div>
+          <StagedList
+            items={leftover}
+            onRemove={staged.remove}
+            busy={busy}
+            label="Files that didn't attach"
+          />
+        </div>
       )}
     </form>
   );

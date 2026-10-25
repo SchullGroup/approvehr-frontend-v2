@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/api/client";
 import { projectsApi, type PersonalTaskDetail } from "@/lib/api/projects";
 import { EMPTY_FILTER } from "@/lib/projects/filters";
 import type {
+  AttachmentRef,
   Issue,
   IssuePatch,
   NewIssueInput,
@@ -187,9 +188,17 @@ export function PersonalIssueDrawer({
           return failed(`Could not delete ${target.key}`, error);
         }
       },
-      addComment: async (id: string, body: string) => {
+      addComment: async (
+        id: string,
+        body: string,
+        options?: { attachments?: AttachmentRef[] },
+      ) => {
         try {
-          const comment = await projectsApi.addComment(id, body);
+          const comment = await projectsApi.addComment(
+            id,
+            body,
+            options?.attachments,
+          );
           reloadThread();
           return { ok: true as const, value: comment };
         } catch (error) {
@@ -232,6 +241,11 @@ export function PersonalIssueDrawer({
     current && ownerId && current.reporterId !== ownerId
       ? people.nameOf(current.reporterId)
       : null;
+  /* Whether the reader may be one of the owner's leaders (who choose its
+     watchers). The client cannot tell which people somebody leads, so this is
+     the best guess; the API refuses anybody else, and says why. */
+  const leader =
+    meId !== ownerId && (actor.leadsPeople || actor.headsDepartment);
 
   const value = useMemo<ProjectContextValue | null>(() => {
     if (!detail) return null;
@@ -269,6 +283,9 @@ export function PersonalIssueDrawer({
       meId,
       connected: true,
       canWork: meId !== null && meId === ownerId,
+      /* Everybody who can open somebody's task may comment on it: its owner,
+         their leaders, HR and its watchers. */
+      canComment: meId !== null,
       canManage: false,
       timeZone,
       today,
@@ -281,7 +298,7 @@ export function PersonalIssueDrawer({
         if (row) onOpen?.(row.id);
       },
       openCreate: () => {},
-      personal: { setByName },
+      personal: { setByName, leader },
     };
   }, [
     detail,
@@ -294,6 +311,7 @@ export function PersonalIssueDrawer({
     timeZone,
     today,
     setByName,
+    leader,
   ]);
 
   if (!value) return null;

@@ -3,8 +3,10 @@
 import { ApiError, request, requestPaged } from "@/lib/api/client";
 import { STATUS_CATEGORIES } from "@/lib/projects/types";
 import type {
+  AttachmentRef,
   StatusCategory,
   CompleteSprintMove,
+  IssueAttachment,
   Issue,
   IssueActivity,
   IssueComment,
@@ -22,6 +24,7 @@ import type {
   Sprint,
   SprintPatch,
   StatusInput,
+  WatchState,
 } from "@/lib/projects/types";
 
 /**
@@ -217,8 +220,48 @@ export function toComment(raw: Raw): IssueComment {
     body: str(raw["body"]),
     editedAt: strOrNull(raw["editedAt"]),
     createdAt: str(raw["createdAt"]),
+    attachments: list(raw["attachments"]).map(toAttachment),
   };
 }
+
+export function toAttachment(raw: Raw): IssueAttachment {
+  return {
+    id: str(raw["id"]),
+    filename: str(raw["filename"]),
+    contentType: str(raw["contentType"]),
+    sizeBytes: num(raw["sizeBytes"]),
+    uploadedBy: str(raw["uploadedBy"]),
+    createdAt: str(raw["createdAt"]),
+  };
+}
+
+/** `{ watchers, watching }`, from an issue's read or any watcher route. */
+export function toWatchState(raw: Raw): WatchState {
+  return {
+    watchers: list(raw["watchers"])
+      .map((w) => ({ id: str(w["id"]), name: str(w["name"]) }))
+      .filter((w) => w.id !== ""),
+    watching: raw["watching"] === true,
+  };
+}
+
+/** Where to PUT one file for an issue: the key to record, and the signed URL. */
+export type IssueUploadUrl = {
+  storageKey: string;
+  url: string;
+  headers: Record<string, string>;
+  expiresAt: string;
+};
+
+/**
+ * What opening a task by id finds (`/projects/tasks/:id`): somebody's personal
+ * task, a board task (opened on its board), or a board task the reader only
+ * leads somebody on (the reduced read).
+ */
+export type TaskTarget =
+  | { kind: "personal"; issue: Issue }
+  | { kind: "board"; projectId: string; key: string }
+  | ({ kind: "reduced" } & ReducedIssueDetail);
 
 export function toActivity(raw: Raw): IssueActivity {
   return {
@@ -721,6 +764,21 @@ export const projectsApi = {
       body: { employeeId },
     }),
 
+  /**
+   * A task by id, wherever it lives. A personal task's read carries its list's
+   * columns (`statuses`), which a board task's never does.
+   */
+  openTask: async (id: string, signal?: AbortSignal): Promise<TaskTarget> => {
+    const raw = await request<Raw>(`/issues/${id}`, signalOf(signal));
+    const read = toLeaderRead(raw);
+    if (read.reduced) return { ...read, kind: "reduced" };
+    const issue = toIssue(raw);
+    if (Array.isArray(raw["statuses"]) || /^MY-\d+$/.test(issue.key)) {
+      return { kind: "personal", issue };
+    }
+    return { kind: "board", projectId: issue.projectId, key: issue.key };
+  },
+
   /** An issue as a leader reads it: in full, or reduced when not on its project. */
   leaderRead: async (id: string, signal?: AbortSignal) =>
     toLeaderRead(await request<Raw>(`/issues/${id}`, signalOf(signal))),
@@ -756,16 +814,94 @@ export const projectsApi = {
     return {
       comments: list(comments).map(toComment),
       activity: list(issue["activity"]).map(toActivity),
+      ...toWatchState(issue),
+      attachments: list(issue["attachments"]).map(toAttachment),
     };
   },
 
-  addComment: async (issueId: string, body: string) =>
+  /** Files go up first (`attachmentUploadUrl`, then the PUT); this records them. */
+  addComment: async (
+    issueId: string,
+    body: string,
+    attachments: AttachmentRef[] = [],
+  ) =>
     toComment(
       await request<Raw>(`/issues/${issueId}/comments`, {
         method: "POST",
-        body: { body },
+        body: attachments.length > 0 ? { body, attachments } : { body },
       }),
     ),
+
+  /* --------------------------------------------------------------- watchers */
+
+  watch: async (issueId: string) =>
+    toWatchState(
+      await request<Raw>(`/issues/${issueId}/watch`, { method: "POST" }),
+    ),
+
+  unwatch: async (issueId: string) =>
+    toWatchState(
+      await request<Raw>(`/issues/${issueId}/watch`, { method: "DELETE" }),
+    ),
+
+  /** 422 when, on a board, they cannot see the task; 403 on a personal task
+      for anybody but its owner and their leaders. */
+  addWatcher: async (issueId: string, employeeId: string) =>
+    toWatchState(
+      await request<Raw>(`/issues/${issueId}/watchers`, {
+        method: "POST",
+        body: { employeeId },
+      }),
+    ),
+
+  removeWatcher: async (issueId: string, employeeId: string) =>
+    toWatchState(
+      await request<Raw>(`/issues/${issueId}/watchers/${employeeId}`, {
+        method: "DELETE",
+      }),
+    ),
+
+  /* ------------------------------------------------------------------ files */
+
+  /** Somewhere to PUT one file, for the task or for a comment about to be posted. */
+  attachmentUploadUrl: async (
+    issueId: string,
+    input: { filename: string; contentType: string; sizeBytes: number },
+  ): Promise<IssueUploadUrl> => {
+    const raw = await request<Raw>(
+      `/issues/${issueId}/attachments/upload-url`,
+      { method: "POST", body: input },
+    );
+    const headers = (raw["headers"] ?? {}) as Record<string, unknown>;
+    return {
+      storageKey: str(raw["storageKey"]),
+      url: str(raw["url"]),
+      headers: Object.fromEntries(
+        Object.entries(headers).filter(
+          (entry): entry is [string, string] => typeof entry[1] === "string",
+        ),
+      ),
+      expiresAt: str(raw["expiresAt"]),
+    };
+  },
+
+  /** Records a file, already uploaded, on the task itself. */
+  recordAttachment: async (issueId: string, ref: AttachmentRef) =>
+    toAttachment(
+      await request<Raw>(`/issues/${issueId}/attachments`, {
+        method: "POST",
+        body: ref,
+      }),
+    ),
+
+  /** A short-lived link to open one file. */
+  attachmentUrl: async (id: string, signal?: AbortSignal) => {
+    const raw = await request<Raw>(`/attachments/${id}/url`, signalOf(signal));
+    return { url: str(raw["url"]), expiresAt: str(raw["expiresAt"]) };
+  },
+
+  removeAttachment: (id: string) =>
+    request<unknown>(`/attachments/${id}`, { method: "DELETE" }),
 
   /** Author only. */
   editComment: async (id: string, body: string) =>

@@ -18,6 +18,9 @@ const mineTasks = vi.fn();
 const createMineTask = vi.fn();
 const personalTask = vi.fn();
 const pushToast = vi.fn();
+const attachmentUploadUrl = vi.fn();
+const recordAttachment = vi.fn();
+const putToStorage = vi.fn();
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/projects/mine",
@@ -39,10 +42,17 @@ vi.mock("@/lib/api/projects", async (original) => {
       mineTasks: (...a: unknown[]) => mineTasks(...a),
       createMineTask: (...a: unknown[]) => createMineTask(...a),
       personalTask: (...a: unknown[]) => personalTask(...a),
+      attachmentUploadUrl: (...a: unknown[]) => attachmentUploadUrl(...a),
+      recordAttachment: (...a: unknown[]) => recordAttachment(...a),
       links: vi.fn().mockResolvedValue([]),
     },
   };
 });
+
+vi.mock("@/lib/api/uploads", async (original) => ({
+  ...(await original<typeof import("@/lib/api/uploads")>()),
+  putToStorage: (...a: unknown[]) => putToStorage(...a),
+}));
 
 let gate = { enabled: true, loading: false };
 vi.mock("@/lib/store/project-session", () => ({
@@ -419,5 +429,128 @@ describe("opening a task", () => {
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith(mine.id, { statusId: "s-doing" }),
     );
+  });
+});
+
+describe("attaching files while adding", () => {
+  const pdf = (name: string) =>
+    new File(["x"], name, { type: "application/pdf" });
+
+  beforeEach(() => {
+    attachmentUploadUrl.mockReset();
+    recordAttachment.mockReset();
+    putToStorage.mockReset();
+    attachmentUploadUrl.mockImplementation(
+      async (_id: string, input: { filename: string }) => ({
+        storageKey: `org/issues/t/${input.filename}`,
+        url: "https://bucket.test/put",
+        headers: {},
+        expiresAt: "2026-10-25T10:00:00.000Z",
+      }),
+    );
+    putToStorage.mockResolvedValue(undefined);
+    recordAttachment.mockImplementation(
+      async (_id: string, ref: { filename: string }) => ({
+        id: `a-${ref.filename}`,
+        filename: ref.filename,
+        contentType: "application/pdf",
+        sizeBytes: 1,
+        uploadedBy: "p-01",
+        createdAt: "2026-10-21T09:00:00.000Z",
+      }),
+    );
+  });
+
+  it("adds the task, then uploads and records each file on it", async () => {
+    createMineTask.mockResolvedValue(task({ id: "t-new", key: "MY-7" }));
+    render(<MyTasksScreen />);
+    const form = await screen.findByRole("form", { name: "Add a task" });
+    await userEvent.type(
+      within(form).getByRole("textbox", { name: "What needs doing?" }),
+      "Send the contract",
+    );
+    await userEvent.upload(
+      within(form).getByLabelText("Attach files", { selector: "input" }),
+      [pdf("contract.pdf"), pdf("terms.pdf")],
+    );
+    expect(within(form).getByText("contract.pdf")).toBeInTheDocument();
+    await userEvent.click(
+      within(form).getByRole("button", { name: "Add task" }),
+    );
+    await waitFor(() => expect(recordAttachment).toHaveBeenCalledTimes(2));
+    expect(recordAttachment).toHaveBeenCalledWith(
+      "t-new",
+      expect.objectContaining({ filename: "contract.pdf" }),
+    );
+    expect(createMineTask.mock.invocationCallOrder[0]!).toBeLessThan(
+      attachmentUploadUrl.mock.invocationCallOrder[0]!,
+    );
+    await waitFor(() =>
+      expect(within(form).queryByText("contract.pdf")).toBeNull(),
+    );
+    expect(pushToast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Task added" }),
+    );
+  });
+
+  it("keeps the task when a file fails, says which, and can try that file again", async () => {
+    createMineTask.mockResolvedValue(task({ id: "t-new", key: "MY-7" }));
+    putToStorage.mockImplementation(async (file: File) => {
+      if (file.name === "terms.pdf") {
+        throw new Error(
+          "The upload did not finish. Check your connection and try again.",
+        );
+      }
+    });
+    render(<MyTasksScreen />);
+    const form = await screen.findByRole("form", { name: "Add a task" });
+    await userEvent.type(
+      within(form).getByRole("textbox", { name: "What needs doing?" }),
+      "Send the contract",
+    );
+    await userEvent.upload(
+      within(form).getByLabelText("Attach files", { selector: "input" }),
+      [pdf("contract.pdf"), pdf("terms.pdf")],
+    );
+    await userEvent.click(
+      within(form).getByRole("button", { name: "Add task" }),
+    );
+    expect(
+      await within(form).findByText(
+        "The upload did not finish. Check your connection and try again.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(form).getByText(/MY-7 was added/)).toBeInTheDocument();
+    expect(createMineTask).toHaveBeenCalledTimes(1);
+
+    putToStorage.mockResolvedValue(undefined);
+    await userEvent.click(
+      within(form).getByRole("button", { name: "Try again" }),
+    );
+    await waitFor(() =>
+      expect(recordAttachment).toHaveBeenCalledWith(
+        "t-new",
+        expect.objectContaining({ filename: "terms.pdf" }),
+      ),
+    );
+    expect(createMineTask).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(within(form).queryByText("terms.pdf")).toBeNull(),
+    );
+  });
+
+  it("refuses a file over 10 MB before adding anything", async () => {
+    render(<MyTasksScreen />);
+    const form = await screen.findByRole("form", { name: "Add a task" });
+    const big = pdf("huge.pdf");
+    Object.defineProperty(big, "size", { value: 11 * 1024 * 1024 });
+    await userEvent.upload(
+      within(form).getByLabelText("Attach files", { selector: "input" }),
+      big,
+    );
+    expect(
+      within(form).getByText("That file is over 10 MB. Attach a smaller one."),
+    ).toBeInTheDocument();
+    expect(attachmentUploadUrl).not.toHaveBeenCalled();
   });
 });

@@ -685,3 +685,14 @@ describe("editing a comment", () => {
     expect(screen.getByText("edited")).toBeInTheDocument();
   });
 });
+
+describe("a personal task", () => {
+  it("shows its type without a select: it can never become an epic", () => {
+    renderDrawer("CHK-10", { personal: { setByName: null } });
+    const details = within(
+      screen.getByRole("complementary", { name: "Details" }),
+    );
+    expect(details.queryByRole("combobox", { name: "Type" })).toBeNull();
+    expect(details.getByText("Story")).toBeInTheDocument();
+  });
+});

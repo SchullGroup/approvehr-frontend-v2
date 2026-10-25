@@ -29,8 +29,10 @@ import {
   PRIORITIES,
   PRIORITY_LABEL,
   type Issue,
+  type IssueAttachment,
   type IssueComment,
   type Priority,
+  type Watcher,
 } from "@/lib/projects/types";
 import {
   checkboxTarget,
@@ -51,6 +53,11 @@ import { PersonAvatar, PersonName, PersonPicker } from "./person";
 import { SectionTabs } from "./section-tabs";
 import { closeTopPopup } from "./popups";
 import { useProject } from "./project-context";
+import { TaskFiles } from "./task-files";
+import { Watchers } from "./watchers";
+
+const NO_FILES: IssueAttachment[] = [];
+const NO_WATCHERS: Watcher[] = [];
 
 /**
  * One issue, in a panel beside the board.
@@ -134,6 +141,9 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
     people,
     meId,
     canWork,
+    canComment = canWork,
+    canManage,
+    connected,
     timeZone,
     openIssue,
     personal,
@@ -225,6 +235,29 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
   }
 
   const canDelete = (c: IssueComment) => canDeleteComment(actor, project, c);
+
+  /* Files and watchers. Only the API keeps them, so the demo has neither. On a
+     personal task, its owner and the leader who set it attach to the task and
+     choose its watchers (so may the owner's other leaders); everybody else who
+     can open it comments, with files. On a board, anybody who can open it does
+     both, and the lead or HR removes what others added. The API decides. */
+  const isOwner =
+    Boolean(personal) && meId !== null && meId === issue.assigneeId;
+  const isSetter =
+    Boolean(personal) && !isOwner && meId !== null && meId === issue.reporterId;
+  const canAttachToTask =
+    connected && meId !== null && (!personal || isOwner || isSetter);
+  const mayChooseWatchers =
+    connected &&
+    meId !== null &&
+    (!personal || isOwner || isSetter || personal.leader === true);
+  const watchState = useMemo(
+    () => ({
+      watchers: thread.watchers ?? NO_WATCHERS,
+      watching: thread.watching ?? false,
+    }),
+    [thread.watchers, thread.watching],
+  );
 
   /* Said only when the API says it: nothing for an epic, a sub-task, an
      unassigned or unfinished issue, and nothing at all in the demo. */
@@ -347,6 +380,19 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             />
           </section>
 
+          {connected && (
+            <TaskFiles
+              issueId={issue.id}
+              issueKey={issue.key}
+              attachments={thread.attachments ?? NO_FILES}
+              canAttach={canAttachToTask}
+              canRemove={(file) =>
+                file.uploadedBy === meId || (personal ? isOwner : canManage)
+              }
+              onChanged={reloadThread}
+            />
+          )}
+
           {!isSubtask && (
             <section aria-labelledby={`${base}-kids`}>
               <div className="mb-2 flex items-baseline justify-between gap-3">
@@ -453,6 +499,21 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             onChanged={reloadThread}
           />
 
+          {connected && (
+            <Watchers
+              issueId={issue.id}
+              state={watchState}
+              meId={meId}
+              people={people}
+              candidates={
+                personal ? people.people.map((p) => p.id) : project.memberIds
+              }
+              mayChoose={mayChooseWatchers}
+              mayRemove={() => (personal ? mayChooseWatchers : canManage)}
+              onChanged={reloadThread}
+            />
+          )}
+
           <SectionTabs
             label="Comments and history"
             items={[
@@ -468,13 +529,19 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           >
             {tab === "comments" ? (
               <div className="space-y-5">
-                {canWork && meId && (
+                {canComment && meId && (
                   <MentionComposer
                     people={people}
                     memberIds={project.memberIds}
                     meId={meId}
-                    onPost={async (body) => {
-                      const result = await actions.addComment(issue.id, body);
+                    attach={connected ? { issueId: issue.id } : undefined}
+                    onPost={async (body, attachments) => {
+                      const result =
+                        attachments.length > 0
+                          ? await actions.addComment(issue.id, body, {
+                              attachments,
+                            })
+                          : await actions.addComment(issue.id, body);
                       return result.ok;
                     }}
                   />
@@ -627,7 +694,8 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           )}
 
           <Row label="Type" htmlFor={`${base}-type`}>
-            {isEpic || isSubtask ? (
+            {/* A personal task is never an epic: there is no roadmap to put one on. */}
+            {isEpic || isSubtask || personal ? (
               <span className="text-body-sm text-ink">
                 {ISSUE_TYPE_LABEL[issue.type]}
               </span>

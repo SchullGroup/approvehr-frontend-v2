@@ -52,6 +52,8 @@ export type ProjectContextValue = {
    */
   connected: boolean;
   canWork: boolean;
+  /** Whether the reader may comment. Absent, `canWork` decides. */
+  canComment?: boolean;
   canManage: boolean;
   timeZone: string;
   /** The company's today, `YYYY-MM-DD`. */
@@ -66,9 +68,10 @@ export type ProjectContextValue = {
    * Set when the drawer is showing a task on somebody's own list ("My tasks"),
    * which has no board, no assignee to pick, no epic and no link by key (every
    * list has a `MY-1`). `setByName` is who put it there, when that was not its
-   * owner. Absent for a board issue.
+   * owner. Absent for a board issue. `leader` is whether the reader may be one
+   * of the owner's leaders, who choose its watchers.
    */
-  personal?: { setByName: string | null };
+  personal?: { setByName: string | null; leader?: boolean };
 };
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
