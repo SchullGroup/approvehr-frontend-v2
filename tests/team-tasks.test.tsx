@@ -359,9 +359,7 @@ describe("fix round 1", () => {
     await screen.findByText("Ada Okafor");
     teamTasks.mockReturnValue(new Promise(() => {}));
     await userEvent.click(screen.getByRole("radio", { name: "Overdue" }));
-    expect(
-      screen.getByRole("status", { name: "Loading team tasks" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Loading team tasks")).toBeInTheDocument();
     expect(screen.queryByText("Ada Okafor")).not.toBeInTheDocument();
   });
 

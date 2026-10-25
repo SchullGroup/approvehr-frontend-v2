@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   EmptyState,
+  LoadState,
   Input,
   Modal,
   SegmentedControl,
@@ -15,7 +16,6 @@ import {
   Textarea,
   useToast,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ProjectsOff } from "@/components/projects/module-off";
 import { PersonalIssueDrawer } from "@/components/projects/personal-issue-drawer";
@@ -206,56 +206,43 @@ function Team() {
         }
       />
       <PageBody>
-        {data.status === "loading" && (
-          <div
-            className="space-y-2"
-            role="status"
-            aria-busy="true"
-            aria-label="Loading team tasks"
-          >
-            {[0, 1, 2].map((n) => (
-              <Skeleton key={n} className="h-14" />
-            ))}
-          </div>
-        )}
+        <LoadState
+          loading={data.status === "loading"}
+          error={data.status === "error" ? data.error : null}
+          onRetry={reload}
+          subject="team tasks"
+          skeleton="list"
+        >
+          {nobodyLed && (
+            <EmptyState
+              icon={<Users />}
+              title="Nobody reports to you yet"
+              description="When someone does, their tasks show here."
+            />
+          )}
 
-        {data.status === "error" && (
-          <LoadFailure
-            subject="team tasks"
-            error={data.error}
-            onRetry={reload}
-          />
-        )}
+          {data.status === "ready" && !nobodyLed && people.length === 0 && (
+            <EmptyState icon={<Users />} title={EMPTY_BY_FILTER[filter]} />
+          )}
 
-        {nobodyLed && (
-          <EmptyState
-            icon={<Users />}
-            title="Nobody reports to you yet"
-            description="When someone does, their tasks show here."
-          />
-        )}
-
-        {data.status === "ready" && !nobodyLed && people.length === 0 && (
-          <EmptyState icon={<Users />} title={EMPTY_BY_FILTER[filter]} />
-        )}
-
-        {people.length > 0 && (
-          <ul className="divide-y divide-line overflow-hidden rounded-md border border-line">
-            {people.map((person) => (
-              <PersonRow
-                key={person.employee.id}
-                person={person}
-                maxOpen={maxOpen}
-                timeZone={timeZone}
-                onGive={() => setGiving(person.employee)}
-                onOpen={(task) => void open(task, person)}
-                onMove={(task) =>
-                  setMoving({ task, ownerId: person.employee.id })
-                }
-              />
-            ))}
-          </ul>
-        )}
+          {people.length > 0 && (
+            <ul className="divide-y divide-line overflow-hidden rounded-md border border-line">
+              {people.map((person) => (
+                <PersonRow
+                  key={person.employee.id}
+                  person={person}
+                  maxOpen={maxOpen}
+                  timeZone={timeZone}
+                  onGive={() => setGiving(person.employee)}
+                  onOpen={(task) => void open(task, person)}
+                  onMove={(task) =>
+                    setMoving({ task, ownerId: person.employee.id })
+                  }
+                />
+              ))}
+            </ul>
+          )}
+        </LoadState>
       </PageBody>
 
       <GiveTaskDialog

@@ -3,8 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ListChecks } from "lucide-react";
-import { Button, ButtonLink, EmptyState, Skeleton } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
+import {
+  Button,
+  ButtonLink,
+  EmptyState,
+  LoadState,
+  Skeleton,
+} from "@/components/ui";
 import { NotFoundState } from "@/components/portal/not-found-state";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ProjectsOff } from "@/components/projects/module-off";
@@ -115,33 +120,31 @@ function Opened({ id }: { id: string }) {
     <>
       <PageHeader title={title} />
       <PageBody>
-        {(state.status === "loading" || target?.kind === "board") && (
-          <Skeleton className="h-40" aria-label="Opening the task" />
-        )}
-        {state.status === "error" && (
-          <LoadFailure
-            subject="this task"
-            error={state.error}
-            onRetry={reload}
-          />
-        )}
-        {target && target.kind !== "board" && !open && (
-          <EmptyState
-            icon={<ListChecks />}
-            title="The task is closed"
-            description="Open it again, or go back to your tasks."
-            action={
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <Button variant="primary" onClick={() => setOpen(true)}>
-                  Open the task
-                </Button>
-                <ButtonLink href="/projects/mine" variant="secondary">
-                  My tasks
-                </ButtonLink>
-              </div>
-            }
-          />
-        )}
+        <LoadState
+          loading={state.status === "loading" || target?.kind === "board"}
+          error={state.status === "error" ? state.error : null}
+          onRetry={reload}
+          subject="this task"
+          skeleton={<Skeleton className="h-40" aria-label="Opening the task" />}
+        >
+          {target && target.kind !== "board" && !open && (
+            <EmptyState
+              icon={<ListChecks />}
+              title="The task is closed"
+              description="Open it again, or go back to your tasks."
+              action={
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <Button variant="primary" onClick={() => setOpen(true)}>
+                    Open the task
+                  </Button>
+                  <ButtonLink href="/projects/mine" variant="secondary">
+                    My tasks
+                  </ButtonLink>
+                </div>
+              }
+            />
+          )}
+        </LoadState>
       </PageBody>
 
       {target?.kind === "personal" && (

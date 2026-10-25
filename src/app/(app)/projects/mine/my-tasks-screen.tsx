@@ -8,12 +8,12 @@ import {
   Disclosure,
   EmptyState,
   Input,
+  LoadState,
   SegmentedControl,
   Skeleton,
   Textarea,
   useToast,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ProjectsOff } from "@/components/projects/module-off";
 import { PersonalIssueDrawer } from "@/components/projects/personal-issue-drawer";
@@ -143,36 +143,24 @@ function Tasks() {
           }}
         />
 
-        {data.status === "loading" && (
-          <div
-            className="space-y-2"
-            aria-busy="true"
-            aria-label="Loading your tasks"
-          >
-            {[0, 1, 2].map((n) => (
-              <Skeleton key={n} className="h-12" />
-            ))}
-          </div>
-        )}
-
-        {data.status === "error" && (
-          <LoadFailure
-            subject="your tasks"
-            error={data.error}
-            onRetry={reload}
-          />
-        )}
-
-        {data.status === "ready" && (
-          <Lists
-            filter={filter}
-            open={top(data.open)}
-            done={top(data.done)}
-            today={today}
-            timeZone={timeZone}
-            onOpen={setOpenId}
-          />
-        )}
+        <LoadState
+          loading={data.status === "loading"}
+          error={data.status === "error" ? data.error : null}
+          onRetry={reload}
+          subject="your tasks"
+          skeleton="list"
+        >
+          {data.status === "ready" && (
+            <Lists
+              filter={filter}
+              open={top(data.open)}
+              done={top(data.done)}
+              today={today}
+              timeZone={timeZone}
+              onOpen={setOpenId}
+            />
+          )}
+        </LoadState>
       </PageBody>
 
       <PersonalIssueDrawer
