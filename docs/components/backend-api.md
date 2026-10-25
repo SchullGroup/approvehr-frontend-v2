@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-backend` · _Generated from_ `src/**/*.ts` (tests excluded)
 
-_Snapshot:_ `origin/staging` at `8253e3c` (2026-10-23) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ `origin/staging` at `c11a5bc` (2026-10-25) · regenerate with `npm run docs`, never by hand
 
 This platform has no pages. It is Express 5 + Prisma, arranged as one folder per module, each with the
 same three files: `router.ts` (the HTTP surface), `schemas.ts` (what a request may contain) and
@@ -56,7 +56,7 @@ Constants and types are counted rather than listed. Endpoint paths below are the
 | [`src/modules/pension-top-up`](#srcmodulespension-top-up)                           |       4 |                  8 |         7 |
 | [`src/modules/performance`](#srcmodulesperformance)                                 |      10 |                147 |        97 |
 | [`src/modules/permissions`](#srcmodulespermissions)                                 |       3 |                 23 |        11 |
-| [`src/modules/projects`](#srcmodulesprojects)                                       |      12 |                 59 |        28 |
+| [`src/modules/projects`](#srcmodulesprojects)                                       |      16 |                103 |        42 |
 | [`src/modules/push`](#srcmodulespush)                                               |       3 |                  7 |         4 |
 | [`src/modules/recruitment`](#srcmodulesrecruitment)                                 |      35 |                273 |       108 |
 | [`src/modules/reimbursements`](#srcmodulesreimbursements)                           |       3 |                 21 |        15 |
@@ -72,7 +72,7 @@ Constants and types are counted rather than listed. Endpoint paths below are the
 | [`src/modules/wellness`](#srcmoduleswellness)                                       |      14 |                 63 |        30 |
 | [`src/modules/work-trackers`](#srcmoduleswork-trackers)                             |      13 |                 46 |        19 |
 | [Shared — everything outside `src/modules`](#shared--everything-outside-srcmodules) |      34 |                106 |         — |
-| **Total**                                                                           | **470** |           **1998** |   **935** |
+| **Total**                                                                           | **474** |           **2042** |   **949** |
 
 ---
 
@@ -1547,53 +1547,71 @@ Roles, the permission catalogue and the grant guards.
 
 Projects, their members and workflow, sprints, issues and comments, behind the `projects` feature switch; a finished issue can file a weekly task for the performance module.
 
-| File                                  | Exported functions                                                                                                                                                                                                          | Also                                         |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `src/modules/projects/access.ts`      | `holdsRecords`, `canCreateProject`, `canSeeProject`, `canManageProject`, `visibleProjectsWhere`, `requireEmployee`, `requireProject`, `assertCanManage`, `requireIssue`, `requireSprint`, `requireComment`, `projectsAreOn` | `ModuleOffError` (class) · 1 const · 4 types |
-| `src/modules/projects/activity.ts`    | `activityRow`                                                                                                                                                                                                               | 1 type                                       |
-| `src/modules/projects/bridge.ts`      | `weeklyTaskInfo`, `describeIssue`, `syncWeeklyTask`                                                                                                                                                                         | 2 const · 2 types                            |
-| `src/modules/projects/comments.ts`    | `listComments`, `addComment`, `editComment`, `deleteComment`                                                                                                                                                                | —                                            |
-| `src/modules/projects/issues.ts`      | `readIssue`, `listIssues`, `getIssue`, `createIssue`, `updateIssue`, `deleteIssue`                                                                                                                                          | 1 const · 5 types                            |
-| `src/modules/projects/links.ts`       | `linkLabel`, `visibleIssues`, `visibleIssueKeys`, `listLinks`, `createLink`, `updateLinkNote`, `deleteLink`, `searchIssues`                                                                                                 | 4 types                                      |
-| `src/modules/projects/notices.ts`     | `issueHref`, `tellAssigned`, `tellMentioned`, `mentionedMembers`                                                                                                                                                            | —                                            |
-| `src/modules/projects/projects.ts`    | `getProject`, `listProjects`, `createProject`, `updateProject`, `deleteProject`, `setMembers`, `setStatuses`                                                                                                                | 3 const                                      |
-| `src/modules/projects/router.ts`      | —                                                                                                                                                                                                                           | 5 const                                      |
-| `src/modules/projects/schemas.ts`     | —                                                                                                                                                                                                                           | 17 const · 14 types                          |
-| `src/modules/projects/serializers.ts` | `serializeStatus`, `serializeProject`, `serializeSprint`, `serializeIssue`, `linkedIssueIds`, `serializeActivity`, `serializeComment`                                                                                       | 1 const · 7 types                            |
-| `src/modules/projects/sprints.ts`     | `listSprints`, `getSprint`, `createSprint`, `updateSprint`, `deleteSprint`, `startSprint`, `completeSprint`                                                                                                                 | 1 const · 1 type                             |
+| File                                  | Exported functions                                                                                                                                                                                                                                                                                                                                                                                                            | Also                                                            |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `src/modules/projects/access.ts`      | `holdsRecords`, `canCreateProject`, `canSeeProject`, `canManageProject`, `visibleProjectsWhere`, `requireEmployee`, `assertNotPersonalKey`, `isPersonalProject`, `leadsPerson`, `teamOf`, `canSeePersonalIssue`, `mayEditDetails`, `assertPersonalEdit`, `assertPersonalOwner`, `requireProject`, `assertCanManage`, `requireIssue`, `requireIssueRead`, `whoCanSeeIssue`, `requireSprint`, `requireComment`, `projectsAreOn` | `ModuleOffError` (class) · 2 const · 7 types                    |
+| `src/modules/projects/activity.ts`    | `activityRow`                                                                                                                                                                                                                                                                                                                                                                                                                 | 1 type                                                          |
+| `src/modules/projects/attachments.ts` | `keyBelongsTo`, `verifyStored`, `alreadyAttachedOr`, `removeStored`, `storedKeys`, `taskAttachments`, `commentAttachments`, `mayAttachToTask`, `uploadUrl`, `recordAttachment`, `attachmentUrl`, `deleteAttachment`                                                                                                                                                                                                           | `AttachmentStorageUnavailableError` (class) · 1 const · 2 types |
+| `src/modules/projects/bridge.ts`      | `weeklyTaskInfo`, `describeIssue`, `syncWeeklyTask`                                                                                                                                                                                                                                                                                                                                                                           | 2 const · 2 types                                               |
+| `src/modules/projects/comments.ts`    | `listComments`, `addComment`, `editComment`, `deleteComment`                                                                                                                                                                                                                                                                                                                                                                  | —                                                               |
+| `src/modules/projects/issues.ts`      | `readIssue`, `readIssues`, `listIssues`, `getIssue`, `readReducedIssue`, `createIssue`, `updateIssue`, `bridge`, `deleteIssue`                                                                                                                                                                                                                                                                                                | 1 const · 5 types                                               |
+| `src/modules/projects/links.ts`       | `linkLabel`, `visibleIssues`, `visibleIssueKeys`, `listLinks`, `createLink`, `updateLinkNote`, `deleteLink`, `searchIssues`                                                                                                                                                                                                                                                                                                   | 4 types                                                         |
+| `src/modules/projects/notices.ts`     | `issueHref`, `personalTaskHref`, `tellAssigned`, `tellMentioned`, `mentionedMembers`, `tellAddedAsWatcher`, `notifyWatchers`                                                                                                                                                                                                                                                                                                  | 1 const · 1 type                                                |
+| `src/modules/projects/personal.ts`    | `ensurePersonalProject`, `listMine`, `readPersonalTask`, `createMine`, `moveIssue`                                                                                                                                                                                                                                                                                                                                            | 1 const · 2 types                                               |
+| `src/modules/projects/projects.ts`    | `getProject`, `listProjects`, `createProject`, `updateProject`, `deleteProject`, `setMembers`, `setStatuses`                                                                                                                                                                                                                                                                                                                  | 3 const                                                         |
+| `src/modules/projects/router.ts`      | —                                                                                                                                                                                                                                                                                                                                                                                                                             | 6 const                                                         |
+| `src/modules/projects/schemas.ts`     | —                                                                                                                                                                                                                                                                                                                                                                                                                             | 30 const · 23 types                                             |
+| `src/modules/projects/serializers.ts` | `serializeStatus`, `serializeProject`, `serializeSprint`, `serializeIssue`, `reduceIssue`, `linkedIssueIds`, `serializeActivity`, `serializeAttachment`, `serializeComment`                                                                                                                                                                                                                                                   | 1 const · 9 types                                               |
+| `src/modules/projects/sprints.ts`     | `listSprints`, `getSprint`, `createSprint`, `updateSprint`, `deleteSprint`, `startSprint`, `completeSprint`                                                                                                                                                                                                                                                                                                                   | 1 const · 1 type                                                |
+| `src/modules/projects/team.ts`        | `listTeamTasks`, `leadsATeam`, `giveTask`                                                                                                                                                                                                                                                                                                                                                                                     | 3 types                                                         |
+| `src/modules/projects/watchers.ts`    | `watchState`, `mayChooseWatchers`, `watch`, `unwatch`, `addWatcher`, `removeWatcher`                                                                                                                                                                                                                                                                                                                                          | 1 const · 2 types                                               |
 
-**Endpoints — 28**
+**Endpoints — 42**
 
-| Method   | Path                     |
-| -------- | ------------------------ |
-| `GET`    | `/projects/`             |
-| `POST`   | `/projects/`             |
-| `GET`    | `/projects/:id`          |
-| `PATCH`  | `/projects/:id`          |
-| `DELETE` | `/projects/:id`          |
-| `PUT`    | `/projects/:id/members`  |
-| `PUT`    | `/projects/:id/statuses` |
-| `GET`    | `/projects/:id/sprints`  |
-| `POST`   | `/projects/:id/sprints`  |
-| `GET`    | `/projects/:id/issues`   |
-| `POST`   | `/projects/:id/issues`   |
-| `GET`    | `/sprints/:id`           |
-| `PATCH`  | `/sprints/:id`           |
-| `DELETE` | `/sprints/:id`           |
-| `POST`   | `/sprints/:id/start`     |
-| `POST`   | `/sprints/:id/complete`  |
-| `GET`    | `/issues/search`         |
-| `GET`    | `/issues/:id`            |
-| `PATCH`  | `/issues/:id`            |
-| `DELETE` | `/issues/:id`            |
-| `GET`    | `/issues/:id/comments`   |
-| `POST`   | `/issues/:id/comments`   |
-| `GET`    | `/issues/:id/links`      |
-| `POST`   | `/issues/:id/links`      |
-| `PATCH`  | `/comments/:id`          |
-| `DELETE` | `/comments/:id`          |
-| `PATCH`  | `/links/:id`             |
-| `DELETE` | `/links/:id`             |
+| Method   | Path                                 |
+| -------- | ------------------------------------ |
+| `GET`    | `/projects/`                         |
+| `GET`    | `/projects/mine/tasks`               |
+| `POST`   | `/projects/mine/tasks`               |
+| `GET`    | `/projects/team-tasks`               |
+| `GET`    | `/projects/team-tasks/leads`         |
+| `POST`   | `/projects/team-tasks`               |
+| `POST`   | `/projects/`                         |
+| `GET`    | `/projects/:id`                      |
+| `PATCH`  | `/projects/:id`                      |
+| `DELETE` | `/projects/:id`                      |
+| `PUT`    | `/projects/:id/members`              |
+| `PUT`    | `/projects/:id/statuses`             |
+| `GET`    | `/projects/:id/sprints`              |
+| `POST`   | `/projects/:id/sprints`              |
+| `GET`    | `/projects/:id/issues`               |
+| `POST`   | `/projects/:id/issues`               |
+| `GET`    | `/sprints/:id`                       |
+| `PATCH`  | `/sprints/:id`                       |
+| `DELETE` | `/sprints/:id`                       |
+| `POST`   | `/sprints/:id/start`                 |
+| `POST`   | `/sprints/:id/complete`              |
+| `GET`    | `/issues/search`                     |
+| `GET`    | `/issues/:id`                        |
+| `PATCH`  | `/issues/:id`                        |
+| `DELETE` | `/issues/:id`                        |
+| `POST`   | `/issues/:id/move`                   |
+| `GET`    | `/issues/:id/comments`               |
+| `POST`   | `/issues/:id/comments`               |
+| `GET`    | `/issues/:id/links`                  |
+| `POST`   | `/issues/:id/links`                  |
+| `POST`   | `/issues/:id/watch`                  |
+| `DELETE` | `/issues/:id/watch`                  |
+| `POST`   | `/issues/:id/watchers`               |
+| `DELETE` | `/issues/:id/watchers/:employeeId`   |
+| `POST`   | `/issues/:id/attachments/upload-url` |
+| `POST`   | `/issues/:id/attachments`            |
+| `PATCH`  | `/comments/:id`                      |
+| `DELETE` | `/comments/:id`                      |
+| `PATCH`  | `/links/:id`                         |
+| `DELETE` | `/links/:id`                         |
+| `GET`    | `/attachments/:id/url`               |
+| `DELETE` | `/attachments/:id`                   |
 
 ---
 
@@ -2205,7 +2223,7 @@ Database and tenancy, middleware, config, helpers, scripts and the server entry 
 | `src/lib/pdf.ts`                    | `money`, `widthOf`, `wrap`, `renderPdf`                                                                                                                                      | `Page` (class) · 2 const · 2 types                                                                                                                                                                                         |
 | `src/lib/rate-limit.ts`             | `memoryStore`, `redisStore`, `useCounterStore`, `counterStore`                                                                                                               | 3 types                                                                                                                                                                                                                    |
 | `src/lib/rich-text.ts`              | `decodeEntities`, `safeHref`, `sanitizeRichText`, `plainToRichText`, `richTextToPlain`                                                                                       | 1 const                                                                                                                                                                                                                    |
-| `src/lib/storage.ts`                | `decodeInlineFile`, `storageConfigured`, `keyFor`, `presignWrite`, `presignRead`, `objectExists`, `headObject`, `readObject`, `listObjects`, `removeObject`, `uploadRefusal` | `ObjectTooLargeError` (class) · 4 const · 4 types                                                                                                                                                                          |
+| `src/lib/storage.ts`                | `decodeInlineFile`, `storageConfigured`, `keyFor`, `presignWrite`, `presignRead`, `objectExists`, `headObject`, `readObject`, `listObjects`, `removeObject`, `uploadRefusal` | `ObjectTooLargeError` (class) · 4 const · 5 types                                                                                                                                                                          |
 | `src/lib/timezone.ts`               | `zonedDay`, `todayIn`, `zonedInstant`, `hhmmIn`, `isValidTimezone`, `resolveTimezone`                                                                                        | 1 const                                                                                                                                                                                                                    |
 | `src/lib/web-push.ts`               | `encryptPayload`, `vapidHeader`, `generateVapidKeys`, `postPush`, `audienceOf`                                                                                               | 1 const · 3 types                                                                                                                                                                                                          |
 | `src/middleware/auth.ts`            | `authenticate`, `requireAuth`, `requireDb`, `requireOpenDb`, `requirePermissions`, `requireAnyPermission`, `holds`, `requirePermissionOrSelf`                                | 1 type                                                                                                                                                                                                                     |
