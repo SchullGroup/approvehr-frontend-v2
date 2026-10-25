@@ -61,7 +61,12 @@ const facts = (has: boolean): NavFacts => ({
   earlyPay: true,
   /* One-to-ones on throughout — this file is about signatures, and a row
      hidden for an unrelated reason would be a false negative. */
-  rows: { "one-on-ones": true, signatures: has, interviews: true },
+  rows: {
+    "one-on-ones": true,
+    signatures: has,
+    interviews: true,
+    "team-tasks": false,
+  },
 });
 
 const labels = (

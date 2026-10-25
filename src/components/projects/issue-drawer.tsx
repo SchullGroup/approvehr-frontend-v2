@@ -29,8 +29,10 @@ import {
   PRIORITIES,
   PRIORITY_LABEL,
   type Issue,
+  type IssueAttachment,
   type IssueComment,
   type Priority,
+  type Watcher,
 } from "@/lib/projects/types";
 import {
   checkboxTarget,
@@ -40,6 +42,7 @@ import {
 } from "@/lib/projects/workflow";
 import { useIssueThread } from "@/lib/store/projects";
 import { useProjectActor } from "@/lib/store/project-session";
+import { useSession } from "@/lib/store/session";
 import { formatDateTimeShort } from "@/lib/time";
 import { CommentItem } from "./comment-item";
 import { DraftHeading, DraftInput, DraftTextarea } from "./draft-fields";
@@ -51,6 +54,11 @@ import { PersonAvatar, PersonName, PersonPicker } from "./person";
 import { SectionTabs } from "./section-tabs";
 import { closeTopPopup } from "./popups";
 import { useProject } from "./project-context";
+import { TaskFiles } from "./task-files";
+import { Watchers } from "./watchers";
+
+const NO_FILES: IssueAttachment[] = [];
+const NO_WATCHERS: Watcher[] = [];
 
 /**
  * One issue, in a panel beside the board.
@@ -134,11 +142,18 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
     people,
     meId,
     canWork,
+    canComment = canWork,
+    canEditDetails = canWork,
+    canManage,
+    connected,
     timeZone,
     openIssue,
+    personal,
   } = useProject();
   const toast = useToast();
   const actor = useProjectActor();
+  /* `addedById` on a watcher is a user id, not an employee id. */
+  const userId = useSession().user?.id ?? null;
   const { thread, reload: reloadThread } = useIssueThread(issue.id);
   const base = useId();
 
@@ -223,7 +238,33 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
     }
   }
 
-  const canDelete = (c: IssueComment) => canDeleteComment(actor, project, c);
+  /* Files and watchers. Only the API keeps them, so the demo has neither. The
+     issue's read says who may attach to the task itself and choose its
+     watchers (`canAttachToTask`, `canManageWatchers`); everybody who can open
+     it comments, with files. A watcher can be taken off by themselves, by
+     whoever added them (a user id), or by whoever may manage: the lead or HR on
+     a board, the owner or their leader on a personal task. */
+  const isOwner =
+    Boolean(personal) && meId !== null && meId === issue.assigneeId;
+  /* On a personal task the author or its owner deletes a comment, as the API
+     rules; HR and leaders, who may manage a board, may not. */
+  const canDelete = (c: IssueComment) =>
+    personal
+      ? (meId !== null && c.authorId === meId) || isOwner
+      : canDeleteComment(actor, project, c);
+  const canAttachToTask = connected && thread.canAttachToTask === true;
+  const mayChooseWatchers = connected && thread.canManageWatchers === true;
+  const mayRemoveWatcher = (w: Watcher) =>
+    (meId !== null && w.id === meId) ||
+    (userId !== null && w.addedById === userId) ||
+    (personal ? mayChooseWatchers : canManage);
+  const watchState = useMemo(
+    () => ({
+      watchers: thread.watchers ?? NO_WATCHERS,
+      watching: thread.watching ?? false,
+    }),
+    [thread.watchers, thread.watching],
+  );
 
   /* Said only when the API says it: nothing for an epic, a sub-task, an
      unassigned or unfinished issue, and nothing at all in the demo. */
@@ -267,13 +308,15 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             {ISSUE_TYPE_LABEL[issue.type]}
           </span>
         </nav>
-        <IconButton
-          label="Copy link to this issue"
-          size="sm"
-          onClick={copyLink}
-        >
-          <Link2 className="size-4" />
-        </IconButton>
+        {!personal && (
+          <IconButton
+            label="Copy link to this issue"
+            size="sm"
+            onClick={copyLink}
+          >
+            <Link2 className="size-4" />
+          </IconButton>
+        )}
         {canWork && (
           <IconButton
             label="Delete this issue"
@@ -316,7 +359,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
       <DraftHeading
         value={issue.title}
         aria-label="Summary"
-        disabled={!canWork}
+        disabled={!canEditDetails}
         clean={(draft) => (draft.trim() ? draft.trim() : null)}
         onCommit={(title) => save({ title })}
       />
@@ -333,9 +376,9 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             <DraftTextarea
               value={issue.description}
               rows={5}
-              disabled={!canWork}
+              disabled={!canEditDetails}
               placeholder={
-                canWork
+                canEditDetails
                   ? "Add context, acceptance criteria, links"
                   : "No description"
               }
@@ -343,6 +386,19 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
               onCommit={(description) => save({ description })}
             />
           </section>
+
+          {connected && (
+            <TaskFiles
+              issueId={issue.id}
+              issueKey={issue.key}
+              attachments={thread.attachments ?? NO_FILES}
+              canAttach={canAttachToTask}
+              canRemove={(file) =>
+                file.uploadedBy === meId || (personal ? isOwner : canManage)
+              }
+              onChanged={reloadThread}
+            />
+          )}
 
           {!isSubtask && (
             <section aria-labelledby={`${base}-kids`}>
@@ -450,6 +506,21 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             onChanged={reloadThread}
           />
 
+          {connected && (
+            <Watchers
+              issueId={issue.id}
+              state={watchState}
+              meId={meId}
+              people={people}
+              candidates={
+                personal ? people.people.map((p) => p.id) : project.memberIds
+              }
+              mayChoose={mayChooseWatchers}
+              mayRemove={mayRemoveWatcher}
+              onChanged={reloadThread}
+            />
+          )}
+
           <SectionTabs
             label="Comments and history"
             items={[
@@ -465,13 +536,19 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
           >
             {tab === "comments" ? (
               <div className="space-y-5">
-                {canWork && meId && (
+                {canComment && meId && (
                   <MentionComposer
                     people={people}
                     memberIds={project.memberIds}
                     meId={meId}
-                    onPost={async (body) => {
-                      const result = await actions.addComment(issue.id, body);
+                    attach={connected ? { issueId: issue.id } : undefined}
+                    onPost={async (body, attachments) => {
+                      const result =
+                        attachments.length > 0
+                          ? await actions.addComment(issue.id, body, {
+                              attachments,
+                            })
+                          : await actions.addComment(issue.id, body);
                       return result.ok;
                     }}
                   />
@@ -569,18 +646,34 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             </Select>
           </Row>
 
-          <Row label="Assignee">
-            <PersonPicker
-              people={people}
-              value={issue.assigneeId ?? ""}
-              ids={project.memberIds}
-              allowNone
-              disabled={!canWork}
-              aria-label="Assignee"
-              onChange={(id) => save({ assigneeId: id || null })}
-            />
-          </Row>
-          {canWork &&
+          {personal && (
+            <Row label="List">
+              <span className="text-body-sm text-ink">Personal</span>
+            </Row>
+          )}
+          {personal?.setByName && (
+            <Row label="Set by">
+              <span className="text-body-sm text-ink">
+                {personal.setByName}
+              </span>
+            </Row>
+          )}
+
+          {!personal && (
+            <Row label="Assignee">
+              <PersonPicker
+                people={people}
+                value={issue.assigneeId ?? ""}
+                ids={project.memberIds}
+                allowNone
+                disabled={!canWork}
+                aria-label="Assignee"
+                onChange={(id) => save({ assigneeId: id || null })}
+              />
+            </Row>
+          )}
+          {!personal &&
+            canWork &&
             meId &&
             issue.assigneeId !== meId &&
             project.memberIds.includes(meId) && (
@@ -601,12 +694,15 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             <p className="text-meta leading-snug text-muted">{bridgeNote}</p>
           )}
 
-          <Row label="Reporter">
-            <PersonName people={people} id={issue.reporterId} />
-          </Row>
+          {!personal && (
+            <Row label="Reporter">
+              <PersonName people={people} id={issue.reporterId} />
+            </Row>
+          )}
 
           <Row label="Type" htmlFor={`${base}-type`}>
-            {isEpic || isSubtask ? (
+            {/* A personal task is never an epic: there is no roadmap to put one on. */}
+            {isEpic || isSubtask || personal ? (
               <span className="text-body-sm text-ink">
                 {ISSUE_TYPE_LABEL[issue.type]}
               </span>
@@ -695,7 +791,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             </Row>
           )}
 
-          {!isEpic && !isSubtask && (
+          {!personal && !isEpic && !isSubtask && (
             <Row label="Epic" htmlFor={`${base}-epic`}>
               <Select
                 id={`${base}-epic`}
@@ -746,7 +842,7 @@ function DrawerBody({ issue, onClose }: { issue: Issue; onClose: () => void }) {
             <Input
               id={`${base}-due`}
               type="date"
-              disabled={!canWork}
+              disabled={!canEditDetails}
               value={issue.dueDate ?? ""}
               onChange={(event) =>
                 save({ dueDate: event.target.value || null })

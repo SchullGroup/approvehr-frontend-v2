@@ -5,8 +5,9 @@ somebody running a demo. No code, no database, no jargon left unexplained.
 
 | Walkthrough                        | Covers                                                                                                                                                                                                                                          |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`performance.md`](performance.md) | **Running an appraisal, screen by screen.** Thirty-four numbered steps from setting the scoring up to publishing the marks, a relay diagram of who hands what to whom, a card per role, nine deliberate surprises, and a twenty-minute demo script. |
+| [`performance.md`](performance.md) | **Running an appraisal, screen by screen.** Thirty-four numbered steps from setting the scoring up to publishing the marks, including what someone finished on the project boards (**My work record**), a relay diagram of who hands what to whom, a card per role, nine deliberate surprises, and a twenty-minute demo script. |
 | [`approvals.md`](approvals.md)     | **Deciding what is waiting on you.** The inbox and its three views, narrowing it by module and date, Approve and Reject with a required reason, Archive and My archive, Approve routine, what happens when the same thing is raised twice, how a bank change is decided as one, and what the person who asked is told. |
+| [`org-chart.md`](org-chart.md)     | **Seeing who is where.** The two views (**Chart** and **By department**), opening and closing branches, zoom and fit, search, what **No manager set** means, and **Arrange** for the people allowed to change the structure. No pay appears anywhere on it. |
 
 ## The rule these follow
 

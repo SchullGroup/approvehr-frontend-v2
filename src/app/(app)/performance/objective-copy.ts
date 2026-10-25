@@ -1,5 +1,7 @@
 import {
   formatMeasure,
+  isDoneMeasure,
+  isUnread,
   quarterLabel,
   type ApiGoal,
   type ApiKeyResult,
@@ -210,23 +212,120 @@ export function kpisAssignedSaid({
   };
 }
 
-/** A measure was added. Its figures are what prove which one. */
+/**
+ * A measure was added. Its figures are what prove which one, except for a
+ * done-or-not-done measure, which has none: the server stores a 0 and a 1 for it
+ * and "0 to 1" would read as a target somebody chose.
+ *
+ * What it counts for until somebody acts is said, because the person who just
+ * added it is about to look at the objective's progress and wonder why it did
+ * not move: a done-or-not-done measure counts as not done until it is
+ * confirmed, and a number added with no reading is left out until it has one.
+ * Both come from what the server sent, and a server that sends neither field
+ * (an older one) gets the figures alone.
+ */
 export function measureAddedSaid(
   measure: Pick<
     ApiKeyResult,
-    "label" | "unit" | "startValue" | "targetValue" | "lowerIsBetter"
+    | "label"
+    | "unit"
+    | "startValue"
+    | "targetValue"
+    | "lowerIsBetter"
+    | "kind"
+    | "lastReadAt"
   >,
   goalTitle?: string | null,
 ): Said {
+  const title = goalTitle
+    ? `"${measure.label}" added to "${goalTitle}"`
+    : `"${measure.label}" added`;
+
+  if (isDoneMeasure(measure)) {
+    return {
+      title,
+      detail: "Done or not done. It counts as not done until it is confirmed.",
+    };
+  }
+
+  const figures =
+    `${formatMeasure(measure.startValue, measure.unit)} to ` +
+    `${formatMeasure(measure.targetValue, measure.unit)}` +
+    `${measure.lowerIsBetter ? ", counting down" : ""}.`;
+
   return {
-    title: goalTitle
-      ? `"${measure.label}" added to "${goalTitle}"`
-      : `"${measure.label}" added`,
-    detail:
-      `${formatMeasure(measure.startValue, measure.unit)} to ` +
-      `${formatMeasure(measure.targetValue, measure.unit)}` +
-      `${measure.lowerIsBetter ? ", counting down" : ""}.`,
+    title,
+    detail: isUnread(measure)
+      ? `${figures} No reading yet, so it is left out of progress until there is one.`
+      : figures,
   };
+}
+
+/**
+ * What is said under an objective's progress when some of its measures have
+ * never been read, from `readCount` (which is null, and so says nothing, when
+ * every one has been, or when the server does not say).
+ *
+ * The consequence is the point and not the count. With none read, the bar above
+ * is the 0 the objective was made with and not a result; with some read, it is
+ * the average of those alone. Either way somebody looking at a figure has to be
+ * told what it is a figure of, which a bare "1 of 3" does not do.
+ */
+export function readCountLine(reads: { read: number; of: number }): string {
+  if (reads.read === 0) {
+    return reads.of === 1
+      ? "Its measure has not been read. Nothing is counted yet, so the figure above is not a result."
+      : `0 of ${String(reads.of)} measures read. Nothing is counted yet, so the figure above is not a result.`;
+  }
+  return `${String(reads.read)} of ${String(reads.of)} measures read. The others are left out of the figure above until somebody enters a reading.`;
+}
+
+/**
+ * What sits under the Average progress figure on the KPIs screen.
+ *
+ * `counted` is how many objectives the average was taken over, `tracked` how many
+ * there are. An objective with nothing read has no figure to average, so it is
+ * left out, and the caption has to say how many of them that is: "across 6 KPIs"
+ * under a mean of five is a claim about a denominator that was not used. Null
+ * when nothing is tracked, where the figure is a dash and there is nothing to add.
+ */
+export function averageProgressHint(
+  counted: number,
+  tracked: number,
+): string | null {
+  if (tracked === 0) return null;
+  if (counted === 0) return "nothing read yet";
+  if (counted === tracked) {
+    return tracked === 1 ? "across 1 KPI" : `across ${String(tracked)} KPIs`;
+  }
+  return `across ${String(counted)} of ${String(tracked)} KPIs, the rest not read yet`;
+}
+
+/**
+ * The same fact for the face of a card, where there is room for four words.
+ * With none read the percentage is not drawn at all (see `GoalCard`), so this
+ * is what stands in its place.
+ */
+export function readCountShort(reads: { read: number; of: number }): string {
+  return reads.read === 0
+    ? "No reading yet"
+    : `${String(reads.read)} of ${String(reads.of)} read`;
+}
+
+/**
+ * The label on an objective's progress bar, which has to say what the figure is
+ * made of. "From 3 measures" is true only while all three have been read.
+ */
+export function progressLabel(
+  measures: number,
+  reads: { read: number; of: number } | null,
+): string {
+  if (measures === 0) return "Progress, entered by hand";
+  if (reads?.read === 0) return "Progress, nothing read yet";
+  if (reads) return "Progress, from the measures read so far";
+  return measures === 1
+    ? "Progress, from 1 measure"
+    : `Progress, from ${String(measures)} measures`;
 }
 
 /**

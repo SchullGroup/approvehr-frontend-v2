@@ -13,7 +13,7 @@ import {
   useKpis,
   useMyTasks,
 } from "@/lib/store/performance";
-import type { ApiMyTask } from "@/lib/api/performance";
+import { readCount, type ApiMyTask } from "@/lib/api/performance";
 
 /**
  * What this person actually did, shown while they rate themselves.
@@ -184,24 +184,37 @@ export function SelfEvidence({
             </p>
           ) : (
             <ul className="flex flex-col gap-4">
-              {mine.map((goal) => (
-                <li key={goal.id}>
-                  <div className="mb-1.5 flex items-start justify-between gap-2">
-                    <span className="text-body-sm font-medium text-ink">
-                      {goal.title}
-                    </span>
-                    <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm">
-                      {GOAL_STATUS_LABEL[goal.status]}
-                    </Badge>
-                  </div>
-                  <ProgressMeter
-                    value={goal.progress}
-                    label={`${String(goal.progress)}% done`}
-                    tone="accent"
-                    size="sm"
-                  />
-                </li>
-              ))}
+              {mine.map((goal) => {
+                /* With none of its measures read, `progress` is the 0 the
+                   objective was made with. "0% done" beside somebody's name for
+                   their own period is a claim, and they are about to rate
+                   themselves against it. */
+                const nothingRead = readCount(goal.keyResults)?.read === 0;
+                return (
+                  <li key={goal.id}>
+                    <div className="mb-1.5 flex items-start justify-between gap-2">
+                      <span className="text-body-sm font-medium text-ink">
+                        {goal.title}
+                      </span>
+                      <Badge tone={GOAL_STATUS_TONE[goal.status]} size="sm">
+                        {GOAL_STATUS_LABEL[goal.status]}
+                      </Badge>
+                    </div>
+                    {nothingRead ? (
+                      <p className="text-body-sm text-muted">
+                        No reading entered yet, so there is no figure to show.
+                      </p>
+                    ) : (
+                      <ProgressMeter
+                        value={goal.progress}
+                        label={`${String(goal.progress)}% done`}
+                        tone="accent"
+                        size="sm"
+                      />
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

@@ -9222,3 +9222,390 @@ Not fixed, on purpose: an objective with several measures cannot be uploaded in 
 row), and the upload cannot add a measure to an existing objective. The Add multiple window has no
 `maxLength` on title and description; the 140 and 2,000 limits are enforced at Check with a clear
 message, and a hard cap would silently truncate pasted text.
+
+---
+
+# A role editor that seeded once, a sidebar that folds, and a KPI that needs a period
+
+Three small changes from the walk of the `dev` into `test` promotion (#440), recorded together because
+two of them were found by reading what the promotion carried and the third by looking at one screenshot.
+
+## The role editor opened every role blank
+
+`/settings/roles` keeps the editor drawer mounted all the time, because the drawer has to see `open` go
+false to run its exit animation. So its first render has no role, and the form took its starting values
+from that render with `useState(role?.name ?? "")` and never again. Every role opened with a blank
+**Name** and nothing ticked. A custom role could not be saved until its name was retyped, and ticking one
+box on a built-in role and saving would have replaced all of its permissions with that one box.
+
+`RoleEditor` is now a thin wrapper that decides when a new session starts (the drawer opens, or a
+different role is chosen) and renders `RoleEditorForm key={session}`, so the form is created afresh and
+seeds itself from the role it is given. A list refresh that hands over the same role as a new object does
+**not** start a session, so what somebody is typing survives it.
+
+The rule, for any form inside a drawer or dialog that stays mounted: **re-create it per open with a key;
+do not copy props into state once and hope.** An effect that re-seeds on every change of the prop would
+also fix the blank form, and would throw away what somebody typed when the roles list reloads on window
+focus. `tests/role-editor-seeds-on-open.test.tsx` has both halves; against the old file six of its seven
+tests fail.
+
+## The sidebar's back button, and sections that fold
+
+The back button inside a drilled level shows the section's name ("Core HR") and was announced as "Back to
+main menu", so saying its visible label did not reach it (WCAG 2.5.3, label in name). Its accessible name
+is now `<label>, back to main menu`: it starts with what is shown.
+
+A level of eight or more items is filed under small headings, and each heading is now a button that folds
+its section. These are the sections *inside* a level; the rows on the top level already open a level, so
+there was nothing there to fold.
+
+- **What is stored is what is folded, not what is open** (`lib/store/sidebar-sections.ts`, key
+  `approvehr.sidebar.sections`, one browser). Everything starts open, as the sidebar always was, so a
+  section that ships tomorrow is open for people who have folded every other one.
+- **The key is the level and the heading**, written in one place (`sectionKey`), so a second level that
+  one day has a heading called "People" folds on its own.
+- **The heading is still an `h3`**, with the button inside it: the outline a screen reader walks is
+  unchanged. The button reports `aria-expanded` and names the panel it controls.
+- **A fold hides no door.** A folded heading carries a dot when anything inside it has a count waiting
+  ("Lifecycle, needs attention") and a mark when the page you are on is inside it ("People, the page you
+  are on is in here"), and **Find a page** still finds a page inside a folded section.
+
+`tests/sidebar-sections-fold.test.tsx` (11) covers it. The store outlives a render and keeps its state in
+module memory, which clearing `localStorage` does not clear, so a test that folds a section has to open
+it again before it ends.
+
+## A personal KPI has to be filed in an appraisal period
+
+An objective counts towards somebody's appraisal mark only if it is filed in an appraisal period, and the
+New KPI form let you create one with none and said nothing. When there is an open period to choose, the
+**Appraisal period** field is now required on a KPI that is somebody's own: no "Not part of an appraisal
+period" choice, and the only open period is chosen already. **Edit** asks for it too, which is the way out
+for an old KPI that was never filed.
+
+Three things it deliberately does not do:
+
+- **It is the form's rule, not the server's.** The API still accepts an objective with no period. The
+  importer and the Add multiple window warn about an unfiled row and never refuse it, on purpose, so a
+  server-side refusal would be a separate decision with those two in it.
+- **A company-wide or department objective stays optional**: it is a standing target that may belong to
+  no cycle.
+- **A company with no open period yet is not stopped.** It gets a note saying the KPI will count towards
+  nobody's mark, in words, instead of a form that cannot be saved.
+
+While the periods are still loading the **Create** button waits, because a KPI saved in that moment would
+have been filed in none. `tests/kpi-requires-period.test.tsx` (11) covers it: 7 of the 11 fail against the
+previous `goal-dialogs.tsx`, and the other 4 are the controls that must hold either way.
+
+**Not exercised in a browser:** any of the three. They are covered by component tests and `npm run check`.
+
+---
+
+# A measure has a kind, and a measure nobody has read is not at 0%
+
+Step 1 of the measures report (a Claude Docs document; its nine decisions were settled with the owner
+on 2026-10-23). Backend `feat/measure-kinds` into `staging`, frontend `feat/measure-kinds` into `dev`,
+neither merged when this was written. The backend's own note is `docs/backend/measure-kinds-handover.md`
+in that repo; read it for the routes and the exact refusals.
+
+The defect it removes: a new measure began with its current value equal to its start, so it showed 0%
+whether somebody had measured it at 0 or nobody had measured it at all, and the objective's average
+counted that 0. A 0 that is not a result is the failure ADR 0003 names, in a place where it moves a mark.
+
+## What changed
+
+- **A measure has a kind.** `NUMBER` (a number to reach: what every measure was) or `DONE` (done or not
+  done: no number, and a manager confirms it). Both reduce to the same 0 to 100%, so objective progress,
+  the Objectives component and the mark are unchanged for everything that already exists. More kinds are
+  step 2.
+- **A measure is read or not.** `lastReadAt`: `null` is unread. A number added with no current value is
+  unread; a reading stamps it. A `DONE` measure is read from the day it is made, at 0%, because "not done
+  yet" is an answer: a milestone nobody confirmed by the end of the period was not met, and leaving it out
+  of the average would let a miss disappear. Every existing measure was backfilled to `lastReadAt =
+  updatedAt`, so no running period moved.
+- **An objective's progress is the average of the measures read.** `measuredProgress` is `null` when none
+  has been, and the objective then keeps its stored progress instead of being overwritten with a figure the
+  measures do not support. This is the one change that moves a number: an objective with one read measure
+  and one unread now averages the read one alone.
+- **A manager confirms a milestone.** `POST` and `DELETE /performance/key-results/:id/confirm`, for the
+  people who may agree the objective and never its owner. A company or department objective has no owner,
+  so confirming one needs the records permission.
+- **Add a measure is two steps.** `AddMeasureDialog` asks the kind, then the fields that kind needs. A
+  number sends no `kind` (a server that predates kinds has a strict body and would refuse the key). Done or
+  not done sends the kind and its words and nothing else. It starts clean every time it opens, by bumping a
+  key when `open` turns true, so the last measure's fields are never shown against another objective.
+
+## Where "not read" is said, and what is drawn instead of a 0%
+
+`goalFacts` carries `reads` (from `readCount`) so the card and the window cannot differ. It is `null` unless
+some measure is unread, which is deliberate: "4 of 4 read" on every card is noise.
+
+| Where | With nothing read | With some read |
+| ----- | ----------------- | -------------- |
+| The card's face | **No reading yet**, no percentage | the percentage and **1 of 3 read** under it |
+| The objective's window | the bar is labelled **Progress, nothing read yet**, no figure beside it, and a line: **0 of 3 measures read. Nothing is counted yet, so the figure above is not a result.** | **Progress, from the measures read so far** and **1 of 3 measures read. The others are left out of the figure above until somebody enters a reading.** |
+| One measure's row | **Not read yet**, no bar, **No reading yet · target 40 leads · started at 10 leads**, an empty **First reading** box | as before |
+| The average stat | an objective with nothing read is left out, and the caption counts what it averaged: **across 5 of 6 KPIs, the rest not read yet** | |
+| The self-review's "Your objectives" | **No reading entered yet, so there is no figure to show.** | the bar as before |
+| The toast after adding | **No reading yet, so it is left out of progress until there is one.** | the figures alone |
+| The approvals row | **· nothing recorded yet** | **· now 5** |
+
+What being unread costs is said **once**, under the objective's own bar, and not again under each unread
+measure. The first version said it four times in a few lines to somebody with one unread measure.
+
+## Decisions not to undo
+
+- **A server that does not say makes no claim.** `isUnread` is true only when `lastReadAt` is `null`; an
+  absent field is a server that predates the column, and calling those measures unread would tell every user
+  of an older server that nothing they track has been read. `readCount` returns `null` if any measure's
+  field is absent, and `hasNoReading` falls back to the old inference (a figure still equal to its start)
+  only where the field is absent. Each has a test with the field missing.
+- **The Confirm button is offered where it could work.** Never to the owner (the API refuses them in words
+  about confirming, and a yes typed by the person being judged is the weakest evidence there is), and on a
+  company or department objective only to somebody holding the records permission. The owner sees **Your
+  manager confirms it when it is done.** instead of a control that returns a refusal.
+- **A confirmation that did not save keeps the note being typed.** `confirm` resolves `false` when the
+  screen already said why, and the row only closes its box on `true`.
+- **`GoalCard` and `MeasureRow` are exported for tests.** The face and the unread row are where a 0% would
+  do the harm, and neither can be reached from outside `kpis.tsx` otherwise.
+- **Demo mode refuses to confirm**, with the reason. Whether somebody's work is done is a judgement about
+  another person, and one kept in this browser would never reach their review. Demo measures are all
+  `NUMBER` and all read, so the demo stages no unread measure it could not also stage the consequences of.
+- **The Badge on "Not read yet" is `tone="warning"`.** On `dev` that draws an amber chip; on `staging`
+  `Badge` ignores its tone and draws plain muted text, which is what the no-banners rule asks for. Nothing
+  here needs changing when the two meet, and `verify-no-banners` passed on a merge of the two.
+
+## Found, and not changed
+
+- **The window closes after any save.** Saving a reading, confirming a milestone and taking one back all
+  reload the list, which remounts the card and loses its `open` state. It is how the screen behaved before
+  this (a saved reading did the same), so confirming behaves like everything else here, but it means a
+  manager confirming two milestones on one objective opens the card twice.
+- **An uploaded measure is always unread.** The importer has no current-value column, so every measure it
+  creates has a start and a target and no reading. That is the honest reading of such a file, but the
+  column note still says **Where the number is today**, which sits oddly beside a measure that says it has
+  not been read. Whether an uploaded baseline should count as a first reading is a product question; it was
+  not decided here. The importer also has no kind column: an uploaded measure is a number.
+- **Goals created through the AI period draft** add measures with a target and no current value, so they
+  are unread too.
+
+## Verified, and what was not
+
+Frontend. `npm run check` exit 0 (typecheck, lint with the 8 warnings that were already there, and every
+gate), run with `APPROVEHR_BACKEND_DIR` pointing at the unmerged backend so the four cross-repo gates compared
+against it instead of printing `skip`. `next build` exit 0 for production with `NEXT_PUBLIC_DEMO=off`, and `verify-demo`'s bundle half against that
+build: 3034 built files, none carrying demo copy or a seed persona. 77 new
+tests in six files (`measure-kinds` 29, `add-measure-dialog` 12, `done-measure-row` 15, `unread-measure-row` 9,
+`goal-card-face` 8, `self-evidence-readings` 4); with the neighbouring performance, import and bulk-create
+tests that is 18 files and 258 tests, all passing. The whole suite (295 files, 4,227 tests) had 16
+failures, all recruitment screens (the applications queue, the pipeline board, the hired list and the
+screening pass mark) timing out under load in files nothing here touches; those seven files pass on their
+own (116 tests). Each rule was broken on purpose and the test that guards it
+failed: a number sending `kind`, the owner being offered Confirm, a missing field read as unread, the toast
+going back to "0 to 1", the card's face printing a 0%, and the window's bar printing one.
+
+Backend. `tsc`, lint, `format:check` and the six `verify-*` gates exit 0. Ten test files and 445 tests pass on
+the squashed commit, among them `tests/measure-kinds.test.ts` (24) and `tests/tenant-isolation.test.ts`. The
+whole backend suite was not run locally, so CI is its first full run.
+
+Merged with `staging` in a throwaway worktree: typecheck exit 0, `verify-no-banners` passes, and the eight test
+files that cover this pass (122 tests). Both branches also merge cleanly with the two open pull requests that
+change scoring (backend #214, frontend #449).
+
+**In a browser**, against a scratch API on a real Postgres and a production build of this branch, as three
+people (the owner, her manager and an administrator), replayed from fresh data on the build of the final
+commit: 35 of 36, 17 of 17 and 18 of 18 checks. The one miss is the console check of the first stage, which
+flagged a 401 on first load while a saved session's expired token refreshed; every functional check passed. It
+exercised:
+the card's face and the window for an objective with nothing read, one half read and all read; a first reading
+typed as the starting figure; the Add a measure dialog for both kinds, its refusal of an empty answer and its
+toasts; the approvals screen's measure lines; confirming a milestone with a link in the note, taking it back
+and confirming it again; a company milestone that the line manager is not offered a button for and the
+administrator is; and, at 375px with a touch pointer, no sideways scroll on the list, the window or either
+step, and a 16px text field. Three defects were found by
+looking at it and fixed: the window's bar printed **0%** beside "nothing read yet", an unread measure said the
+same thing four times in a few lines, and the average's caption said "across 6" over a mean of five.
+
+**Not exercised:** demo mode in a browser (the walk was connected; the demo's refusal to confirm is one `guard`
+call and is covered by `tsc` alone), the self-review list in a browser (a test covers it), iOS Safari or any real
+device, and the backend suite beyond the ten files above.
+
+## Order, and what was left
+
+The backend goes first. Against a server that predates this, every field is absent and every screen behaves
+as it did, with one exception: the dialog still offers **Done or not done**, and the older server will
+refuse the `kind` key with its own sentence. That is the reason for the order, as with the importer's
+headings.
+
+Not built, on purpose: more kinds (a rate, a limit, a range, milestones), a readings table, per-measure
+weights, the starter library by department, a kind column in the importer, and showing the date of the last
+reading. Each is step 2 or later, and the model and the routes were shaped so each is an addition.
+
+---
+
+# My tasks, Team tasks, and a task that has no board
+
+Joseph Chinedu's frontend #452 (the web half of backend #216), merged on 2026-10-25 as `0a2e4a8b`: 47 files,
++6,556 and −87. It gives everybody a list of their own to-dos that belongs to no project, gives a manager a
+view of what their people have on, and puts **Files** and **Watchers** in the task drawer. This entry records
+what it decided, and what walking it in a browser found, because one of those findings is a defect that is
+still open.
+
+## What changed
+
+| Where                                                    | What                                                                                                                                                                                                                                                         |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/projects/mine` (`my-tasks-screen.tsx`)                 | **My tasks**: your own list, apart from any project. A quick-add row (title, due date, **Attach files**, **Add details**), three groups (**To do**, **In progress**, and **Done this week**, closed), **Open / Done / Overdue** views, and "Set by …" on a task a leader gave you. |
+| `/projects/team` (`team-tasks-screen.tsx`)               | **Team tasks**: one block per person you manage or whose department you run, with a load strip and "2 overdue, 1 this week, 4 open, 2 done this week", **Give a task**, and **Move to…** on a personal task. **Overdue**, **Due this week** and **All open** views. |
+| `/projects/tasks/[id]` (`task-screen.tsx`)               | One task, by its id.                                                                                                                                                                                                                                         |
+| `personal-issue-drawer.tsx`, `reduced-issue-drawer.tsx`  | The drawer for a task with no board, and the read-only view a leader gets of a board task on a board they are not on.                                                                                                                                         |
+| `task-files.tsx`, `watchers.tsx`, `lib/projects/files.ts` | **Files** (thumbnails, attach or drop, open, remove) and **Watchers** in the drawer, and the three-step upload.                                                                                                                                              |
+| `lib/store/team-tasks.ts`                                | `useLeadsTeam`: whether the **Team tasks** nav row exists.                                                                                                                                                                                                   |
+| `next.config.ts`                                         | The policy's `img-src` admits the configured upload origins, for thumbnails.                                                                                                                                                                                 |
+
+The API half is backend #216: `/projects/mine/tasks`, `/projects/team-tasks` and `/leads`, `/issues/:id/move`,
+`/issues/:id/watch` and `/watchers`, and `/issues/:id/attachments` (an upload URL, then the record) with
+`/attachments/:id/url`.
+
+## Decisions not to undo
+
+1. **A personal task is an ordinary issue in a hidden project, so the drawer is the board's drawer.**
+   `PersonalIssueDrawer` builds the context `IssueDrawer` reads out of what the API gives for a task with no
+   board (`GET /projects/:id` is a 404 for its list): the issue with its list's columns, and the tasks the
+   caller already holds. Its actions are the issue endpoints, and every project-level action answers "A
+   personal list has no project to change." Sub-tasks, labels, links, comments, the objective link and the
+   Work record all work on a personal task with no second copy of any of them.
+
+2. **The drawer follows the API's flags and works out no rule itself.** `canEditDetails`,
+   `canManageWatchers` and `canAttachToTask` come with the task. On screen: the owner edits everything; the
+   leader who set a task edits its title, description and due date and nothing else (status, priority,
+   points and labels are greyed); a leader who did not set it has everything greyed, no attach button and a
+   comment box; somebody who holds `EDIT_RECORDS` reads and comments and cannot add a watcher. The API still
+   decides.
+
+3. **Absent, not empty, for somebody who leads nobody.** The **Team tasks** nav row exists only when
+   `GET /projects/team-tasks/leads` says yes. Somebody who leads nobody and types the address gets "Nobody
+   reports to you yet", never anybody's work. An empty page would claim a team that does not exist.
+
+4. **A key names nothing, so the task page takes an id.** Everybody's list has a `MY-1`.
+   `/projects/tasks/[id]` shows a personal task in its drawer over a plain page; a board task goes to
+   `/projects/{id}?issue=KEY`; a board task of somebody you lead, on a board you are not on, opens the
+   reduced view ("You can see this because Chidi Nwosu is in your team.", with status, start date, due date
+   and labels, and nothing to edit); and a task you may not see gets the same "We could not find that task"
+   as one that does not exist, so the page cannot be used to ask whether a task is there. Notifications and
+   the Work record's `MY-n` rows go to `/projects/tasks/{id}`, and that record's project column says
+   "Personal".
+
+5. **A task is created first, then its files, and a file that fails is retried without creating the task
+   twice.** Files go in three steps (ask the API for a signed URL, `PUT` to storage, record it), and nothing
+   is recorded before the `PUT` resolves. If storage refuses, the task still exists and the page says "MY-6
+   was added. These files didn't attach to it:" with the reason and **Try again**. The limits mirror the API:
+   10 files a task and 10 MB each (`MAX_DOCUMENT_BYTES`, not the 25 MB ceiling the storage module has for
+   presigned writes in general), image, PDF or Office only. A refused file stays listed beside its reason
+   while it is being staged and is dropped when the task is added; the "up to 10" sentence sits under the
+   list, not beside the eleventh.
+
+6. **Opening a file is a download.** The API's signed read link carries `attachment; filename="…"`
+   (`presignRead`: "a short-lived link to download one file"), so the click opens a blank tab, synchronously so
+   Safari allows it, and the browser downloads into it. Thumbnails use the same link in an `<img>`, which
+   `attachment` does not affect. If a thumbnail's first load fails it asks for a fresh link once and then
+   gives up, leaving the file name as its alt text.
+
+7. **`NEXT_PUBLIC_UPLOAD_ORIGINS` is now also an `img-src`.** Thumbnails need the storage origin in the
+   build, as the CV upload needs it in `connect-src`; only `https:` origins are admitted (and
+   `http://localhost` outside production). The real bucket needs a CORS rule that lets the app's origin
+   `PUT`, which the CV upload already depends on.
+
+8. **Overdue is the only red.** Counts bucket the way the API does: overdue (before today), due this week
+   (today to Sunday), later or no date, and the three add up to open. People are ordered by overdue count,
+   then name.
+
+9. **Move to… keeps the task and changes who set it.** The task keeps its id, takes the next number on the new
+   list (a `MY-4` became Emeka's `MY-1`), and the leader who moved it becomes who set it, so the new owner
+   sees "Set by" that leader. Only the people in the leader's own team are offered, and **Move task** waits
+   for a choice.
+
+10. **No demo-mode path.** In a development build with no API, **My tasks** (shown to everybody) opens on a
+    load failure and **Team tasks** is hidden; a production build has no demo mode. This is from the code,
+    not run.
+
+## Found by walking it, and not fixed
+
+### The personal-task drawer shows the old values after you save
+
+Open a personal task from **My tasks**, **Team tasks** or its own page, change its title, due date,
+description, priority, labels or status, and leave the drawer open. The save succeeds (`PATCH /issues/:id`
+answers 200 and the lists reload), the row behind the drawer shows the new value, **and the drawer's own field
+goes back to the old one and stays there** until the drawer is closed and opened again. After a save, a status
+of In progress reads "To do" in the drawer while the list behind it says In progress. Nothing is lost: the
+server has the new value, a reopened drawer shows it, and the next edit sends only its own field (a due-date
+change sent `{"dueDate": …}` and nothing else). But it reads as a save that did not take, on the control the
+person has just used. Comments, watchers and files are not affected; they hold their own state.
+
+The control is an ordinary board's drawer, which shows what was saved, so this belongs to the new drawer and
+not to the shared one. The cause is in `personal-issue-drawer.tsx`. The drawer builds the task from the
+caller's list, then from the copy it loaded when it opened (`detail.issue`), then from a short-lived overlay
+of what it has saved. The overlay is cleared whenever the caller's `issues` changes identity, and the callers
+all cause that: **My tasks** reloads its list after a save, and **Team tasks** and the task page pass a fresh
+`issues={[]}` on every render. With the overlay gone, the copy loaded at open time, which is older than the
+save, is applied over the fresh row. The likely fix is to keep the drawer's own copy current: after a
+successful save (and in `refreshIssue`), replace `loaded.detail.issue` with what the API returned. It needs a
+test that edits a field and reads it back after the parent re-renders. The tests for this drawer
+(`team-tasks.test.tsx`, `task-route.test.tsx`) open it; none edits a field, and there is no test file of its own.
+
+### Smaller things
+
+- A malformed id (`/projects/tasks/not-a-uuid`) says "This task did not load. Some fields are not valid.",
+  the API's own 400 sentence, where an unknown id gets the not-found page. Only a hand-typed link reaches it.
+- The delete confirmation, "Delete MY-3? This cannot be undone.", does not say that the task's files go with
+  it. They do: the stored objects and their records are both removed.
+- Under **Count toward**, a personal task is told to "link this issue or the project to an objective". It has
+  no project. The wording is the board drawer's.
+- Opening a file leaves its blank tab open in headless Chromium after the download starts. Whether desktop
+  Chrome or Safari close it was not seen.
+- A Playwright log shows `ERR_ABORTED` for every `DELETE` that answers 204, probably because the client
+  returns without reading the empty body. The delete lands; it is noise.
+
+## Verified, and what was not
+
+Reviewed against the merged backend (routes, query enums, limits, and the flags the drawer follows), and the
+whole suite was run on the merged tree: 303 files, 4,336 of 4,337 tests (the one failure, a recruitment
+test, passes on its own).
+
+**In a browser**, a production build of `dev` at `0a2e4a8b` against backend `staging` at `c11a5bc` on a
+scratch Postgres, as five seeded people: Chidi and Emeka lead nobody, Adaeze leads both and is on board PLT
+but not on BIL, Amara is the administrator and leads five. Storage was a stand-in that recomputes the
+signature of every presigned URL (so a `PUT` that sent a different `Content-Type` than was signed is
+refused), enforces expiry and answers the browser's preflight. Seen on the screen:
+
+- **My tasks**: the empty state; adding by the button and by Enter; a date in the past marking the row
+  Overdue; a task with details; the Open, Done and Overdue views and the closed **Done this week** group; a
+  task made by somebody else showing "Set by …"; the order (by due date, undated last).
+- **Files**: two files with a new task, a type that is not allowed, a file over 10 MB, eleven files, a
+  refusal beside a good file, a storage failure and its **Try again**, a drop onto the section, and a
+  thumbnail that fails once and then loads (and one that keeps failing, which stops after one retry).
+- **The drawer**: title, due date, description, priority, labels and status; two comments (the button and
+  Ctrl+Enter); watching, adding and removing a watcher; opening and removing a file (storage and the record
+  both go); deleting a task that has a file.
+- **Team tasks**: each person's counts against the database; the three views and their empty states;
+  **Give a task** (the database row, the notification, the counts moving); **Move to…**; a leader who set a
+  task and one who did not; the reduced view; an administrator reading a personal task; and, for somebody who
+  leads nobody, the nav row absent and the page empty.
+- **`/projects/tasks/[id]`**: a personal task, a board task, an unknown id and a malformed one, and another
+  person's task and a board's task by id for somebody who may not see them.
+- The Work record's key links, the notifications ("assigned MY-5 to you", "added you as a watcher"), the
+  board regression (create an issue with a file, comment with a file, attach, remove, watch), and, with
+  Projects switched off, the nav and all three routes ("Projects is not switched on").
+- At 390px with a touch pointer: no sideways scroll on My tasks, Team tasks or either drawer.
+
+**Not exercised:** a real bucket (the stand-in answers like one; a real one needs its CORS rule), Safari or
+any browser but Chromium, a leader who leads by heading a department and not by being a manager, a team of
+hundreds, two browsers on one task, email and push (none is configured), and demo mode (from the code only).
+
+## Order, and what was left
+
+Backend #216 is on `staging` already. The frontend needs the storage origin in `NEXT_PUBLIC_UPLOAD_ORIGINS`
+at build for thumbnails; a site that has it for CVs has it.
+
+Open: the drawer defect above. Not built, on purpose: a demo-mode path for the two new screens, sub-tasks in a
+personal task opened by id or from Team tasks (from the code: the drawer is handed no list to find them in),
+and inline viewing of an image or PDF in the new tab (the API's link says `attachment`).

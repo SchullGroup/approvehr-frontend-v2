@@ -127,6 +127,7 @@ describe("the top level", () => {
       "My approvals",
       "Assistant",
       "Projects",
+      "My tasks",
       "Wellness",
       "Core HR",
       "Payroll",
@@ -162,6 +163,7 @@ describe("the top level", () => {
       "My approvals",
       "Assistant",
       "Projects",
+      "My tasks",
       "Wellness",
     ]);
     /* A row that opens is a button and is never also a link. */
@@ -225,7 +227,7 @@ describe("drilling in and back", () => {
       "Payment history",
     ]);
     expect(
-      screen.getByRole("button", { name: "Back to main menu" }),
+      screen.getByRole("button", { name: /back to main menu/i }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Home" })).toBeNull();
   });
@@ -236,7 +238,9 @@ describe("drilling in and back", () => {
     expect(
       Array.from(nav().querySelectorAll("h3")).map((h) => h.textContent),
     ).toEqual(["People", "Lifecycle", "Engagement", "Records"]);
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     await user.click(row("desk"));
     expect(nav().querySelectorAll("h3")).toHaveLength(0);
   });
@@ -244,7 +248,9 @@ describe("drilling in and back", () => {
   it("goes back without going anywhere", async () => {
     const { user, onNavigate } = setup(admin);
     await user.click(row("payroll"));
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     expect(heading()).toBeNull();
     expect(labels()[0]).toBe("Home");
     expect(push).not.toHaveBeenCalled();
@@ -256,7 +262,7 @@ describe("drilling in and back", () => {
     row("performance").focus();
     await user.keyboard("{Enter}");
     expect(
-      screen.getByRole("button", { name: "Back to main menu" }),
+      screen.getByRole("button", { name: /back to main menu/i }),
     ).toHaveFocus();
     await user.keyboard("{Enter}");
     expect(row("performance")).toHaveFocus();
@@ -277,7 +283,9 @@ describe("drilling in and back", () => {
     expect(live()).toBe("Main menu");
     await user.click(row("hiring"));
     expect(live()).toBe("Recruitment menu");
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     expect(live()).toBe("Main menu");
   });
 
@@ -326,7 +334,9 @@ describe("knowing where you are", () => {
   it("marks the row the page is inside, once you are back at the top", async () => {
     const { user } = setup(admin, { pathname: "/payroll/loans" });
     expect(heading()).toBe("Payroll");
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     expect(row("payroll")).toHaveAttribute("aria-current", "true");
     expect(row("payroll")).toHaveAttribute("data-current", "true");
     expect(row("hiring")).not.toHaveAttribute("aria-current");
@@ -350,7 +360,9 @@ describe("knowing where you are", () => {
 
   it("keeps your own choice for the page you made it on, and lets the route win after", async () => {
     const { user, go } = setup(admin, { pathname: "/people/leave" });
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     go("/people/leave");
     expect(heading()).toBeNull();
     go("/payroll");
@@ -359,7 +371,9 @@ describe("knowing where you are", () => {
 
   it("lets you open a section other than the one the page is in", async () => {
     const { user } = setup(admin, { pathname: "/people/leave" });
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     await user.click(row("payroll"));
     expect(heading()).toBe("Payroll");
     expect(current()).toEqual([]);
@@ -720,7 +734,9 @@ describe("absent, not disabled", () => {
     await user.click(row("payroll"));
     expect(labels()).not.toContain("Loans");
     expect(labels()).not.toContain("Expenses");
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     await user.type(findBox(), "loan");
     expect(
       screen.queryByRole("option", { name: /Payroll › Loans/ }),
@@ -756,7 +772,7 @@ describe("on a phone, in the drawer", () => {
     /* The back row is one full-width button, 44px tall, with the 44px chevron
        cell inside it; it is no longer a square icon button. */
     expect(
-      screen.getByRole("button", { name: "Back to main menu" }).className,
+      screen.getByRole("button", { name: /back to main menu/i }).className,
     ).toContain("min-h-11");
   });
 
@@ -823,7 +839,9 @@ describe("motion", () => {
     const { user } = setup(admin);
     await user.click(row("payroll"));
     expect(panel().className).toContain("animate-drill-in");
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     expect(panel().className).toContain("animate-drill-back");
   });
 
@@ -832,7 +850,9 @@ describe("motion", () => {
     const { user } = setup(admin);
     await user.click(row("payroll"));
     expect(panel().className).not.toContain("animate-drill");
-    await user.click(screen.getByRole("button", { name: "Back to main menu" }));
+    await user.click(
+      screen.getByRole("button", { name: /back to main menu/i }),
+    );
     expect(panel().className).not.toContain("animate-drill");
   });
 

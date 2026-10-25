@@ -1,12 +1,16 @@
 "use client";
 
+import { CheckCircle2, Target } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   Button,
+  Callout,
   Checkbox,
   Field,
+  FieldSet,
   Input,
   Modal,
+  RadioCard,
   Select,
   Textarea,
 } from "@/components/ui";
@@ -20,6 +24,7 @@ import {
   type ApiGoal,
   type CreateGoalBody,
   type CreateKeyResultBody,
+  type MeasureKind,
   type UpdateGoalBody,
 } from "@/lib/api/performance";
 import { ApiError } from "@/lib/api/client";
@@ -137,6 +142,26 @@ export const quarterText = (quarter: string) => {
 /* -------------------------------------------------------------------------- */
 
 /**
+ * Whether a KPI has to be filed in an appraisal period, and the one sentence
+ * that says so.
+ *
+ * A KPI is a person's own work, and an objective filed in no period "counts
+ * towards nobody's appraisal mark, even once it is agreed": it is tracked,
+ * agreed and scored for nobody, with nothing on the screen to say so. So when
+ * there is a period to choose, choosing one is not optional.
+ *
+ * Only a **personal** one, and only while there is a period to choose. A shared
+ * objective (the company's, a department's) is a standing target that may
+ * belong to no cycle, and a company that has no open period yet has nothing to
+ * file anything under, which is said in words rather than by refusing to save.
+ *
+ * The API still accepts an objective with no period: this is the form's rule,
+ * not the server's.
+ */
+const NEEDS_PERIOD =
+  "Choose the appraisal period this is scored in. A KPI with none counts towards nobody's mark, even once it is agreed.";
+
+/**
  * The form for a new KPI, and — in `objective` mode — for a new objective.
  *
  * Same fields, same save, same rules on the API. The mode changes what the
@@ -206,7 +231,7 @@ export function NewKpiDialog({
    * A published one is absent: its marks are a record, and filing a new
    * objective into it would change a score somebody has already been told.
    */
-  const { cycles } = useAppraisals();
+  const { cycles, loading: periodsLoading } = useAppraisals();
   const openPeriods = cycles.filter((cycle) => cycle.stage !== "PUBLISHED");
 
   const quarters = quarterOptions(useQuarterToday());
@@ -217,9 +242,13 @@ export function NewKpiDialog({
      have loaded. */
   const [chosenOwner, setChosenOwner] = useState<string | null>(null);
   const [quarter, setQuarter] = useState(quarters[1] ?? quarters[0] ?? "");
-  /** Empty means no period, which is a real choice — see the copy below. */
-  const [reviewCycleId, setReviewCycleId] = useState("");
+  /* `null` is "not chosen yet", for the same reason as the owner above: when a
+     KPI has exactly one period to go in, that is the starting answer, and it
+     follows the periods as they arrive instead of being fixed at mount. Empty
+     is a real choice only for a shared objective — see the copy below. */
+  const [chosenPeriod, setChosenPeriod] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [periodError, setPeriodError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   /* A blank form on every open. This dialog stays mounted between uses so its
@@ -234,8 +263,9 @@ export function NewKpiDialog({
       setDescription("");
       setChosenOwner(null);
       setQuarter(quarters[1] ?? quarters[0] ?? "");
-      setReviewCycleId("");
+      setChosenPeriod(null);
       setError(null);
+      setPeriodError(null);
     }
   }
 
@@ -247,6 +277,10 @@ export function NewKpiDialog({
     canSetCompanyWide,
   });
   const owner = chosenOwner ?? (objective ? whose.fallback : "me");
+  const personal = owner !== "company" && !owner.startsWith("dept:");
+  const needsPeriod = !objective && personal && openPeriods.length > 0;
+  const onlyPeriod = openPeriods.length === 1 ? (openPeriods[0]?.id ?? "") : "";
+  const reviewCycleId = chosenPeriod ?? (needsPeriod ? onlyPeriod : "");
 
   /**
    * Suggestions, only under a parent.
@@ -262,6 +296,10 @@ export function NewKpiDialog({
   const submit = async () => {
     if (title.trim().length < 3) {
       setError("Give it a title of at least three characters.");
+      return;
+    }
+    if (needsPeriod && reviewCycleId === "") {
+      setPeriodError(NEEDS_PERIOD);
       return;
     }
     setError(null);
@@ -308,6 +346,10 @@ export function NewKpiDialog({
           <Button
             variant="accent"
             loading={saving}
+            /* While the company's periods are still arriving there is no way
+               to know whether this has one to be filed in, and a KPI saved in
+               that moment would be filed in none. */
+            disabled={periodsLoading === true && cycles.length === 0}
             onClick={() => void submit()}
           >
             {objective ? "Create objective" : "Create KPI"}
@@ -430,19 +472,31 @@ export function NewKpiDialog({
 
         {openPeriods.length > 0 && (
           <Field
-            optional
+            {...(needsPeriod ? { required: true } : { optional: true })}
             label="Appraisal period"
+            {...(periodError ? { error: periodError } : {})}
             help={
               reviewCycleId
                 ? "Counts towards this person's mark for that period, once somebody agrees it."
-                : "Without an appraisal period, this objective will not count towards anyone's mark, even once it is agreed."
+                : needsPeriod
+                  ? "Pick the period this is scored in."
+                  : "Without an appraisal period, this objective will not count towards anyone's mark, even once it is agreed."
             }
           >
             <Select
               value={reviewCycleId}
-              onChange={(event) => setReviewCycleId(event.target.value)}
+              onChange={(event) => {
+                setChosenPeriod(event.target.value);
+                setPeriodError(null);
+              }}
             >
-              <option value="">Not part of an appraisal period</option>
+              {needsPeriod ? (
+                reviewCycleId === "" && (
+                  <option value="">Choose an appraisal period</option>
+                )
+              ) : (
+                <option value="">Not part of an appraisal period</option>
+              )}
               {openPeriods.map((period) => (
                 <option key={period.id} value={period.id}>
                   {period.name}
@@ -451,6 +505,20 @@ export function NewKpiDialog({
             </Select>
           </Field>
         )}
+
+        {/* Said in words, because there is nothing to choose and nothing to
+            refuse: a company that has not started a period yet is not stopped
+            from writing its KPIs down. Not while the list is still arriving. */}
+        {!objective &&
+          personal &&
+          openPeriods.length === 0 &&
+          periodsLoading !== true && (
+            <Callout tone="warning">
+              No appraisal period is open, so this KPI will count towards
+              nobody&apos;s mark. Start a period first, then edit the KPI to
+              file it in that period.
+            </Callout>
+          )}
 
         <Field optional label="Description">
           <Textarea
@@ -728,7 +796,48 @@ export function AssignKpiDialog({
   );
 }
 
-export function AddMeasureDialog({
+/**
+ * Add a measure, in two steps: what kind it is, then the fields that kind needs.
+ *
+ * The first step is a question and not a form because a measure is not always a
+ * number. "Hire both engineers" typed as a start of 0 and a target of 1 reads as
+ * "0 of 1" and says nothing about being a yes or no, and a deadline typed as a
+ * percentage somebody worked out elsewhere is a figure that looks exact and
+ * means little. Two kinds ship now; the rest follow as their kinds do, and each
+ * is one more card here.
+ *
+ * ## It starts fresh every time it opens
+ *
+ * The old dialog kept the last measure's fields on screen the next time it was
+ * opened for another objective. The wrapper bumps a key when `open` turns true,
+ * which hands the form a clean state without an effect.
+ *
+ * ## What is sent for each kind
+ *
+ * A number sends no `kind`, deliberately: a server that predates kinds has a
+ * strict body schema and would refuse an unknown key, and "absent means a
+ * number" is what it has always meant. Done or not done sends the kind and the
+ * label and nothing else, because the API refuses a number, a unit or a
+ * direction on it by name.
+ */
+export function AddMeasureDialog(props: {
+  /** `null` while closed: see the freeze in the form. */
+  goalTitle: string | null;
+  open: boolean;
+  onClose: () => void;
+  onAdd: (body: CreateKeyResultBody) => Promise<void>;
+}) {
+  const [seen, setSeen] = useState({ open: props.open, session: 0 });
+  if (props.open !== seen.open) {
+    setSeen({
+      open: props.open,
+      session: props.open ? seen.session + 1 : seen.session,
+    });
+  }
+  return <AddMeasureForm key={seen.session} {...props} />;
+}
+
+function AddMeasureForm({
   goalTitle: goalTitleProp,
   open,
   onClose,
@@ -746,6 +855,11 @@ export function AddMeasureDialog({
   const [goalTitle, setGoalTitle] = useState(goalTitleProp);
   if (goalTitleProp && goalTitleProp !== goalTitle) setGoalTitle(goalTitleProp);
 
+  /* "choose" is the first step; the other two are the kind that was picked. A
+     number is pre-selected, because it is what every measure was until now. */
+  const [step, setStep] = useState<"choose" | MeasureKind>("choose");
+  const [picked, setPicked] = useState<MeasureKind>("NUMBER");
+
   const [label, setLabel] = useState("");
   const [unit, setUnit] = useState("");
   const [start, setStart] = useState("0");
@@ -760,20 +874,26 @@ export function AddMeasureDialog({
   const submit = async () => {
     const found: Record<string, string> = {};
     if (label.trim().length < 2)
-      found["label"] = "Name what is being measured.";
-    if (!target.trim()) found["target"] = "Set the number you are aiming at.";
+      found["label"] =
+        step === "DONE"
+          ? "Say what done means, in a few words."
+          : "Name what is being measured.";
 
-    const from = parseMeasure(start.trim() || "0");
-    const to = parseMeasure(target.trim() || "0");
-    if (target.trim() && from === to) {
-      found["target"] =
-        "That is the same as the starting number, so there is nothing to measure.";
-    } else if (target.trim() && countDown && to > from) {
-      found["target"] =
-        "This one counts down, so the target has to be below the starting number.";
-    } else if (target.trim() && !countDown && to < from) {
-      found["target"] =
-        "The target is below the starting number. Tick the box if it is meant to come down.";
+    if (step === "NUMBER") {
+      if (!target.trim()) found["target"] = "Set the number you are aiming at.";
+
+      const from = parseMeasure(start.trim() || "0");
+      const to = parseMeasure(target.trim() || "0");
+      if (target.trim() && from === to) {
+        found["target"] =
+          "That is the same as the starting number, so there is nothing to measure.";
+      } else if (target.trim() && countDown && to > from) {
+        found["target"] =
+          "This one counts down, so the target has to be below the starting number.";
+      } else if (target.trim() && !countDown && to < from) {
+        found["target"] =
+          "The target is below the starting number. Tick the box if it is meant to come down.";
+      }
     }
 
     setErrors(found);
@@ -781,6 +901,10 @@ export function AddMeasureDialog({
 
     setSaving(true);
     try {
+      if (step === "DONE") {
+        await onAdd({ kind: "DONE", label: label.trim() });
+        return;
+      }
       const body: CreateKeyResultBody = {
         label: label.trim(),
         targetValue: target.trim(),
@@ -795,6 +919,8 @@ export function AddMeasureDialog({
     }
   };
 
+  const choosing = step === "choose";
+
   return (
     <Modal
       open={open}
@@ -803,79 +929,128 @@ export function AddMeasureDialog({
       description={goalTitle}
       size="md"
       footer={
-        <>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button
-            variant="accent"
-            loading={saving}
-            onClick={() => void submit()}
-          >
-            Add measure
-          </Button>
-        </>
+        choosing ? (
+          <>
+            <Button onClick={onClose}>Cancel</Button>
+            <Button variant="accent" onClick={() => setStep(picked)}>
+              Next
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={() => setStep("choose")}>Back</Button>
+            <Button
+              variant="accent"
+              loading={saving}
+              onClick={() => void submit()}
+            >
+              Add measure
+            </Button>
+          </>
+        )
       }
     >
-      <div className="flex flex-col gap-4">
-        <Field
-          label="Measure"
-          required
-          {...(errors["label"] ? { error: errors["label"] } : {})}
-        >
-          <Input
-            value={label}
-            onChange={(event) => setLabel(event.target.value)}
-            placeholder="Offers accepted"
-          />
-        </Field>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Starting value" required>
-            <Input
-              inputMode="decimal"
-              value={start}
-              onChange={(event) => setStart(event.target.value)}
+      {choosing ? (
+        <FieldSet legend="What kind of measure is this?">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <RadioCard
+              name="measure-kind"
+              value="NUMBER"
+              checked={picked === "NUMBER"}
+              onChange={() => setPicked("NUMBER")}
+              icon={<Target aria-hidden="true" />}
+              label="A number to reach"
+              description="A figure that moves from where it is to a target: revenue of ₦40m, 12 hires, cost down to ₦300k."
             />
-          </Field>
+            <RadioCard
+              name="measure-kind"
+              value="DONE"
+              checked={picked === "DONE"}
+              onChange={() => setPicked("DONE")}
+              icon={<CheckCircle2 aria-hidden="true" />}
+              label="Done or not done"
+              description="Something that is finished or it is not: the filing is submitted. A manager confirms it when it is done."
+            />
+          </div>
+        </FieldSet>
+      ) : step === "DONE" ? (
+        <div className="flex flex-col gap-4">
           <Field
-            label="Target value"
+            label="What does done mean?"
             required
-            {...(errors["target"] ? { error: errors["target"] } : {})}
+            help="Say it so a manager can tell whether it happened. A manager confirms it when it is done, and until then it counts as not done."
+            {...(errors["label"] ? { error: errors["label"] } : {})}
           >
             <Input
-              inputMode="decimal"
-              value={target}
-              onChange={(event) => setTarget(event.target.value)}
-            />
-          </Field>
-          <Field
-            label="Current value"
-            help="Leave blank to use the starting value."
-          >
-            <Input
-              inputMode="decimal"
-              value={current}
-              onChange={(event) => setCurrent(event.target.value)}
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder="Both engineers hired"
             />
           </Field>
         </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <Field
+            label="Measure"
+            required
+            {...(errors["label"] ? { error: errors["label"] } : {})}
+          >
+            <Input
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder="Offers accepted"
+            />
+          </Field>
 
-        <Field
-          label="Unit"
-          help="₦, %, days, customers, whatever you say out loud."
-        >
-          <Input
-            value={unit}
-            onChange={(event) => setUnit(event.target.value)}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Starting value" required>
+              <Input
+                inputMode="decimal"
+                value={start}
+                onChange={(event) => setStart(event.target.value)}
+              />
+            </Field>
+            <Field
+              label="Target value"
+              required
+              {...(errors["target"] ? { error: errors["target"] } : {})}
+            >
+              <Input
+                inputMode="decimal"
+                value={target}
+                onChange={(event) => setTarget(event.target.value)}
+              />
+            </Field>
+            <Field
+              label="Current value"
+              help="Leave blank if nothing has been measured yet. The measure then counts as unread and stays out of the objective's progress until a reading is entered."
+            >
+              <Input
+                inputMode="decimal"
+                value={current}
+                onChange={(event) => setCurrent(event.target.value)}
+              />
+            </Field>
+          </div>
+
+          <Field
+            label="Unit"
+            help="₦, %, days, customers, whatever you say out loud."
+          >
+            <Input
+              value={unit}
+              onChange={(event) => setUnit(event.target.value)}
+            />
+          </Field>
+
+          <Checkbox
+            label="This number should go down"
+            description="Cost, days to hire, complaints. Progress is how far it has fallen."
+            checked={countDown}
+            onChange={(event) => setCountDown(event.target.checked)}
           />
-        </Field>
-
-        <Checkbox
-          label="This number should go down"
-          description="Cost, days to hire, complaints. Progress is how far it has fallen."
-          checked={countDown}
-          onChange={(event) => setCountDown(event.target.checked)}
-        />
-      </div>
+        </div>
+      )}
     </Modal>
   );
 }
@@ -1035,6 +1210,7 @@ export function EditGoalDialog({
   const [quarter, setQuarter] = useState("");
   const [reviewCycleId, setReviewCycleId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [periodError, setPeriodError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   /* Filled from the objective each time it opens. The dialog stays mounted so
@@ -1050,6 +1226,7 @@ export function EditGoalDialog({
       setQuarter(goal.dueQuarter ?? "");
       setReviewCycleId(goal.reviewCycleId ?? "");
       setError(null);
+      setPeriodError(null);
     }
   }
 
@@ -1062,6 +1239,10 @@ export function EditGoalDialog({
     (cycle) => cycle.stage !== "PUBLISHED" || cycle.id === goal?.reviewCycleId,
   );
   const word = goal ? goalWord(goal) : "objective";
+  /* A KPI that is somebody's own has to be filed in a period, whenever there is
+     one to file it in. Editing an old one that was never filed asks for it,
+     which is the way out the upload's notes already point to. */
+  const needsPeriod = word === "KPI" && periods.length > 0;
 
   const body: UpdateGoalBody = {};
   if (goal) {
@@ -1082,6 +1263,10 @@ export function EditGoalDialog({
     if (!goal) return;
     if (title.trim().length < 3) {
       setError("Give it a title of at least three characters.");
+      return;
+    }
+    if (needsPeriod && reviewCycleId === "") {
+      setPeriodError(NEEDS_PERIOD);
       return;
     }
     setError(null);
@@ -1142,19 +1327,31 @@ export function EditGoalDialog({
 
         {periods.length > 0 && (
           <Field
-            optional
+            {...(needsPeriod ? { required: true } : { optional: true })}
             label="Appraisal period"
+            {...(periodError ? { error: periodError } : {})}
             help={
               reviewCycleId
                 ? "Counts towards this person's mark for that period, once somebody agrees it."
-                : "Nothing here reaches an appraisal mark. A quarter alone lets the objective be agreed and still score nothing."
+                : needsPeriod
+                  ? "Pick the period this is scored in."
+                  : "Nothing here reaches an appraisal mark. A quarter alone lets the objective be agreed and still score nothing."
             }
           >
             <Select
               value={reviewCycleId}
-              onChange={(event) => setReviewCycleId(event.target.value)}
+              onChange={(event) => {
+                setReviewCycleId(event.target.value);
+                setPeriodError(null);
+              }}
             >
-              <option value="">Not part of an appraisal period</option>
+              {needsPeriod ? (
+                reviewCycleId === "" && (
+                  <option value="">Choose an appraisal period</option>
+                )
+              ) : (
+                <option value="">Not part of an appraisal period</option>
+              )}
               {periods.map((period) => (
                 <option key={period.id} value={period.id}>
                   {period.name}
