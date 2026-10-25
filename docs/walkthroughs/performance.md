@@ -957,7 +957,9 @@ stepped with **Previous period** and **Next period**, and opens on the current w
 
 Under them, **By objective** lists each objective (and the KPI inside it) with how many were finished and
 the completion rate, with a line for "Not linked to an objective". Then one card per day, in the
-order the server sends them, each task with its key (which opens it on its project), its title, its project, its labels, its grade
+order the server sends them, each task with its key (which opens it on its project; a task from somebody's own
+list, with a key like `MY-3`, has no project and opens on a page of its own), its title, its project (**Personal**
+for a task from somebody's own list), its labels, its grade
 (**Completed**, **Partly completed**, **Not completed**, **Rejected**, or **Waiting for a grade** where a weekly
 task of theirs is attached and not yet graded) and any links to other tasks, such as "Blocks PRJ-12", or
 "Blocks a task you can't open". A period with nothing in it reads "Nothing finished on the board in this
