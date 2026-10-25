@@ -12,7 +12,7 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
+  AttentionMark,
   Card,
   CardBody,
   CardHeader,
@@ -233,6 +233,35 @@ export function ExitDetailScreen({
   /* A `?tab=` for a tab that is not there falls back to the checklist. */
   const shown = tabItems.some((item) => item.id === tab) ? tab : "checklist";
 
+  /* What the status means, behind a mark beside it. A declined exit is the one
+     somebody should look at; a withdrawn or closed one is explained. */
+  const statusNote: { tone: "attention" | "info"; text: string[] } | null =
+    exit.status === "DECLINED"
+      ? {
+          tone: "attention",
+          text: [
+            "Not going ahead.",
+            exit.declinedReason ?? "No reason recorded.",
+          ],
+        }
+      : exit.status === "CANCELLED"
+        ? {
+            tone: "info",
+            text: [
+              "Exit request withdrawn.",
+              `${exit.declinedReason ?? "The exit was cancelled."} Nothing was archived and nothing was closed: they are still on the payroll. If they change their mind again, start a new one.`,
+            ],
+          }
+        : exit.status === "COMPLETED"
+          ? {
+              tone: "info",
+              text: [
+                "Closed.",
+                `${firstName}\u2019s record is archived, not deleted. Past payslips still work. Their sign-in has been switched off.`,
+              ],
+            }
+          : null;
+
   return (
     <>
       <PageHeader
@@ -243,6 +272,9 @@ export function ExitDetailScreen({
             <Badge tone={statusTone(exit.status)} size="sm">
               {exit.statusLabel}
             </Badge>
+            {statusNote && (
+              <AttentionMark tone={statusNote.tone} text={statusNote.text} />
+            )}
             {DEMO_ENABLED && exitState.source === "demo" && (
               <Badge tone="warning" size="sm">
                 Demo · this browser only
@@ -253,27 +285,6 @@ export function ExitDetailScreen({
       />
 
       <PageBody className="flex flex-col gap-6">
-        {exit.status === "DECLINED" && (
-          <Callout tone="danger" title="Not going ahead">
-            {exit.declinedReason ?? "No reason recorded."}
-          </Callout>
-        )}
-
-        {exit.status === "CANCELLED" && (
-          <Callout tone="info" title="Exit request withdrawn">
-            {exit.declinedReason ?? "The exit was cancelled."} Nothing was
-            archived and nothing was closed: they are still on the payroll. If
-            they change their mind again, start a new one.
-          </Callout>
-        )}
-
-        {exit.status === "COMPLETED" && (
-          <Callout tone="success" title="Closed">
-            {firstName}&rsquo;s record is archived, not deleted. Past payslips
-            still work. Their sign-in has been switched off.
-          </Callout>
-        )}
-
         {/* Next action. The reason somebody opened this page. */}
         <Card>
           <CardBody className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

@@ -95,14 +95,7 @@ export function RequestRow({
     .join(" · ");
 
   return (
-    <div
-      className={cn(
-        "flex flex-wrap items-center gap-3 rounded-md border p-3",
-        request.overdue
-          ? "border-danger-line bg-danger-soft/40"
-          : "border-line",
-      )}
-    >
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-line p-3">
       <div className="min-w-0 flex-1">
         {showPerson && (
           <p className="text-meta text-muted">

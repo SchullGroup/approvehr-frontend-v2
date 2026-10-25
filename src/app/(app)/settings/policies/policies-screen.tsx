@@ -28,6 +28,7 @@ import {
   Textarea,
   useToast,
   FilterBar,
+  LoadState,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -140,14 +141,6 @@ export function PoliciesScreen() {
           </Callout>
         )}
 
-        {policies.error && (
-          <LoadFailure
-            subject="the handbook"
-            error={policies.error}
-            onRetry={policies.reload}
-          />
-        )}
-
         <FilterBar
           search={query}
           onSearchChange={setQuery}
@@ -174,62 +167,64 @@ export function PoliciesScreen() {
           )}
         </FilterBar>
 
-        {policies.loading && policies.policies.length === 0 ? (
-          <Card>
-            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-              <Spinner size="sm" />
-              Loading the handbook
-            </CardBody>
-          </Card>
-        ) : policies.policies.length === 0 ? (
-          <Card>
-            <EmptyState
-              icon={<BookOpen aria-hidden="true" />}
-              title={query ? "Nothing matched" : "No sections yet"}
-              description={
-                query
-                  ? "Try a shorter search."
-                  : "Working hours, expenses, company phones. Write the first one and everybody is asked to accept it."
-              }
-              action={
-                canManage && policies.editable && !query ? (
-                  <Button variant="accent" onClick={() => setWriting(true)}>
-                    Write a section
-                  </Button>
-                ) : undefined
-              }
-            />
-          </Card>
-        ) : (
-          grouped.map(([group, rows]) => (
-            <Card key={group}>
-              <CardHeader
-                title={group}
-                level={2}
-                description={`${rows.length} ${rows.length === 1 ? "section" : "sections"}`}
+        <LoadState
+          loading={policies.loading}
+          error={policies.error}
+          subject="the handbook"
+          onRetry={policies.reload}
+          hasData={policies.policies.length > 0}
+          skeleton="list"
+        >
+          {policies.policies.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={<BookOpen aria-hidden="true" />}
+                title={query ? "Nothing matched" : "No sections yet"}
+                description={
+                  query
+                    ? "Try a shorter search."
+                    : "Working hours, expenses, company phones. Write the first one and everybody is asked to accept it."
+                }
+                action={
+                  canManage && policies.editable && !query ? (
+                    <Button variant="accent" onClick={() => setWriting(true)}>
+                      Write a section
+                    </Button>
+                  ) : undefined
+                }
               />
-              <CardBody className="flex flex-col gap-2">
-                {rows.map((policy) => (
-                  <PolicyRow
-                    key={policy.id}
-                    policy={policy}
-                    canManage={canManage && policies.editable}
-                    onRead={() => setReading(policy)}
-                    onEdit={() => setEditing(policy)}
-                    onPublish={() => setPublishing(policy)}
-                    onChase={() => setChasing(policy)}
-                    onRestore={() =>
-                      void run(
-                        () => policies.update(policy.id, { archived: false }),
-                        `${policy.title} is back in the handbook`,
-                      )
-                    }
-                  />
-                ))}
-              </CardBody>
             </Card>
-          ))
-        )}
+          ) : (
+            grouped.map(([group, rows]) => (
+              <Card key={group}>
+                <CardHeader
+                  title={group}
+                  level={2}
+                  description={`${rows.length} ${rows.length === 1 ? "section" : "sections"}`}
+                />
+                <CardBody className="flex flex-col gap-2">
+                  {rows.map((policy) => (
+                    <PolicyRow
+                      key={policy.id}
+                      policy={policy}
+                      canManage={canManage && policies.editable}
+                      onRead={() => setReading(policy)}
+                      onEdit={() => setEditing(policy)}
+                      onPublish={() => setPublishing(policy)}
+                      onChase={() => setChasing(policy)}
+                      onRestore={() =>
+                        void run(
+                          () => policies.update(policy.id, { archived: false }),
+                          `${policy.title} is back in the handbook`,
+                        )
+                      }
+                    />
+                  ))}
+                </CardBody>
+              </Card>
+            ))
+          )}
+        </LoadState>
       </PageBody>
 
       <WriteSectionModal

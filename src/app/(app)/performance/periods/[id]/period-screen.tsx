@@ -29,7 +29,6 @@ import {
   Input,
   Modal,
   Select,
-  Spinner,
   Stat,
   TBody,
   TD,
@@ -41,6 +40,7 @@ import {
   TextLink,
   useToast,
   Tabs,
+  LoadState,
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
@@ -663,44 +663,51 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                   </div>
                 )}
 
-                {detail.loading && (
-                  <Card>
-                    <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-                      <Spinner size="sm" />
-                      Loading the period
-                    </CardBody>
-                  </Card>
-                )}
-
-                {detail.available && !detail.loading && (
-                  <>
-                    <Outstanding
-                      rows={outstanding}
-                      participants={detail.participants}
-                    />
-                    <MultiAppraiserReviews participants={detail.participants} />
-                  </>
-                )}
+                {/* The one loading rule here; the failure is said once, above
+                    the tabs, so it is not said again inside each. After a
+                    failure the lists below used to draw as though nobody were
+                    outstanding. */}
+                <LoadState
+                  loading={detail.loading}
+                  error={null}
+                  subject="the period"
+                  skeleton="list"
+                >
+                  {detail.available && !detail.error && (
+                    <>
+                      <Outstanding
+                        rows={outstanding}
+                        participants={detail.participants}
+                      />
+                      <MultiAppraiserReviews
+                        participants={detail.participants}
+                      />
+                    </>
+                  )}
+                </LoadState>
               </div>
             )}
-            {periodTab === "marks" && detail.available && !detail.loading && (
-              <div className="flex flex-col gap-6">
-                <Register
-                  register={detail.register}
-                  cycleId={cycleId}
-                  canAskPeers={running && canSeeCompany}
-                  canCalibrate={period?.stage === "CALIBRATION" && canManage}
-                  canRequestRevision={running && canManage}
-                  revisionRequests={detail.revisionRequests}
-                  revisionsUnavailable={detail.revisionsUnavailable}
-                  onAsked={() => detail.reload()}
-                />
-                {(period?.stage === "CALIBRATION" ||
-                  period?.stage === "PUBLISHED") && (
-                  <CalibrationAudit cycleId={cycleId} />
-                )}
-              </div>
-            )}
+            {periodTab === "marks" &&
+              detail.available &&
+              !detail.loading &&
+              !detail.error && (
+                <div className="flex flex-col gap-6">
+                  <Register
+                    register={detail.register}
+                    cycleId={cycleId}
+                    canAskPeers={running && canSeeCompany}
+                    canCalibrate={period?.stage === "CALIBRATION" && canManage}
+                    canRequestRevision={running && canManage}
+                    revisionRequests={detail.revisionRequests}
+                    revisionsUnavailable={detail.revisionsUnavailable}
+                    onAsked={() => detail.reload()}
+                  />
+                  {(period?.stage === "CALIBRATION" ||
+                    period?.stage === "PUBLISHED") && (
+                    <CalibrationAudit cycleId={cycleId} />
+                  )}
+                </div>
+              )}
           </Tabs>
         </div>
       </PageBody>
@@ -1688,10 +1695,7 @@ function PeriodFramingEditor({
           />
         </Field>
         {error && (
-          <p
-            role="status"
-            className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink"
-          >
+          <p role="status" className="text-body-sm text-danger-text">
             {error}
           </p>
         )}

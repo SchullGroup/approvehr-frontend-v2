@@ -15,11 +15,10 @@ import {
   Input,
   Modal,
   Select,
-  Skeleton,
   useToast,
   ToggleFilter,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -129,14 +128,6 @@ export function ChecklistSettingsScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {templates.error && (
-          <LoadFailure
-            subject="the checklist"
-            error={templates.error}
-            onRetry={templates.reload}
-          />
-        )}
-
         <Callout
           tone="info"
           title="These apply to the next exit, not to one already running"
@@ -147,10 +138,16 @@ export function ChecklistSettingsScreen() {
         </Callout>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-body-sm text-muted">
-            {templates.counts.active} on the list · {templates.counts.mandatory}{" "}
-            must be done before an exit can close
-          </p>
+          {/* The two figures count what the read returned: nothing, both before
+              it answers and after it fails. Absent, not 0. */}
+          {templates.loading || templates.error ? (
+            <span />
+          ) : (
+            <p className="text-body-sm text-muted">
+              {templates.counts.active} on the list ·{" "}
+              {templates.counts.mandatory} must be done before an exit can close
+            </p>
+          )}
           <ToggleFilter
             label="Show switched-off lines"
             checked={showOff}
@@ -158,113 +155,118 @@ export function ChecklistSettingsScreen() {
           />
         </div>
 
-        {templates.loading ? (
-          <Card>
-            <CardBody className="flex flex-col gap-3">
-              <Skeleton className="h-12" />
-              <Skeleton className="h-12" />
-              <Skeleton className="h-12" />
-            </CardBody>
-          </Card>
-        ) : groups.length === 0 ? (
-          <Card>
-            <EmptyState
-              icon={<ListChecks aria-hidden="true" />}
-              title="Nothing on the checklist yet"
-              description="What somebody has to do before they leave: hand back a laptop, agree the final pay, notify the pension provider. Write your own, or start from the seven most companies need and edit from there."
-              action={
-                canEdit ? (
-                  <span className="flex flex-wrap items-center justify-center gap-2">
-                    <Button
-                      variant="accent"
-                      loading={adopting}
-                      onClick={() => void adoptDefaults()}
+        <LoadState
+          loading={templates.loading}
+          error={templates.error}
+          subject="the checklist"
+          onRetry={templates.reload}
+          hasData={groups.length > 0}
+          skeleton="list"
+        >
+          {groups.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={<ListChecks aria-hidden="true" />}
+                title="Nothing on the checklist yet"
+                description="What somebody has to do before they leave: hand back a laptop, agree the final pay, notify the pension provider. Write your own, or start from the seven most companies need and edit from there."
+                action={
+                  canEdit ? (
+                    <span className="flex flex-wrap items-center justify-center gap-2">
+                      <Button
+                        variant="accent"
+                        loading={adopting}
+                        onClick={() => void adoptDefaults()}
+                      >
+                        Use the suggested checklist
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => setAdding(true)}
+                      >
+                        Write my own
+                      </Button>
+                    </span>
+                  ) : undefined
+                }
+              />
+            </Card>
+          ) : (
+            groups.map((group) => (
+              <Card key={group.kind}>
+                <CardHeader title={group.label} level={3} />
+                <CardBody className="flex flex-col gap-2">
+                  {group.rows.map((row) => (
+                    <div
+                      key={row.id}
+                      className="flex flex-col gap-3 rounded-md border border-line p-3 sm:flex-row sm:items-center sm:gap-4"
                     >
-                      Use the suggested checklist
-                    </Button>
-                    <Button variant="secondary" onClick={() => setAdding(true)}>
-                      Write my own
-                    </Button>
-                  </span>
-                ) : undefined
-              }
-            />
-          </Card>
-        ) : (
-          groups.map((group) => (
-            <Card key={group.kind}>
-              <CardHeader title={group.label} level={3} />
-              <CardBody className="flex flex-col gap-2">
-                {group.rows.map((row) => (
-                  <div
-                    key={row.id}
-                    className="flex flex-col gap-3 rounded-md border border-line p-3 sm:flex-row sm:items-center sm:gap-4"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-                        <span className={row.active ? "" : "text-muted"}>
-                          {row.label}
-                        </span>
-                        {!row.mandatory && (
-                          <Badge tone="neutral" size="sm">
-                            Optional
-                          </Badge>
-                        )}
-                        {!row.active && (
-                          <Badge tone="neutral" size="sm">
-                            Switched off
-                          </Badge>
-                        )}
-                      </p>
-                      <p className="mt-0.5 text-body-sm text-muted">
-                        {ownerLabel(row.owner)} · {row.appliesToLabel}
-                      </p>
-                    </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                          <span className={row.active ? "" : "text-muted"}>
+                            {row.label}
+                          </span>
+                          {!row.mandatory && (
+                            <Badge tone="neutral" size="sm">
+                              Optional
+                            </Badge>
+                          )}
+                          {!row.active && (
+                            <Badge tone="neutral" size="sm">
+                              Switched off
+                            </Badge>
+                          )}
+                        </p>
+                        <p className="mt-0.5 text-body-sm text-muted">
+                          {ownerLabel(row.owner)} · {row.appliesToLabel}
+                        </p>
+                      </div>
 
-                    {canEdit && (
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditing(row)}
-                        >
-                          Change
-                        </Button>
-                        {row.active ? (
+                      {canEdit && (
+                        <div className="flex shrink-0 items-center gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() =>
-                              void run(
-                                () => templates.switchOff(row.id),
-                                "Switched off",
-                              )
-                            }
+                            onClick={() => setEditing(row)}
                           >
-                            Switch off
+                            Change
                           </Button>
-                        ) : (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() =>
-                              void run(
-                                () => templates.edit(row.id, { active: true }),
-                                "Switched back on",
-                              )
-                            }
-                          >
-                            Switch on
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </CardBody>
-            </Card>
-          ))
-        )}
+                          {row.active ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                void run(
+                                  () => templates.switchOff(row.id),
+                                  "Switched off",
+                                )
+                              }
+                            >
+                              Switch off
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() =>
+                                void run(
+                                  () =>
+                                    templates.edit(row.id, { active: true }),
+                                  "Switched back on",
+                                )
+                              }
+                            >
+                              Switch on
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </CardBody>
+              </Card>
+            ))
+          )}
+        </LoadState>
       </PageBody>
 
       {/* Two separate mounts, one per gate — `adding` and `editing` are

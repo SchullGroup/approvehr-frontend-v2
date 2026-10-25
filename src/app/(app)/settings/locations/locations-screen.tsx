@@ -24,8 +24,8 @@ import {
   TableWrap,
   useToast,
   ToggleFilter,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -181,6 +181,9 @@ export function LocationsScreen() {
   const { can, loading: permissionsLoading } = usePermissions();
   const [showArchived, setShowArchived] = useState(false);
   const list = useWorkLocationList(showArchived);
+  /* The three figures are drawn from the list, which is empty both before it
+     has answered and after it failed: a dash in each case, not a 0. */
+  const listAnswered = !list.loading && !list.error;
   const mutations = useWorkLocationMutations();
   const toast = useToast();
 
@@ -244,12 +247,6 @@ export function LocationsScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <LoadFailure
-          subject="your work locations"
-          error={list.error}
-          onRetry={list.reload}
-        />
-
         {/* The one honest gap in demo mode, stated rather than left to be
             discovered by wondering why a fence let somebody in. */}
         {DEMO_ENABLED && list.source === "demo" && (
@@ -274,12 +271,12 @@ export function LocationsScreen() {
         <StatGrid columns={3}>
           <Stat
             label="Locations"
-            value={list.loading ? "—" : String(live.length)}
+            value={!listAnswered ? "—" : String(live.length)}
             hint="Switched-on places somebody can be assigned to."
           />
           <Stat
             label="With a geofence"
-            value={list.loading ? "—" : String(fenced.length)}
+            value={!listAnswered ? "—" : String(fenced.length)}
             hint={
               fenced.length === enforcing.length
                 ? "Each one checks where a clock-in came from."
@@ -289,7 +286,7 @@ export function LocationsScreen() {
           <Stat
             label="Open to anywhere"
             value={
-              list.loading
+              !listAnswered
                 ? "—"
                 : String(live.filter((row) => row.remoteAllowed).length)
             }
@@ -312,160 +309,165 @@ export function LocationsScreen() {
             }
           />
 
-          {list.loading ? (
-            <CardBody className="flex justify-center py-10">
-              <Spinner />
-            </CardBody>
-          ) : list.locations.length === 0 ? (
-            <EmptyState
-              icon={<Building2 aria-hidden="true" />}
-              title="No work locations yet"
-              description="Until one exists, a clock-in records a time and not a place, and nobody's record can say which branch they report to."
-              action={
-                canManage ? (
-                  <Button variant="accent" onClick={() => setAdding(true)}>
-                    <Plus aria-hidden="true" className="size-4" />
-                    Add a location
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <>
-              <div className="hidden sm:block">
-                <TableWrap
-                  className="rounded-none border-0"
-                  caption="Work locations, with the geofence set for each"
-                >
-                  <THead>
-                    <TH>Location</TH>
-                    <TH>Clocking in</TH>
-                    <TH>Geofence</TH>
-                    <TH align="right">Assigned</TH>
-                    {canManage && (
-                      <TH align="right">
-                        <span className="sr-only">Actions</span>
-                      </TH>
-                    )}
-                  </THead>
-                  <TBody>
-                    {list.locations.map((row) => {
-                      const off = row.archivedAt !== null;
-                      return (
-                        <TR key={row.id}>
-                          <TDPrimary
-                            title={
-                              <span className="flex flex-wrap items-center gap-2">
-                                {row.name}
-                                {off && (
-                                  <Badge tone="neutral" size="sm">
-                                    Switched off
-                                  </Badge>
-                                )}
-                              </span>
-                            }
-                            subtitle={row.addressLine ?? undefined}
-                          />
-                          <TD>
-                            <ClockingIn row={row} />
-                          </TD>
-                          <TD>
-                            <Geofence row={row} />
-                          </TD>
-                          <TD align="right">
-                            <AssignedCount row={row} />
-                          </TD>
-                          {canManage && (
-                            <TD align="right">
-                              <div className="flex justify-end gap-1.5">
-                                <LocationRowActions
-                                  off={off}
-                                  busy={busy}
-                                  onRestore={() =>
-                                    void run(
-                                      () => mutations.restore(row.id),
-                                      `${row.name} is back on`,
-                                    )
-                                  }
-                                  onEdit={() => setEditing(row)}
-                                  onArchive={() => setArchiving(row)}
-                                />
-                              </div>
-                            </TD>
-                          )}
-                        </TR>
-                      );
-                    })}
-                  </TBody>
-                </TableWrap>
-              </div>
-
-              <ul className="divide-y divide-line sm:hidden">
-                {list.locations.map((row) => {
-                  const off = row.archivedAt !== null;
-                  return (
-                    <li key={row.id} className="flex flex-col gap-2 p-4">
-                      <div className="min-w-0">
-                        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-                          {row.name}
-                          {off && (
-                            <Badge tone="neutral" size="sm">
-                              Switched off
-                            </Badge>
-                          )}
-                        </p>
-                        {row.addressLine && (
-                          <p className="mt-0.5 text-meta text-muted">
-                            {row.addressLine}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-body-sm text-muted">
-                          Clocking in
-                        </span>
-                        <ClockingIn row={row} />
-                      </div>
-
-                      <div className="flex items-start justify-between gap-3">
-                        <span className="text-body-sm text-muted">
-                          Geofence
-                        </span>
-                        <div className="text-right">
-                          <Geofence row={row} />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-body-sm text-muted">
-                          Assigned
-                        </span>
-                        <AssignedCount row={row} />
-                      </div>
-
+          <LoadState
+            loading={list.loading}
+            error={list.error}
+            subject="your work locations"
+            onRetry={list.reload}
+            hasData={list.locations.length > 0}
+            skeleton="table"
+          >
+            {list.locations.length === 0 ? (
+              <EmptyState
+                icon={<Building2 aria-hidden="true" />}
+                title="No work locations yet"
+                description="Until one exists, a clock-in records a time and not a place, and nobody's record can say which branch they report to."
+                action={
+                  canManage ? (
+                    <Button variant="accent" onClick={() => setAdding(true)}>
+                      <Plus aria-hidden="true" className="size-4" />
+                      Add a location
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap
+                    className="rounded-none border-0"
+                    caption="Work locations, with the geofence set for each"
+                  >
+                    <THead>
+                      <TH>Location</TH>
+                      <TH>Clocking in</TH>
+                      <TH>Geofence</TH>
+                      <TH align="right">Assigned</TH>
                       {canManage && (
-                        <div className="flex flex-wrap gap-1.5">
-                          <LocationRowActions
-                            off={off}
-                            busy={busy}
-                            onRestore={() =>
-                              void run(
-                                () => mutations.restore(row.id),
-                                `${row.name} is back on`,
-                              )
-                            }
-                            onEdit={() => setEditing(row)}
-                            onArchive={() => setArchiving(row)}
-                          />
-                        </div>
+                        <TH align="right">
+                          <span className="sr-only">Actions</span>
+                        </TH>
                       )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          )}
+                    </THead>
+                    <TBody>
+                      {list.locations.map((row) => {
+                        const off = row.archivedAt !== null;
+                        return (
+                          <TR key={row.id}>
+                            <TDPrimary
+                              title={
+                                <span className="flex flex-wrap items-center gap-2">
+                                  {row.name}
+                                  {off && (
+                                    <Badge tone="neutral" size="sm">
+                                      Switched off
+                                    </Badge>
+                                  )}
+                                </span>
+                              }
+                              subtitle={row.addressLine ?? undefined}
+                            />
+                            <TD>
+                              <ClockingIn row={row} />
+                            </TD>
+                            <TD>
+                              <Geofence row={row} />
+                            </TD>
+                            <TD align="right">
+                              <AssignedCount row={row} />
+                            </TD>
+                            {canManage && (
+                              <TD align="right">
+                                <div className="flex justify-end gap-1.5">
+                                  <LocationRowActions
+                                    off={off}
+                                    busy={busy}
+                                    onRestore={() =>
+                                      void run(
+                                        () => mutations.restore(row.id),
+                                        `${row.name} is back on`,
+                                      )
+                                    }
+                                    onEdit={() => setEditing(row)}
+                                    onArchive={() => setArchiving(row)}
+                                  />
+                                </div>
+                              </TD>
+                            )}
+                          </TR>
+                        );
+                      })}
+                    </TBody>
+                  </TableWrap>
+                </div>
+
+                <ul className="divide-y divide-line sm:hidden">
+                  {list.locations.map((row) => {
+                    const off = row.archivedAt !== null;
+                    return (
+                      <li key={row.id} className="flex flex-col gap-2 p-4">
+                        <div className="min-w-0">
+                          <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                            {row.name}
+                            {off && (
+                              <Badge tone="neutral" size="sm">
+                                Switched off
+                              </Badge>
+                            )}
+                          </p>
+                          {row.addressLine && (
+                            <p className="mt-0.5 text-meta text-muted">
+                              {row.addressLine}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-body-sm text-muted">
+                            Clocking in
+                          </span>
+                          <ClockingIn row={row} />
+                        </div>
+
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="text-body-sm text-muted">
+                            Geofence
+                          </span>
+                          <div className="text-right">
+                            <Geofence row={row} />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-body-sm text-muted">
+                            Assigned
+                          </span>
+                          <AssignedCount row={row} />
+                        </div>
+
+                        {canManage && (
+                          <div className="flex flex-wrap gap-1.5">
+                            <LocationRowActions
+                              off={off}
+                              busy={busy}
+                              onRestore={() =>
+                                void run(
+                                  () => mutations.restore(row.id),
+                                  `${row.name} is back on`,
+                                )
+                              }
+                              onEdit={() => setEditing(row)}
+                              onArchive={() => setArchiving(row)}
+                            />
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </LoadState>
         </Card>
 
         <Card>

@@ -6,7 +6,7 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
+  AttentionMark,
   Card,
   CardBody,
   CardHeader,
@@ -231,9 +231,38 @@ export function LoanDetailScreen({ id }: { id: string }) {
         ]}
         title={own ? "Your staff loan" : loan.employeeName}
         meta={
-          <Badge tone={STATUS_TONE[loan.status]} size="sm" dot>
-            {LOAN_STATUS_LABEL[loan.status]}
-          </Badge>
+          <>
+            <Badge tone={STATUS_TONE[loan.status]} size="sm" dot>
+              {LOAN_STATUS_LABEL[loan.status]}
+            </Badge>
+            {loan.status === "DECLINED" && (
+              <AttentionMark
+                text={[
+                  "This was declined.",
+                  `${loan.declinedReason ?? "No reason was recorded."}${
+                    loan.decidedByName
+                      ? ` \u2014 ${loan.decidedByName}${
+                          loan.decidedAt
+                            ? ` on ${formatDate(loan.decidedAt, timeZone)}`
+                            : ""
+                        }`
+                      : ""
+                  }`,
+                ]}
+              />
+            )}
+            {loan.status === "SETTLED" && (
+              <AttentionMark
+                tone="info"
+                text={[
+                  "Fully repaid.",
+                  loan.completedAt
+                    ? `Cleared on ${formatDate(loan.completedAt, timeZone)}. Nothing is deducted from now on.`
+                    : "Nothing is deducted from now on.",
+                ]}
+              />
+            )}
+          </>
         }
         action={
           pending && canDecide && !own ? (
@@ -346,26 +375,6 @@ export function LoanDetailScreen({ id }: { id: string }) {
             )}
           </CardBody>
         </Card>
-
-        {loan.status === "DECLINED" && (
-          <Callout tone="neutral" title="This was declined">
-            <p className="text-body-sm leading-relaxed">
-              {loan.declinedReason ?? "No reason was recorded."}
-              {loan.decidedByName && (
-                <>
-                  {" "}
-                  — {loan.decidedByName}
-                  {loan.decidedAt
-                    ? ` on ${formatDate(loan.decidedAt, timeZone)}`
-                    : ""}
-                </>
-              )}
-            </p>
-            <ButtonLink href="/payroll/loans" size="sm" className="mt-2">
-              Back to loans
-            </ButtonLink>
-          </Callout>
-        )}
 
         {/* ------------------------------------------------------- progress */}
 
@@ -729,18 +738,6 @@ export function LoanDetailScreen({ id }: { id: string }) {
             </ul>
           </div>
         ) : null}
-
-        {loan.status === "SETTLED" && (
-          <Callout
-            tone="success"
-            icon={<CheckCircle2 aria-hidden="true" />}
-            title="Fully repaid"
-          >
-            {loan.completedAt
-              ? `Cleared on ${formatDate(loan.completedAt, timeZone)}. Nothing is deducted from now on.`
-              : "Nothing is deducted from now on."}
-          </Callout>
-        )}
 
         {loan.status === "ACTIVE" && (
           <p className="flex items-start gap-2 text-body-sm text-muted">

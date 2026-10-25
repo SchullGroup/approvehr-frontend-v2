@@ -12,11 +12,10 @@ import {
   Field,
   Modal,
   SegmentedControl,
-  Spinner,
   Textarea,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import type { ApiRepairRequest, RepairRequestStatus } from "@/lib/api/assets";
 import { useRepairActions, useRepairRequests } from "@/lib/store/assets";
@@ -65,11 +64,16 @@ export function FaultQueuePanel() {
     <Card>
       <CardHeader
         title="Reported faults"
-        description={
-          openCount === 0
-            ? "Nothing is waiting."
-            : `${openCount} still to deal with.`
-        }
+        /* Not before the read has answered, and not after it failed: "Nothing is
+           waiting" was the heading's claim while the faults were loading. */
+        {...(loading || error
+          ? {}
+          : {
+              description:
+                openCount === 0
+                  ? "Nothing is waiting."
+                  : `${openCount} still to deal with.`,
+            })}
         action={
           <SegmentedControl<Filter>
             label="Filter faults"
@@ -84,81 +88,84 @@ export function FaultQueuePanel() {
       />
 
       <CardBody className="flex flex-col gap-3">
-        {loading && (
-          <div className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading
-          </div>
-        )}
+        <LoadState
+          loading={loading}
+          error={error}
+          subject="the reported faults"
+          hasData={shown.length > 0}
+          skeleton="list"
+        >
+          {shown.length === 0 && (
+            <EmptyState
+              compact
+              icon={<Wrench aria-hidden="true" />}
+              title={
+                filter === "open"
+                  ? "Nothing is waiting"
+                  : "Nobody has reported a fault"
+              }
+              description={
+                filter === "open"
+                  ? "Every reported fault has been dealt with."
+                  : "Staff report faults from the equipment on their own record."
+              }
+            />
+          )}
 
-        <LoadFailure subject="the reported faults" error={error} />
-
-        {!loading && !error && shown.length === 0 && (
-          <EmptyState
-            compact
-            icon={<Wrench aria-hidden="true" />}
-            title={
-              filter === "open"
-                ? "Nothing is waiting"
-                : "Nobody has reported a fault"
-            }
-            description={
-              filter === "open"
-                ? "Every reported fault has been dealt with."
-                : "Staff report faults from the equipment on their own record."
-            }
-          />
-        )}
-
-        {shown.map((request) => (
-          <div
-            key={request.id}
-            className="flex flex-col gap-2 rounded-md border border-line px-3.5 py-3"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-              <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-                  {request.assetName}
-                  <span className="tabular text-meta font-normal text-muted">
-                    {request.assetTag}
-                  </span>
-                  <Badge
-                    tone={isOpen(request) ? "warning" : "neutral"}
-                    size="sm"
-                  >
-                    {/* The API's wording, never a second copy of the seven. */}
-                    {request.statusLabel}
-                  </Badge>
-                </p>
-                <p className="mt-0.5 text-body-sm text-body">{request.fault}</p>
-                <p className="mt-0.5 text-meta text-faint">
-                  {request.raisedByName} · {dayLabel(request.raisedAt)}
-                </p>
-                {request.note && (
-                  <p className="mt-1 text-body-sm text-muted">{request.note}</p>
-                )}
+          {shown.map((request) => (
+            <div
+              key={request.id}
+              className="flex flex-col gap-2 rounded-md border border-line px-3.5 py-3"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                    {request.assetName}
+                    <span className="tabular text-meta font-normal text-muted">
+                      {request.assetTag}
+                    </span>
+                    <Badge
+                      tone={isOpen(request) ? "warning" : "neutral"}
+                      size="sm"
+                    >
+                      {/* The API's wording, never a second copy of the seven. */}
+                      {request.statusLabel}
+                    </Badge>
+                  </p>
+                  <p className="mt-0.5 text-body-sm text-body">
+                    {request.fault}
+                  </p>
+                  <p className="mt-0.5 text-meta text-faint">
+                    {request.raisedByName} · {dayLabel(request.raisedAt)}
+                  </p>
+                  {request.note && (
+                    <p className="mt-1 text-body-sm text-muted">
+                      {request.note}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Exactly what the server says this reader may do next. Empty for
+              {/* Exactly what the server says this reader may do next. Empty for
                 an employee, and empty on a finished request. */}
-            {request.nextStatuses.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {request.nextStatuses.map((next) => (
-                  <Button
-                    key={next}
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setMoving({ request, to: next })}
-                  >
-                    {ACTION_LABEL[next]}
-                  </Button>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+              {request.nextStatuses.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {request.nextStatuses.map((next) => (
+                    <Button
+                      key={next}
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setMoving({ request, to: next })}
+                    >
+                      {ACTION_LABEL[next]}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </LoadState>
       </CardBody>
 
       {moving && (

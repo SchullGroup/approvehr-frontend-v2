@@ -50,6 +50,93 @@ export type PayComponentBasis =
  */
 export type PayComponentApplyMode = "PERMANENT" | "OPTIONAL";
 
+/* ------------------------------------------------------------- schedules */
+
+/** What the months are counted from. */
+export type PayServiceClock = "START_DATE" | "ASSIGNMENT_DATE";
+
+/** How often an allowance falls due once it has qualified. */
+export type PayFrequency = "MONTHLY" | "EVERY_N_MONTHS" | "ONCE";
+
+/**
+ * When an allowance falls due, **in months and nothing else**.
+ *
+ * The screen turns "3 years" into 36 before it sends and 36 back into "3 years"
+ * to show it (`lib/pay/schedule.ts`); the API never takes years. Sent **whole**:
+ * on update it replaces the stored schedule, and a field left out takes the
+ * default, so there is no half-merged schedule to reason about.
+ *
+ * The default, which every allowance that existed before schedules reads as, is
+ * `{ qualifyingMonths: 0, serviceClock: "START_DATE", frequency: "MONTHLY",
+ * intervalMonths: null, maxPayments: null, durationMonths: null }`: paid every
+ * month, from the day it is assigned.
+ */
+export type PaySchedule = {
+  /** 0..600. Whole months of service before it first falls due. */
+  qualifyingMonths: number;
+  serviceClock: PayServiceClock;
+  frequency: PayFrequency;
+  /** 2..600, and present exactly when `frequency` is `EVERY_N_MONTHS`. */
+  intervalMonths: number | null;
+  /** 1..600. Stop after this many payments. */
+  maxPayments: number | null;
+  /** 1..1200. Stop this many months after it first falls due. */
+  durationMonths: number | null;
+};
+
+/** A schedule as it comes back: the six fields, plus the API's own wording. */
+export type ApiSchedule = PaySchedule & {
+  /** True for the default. Hide the schedule's detail for these. */
+  isEveryMonth: boolean;
+  /** "After 3 years of service, then every 3 years". Print it as it is. */
+  summary: string;
+};
+
+/**
+ * Whether one person's allowance falls due in the period asked about.
+ *
+ * Null (on an assignment) for a deduction and for an allowance paid every
+ * month: print nothing. `text` is the API's sentence and is printed as it is.
+ */
+export type ApiScheduleStatus = {
+  due: boolean;
+  /** 1 for the first payment. Null when not due. */
+  occurrence: number | null;
+  /** "Due this month", "Next due Mar 2029", "No more payments", ... */
+  text: string;
+  /** First of the pay month it next falls due, or null. */
+  nextDue: string | null;
+  /** Null when due. */
+  reason:
+    | "NOT_YET_QUALIFIED"
+    | "BETWEEN_PAYMENTS"
+    | "FINISHED"
+    | "LEFT_BEFORE_DUE"
+    | "NOT_ON_IT"
+    | null;
+};
+
+/**
+ * What an edit to a schedule reaches. Null unless the schedule really changed;
+ * sending the one it already has is not a change and is not audited.
+ */
+export type ApiScheduleChange = {
+  from: PaySchedule;
+  to: PaySchedule;
+  /** Unapproved runs that will use the new schedule the next time they are calculated. */
+  openRuns: { id: string; period: string; sequence: number; status: string }[];
+  /** People who have ever been on it. */
+  assignmentCount: number;
+};
+
+/** An allowance that does not fall due in the previewed month. */
+export type ApiHeldAllowance = {
+  componentId: string;
+  code: string;
+  name: string;
+  status: ApiScheduleStatus;
+};
+
 /**
  * A component definition.
  *
@@ -83,6 +170,12 @@ export type ApiPayComponent = {
   applyMode: PayComponentApplyMode;
   /** Assignments ever made, live or ended. What makes archiving refuse. */
   assignmentCount: number;
+  /**
+   * When it falls due. Absent from an API that predates schedules and from the
+   * offline defaults, and **absent means every month**: read it through
+   * `scheduleText` in `lib/pay/schedule.ts`, never as a blank.
+   */
+  schedule?: ApiSchedule;
 };
 
 /**
@@ -136,13 +229,23 @@ export type ApiAssignment = {
   note: string | null;
   /** False when the component has been switched off or archived. */
   componentActive: boolean;
+  /** The definition's schedule. Absent from an API that predates schedules. */
+  schedule?: ApiSchedule;
 };
 
 export type ApiResolvedAssignment = ApiAssignment & {
-  /** What it comes to this period, in kobo, as the engine resolved it. */
+  /**
+   * What it comes to this period, in kobo, as the engine resolved it.
+   *
+   * **Zero when the allowance is not due**, and an assignment that is not due is
+   * left out of `totals`, so a sum of what is on screen is what the run pays.
+   * Print `scheduleStatus.text` instead of a ₦0.00 that reads as an amount.
+   */
   resolvedKobo: number;
   /** False when the window does not cover the period being asked about. */
   appliesInPeriod: boolean;
+  /** Null for a deduction and for an allowance paid every month. */
+  scheduleStatus?: ApiScheduleStatus | null;
 };
 
 export type ApiPayPerson = {
@@ -267,6 +370,13 @@ export type ApiPreview = {
   /** What they get today. Null unless the request proposed a change. */
   current: ApiComputedPayslip | null;
   change: ApiPayChange | null;
+  /**
+   * Allowances on a schedule that do not fall due in the previewed month, with
+   * when they next do. Empty when nothing is on a schedule. The tried allowance
+   * is assumed to start in the previewed month, so a long-service allowance
+   * added "now" shows here with `change` at zero, which is not an error.
+   */
+  held?: ApiHeldAllowance[];
 };
 
 /* -------------------------------------------------------------------- input */
@@ -307,6 +417,8 @@ export type CreatePayComponentBody = {
   sortOrder?: number;
   active?: boolean;
   applyMode?: PayComponentApplyMode;
+  /** Allowances only; a deduction with one is refused. Omit for every month. */
+  schedule?: PaySchedule;
 };
 
 /** `kind` and `code` are absent deliberately — the API will not change either. */
@@ -321,6 +433,72 @@ export type UpdatePayComponentBody = {
   sortOrder?: number;
   active?: boolean;
   applyMode?: PayComponentApplyMode;
+  /** Replaces the stored schedule whole. Omit to leave it alone. */
+  schedule?: PaySchedule;
+};
+
+/** An edit's answer: the component, plus what a schedule change reaches. */
+export type ApiUpdatedPayComponent = ApiPayComponentDetail & {
+  /** Null unless the schedule actually changed. */
+  scheduleChange?: ApiScheduleChange | null;
+};
+
+/** What the form is typing, to be checked without saving anything. */
+export type SchedulePreviewBody = {
+  schedule: PaySchedule;
+  kind?: PayComponentKind;
+  /** The form's current value: an allowance nobody is assigned has no assignment date. */
+  applyMode?: PayComponentApplyMode;
+  /** The person the example is for. ISO date. */
+  startDate?: string;
+  /** Defaults to `startDate`. */
+  assignedOn?: string;
+  /** 1..12. */
+  count?: number;
+};
+
+export type ApiSchedulePreview = {
+  schedule: ApiSchedule;
+  /** What the same body would be refused with on save, as data. Always a 200. */
+  problems: { field: string; message: string }[];
+  /** Null when there are problems or no `startDate` was given. */
+  examples: {
+    startDate: string;
+    assignedOn: string;
+    /** The first of each pay month it would fall due. */
+    dueMonths: string[];
+  } | null;
+};
+
+/** One allowance on a schedule, as the run wizard reads it. */
+export type ApiScheduledAllowance = {
+  componentId: string;
+  assignmentId: string | null;
+  code: string;
+  name: string;
+  schedule: ApiSchedule;
+  status: ApiScheduleStatus;
+  /** One payment, fixed. Null with `rate` set for a percentage allowance. */
+  amountKobo: number | null;
+  rate: number | null;
+  basis: PayComponentBasis;
+};
+
+/**
+ * What falls due on an open run, and what does not, per person.
+ *
+ * Only people with at least one allowance on a schedule appear, and an allowance
+ * that has finished is left out. `open` is false, and `people` empty, for an
+ * approved, paid or cancelled run: it is computed live from the schedule as it
+ * stands, and an approved run's payslips are the record.
+ */
+export type ApiScheduledAllowances = {
+  runId: string;
+  period: string;
+  sequence: number;
+  status: string;
+  open: boolean;
+  people: { employeeId: string; allowances: ApiScheduledAllowance[] }[];
 };
 
 export type AssignBody = {
@@ -419,10 +597,28 @@ export const payComponentsApi = {
     request<ApiPayComponent>("/pay-components", { method: "POST", body }),
 
   update: (id: string, body: UpdatePayComponentBody) =>
-    request<ApiPayComponentDetail>(`/pay-components/${id}`, {
+    request<ApiUpdatedPayComponent>(`/pay-components/${id}`, {
       method: "PATCH",
       body,
     }),
+
+  /**
+   * The sentence, the refusals and an example, for a schedule being typed.
+   * Saves nothing. Needs MANAGE_PAY_STRUCTURE, the permission that defines one.
+   */
+  schedulePreview: (body: SchedulePreviewBody, signal?: AbortSignal) =>
+    request<ApiSchedulePreview>("/pay-components/schedule-preview", {
+      method: "POST",
+      body,
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** What falls due on an open payroll run, per person. RUN_PAYROLL or VIEW_SALARIES. */
+  scheduledForRun: (runId: string, signal?: AbortSignal) =>
+    request<ApiScheduledAllowances>(
+      `/payroll/runs/${runId}/scheduled-allowances`,
+      { ...(signal ? { signal } : {}) },
+    ),
 
   /** Archive, never delete. 409 while anyone is on it, and for a system row. */
   archive: (id: string) =>

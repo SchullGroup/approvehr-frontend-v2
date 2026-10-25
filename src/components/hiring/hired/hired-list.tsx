@@ -13,7 +13,6 @@ import {
   Input,
   SegmentedControl,
   Select,
-  Skeleton,
   TableWrap,
   TBody,
   TD,
@@ -24,6 +23,7 @@ import {
   TR,
   useToast,
   type AppliedFilter,
+  LoadState,
 } from "@/components/ui";
 import {
   BulkBar,
@@ -31,7 +31,6 @@ import {
   type BulkChoice,
 } from "@/components/hiring/bulk-bar";
 import { EveryoneDialog } from "@/components/hiring/bulk-dialogs";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { LoadMore } from "@/components/portal/load-more";
 import { ApiError } from "@/lib/api/client";
 import { downloadCsv } from "@/lib/csv";
@@ -788,156 +787,153 @@ export function HiredList({ initialJob = "" }: { initialJob?: string }) {
         />
       )}
 
-      {list.loading ? (
-        <>
-          <Skeleton className="h-40 w-full" />
-          <span className="sr-only-focusable">Loading the Hired list</span>
-        </>
-      ) : list.error ? (
-        <LoadFailure
-          subject="the Hired list"
-          error={list.error}
-          onRetry={list.reload}
-        />
-      ) : list.rows.length === 0 && !stale ? (
-        <Card>
-          <EmptyState
-            icon={<UserCheck aria-hidden="true" />}
-            title={narrowed ? "Nobody matches" : "Nobody has been hired yet"}
-            description={
-              narrowed
-                ? "Nobody on the Hired list fits the search and filters above."
-                : "When an offer is recorded as accepted, the person appears here."
+      <LoadState
+        loading={list.loading}
+        subject="the Hired list"
+        error={list.error}
+        onRetry={list.reload}
+        skeleton="table"
+      >
+        {list.rows.length === 0 && !stale ? (
+          <Card>
+            <EmptyState
+              icon={<UserCheck aria-hidden="true" />}
+              title={narrowed ? "Nobody matches" : "Nobody has been hired yet"}
+              description={
+                narrowed
+                  ? "Nobody on the Hired list fits the search and filters above."
+                  : "When an offer is recorded as accepted, the person appears here."
+              }
+            />
+          </Card>
+        ) : (
+          <div
+            aria-busy={stale}
+            className={
+              stale
+                ? "flex flex-col gap-3 opacity-60 transition-opacity"
+                : "flex flex-col gap-3 transition-opacity"
             }
-          />
-        </Card>
-      ) : (
-        <div
-          aria-busy={stale}
-          className={
-            stale
-              ? "flex flex-col gap-3 opacity-60 transition-opacity"
-              : "flex flex-col gap-3 transition-opacity"
-          }
-        >
-          <div className="hidden sm:block">
-            <TableWrap caption="People who accepted an offer, and what became of them">
-              <THead>
-                <TH>
-                  <Checkbox
-                    hiddenLabel="Select everyone shown"
-                    checked={selection.allOf(ids)}
-                    indeterminate={selection.someOf(ids)}
-                    disabled={Boolean(selection.everyone)}
-                    onChange={() => selection.toggleMany(ids)}
-                  />
-                </TH>
-                <TH>Person</TH>
-                <TH>Role</TH>
-                <TH>Accepted</TH>
-                <TH>Starts</TH>
-                <TH>State</TH>
-                <TH align="right">
-                  <span className="sr-only">Actions</span>
-                </TH>
-              </THead>
-              <TBody>
-                {list.rows.map((person) => (
-                  <TR key={person.id}>
-                    <TD>
+          >
+            <div className="hidden sm:block">
+              <TableWrap caption="People who accepted an offer, and what became of them">
+                <THead>
+                  <TH>
+                    <Checkbox
+                      hiddenLabel="Select everyone shown"
+                      checked={selection.allOf(ids)}
+                      indeterminate={selection.someOf(ids)}
+                      disabled={Boolean(selection.everyone)}
+                      onChange={() => selection.toggleMany(ids)}
+                    />
+                  </TH>
+                  <TH>Person</TH>
+                  <TH>Role</TH>
+                  <TH>Accepted</TH>
+                  <TH>Starts</TH>
+                  <TH>State</TH>
+                  <TH align="right">
+                    <span className="sr-only">Actions</span>
+                  </TH>
+                </THead>
+                <TBody>
+                  {list.rows.map((person) => (
+                    <TR key={person.id}>
+                      <TD>
+                        <Checkbox
+                          hiddenLabel={`Select ${person.name}`}
+                          checked={selection.isSelected(person.id)}
+                          disabled={Boolean(selection.everyone)}
+                          onChange={() => selection.toggle(person.id)}
+                        />
+                      </TD>
+                      <TDPrimary
+                        title={nameOf(person)}
+                        subtitle={[contact(person), person.reference]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      />
+                      <TD>
+                        <span className="block font-medium text-ink">
+                          {person.role}
+                        </span>
+                        <span className="block text-meta text-muted">
+                          {[person.requisitionReference, person.department]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </TD>
+                      <TD>{dayOf(person.acceptedAt, timeZone) ?? "—"}</TD>
+                      <TD>{dayOf(person.startDate) ?? "—"}</TD>
+                      <TD>
+                        <HireStateBadge state={person.state} />
+                        {detail(person)}
+                      </TD>
+                      <TD align="right">{actions(person)}</TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </TableWrap>
+            </div>
+
+            <ul className="flex flex-col gap-3 sm:hidden">
+              {list.rows.map((person) => (
+                <li key={person.id}>
+                  <Card className="flex flex-col gap-2.5 p-4">
+                    <div className="flex items-start gap-2.5">
                       <Checkbox
                         hiddenLabel={`Select ${person.name}`}
                         checked={selection.isSelected(person.id)}
                         disabled={Boolean(selection.everyone)}
                         onChange={() => selection.toggle(person.id)}
                       />
-                    </TD>
-                    <TDPrimary
-                      title={nameOf(person)}
-                      subtitle={[contact(person), person.reference]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    />
-                    <TD>
-                      <span className="block font-medium text-ink">
+                      <div className="min-w-0">
+                        <p className="text-body-sm font-medium text-ink">
+                          {nameOf(person)}
+                        </p>
+                        <p className="break-words text-body-sm text-muted">
+                          {contact(person)}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-body-sm font-medium text-ink">
                         {person.role}
-                      </span>
-                      <span className="block text-meta text-muted">
+                      </p>
+                      <p className="text-meta text-muted">
                         {[person.requisitionReference, person.department]
                           .filter(Boolean)
                           .join(" · ")}
-                      </span>
-                    </TD>
-                    <TD>{dayOf(person.acceptedAt, timeZone) ?? "—"}</TD>
-                    <TD>{dayOf(person.startDate) ?? "—"}</TD>
-                    <TD>
-                      <HireStateBadge state={person.state} />
-                      {detail(person)}
-                    </TD>
-                    <TD align="right">{actions(person)}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </TableWrap>
-          </div>
-
-          <ul className="flex flex-col gap-3 sm:hidden">
-            {list.rows.map((person) => (
-              <li key={person.id}>
-                <Card className="flex flex-col gap-2.5 p-4">
-                  <div className="flex items-start gap-2.5">
-                    <Checkbox
-                      hiddenLabel={`Select ${person.name}`}
-                      checked={selection.isSelected(person.id)}
-                      disabled={Boolean(selection.everyone)}
-                      onChange={() => selection.toggle(person.id)}
-                    />
-                    <div className="min-w-0">
-                      <p className="text-body-sm font-medium text-ink">
-                        {nameOf(person)}
-                      </p>
-                      <p className="break-words text-body-sm text-muted">
-                        {contact(person)}
                       </p>
                     </div>
-                  </div>
-                  <div>
-                    <p className="text-body-sm font-medium text-ink">
-                      {person.role}
-                    </p>
                     <p className="text-meta text-muted">
-                      {[person.requisitionReference, person.department]
-                        .filter(Boolean)
-                        .join(" · ")}
+                      Accepted {dayOf(person.acceptedAt, timeZone) ?? "—"}
+                      {person.startDate
+                        ? `, starts ${dayOf(person.startDate) ?? person.startDate}`
+                        : ""}
                     </p>
-                  </div>
-                  <p className="text-meta text-muted">
-                    Accepted {dayOf(person.acceptedAt, timeZone) ?? "—"}
-                    {person.startDate
-                      ? `, starts ${dayOf(person.startDate) ?? person.startDate}`
-                      : ""}
-                  </p>
-                  <div>
-                    <HireStateBadge state={person.state} />
-                    {detail(person)}
-                  </div>
-                  {actions(person)}
-                </Card>
-              </li>
-            ))}
-          </ul>
+                    <div>
+                      <HireStateBadge state={person.state} />
+                      {detail(person)}
+                    </div>
+                    {actions(person)}
+                  </Card>
+                </li>
+              ))}
+            </ul>
 
-          <LoadMore
-            shown={list.rows.length}
-            total={list.total}
-            noun={["person", "people"]}
-            hasMore={list.hasMore}
-            loading={list.loadingMore}
-            error={list.moreError}
-            onLoadMore={list.loadMore}
-          />
-        </div>
-      )}
+            <LoadMore
+              shown={list.rows.length}
+              total={list.total}
+              noun={["person", "people"]}
+              hasMore={list.hasMore}
+              loading={list.loadingMore}
+              error={list.moreError}
+              onLoadMore={list.loadMore}
+            />
+          </div>
+        )}
+      </LoadState>
 
       <CreateEmployeeDialog
         open={pending?.kind === "create"}

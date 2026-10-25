@@ -767,6 +767,9 @@ function Application({
     <Card>
       <CardHeader
         title="Their application"
+        mark={
+          record.declineReason ? ["Turned down.", record.declineReason] : null
+        }
         description={`${record.statusLabel} · applied ${record.appliedOn}`}
         action={<SourceBadge live={live} />}
       />
@@ -781,12 +784,6 @@ function Application({
             records can disagree about where this person got to.
           </p>
         )}
-        {record.declineReason && (
-          <Callout tone="danger" title="Turned down">
-            {record.declineReason}
-          </Callout>
-        )}
-
         {record.coverNote ? (
           <div>
             <h3 className="mb-1.5 text-meta font-semibold text-muted">
@@ -949,7 +946,7 @@ function Pipeline({ card }: { card: PipelineCard }) {
         </Callout>
       )}
       {card.outcome === "rejected" && card.rejectionReason && (
-        <Callout tone="danger" title="Rejected">
+        <Callout tone="neutral" title="Rejected">
           {card.rejectionReason}
         </Callout>
       )}

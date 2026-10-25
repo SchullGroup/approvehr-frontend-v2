@@ -9,7 +9,7 @@ import {
   Button,
   ButtonLink,
   Card,
-  Callout,
+  AttentionMark,
   ConfirmDialog,
   EmptyState,
   Skeleton,
@@ -290,9 +290,17 @@ export function EmployeeRecordPage({ id }: { id: string }) {
               </Badge>
             )}
             {archived && (
-              <Badge tone="danger" size="sm" dot>
-                Archived
-              </Badge>
+              <>
+                <Badge tone="danger" size="sm" dot>
+                  Archived
+                </Badge>
+                <AttentionMark
+                  text={[
+                    "This record is archived.",
+                    "They are excluded from the directory and from payroll runs. Past payslips and approvals still resolve, so nothing in the history breaks.",
+                  ]}
+                />
+              </>
             )}
           </>
         }
@@ -321,14 +329,6 @@ export function EmployeeRecordPage({ id }: { id: string }) {
       />
 
       <PageBody className="flex flex-col gap-5">
-        {archived && (
-          <Callout tone="danger" title="This record is archived">
-            They are excluded from the directory and from payroll runs. Past
-            payslips and approvals still resolve, so nothing in the history
-            breaks.
-          </Callout>
-        )}
-
         {/* The record itself is on screen; it is the directory read behind it
             that failed, so this says what is missing from the page rather than
             standing in for the page. */}

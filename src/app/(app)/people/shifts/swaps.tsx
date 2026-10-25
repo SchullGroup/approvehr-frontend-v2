@@ -12,9 +12,9 @@ import {
   Field,
   Modal,
   SegmentedControl,
-  Spinner,
   Textarea,
   useToast,
+  LoadState,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -156,16 +156,20 @@ export function SwapPanel({
           }
         />
 
-        {error ? (
+        {error || loading || accepted.loading ? (
+          /* The one loading and failure rule, as a gate. The failure was the
+             raw message the server sent, in a bare paragraph, with no way to
+             try again. */
           <CardBody>
-            <p className="text-body-sm text-ink">{error.message}</p>
-          </CardBody>
-        ) : loading || accepted.loading ? (
-          <CardBody>
-            <span className="flex items-center gap-2 text-body-sm text-muted">
-              <Spinner size="sm" />
-              Loading
-            </span>
+            <LoadState
+              loading={loading || accepted.loading}
+              error={error}
+              subject="the cover requests"
+              onRetry={reload}
+              skeleton="list"
+            >
+              {null}
+            </LoadState>
           </CardBody>
         ) : rows.length === 0 ? (
           <EmptyState

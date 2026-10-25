@@ -190,7 +190,7 @@ function ChipEditor({
         : undefined;
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-accent-line bg-accent-soft/40 p-3">
+    <div className="flex flex-col gap-3 rounded-md border border-line bg-canvas p-3">
       <FieldRow>
         <Field label="Skill" {...(problem ? { error: problem } : {})}>
           <Input

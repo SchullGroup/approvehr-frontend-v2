@@ -224,8 +224,10 @@ describe("the page", () => {
     expect(
       screen.getByText("No reminder would be sent right now"),
     ).toBeInTheDocument();
+    /* Both the reasons and the sentence after them are behind the mark beside
+       the title, in words the page carries for anybody who cannot hover. */
     expect(
-      screen.getByText("No reply-to address is set in Careers settings."),
+      screen.getByText(/No reply-to address is set in Careers settings\./),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/recorded as skipped, with the reason/),

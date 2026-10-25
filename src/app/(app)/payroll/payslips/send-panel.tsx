@@ -2,14 +2,7 @@
 
 import { useState } from "react";
 import { Send } from "lucide-react";
-import {
-  Badge,
-  Button,
-  Callout,
-  Card,
-  CardBody,
-  CardHeader,
-} from "@/components/ui";
+import { Badge, Button, Callout } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { PayslipSendOutcome } from "@/lib/api/payroll";
 import { usePayrollActions } from "@/lib/store/payroll";
@@ -84,55 +77,38 @@ export function SendPayslips({
     }
   }
 
+  /* Not shown at all until the payroll is approved. The API refuses a draft
+     and an email cannot be taken back, so there is nothing to offer, and a
+     card explaining why there is nothing to offer is content nobody asked for. */
+  if (!approved) return null;
+
   return (
-    <Card>
-      <CardHeader
-        title="Send the payslips"
-        description="Everybody on this payroll with an email address gets theirs, with their net pay and a link to the breakdown."
-      />
-      <CardBody className="flex flex-col gap-4">
-        {!approved ? (
-          <Callout tone="info" title="Not until this payroll is approved">
-            Calculating a payroll again replaces every payslip on it, and an
-            email cannot be taken back. Approve the month and this becomes
-            available.
-          </Callout>
-        ) : (
-          <>
-            {failed && (
-              <Callout tone="danger" title="Nothing was sent">
-                {failed}
-              </Callout>
-            )}
+    <div className="flex flex-col gap-3">
+      {failed && <Callout tone="danger">{failed}</Callout>}
 
-            {outcome && <Outcome outcome={outcome} />}
+      {outcome && <Outcome outcome={outcome} />}
 
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                variant="accent"
-                loading={busy}
-                disabled={busy || notSent === 0}
-                onClick={() => void send()}
-              >
-                {!busy && <Send aria-hidden="true" className="size-4" />}
-                {notSent === undefined
-                  ? "Send the ones that have not gone"
-                  : notSent === 0
-                    ? "Everybody has theirs"
-                    : `Send ${String(notSent)} ${notSent === 1 ? "payslip" : "payslips"}`}
-              </Button>
-              {/* The count is on the button, so this says the thing the count
-                  does not: pressing it again is safe. That is the question
-                  somebody has after a partial send, and the answer is what
-                  lets them press it. */}
-              <span className="text-meta text-muted">
-                Anybody who already has theirs is left alone.
-              </span>
-            </div>
-          </>
-        )}
-      </CardBody>
-    </Card>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="accent"
+          loading={busy}
+          disabled={busy || notSent === 0}
+          onClick={() => void send()}
+        >
+          {!busy && <Send aria-hidden="true" className="size-4" />}
+          {notSent === undefined
+            ? "Send the ones that have not gone"
+            : notSent === 0
+              ? "Everybody has theirs"
+              : `Send ${String(notSent)} ${notSent === 1 ? "payslip" : "payslips"}`}
+        </Button>
+        {/* The count is on the button, so this says the thing the count does
+            not: pressing it again is safe. */}
+        <span className="text-meta text-muted">
+          Anybody who already has theirs is left alone.
+        </span>
+      </div>
+    </div>
   );
 }
 
