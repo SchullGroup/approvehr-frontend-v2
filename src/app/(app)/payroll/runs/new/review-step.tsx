@@ -964,7 +964,7 @@ function Flags({
     >
       {adjusted.length > 0 && (
         <span
-          className="inline-flex items-center gap-1 text-[11px] leading-none text-muted"
+          className="inline-flex items-center gap-1 text-meta leading-none text-muted"
           title={adjusted.map((kind) => ADJUSTMENT_LABEL[kind]).join(", ")}
         >
           <Pencil aria-hidden="true" className="size-2.5" />
