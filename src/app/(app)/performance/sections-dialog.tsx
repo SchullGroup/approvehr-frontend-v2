@@ -24,7 +24,11 @@ import {
   Spinner,
 } from "@/components/ui";
 import { weightLabel } from "@/lib/api/performance";
-import type { ApiCompetency, ApiSection } from "@/lib/api/performance";
+import type {
+  ApiCompetency,
+  ApiSection,
+  ScoreComponent,
+} from "@/lib/api/performance";
 import {
   useFramework,
   useFrameworkActions,
@@ -106,6 +110,9 @@ export function SectionsDialog({
 
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
+  const [newSectionComponent, setNewSectionComponent] = useState<
+    ScoreComponent | ""
+  >("");
   const [addingSubTo, setAddingSubTo] = useState<string | null>(null);
   const [newSubName, setNewSubName] = useState("");
   const [renamingSub, setRenamingSub] = useState<string | null>(null);
@@ -208,6 +215,15 @@ export function SectionsDialog({
     );
   };
 
+  const setComponent = async (
+    section: ApiSection,
+    component: ScoreComponent | "",
+  ) => {
+    await run("what it counts towards", () =>
+      actions.updateSection(section.id, { component: component || null }),
+    );
+  };
+
   const addSection = async () => {
     const name = newSectionName.trim();
     if (name.length < 2) {
@@ -217,10 +233,15 @@ export function SectionsDialog({
     /* Ordered last rather than left at the column default of 0, which every
        section created through this API otherwise shares — see `move`. */
     const ok = await run("the section", () =>
-      actions.createSection({ name, order: sections.length }),
+      actions.createSection({
+        name,
+        order: sections.length,
+        ...(newSectionComponent ? { component: newSectionComponent } : {}),
+      }),
     );
     if (ok) {
       setNewSectionName("");
+      setNewSectionComponent("");
       setAddingSection(false);
     }
   };
@@ -421,6 +442,17 @@ export function SectionsDialog({
                           </div>
                         )}
 
+                        {editable && (
+                          <CountsTowards
+                            value={section.component ?? ""}
+                            disabled={busy}
+                            label={`What ${section.name} counts towards`}
+                            onChange={(value) =>
+                              void setComponent(section, value)
+                            }
+                          />
+                        )}
+
                         <Subsections
                           items={subs}
                           sections={sections}
@@ -565,6 +597,12 @@ export function SectionsDialog({
                       placeholder="Behavioural competency"
                     />
                   </Field>
+                  <CountsTowards
+                    value={newSectionComponent}
+                    disabled={busy}
+                    label="What the new section counts towards"
+                    onChange={setNewSectionComponent}
+                  />
                   <Button
                     variant="secondary"
                     size="sm"
@@ -601,8 +639,9 @@ export function SectionsDialog({
             {editable && (
               <NoticeLine tone="muted">
                 <span>
-                  A section you invent counts towards no part of the mark until
-                  it is weighted. Its ratings are still recorded.
+                  A section you create counts towards no part of the mark until
+                  you choose which one under it. Its ratings are still recorded
+                  either way.
                 </span>
               </NoticeLine>
             )}
@@ -795,5 +834,64 @@ function Subsections({
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Which part of the mark a section's ratings feed.
+ *
+ * Only the three parts that are made out of ratings are offered. Delivery
+ * against objectives is worked out from the objectives themselves and the
+ * self-assessment from the person's own form, so a rating filed under a
+ * section could not reach either, and offering them would be a choice that
+ * changes nothing. The weight of each part is set in Scoring settings; a
+ * section that feeds the same part as another is averaged in with it.
+ */
+const RATED_PARTS: { value: ScoreComponent; label: string }[] = [
+  { value: "CORE_COMPETENCY", label: "Core competencies" },
+  { value: "BEHAVIOURAL_COMPETENCY", label: "Behavioural competencies" },
+  { value: "LEADERSHIP", label: "Leadership (managers only)" },
+];
+
+function CountsTowards({
+  value,
+  disabled,
+  label,
+  onChange,
+}: {
+  value: ScoreComponent | "";
+  disabled: boolean;
+  label: string;
+  onChange: (value: ScoreComponent | "") => void;
+}) {
+  const known = RATED_PARTS.some((part) => part.value === value);
+  return (
+    <Field
+      label="Counts towards"
+      help="The part of the mark this section's ratings feed. The weight of each part is in Scoring settings. Two sections that feed the same part are averaged together."
+    >
+      <Select
+        value={value}
+        disabled={disabled}
+        aria-label={label}
+        onChange={(event) =>
+          onChange(event.target.value as ScoreComponent | "")
+        }
+      >
+        <option value="">
+          No part of the mark (ratings are only recorded)
+        </option>
+        {RATED_PARTS.map((part) => (
+          <option key={part.value} value={part.value}>
+            {part.label}
+          </option>
+        ))}
+        {value !== "" && !known && (
+          <option value={value}>
+            Set to a part that ratings do not feed. Choose another.
+          </option>
+        )}
+      </Select>
+    </Field>
   );
 }
