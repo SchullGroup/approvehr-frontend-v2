@@ -1228,6 +1228,8 @@ type ApiBankRegister = {
     firstName: string;
     lastName: string;
     bankName: string;
+    /** What a bank's bulk-payment upload calls "Destination Bank Code". Blank when unknown. */
+    bankCode?: string;
     bankAccountNumber: string;
     bankAccountName: string;
     gross: string;
