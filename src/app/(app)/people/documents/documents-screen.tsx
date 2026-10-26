@@ -11,6 +11,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import {
+  AttentionMark,
   Badge,
   Button,
   ButtonLink,
@@ -531,16 +532,20 @@ function ComplianceLine({
   onOpenFile: () => void;
 }) {
   return (
-    <div
-      className={
-        row.overdue
-          ? "flex flex-wrap items-center gap-3 rounded-md border border-danger-line bg-danger-soft/40 p-3"
-          : "flex flex-wrap items-center gap-3 rounded-md border border-warning-line bg-warning-soft/40 p-3"
-      }
-    >
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-line p-3">
       <div className="min-w-0 flex-1">
         <p className="text-body-sm font-medium text-ink">
           {complianceSentence(row)}
+          {row.overdue && (
+            <AttentionMark
+              className="ml-1.5"
+              text={
+                row.kind === "DOCUMENT"
+                  ? "Already expired."
+                  : "Already overdue."
+              }
+            />
+          )}
         </p>
         <p className="mt-0.5 text-body-sm text-muted">
           {row.employeeName} · {row.employeeNo}

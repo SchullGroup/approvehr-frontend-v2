@@ -104,7 +104,7 @@ export function SuggestionPanel({
   const { suggestions, groundedIn } = state.outcome;
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-accent-line bg-accent-soft p-3">
+    <div className="flex flex-col gap-3 rounded-md border border-line p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <span className="min-w-0">
           <span className="flex items-center gap-1.5 text-body-sm font-medium text-ink">

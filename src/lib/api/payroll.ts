@@ -257,6 +257,23 @@ export type RateWorking = {
   baseLabel: string;
 };
 
+/**
+ * One staff loan as a payslip reports it. The same four figures every month, so
+ * the reader can follow a loan down: what was lent, what was owed coming in,
+ * what came off this month, what is left.
+ */
+export type PayslipLoan = {
+  loanId: string;
+  /** The accumulated loan: what was originally lent. Never reduced. */
+  accumulatedKobo: number;
+  /** Owed at the start of this pay period, before this month's deduction. */
+  balanceBeforeKobo: number;
+  /** This month's instalment. */
+  deductionKobo: number;
+  /** What is left once this month's deduction is taken. */
+  balanceAfterKobo: number;
+};
+
 export type Payslip = {
   id: string;
   employeeId: string;
@@ -364,11 +381,23 @@ export type Payslip = {
    * written before the switches existed actually was.
    */
   operates?: StatutoryOperation;
+  /** Absent means the API did not say; empty means the person has no loan. */
+  loans?: PayslipLoan[];
   /** Pre-tax plus post-tax, as one figure. `lines` is the itemised form. */
   otherDeductionsKobo: number;
   netKobo: number;
   unpaidDays: number;
   proratedDeductionKobo: number;
+  /**
+   * Days worked, when somebody entered them by hand so this person is paid by
+   * the day rather than the whole month. Null means the whole month.
+   */
+  daysWorked: number | null;
+  /**
+   * The working month the contract was divided by. Null on payslips written
+   * before the API recorded it — the caller falls back to the company setting.
+   */
+  workingDays: number | null;
   publishedAt: string | null;
   emailedAt: string | null;
   viewedAt: string | null;
@@ -440,6 +469,21 @@ export type OvertimeOverrideChange = {
   setAsideCount: number;
   setAsideMinutes: number;
   reason: string;
+  setAt: string;
+  run: PreparedRun;
+};
+
+export type DaysWorkedChange = {
+  employeeId: string;
+  name: string;
+  days: number;
+  /** The working month the contract is divided by for this person. */
+  workingDays: number;
+  /** Monthly pay ÷ `workingDays`. */
+  dailyRateKobo: number;
+  /** Gross after proration, as the payslip was written. */
+  grossKobo: number;
+  reason: string | null;
   setAt: string;
   run: PreparedRun;
 };
@@ -1098,6 +1142,7 @@ type ApiRun = {
 type ApiPayslip = {
   id: string;
   employeeId: string;
+  loans?: PayslipLoan[];
   employee: { employeeNo: string; firstName: string; lastName: string };
   gross: Decimalish;
   basic: Decimalish;
@@ -1137,6 +1182,9 @@ type ApiPayslip = {
   net: Decimalish;
   unpaidDays: number;
   proratedDeduction: Decimalish;
+  /** Optional on the wire: an older API answers without them. */
+  daysWorked?: number | null;
+  workingDays?: number | null;
   publishedAt: string | null;
   emailedAt: string | null;
   viewedAt: string | null;
@@ -1208,6 +1256,8 @@ type ApiBankRegister = {
     firstName: string;
     lastName: string;
     bankName: string;
+    /** What a bank's bulk-payment upload calls "Destination Bank Code". Blank when unknown. */
+    bankCode?: string;
     bankAccountNumber: string;
     bankAccountName: string;
     gross: string;
@@ -1341,6 +1391,7 @@ function toPayslip(row: ApiPayslip): Payslip {
        operated, and `wasDeducted` treats that silence as "computed" rather than
        claiming an absence nobody reported. */
     ...(row.operates ? { operates: row.operates } : {}),
+    ...(row.loans ? { loans: row.loans } : {}),
     payeKobo: koboFromDecimal(row.paye),
     /* Conditional, not `?? []`. An empty array says "nothing was set by hand",
        which is a claim about the payslip; the absence of the field says the API
@@ -1356,6 +1407,8 @@ function toPayslip(row: ApiPayslip): Payslip {
     netKobo: koboFromDecimal(row.net),
     unpaidDays: row.unpaidDays,
     proratedDeductionKobo: koboFromDecimal(row.proratedDeduction),
+    daysWorked: row.daysWorked ?? null,
+    workingDays: row.workingDays ?? null,
     publishedAt: row.publishedAt,
     emailedAt: row.emailedAt,
     viewedAt: row.viewedAt,
@@ -1695,6 +1748,25 @@ export const payrollApi = {
       `/payroll/runs/${id}/overtime-overrides/${employeeId}`,
       { method: "DELETE" },
     ),
+
+  /**
+   * Pays one person for the days they worked this period, not the whole
+   * month. The API prorates: monthly ÷ working days × days.
+   */
+  setDaysWorked: (
+    id: string,
+    body: { employeeId: string; days: number; reason?: string },
+  ) =>
+    request<DaysWorkedChange>(`/payroll/runs/${id}/days-worked`, {
+      method: "POST",
+      body,
+    }),
+
+  /** Takes the typed days off, so the person is paid the whole month again. */
+  clearDaysWorked: (id: string, employeeId: string) =>
+    request<PreparedRun>(`/payroll/runs/${id}/days-worked/${employeeId}`, {
+      method: "DELETE",
+    }),
 
   /**
    * A one-off payment for one person on this run.

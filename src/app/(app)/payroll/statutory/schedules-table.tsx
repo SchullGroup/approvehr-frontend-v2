@@ -122,8 +122,7 @@ export function SchedulesTable() {
           /* Named rather than quietly shown as settled. A wrong band is a wrong
              figure; a wrong deadline is a penalty. */
           <Callout tone="warning" title="One deadline here is not confirmed">
-            {unconfirmed.map((row) => KIND_LABEL[row.kind]).join(", ")}:{" "}
-            {unconfirmed[0]?.dueDateBasis}
+            {`${unconfirmed.map((row) => KIND_LABEL[row.kind]).join(", ")}: ${unconfirmed[0]?.dueDateBasis ?? ""}`}
           </Callout>
         )}
 

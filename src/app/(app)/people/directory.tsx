@@ -707,7 +707,6 @@ export function Directory({
                 <TBody>
                   {rows.map((e) => {
                     const gaps = payrollGapsFor(payrollFieldsForDisplay(e));
-                    const blocking = gaps.filter((g) => g.blocking);
                     return (
                       <TR
                         key={e.id}
@@ -757,26 +756,6 @@ export function Directory({
                             <Badge tone={STATUS[e.status].tone} size="sm" dot>
                               {STATUS[e.status].label}
                             </Badge>
-                            {gaps.length > 0 && (
-                              /* Red only when something here actually blocks a
-                             payslip (a missing bank account). A pension PIN or
-                             TIN alone is worth fixing, not worth the same
-                             colour as "will not be paid". */
-                              <span
-                                title={gaps
-                                  .map((g) => `${g.label}: ${g.consequence}`)
-                                  .join(" ")}
-                              >
-                                <Badge
-                                  tone={
-                                    blocking.length > 0 ? "danger" : "warning"
-                                  }
-                                  size="sm"
-                                >
-                                  {gaps.length} missing
-                                </Badge>
-                              </span>
-                            )}
                           </div>
                         </TD>
                         <TD align="right">
@@ -798,7 +777,6 @@ export function Directory({
             <ul className="divide-y divide-line sm:hidden">
               {rows.map((e) => {
                 const gaps = payrollGapsFor(payrollFieldsForDisplay(e));
-                const blocking = gaps.filter((g) => g.blocking);
                 return (
                   <li
                     key={e.id}
@@ -847,20 +825,6 @@ export function Directory({
                       <Badge tone={STATUS[e.status].tone} size="sm" dot>
                         {STATUS[e.status].label}
                       </Badge>
-                      {gaps.length > 0 && (
-                        <span
-                          title={gaps
-                            .map((g) => `${g.label}: ${g.consequence}`)
-                            .join(" ")}
-                        >
-                          <Badge
-                            tone={blocking.length > 0 ? "danger" : "warning"}
-                            size="sm"
-                          >
-                            {gaps.length} missing
-                          </Badge>
-                        </span>
-                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">

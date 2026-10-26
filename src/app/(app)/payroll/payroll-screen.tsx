@@ -9,14 +9,13 @@ import {
   AreaChart,
   Badge,
   ButtonLink,
-  Callout,
+  AttentionMark,
   Card,
   CardBody,
   CardHeader,
   EmptyState,
   Money,
   Skeleton,
-  Stat,
   TBody,
   TD,
   TDPrimary,
@@ -28,7 +27,7 @@ import {
   rowClick,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
-import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
+import { NOTICE_LINK } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
   RunStatusBadge,
@@ -248,92 +247,50 @@ export function PayrollScreen() {
         ) : (
           current && (
             <>
+              {/* One heading, one status. Everything the four tiles and the
+                  strip under them used to say is one hover away on the mark,
+                  and the run itself is where each exception is read and fixed. */}
               <Card>
                 <CardHeader
                   title={`${periodLabel(current.period)} payroll`}
-                  /* Three states, not two.
-                     -------------------------------------------------------
-                     This collapsed APPROVED and PAID into one sentence about
-                     frozen figures, which was the whole truth while nothing
-                     could ever set PAID. It can now, so APPROVED means
-                     something specific and uncomfortable: the figures are
-                     settled, the loans are taken, and **nobody has been
-                     paid**. Saying only "the figures are frozen" about that
-                     run is true and is the wrong half. */
-                  description={`Pays ${current.payDate}. ${
-                    current.status === "PAID"
-                      ? "Paid. The money has left the account."
-                      : current.status === "APPROVED"
-                        ? "Approved and frozen. Nobody has been paid yet."
-                        : "Not approved yet. Nothing has been paid and nothing has been settled."
-                  }`}
-                  action={<RunStatusBadge status={current.status} />}
-                />
-                <CardBody className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-                  <Stat
-                    /* Present tense. The card description directly above this
-                       says "Nothing has been paid and nothing has been settled"
-                       on an unapproved run, and this label contradicted it. */
-                    label="People on this payroll"
-                    /* Not `employeeCount` on its own. That figure is payslips,
-                       which is the right answer to "how many were paid" and a
-                       wrong claim under this label the moment somebody has been
-                       left off — nine, where ten people work, is the same class
-                       of statement as a zero standing in for an absent figure. */
-                    value={headcountLabel(current)}
-                    hint={
+                  mark={[
+                    `Pays ${current.payDate}. ${
+                      current.status === "PAID"
+                        ? "Paid. The money has left the account."
+                        : current.status === "APPROVED"
+                          ? "Approved and frozen. Nobody has been paid yet."
+                          : "Not approved yet. Nothing has been paid and nothing has been settled."
+                    }`,
+                    `${headcountLabel(current)} on this payroll${
                       current.excludedCount > 0
-                        ? `${current.excludedCount} left off with a reason recorded`
-                        : undefined
-                    }
-                  />
-                  <Stat
-                    label="Stops payroll"
-                    value={String(counts.blockers)}
-                    hint={counts.blockers === 0 ? "Nothing" : "Fix these first"}
-                  />
-                  <Stat
-                    label="Worth a look"
-                    value={String(counts.warnings)}
-                    hint="Does not stop payroll"
-                  />
-                  <Stat
-                    label="Pays on"
-                    value={current.payDate}
-                    hint={current.label ?? undefined}
-                  />
-                </CardBody>
-              </Card>
-
-              {/* One line, not the full list — the run itself is where each
-                  exception is read and fixed, and the stat cards above
-                  already carry the counts. Repeating every row here, in the
-                  same red-bordered shape the run uses, read as a wall of
-                  errors rather than a summary of one.
-
-                  Both sentences below are phrased as "before approving" —
-                  which stops being true the moment somebody has. An approved
-                  run's warnings are history, not a decision still open, so
-                  the whole callout is withheld once the run is frozen rather
-                  than left reading as an instruction nobody can act on. */}
-              {detail.run &&
-                detail.run.exceptions.length > 0 &&
-                current.status !== "APPROVED" &&
-                current.status !== "PAID" && (
-                  <NoticeLine tone={counts.blockers > 0 ? "danger" : "warning"}>
-                    <span>
-                      {counts.blockers > 0
+                        ? `, ${current.excludedCount} left off with a reason recorded`
+                        : ""
+                    }.`,
+                    detail.run &&
+                    detail.run.exceptions.length > 0 &&
+                    current.status !== "APPROVED" &&
+                    current.status !== "PAID"
+                      ? counts.blockers > 0
                         ? `${counts.blockers} ${counts.blockers === 1 ? "thing" : "things"} to fix before this can be approved${counts.warnings > 0 ? `, ${counts.warnings} more worth a look` : ""}.`
-                        : `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look before approving. Nothing stops the run.`}
+                        : `${counts.warnings} ${counts.warnings === 1 ? "thing" : "things"} worth a look before approving. Nothing stops the run.`
+                      : null,
+                  ]}
+                  action={
+                    <span className="flex items-center gap-4">
+                      <RunStatusBadge status={current.status} />
+                      {current.status !== "APPROVED" &&
+                        current.status !== "PAID" && (
+                          <Link
+                            href={`/payroll/runs/new?period=${current.period}`}
+                            className={NOTICE_LINK}
+                          >
+                            Open the run
+                          </Link>
+                        )}
                     </span>
-                    <Link
-                      href={`/payroll/runs/new?period=${current.period}`}
-                      className={NOTICE_LINK}
-                    >
-                      Open the run
-                    </Link>
-                  </NoticeLine>
-                )}
+                  }
+                />
+              </Card>
 
               {/* The last thing anybody does, and the easiest to forget.
                   -------------------------------------------------------
@@ -348,34 +305,31 @@ export function PayrollScreen() {
                   finished thing does not need a card, and the description on
                   the header above already says so. */}
               {current.status === "APPROVED" && (
-                <Callout
-                  tone="warning"
-                  /* The amount, not a repeat of the header above it. The
-                     header states the fact — approved, nobody paid — and this
-                     is the thing that makes it urgent. Two cards saying the
-                     same sentence is one of them wasted. */
-                  title={`${formatKobo(current.netKobo)} still to go out`}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span>
-                      {/* `paidPeopleLabel`, never `headcountLabel`. The latter
-                          returns "9 of 10 — 1 excluded", which inside a
-                          sentence reads as though the money were being split
-                          with somebody who is not being paid. The exclusion
-                          has its own line on the card above. */}
-                      Approved for {paidPeopleLabel(current)} and not yet paid.
-                      Pay them from the wallet, or take the bank file to your
-                      bank.
-                    </span>
-                    <ButtonLink
-                      href={`/payroll/runs/new?period=${current.period}&step=approve`}
-                      size="sm"
-                      variant="accent"
-                    >
-                      Pay them
-                    </ButtonLink>
-                  </div>
-                </Callout>
+                /* The amount, not a repeat of the header above it. The header
+                   states the fact (approved, nobody paid) and this is the thing
+                   that makes it urgent. A line with the one button, and the
+                   rest of the sentence behind the mark: two cards saying the
+                   same thing is one of them wasted.
+
+                   `paidPeopleLabel`, never `headcountLabel`. The latter returns
+                   "9 of 10 \u2014 1 excluded", which inside a sentence reads as
+                   though the money were being split with somebody who is not
+                   being paid. The exclusion has its own line on the card above. */
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-body-sm text-muted">
+                  <span className="font-medium text-ink">
+                    {formatKobo(current.netKobo)} still to go out
+                  </span>
+                  <AttentionMark
+                    text={`Approved for ${paidPeopleLabel(current)} and not yet paid. Pay them from the wallet, or take the bank file to your bank.`}
+                  />
+                  <ButtonLink
+                    href={`/payroll/runs/new?period=${current.period}&step=approve`}
+                    size="sm"
+                    variant="accent"
+                  >
+                    Pay them
+                  </ButtonLink>
+                </div>
               )}
 
               <TotalsPanel run={current} />

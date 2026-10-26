@@ -13,9 +13,9 @@ import {
   Skeleton,
   Tabs,
   useToast,
+  LoadState,
 } from "@/components/ui";
 import type { TabItem } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { company } from "@/lib/api/endpoints";
@@ -253,13 +253,6 @@ function Catalogue({
       <Header />
 
       <PageBody className="flex flex-col gap-6">
-        {isConnected && fetched?.error && (
-          <LoadFailure
-            subject="the integrations catalogue"
-            error={fetched.error}
-          />
-        )}
-
         {/* The one live integration first, then the ones we have not built. The
             consent screen sends somebody back here to the first tab, which is
             the default. */}
@@ -304,10 +297,13 @@ function Catalogue({
                   </Card>
                 )}
 
-                {rowsLoading ? (
-                  <Skeleton className="h-48 w-full" />
-                ) : (
-                  CATEGORY_ORDER.map((category) => {
+                <LoadState
+                  loading={rowsLoading}
+                  error={isConnected ? (fetched?.error ?? null) : null}
+                  subject="the integrations catalogue"
+                  skeleton="list"
+                >
+                  {CATEGORY_ORDER.map((category) => {
                     const items = rows.filter((i) => i.category === category);
                     if (items.length === 0) return null;
 
@@ -378,8 +374,8 @@ function Catalogue({
                         </CardBody>
                       </Card>
                     );
-                  })
-                )}
+                  })}
+                </LoadState>
 
                 <Card>
                   <CardHeader title="Already built in" level={3} />

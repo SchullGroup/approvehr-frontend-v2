@@ -19,8 +19,8 @@ import {
   TextLink,
   useToast,
   type AppliedFilter,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { LoadMore } from "@/components/portal/load-more";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
@@ -422,110 +422,107 @@ function Below({ id }: { id: string }) {
               />
             )}
 
-            {list.loading ? (
-              <div>
-                <Skeleton className="h-32 w-full" />
-                <span className="sr-only-focusable">Loading the list</span>
-              </div>
-            ) : list.error ? (
-              <LoadFailure
-                subject="this list"
-                error={list.error}
-                onRetry={() => list.reload()}
-              />
-            ) : rows.length === 0 && !stale ? (
-              <EmptyState
-                icon={<Inbox aria-hidden="true" />}
-                title={
-                  narrowed
-                    ? "Nobody matches"
-                    : noPassMark
-                      ? "There is no pass mark yet"
-                      : "Nobody is below the pass mark"
-                }
-                description={
-                  narrowed
-                    ? "Nobody fits the search and filters above."
-                    : noPassMark
-                      ? "Set one on the advert's Screening tab, and anybody under it appears here for a person to look at."
-                      : "Everybody waiting is at or above it, or has already been decided on."
-                }
-                action={
-                  narrowed ? (
-                    <Button variant="secondary" size="sm" onClick={clearAll}>
-                      Clear the search and filters
-                    </Button>
-                  ) : noPassMark ? (
-                    <ButtonLink
-                      href={`/hiring/postings/${id}?tab=screening`}
-                      variant="accent"
-                      size="sm"
-                    >
-                      Set a pass mark
-                    </ButtonLink>
-                  ) : undefined
-                }
-              />
-            ) : (
-              <>
-                <div className="flex flex-col gap-3">
-                  <Checkbox
-                    label="Select everyone shown"
-                    checked={selection.allOf(ids)}
-                    indeterminate={selection.someOf(ids)}
-                    disabled={Boolean(selection.everyone) || busy}
-                    onChange={() => selection.toggleMany(ids)}
-                  />
-                  <BulkBar
-                    selection={selection}
-                    busy={busy}
-                    progress={progress}
-                    offer={
-                      offer
-                        ? { count: offer.count, where: "in this list" }
-                        : null
-                    }
-                    onChoose={choose}
-                    choices={["reject", "clear"]}
-                  />
-                </div>
-
-                <ul
-                  aria-busy={stale}
-                  className={
-                    stale
-                      ? "flex list-none flex-col gap-3 p-0 opacity-60 transition-opacity"
-                      : "flex list-none flex-col gap-3 p-0 transition-opacity"
+            <LoadState
+              loading={list.loading}
+              subject="this list"
+              error={list.error}
+              onRetry={() => list.reload()}
+              skeleton="table"
+            >
+              {rows.length === 0 && !stale ? (
+                <EmptyState
+                  icon={<Inbox aria-hidden="true" />}
+                  title={
+                    narrowed
+                      ? "Nobody matches"
+                      : noPassMark
+                        ? "There is no pass mark yet"
+                        : "Nobody is below the pass mark"
                   }
-                >
-                  {rows.map((row) => (
-                    <li key={row.id}>
-                      <BelowRowView
-                        row={row}
-                        selected={selection.isSelected(row.id)}
-                        selectable={!selection.everyone && !busy}
-                        onToggle={() => selection.toggle(row.id)}
-                        onKeep={() => {
-                          setKeepError(null);
-                          setKeeping(row);
-                        }}
-                        canOpenFile={gateway.mode === "api" && canOpenFiles}
-                        criteriaHref={`/hiring/postings/${id}?tab=screening`}
-                      />
-                    </li>
-                  ))}
-                </ul>
-                <LoadMore
-                  shown={rows.length}
-                  total={list.total}
-                  noun={["person", "people"]}
-                  hasMore={list.hasMore}
-                  loading={list.loadingMore}
-                  error={list.moreError}
-                  onLoadMore={list.loadMore}
+                  description={
+                    narrowed
+                      ? "Nobody fits the search and filters above."
+                      : noPassMark
+                        ? "Set one on the advert's Screening tab, and anybody under it appears here for a person to look at."
+                        : "Everybody waiting is at or above it, or has already been decided on."
+                  }
+                  action={
+                    narrowed ? (
+                      <Button variant="secondary" size="sm" onClick={clearAll}>
+                        Clear the search and filters
+                      </Button>
+                    ) : noPassMark ? (
+                      <ButtonLink
+                        href={`/hiring/postings/${id}?tab=screening`}
+                        variant="accent"
+                        size="sm"
+                      >
+                        Set a pass mark
+                      </ButtonLink>
+                    ) : undefined
+                  }
                 />
-              </>
-            )}
+              ) : (
+                <>
+                  <div className="flex flex-col gap-3">
+                    <Checkbox
+                      label="Select everyone shown"
+                      checked={selection.allOf(ids)}
+                      indeterminate={selection.someOf(ids)}
+                      disabled={Boolean(selection.everyone) || busy}
+                      onChange={() => selection.toggleMany(ids)}
+                    />
+                    <BulkBar
+                      selection={selection}
+                      busy={busy}
+                      progress={progress}
+                      offer={
+                        offer
+                          ? { count: offer.count, where: "in this list" }
+                          : null
+                      }
+                      onChoose={choose}
+                      choices={["reject", "clear"]}
+                    />
+                  </div>
+
+                  <ul
+                    aria-busy={stale}
+                    className={
+                      stale
+                        ? "flex list-none flex-col gap-3 p-0 opacity-60 transition-opacity"
+                        : "flex list-none flex-col gap-3 p-0 transition-opacity"
+                    }
+                  >
+                    {rows.map((row) => (
+                      <li key={row.id}>
+                        <BelowRowView
+                          row={row}
+                          selected={selection.isSelected(row.id)}
+                          selectable={!selection.everyone && !busy}
+                          onToggle={() => selection.toggle(row.id)}
+                          onKeep={() => {
+                            setKeepError(null);
+                            setKeeping(row);
+                          }}
+                          canOpenFile={gateway.mode === "api" && canOpenFiles}
+                          criteriaHref={`/hiring/postings/${id}?tab=screening`}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                  <LoadMore
+                    shown={rows.length}
+                    total={list.total}
+                    noun={["person", "people"]}
+                    hasMore={list.hasMore}
+                    loading={list.loadingMore}
+                    error={list.moreError}
+                    onLoadMore={list.loadMore}
+                  />
+                </>
+              )}
+            </LoadState>
           </CardBody>
         </Card>
       </PageBody>

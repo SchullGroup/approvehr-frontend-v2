@@ -21,8 +21,8 @@ import {
   Skeleton,
   Switch,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { naira, wasDeducted, type StatutoryOperation } from "@/lib/api/payroll";
 import { usePermissions } from "@/lib/permissions";
@@ -461,9 +461,12 @@ export function PayrollSettingsForm() {
           className="bg-surface"
           title="What you deduct"
           meta={
-            settingsLoading ? (
-              <Badge tone="neutral" size="sm">
-                Reading
+            settingsLoading || settingsError ? (
+              /* The summary below is worked out from the standard defaults
+                 until the read answers, so after a failure it would name
+                 deductions the company was never asked about. */
+              <Badge tone={settingsError ? "warning" : "neutral"} size="sm">
+                {settingsError ? "Could not read" : "Reading"}
               </Badge>
             ) : (
               <>
@@ -494,8 +497,19 @@ export function PayrollSettingsForm() {
           onToggle={() => toggle("deductions")}
           panelClassName="flex flex-col gap-5 p-5"
         >
-          {settingsError ? (
-            <LoadFailure subject="what you deduct" error={settingsError} />
+          {settingsError || settingsLoading ? (
+            /* The one loading and failure rule, as a gate. While the settings
+               were loading this drew the three switches from the standard
+               defaults, and "Nothing has been chosen yet", as though that were
+               what the company had set. */
+            <LoadState
+              loading={settingsLoading}
+              error={settingsError}
+              subject="what you deduct"
+              skeleton="list"
+            >
+              {null}
+            </LoadState>
           ) : (
             <>
               {!available && (

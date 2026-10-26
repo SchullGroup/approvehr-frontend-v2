@@ -16,8 +16,8 @@ import {
   Stat,
   StatGrid,
   type AppliedFilter,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import type { AuditEntry, AuditListParams } from "@/lib/api/audit";
 import { dayHeading, dayKey, readableDate } from "@/lib/audit/language";
@@ -88,6 +88,10 @@ type ScreenProps = {
  * the session resolves, so a bare check would flash "you cannot see this" at
  * somebody who can.
  */
+/** A figure the read did not send is a dash, not a 0: nothing was counted. */
+const dash = (value: number | undefined): string =>
+  value === undefined ? "—" : String(value);
+
 export function AuditScreen(props: ScreenProps = {}) {
   const { can, loading } = usePermissions();
 
@@ -297,24 +301,16 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
       />
 
       <PageBody className="flex flex-col gap-5">
-        {trail.error && (
-          <LoadFailure
-            subject="the audit log"
-            error={trail.error}
-            onRetry={trail.reload}
-          />
-        )}
-
         <StatGrid>
           <Stat
             label="Changes"
-            value={String(options.summary?.changes ?? 0)}
+            value={dash(options.summary?.changes)}
             hint={periodHint(options.summary?.from, options.summary?.to)}
           />
-          <Stat label="People" value={String(options.summary?.actors ?? 0)} />
+          <Stat label="People" value={dash(options.summary?.actors)} />
           <Stat
             label="Times the log was opened"
-            value={String(options.summary?.reads ?? 0)}
+            value={dash(options.summary?.reads)}
           />
         </StatGrid>
 
@@ -325,7 +321,7 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
           searchLabel="Search the audit log"
           applied={appliedFilters}
           onClearAll={clear}
-          count={trail.total}
+          {...(trail.loading || trail.error ? {} : { count: trail.total })}
           noun={["entry", "entries"]}
         >
           {/* The count beside each name has to match the list beneath it.
@@ -425,78 +421,79 @@ function Trail({ initialEntityType = "", initialEntityId = "" }: ScreenProps) {
           </div>
         )}
 
-        {trail.loading && trail.entries.length === 0 ? (
-          <div className="flex flex-col gap-3">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-14 w-full" />
-            <Skeleton className="h-14 w-full" />
-            <Skeleton className="h-14 w-full" />
-            <span className="sr-only">Loading the audit log</span>
-          </div>
-        ) : trail.entries.length === 0 ? (
-          <Card>
-            <EmptyState
-              icon={<ShieldCheck aria-hidden="true" />}
-              title={
-                filtered
-                  ? "Nothing matches those filters"
-                  : "Nothing recorded yet"
-              }
-              description={
-                filtered
-                  ? "Widen the dates, or clear the filters and start again."
-                  : "Every change anyone makes will appear here as it happens."
-              }
-              action={
-                filtered ? (
-                  <Button variant="secondary" size="sm" onClick={clear}>
-                    Clear filters
-                  </Button>
-                ) : undefined
-              }
-            />
-          </Card>
-        ) : (
-          <div className="flex flex-col gap-6">
-            {groups.map((group) => (
-              <section
-                key={group.key}
-                aria-labelledby={`audit-day-${group.key}`}
-              >
-                <h2
-                  id={`audit-day-${group.key}`}
-                  className="mb-3 text-meta font-semibold text-faint"
+        <LoadState
+          loading={trail.loading}
+          error={trail.error}
+          subject="the audit log"
+          onRetry={trail.reload}
+          hasData={trail.entries.length > 0}
+          skeleton="table"
+        >
+          {trail.entries.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={<ShieldCheck aria-hidden="true" />}
+                title={
+                  filtered
+                    ? "Nothing matches those filters"
+                    : "Nothing recorded yet"
+                }
+                description={
+                  filtered
+                    ? "Widen the dates, or clear the filters and start again."
+                    : "Every change anyone makes will appear here as it happens."
+                }
+                action={
+                  filtered ? (
+                    <Button variant="secondary" size="sm" onClick={clear}>
+                      Clear filters
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </Card>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {groups.map((group) => (
+                <section
+                  key={group.key}
+                  aria-labelledby={`audit-day-${group.key}`}
                 >
-                  {group.heading}
-                </h2>
-                <ol role="list" className="flex flex-col">
-                  {group.entries.map((entry, index) => (
-                    <TrailEntry
-                      key={entry.id}
-                      entry={entry}
-                      now={trail.now}
-                      timeZone={timeZone}
-                      rail={index < group.entries.length - 1}
-                    />
-                  ))}
-                </ol>
-              </section>
-            ))}
+                  <h2
+                    id={`audit-day-${group.key}`}
+                    className="mb-3 text-meta font-semibold text-faint"
+                  >
+                    {group.heading}
+                  </h2>
+                  <ol role="list" className="flex flex-col">
+                    {group.entries.map((entry, index) => (
+                      <TrailEntry
+                        key={entry.id}
+                        entry={entry}
+                        now={trail.now}
+                        timeZone={timeZone}
+                        rail={index < group.entries.length - 1}
+                      />
+                    ))}
+                  </ol>
+                </section>
+              ))}
 
-            {trail.hasMore && (
-              <div className="flex justify-center">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={trail.loading}
-                  onClick={trail.showMore}
-                >
-                  {trail.loading ? "Loading…" : "Show older"}
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
+              {trail.hasMore && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={trail.loading}
+                    onClick={trail.showMore}
+                  >
+                    {trail.loading ? "Loading…" : "Show older"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </LoadState>
       </PageBody>
     </>
   );

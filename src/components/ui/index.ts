@@ -18,6 +18,7 @@ export {
   Callout,
 } from "./card";
 
+export { AttentionMark } from "./attention-mark";
 export { Badge, Tag, TierBadge } from "./badge";
 export type { BadgeTone, TierName } from "./badge";
 
@@ -105,3 +106,6 @@ export {
   SERIES,
 } from "./chart";
 export type { Point, Segment } from "./chart";
+
+export { BubbleChart } from "./bubble-chart";
+export type { BubbleChartProps, BubblePoint } from "./bubble-chart";

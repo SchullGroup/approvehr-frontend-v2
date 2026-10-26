@@ -10,7 +10,7 @@ import {
   CardBody,
   CardFooter,
   CardHeader,
-  Callout,
+  AttentionMark,
   Disclosure,
   EmptyState,
   Spinner,
@@ -335,28 +335,24 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           )}
 
           {owesAcknowledgement && (
-            <Callout
-              tone="accent"
-              title="Your rating is final and needs your response"
-            >
-              <p>
-                Your rating for {review.cycleName} is final. Please acknowledge
-                that you have seen it. The date is recorded.
-              </p>
-              <p className="mt-2">
-                <strong>Acknowledging is not agreeing.</strong> It only records
-                that you have seen your rating.
-              </p>
-              <p className="mt-3">
-                <Button
-                  variant="accent"
-                  size="sm"
-                  onClick={() => setSigningOff(true)}
-                >
-                  I have seen this
-                </Button>
-              </p>
-            </Callout>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-body-sm">
+              <span className="font-medium text-ink">
+                Your rating is final and needs your response
+              </span>
+              <AttentionMark
+                text={[
+                  `Your rating for ${review.cycleName} is final. Please acknowledge that you have seen it. The date is recorded.`,
+                  "Acknowledging is not agreeing. It only records that you have seen your rating.",
+                ]}
+              />
+              <Button
+                variant="accent"
+                size="sm"
+                onClick={() => setSigningOff(true)}
+              >
+                I have seen this
+              </Button>
+            </div>
           )}
 
           {/* -------------------------------------------------------- the mark */}
@@ -852,8 +848,8 @@ function ScorePanel({
                 key={issue.code}
                 className={
                   issue.severity === "BLOCKER"
-                    ? "rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
-                    : "rounded-md border border-warning-line bg-warning-soft px-3.5 py-2.5 text-body-sm text-ink"
+                    ? "text-body-sm text-danger-text"
+                    : "text-body-sm text-muted"
                 }
               >
                 {issue.message}

@@ -1,5 +1,5 @@
-import { createElement, useId } from "react";
-import { InfoTooltip } from "./field";
+import { createElement } from "react";
+import { AttentionMark } from "./attention-mark";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -42,12 +42,19 @@ export function CardHeader({
   title,
   description,
   action,
+  mark,
   className,
   level = 3,
 }: {
   title: React.ReactNode;
   description?: React.ReactNode;
   action?: React.ReactNode;
+  /**
+   * Something about the whole section that is worth a look: "3 of these have
+   * ended", "2 have no end date". Shown as an `AttentionMark` after the title,
+   * with the sentence behind it, where a banner above the card used to be.
+   */
+  mark?: string | readonly (string | null | false | undefined)[] | null | false;
   className?: string;
   /** Keeps the document outline correct wherever the card is placed. */
   level?: 2 | 3 | 4;
@@ -77,6 +84,9 @@ export function CardHeader({
             `Disclosure` came to be 17px beside it. See `globals.css`. */}
         <Heading className="text-body-md font-semibold text-ink">
           {title}
+          {mark && (
+            <AttentionMark text={mark} className="ml-2 -translate-y-px" />
+          )}
         </Heading>
         {description && (
           <p className="mt-1 text-body-sm leading-relaxed text-muted">
@@ -181,11 +191,14 @@ export function Stat({
   hint,
   trend,
   icon,
+  mark,
   className,
 }: {
   label: string;
   value: React.ReactNode;
   hint?: string;
+  /** Something about this figure worth a look: an `AttentionMark` beside the label. */
+  mark?: string | readonly (string | null | false | undefined)[] | null | false;
   trend?: { direction: "up" | "down" | "flat"; label: string };
   icon?: React.ReactNode;
   className?: string;
@@ -206,7 +219,10 @@ export function Stat({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-body-sm font-medium text-muted">{label}</p>
+        <p className="text-body-sm font-medium text-muted">
+          {label}
+          {mark && <AttentionMark text={mark} className="ml-1.5" />}
+        </p>
         {icon && (
           <span aria-hidden="true" className="text-faint [&>svg]:size-4">
             {icon}
@@ -299,92 +315,7 @@ export function StatGrid({
   );
 }
 
-/* -------------------------------------------------------------------------- */
-
-/** The words of a callout whose children are only words, or null. */
-function plainText(children: React.ReactNode): string | null {
-  if (typeof children === "string") return children;
-  if (typeof children === "number") return String(children);
-  if (
-    Array.isArray(children) &&
-    children.every(
-      (child) => typeof child === "string" || typeof child === "number",
-    )
-  ) {
-    return children.join("");
-  }
-  return null;
-}
-
-/** A tinted callout. Used for AI output, regulatory notes and warnings. */
-export function Callout({
-  tone = "info",
-  title,
-  icon,
-  className,
-  children,
-}: {
-  tone?: "info" | "success" | "warning" | "danger" | "accent" | "neutral";
-  title?: string;
-  icon?: React.ReactNode;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  const quiet = useId();
-  /* Information is not worth a coloured block on the page. It becomes a quiet
-     line, with anything past the first sentence behind an info icon that shows
-     it on hover or focus. Errors, successes and anything with something to
-     click stay as they are. */
-  const text = plainText(children);
-  if (
-    text !== null &&
-    (tone === "info" ||
-      tone === "neutral" ||
-      tone === "accent" ||
-      tone === "warning")
-  ) {
-    const first = text.match(/^.*?[.!?](?:\s|$)/)?.[0].trim() ?? text;
-    const visible = title ?? first;
-    const detail = title ? text : text.slice(first.length).trim();
-    return (
-      <p
-        className={cn(
-          "inline-flex max-w-full items-center gap-2 text-body-sm text-muted",
-          className,
-        )}
-      >
-        <span className="min-w-0">{visible}</span>
-        {detail.length > 0 && (
-          <InfoTooltip id={quiet} text={detail} label="Read more" />
-        )}
-      </p>
-    );
-  }
-
-  const tones = {
-    info: "bg-info-soft border-info-line text-info-text",
-    success: "bg-accent-soft border-accent-line text-accent-text",
-    warning: "bg-warning-soft border-warning-line text-warning-text",
-    danger: "bg-warning-soft border-warning-line text-warning-text",
-    accent: "bg-accent-soft border-accent-line text-accent-text",
-    neutral: "bg-canvas border-line text-body",
-  } as const;
-
-  return (
-    <div
-      className={cn("flex gap-3 rounded-lg border p-4", tones[tone], className)}
-    >
-      {icon && (
-        <span aria-hidden="true" className="shrink-0 mt-px [&>svg]:size-[18px]">
-          {icon}
-        </span>
-      )}
-      <div className="min-w-0 text-body-sm leading-relaxed">
-        {title && <p className="font-semibold mb-1">{title}</p>}
-        <div className={tone === "neutral" ? "" : "text-ink/85"}>
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
+/* A callout is a sentence, never a box: see `callout.tsx`. It lives there because it
+   reads whether it is in a dialog, which a Server Component cannot do, and this
+   file is imported by some. */
+export { Callout } from "./callout";

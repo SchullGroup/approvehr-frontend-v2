@@ -23,49 +23,42 @@ export const TONES: Record<BadgeTone, string> = {
   ink: "bg-fill-strong text-white border-fill-strong",
 };
 
-const DOTS: Record<BadgeTone, string> = {
-  neutral: "bg-muted",
-  accent: "bg-accent",
-  success: "bg-accent",
-  warning: "bg-warning",
-  danger: "bg-warning",
-  info: "bg-accent",
-  ink: "bg-white",
-};
-
+/**
+ * A status, written as plain muted text.
+ *
+ * Not a pill: the owner does not want coloured chips for status, and the only
+ * colour left on a row is its buttons. `tone` and `dot` are still accepted so
+ * the many call sites keep compiling and keep saying what they mean, but they
+ * no longer change how it looks; the label carries the meaning on its own.
+ */
 export function Badge({
-  tone = "neutral",
   size = "md",
-  dot = false,
   icon,
   className,
   children,
+  tone: _tone,
+  dot: _dot,
   ...props
 }: {
   tone?: BadgeTone;
   size?: "sm" | "md";
-  /** Adds a status dot. The label still carries the meaning. */
+  /** Kept for existing callers; has no visual effect. */
   dot?: boolean;
   icon?: React.ReactNode;
   className?: string;
   children: React.ReactNode;
 } & React.HTMLAttributes<HTMLSpanElement>) {
+  void _tone;
+  void _dot;
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border font-medium whitespace-nowrap",
-        size === "sm" ? "px-2 py-0.5 text-meta" : "px-2.5 py-1 text-meta",
-        TONES[tone],
+        "inline-flex items-center gap-1.5 whitespace-nowrap text-muted",
+        size === "sm" ? "text-meta" : "text-body-sm",
         className,
       )}
       {...props}
     >
-      {dot && (
-        <span
-          aria-hidden="true"
-          className={cn("size-1.5 rounded-full shrink-0", DOTS[tone])}
-        />
-      )}
       {icon && (
         <span aria-hidden="true" className="shrink-0 [&>svg]:size-3">
           {icon}

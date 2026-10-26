@@ -219,11 +219,7 @@ export function AssignPatternModal({
       busy={busy}
       canContinue={canContinue}
     >
-      {error && (
-        <p className="mb-4 rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink">
-          {error}
-        </p>
-      )}
+      {error && <p className="mb-4 text-body-sm text-danger-text">{error}</p>}
 
       {stepper.index === 0 && (
         <div>

@@ -16,7 +16,7 @@ import {
   Badge,
   Button,
   ButtonLink,
-  Callout,
+  AttentionMark,
   Card,
   CardBody,
   CardHeader,
@@ -994,19 +994,23 @@ export function NewEmployeeForm() {
         )}
 
         {showResume && drafts.saved && (
-          <Callout tone="accent" title="You have an unfinished draft">
-            <span className="block">
-              Saved {savedAgo(drafts.saved.savedAt)}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-body-sm text-muted">
+            <span>
+              You have an unfinished draft, saved{" "}
+              {savedAgo(drafts.saved.savedAt)}
               {drafts.saved.draft.firstName.trim()
                 ? ` for ${drafts.saved.draft.firstName.trim()}`
                 : ""}
-              . Drafts live in this browser only: they are not on your other
-              devices and clearing site data removes them.
+              .
             </span>
-            <span className="mt-3 flex flex-wrap gap-2">
+            <AttentionMark
+              tone="info"
+              text="Drafts live in this browser only: they are not on your other devices and clearing site data removes them."
+            />
+            <span className="flex flex-wrap gap-2">
               <Button
                 type="button"
-                variant="accent"
+                variant="secondary"
                 size="sm"
                 onClick={resumeDraft}
               >
@@ -1022,7 +1026,7 @@ export function NewEmployeeForm() {
                 Discard
               </Button>
             </span>
-          </Callout>
+          </div>
         )}
 
         <Card>
@@ -1561,7 +1565,7 @@ export function NewEmployeeForm() {
                           </Select>
                         </Field>
                         {!orgTax.loading && !orgTax.taxState && (
-                          <div className="rounded-xl border border-warning-line bg-warning-soft p-4 sm:col-span-2">
+                          <div className="rounded-lg border border-line p-4 sm:col-span-2">
                             <p className="text-body-sm font-medium text-ink">
                               Set your company&rsquo;s default tax state
                             </p>
@@ -2071,7 +2075,7 @@ export function NewEmployeeForm() {
           </p>
 
           {added && added.inviteWarning && (
-            <p className="w-full rounded-md bg-warning-soft p-3 text-left text-meta leading-relaxed text-warning-text">
+            <p className="w-full text-left text-meta leading-relaxed text-body">
               {added.inviteWarning}
             </p>
           )}

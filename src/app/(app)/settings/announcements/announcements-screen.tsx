@@ -20,7 +20,6 @@ import {
   ConfirmDialog,
   EmptyState,
   RowActions,
-  SkeletonText,
   Stat,
   StatGrid,
   TBody,
@@ -34,8 +33,8 @@ import {
   Field,
   FilterBar,
   Select,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -105,6 +104,9 @@ export function AnnouncementsScreen() {
     order: "desc",
     ...(search.trim() ? { q: search.trim() } : {}),
   });
+  /* The three figures count what the read returned: nothing, both before it
+     answers and after it fails. A dash, not a 0 and not "Nothing has expired". */
+  const boardReady = !board.loading && !board.error;
   const mutations = useAnnouncementMutations();
   const departments = useDepartments();
 
@@ -251,31 +253,27 @@ export function AnnouncementsScreen() {
           </Callout>
         )}
 
-        <LoadFailure
-          subject="the noticeboard"
-          error={board.error}
-          onRetry={board.reload}
-        />
-
         <StatGrid columns={3}>
           <Stat
             label="On the board"
-            value={String(live.length)}
+            value={boardReady ? String(live.length) : "—"}
             hint="staff see these"
           />
           <Stat
             label="Drafts"
-            value={String(drafts.length)}
+            value={boardReady ? String(drafts.length) : "—"}
             hint="nobody sees these"
           />
           {/* The state that has no other symptom. See the header. */}
           <Stat
             label="Come down already"
-            value={String(expired.length)}
+            value={boardReady ? String(expired.length) : "—"}
             hint={
-              expired.length > 0
-                ? "Published, but past their date"
-                : "Nothing has expired"
+              !boardReady
+                ? undefined
+                : expired.length > 0
+                  ? "Published, but past their date"
+                  : "Nothing has expired"
             }
           />
         </StatGrid>
@@ -317,180 +315,190 @@ export function AnnouncementsScreen() {
             </FilterBar>
           </CardBody>
 
-          {board.loading ? (
-            <CardBody>
-              <SkeletonText lines={6} />
-            </CardBody>
-          ) : board.announcements.length === 0 ? (
-            <EmptyState
-              icon={<Megaphone aria-hidden="true" />}
-              title={
-                search.trim()
-                  ? "No notice matches that"
-                  : filter === "draft"
-                    ? "No drafts"
-                    : "Nothing on the noticeboard yet"
-              }
-              description={
-                search.trim()
-                  ? "This searches the title and the wording."
-                  : "The first one is usually the thing people keep asking about: when payday lands, or what happens over Christmas."
-              }
-              action={
-                canManage && board.editable && !search.trim() ? (
-                  <Button variant="accent" onClick={() => setWriting(true)}>
-                    Write the first notice
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <>
-              <div className="hidden sm:block">
-                <TableWrap
-                  className="rounded-none border-0"
-                  caption="Every notice, newest first, with who it is for and whether it is on the board"
-                >
-                  <THead>
-                    <TH>Notice</TH>
-                    <TH>Who it is for</TH>
-                    <TH>State</TH>
-                    {canManage && board.editable && (
-                      <TH align="right">
-                        <span className="sr-only">Actions</span>
-                      </TH>
-                    )}
-                  </THead>
-                  <TBody>
-                    {board.announcements.map((notice) => (
-                      <TR key={notice.id}>
-                        <TDPrimary
-                          title={
-                            <span className="flex flex-wrap items-center gap-2">
-                              {notice.title}
-                              {notice.mandatory && (
-                                <Badge tone="accent" size="sm">
-                                  Must read
-                                </Badge>
-                              )}
-                              {notice.pinned && (
-                                <Badge
-                                  tone="accent"
-                                  size="sm"
-                                  icon={
-                                    <Pin
-                                      aria-hidden="true"
-                                      className="size-3"
-                                    />
+          <LoadState
+            loading={board.loading}
+            error={board.error}
+            subject="the noticeboard"
+            onRetry={board.reload}
+            hasData={board.announcements.length > 0}
+            skeleton="list"
+          >
+            {board.announcements.length === 0 ? (
+              <EmptyState
+                icon={<Megaphone aria-hidden="true" />}
+                title={
+                  search.trim()
+                    ? "No notice matches that"
+                    : filter === "draft"
+                      ? "No drafts"
+                      : "Nothing on the noticeboard yet"
+                }
+                description={
+                  search.trim()
+                    ? "This searches the title and the wording."
+                    : "The first one is usually the thing people keep asking about: when payday lands, or what happens over Christmas."
+                }
+                action={
+                  canManage && board.editable && !search.trim() ? (
+                    <Button variant="accent" onClick={() => setWriting(true)}>
+                      Write the first notice
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap
+                    className="rounded-none border-0"
+                    caption="Every notice, newest first, with who it is for and whether it is on the board"
+                  >
+                    <THead>
+                      <TH>Notice</TH>
+                      <TH>Who it is for</TH>
+                      <TH>State</TH>
+                      {canManage && board.editable && (
+                        <TH align="right">
+                          <span className="sr-only">Actions</span>
+                        </TH>
+                      )}
+                    </THead>
+                    <TBody>
+                      {board.announcements.map((notice) => (
+                        <TR key={notice.id}>
+                          <TDPrimary
+                            title={
+                              <span className="flex flex-wrap items-center gap-2">
+                                {notice.title}
+                                {notice.mandatory && (
+                                  <Badge tone="accent" size="sm">
+                                    Must read
+                                  </Badge>
+                                )}
+                                {notice.pinned && (
+                                  <Badge
+                                    tone="accent"
+                                    size="sm"
+                                    icon={
+                                      <Pin
+                                        aria-hidden="true"
+                                        className="size-3"
+                                      />
+                                    }
+                                  >
+                                    Pinned
+                                  </Badge>
+                                )}
+                              </span>
+                            }
+                            subtitle={firstLine(notice.body)}
+                          />
+                          <TD className="text-muted">
+                            {audienceLabel(
+                              notice.audience,
+                              notice.departmentNames,
+                            )}
+                          </TD>
+                          <TD>
+                            <State notice={notice} />
+                          </TD>
+                          {canManage && board.editable && (
+                            <TD align="right">
+                              <div className="flex justify-end gap-1.5">
+                                <NoticeRowActions
+                                  notice={notice}
+                                  busy={busy}
+                                  onEdit={() => setEditing(notice)}
+                                  onTakeDown={() => setTakingDown(notice)}
+                                  onReaders={() => setReading(notice)}
+                                  onPublish={() =>
+                                    void run(
+                                      () => mutations.publish(notice.id),
+                                      `${notice.title} is on the board`,
+                                      reachSentence(notice),
+                                    )
                                   }
-                                >
-                                  Pinned
-                                </Badge>
-                              )}
-                            </span>
-                          }
-                          subtitle={firstLine(notice.body)}
-                        />
-                        <TD className="text-muted">
+                                  onDelete={() => setDeleting(notice)}
+                                />
+                              </div>
+                            </TD>
+                          )}
+                        </TR>
+                      ))}
+                    </TBody>
+                  </TableWrap>
+                </div>
+
+                <ul className="divide-y divide-line sm:hidden">
+                  {board.announcements.map((notice) => (
+                    <li key={notice.id} className="flex flex-col gap-2 p-4">
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                          {notice.title}
+                          {notice.mandatory && (
+                            <Badge tone="accent" size="sm">
+                              Must read
+                            </Badge>
+                          )}
+                          {notice.pinned && (
+                            <Badge
+                              tone="accent"
+                              size="sm"
+                              icon={
+                                <Pin aria-hidden="true" className="size-3" />
+                              }
+                            >
+                              Pinned
+                            </Badge>
+                          )}
+                        </p>
+                        <p className="mt-0.5 text-meta text-muted">
+                          {firstLine(notice.body)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">
+                          Who it is for
+                        </span>
+                        <span className="text-body-sm text-muted">
                           {audienceLabel(
                             notice.audience,
                             notice.departmentNames,
                           )}
-                        </TD>
-                        <TD>
-                          <State notice={notice} />
-                        </TD>
-                        {canManage && board.editable && (
-                          <TD align="right">
-                            <div className="flex justify-end gap-1.5">
-                              <NoticeRowActions
-                                notice={notice}
-                                busy={busy}
-                                onEdit={() => setEditing(notice)}
-                                onTakeDown={() => setTakingDown(notice)}
-                                onReaders={() => setReading(notice)}
-                                onPublish={() =>
-                                  void run(
-                                    () => mutations.publish(notice.id),
-                                    `${notice.title} is on the board`,
-                                    reachSentence(notice),
-                                  )
-                                }
-                                onDelete={() => setDeleting(notice)}
-                              />
-                            </div>
-                          </TD>
-                        )}
-                      </TR>
-                    ))}
-                  </TBody>
-                </TableWrap>
-              </div>
-
-              <ul className="divide-y divide-line sm:hidden">
-                {board.announcements.map((notice) => (
-                  <li key={notice.id} className="flex flex-col gap-2 p-4">
-                    <div className="min-w-0">
-                      <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-                        {notice.title}
-                        {notice.mandatory && (
-                          <Badge tone="accent" size="sm">
-                            Must read
-                          </Badge>
-                        )}
-                        {notice.pinned && (
-                          <Badge
-                            tone="accent"
-                            size="sm"
-                            icon={<Pin aria-hidden="true" className="size-3" />}
-                          >
-                            Pinned
-                          </Badge>
-                        )}
-                      </p>
-                      <p className="mt-0.5 text-meta text-muted">
-                        {firstLine(notice.body)}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-body-sm text-muted">
-                        Who it is for
-                      </span>
-                      <span className="text-body-sm text-muted">
-                        {audienceLabel(notice.audience, notice.departmentNames)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-body-sm text-muted">State</span>
-                      <State notice={notice} />
-                    </div>
-
-                    {canManage && board.editable && (
-                      <div className="flex flex-wrap gap-1.5">
-                        <NoticeRowActions
-                          notice={notice}
-                          busy={busy}
-                          onEdit={() => setEditing(notice)}
-                          onTakeDown={() => setTakingDown(notice)}
-                          onReaders={() => setReading(notice)}
-                          onPublish={() =>
-                            void run(
-                              () => mutations.publish(notice.id),
-                              `${notice.title} is on the board`,
-                              reachSentence(notice),
-                            )
-                          }
-                          onDelete={() => setDeleting(notice)}
-                        />
+                        </span>
                       </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">State</span>
+                        <State notice={notice} />
+                      </div>
+
+                      {canManage && board.editable && (
+                        <div className="flex flex-wrap gap-1.5">
+                          <NoticeRowActions
+                            notice={notice}
+                            busy={busy}
+                            onEdit={() => setEditing(notice)}
+                            onTakeDown={() => setTakingDown(notice)}
+                            onReaders={() => setReading(notice)}
+                            onPublish={() =>
+                              void run(
+                                () => mutations.publish(notice.id),
+                                `${notice.title} is on the board`,
+                                reachSentence(notice),
+                              )
+                            }
+                            onDelete={() => setDeleting(notice)}
+                          />
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </LoadState>
 
           {board.announcements.length > 0 &&
             board.total > board.announcements.length && (

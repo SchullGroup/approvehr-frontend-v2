@@ -10,10 +10,12 @@ import {
   CardHeader,
   RadioCard,
   Skeleton,
-  TextLink,
+  AttentionMark,
   useToast,
 } from "@/components/ui";
+import Link from "next/link";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { whatAcceptingDoes } from "@/lib/hiring/hired/copy";
 import type { OnOfferAccepted } from "@/lib/hiring/hired/model";
 import { useHiredSettings } from "@/lib/hiring/hired/use-hired";
@@ -111,33 +113,35 @@ export function AcceptedOffersScreen() {
       ) : (
         <>
           {settings.onOfferAccepted === "CREATE_EMPLOYEE" ? (
-            <Callout
-              tone="info"
-              title="Accepting an offer makes the employee record"
-            >
-              This is how accepting an offer worked before the Hired list
-              existed: the employee record is made at that moment.{" "}
-              {settings.effective === "HIRED_LIST_ONLY"
-                ? "Your plan no longer includes Core HR, though, so for now accepting an offer only adds the person to the Hired list. "
-                : ""}
-              Companies that are new to hiring now start with the Hired list
-              alone, where accepting an offer adds the person and stops there.
-              You can switch to that below.{" "}
-              <TextLink href="/hiring/hired">Open the Hired list</TextLink>
-            </Callout>
+            <NoticeLine tone="muted">
+              <span>Accepting an offer makes the employee record</span>
+              <AttentionMark
+                tone="info"
+                text={`This is how accepting an offer worked before the Hired list existed: the employee record is made at that moment. ${
+                  settings.effective === "HIRED_LIST_ONLY"
+                    ? "Your plan no longer includes Core HR, though, so for now accepting an offer only adds the person to the Hired list. "
+                    : ""
+                }Companies that are new to hiring now start with the Hired list alone, where accepting an offer adds the person and stops there. You can switch to that below.`}
+              />
+              <Link className={NOTICE_LINK} href="/hiring/hired">
+                Open the Hired list
+              </Link>
+            </NoticeLine>
           ) : (
-            <Callout tone="info" title="How accepting an offer works now">
-              Accepting an offer puts the person on the Hired list and stops
-              there. Before the Hired list existed it also created the employee
-              record straight away, and you can choose that again below. Offers
-              accepted before the change are already on the list, and the people
-              who became employees show as Employee created.{" "}
-              <TextLink href="/hiring/hired">Open the Hired list</TextLink>
-            </Callout>
+            <NoticeLine tone="muted">
+              <span>How accepting an offer works now</span>
+              <AttentionMark
+                tone="info"
+                text="Accepting an offer puts the person on the Hired list and stops there. Before the Hired list existed it also created the employee record straight away, and you can choose that again below. Offers accepted before the change are already on the list, and the people who became employees show as Employee created."
+              />
+              <Link className={NOTICE_LINK} href="/hiring/hired">
+                Open the Hired list
+              </Link>
+            </NoticeLine>
           )}
 
           <Callout
-            tone={settings.coreHr ? "success" : "warning"}
+            tone={settings.coreHr ? "info" : "warning"}
             title={settings.coreHr ? "Core HR is on" : "Core HR is not on"}
           >
             {settings.coreHr

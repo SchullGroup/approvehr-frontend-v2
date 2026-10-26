@@ -13,6 +13,7 @@ import {
   type ApiPayComponent,
 } from "@/lib/api/pay-components";
 import { basisOf, money } from "@/lib/pay/flags";
+import { useToday } from "@/lib/use-today";
 
 /**
  * "Assign specific people" from the Allowances or Deductions tab itself.
@@ -53,6 +54,12 @@ export function AssignComponentToManyDialog({
   ) => void;
 }) {
   const fixed = component.basis === "FIXED";
+  /* An explicit start, never left to the API. Left out, it defaults to the first
+     of the current month **in UTC**, which in the first hours of a month in
+     Lagos is last month, and for an allowance that counts from the day it is
+     given that moves the whole count by a month. The company's own day is the
+     one that is meant. */
+  const today = useToday();
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("");
   const [from, setFrom] = useState("");
@@ -132,7 +139,7 @@ export function AssignComponentToManyDialog({
                 />
               </Field>
             )}
-            <Field label="Starts" help="Leave blank to start this month.">
+            <Field label="Starts" help="Leave blank to start today.">
               <Input
                 type="date"
                 value={from}
@@ -168,7 +175,7 @@ export function AssignComponentToManyDialog({
         onAssign(employeeIds, {
           ...(amountKobo !== undefined ? { amountKobo } : {}),
           ...(rateValue !== undefined ? { rate: rateValue } : {}),
-          ...(from ? { effectiveFrom: from } : {}),
+          effectiveFrom: from || today,
           ...(to ? { effectiveTo: to } : {}),
           ...(note.trim() ? { note: note.trim() } : {}),
         })

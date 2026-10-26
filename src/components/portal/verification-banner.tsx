@@ -76,11 +76,14 @@ export function VerificationBanner() {
   }
 
   return (
-    <div className="no-print border-b border-warning-line bg-warning-soft px-4 py-2.5 sm:px-5">
+    <div className="no-print border-b border-line bg-surface px-4 py-2 sm:px-5">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <span className="flex min-w-0 flex-1 items-center gap-2 text-body-sm text-warning-text">
-          <Mail aria-hidden="true" className="size-4 shrink-0" />
-          <span className="min-w-0">
+        <span className="flex min-w-0 flex-1 items-center gap-2 text-body-sm text-body">
+          <Mail
+            aria-hidden="true"
+            className="size-4 shrink-0 text-warning-text"
+          />
+          <span className="min-w-0 [overflow-wrap:anywhere]">
             {sent
               ? `Sent. Check ${user?.email ?? "your inbox"} for the link.`
               : `Confirm ${user?.email ?? "your email"} to keep your account secure.`}
@@ -105,7 +108,7 @@ export function VerificationBanner() {
           <button
             type="button"
             onClick={() => setDismissed(true)}
-            className="text-body-sm font-medium text-warning-text underline underline-offset-2 hover:text-ink"
+            className="text-body-sm font-medium text-muted underline underline-offset-2 hover:text-ink"
           >
             Dismiss
           </button>

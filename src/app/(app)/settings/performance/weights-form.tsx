@@ -546,7 +546,7 @@ function SelfAssessment({
         </p>
 
         {on ? (
-          <p className="rounded-md border border-warning-line bg-warning-soft px-3.5 py-2.5 text-body-sm text-ink">
+          <p className="text-body-sm text-muted">
             {changed ? "If you save this: at" : "At"} {weightLabel(weightBp)},
             somebody who rates themselves 5 out of 5 rather than 3 out of 5
             moves their own final mark by {weightLabel(swingBp)}, more if any

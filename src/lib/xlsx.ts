@@ -183,6 +183,13 @@ export type SheetSpec = {
   rows: readonly (readonly string[])[];
   /** Rows to render bold, by index. The header row, normally. */
   boldRows?: readonly number[];
+  /**
+   * Columns (0-based) whose cells are written as real numbers, header row
+   * excepted. For an amount a bank's upload reads as money; everything else
+   * stays text so an account number keeps its leading zero. A cell that is not a
+   * plain number is still written as text rather than refused.
+   */
+  numberColumns?: readonly number[];
   /** Column widths in characters, in order. Missing ones get a default. */
   widths?: readonly number[];
   /** Freeze the first row so a long file keeps its headings on screen. */
@@ -247,6 +254,13 @@ function sheetXml(sheet: SheetSpec): string {
         .map((value, columnIdx) => {
           if (value === "") return "";
           const reference = `${columnName(columnIdx)}${number}`;
+          if (
+            rowIndex > 0 &&
+            sheet.numberColumns?.includes(columnIdx) &&
+            /^-?\d+(\.\d+)?$/.test(value)
+          ) {
+            return `<c r="${reference}"><v>${value}</v></c>`;
+          }
           const space = value !== value.trim() ? ' xml:space="preserve"' : "";
           return `<c r="${reference}" t="inlineStr"${style}><is><t${space}>${escapeXml(value)}</t></is></c>`;
         })

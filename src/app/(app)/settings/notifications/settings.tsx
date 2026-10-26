@@ -19,6 +19,7 @@ import {
   TR,
   TableWrap,
   useToast,
+  LoadState,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PushPanel } from "./push-panel";
@@ -265,16 +266,9 @@ function Rules() {
       <PageBody className="flex flex-col gap-6">
         <PushPanel />
 
-        {isConnected && fetched?.error && (
-          <LoadFailure
-            subject="your notification settings"
-            error={fetched.error}
-          />
-        )}
-
         {protectedOff.length > 0 && (
           <Callout
-            tone="danger"
+            tone="warning"
             title={`${protectedOff[0].event} is now silent`}
           >
             This one is a control, not a convenience. With it off, a bank
@@ -296,149 +290,155 @@ function Rules() {
             title="Events"
             description="Changes save as you make them."
           />
-          {rulesLoading ? (
-            <CardBody>
-              <Skeleton className="h-40 w-full" />
-            </CardBody>
-          ) : rules.length === 0 ? (
-            <CardBody>
-              <p className="text-body-sm text-muted">
-                No notification rules are set up yet.
-              </p>
-            </CardBody>
-          ) : (
-            <>
-              <div className="hidden sm:block">
-                <TableWrap className="rounded-none border-0">
-                  <THead>
-                    <TH>Event</TH>
-                    <TH>Recipients</TH>
-                    <TH align="center">Email</TH>
-                    <TH align="center">In app</TH>
-                  </THead>
-                  <TBody>
-                    {rules.map((rule) => {
-                      const silent = !rule.email && !rule.inApp;
-                      return (
-                        <TR key={rule.id}>
-                          <TDPrimary
-                            title={
-                              <span className="flex flex-wrap items-center gap-2">
-                                {rule.event}
-                                {rule.isProtected && (
-                                  <Badge tone="warning" size="sm">
-                                    Control
-                                  </Badge>
-                                )}
-                                {silent && (
-                                  <Badge tone="neutral" size="sm">
-                                    Silent
-                                  </Badge>
-                                )}
+          <LoadState
+            loading={rulesLoading}
+            error={isConnected ? (fetched?.error ?? null) : null}
+            subject="your notification settings"
+            hasData={rules.length > 0}
+            skeleton="table"
+          >
+            {rules.length === 0 ? (
+              <CardBody>
+                <p className="text-body-sm text-muted">
+                  No notification rules are set up yet.
+                </p>
+              </CardBody>
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap className="rounded-none border-0">
+                    <THead>
+                      <TH>Event</TH>
+                      <TH>Recipients</TH>
+                      <TH align="center">Email</TH>
+                      <TH align="center">In app</TH>
+                    </THead>
+                    <TBody>
+                      {rules.map((rule) => {
+                        const silent = !rule.email && !rule.inApp;
+                        return (
+                          <TR key={rule.id}>
+                            <TDPrimary
+                              title={
+                                <span className="flex flex-wrap items-center gap-2">
+                                  {rule.event}
+                                  {rule.isProtected && (
+                                    <Badge tone="warning" size="sm">
+                                      Control
+                                    </Badge>
+                                  )}
+                                  {silent && (
+                                    <Badge tone="neutral" size="sm">
+                                      Silent
+                                    </Badge>
+                                  )}
+                                </span>
+                              }
+                              subtitle={rule.detail ?? undefined}
+                            />
+                            <TD className="text-muted">{rule.recipients}</TD>
+                            <TD align="center">
+                              <span className="inline-flex justify-center">
+                                <Switch
+                                  checked={rule.email}
+                                  label=""
+                                  aria-label={`Email for ${rule.event}`}
+                                  onChange={(e) =>
+                                    void toggle(rule, {
+                                      email: e.target.checked,
+                                    })
+                                  }
+                                />
                               </span>
-                            }
-                            subtitle={rule.detail ?? undefined}
-                          />
-                          <TD className="text-muted">{rule.recipients}</TD>
-                          <TD align="center">
-                            <span className="inline-flex justify-center">
-                              <Switch
-                                checked={rule.email}
-                                label=""
-                                aria-label={`Email for ${rule.event}`}
-                                onChange={(e) =>
-                                  void toggle(rule, {
-                                    email: e.target.checked,
-                                  })
-                                }
-                              />
-                            </span>
-                          </TD>
-                          <TD align="center">
-                            <span className="inline-flex justify-center">
-                              <Switch
-                                checked={rule.inApp}
-                                label=""
-                                aria-label={`In-app notification for ${rule.event}`}
-                                onChange={(e) =>
-                                  void toggle(rule, {
-                                    inApp: e.target.checked,
-                                  })
-                                }
-                              />
-                            </span>
-                          </TD>
-                        </TR>
-                      );
-                    })}
-                  </TBody>
-                </TableWrap>
-              </div>
+                            </TD>
+                            <TD align="center">
+                              <span className="inline-flex justify-center">
+                                <Switch
+                                  checked={rule.inApp}
+                                  label=""
+                                  aria-label={`In-app notification for ${rule.event}`}
+                                  onChange={(e) =>
+                                    void toggle(rule, {
+                                      inApp: e.target.checked,
+                                    })
+                                  }
+                                />
+                              </span>
+                            </TD>
+                          </TR>
+                        );
+                      })}
+                    </TBody>
+                  </TableWrap>
+                </div>
 
-              <ul className="divide-y divide-line sm:hidden">
-                {rules.map((rule) => {
-                  const silent = !rule.email && !rule.inApp;
-                  return (
-                    <li key={rule.id} className="flex flex-col gap-2 p-4">
-                      <div className="min-w-0">
-                        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-                          {rule.event}
-                          {rule.isProtected && (
-                            <Badge tone="warning" size="sm">
-                              Control
-                            </Badge>
-                          )}
-                          {silent && (
-                            <Badge tone="neutral" size="sm">
-                              Silent
-                            </Badge>
-                          )}
-                        </p>
-                        {rule.detail && (
-                          <p className="mt-0.5 text-meta text-muted">
-                            {rule.detail}
+                <ul className="divide-y divide-line sm:hidden">
+                  {rules.map((rule) => {
+                    const silent = !rule.email && !rule.inApp;
+                    return (
+                      <li key={rule.id} className="flex flex-col gap-2 p-4">
+                        <div className="min-w-0">
+                          <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                            {rule.event}
+                            {rule.isProtected && (
+                              <Badge tone="warning" size="sm">
+                                Control
+                              </Badge>
+                            )}
+                            {silent && (
+                              <Badge tone="neutral" size="sm">
+                                Silent
+                              </Badge>
+                            )}
                           </p>
-                        )}
-                      </div>
+                          {rule.detail && (
+                            <p className="mt-0.5 text-meta text-muted">
+                              {rule.detail}
+                            </p>
+                          )}
+                        </div>
 
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-body-sm text-muted">
-                          Recipients
-                        </span>
-                        <span className="text-right text-body-sm text-muted">
-                          {rule.recipients}
-                        </span>
-                      </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-body-sm text-muted">
+                            Recipients
+                          </span>
+                          <span className="text-right text-body-sm text-muted">
+                            {rule.recipients}
+                          </span>
+                        </div>
 
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-body-sm text-muted">Email</span>
-                        <Switch
-                          checked={rule.email}
-                          label=""
-                          aria-label={`Email for ${rule.event}`}
-                          onChange={(e) =>
-                            void toggle(rule, { email: e.target.checked })
-                          }
-                        />
-                      </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-body-sm text-muted">Email</span>
+                          <Switch
+                            checked={rule.email}
+                            label=""
+                            aria-label={`Email for ${rule.event}`}
+                            onChange={(e) =>
+                              void toggle(rule, { email: e.target.checked })
+                            }
+                          />
+                        </div>
 
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-body-sm text-muted">In app</span>
-                        <Switch
-                          checked={rule.inApp}
-                          label=""
-                          aria-label={`In-app notification for ${rule.event}`}
-                          onChange={(e) =>
-                            void toggle(rule, { inApp: e.target.checked })
-                          }
-                        />
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          )}
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-body-sm text-muted">
+                            In app
+                          </span>
+                          <Switch
+                            checked={rule.inApp}
+                            label=""
+                            aria-label={`In-app notification for ${rule.event}`}
+                            onChange={(e) =>
+                              void toggle(rule, { inApp: e.target.checked })
+                            }
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </LoadState>
         </Card>
 
         <div className="grid gap-6 lg:grid-cols-2">

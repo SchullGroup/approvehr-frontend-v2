@@ -19,7 +19,6 @@ import {
   ColumnChart,
   DescriptionList,
   EmptyState,
-  Spinner,
   Stat,
   TBody,
   TD,
@@ -29,9 +28,9 @@ import {
   TableWrap,
   Tabs,
   TextLink,
+  LoadState,
 } from "@/components/ui";
 import type { TabItem } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
   scoreLabel,
@@ -194,82 +193,76 @@ export function PeriodReportScreen({
           </Callout>
         ) : null}
 
-        <LoadFailure
-          subject="this period's report"
+        <LoadState
+          loading={detail.loading}
           error={detail.error}
+          subject="this period's report"
           onRetry={detail.reload}
-        />
+          hasData={Boolean(report)}
+          skeleton="page"
+        >
+          {report && report.marks.people === 0 && (
+            <Card>
+              <CardHeader title="Nothing to report yet" />
+              <EmptyState
+                compact
+                icon={<UserX aria-hidden="true" />}
+                title="Nobody is in this period"
+                description="Starting a period gives every current employee a form."
+              />
+            </Card>
+          )}
 
-        {detail.loading && (
-          <Card>
-            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-              <Spinner size="sm" />
-              Loading the report
-            </CardBody>
-          </Card>
-        )}
-
-        {report && report.marks.people === 0 && (
-          <Card>
-            <CardHeader title="Nothing to report yet" />
-            <EmptyState
-              compact
-              icon={<UserX aria-hidden="true" />}
-              title="Nobody is in this period"
-              description="Starting a period gives every current employee a form."
-            />
-          </Card>
-        )}
-
-        {report && report.marks.people > 0 && (
-          <>
-            <Headline report={report} />
-            {/* Four questions, four tabs: how it came out, what came in, what a
+          {report && report.marks.people > 0 && (
+            <>
+              <Headline report={report} />
+              {/* Four questions, four tabs: how it came out, what came in, what a
                 mark is made of, and who still needs chasing. They share no row,
                 and stacked they were a 4,600px page. */}
-            <Tabs items={REPORT_TAB_ITEMS} value={tab} onChange={changeTab}>
-              <div className="flex flex-col gap-6">
-                {tab === "marks" && (
-                  <>
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <DepartmentPerformance register={register.register} />
-                      <TopPerformers register={register.register} />
-                    </div>
-                    <Distribution report={report} />
-                  </>
-                )}
-                {tab === "progress" && <WhatCameIn report={report} />}
-                {tab === "parts" && <Parts report={report} />}
-                {tab === "follow-up" && (
-                  <>
-                    <NamedList
-                      title="No mark"
-                      description="These people will finish the period with no mark. That is not the same as a mark of 0: nothing was recorded for them."
-                      empty="Everybody in this period has a mark."
-                      rows={report.unscored}
-                      tone="danger"
-                    />
-                    <NamedList
-                      title="Written, not final yet"
-                      description="A rating has been written but the person has not been told. Making it final is what tells them."
-                      empty="Every rating that has been written is final."
-                      rows={report.unfinalised}
-                      tone="warning"
-                    />
-                    <NamedList
-                      title="Told, and no answer yet"
-                      description="They have been told their rating and have not replied. Not replying is not the same as agreeing."
-                      empty="Everybody who has been told their rating has replied."
-                      rows={report.awaitingAcknowledgement}
-                      tone="warning"
-                    />
-                    <Disputes report={report} />
-                  </>
-                )}
-              </div>
-            </Tabs>
-          </>
-        )}
+              <Tabs items={REPORT_TAB_ITEMS} value={tab} onChange={changeTab}>
+                <div className="flex flex-col gap-6">
+                  {tab === "marks" && (
+                    <>
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <DepartmentPerformance register={register.register} />
+                        <TopPerformers register={register.register} />
+                      </div>
+                      <Distribution report={report} />
+                    </>
+                  )}
+                  {tab === "progress" && <WhatCameIn report={report} />}
+                  {tab === "parts" && <Parts report={report} />}
+                  {tab === "follow-up" && (
+                    <>
+                      <NamedList
+                        title="No mark"
+                        description="These people will finish the period with no mark. That is not the same as a mark of 0: nothing was recorded for them."
+                        empty="Everybody in this period has a mark."
+                        rows={report.unscored}
+                        tone="danger"
+                      />
+                      <NamedList
+                        title="Written, not final yet"
+                        description="A rating has been written but the person has not been told. Making it final is what tells them."
+                        empty="Every rating that has been written is final."
+                        rows={report.unfinalised}
+                        tone="warning"
+                      />
+                      <NamedList
+                        title="Told, and no answer yet"
+                        description="They have been told their rating and have not replied. Not replying is not the same as agreeing."
+                        empty="Everybody who has been told their rating has replied."
+                        rows={report.awaitingAcknowledgement}
+                        tone="warning"
+                      />
+                      <Disputes report={report} />
+                    </>
+                  )}
+                </div>
+              </Tabs>
+            </>
+          )}
+        </LoadState>
       </PageBody>
     </>
   );

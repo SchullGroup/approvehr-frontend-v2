@@ -687,7 +687,7 @@ export function SetupWizard() {
         )}
 
       {awaitingTaxState && (
-        <div className="mt-6 rounded-lg border border-accent-line bg-accent-soft p-5">
+        <div className="mt-6 rounded-lg border border-line bg-canvas p-5">
           <Field
             label="Which state do you file PAYE to?"
             help="The state every employee falls back to when their own record does not say."
@@ -722,7 +722,7 @@ export function SetupWizard() {
       )}
 
       {awaitingOffice && (
-        <div className="mt-6 flex flex-col gap-4 rounded-lg border border-accent-line bg-accent-soft p-5">
+        <div className="mt-6 flex flex-col gap-4 rounded-lg border border-line bg-canvas p-5">
           <div>
             <p className="font-semibold text-ink">
               {editingLocationId
@@ -796,10 +796,7 @@ export function SetupWizard() {
           </div>
 
           {officeError && (
-            <p
-              role="status"
-              className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink"
-            >
+            <p role="status" className="text-body-sm text-danger-text">
               {officeError}
             </p>
           )}
@@ -841,7 +838,7 @@ export function SetupWizard() {
           const complete =
             splitBasic !== "" && splitHousing !== "" && splitTransport !== "";
           return (
-            <div className="mt-6 flex flex-col gap-4 rounded-lg border border-accent-line bg-accent-soft p-5">
+            <div className="mt-6 flex flex-col gap-4 rounded-lg border border-line bg-canvas p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-semibold text-ink">
                   How does gross pay split up?
@@ -905,10 +902,7 @@ export function SetupWizard() {
               </div>
 
               {splitError && (
-                <p
-                  role="status"
-                  className="rounded-md border border-danger-line bg-danger-soft px-3 py-2 text-body-sm text-ink"
-                >
+                <p role="status" className="text-body-sm text-danger-text">
                   {splitError}
                 </p>
               )}

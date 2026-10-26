@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import {
   Badge,
   Button,
-  ButtonLink,
+  AttentionMark,
   Callout,
   Card,
   CardBody,
@@ -25,14 +25,18 @@ import {
   TR,
   TableWrap,
   useToast,
+  LoadState,
 } from "@/components/ui";
+import Link from "next/link";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { ApiError } from "@/lib/api/client";
 import {
   kobo,
   naira,
   rateFraction,
   ratePercent,
+  type ApiHeldAllowance,
   type ApiPayChange,
   type ApiPayComponent,
   type ApiResolvedAssignment,
@@ -55,6 +59,8 @@ import {
   type PreviewChange,
 } from "@/lib/store/pay-components";
 import { shortDate } from "@/lib/today";
+import { useToday } from "@/lib/use-today";
+import { isScheduled, lineWindow, scheduleText } from "@/lib/pay/schedule";
 
 /**
  * One person's allowances and deductions — a panel, for the employee record.
@@ -95,6 +101,13 @@ export function PayComponentsPanel({
   className?: string;
 }) {
   const lines = useEmployeePayComponents(employeeId);
+  /* "No monthly pay set" is not a failure of the read: the salary figure above
+     already says so and a banner repeating it is noise. Every other failure is
+     the failure card. */
+  const linesError =
+    lines.error && !lines.error.message.includes("no monthly pay set")
+      ? lines.error
+      : null;
   const baseline = usePayPreview(employeeId);
   const { settings } = usePayrollSettings();
   const toast = useToast();
@@ -149,30 +162,14 @@ export function PayComponentsPanel({
         {/* "No monthly pay set" is not a load failure — it is the reason
             there is nothing to show, and the "Salary a month" figure below
             already says so. A red banner repeating it is noise, not help. */}
-        {lines.error && !lines.error.message.includes("no monthly pay set") && (
-          <LoadFailure
-            subject="this person's pay lines"
-            error={lines.error}
-            onRetry={lines.reload}
-          />
-        )}
-
         {issues.length > 0 && (
-          <Callout tone="danger" title="Payroll settings need attention first">
-            <ul className="flex flex-col gap-1">
-              {issues.map((issue) => (
-                <li key={issue.field}>{issue.message}</li>
-              ))}
-            </ul>
-            <ButtonLink
-              href="/settings/payroll"
-              variant="secondary"
-              size="sm"
-              className="mt-3"
-            >
+          <NoticeLine tone="danger">
+            <span>Payroll settings need attention first.</span>
+            <AttentionMark text={issues.map((issue) => issue.message)} />
+            <Link className={NOTICE_LINK} href="/settings/payroll">
               Fix payroll settings
-            </ButtonLink>
-          </Callout>
+            </Link>
+          </NoticeLine>
         )}
 
         <div className="grid gap-4 rounded-lg border border-line bg-canvas p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -238,182 +235,175 @@ export function PayComponentsPanel({
           </p>
         )}
 
-        {assignments.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<Coins aria-hidden="true" />}
-            title={lines.loading ? "Loading…" : "Nothing on top of salary"}
-            description={
-              lines.loading
-                ? undefined
-                : lines.editable
+        <LoadState
+          loading={lines.loading}
+          error={linesError}
+          subject="this person's pay lines"
+          onRetry={lines.reload}
+          hasData={assignments.length > 0}
+          skeleton="list"
+        >
+          {assignments.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<Coins aria-hidden="true" />}
+              title="Nothing on top of salary"
+              description={
+                lines.editable
                   ? "Add anything that is not the base salary: a car allowance, a cooperative deduction, a salary advance being recovered."
                   : /* Without `MANAGE_PAY_STRUCTURE` there is no Add button, so
                        an instruction to add one is an instruction to nobody.
                        State what the emptiness means instead. */
                     "Nothing is added to or taken off this salary: no car allowance, no cooperative deduction, no advance being recovered."
-            }
-            action={
-              !lines.loading && lines.editable ? (
-                <Button
-                  variant="accent"
-                  size="sm"
-                  onClick={() => setAdding(true)}
-                >
-                  <Plus aria-hidden="true" className="size-4" />
-                  Add the first line
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <>
-            <div className="hidden sm:block">
-              <TableWrap caption="Allowances and deductions on this person's pay">
-                <THead>
-                  <TH>Line</TH>
-                  <TH>How it is worked out</TH>
-                  <TH>What it does</TH>
-                  <TH align="right">This month</TH>
-                  <TH>
-                    <span className="sr-only-focusable">Actions</span>
-                  </TH>
-                </THead>
-                <TBody>
-                  {assignments.map((row) => {
-                    const chips = flagChips(row, settings.pension);
-                    const allowance = row.kind === "ALLOWANCE";
-                    return (
-                      <TR key={row.id}>
-                        <TDPrimary
-                          title={row.name}
-                          subtitle={
-                            row.effectiveTo
-                              ? `${shortDate(row.effectiveFrom)} to ${shortDate(row.effectiveTo)}`
-                              : `From ${shortDate(row.effectiveFrom)}, every month`
-                          }
-                        />
-                        <TD>
-                          <span className="text-body-sm text-body">
-                            {assignmentLine(row)}
-                          </span>
-                          {row.note && (
-                            <span className="mt-0.5 block text-meta text-muted">
-                              {row.note}
-                            </span>
-                          )}
-                        </TD>
-                        <TD>
-                          <span className="flex flex-wrap gap-1.5">
-                            {chips.map((chip) => (
-                              <span key={chip.label} title={chip.why}>
-                                <Badge
-                                  size="sm"
-                                  tone={chip.tone}
-                                  className="cursor-help"
-                                >
-                                  {chip.label}
-                                </Badge>
-                              </span>
-                            ))}
-                          </span>
-                        </TD>
-                        <TD align="right">
-                          <span
-                            className={cn(
-                              "tabular text-body-sm font-medium",
-                              allowance ? "text-ink" : "text-body",
+              }
+              action={
+                lines.editable ? (
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() => setAdding(true)}
+                  >
+                    <Plus aria-hidden="true" className="size-4" />
+                    Add the first line
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <>
+              <div className="hidden sm:block">
+                <TableWrap caption="Allowances and deductions on this person's pay">
+                  <THead>
+                    <TH>Line</TH>
+                    <TH>How it is worked out</TH>
+                    <TH>What it does</TH>
+                    <TH align="right">This month</TH>
+                    <TH>
+                      <span className="sr-only-focusable">Actions</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {assignments.map((row) => {
+                      const chips = flagChips(row, settings.pension);
+                      const allowance = row.kind === "ALLOWANCE";
+                      return (
+                        <TR key={row.id}>
+                          <TDPrimary
+                            title={row.name}
+                            subtitle={lineWindow(
+                              row.effectiveFrom,
+                              row.effectiveTo,
+                              row.schedule,
+                              shortDate,
                             )}
-                          >
-                            {allowance
-                              ? signedMoney(row.resolvedKobo)
-                              : signedMoney(-row.resolvedKobo)}
-                          </span>
-                        </TD>
-                        <TD align="right">
-                          {lines.editable && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setRemoving(row)}
-                            >
-                              Stop it
-                            </Button>
-                          )}
-                        </TD>
-                      </TR>
-                    );
-                  })}
-                </TBody>
-              </TableWrap>
-            </div>
+                          />
+                          <TD>
+                            <span className="text-body-sm text-body">
+                              {assignmentLine(row)}
+                            </span>
+                            {row.note && (
+                              <span className="mt-0.5 block text-meta text-muted">
+                                {row.note}
+                              </span>
+                            )}
+                          </TD>
+                          <TD>
+                            <span className="flex flex-wrap gap-1.5">
+                              {chips.map((chip) => (
+                                <span key={chip.label} title={chip.why}>
+                                  <Badge
+                                    size="sm"
+                                    tone={chip.tone}
+                                    className="cursor-help"
+                                  >
+                                    {chip.label}
+                                  </Badge>
+                                </span>
+                              ))}
+                            </span>
+                          </TD>
+                          <TD align="right">
+                            <ThisMonth row={row} allowance={allowance} />
+                          </TD>
+                          <TD align="right">
+                            {lines.editable && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setRemoving(row)}
+                              >
+                                Stop it
+                              </Button>
+                            )}
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </TableWrap>
+              </div>
 
-            <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
-              {assignments.map((row) => {
-                const chips = flagChips(row, settings.pension);
-                const allowance = row.kind === "ALLOWANCE";
-                return (
-                  <li key={row.id} className="flex flex-col gap-2 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-body-sm font-medium text-ink">
-                          {row.name}
-                        </p>
-                        <p className="mt-0.5 text-meta text-muted">
-                          {row.effectiveTo
-                            ? `${shortDate(row.effectiveFrom)} to ${shortDate(row.effectiveTo)}`
-                            : `From ${shortDate(row.effectiveFrom)}, every month`}
-                        </p>
+              <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
+                {assignments.map((row) => {
+                  const chips = flagChips(row, settings.pension);
+                  const allowance = row.kind === "ALLOWANCE";
+                  return (
+                    <li key={row.id} className="flex flex-col gap-2 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-body-sm font-medium text-ink">
+                            {row.name}
+                          </p>
+                          <p className="mt-0.5 text-meta text-muted">
+                            {lineWindow(
+                              row.effectiveFrom,
+                              row.effectiveTo,
+                              row.schedule,
+                              shortDate,
+                            )}
+                          </p>
+                        </div>
+                        <ThisMonth row={row} allowance={allowance} />
                       </div>
-                      <span
-                        className={cn(
-                          "tabular text-body-sm font-medium",
-                          allowance ? "text-ink" : "text-body",
-                        )}
-                      >
-                        {allowance
-                          ? signedMoney(row.resolvedKobo)
-                          : signedMoney(-row.resolvedKobo)}
-                      </span>
-                    </div>
 
-                    <p className="text-body-sm text-body">
-                      {assignmentLine(row)}
-                    </p>
-                    {row.note && (
-                      <p className="text-meta text-muted">{row.note}</p>
-                    )}
+                      <p className="text-body-sm text-body">
+                        {assignmentLine(row)}
+                      </p>
+                      {row.note && (
+                        <p className="text-meta text-muted">{row.note}</p>
+                      )}
 
-                    <div className="flex flex-wrap gap-1.5">
-                      {chips.map((chip) => (
-                        <span key={chip.label} title={chip.why}>
-                          <Badge
-                            size="sm"
-                            tone={chip.tone}
-                            className="cursor-help"
-                          >
-                            {chip.label}
-                          </Badge>
-                        </span>
-                      ))}
-                    </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {chips.map((chip) => (
+                          <span key={chip.label} title={chip.why}>
+                            <Badge
+                              size="sm"
+                              tone={chip.tone}
+                              className="cursor-help"
+                            >
+                              {chip.label}
+                            </Badge>
+                          </span>
+                        ))}
+                      </div>
 
-                    {lines.editable && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="self-start"
-                        onClick={() => setRemoving(row)}
-                      >
-                        Stop it
-                      </Button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        )}
+                      {lines.editable && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="self-start"
+                          onClick={() => setRemoving(row)}
+                        >
+                          Stop it
+                        </Button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </LoadState>
       </CardBody>
 
       <AddLineDialog
@@ -451,6 +441,52 @@ export function PayComponentsPanel({
   );
 }
 
+/**
+ * What a line comes to this month, or why it comes to nothing.
+ *
+ * An allowance on a schedule that is not due this month is **not** a line of
+ * ₦0.00: it resolves to zero and the API leaves it out of the totals, and a zero
+ * beside an allowance reads as an amount somebody chose. So it says the API's
+ * own sentence ("Next due Mar 2029") in plain muted text instead. One that is
+ * due says so under its figure. The figure itself is the API's `resolvedKobo`,
+ * never worked out here.
+ */
+function ThisMonth({
+  row,
+  allowance,
+}: {
+  row: ApiResolvedAssignment;
+  allowance: boolean;
+}) {
+  const status = row.scheduleStatus ?? null;
+  if (status && !status.due) {
+    return (
+      <span className="whitespace-nowrap text-body-sm text-muted">
+        {status.text}
+      </span>
+    );
+  }
+  return (
+    <span className="flex flex-col items-end">
+      <span
+        className={cn(
+          "tabular whitespace-nowrap text-body-sm font-medium",
+          allowance ? "text-ink" : "text-body",
+        )}
+      >
+        {allowance
+          ? signedMoney(row.resolvedKobo)
+          : signedMoney(-row.resolvedKobo)}
+      </span>
+      {status?.due && (
+        <span className="whitespace-nowrap text-meta text-muted">
+          {status.text}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /* ------------------------------------------------------------- the figures */
 
 function Figure({
@@ -485,10 +521,20 @@ function ChangeEffect({
   change,
   loading,
   note,
+  held = [],
+  perPayment = false,
 }: {
   change: ApiPayChange | null;
   loading: boolean;
   note?: string;
+  /** Allowances on a schedule that do not fall due in the month previewed. */
+  held?: readonly ApiHeldAllowance[];
+  /**
+   * The line is on a schedule, so these figures are for a month it is paid.
+   * "A month" would claim it is paid every month, which is the thing a
+   * schedule exists to say it is not. The figures themselves are the API's.
+   */
+  perPayment?: boolean;
 }) {
   if (loading) {
     return (
@@ -505,7 +551,7 @@ function ChangeEffect({
   const heading =
     net === 0
       ? "Take-home pay does not change"
-      : `${money(Math.abs(net))} ${net > 0 ? "more" : "less"} in the account`;
+      : `${money(Math.abs(net))} ${net > 0 ? "more" : "less"} in the account${perPayment ? " in a month it is paid" : ""}`;
 
   const rows: { label: string; kobo: number }[] = [
     { label: "Gross pay", kobo: change.grossKobo },
@@ -515,7 +561,7 @@ function ChangeEffect({
   ];
 
   return (
-    <div className="rounded-lg border border-accent-line bg-accent-soft p-4">
+    <div className="rounded-lg border border-line bg-canvas p-4">
       <p className="flex items-center gap-2 text-h4 text-ink">
         {net > 0 ? (
           <ArrowUp aria-hidden="true" className="size-5 text-success-text" />
@@ -541,15 +587,21 @@ function ChangeEffect({
         ))}
       </dl>
 
-      <p className="mt-3 border-t border-accent-line pt-3 text-body-sm text-body">
+      <p className="mt-3 border-t border-line pt-3 text-body-sm text-body">
         Costs the company{" "}
         <span className="tabular font-medium text-ink">
           {change.employerCostKobo === 0
             ? "nothing more"
-            : `${signedMoney(change.employerCostKobo)} a month`}
+            : `${signedMoney(change.employerCostKobo)} ${perPayment ? "in a month it is paid" : "a month"}`}
         </span>{" "}
         : salary plus the employer pension on it.
       </p>
+
+      {held.map((entry) => (
+        <p key={entry.componentId} className="mt-2 text-body-sm text-muted">
+          {entry.name}: {entry.status.text}
+        </p>
+      ))}
 
       {note && <p className="mt-2 text-body-sm text-body">{note}</p>}
     </div>
@@ -597,6 +649,11 @@ function AddLineDialog({
 }) {
   const library = usePayComponents({ active: true, pageSize: 100 });
   const { settings } = usePayrollSettings();
+  /* The company's own day, sent whenever the date is left blank. Left out, the
+     API defaults to the first of the current month in UTC, which in the first
+     hours of a month in Lagos is last month, and for an allowance counted from
+     the day it is given that shifts the whole count by a month. */
+  const today = useToday();
   const [draft, setDraft] = useState<AddDraft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
 
@@ -670,7 +727,7 @@ function AddLineDialog({
         payComponentId: chosen.id,
         ...(amountKobo !== null ? { amountKobo } : {}),
         ...(rate !== null ? { rate } : {}),
-        ...(draft.from ? { effectiveFrom: draft.from } : {}),
+        effectiveFrom: draft.from || today,
         ...(draft.to ? { effectiveTo: draft.to } : {}),
         ...(draft.note.trim() ? { note: draft.note.trim() } : {}),
       });
@@ -777,6 +834,11 @@ function AddLineDialog({
               <span className="text-body-sm text-muted">
                 {amountLine(chosen)}
               </span>
+              {isScheduled(chosen.schedule) && (
+                <span className="text-body-sm text-muted">
+                  {scheduleText(chosen.schedule)}
+                </span>
+              )}
             </div>
 
             <ul className="flex flex-col gap-1">
@@ -792,9 +854,17 @@ function AddLineDialog({
 
             {fixed ? (
               <Field
-                label="Amount each month (₦)"
+                label={
+                  isScheduled(chosen.schedule)
+                    ? "Amount per payment (₦)"
+                    : "Amount each month (₦)"
+                }
                 required
-                help="What this person gets. It does not change anybody else."
+                help={
+                  isScheduled(chosen.schedule)
+                    ? "What this person gets each time it falls due. It does not change anybody else."
+                    : "What this person gets. It does not change anybody else."
+                }
               >
                 <Input
                   type="number"
@@ -829,7 +899,7 @@ function AddLineDialog({
             )}
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Starts" help="Blank starts it this month.">
+              <Field label="Starts" help="Blank starts it today.">
                 <Input
                   type="date"
                   value={draft.from}
@@ -873,6 +943,8 @@ function AddLineDialog({
                      absent number reads as "working it out", and a stale one
                      reads as the answer. */
                   change={stale ? null : (preview.data?.change ?? null)}
+                  held={stale ? [] : (preview.data?.held ?? [])}
+                  perPayment={isScheduled(chosen.schedule)}
                   loading={preview.loading || stale}
                   {...(startsLater
                     ? {
@@ -949,6 +1021,7 @@ function RemoveLineDialog({
             <ChangeEffect
               change={preview.data?.change ?? null}
               loading={preview.loading}
+              perPayment={isScheduled(assignment.schedule)}
             />
           ) : (
             <OfflineEffect

@@ -21,6 +21,8 @@ import {
 } from "./approved-moment";
 import { BankRegisterCard } from "./bank-register-card";
 import { PayPanel, WalletStrip } from "./pay-panel";
+import { ScheduledNote } from "./scheduled-note";
+import type { ScheduledAllowancesState } from "@/lib/store/scheduled-allowances";
 
 /**
  * The step where a payroll is approved, and then paid.
@@ -69,8 +71,11 @@ export function ApproveStep({
   blockers,
   warnings,
   onSeeChecks,
+  scheduled,
 }: {
   run: PayrollRunDetail;
+  /** Which allowances fall due this month, and which are held back. */
+  scheduled?: ScheduledAllowancesState;
   /** Approved already, and not being made into an off-cycle run. */
   settled: boolean;
   canApprove: boolean;
@@ -86,6 +91,9 @@ export function ApproveStep({
   onSeeChecks: () => void;
 }) {
   const payPanel = useRef<HTMLDivElement>(null);
+  const names = new Map(
+    run.payslips.map((slip) => [slip.employeeId, slip.name]),
+  );
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
@@ -124,6 +132,14 @@ export function ApproveStep({
               onRecorded={onRecorded}
             />
           </div>
+        )}
+
+        {/* A lump sum is the kind of thing an approver wants to have seen before
+            approving, so what falls due is named here, quietly, before the
+            totals it is already inside. Only while the payroll is open: after
+            approval the payslips are the record. */}
+        {scheduled && !settled && (
+          <ScheduledNote scheduled={scheduled} names={names} mode="due" />
         )}
 
         <TotalsPanel run={run} />

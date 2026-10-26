@@ -14,9 +14,9 @@ import {
   Input,
   Modal,
   Select,
-  Spinner,
   Textarea,
   useToast,
+  LoadState,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -142,10 +142,17 @@ export function CategoriesAndSlaPanel() {
         />
         <CardBody className="flex flex-col gap-3">
           {categories === null ? (
-            <span className="flex items-center gap-2 text-body-sm text-muted">
-              <Spinner size="sm" />
-              Loading
-            </span>
+            /* Null is "not here yet" and also "could not be read", and only the
+               first is loading. The failure card above says the second; this
+               used to say "Loading" under it for ever. */
+            <LoadState
+              loading={!error}
+              error={null}
+              subject="the categories"
+              skeleton="list"
+            >
+              {null}
+            </LoadState>
           ) : categories.length === 0 ? (
             <EmptyState
               compact
@@ -199,10 +206,14 @@ export function CategoriesAndSlaPanel() {
         />
         <CardBody className="flex flex-col gap-3">
           {policies === null ? (
-            <span className="flex items-center gap-2 text-body-sm text-muted">
-              <Spinner size="sm" />
-              Loading
-            </span>
+            <LoadState
+              loading={!error}
+              error={null}
+              subject="the response targets"
+              skeleton="list"
+            >
+              {null}
+            </LoadState>
           ) : policies.length === 0 ? (
             <EmptyState
               compact
