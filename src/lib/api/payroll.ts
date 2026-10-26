@@ -257,6 +257,23 @@ export type RateWorking = {
   baseLabel: string;
 };
 
+/**
+ * One staff loan as a payslip reports it. The same four figures every month, so
+ * the reader can follow a loan down: what was lent, what was owed coming in,
+ * what came off this month, what is left.
+ */
+export type PayslipLoan = {
+  loanId: string;
+  /** The accumulated loan: what was originally lent. Never reduced. */
+  accumulatedKobo: number;
+  /** Owed at the start of this pay period, before this month's deduction. */
+  balanceBeforeKobo: number;
+  /** This month's instalment. */
+  deductionKobo: number;
+  /** What is left once this month's deduction is taken. */
+  balanceAfterKobo: number;
+};
+
 export type Payslip = {
   id: string;
   employeeId: string;
@@ -364,6 +381,8 @@ export type Payslip = {
    * written before the switches existed actually was.
    */
   operates?: StatutoryOperation;
+  /** Absent means the API did not say; empty means the person has no loan. */
+  loans?: PayslipLoan[];
   /** Pre-tax plus post-tax, as one figure. `lines` is the itemised form. */
   otherDeductionsKobo: number;
   netKobo: number;
@@ -1098,6 +1117,7 @@ type ApiRun = {
 type ApiPayslip = {
   id: string;
   employeeId: string;
+  loans?: PayslipLoan[];
   employee: { employeeNo: string; firstName: string; lastName: string };
   gross: Decimalish;
   basic: Decimalish;
@@ -1341,6 +1361,7 @@ function toPayslip(row: ApiPayslip): Payslip {
        operated, and `wasDeducted` treats that silence as "computed" rather than
        claiming an absence nobody reported. */
     ...(row.operates ? { operates: row.operates } : {}),
+    ...(row.loans ? { loans: row.loans } : {}),
     payeKobo: koboFromDecimal(row.paye),
     /* Conditional, not `?? []`. An empty array says "nothing was set by hand",
        which is a claim about the payslip; the absence of the field says the API
