@@ -957,7 +957,10 @@ function Flags({
   const toFix = warnings.filter((w) => w.severity === "BLOCKER").length;
   return (
     <span
-      className={cn("inline-flex flex-wrap items-center gap-2", !bare && "mt-1")}
+      className={cn(
+        "inline-flex flex-wrap items-center gap-2",
+        !bare && "mt-1",
+      )}
     >
       {adjusted.length > 0 && (
         <span

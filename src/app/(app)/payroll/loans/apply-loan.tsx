@@ -308,7 +308,9 @@ export function ApplyLoanModal({
           ? { employeeId: applicantId }
           : {}),
         principalKobo: kobo(principal),
-        ...(alreadyRepaid > 0 ? { alreadyRepaidKobo: kobo(alreadyRepaid) } : {}),
+        ...(alreadyRepaid > 0
+          ? { alreadyRepaidKobo: kobo(alreadyRepaid) }
+          : {}),
         termMonths: months,
         ...(interestRate > 0 ? { interestRate } : {}),
         ...(reason.trim() ? { reason: reason.trim() } : {}),
@@ -499,11 +501,25 @@ export function ApplyLoanModal({
                 items={[
                   ...(alreadyRepaid > 0
                     ? [
-                        { term: "Originally lent", value: money(kobo(principal ?? 0)) },
-                        { term: "Already repaid", value: money(kobo(alreadyRepaid)) },
-                        { term: "Still to repay", value: money(priced.principalKobo) },
+                        {
+                          term: "Originally lent",
+                          value: money(kobo(principal ?? 0)),
+                        },
+                        {
+                          term: "Already repaid",
+                          value: money(kobo(alreadyRepaid)),
+                        },
+                        {
+                          term: "Still to repay",
+                          value: money(priced.principalKobo),
+                        },
                       ]
-                    : [{ term: "Borrowing", value: money(priced.principalKobo) }]),
+                    : [
+                        {
+                          term: "Borrowing",
+                          value: money(priced.principalKobo),
+                        },
+                      ]),
                   {
                     term: "Interest",
                     value:
@@ -645,7 +661,8 @@ export function ApplyLoanModal({
               className="max-w-full self-start max-sm:h-auto max-sm:whitespace-normal max-sm:py-1.5 max-sm:text-left"
               onClick={() => setShowMore(true)}
             >
-              Change the start month, add interest or record what is already repaid
+              Change the start month, add interest or record what is already
+              repaid
             </Button>
           )}
         </div>

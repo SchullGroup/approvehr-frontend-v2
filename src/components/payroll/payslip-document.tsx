@@ -645,7 +645,10 @@ export function PayslipDocument({
                 label="Loan deduction this month"
                 kobo={loan.deductionKobo}
               />
-              <LineItem label="Loan balance after" kobo={loan.balanceAfterKobo} />
+              <LineItem
+                label="Loan balance after"
+                kobo={loan.balanceAfterKobo}
+              />
             </dl>
           ))}
         </section>
