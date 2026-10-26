@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Pencil } from "lucide-react";
-import { Badge, Button, ButtonLink, Callout, Drawer } from "@/components/ui";
+import { AttentionMark, Button, ButtonLink, Drawer } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -17,7 +17,9 @@ import {
 import { useOvertimePolicy } from "@/lib/store/overtime";
 import { usePayrollActions } from "@/lib/store/payroll";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
-import { AmountForm, HoursForm } from "./adjust-forms";
+import type { ApiScheduledAllowance } from "@/lib/api/pay-components";
+import { AmountForm, DaysForm, HoursForm } from "./adjust-forms";
+import { allowanceLine } from "./scheduled-note";
 import { TOUCH } from "./drawer-parts";
 import { LinesEditor } from "./lines-editor";
 import {
@@ -69,6 +71,7 @@ import {
 
 type View =
   | "overview"
+  | "days"
   | "overtime"
   | "bonus"
   | "paye"
@@ -89,6 +92,7 @@ export function AdjustDrawer({
   employees,
   warnings,
   typedDeduction,
+  scheduled,
   showOvertime,
   showBonus,
   onClose,
@@ -109,6 +113,12 @@ export function AdjustDrawer({
   warnings: readonly RunException[];
   /** What the run says about hand-typed deduction lines for this person. */
   typedDeduction: LineSummary | undefined;
+  /**
+   * This person's allowances on a schedule, as the API reports them for an open
+   * run. Absent when there is no answer, which says nothing; empty never occurs,
+   * because only people with one are in the read.
+   */
+  scheduled?: readonly ApiScheduledAllowance[] | undefined;
   showOvertime: boolean;
   showBonus: boolean;
   onClose: () => void;
@@ -197,6 +207,10 @@ export function AdjustDrawer({
   const typedLines =
     typedDeduction !== undefined && typedDeduction.state !== "none";
   const firstName = person.name.split(" ")[0] ?? person.name;
+  /* The divisor the API used. An older payslip does not carry it, and the
+     company setting is what it divided by for anybody not on a rota. */
+  const workingDays = person.workingDays ?? paySettings.workingDaysPerMonth;
+  const daysWorked = person.daysWorked ?? null;
 
   const canEditOvertime =
     editable && (overtimePolicy.policy.enabled || manualOvertime);
@@ -205,6 +219,7 @@ export function AdjustDrawer({
 
   const title: Record<View, string> = {
     overview: person.name,
+    days: "Days worked",
     overtime: "Overtime",
     bonus: "Bonus",
     paye: "PAYE",
@@ -266,20 +281,27 @@ export function AdjustDrawer({
           )}
 
           {warnings.length > 0 && (
-            <Callout
-              tone={blocking ? "danger" : "warning"}
-              title={
-                warnings.length === 1
-                  ? `1 thing to look at for ${firstName}`
-                  : `${warnings.length} things to look at for ${firstName}`
-              }
-            >
-              <ul className="flex flex-col gap-1.5">
-                {warnings.map((warning) => (
-                  <li key={warning.id}>{warning.message}</li>
-                ))}
-              </ul>
-            </Callout>
+            <p className="inline-flex max-w-full items-center gap-2 text-body-sm text-muted">
+              <span className="min-w-0">
+                {warnings.length === 1
+                  ? `1 note for ${firstName}`
+                  : `${warnings.length} notes for ${firstName}`}
+              </span>
+              <AttentionMark
+                tone={blocking ? "attention" : "info"}
+                text={warnings.map((warning) => warning.message)}
+              />
+            </p>
+          )}
+
+          {scheduled && scheduled.length > 0 && (
+            <ul className="flex flex-col gap-1 text-body-sm text-muted">
+              {scheduled.map((allowance) => (
+                <li key={allowance.assignmentId ?? allowance.componentId}>
+                  {allowanceLine(allowance)}
+                </li>
+              ))}
+            </ul>
           )}
 
           <div
@@ -294,13 +316,27 @@ export function AdjustDrawer({
               editColumn={editable}
               label="Gross pay"
               value={formatKobo(person.grossKobo)}
-              {...(person.unpaidDays > 0
+              {...(daysWorked !== null
                 ? {
-                    note: `After ${person.unpaidDays} unpaid ${
-                      person.unpaidDays === 1 ? "day" : "days"
-                    }`,
+                    note: `Paid for ${daysWorked} of ${workingDays} working days`,
                   }
-                : {})}
+                : person.unpaidDays > 0
+                  ? {
+                      note: `After ${person.unpaidDays} unpaid ${
+                        person.unpaidDays === 1 ? "day" : "days"
+                      }`,
+                    }
+                  : { note: "The whole month" })}
+              marked={daysWorked !== null}
+              edit={
+                editable
+                  ? {
+                      label: `Pay ${person.name} by days worked`,
+                      disabled: refreshing,
+                      onClick: () => go("days"),
+                    }
+                  : undefined
+              }
             />
             {showOvertime && (
               <Line
@@ -455,6 +491,27 @@ export function AdjustDrawer({
             </p>
           )}
         </div>
+      )}
+
+      {view === "days" && (
+        <DaysForm
+          name={person.name}
+          periodLabel={periodLabel}
+          monthlyKobo={monthlyOf(person, employees)}
+          workingDays={workingDays}
+          currentDays={daysWorked}
+          saving={busy}
+          error={error}
+          onBack={() => go("overview")}
+          onSave={(days) =>
+            void perform(() =>
+              actions.setDaysWorked(runId, { employeeId, days }),
+            )
+          }
+          onRemove={() =>
+            void perform(() => actions.clearDaysWorked(runId, employeeId))
+          }
+        />
       )}
 
       {view === "overtime" && (
@@ -703,9 +760,10 @@ function Line({
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-ink">
           {label}
           {marked && (
-            <Badge tone="accent" size="sm" icon={<Pencil aria-hidden="true" />}>
-              Entered by hand
-            </Badge>
+            <span className="inline-flex items-center gap-1 text-[11px] leading-none text-muted">
+              <Pencil aria-hidden="true" className="size-2.5" />
+              entered by hand
+            </span>
           )}
         </p>
         {note && (

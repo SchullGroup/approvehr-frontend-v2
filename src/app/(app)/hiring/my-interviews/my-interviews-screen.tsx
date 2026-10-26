@@ -10,9 +10,8 @@ import {
   CardHeader,
   EmptyState,
   SegmentedControl,
-  Skeleton,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { CalendarMenu } from "@/components/hiring/interviews/calendar-menu";
 import { JoinLink } from "@/components/hiring/interviews/join-link";
 import { FitBadge } from "@/components/hiring/screening/fit-badge";
@@ -113,20 +112,18 @@ export function MyInterviewsScreen() {
                 }
               />
               <CardBody>
-                {interviews.loading ? (
-                  <>
-                    <Skeleton className="h-24 w-full" />
-                    <span className="sr-only-focusable">
-                      Loading your interviews
-                    </span>
-                  </>
-                ) : interviews.error || !interviews.data ? (
-                  <LoadFailure
-                    subject="my interviews"
+                {interviews.loading || interviews.error || !interviews.data ? (
+                  /* The one loading and failure rule, as a gate. */
+                  <LoadState
+                    loading={interviews.loading}
                     error={interviews.error}
+                    subject="my interviews"
                     onRetry={interviews.reload}
                     missingMeans="module"
-                  />
+                    skeleton="list"
+                  >
+                    {null}
+                  </LoadState>
                 ) : interviews.data.rows.length === 0 ? (
                   <p className="text-body-sm text-muted">
                     {which === "waiting"

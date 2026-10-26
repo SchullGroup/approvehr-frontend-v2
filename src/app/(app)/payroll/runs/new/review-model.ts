@@ -74,9 +74,10 @@ export function manualOvertimeHours(slip: Payslip): number | null {
 
 /** What each hand-entered figure is called in a sentence. */
 export type AdjustmentKind =
-  "overtime" | "bonus" | "paye" | "statutory" | "deductions";
+  "days" | "overtime" | "bonus" | "paye" | "statutory" | "deductions";
 
 export const ADJUSTMENT_LABEL: Record<AdjustmentKind, string> = {
+  days: "days worked",
   overtime: "overtime",
   bonus: "bonus",
   paye: "PAYE",
@@ -99,6 +100,7 @@ export function adjustmentsOf(
   typedDeductions: LineSummaryByEmployee | null,
 ): AdjustmentKind[] {
   const found: AdjustmentKind[] = [];
+  if (typeof slip.daysWorked === "number") found.push("days");
   if (hasManualOvertime(slip)) found.push("overtime");
   if ((bonusOn(slip)?.amountKobo ?? 0) > 0) found.push("bonus");
   if (slip.payeOverridden) found.push("paye");

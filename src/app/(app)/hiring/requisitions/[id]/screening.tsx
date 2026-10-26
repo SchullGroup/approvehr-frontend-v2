@@ -12,11 +12,10 @@ import {
   CardHeader,
   EmptyState,
   LinkedText,
-  Skeleton,
   useToast,
   TextLink,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { LoadMore } from "@/components/portal/load-more";
 import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
 import { PageBody, PageHeader } from "@/components/portal/shell";
@@ -110,26 +109,19 @@ export function ScreeningCard({
           action={<SourceBadge live={queue.live} />}
         />
 
-        {queue.loading ? (
+        {queue.loading || queue.error ? (
+          /* The one loading and failure rule, as a gate. The failure used to
+             carry a second "Try again" of its own beside the one it draws. */
           <CardBody>
-            <Skeleton className="h-24 w-full" />
-            <span className="sr-only-focusable">Loading applications</span>
-          </CardBody>
-        ) : queue.error ? (
-          <CardBody>
-            <LoadFailure
-              subject="the applications for this role"
+            <LoadState
+              loading={queue.loading}
               error={queue.error}
+              subject="the applications for this role"
               onRetry={queue.reload}
+              skeleton="list"
             >
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void queue.reload()}
-              >
-                Try again
-              </Button>
-            </LoadFailure>
+              {null}
+            </LoadState>
           </CardBody>
         ) : queue.adverts.length === 0 ? (
           <EmptyState

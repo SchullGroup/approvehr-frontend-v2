@@ -53,17 +53,20 @@ export function BillingBanner() {
         } before access is paused.`;
 
   return (
-    <div className="no-print sticky top-14 z-20 border-b border-warning-line bg-warning-soft px-4 py-2.5 sm:px-5">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <span className="flex min-w-0 flex-1 items-center gap-2 text-body-sm text-warning-text">
-          <Clock aria-hidden="true" className="size-4 shrink-0" />
+    <div className="no-print sticky top-14 z-20 border-b border-line bg-surface px-4 py-2 sm:px-5">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="flex min-w-0 flex-1 items-center gap-2 text-body-sm text-body">
+          <Clock
+            aria-hidden="true"
+            className="size-4 shrink-0 text-warning-text"
+          />
           <span className="min-w-0">{message}</span>
         </span>
 
         {can("MANAGE_SETTINGS") && (
           <Link
             href="/billing/pay"
-            className="shrink-0 text-body-sm font-medium text-warning-text underline underline-offset-2 hover:text-ink"
+            className="shrink-0 text-body-sm font-medium text-accent-text underline underline-offset-2 hover:text-ink"
           >
             Subscribe / Pay
           </Link>

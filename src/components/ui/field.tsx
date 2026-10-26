@@ -11,7 +11,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Info } from "lucide-react";
+import { AlertCircle, CircleAlert, Info } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { placeTooltip, TOOLTIP_MARGIN, type Box } from "@/lib/place-tooltip";
 
@@ -127,20 +127,31 @@ export function InfoTooltip({
   id,
   text,
   label = "More about this field",
+  tone = "info",
 }: {
-  id: string;
+  /** What a control's `aria-describedby` points at. Leave it out when the icon's
+      own name already carries the text (see `AttentionMark`): the hidden copy
+      would be the same sentence read twice. */
+  id?: string;
   text: string;
   label?: string;
+  /** `attention` is the one coloured thing allowed on a row: a small ochre icon
+      that draws the eye to something the reader should look at. `info` is the
+      quiet grey help icon. See `attention-mark.tsx`. */
+  tone?: "info" | "attention";
 }) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [showing, setShowing] = useState<Showing>("closed");
   const close = useCallback(() => setShowing("closed"), []);
+  const attention = tone === "attention";
 
   return (
     <span ref={anchorRef} className="relative inline-flex">
-      <span id={id} className="sr-only">
-        {text}
-      </span>
+      {id && (
+        <span id={id} className="sr-only">
+          {text}
+        </span>
+      )}
       <button
         type="button"
         aria-label={label}
@@ -160,9 +171,21 @@ export function InfoTooltip({
           setShowing((now) => (now === "closed" ? "peek" : now));
         }}
         onBlur={close}
-        className="-m-1.5 rounded-full p-1.5 text-muted hover:text-ink focus-visible:text-ink"
+        className={cn(
+          "-m-1.5 rounded-full p-1.5 transition-colors duration-150",
+          attention
+            ? "text-warning-text hover:text-ink focus-visible:text-ink"
+            : "text-muted hover:text-ink focus-visible:text-ink",
+        )}
       >
-        <Info aria-hidden="true" className="size-3.5" />
+        {attention ? (
+          <CircleAlert
+            aria-hidden="true"
+            className="size-4 fill-warning-soft"
+          />
+        ) : (
+          <Info aria-hidden="true" className="size-3.5" />
+        )}
       </button>
       {showing !== "closed" && (
         <TooltipPanel anchorRef={anchorRef} text={text} onDismiss={close} />
@@ -313,7 +336,7 @@ function TooltipPanel({
         onDismiss();
       }}
       className={cn(
-        "fixed left-0 top-0 z-[60] block w-64 overflow-y-auto",
+        "fixed left-0 top-0 z-[60] block w-64 overflow-y-auto whitespace-pre-line",
         "rounded-md border border-line bg-surface p-2.5 text-body-sm leading-relaxed text-body shadow-lg",
         "animate-[ahr-fade_100ms_ease-out_both]",
       )}

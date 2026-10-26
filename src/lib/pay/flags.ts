@@ -5,7 +5,9 @@ import {
   type ApiPayComponent,
   type ApiPayComponentBasisSource,
   type PayComponentApplyMode,
+  type PaySchedule,
 } from "@/lib/api/pay-components";
+import { amountPeriod } from "@/lib/pay/schedule";
 
 /**
  * Pay component flags, in words a business owner reads.
@@ -161,11 +163,13 @@ export function basisOf(basis: AmountSource["basis"]): string {
  * default, and most of them do not: a car allowance differs by person every
  * time, and a default nobody checked is worse than a blank somebody fills in.
  */
-export function amountLine(component: AmountSource): string {
+export function amountLine(
+  component: AmountSource & { schedule?: Partial<PaySchedule> | undefined },
+): string {
   if (component.basis === "FIXED") {
     return component.defaultAmountKobo === null
       ? "Set per person"
-      : `${money(component.defaultAmountKobo)} a month`;
+      : `${money(component.defaultAmountKobo)} ${amountPeriod(component.schedule)}`;
   }
   return component.defaultRate === null
     ? `A percentage of ${basisOf(component.basis)}, set per person`
@@ -184,13 +188,14 @@ export function assignmentLine(assignment: {
   amountKobo: number | null;
   rate: number | null;
   fromDefault: boolean;
+  schedule?: Partial<PaySchedule> | undefined;
 }): string {
   const suffix = assignment.fromDefault ? " (from the default)" : "";
   if (assignment.rate !== null) {
     return `${percent(assignment.rate)} of ${basisOf(assignment.basis)}${suffix}`;
   }
   if (assignment.amountKobo !== null) {
-    return `${money(assignment.amountKobo)} a month${suffix}`;
+    return `${money(assignment.amountKobo)} ${amountPeriod(assignment.schedule)}${suffix}`;
   }
   return "From the component default";
 }

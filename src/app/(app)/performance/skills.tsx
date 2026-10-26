@@ -10,7 +10,6 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
-  Spinner,
   Stat,
   StatGrid,
   Tag,
@@ -23,9 +22,9 @@ import {
   TableWrap,
   Tabs,
   useToast,
+  LoadState,
 } from "@/components/ui";
 import type { TabItem } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import type { ApiCompetencyRow, ApiHeatmapRow } from "@/lib/api/performance";
 import {
@@ -85,6 +84,9 @@ export function SkillsTab({
 
   const mine = useSkills(me);
   const gaps = useGaps(canSeeCompany || isManager);
+  /* The three figures count what the read returned, which is nothing both
+     before it answers and after it fails: a dash, not a 0. */
+  const mineReady = !mine.loading && !mine.error;
   const grid = useHeatmap(canSeeCompany);
   const rating = useRating();
   const toast = useToast();
@@ -134,143 +136,147 @@ export function SkillsTab({
     <>
       {shown === "mine" && (
         <div className="flex flex-col gap-6">
-          <LoadFailure
-            subject="your skills framework"
-            error={mine.error}
-            onRetry={mine.reload}
-          />
-
           <StatGrid columns={3}>
             <Stat
               label="Skills on your framework"
-              value={String(summary.total)}
+              value={mineReady ? String(summary.total) : "—"}
             />
             <Stat
               label="Assessed so far"
-              value={`${summary.rated} of ${summary.total}`}
+              value={mineReady ? `${summary.rated} of ${summary.total}` : "—"}
             />
-            <Stat label="Below target" value={String(summary.gaps)} />
+            <Stat
+              label="Below target"
+              value={mineReady ? String(summary.gaps) : "—"}
+            />
           </StatGrid>
 
           <Card>
             <CardHeader title="Your skills" />
-            {mine.loading ? (
-              <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-                <Spinner size="sm" />
-                Loading
-              </CardBody>
-            ) : grouped.length === 0 ? (
-              <EmptyState
-                compact
-                icon={<GraduationCap aria-hidden="true" />}
-                title="No framework yet"
-                description="Finish setup and the four standard parts are created for you."
-              />
-            ) : (
-              <CardBody className="flex flex-col gap-6">
-                {grouped.map((group) => (
-                  <div key={group.category}>
-                    <p className="flex flex-wrap items-center gap-2 text-body-sm font-semibold text-ink">
-                      {group.category}
-                      {group.category === "Leadership" && (
-                        <Badge tone="neutral" size="sm">
-                          Managers only
-                        </Badge>
-                      )}
-                    </p>
-                    <ul className="mt-2.5 flex flex-col gap-2.5">
-                      {group.rows.map((row) => (
-                        <SkillRow key={row.competencyId} row={row} />
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </CardBody>
-            )}
+            <LoadState
+              loading={mine.loading}
+              error={mine.error}
+              subject="your skills framework"
+              onRetry={mine.reload}
+              hasData={grouped.length > 0}
+              skeleton="list"
+            >
+              {grouped.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon={<GraduationCap aria-hidden="true" />}
+                  title="No framework yet"
+                  description="Finish setup and the four standard parts are created for you."
+                />
+              ) : (
+                <CardBody className="flex flex-col gap-6">
+                  {grouped.map((group) => (
+                    <div key={group.category}>
+                      <p className="flex flex-wrap items-center gap-2 text-body-sm font-semibold text-ink">
+                        {group.category}
+                        {group.category === "Leadership" && (
+                          <Badge tone="neutral" size="sm">
+                            Managers only
+                          </Badge>
+                        )}
+                      </p>
+                      <ul className="mt-2.5 flex flex-col gap-2.5">
+                        {group.rows.map((row) => (
+                          <SkillRow key={row.competencyId} row={row} />
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </CardBody>
+              )}
+            </LoadState>
           </Card>
         </div>
       )}
       {shown === "gaps" && showGaps && (
         <Card>
           <CardHeader title="Where people are below target" />
-          {gaps.loading ? (
-            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-              <Spinner size="sm" />
-              Loading
-            </CardBody>
-          ) : gaps.gaps.length === 0 ? (
-            <EmptyState
-              compact
-              icon={<GraduationCap aria-hidden="true" />}
-              title="Nobody is below target"
-              description="Either everyone is where they should be, or nobody has been assessed yet."
-            />
-          ) : (
-            <>
-              <div className="hidden sm:block">
-                <TableWrap>
-                  {/* `THead` writes the `<tr>` itself. A `TR` in here nests
+          <LoadState
+            loading={gaps.loading}
+            error={gaps.error}
+            subject="the skill gaps"
+            onRetry={gaps.reload}
+            skeleton="table"
+          >
+            {gaps.gaps.length === 0 ? (
+              <EmptyState
+                compact
+                icon={<GraduationCap aria-hidden="true" />}
+                title="Nobody is below target"
+                description="Either everyone is where they should be, or nobody has been assessed yet."
+              />
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap>
+                    {/* `THead` writes the `<tr>` itself. A `TR` in here nests
                       one inside another, which is invalid HTML and shows up
                       as a hydration error rather than as anything visible —
                       found in the browser console, not by `tsc`. */}
-                  <THead>
-                    <TH>Person</TH>
-                    <TH>Skill</TH>
-                    <TH align="right">Level</TH>
-                    <TH align="right">Target</TH>
-                  </THead>
-                  <TBody>
-                    {gaps.gaps.map((gap) => (
-                      <TR key={`${gap.employeeId}-${gap.competencyId}`}>
-                        <TDPrimary title={gap.employeeName} />
-                        <TD>
-                          {gap.competencyName}
-                          {gap.sectionName && (
-                            <span className="mt-0.5 block text-meta text-muted">
-                              {gap.sectionName}
-                            </span>
-                          )}
-                        </TD>
-                        <TD align="right" className="tabular">
-                          {gap.level} of {gap.scaleMax}
-                        </TD>
-                        <TD align="right" className="tabular">
-                          {gap.target}
-                        </TD>
-                      </TR>
-                    ))}
-                  </TBody>
-                </TableWrap>
-              </div>
+                    <THead>
+                      <TH>Person</TH>
+                      <TH>Skill</TH>
+                      <TH align="right">Level</TH>
+                      <TH align="right">Target</TH>
+                    </THead>
+                    <TBody>
+                      {gaps.gaps.map((gap) => (
+                        <TR key={`${gap.employeeId}-${gap.competencyId}`}>
+                          <TDPrimary title={gap.employeeName} />
+                          <TD>
+                            {gap.competencyName}
+                            {gap.sectionName && (
+                              <span className="mt-0.5 block text-meta text-muted">
+                                {gap.sectionName}
+                              </span>
+                            )}
+                          </TD>
+                          <TD align="right" className="tabular">
+                            {gap.level} of {gap.scaleMax}
+                          </TD>
+                          <TD align="right" className="tabular">
+                            {gap.target}
+                          </TD>
+                        </TR>
+                      ))}
+                    </TBody>
+                  </TableWrap>
+                </div>
 
-              <ul className="divide-y divide-line rounded-lg border border-line bg-surface sm:hidden">
-                {gaps.gaps.map((gap) => (
-                  <li
-                    key={`${gap.employeeId}-${gap.competencyId}`}
-                    className="flex flex-col gap-2 p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-body-sm font-medium text-ink">
-                          {gap.employeeName}
-                        </p>
-                        <p className="mt-0.5 text-meta text-muted">
-                          {gap.competencyName}
-                          {gap.sectionName && ` · ${gap.sectionName}`}
-                        </p>
+                <ul className="divide-y divide-line rounded-lg border border-line bg-surface sm:hidden">
+                  {gaps.gaps.map((gap) => (
+                    <li
+                      key={`${gap.employeeId}-${gap.competencyId}`}
+                      className="flex flex-col gap-2 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-body-sm font-medium text-ink">
+                            {gap.employeeName}
+                          </p>
+                          <p className="mt-0.5 text-meta text-muted">
+                            {gap.competencyName}
+                            {gap.sectionName && ` · ${gap.sectionName}`}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-4 text-body-sm text-muted">
-                      <span className="tabular">
-                        Level {gap.level} of {gap.scaleMax}
-                      </span>
-                      <span className="tabular">Target {gap.target}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+                      <div className="flex items-center gap-4 text-body-sm text-muted">
+                        <span className="tabular">
+                          Level {gap.level} of {gap.scaleMax}
+                        </span>
+                        <span className="tabular">Target {gap.target}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </LoadState>
         </Card>
       )}
 
@@ -280,55 +286,60 @@ export function SkillsTab({
             title="Department heatmap"
             description="Average level per skill, per department."
           />
-          {grid.loading ? (
-            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-              <Spinner size="sm" />
-              Loading the grid
-            </CardBody>
-          ) : !grid.heatmap || grid.heatmap.rows.length === 0 ? (
-            <EmptyState
-              compact
-              icon={<Grid3x3 aria-hidden="true" />}
-              title="Nothing assessed yet"
-              description="Record a level for somebody and the grid fills in."
-            />
-          ) : (
-            <CardBody className="flex flex-col gap-4">
-              <Legend />
-              <div className="scroll-x">
-                <table className="w-full border-collapse text-body-sm">
-                  <thead>
-                    <tr>
-                      <th
-                        scope="col"
-                        className="sticky left-0 z-10 bg-surface p-2 text-left font-medium text-muted"
-                      >
-                        Department
-                      </th>
-                      {grid.heatmap.competencies.map((competency) => (
+          <LoadState
+            loading={grid.loading}
+            error={grid.error}
+            subject="the department heatmap"
+            onRetry={grid.reload}
+            skeleton="table"
+          >
+            {!grid.heatmap || grid.heatmap.rows.length === 0 ? (
+              <EmptyState
+                compact
+                icon={<Grid3x3 aria-hidden="true" />}
+                title="Nothing assessed yet"
+                description="Record a level for somebody and the grid fills in."
+              />
+            ) : (
+              <CardBody className="flex flex-col gap-4">
+                <Legend />
+                <div className="scroll-x">
+                  <table className="w-full border-collapse text-body-sm">
+                    <thead>
+                      <tr>
                         <th
                           scope="col"
-                          key={competency.id}
-                          className="min-w-28 p-2 text-left align-bottom font-medium text-muted"
+                          className="sticky left-0 z-10 bg-surface p-2 text-left font-medium text-muted"
                         >
-                          {competency.name}
+                          Department
                         </th>
+                        {grid.heatmap.competencies.map((competency) => (
+                          <th
+                            scope="col"
+                            key={competency.id}
+                            className="min-w-28 p-2 text-left align-bottom font-medium text-muted"
+                          >
+                            {competency.name}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {grid.heatmap.rows.map((row) => (
+                        <HeatRow
+                          key={row.departmentId ?? "none"}
+                          row={row}
+                          scaleMax={
+                            grid.heatmap?.competencies[0]?.scaleMax ?? 5
+                          }
+                        />
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {grid.heatmap.rows.map((row) => (
-                      <HeatRow
-                        key={row.departmentId ?? "none"}
-                        row={row}
-                        scaleMax={grid.heatmap?.competencies[0]?.scaleMax ?? 5}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardBody>
-          )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardBody>
+            )}
+          </LoadState>
         </Card>
       )}
     </>

@@ -11,8 +11,8 @@ import {
   LinkTabs,
   Skeleton,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { CreateIssueDialog } from "@/components/projects/create-issue-dialog";
 import { ProjectKeyChip } from "@/components/projects/glyphs";
@@ -71,11 +71,14 @@ export function ProjectScreen({ id }: { id: string }) {
           breadcrumb={[{ href: "/projects", label: "Projects" }]}
         />
         <PageBody>
-          <LoadFailure
-            subject="this project"
+          <LoadState
+            loading={false}
             error={project.error}
+            subject="this project"
             onRetry={project.reload}
-          />
+          >
+            {null}
+          </LoadState>
         </PageBody>
       </>
     );

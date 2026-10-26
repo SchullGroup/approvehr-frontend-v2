@@ -145,7 +145,7 @@ afterEach(() => {
 function openStartMonths() {
   fireEvent.click(
     screen.getByRole("button", {
-      name: "Change the start month or add interest",
+      name: "Change the start month, add interest or record what is already repaid",
     }),
   );
   return screen.getByRole("combobox") as HTMLSelectElement;

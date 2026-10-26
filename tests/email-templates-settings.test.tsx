@@ -104,9 +104,11 @@ describe("the page", () => {
     expect(
       await screen.findByText("Emails to candidates are off"),
     ).toBeInTheDocument();
+    /* The reason sits behind the mark beside the title; its words are in the
+       page for anybody who cannot hover. */
     expect(
       await screen.findByText(
-        "Emails to candidates are switched off for your company.",
+        /Emails to candidates are switched off for your company\./,
       ),
     ).toBeInTheDocument();
     expect(demoPipeline.current().mail.enabled).toBe(false);

@@ -272,10 +272,7 @@ export function HolidayCalendarCard({
           tone="warning"
           title={`${awaiting} ${awaiting === 1 ? "date is" : "dates are"} not gazetted yet`}
         >
-          <span className="flex flex-col gap-1.5 text-body-sm leading-relaxed">
-            <span>{UNCONFIRMED_HOLIDAY_EFFECT.acts}</span>
-            <span>{UNCONFIRMED_HOLIDAY_EFFECT.waits}</span>
-          </span>
+          {`${UNCONFIRMED_HOLIDAY_EFFECT.acts} ${UNCONFIRMED_HOLIDAY_EFFECT.waits}`}
         </Callout>
       )}
 

@@ -9300,6 +9300,128 @@ previous `goal-dialogs.tsx`, and the other 4 are the controls that must hold eit
 
 ---
 
+# No banners anywhere: a fact goes beside the thing it is about
+
+The owner does not want large banners. *"The big banner like '1 probation has already ended' should not be
+used… maybe a tooltip, maybe an icon that draws users' attention… on the table where we have user
+information."* This is what replaced them, and the rule for what to reach for.
+
+## The rule
+
+| What it is | What it becomes |
+|---|---|
+| **A fact about a person, a row, a section or a status** | `AttentionMark` beside it: a small ochre icon, the sentence behind it. `TDPrimary`, `CardHeader` and `Stat` take a `mark` prop; `PageHeader` takes one in `meta`. |
+| **A failure** that has to be read to carry on (a refused action, a failed load) | Plain red words, no box: `Callout tone="danger"`. |
+| **A call to action** | A button, link or row action on one line, with the mark beside it saying why: `NoticeLine` + `AttentionMark` + `NOTICE_LINK`. |
+
+A status stays plain muted text; the mark is the only colour on a row. `tone="info"` is the grey glyph for
+what a state means once somebody has seen it (closed, repaid); the default ochre is for what to look at.
+
+## `AttentionMark` is not hover-only
+
+It is a real button, and **the icon's accessible name is the message**, so a screen reader reads the reason
+on arrival. It opens on hover, on keyboard focus and on a tap (and stays open on a tap), and Escape or a
+press elsewhere closes it. It reuses `InfoTooltip`'s portalled panel; `InfoTooltip` gained `tone` and an
+optional `id`. Where the sentence has to be found by text in a test, use `getByRole("button", { name })`.
+
+## `Callout` can no longer draw a box
+
+It lives in `components/ui/callout.tsx` (re-exported from `card.tsx`, which Server Components import and
+which therefore cannot read a context). Failure: red words. Words only: the heading, the rest behind the
+icon (an ochre one for `warning`). Words with a name in bold or a list of reasons: read as words and treated
+the same way **on a page**. Anything with a link, a button or a component of ours stays on the page as a line.
+
+**Inside a `Modal` or `Drawer` it never hides its words** (`InDialog`, set by both). That is where the
+sentence beside the deciding button is read, "this ends nothing on its own" among them, and a consequence
+that needs a hover to be read is one that gets agreed to unread.
+
+If you are about to write a tinted `div` for a message, write a `Callout` or an `AttentionMark` instead.
+`npm run verify-no-banners` refuses a class string that gives the warning or danger tint a border and
+padding (accent and info tints are selection states and are left alone; `ALLOWED` in the script says why
+each exempt file is). The check in a browser is the one that counts: tinted blocks over 280px wide with
+text in them, across every static route, was **17 before and 0 after** on the demo company.
+
+## Things to know
+
+- **A `TDPrimary` mark lands inside a row header**, so the row's accessible name includes the sentence.
+  Verbose for a screen reader moving across a row, and the reason it is one sentence or two, not a paragraph.
+- Rows that carried a tint to say "late" (documents, exceptions, checks) are plain hairline rows now. The
+  state is in their words; the tint was the second cue and is gone.
+- Not touched, on purpose: the payslip document's unpaid-days note (it prints), selection and drag-over
+  highlights, the shift palette's categorical colours, icon chips, and the `recruitment-coming-soon` empty state.
+- `docs/components` and `docs/pages` were not regenerated. New exports for the generator: `AttentionMark`,
+  `InDialog`, the `callout.tsx` module, and `mark` on `TDPrimary`, `CardHeader` and `Stat`.
+
+---
+
+# An allowance has a schedule, and the screen only says what the API says
+
+The owner's request was that each allowance in Pay setup can wait for a period of service and then be
+paid monthly, every few months or years, or once, with an optional stop. The rules, the wording and the
+dates are the API's (`POST /pay-components/schedule-preview`, `scheduleStatus.text`, `held`,
+`GET /payroll/runs/:id/scheduled-allowances`). The web collects six choices and shows what came back.
+**Nothing here works out when an allowance falls due or what a payment comes to.** If a figure is on
+screen, the API sent it; if the API did not send one, the screen says nothing.
+
+## What is where
+
+| File | What and why |
+| ---- | ------------ |
+| `lib/pay/schedule.ts` | Pure. Years to months and back, the form's draft and its conversion to the six fields, `sameSchedule`, the "Paid" text, the sentence after a save, the warning before an edit. `scheduleText(undefined)` is **"Monthly"**, never blank. |
+| `lib/store/schedule-preview.ts` | The debounced preview of the typed schedule. Exempt in `verify-revalidate` with its reason: it answers what is typed, not something another screen can change. |
+| `lib/store/scheduled-allowances.ts` | What a run holds back and lets through. Read again when the run is calculated again; **unavailable says nothing**, never "nothing held back". |
+| `pay-setup/schedule-fields.tsx` | The "Applies" section of the form, and the whole of the **Change schedule** dialog. |
+| `runs/new/scheduled-note.tsx` | The one quiet line on the run, with the detail behind an `AttentionMark`. |
+
+## Decisions worth not undoing
+
+- **Six fields, every time, in months.** A change to the schedule sends the whole schedule, never one
+  field, because a partial one is merged by the API and the form cannot see what it was merged with. An
+  edit that did not touch the schedule sends none (`sameSchedule`). Years are the form's, months the wire's.
+- **The amount is "per payment", not "a month", the moment an allowance is on a schedule** (the library,
+  a person's line, the add-a-line dialog and the effect on take-home: "₦41,000.00 more in the account in
+  a month it is paid"). "A month" would claim it is paid every month, which is what a schedule says it is not.
+- **A line that is not due says when, not `₦0.00`.** A zero beside an allowance reads as an amount somebody
+  chose. The API's sentence ("Next due Oct 2028") replaces it, as plain muted text.
+- **Assignments send `effectiveFrom` explicitly** (the company's own day when the field is blank). Left to
+  the API it is the first of the month in UTC, which in the first hours of a month in Lagos is last
+  month, and moves a count that starts from the day it was given.
+- **"Counts from the day it is given to them" is not offered for an allowance that applies to everybody**
+  (`PERMANENT`): nobody is given it, so it counts from each person's start date. The control is disabled
+  with the reason beside it, not removed, because that is the one place where the choice exists and is closed.
+- **Defining a schedule needs `MANAGE_PAY_STRUCTURE`, and without it the controls are hidden.** The "Paid"
+  text stays: reading what an allowance does is not defining it.
+- **Changing a schedule moves it for everybody on it, from the next run that has not been prepared, and
+  history does not change.** That sentence is behind the ochre mark on the form and the toast after a save
+  names each open payroll and says it picks the new schedule up when it is calculated again.
+- **The run's note follows the schedule as it stands, not the last calculation.** It says so, and tells
+  the reader to calculate again so the payslips match. A payslip prints a due allowance and nothing for one
+  that is not due.
+- **No banner and no pill.** Not due, held back and due this month are each a line of muted text; the
+  detail is behind the mark.
+
+## Open questions, kept easy to change
+
+The brief had ten that the owner has not answered. The screen uses the API's defaults and the wording that
+depends on them is in `lib/pay/schedule.ts` (the sentence after a save, the warning before an edit, the
+words "Their start date" and "The day it is given to them" are in `schedule-fields.tsx`). Nothing in the
+UI decides one.
+
+## Verified
+
+`tests/pay-schedule.test.ts` (24), `allowance-schedule-form.test.tsx` (22), `pay-lines-schedule.test.tsx`
+(11) and `scheduled-note.test.tsx` (13), including the absent cases: no schedule shows "Monthly", no
+answer shows nothing, a run that is not open shows nothing, a percentage allowance shows no amount.
+`npm run check` and the full vitest (only the three known files fail). In a browser against the demo API,
+as the administrator: create with a schedule and see the API's dates for a sample start date, the "Paid"
+column, Change schedule, a person's lines (due this month, next due Oct 2028, no ₦0.00), the run's Review
+line and the Approve step's mention. At 1440 and 390.
+
+**Not exercised:** a user without `MANAGE_PAY_STRUCTURE` in a browser (covered by a test), and a run
+approved with a scheduled allowance on it.
+
+---
+
 # A measure has a kind, and a measure nobody has read is not at 0%
 
 Step 1 of the measures report (a Claude Docs document; its nine decisions were settled with the owner

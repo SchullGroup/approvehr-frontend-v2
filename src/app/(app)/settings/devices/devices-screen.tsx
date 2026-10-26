@@ -25,8 +25,8 @@ import {
   TableWrap,
   useToast,
   ToggleFilter,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import type {
@@ -238,6 +238,9 @@ export function DevicesScreen() {
   /* Gated: reading the registry needs the same permission registering a
      terminal needs, so without it this is a guaranteed 403. */
   const list = useAttendanceDevices(showArchived, canManage);
+  /* The three figures are drawn from the list, which is empty both before it
+     has answered and after it failed: a dash in each case, not a 0. */
+  const listAnswered = !list.loading && !list.error;
   const locations = useWorkLocationList(false);
   const mutations = useDeviceMutations();
   const toast = useToast();
@@ -358,12 +361,6 @@ export function DevicesScreen() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <LoadFailure
-          subject="your terminals"
-          error={list.error}
-          onRetry={list.reload}
-        />
-
         {/* The honest gap, stated rather than left to be discovered by
             registering a device and waiting for a tap that cannot come. */}
         {DEMO_ENABLED && list.source === "demo" && (
@@ -381,7 +378,7 @@ export function DevicesScreen() {
         <StatGrid columns={3}>
           <Stat
             label="Terminals"
-            value={list.loading ? "—" : String(live.length)}
+            value={!listAnswered ? "—" : String(live.length)}
             /* "All of them are accepting deliveries" over a count of zero is a
                vacuous truth reading as a reassurance. Same family as the "1
                people" and "9 of 10 payslips" defects — a sentence under a
@@ -396,7 +393,7 @@ export function DevicesScreen() {
           />
           <Stat
             label="Nothing yet"
-            value={list.loading ? "—" : String(neverSeen.length)}
+            value={!listAnswered ? "—" : String(neverSeen.length)}
             hint={
               live.length === 0
                 ? "Nothing to wait on yet."
@@ -409,7 +406,7 @@ export function DevicesScreen() {
             label="Taps nobody is mapped to"
             /* Absent, not zero: no tap can reach a browser, so a confident 0
                would read as "everybody is mapped". */
-            value={list.loading || !unmappedKnown ? "—" : String(unmapped)}
+            value={!listAnswered || !unmappedKnown ? "—" : String(unmapped)}
             hint={
               !unmappedKnown
                 ? /* True wherever it renders, rather than a sentence naming a
@@ -444,238 +441,245 @@ export function DevicesScreen() {
             }
           />
 
-          {list.loading ? (
-            <CardBody className="flex justify-center py-10">
-              <Spinner />
-            </CardBody>
-          ) : list.devices.length === 0 ? (
-            <EmptyState
-              icon={<Cpu aria-hidden="true" />}
-              title="No terminals registered"
-              description="A clock-in from a browser is somebody saying where they are. A terminal on the wall is something they do not control, which is the only kind of attendance a dispute can be settled on."
-              action={
-                canManage ? (
-                  <Button variant="accent" onClick={() => setAdding(true)}>
-                    <Plus aria-hidden="true" className="size-4" />
-                    Register a terminal
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <>
-              <div className="hidden sm:block">
-                <TableWrap
-                  className="rounded-none border-0"
-                  caption="Registered biometric terminals, with what each one has delivered"
-                >
-                  <THead>
-                    <TH>Terminal</TH>
-                    <TH>Where</TH>
-                    <TH>Last delivery</TH>
-                    <TH align="right">Mapped</TH>
-                    <TH align="right">Unattributed</TH>
-                    {canManage && (
-                      <TH align="right">
-                        <span className="sr-only">Actions</span>
-                      </TH>
-                    )}
-                  </THead>
-                  <TBody>
-                    {list.devices.map((row) => {
-                      const off = row.archivedAt !== null;
-                      return (
-                        <TR key={row.id}>
-                          <TDPrimary
-                            title={
-                              <span className="flex flex-wrap items-center gap-2">
-                                {row.label}
-                                {off && (
-                                  <Badge tone="neutral" size="sm">
-                                    Switched off
-                                  </Badge>
-                                )}
-                                {!off && !row.active && (
-                                  <Badge tone="warning" size="sm">
-                                    Not accepting
-                                  </Badge>
-                                )}
-                              </span>
-                            }
-                            subtitle={
-                              <>
-                                {row.serialNumber}
-                                <SmartLifeNotes
-                                  row={row}
-                                  busy={busy}
-                                  onEntryOnly={(next) =>
-                                    void run(
-                                      () =>
-                                        mutations.update(row.id, {
-                                          entryOnly: next,
-                                        }),
-                                      next
-                                        ? `${row.label} is door entry only`
-                                        : `${row.label} now counts exits too`,
-                                    )
-                                  }
-                                />
-                              </>
-                            }
-                          />
-                          <TD>
-                            <DeviceOffice
-                              row={row}
-                              locations={locations.locations}
-                            />
-                          </TD>
-                          <TD>
-                            {row.lastSeenAt === null ? (
-                              /* Absent, not a date. */
-                              <span className="text-body-sm text-muted">
-                                Nothing yet
-                              </span>
-                            ) : (
-                              <span className="tabular text-body-sm text-ink">
-                                {seenAt(row.lastSeenAt, timeZone)}
-                              </span>
-                            )}
-                          </TD>
-                          <TD align="right">
-                            <span className="tabular text-body-sm text-ink">
-                              {row.enrolments}
-                            </span>
-                          </TD>
-                          <TD align="right">
-                            <UnattributedCount row={row} />
-                          </TD>
-                          {canManage && (
-                            <TD align="right">
-                              <div className="flex flex-wrap justify-end gap-1.5">
-                                <DeviceRowActions
-                                  off={off}
-                                  hasSecret={row.provider !== "TUYA"}
-                                  busy={busy}
-                                  onRestore={() =>
-                                    void run(
-                                      () => mutations.restore(row.id),
-                                      `${row.label} is back on`,
-                                    )
-                                  }
-                                  onEnrol={() => setEnrolling(row)}
-                                  onEdit={() => setEditing(row)}
-                                  onRotate={() => setRotating(row)}
-                                  onArchive={() => setArchiving(row)}
-                                />
-                              </div>
-                            </TD>
-                          )}
-                        </TR>
-                      );
-                    })}
-                  </TBody>
-                </TableWrap>
-              </div>
-
-              <ul className="divide-y divide-line sm:hidden">
-                {list.devices.map((row) => {
-                  const off = row.archivedAt !== null;
-                  return (
-                    <li key={row.id} className="flex flex-col gap-2 p-4">
-                      <div className="min-w-0">
-                        <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
-                          {row.label}
-                          {off && (
-                            <Badge tone="neutral" size="sm">
-                              Switched off
-                            </Badge>
-                          )}
-                          {!off && !row.active && (
-                            <Badge tone="warning" size="sm">
-                              Not accepting
-                            </Badge>
-                          )}
-                        </p>
-                        <p className="mt-0.5 text-meta text-muted">
-                          {row.serialNumber}
-                        </p>
-                        <SmartLifeNotes
-                          row={row}
-                          busy={busy}
-                          onEntryOnly={(next) =>
-                            void run(
-                              () =>
-                                mutations.update(row.id, { entryOnly: next }),
-                              next
-                                ? `${row.label} is door entry only`
-                                : `${row.label} now counts exits too`,
-                            )
-                          }
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-body-sm text-muted">Where</span>
-                        <DeviceOffice
-                          row={row}
-                          locations={locations.locations}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-body-sm text-muted">
-                          Last delivery
-                        </span>
-                        {row.lastSeenAt === null ? (
-                          <span className="text-body-sm text-muted">
-                            Nothing yet
-                          </span>
-                        ) : (
-                          <span className="tabular text-body-sm text-ink">
-                            {formatDateTimeShort(row.lastSeenAt, timeZone)}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-body-sm text-muted">Mapped</span>
-                        <span className="tabular text-body-sm text-ink">
-                          {row.enrolments}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-body-sm text-muted">
-                          Unattributed
-                        </span>
-                        <UnattributedCount row={row} />
-                      </div>
-
+          <LoadState
+            loading={list.loading}
+            error={list.error}
+            subject="your terminals"
+            onRetry={list.reload}
+            hasData={list.devices.length > 0}
+            skeleton="table"
+          >
+            {list.devices.length === 0 ? (
+              <EmptyState
+                icon={<Cpu aria-hidden="true" />}
+                title="No terminals registered"
+                description="A clock-in from a browser is somebody saying where they are. A terminal on the wall is something they do not control, which is the only kind of attendance a dispute can be settled on."
+                action={
+                  canManage ? (
+                    <Button variant="accent" onClick={() => setAdding(true)}>
+                      <Plus aria-hidden="true" className="size-4" />
+                      Register a terminal
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap
+                    className="rounded-none border-0"
+                    caption="Registered biometric terminals, with what each one has delivered"
+                  >
+                    <THead>
+                      <TH>Terminal</TH>
+                      <TH>Where</TH>
+                      <TH>Last delivery</TH>
+                      <TH align="right">Mapped</TH>
+                      <TH align="right">Unattributed</TH>
                       {canManage && (
-                        <div className="flex flex-wrap gap-1.5">
-                          <DeviceRowActions
-                            off={off}
-                            hasSecret={row.provider !== "TUYA"}
+                        <TH align="right">
+                          <span className="sr-only">Actions</span>
+                        </TH>
+                      )}
+                    </THead>
+                    <TBody>
+                      {list.devices.map((row) => {
+                        const off = row.archivedAt !== null;
+                        return (
+                          <TR key={row.id}>
+                            <TDPrimary
+                              title={
+                                <span className="flex flex-wrap items-center gap-2">
+                                  {row.label}
+                                  {off && (
+                                    <Badge tone="neutral" size="sm">
+                                      Switched off
+                                    </Badge>
+                                  )}
+                                  {!off && !row.active && (
+                                    <Badge tone="warning" size="sm">
+                                      Not accepting
+                                    </Badge>
+                                  )}
+                                </span>
+                              }
+                              subtitle={
+                                <>
+                                  {row.serialNumber}
+                                  <SmartLifeNotes
+                                    row={row}
+                                    busy={busy}
+                                    onEntryOnly={(next) =>
+                                      void run(
+                                        () =>
+                                          mutations.update(row.id, {
+                                            entryOnly: next,
+                                          }),
+                                        next
+                                          ? `${row.label} is door entry only`
+                                          : `${row.label} now counts exits too`,
+                                      )
+                                    }
+                                  />
+                                </>
+                              }
+                            />
+                            <TD>
+                              <DeviceOffice
+                                row={row}
+                                locations={locations.locations}
+                              />
+                            </TD>
+                            <TD>
+                              {row.lastSeenAt === null ? (
+                                /* Absent, not a date. */
+                                <span className="text-body-sm text-muted">
+                                  Nothing yet
+                                </span>
+                              ) : (
+                                <span className="tabular text-body-sm text-ink">
+                                  {seenAt(row.lastSeenAt, timeZone)}
+                                </span>
+                              )}
+                            </TD>
+                            <TD align="right">
+                              <span className="tabular text-body-sm text-ink">
+                                {row.enrolments}
+                              </span>
+                            </TD>
+                            <TD align="right">
+                              <UnattributedCount row={row} />
+                            </TD>
+                            {canManage && (
+                              <TD align="right">
+                                <div className="flex flex-wrap justify-end gap-1.5">
+                                  <DeviceRowActions
+                                    off={off}
+                                    hasSecret={row.provider !== "TUYA"}
+                                    busy={busy}
+                                    onRestore={() =>
+                                      void run(
+                                        () => mutations.restore(row.id),
+                                        `${row.label} is back on`,
+                                      )
+                                    }
+                                    onEnrol={() => setEnrolling(row)}
+                                    onEdit={() => setEditing(row)}
+                                    onRotate={() => setRotating(row)}
+                                    onArchive={() => setArchiving(row)}
+                                  />
+                                </div>
+                              </TD>
+                            )}
+                          </TR>
+                        );
+                      })}
+                    </TBody>
+                  </TableWrap>
+                </div>
+
+                <ul className="divide-y divide-line sm:hidden">
+                  {list.devices.map((row) => {
+                    const off = row.archivedAt !== null;
+                    return (
+                      <li key={row.id} className="flex flex-col gap-2 p-4">
+                        <div className="min-w-0">
+                          <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
+                            {row.label}
+                            {off && (
+                              <Badge tone="neutral" size="sm">
+                                Switched off
+                              </Badge>
+                            )}
+                            {!off && !row.active && (
+                              <Badge tone="warning" size="sm">
+                                Not accepting
+                              </Badge>
+                            )}
+                          </p>
+                          <p className="mt-0.5 text-meta text-muted">
+                            {row.serialNumber}
+                          </p>
+                          <SmartLifeNotes
+                            row={row}
                             busy={busy}
-                            onRestore={() =>
+                            onEntryOnly={(next) =>
                               void run(
-                                () => mutations.restore(row.id),
-                                `${row.label} is back on`,
+                                () =>
+                                  mutations.update(row.id, { entryOnly: next }),
+                                next
+                                  ? `${row.label} is door entry only`
+                                  : `${row.label} now counts exits too`,
                               )
                             }
-                            onEnrol={() => setEnrolling(row)}
-                            onEdit={() => setEditing(row)}
-                            onRotate={() => setRotating(row)}
-                            onArchive={() => setArchiving(row)}
                           />
                         </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          )}
+
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-body-sm text-muted">Where</span>
+                          <DeviceOffice
+                            row={row}
+                            locations={locations.locations}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-body-sm text-muted">
+                            Last delivery
+                          </span>
+                          {row.lastSeenAt === null ? (
+                            <span className="text-body-sm text-muted">
+                              Nothing yet
+                            </span>
+                          ) : (
+                            <span className="tabular text-body-sm text-ink">
+                              {formatDateTimeShort(row.lastSeenAt, timeZone)}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-body-sm text-muted">
+                            Mapped
+                          </span>
+                          <span className="tabular text-body-sm text-ink">
+                            {row.enrolments}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-body-sm text-muted">
+                            Unattributed
+                          </span>
+                          <UnattributedCount row={row} />
+                        </div>
+
+                        {canManage && (
+                          <div className="flex flex-wrap gap-1.5">
+                            <DeviceRowActions
+                              off={off}
+                              hasSecret={row.provider !== "TUYA"}
+                              busy={busy}
+                              onRestore={() =>
+                                void run(
+                                  () => mutations.restore(row.id),
+                                  `${row.label} is back on`,
+                                )
+                              }
+                              onEnrol={() => setEnrolling(row)}
+                              onEdit={() => setEditing(row)}
+                              onRotate={() => setRotating(row)}
+                              onArchive={() => setArchiving(row)}
+                            />
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </LoadState>
         </Card>
 
         <Card>

@@ -25,8 +25,8 @@ import {
   Skeleton,
   Tag,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { hostOf, pathOf, type ApiWebhook } from "@/lib/api/webhooks";
@@ -176,14 +176,6 @@ function Endpoints() {
           </Callout>
         )}
 
-        {/* No `&&` guard: the component renders nothing without an error, and
-            an `unknown &&` expression is not a valid React child. */}
-        <LoadFailure
-          subject="your endpoints"
-          error={list.error}
-          onRetry={list.reload}
-        />
-
         <div className="flex flex-wrap items-center gap-3">
           <SegmentedControl
             label="Show"
@@ -207,41 +199,47 @@ function Endpoints() {
           </div>
         </div>
 
-        {list.loading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : list.rows.length === 0 ? (
-          <Card>
-            <EmptyState
-              icon={<Webhook aria-hidden="true" />}
-              title={
-                search || state !== "all"
-                  ? "Nothing matches that"
-                  : "No endpoints yet"
-              }
-              description="Give us a URL and we POST signed JSON to it when something happens. Unlike the other integrations, this one needs no credential of anybody else's: the server is yours."
-              action={
-                editable && !search && state === "all" ? (
-                  <Button variant="accent" onClick={() => setAdding(true)}>
-                    <Plus aria-hidden="true" className="size-4" />
-                    Add endpoint
-                  </Button>
-                ) : undefined
-              }
-            />
-          </Card>
-        ) : (
-          <ul className="flex flex-col gap-4">
-            {list.rows.map((webhook) => (
-              <li key={webhook.id}>
-                <EndpointCard
-                  webhook={webhook}
-                  editable={editable}
-                  onSetActive={(active) => void setActive(webhook, active)}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
+        <LoadState
+          loading={list.loading}
+          error={list.error}
+          subject="your endpoints"
+          onRetry={list.reload}
+          skeleton="list"
+        >
+          {list.rows.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={<Webhook aria-hidden="true" />}
+                title={
+                  search || state !== "all"
+                    ? "Nothing matches that"
+                    : "No endpoints yet"
+                }
+                description="Give us a URL and we POST signed JSON to it when something happens. Unlike the other integrations, this one needs no credential of anybody else's: the server is yours."
+                action={
+                  editable && !search && state === "all" ? (
+                    <Button variant="accent" onClick={() => setAdding(true)}>
+                      <Plus aria-hidden="true" className="size-4" />
+                      Add endpoint
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </Card>
+          ) : (
+            <ul className="flex flex-col gap-4">
+              {list.rows.map((webhook) => (
+                <li key={webhook.id}>
+                  <EndpointCard
+                    webhook={webhook}
+                    editable={editable}
+                    onSetActive={(active) => void setActive(webhook, active)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </LoadState>
 
         {(page > 1 || list.hasMore) && (
           <div className="flex items-center justify-between gap-3">

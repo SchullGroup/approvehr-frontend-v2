@@ -19,8 +19,8 @@ import {
   TableWrap,
   useToast,
   RowActions,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { useCan } from "@/lib/permissions";
 import type { ApiSurvey } from "@/lib/api/surveys";
 import {
@@ -61,16 +61,6 @@ export function SurveysScreen() {
     );
   }
 
-  if (mine.error) {
-    return (
-      <LoadFailure
-        subject="the surveys you have been asked"
-        error={mine.error}
-        onRetry={mine.reload}
-      />
-    );
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <Card>
@@ -82,62 +72,69 @@ export function SurveysScreen() {
               : `${mine.invites.length} to answer.`
           }
         />
-        {mine.loading ? (
-          <CardBody className="text-body-sm text-muted">Loading…</CardBody>
-        ) : mine.invites.length === 0 ? (
-          <EmptyState
-            icon={<ClipboardList aria-hidden="true" className="size-5" />}
-            title="Nothing to answer"
-            description="You will see anything you are asked here."
-          />
-        ) : (
-          <CardBody className="flex flex-col gap-3">
-            {mine.invites.map((invite) => (
-              <div
-                key={invite.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-4"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-body font-medium">
-                      {invite.title}
-                    </span>
-                    {/* The promise, as a badge, wherever the survey appears —
+        <LoadState
+          loading={mine.loading}
+          error={mine.error}
+          subject="the surveys you have been asked"
+          onRetry={mine.reload}
+          hasData={mine.invites.length > 0}
+          skeleton="list"
+        >
+          {mine.invites.length === 0 ? (
+            <EmptyState
+              icon={<ClipboardList aria-hidden="true" className="size-5" />}
+              title="Nothing to answer"
+              description="You will see anything you are asked here."
+            />
+          ) : (
+            <CardBody className="flex flex-col gap-3">
+              {mine.invites.map((invite) => (
+                <div
+                  key={invite.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-4"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-body font-medium">
+                        {invite.title}
+                      </span>
+                      {/* The promise, as a badge, wherever the survey appears —
                         not only on the form. Somebody decides whether to open
                         it at all partly on this. */}
-                    {invite.anonymous ? (
-                      <Badge tone="success">
-                        <EyeOff aria-hidden="true" className="mr-1 size-3" />
-                        Anonymous
-                      </Badge>
-                    ) : (
-                      <Badge tone="neutral">Your name is on it</Badge>
+                      {invite.anonymous ? (
+                        <Badge tone="success">
+                          <EyeOff aria-hidden="true" className="mr-1 size-3" />
+                          Anonymous
+                        </Badge>
+                      ) : (
+                        <Badge tone="neutral">Your name is on it</Badge>
+                      )}
+                    </div>
+                    {invite.description && (
+                      <p className="text-body-sm text-muted">
+                        {invite.description}
+                      </p>
                     )}
-                  </div>
-                  {invite.description && (
-                    <p className="text-body-sm text-muted">
-                      {invite.description}
+                    <p className="text-meta text-muted">
+                      {invite.questionCount}{" "}
+                      {invite.questionCount === 1 ? "question" : "questions"}
+                      {invite.closesAt
+                        ? ` · closes ${invite.closesAt.slice(0, 10)}`
+                        : ""}
                     </p>
-                  )}
-                  <p className="text-meta text-muted">
-                    {invite.questionCount}{" "}
-                    {invite.questionCount === 1 ? "question" : "questions"}
-                    {invite.closesAt
-                      ? ` · closes ${invite.closesAt.slice(0, 10)}`
-                      : ""}
-                  </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="accent"
+                    onClick={() => setAnswering(invite.id)}
+                  >
+                    Answer it
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  variant="accent"
-                  onClick={() => setAnswering(invite.id)}
-                >
-                  Answer it
-                </Button>
-              </div>
-            ))}
-          </CardBody>
-        )}
+              ))}
+            </CardBody>
+          )}
+        </LoadState>
       </Card>
 
       {canManage && <RunningPanel state={running} onShow={setShowing} />}
@@ -161,16 +158,6 @@ function RunningPanel({
 }) {
   const actions = useSurveyActions();
   const toast = useToast();
-
-  if (state.error) {
-    return (
-      <LoadFailure
-        subject="the surveys you are running"
-        error={state.error}
-        onRetry={state.reload}
-      />
-    );
-  }
 
   async function close(survey: ApiSurvey) {
     try {
@@ -196,81 +183,88 @@ function RunningPanel({
             : `${state.surveys.length} in the last while.`
         }
       />
-      {state.loading ? (
-        <CardBody className="text-body-sm text-muted">Loading…</CardBody>
-      ) : state.surveys.length === 0 ? (
-        <EmptyState
-          icon={<ClipboardList aria-hidden="true" className="size-5" />}
-          title="None yet"
-          description="A survey is a set of questions, a list of people to ask, and a decision about whether the answers carry a name."
-        />
-      ) : (
-        <TableWrap caption="Surveys this company is running">
-          <THead>
-            <TH>Survey</TH>
-            <TH>Answers</TH>
-            <TH>Status</TH>
-            <TH />
-          </THead>
-          <TBody>
-            {state.surveys.map((survey) => (
-              <TR key={survey.id}>
-                <TDPrimary
-                  title={survey.title}
-                  subtitle={
-                    survey.anonymous ? "Anonymous" : "Answers carry a name"
-                  }
-                />
-                <TD className="tabular-nums">
-                  {survey.responded} of {survey.invited}
-                  {/* The threshold, stated on the row rather than only in the
+      <LoadState
+        loading={state.loading}
+        error={state.error}
+        subject="the surveys you are running"
+        onRetry={state.reload}
+        hasData={state.surveys.length > 0}
+        skeleton="table"
+      >
+        {state.surveys.length === 0 ? (
+          <EmptyState
+            icon={<ClipboardList aria-hidden="true" className="size-5" />}
+            title="None yet"
+            description="A survey is a set of questions, a list of people to ask, and a decision about whether the answers carry a name."
+          />
+        ) : (
+          <TableWrap caption="Surveys this company is running">
+            <THead>
+              <TH>Survey</TH>
+              <TH>Answers</TH>
+              <TH>Status</TH>
+              <TH />
+            </THead>
+            <TBody>
+              {state.surveys.map((survey) => (
+                <TR key={survey.id}>
+                  <TDPrimary
+                    title={survey.title}
+                    subtitle={
+                      survey.anonymous ? "Anonymous" : "Answers carry a name"
+                    }
+                  />
+                  <TD className="tabular-nums">
+                    {survey.responded} of {survey.invited}
+                    {/* The threshold, stated on the row rather than only in the
                       results — somebody watching a survey fill up needs to know
                       when it will start showing anything. */}
-                  {survey.responded < survey.minResponses && (
-                    <span className="text-muted">
-                      {" "}
-                      · held back until {survey.minResponses}
-                    </span>
-                  )}
-                </TD>
-                <TD>
-                  <Badge
-                    tone={
-                      survey.status === "OPEN"
-                        ? "success"
+                    {survey.responded < survey.minResponses && (
+                      <span className="text-muted">
+                        {" "}
+                        · held back until {survey.minResponses}
+                      </span>
+                    )}
+                  </TD>
+                  <TD>
+                    <Badge
+                      tone={
+                        survey.status === "OPEN"
+                          ? "success"
+                          : survey.status === "DRAFT"
+                            ? "neutral"
+                            : "warning"
+                      }
+                    >
+                      {survey.status === "OPEN"
+                        ? "Open"
                         : survey.status === "DRAFT"
-                          ? "neutral"
-                          : "warning"
-                    }
-                  >
-                    {survey.status === "OPEN"
-                      ? "Open"
-                      : survey.status === "DRAFT"
-                        ? "Draft"
-                        : "Closed"}
-                  </Badge>
-                </TD>
-                <TD className="text-right">
-                  <RowActions
-                    label={`More actions for ${survey.title}`}
-                    items={[
-                      { label: "Results", onSelect: () => onShow(survey) },
-                      ...(survey.status === "OPEN"
-                        ? [
-                            {
-                              label: "Close it",
-                              onSelect: () => void close(survey),
-                            },
-                          ]
-                        : []),
-                    ]}
-                  />
-                </TD>
-              </TR>
-            ))}
-          </TBody>
-        </TableWrap>
-      )}
+                          ? "Draft"
+                          : "Closed"}
+                    </Badge>
+                  </TD>
+                  <TD className="text-right">
+                    <RowActions
+                      label={`More actions for ${survey.title}`}
+                      items={[
+                        { label: "Results", onSelect: () => onShow(survey) },
+                        ...(survey.status === "OPEN"
+                          ? [
+                              {
+                                label: "Close it",
+                                onSelect: () => void close(survey),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </TableWrap>
+        )}
+      </LoadState>
     </Card>
   );
 }

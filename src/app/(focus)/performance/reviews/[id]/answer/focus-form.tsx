@@ -555,7 +555,7 @@ export function FocusForm({
       {failed && (
         <p
           role="alert"
-          className="mx-auto mt-3 w-full max-w-2xl shrink-0 rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
+          className="mx-auto mt-3 w-full max-w-2xl shrink-0 text-body-sm text-danger-text"
         >
           {failed}
           {saveState === "failed" && (

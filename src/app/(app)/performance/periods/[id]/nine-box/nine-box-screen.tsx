@@ -13,13 +13,12 @@ import {
   Field,
   Modal,
   Select,
-  Spinner,
   Stat,
   Textarea,
   useToast,
+  LoadState,
 } from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -115,14 +114,17 @@ export function NineBoxScreen({ cycleId }: { cycleId: string }) {
           <Callout tone="info" title="This needs a connection to the server">
             {detail.refusal}
           </Callout>
-        ) : detail.error ? (
-          <LoadFailure
-            subject="the nine-box"
+        ) : detail.error || detail.loading || !grid ? (
+          /* The one loading and failure rule, as a gate. */
+          <LoadState
+            loading={detail.loading}
             error={detail.error}
+            subject="the nine-box"
             onRetry={detail.reload}
-          />
-        ) : detail.loading || !grid ? (
-          <Spinner label="Loading the grid" />
+            skeleton="detail"
+          >
+            {null}
+          </LoadState>
         ) : (
           <Grid grid={grid} onPlace={setPlacing} />
         )}

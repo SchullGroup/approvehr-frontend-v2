@@ -331,9 +331,7 @@ export function ClaimForm({
       ) : (
         <div className="flex flex-col gap-4">
           {failure && (
-            <p className="rounded-md border border-danger-line bg-danger-soft px-3 py-2.5 text-body-sm text-danger-text">
-              {failure}
-            </p>
+            <p className="text-body-sm text-danger-text">{failure}</p>
           )}
 
           {!editing && colleagues.length > 0 && (

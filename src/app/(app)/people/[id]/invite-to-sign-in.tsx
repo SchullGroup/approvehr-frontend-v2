@@ -338,10 +338,7 @@ export function InviteToSignIn({
     >
       <div className="flex flex-col gap-4">
         {failed && (
-          <p
-            role="status"
-            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
-          >
+          <p role="status" className="text-body-sm text-danger-text">
             {failed}
           </p>
         )}

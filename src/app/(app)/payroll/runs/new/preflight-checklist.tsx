@@ -193,12 +193,7 @@ type Row = {
 
 function CheckRow({ row }: { row: Row }) {
   return (
-    <li
-      className={cn(
-        "flex flex-wrap items-start justify-between gap-3 rounded-md border p-3",
-        row.ok ? "border-line" : "border-warning-line bg-warning-soft",
-      )}
-    >
+    <li className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-line p-3">
       <div className="flex min-w-0 items-start gap-2.5">
         <span
           aria-hidden="true"

@@ -198,7 +198,8 @@ const DEMO_COPY: Record<
   },
   EXPORT_DATA: {
     label: "Export",
-    description: "Download staff, pay and attendance as a spreadsheet.",
+    description:
+      "Download staff, pay and attendance as a spreadsheet, and save the company report as a PDF.",
     section: "records",
     sensitive: true,
   },

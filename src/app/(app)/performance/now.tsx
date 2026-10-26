@@ -23,6 +23,7 @@ import {
   Spinner,
   Tabs,
   type TabItem,
+  LoadState,
 } from "@/components/ui";
 import {
   dayLabel,
@@ -477,7 +478,7 @@ export function WhatNeedsYouTab({
             {owesAnswer.map((review) => (
               <div
                 key={review.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-accent-line bg-accent-soft p-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3"
               >
                 <div className="min-w-0">
                   <p className="text-body-sm font-medium text-ink">
@@ -524,11 +525,15 @@ export function WhatNeedsYouTab({
               }
             />
             {appraisals.loading ? (
-              <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-                <Spinner size="sm" />
-                Loading
-              </CardBody>
-            ) : !openPeriod ? (
+              <LoadState
+                loading
+                error={null}
+                subject="the appraisal period"
+                skeleton="list"
+              >
+                {null}
+              </LoadState>
+            ) : appraisals.error ? null /* said once, at the top of the screen */ : !openPeriod ? (
               <EmptyState
                 compact
                 icon={<CalendarRange aria-hidden="true" />}
@@ -629,11 +634,16 @@ export function WhatNeedsYouTab({
           <Card>
             <CardHeader title="Waiting on you" />
             {appraisals.loading ? (
-              <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-                <Spinner size="sm" />
-                Loading
-              </CardBody>
-            ) : owedNow.length === 0 &&
+              <LoadState
+                loading
+                error={null}
+                subject="the appraisal period"
+                skeleton="list"
+              >
+                {null}
+              </LoadState>
+            ) : appraisals.error ? null /* said once, at the top of the screen */ : owedNow.length ===
+                0 &&
               finaliseNow.length === 0 &&
               queue.length === 0 &&
               toSend.length === 0 ? (

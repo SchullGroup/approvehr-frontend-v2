@@ -12,11 +12,10 @@ import {
   EmptyState,
   LinkedText,
   Select,
-  Spinner,
   Textarea,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { TaskSource } from "@/components/performance/task-source";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { ProjectSourceTag } from "@/components/projects/project-source-tag";
@@ -137,76 +136,76 @@ export function MyTasksPanel() {
 
   return (
     <div className="flex flex-col gap-6">
-      <LoadFailure subject="your tasks" error={error} onRetry={reload} />
-
       <Card>
         <CardHeader title="Log what you did" />
-        {goalsLoading ? (
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading
-          </CardBody>
-        ) : loggable.length === 0 ? (
-          /* Not an error and not a form to grey out: a task is logged against
+        <LoadState
+          loading={goalsLoading}
+          error={null}
+          subject="your objectives"
+          skeleton="list"
+        >
+          {loggable.length === 0 ? (
+            /* Not an error and not a form to grey out: a task is logged against
              an agreed objective, and somebody with none has an earlier step to
              take. Said as a line with the way forward in it, per the pattern
              `NoticeLine` exists for. */
-          <CardBody>
-            <NoticeLine tone="muted">
-              A task is logged against an objective your manager has agreed.
-              <Link className={NOTICE_LINK} href="/performance/kpis">
-                Set one up
-              </Link>
-            </NoticeLine>
-          </CardBody>
-        ) : (
-          <CardBody className="flex flex-col gap-3">
-            {/* One objective needs no picker — it would be a control with a
+            <CardBody>
+              <NoticeLine tone="muted">
+                A task is logged against an objective your manager has agreed.
+                <Link className={NOTICE_LINK} href="/performance/kpis">
+                  Set one up
+                </Link>
+              </NoticeLine>
+            </CardBody>
+          ) : (
+            <CardBody className="flex flex-col gap-3">
+              {/* One objective needs no picker — it would be a control with a
                 single answer, which is a decision the screen can make. */}
-            {only ? (
-              <p className="text-body-sm text-muted">
-                Toward <span className="text-body">{only.title}</span>
-              </p>
-            ) : (
-              <Select
-                aria-label="Which objective this was toward"
-                value={goalId}
-                disabled={saving}
-                placeholder="Pick an objective"
-                onChange={(event) => setGoalId(event.target.value)}
-              >
-                {loggable.map((goal) => (
-                  <option key={goal.id} value={goal.id}>
-                    {goal.title}
-                  </option>
-                ))}
-              </Select>
-            )}
-            <Textarea
-              aria-label="What you did"
-              rows={2}
-              maxLength={300}
-              value={description}
-              disabled={saving || !actions.editable}
-              placeholder="Shipped the pagination endpoint and got it reviewed."
-              onChange={(event) => setDescription(event.target.value)}
-            />
-            {formError && (
-              <p className="text-meta text-danger-text">{formError}</p>
-            )}
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                variant="accent"
-                loading={saving}
-                disabled={!actions.editable}
-                onClick={() => void submit()}
-              >
-                Log it
-              </Button>
-            </div>
-          </CardBody>
-        )}
+              {only ? (
+                <p className="text-body-sm text-muted">
+                  Toward <span className="text-body">{only.title}</span>
+                </p>
+              ) : (
+                <Select
+                  aria-label="Which objective this was toward"
+                  value={goalId}
+                  disabled={saving}
+                  placeholder="Pick an objective"
+                  onChange={(event) => setGoalId(event.target.value)}
+                >
+                  {loggable.map((goal) => (
+                    <option key={goal.id} value={goal.id}>
+                      {goal.title}
+                    </option>
+                  ))}
+                </Select>
+              )}
+              <Textarea
+                aria-label="What you did"
+                rows={2}
+                maxLength={300}
+                value={description}
+                disabled={saving || !actions.editable}
+                placeholder="Shipped the pagination endpoint and got it reviewed."
+                onChange={(event) => setDescription(event.target.value)}
+              />
+              {formError && (
+                <p className="text-meta text-danger-text">{formError}</p>
+              )}
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="accent"
+                  loading={saving}
+                  disabled={!actions.editable}
+                  onClick={() => void submit()}
+                >
+                  Log it
+                </Button>
+              </div>
+            </CardBody>
+          )}
+        </LoadState>
       </Card>
 
       <Card>
@@ -216,65 +215,69 @@ export function MyTasksPanel() {
             ? { description: "What you logged, and how it was graded." }
             : {})}
         />
-        {loading ? (
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading
-          </CardBody>
-        ) : weeks.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<ClipboardList aria-hidden="true" />}
-            title="Nothing logged yet"
-            description="What you log here is what a manager grades, and what your delivery score is built from."
-          />
-        ) : (
-          <CardBody className="flex flex-col gap-5">
-            {weeks.map((week) => (
-              <section key={week.key} className="flex flex-col gap-2">
-                <h3 className="text-meta font-semibold text-muted">
-                  {week.label}
-                </h3>
-                <ul className="flex flex-col gap-2">
-                  {week.tasks.map((task) => (
-                    <li
-                      key={task.id}
-                      className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line pt-2"
-                    >
-                      <div className="flex min-w-0 flex-col gap-0.5">
-                        <span className="text-body-sm text-body">
-                          <LinkedText>{task.description}</LinkedText>
-                        </span>
-                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
-                          {task.goalTitle}
-                          <ProjectSourceTag source={task.projectSource} />
-                        </span>
-                        <TaskSource source={task.source} />
-                        {task.gradeNote && (
-                          <span className="mt-1 text-body-sm text-body">
-                            <span className="font-medium text-ink">
-                              Comment:
-                            </span>{" "}
-                            <LinkedText>{task.gradeNote}</LinkedText>
+        <LoadState
+          loading={loading}
+          error={error}
+          subject="your tasks"
+          onRetry={reload}
+          hasData={weeks.length > 0}
+          skeleton="list"
+        >
+          {weeks.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<ClipboardList aria-hidden="true" />}
+              title="Nothing logged yet"
+              description="What you log here is what a manager grades, and what your delivery score is built from."
+            />
+          ) : (
+            <CardBody className="flex flex-col gap-5">
+              {weeks.map((week) => (
+                <section key={week.key} className="flex flex-col gap-2">
+                  <h3 className="text-meta font-semibold text-muted">
+                    {week.label}
+                  </h3>
+                  <ul className="flex flex-col gap-2">
+                    {week.tasks.map((task) => (
+                      <li
+                        key={task.id}
+                        className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line pt-2"
+                      >
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          <span className="text-body-sm text-body">
+                            <LinkedText>{task.description}</LinkedText>
                           </span>
+                          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
+                            {task.goalTitle}
+                            <ProjectSourceTag source={task.projectSource} />
+                          </span>
+                          <TaskSource source={task.source} />
+                          {task.gradeNote && (
+                            <span className="mt-1 text-body-sm text-body">
+                              <span className="font-medium text-ink">
+                                Comment:
+                              </span>{" "}
+                              <LinkedText>{task.gradeNote}</LinkedText>
+                            </span>
+                          )}
+                        </div>
+                        {task.grade === null ? (
+                          <span className="text-meta text-muted">
+                            Waiting on a grade
+                          </span>
+                        ) : (
+                          <Badge tone={TASK_GRADE_TONE[task.grade]}>
+                            {TASK_GRADE_LABEL[task.grade]}
+                          </Badge>
                         )}
-                      </div>
-                      {task.grade === null ? (
-                        <span className="text-meta text-muted">
-                          Waiting on a grade
-                        </span>
-                      ) : (
-                        <Badge tone={TASK_GRADE_TONE[task.grade]}>
-                          {TASK_GRADE_LABEL[task.grade]}
-                        </Badge>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </CardBody>
-        )}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </CardBody>
+          )}
+        </LoadState>
       </Card>
     </div>
   );

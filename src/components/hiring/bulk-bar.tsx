@@ -129,7 +129,7 @@ export function BulkBar({
     <div
       role="region"
       aria-label="Actions for the people you have selected"
-      className="flex flex-col gap-3 rounded-lg border border-accent-line bg-accent-soft p-3"
+      className="flex flex-col gap-3 rounded-lg border border-line bg-canvas p-3"
     >
       <div className="flex flex-wrap items-center gap-2">
         <p
