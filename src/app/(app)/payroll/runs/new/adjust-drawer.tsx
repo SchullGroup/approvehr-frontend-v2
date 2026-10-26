@@ -760,7 +760,7 @@ function Line({
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-ink">
           {label}
           {marked && (
-            <span className="inline-flex items-center gap-1 text-[11px] leading-none text-muted">
+            <span className="inline-flex items-center gap-1 text-meta leading-none text-muted">
               <Pencil aria-hidden="true" className="size-2.5" />
               entered by hand
             </span>
