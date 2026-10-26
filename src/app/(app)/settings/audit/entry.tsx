@@ -68,7 +68,7 @@ const DOTS: Record<Tone, string> = {
   accent: "bg-accent-soft text-accent-text",
   success: "bg-success-soft text-success-text",
   warning: "bg-warning-soft text-warning-text",
-  danger: "bg-danger-soft text-danger-text",
+  danger: "bg-warning-soft text-warning-text",
 };
 
 /** Keyed on the verb, for the same reason the sentences are. See `language.ts`. */

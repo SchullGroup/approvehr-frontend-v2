@@ -187,7 +187,7 @@ export function WriteBox({
       />
       {nearLimit && (
         <p
-          className={`mt-1.5 text-meta ${value.length >= TEXT_LIMIT ? "font-medium text-danger-text" : "text-muted"}`}
+          className={`mt-1.5 text-meta ${value.length >= TEXT_LIMIT ? "font-medium text-warning-text" : "text-muted"}`}
         >
           {value.length.toLocaleString("en-GB")} of{" "}
           {TEXT_LIMIT.toLocaleString("en-GB")} characters

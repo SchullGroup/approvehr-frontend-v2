@@ -8,12 +8,12 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
+  LoadState,
   Money,
   TextLink,
   formatMoney,
   useToast,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -66,91 +66,96 @@ export function MyExpenses({ className }: { className?: string }) {
         />
 
         <CardBody className="flex flex-col gap-4">
-          <LoadFailure
-            subject="your expense claims"
+          {/* The one loading and failure rule. The two figures below were
+              printed as ₦0.00 while the claims were still being read and under
+              the failure card after they could not be, which says nothing is
+              owed to somebody it may well be owed to. */}
+          <LoadState
+            loading={mine.loading}
             error={mine.error}
+            subject="your expense claims"
             onRetry={mine.reload}
-          />
-
-          <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
-            <div>
-              <p className="text-body-sm text-muted">Owed to you</p>
-              <p className="tabular mt-0.5 text-h4 text-ink">
-                {formatMoney(mine.outstanding.amount, "NGN", {
-                  decimals: true,
-                })}
-              </p>
+            hasData={mine.claims.length > 0}
+            skeleton="list"
+          >
+            <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+              <div>
+                <p className="text-body-sm text-muted">Owed to you</p>
+                <p className="tabular mt-0.5 text-h4 text-ink">
+                  {formatMoney(mine.outstanding.amount, "NGN", {
+                    decimals: true,
+                  })}
+                </p>
+              </div>
+              <div>
+                <p className="text-body-sm text-muted">
+                  Waiting for a decision
+                </p>
+                <p className="tabular mt-0.5 text-h4 text-ink">
+                  {formatMoney(mine.awaitingDecision.amount, "NGN", {
+                    decimals: true,
+                  })}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-body-sm text-muted">Waiting for a decision</p>
-              <p className="tabular mt-0.5 text-h4 text-ink">
-                {formatMoney(mine.awaitingDecision.amount, "NGN", {
-                  decimals: true,
-                })}
-              </p>
-            </div>
-          </div>
 
-          {recent.length === 0 ? (
-            <EmptyState
-              compact
-              icon={<ReceiptText aria-hidden="true" />}
-              title={mine.loading ? "Loading…" : "No claims yet"}
-              description={
-                mine.loading
-                  ? "Reading your claims."
-                  : "Claim a bus fare, fuel or a hotel night and it appears here."
-              }
-            />
-          ) : (
-            <ul className="flex flex-col divide-y divide-line">
-              {recent.map((claim) => (
-                <li
-                  key={claim.id}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-2.5 first:pt-0 last:pb-0"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-ink">
-                      {claim.description}
-                    </span>
-                    <span className="block text-meta text-muted">
-                      {claim.type} · spent {claim.incurredOn}
-                    </span>
-                    {claim.status === "DECLINED" && claim.declinedReason && (
-                      <span className="mt-0.5 block text-body-sm text-body">
-                        {claim.declinedReason}
+            {recent.length === 0 ? (
+              <EmptyState
+                compact
+                icon={<ReceiptText aria-hidden="true" />}
+                title="No claims yet"
+                description="Claim a bus fare, fuel or a hotel night and it appears here."
+              />
+            ) : (
+              <ul className="flex flex-col divide-y divide-line">
+                {recent.map((claim) => (
+                  <li
+                    key={claim.id}
+                    className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-2.5 first:pt-0 last:pb-0"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-ink">
+                        {claim.description}
                       </span>
+                      <span className="block text-meta text-muted">
+                        {claim.type} · spent {claim.incurredOn}
+                      </span>
+                      {claim.status === "DECLINED" && claim.declinedReason && (
+                        <span className="mt-0.5 block text-body-sm text-body">
+                          {claim.declinedReason}
+                        </span>
+                      )}
+                    </span>
+
+                    <span className="tabular text-body-sm font-medium text-ink">
+                      <Money amount={claim.amount} decimals />
+                    </span>
+
+                    <StatusBadge claim={claim} />
+
+                    {claim.editable && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditing(claim)}
+                      >
+                        Edit
+                      </Button>
                     )}
-                  </span>
+                  </li>
+                ))}
+              </ul>
+            )}
 
-                  <span className="tabular text-body-sm font-medium text-ink">
-                    <Money amount={claim.amount} decimals />
-                  </span>
-
-                  <StatusBadge claim={claim} />
-
-                  {claim.editable && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditing(claim)}
-                    >
-                      Edit
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {mine.claims.length > recent.length && (
-            <TextLink
-              href="/payroll/expenses"
-              className="text-body-sm font-normal"
-            >
-              See all {mine.claims.length} claims
-            </TextLink>
-          )}
+            {mine.claims.length > recent.length && (
+              <TextLink
+                href="/payroll/expenses"
+                className="text-body-sm font-normal"
+              >
+                See all {mine.claims.length} claims
+              </TextLink>
+            )}
+          </LoadState>
         </CardBody>
       </Card>
 

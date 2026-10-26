@@ -145,7 +145,7 @@ const DEMO_COPY: Record<
   EDIT_RECORDS_DEPARTMENT: {
     label: "Edit basic details for their department",
     description:
-      "Contact details, address and next of kin — the same fields somebody may already correct on their own record. Not pay, bank details, tax, pension or date of birth.",
+      "Contact details, address and next of kin, the same fields somebody may already correct on their own record. Not pay, bank details, tax, pension or date of birth.",
     section: "people",
   },
   MANAGE_HIRING: {
@@ -162,7 +162,7 @@ const DEMO_COPY: Record<
   APPROVE_EMPLOYMENT_CHANGE: {
     label: "Approve promotions and transfers",
     description:
-      "Sign off a promotion, transfer, regrade or pay change — the point somebody's job, department or salary actually moves.",
+      "Sign off a promotion, transfer, regrade or pay change, the point somebody's job, department or salary actually moves.",
     section: "money",
     sensitive: true,
   },
@@ -242,7 +242,7 @@ const DEMO_COPY: Record<
   EDIT_EQUIPMENT: {
     label: "Edit equipment",
     description:
-      "Correct an item's details — its serial number, model or notes.",
+      "Correct an item's details, its serial number, model or notes.",
     section: "people",
   },
   DELETE_EQUIPMENT: {
@@ -260,7 +260,7 @@ const DEMO_COPY: Record<
   REPORT_EQUIPMENT_FAULT: {
     label: "Report a fault",
     description:
-      "Raise a repair request against an item. Everybody should have this — the person holding the broken laptop is the person who knows it is broken.",
+      "Raise a repair request against an item. Everybody should have this, the person holding the broken laptop is the person who knows it is broken.",
     section: "people",
   },
   VIEW_REPAIRS_ALL: {
@@ -293,13 +293,13 @@ const DEMO_COPY: Record<
   APPROVE_LEAVE_DEPARTMENT: {
     label: "Approve leave for their department",
     description:
-      "Decide requests from anybody in a department they head — including people who do not report to them directly.",
+      "Decide requests from anybody in a department they head, including people who do not report to them directly.",
     section: "timeOff",
   },
   START_EXIT_DEPARTMENT: {
     label: "Start an exit for their department",
     description:
-      "Record a resignation or retirement for somebody in a department they head. Not a termination, an end of contract or a death in service — those are HR's.",
+      "Record a resignation or retirement for somebody in a department they head. Not a termination, an end of contract or a death in service, those are HR's.",
     section: "people",
   },
   MANAGE_SHIFTS: {
@@ -319,6 +319,12 @@ const DEMO_COPY: Record<
     description:
       "Sign off a swap the two employees have already agreed between themselves.",
     section: "timeOff",
+  },
+  VIEW_FAIRNESS: {
+    label: "See the fairness check",
+    description:
+      "How an appraisal period's marks compare by gender, age, time at the company, location, contract type and department. Group averages only, never one person's.",
+    section: "people",
   },
 };
 
@@ -352,6 +358,7 @@ const DEMO_MODULE_TITLES: Record<PermissionModule, string> = {
   repairs: "Equipment repairs",
   exits: "Exits",
   hiring: "Recruitment",
+  performance: "Performance",
   leave: "Leave",
   shifts: "Shifts and the rota",
   payroll: "Payroll",

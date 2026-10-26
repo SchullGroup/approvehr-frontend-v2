@@ -13,6 +13,7 @@ import {
   attendanceApi,
   type ApiAttendanceDevice,
   type ApiDeviceEnrolment,
+  type ApiUnmappedNumber,
   type ApiDeviceSecret,
   type ApiEnrolmentResult,
   type DevicePatch,
@@ -202,6 +203,10 @@ export function useAttendanceDevices(
   const demoDevices = useMemo<ApiAttendanceDevice[]>(() => {
     const rows = demo.devices.map((device) => ({
       ...device,
+      /* Rows saved before Smart Life existed carry none of these. */
+      provider: device.provider ?? "AGENT",
+      entryOnly: device.entryOnly ?? false,
+      syncStale: device.syncStale ?? false,
       /* Recomputed on read rather than stored, so a mapping written by the
          enrolment hook cannot leave a stale count on the device row. */
       enrolments: demo.enrolments.filter((row) => row.deviceId === device.id)
@@ -237,12 +242,15 @@ export function useAttendanceDevices(
 
 export type EnrolmentListState = {
   enrolments: ApiDeviceEnrolment[];
+  /** Numbers that have sent taps and belong to nobody yet. Empty offline. */
+  unmapped: ApiUnmappedNumber[];
   loading: boolean;
   error: ApiError | null;
   reload: () => void;
 };
 
 const NO_ENROLMENTS: ApiDeviceEnrolment[] = [];
+const NO_UNMAPPED: ApiUnmappedNumber[] = [];
 
 /**
  * Who a terminal's own enrolment numbers mean.
@@ -270,6 +278,7 @@ export function useDeviceEnrolments(
   const [fetched, setFetched] = useState<{
     key: string;
     enrolments: ApiDeviceEnrolment[];
+    unmapped: ApiUnmappedNumber[];
     error: ApiError | null;
   } | null>(null);
 
@@ -281,11 +290,11 @@ export function useDeviceEnrolments(
     const controller = new AbortController();
     void (async () => {
       try {
-        const enrolments = await attendanceApi.deviceEnrolments(
+        const { enrolments, unmapped } = await attendanceApi.deviceEnrolments(
           deviceId,
           controller.signal,
         );
-        if (!cancelled) setFetched({ key, enrolments, error: null });
+        if (!cancelled) setFetched({ key, enrolments, unmapped, error: null });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError")
           return;
@@ -293,6 +302,7 @@ export function useDeviceEnrolments(
           setFetched({
             key,
             enrolments: NO_ENROLMENTS,
+            unmapped: NO_UNMAPPED,
             error: error instanceof ApiError ? error : null,
           });
         }
@@ -330,14 +340,27 @@ export function useDeviceEnrolments(
   const matched = fetched !== null && fetched.key === key;
 
   if (!isConnected) {
-    return { enrolments: demoEnrolments, loading: false, error: null, reload };
+    return {
+      enrolments: demoEnrolments,
+      unmapped: NO_UNMAPPED,
+      loading: false,
+      error: null,
+      reload,
+    };
   }
   if (deviceId === null) {
-    return { enrolments: NO_ENROLMENTS, loading: false, error: null, reload };
+    return {
+      enrolments: NO_ENROLMENTS,
+      unmapped: NO_UNMAPPED,
+      loading: false,
+      error: null,
+      reload,
+    };
   }
 
   return {
     enrolments: matched ? fetched.enrolments : NO_ENROLMENTS,
+    unmapped: matched ? fetched.unmapped : NO_UNMAPPED,
     loading: !matched,
     error: matched ? fetched.error : null,
     reload,
@@ -419,6 +442,9 @@ export function useDeviceMutations(): DeviceMutations {
         unmappedPunches: null,
         archivedAt: null,
         createdAt: DEMO_ARCHIVED_AT,
+        provider: "AGENT",
+        entryOnly: false,
+        syncStale: false,
       };
 
       demoStore.commit({ ...state, devices: [...state.devices, row] });
@@ -444,6 +470,8 @@ export function useDeviceMutations(): DeviceMutations {
             ? existing.workLocationId
             : patch.workLocationId,
         active: patch.active === undefined ? existing.active : patch.active,
+        entryOnly:
+          patch.entryOnly === undefined ? existing.entryOnly : patch.entryOnly,
       };
       demoStore.commit({
         ...state,
@@ -531,7 +559,7 @@ export function useDeviceMutations(): DeviceMutations {
           "conflict",
           existing.employeeId === body.employeeId
             ? `${employeeName ?? "That person"} is already user ${deviceUserId} on ${device.label}.`
-            : `User ${deviceUserId} on ${device.label} is already mapped to somebody. Remove that mapping first — every punch it has sent is attributed to them.`,
+            : `User ${deviceUserId} on ${device.label} is already mapped to somebody. Remove that mapping first, every punch it has sent is attributed to them.`,
         );
       }
 
@@ -561,7 +589,7 @@ export function useDeviceMutations(): DeviceMutations {
            obvious phrasing for a good reason: a sentence naming a mode is a
            sentence that has to be folded out of a production build, and this
            one says the thing that actually matters instead. */
-        note: `Future taps from user ${deviceUserId} would be ${first}'s. None can arrive without a server — a tap is delivered over the network.`,
+        note: `Future taps from user ${deviceUserId} would be ${first}'s. None can arrive without a server, a tap is delivered over the network.`,
       };
     },
     [isConnected],

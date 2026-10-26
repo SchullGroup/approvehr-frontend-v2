@@ -10,6 +10,63 @@ import { Badge } from "./badge";
  * navigation, Home and End, with the panel wired through aria-controls.
  */
 
+/**
+ * A fade at whichever edge of a horizontally scrolling strip has more beyond it.
+ *
+ * A tab bar wider than a phone scrolls sideways, and nothing said so: the last
+ * visible label was simply cut off by the edge of the screen, which reads as a
+ * layout that stops there — a tab nobody finds is a tab the product does not
+ * have (the Performance overview, Pay setup and the profile all clip this way).
+ * Fading the clipped edge is the cue a phone user already knows from their own
+ * home screen: *there is more this way*.
+ *
+ * It is a **mask on the strip itself** rather than a gradient laid over it, so
+ * it needs to know nothing about the colour behind — the header, a card and a
+ * dark theme each have a different one. It is applied straight to the element's
+ * style from the scroll handler instead of being held in state, because it
+ * changes on every scroll event and nothing else on the screen cares; and it is
+ * decorative — the strip's contents, focus order and roles are untouched.
+ */
+function useScrollCue(ref: React.RefObject<HTMLElement | null>, size: number) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    /* A share of the strip rather than a fixed length, so there is no `calc()`
+       to get wrong in a browser that parses it differently — about 30px on a
+       phone-wide strip, which is the size of the label being cut off. */
+    const FADE = 8;
+    const apply = () => {
+      const before = el.scrollLeft > 1;
+      const after = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+      const mask =
+        before && after
+          ? `linear-gradient(to right, transparent 0, #000 ${FADE}%, #000 ${100 - FADE}%, transparent 100%)`
+          : before
+            ? `linear-gradient(to right, transparent 0, #000 ${FADE}%)`
+            : after
+              ? `linear-gradient(to right, #000 ${100 - FADE}%, transparent 100%)`
+              : "";
+      el.style.maskImage = mask;
+      el.style.setProperty("-webkit-mask-image", mask);
+    };
+    apply();
+    el.addEventListener("scroll", apply, { passive: true });
+    /* Not everywhere has one — jsdom does not — and the cue is decoration, so a
+       missing observer costs the re-measure on resize and nothing else. */
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(apply);
+    observer?.observe(el);
+    if (observer) {
+      for (const child of Array.from(el.children)) observer.observe(child);
+    }
+    return () => {
+      el.removeEventListener("scroll", apply);
+      observer?.disconnect();
+    };
+    /* `size` is the item count: a strip that gains a tab has to be measured again. */
+  }, [ref, size]);
+}
+
 export type TabItem = {
   id: string;
   label: string;
@@ -32,6 +89,7 @@ export function Tabs({
 }) {
   const baseId = useId();
   const listRef = useRef<HTMLDivElement>(null);
+  useScrollCue(listRef, items.length);
 
   /* The selected tab can start scrolled out of view — a direct `?tab=`
      link past whatever fits the strip, most often on a phone with more
@@ -142,8 +200,13 @@ export function LinkTabs({
   activeHref: string;
   className?: string;
 }) {
+  const navRef = useRef<HTMLElement>(null);
+  useScrollCue(navRef, items.length);
   return (
-    <nav className={cn("scroll-x flex gap-1 border-b border-line", className)}>
+    <nav
+      ref={navRef}
+      className={cn("scroll-x flex gap-1 border-b border-line", className)}
+    >
       {items.map((item) => {
         const active = activeHref === item.href;
         return (
@@ -282,7 +345,10 @@ export function Accordion({
             <div
               id={`panel-${item.id}`}
               hidden={!expanded}
-              className="pb-5 text-body-sm leading-relaxed text-body"
+              className={cn(
+                "pb-5 text-body-sm leading-relaxed text-body",
+                expanded && "animate-open",
+              )}
             >
               {item.answer}
             </div>

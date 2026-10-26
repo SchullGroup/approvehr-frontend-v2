@@ -146,7 +146,7 @@ describe("while the paywall switch is off", () => {
     billing = { ...base, status: "ACTIVE", enforced: false };
     render(<BillingCard />);
     expect(
-      screen.getByText("Billing isn't switched on yet — nothing is locked."),
+      screen.getByText("Billing isn't switched on yet, nothing is locked."),
     ).toBeInTheDocument();
   });
 
@@ -154,7 +154,7 @@ describe("while the paywall switch is off", () => {
     billing = { ...base, status: "ACTIVE", enforced: true };
     render(<BillingCard />);
     expect(
-      screen.queryByText("Billing isn't switched on yet — nothing is locked."),
+      screen.queryByText("Billing isn't switched on yet, nothing is locked."),
     ).not.toBeInTheDocument();
   });
 });

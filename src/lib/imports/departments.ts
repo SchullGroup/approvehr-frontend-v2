@@ -106,7 +106,7 @@ const COLUMNS: readonly ColumnSpec<DepartmentField>[] = [
     example: "CC-2100",
     note: "Your cost centre code, up to 40 characters.",
     recommended: {
-      why: "no cost centre code — this unit's pay cannot be grouped against your ledger in a payroll report",
+      why: "no cost centre code, this unit's pay cannot be grouped against your ledger in a payroll report",
     },
   },
   {
@@ -125,9 +125,9 @@ const COLUMNS: readonly ColumnSpec<DepartmentField>[] = [
     ],
     required: false,
     example: "ngozi.williams@company.com",
-    note: "The head's work email or staff number — not their name. Must already be on your staff list.",
+    note: "The head's work email or staff number, not their name. Must already be on your staff list.",
     recommended: {
-      why: "nobody named as head — a head is who sees everyone beneath this unit, not only their own direct reports",
+      why: "nobody named as head, a head is who sees everyone beneath this unit, not only their own direct reports",
     },
   },
 ];
@@ -168,7 +168,7 @@ function departmentRowRules(ctx: RowContext<DepartmentField>): void {
       if (first !== undefined) {
         error(
           "name",
-          `"${name}" is already on row ${first} of this file. Two rows cannot be the same department — merge them, or give one a different name. Capital letters and punctuation are ignored when we compare.`,
+          `"${name}" is already on row ${first} of this file. Two rows cannot be the same department, merge them, or give one a different name. Capital letters and punctuation are ignored when we compare.`,
         );
       }
     }
@@ -180,7 +180,7 @@ function departmentRowRules(ctx: RowContext<DepartmentField>): void {
   if (parent !== "" && nameKey !== "" && normalizeKey(parent) === nameKey) {
     error(
       "parent",
-      `${name} cannot sit inside ${name}. A department cannot be its own parent — leave this cell empty for a top-level department.`,
+      `${name} cannot sit inside ${name}. A department cannot be its own parent, leave this cell empty for a top-level department.`,
     );
   } else if (parent !== "") {
     tally("nested");
@@ -236,7 +236,7 @@ function departmentFileNotes(
      most likely to assume the other way round: this import sets structure, and
      it is the one importer that touches nobody's own record. */
   notes.push(
-    "Nobody's own department changes. This import sets the shape of the company — naming somebody as a head does not move them into the unit they head.",
+    "Nobody's own department changes. This import sets the shape of the company, naming somebody as a head does not move them into the unit they head.",
   );
   return notes;
 }

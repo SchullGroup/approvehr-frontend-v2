@@ -242,7 +242,7 @@ export function AttendancePolicyForm() {
                   ))}
                 </div>
                 {noWorkingDays && (
-                  <p className="mt-3 text-body-sm text-danger-text">
+                  <p className="mt-3 text-body-sm text-warning-text">
                     No working days chosen: every day would count as a day off,
                     and attendance would have nothing to measure.
                   </p>

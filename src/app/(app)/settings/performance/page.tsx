@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { PageBody } from "@/components/portal/shell";
+import { tabFromQuery } from "@/lib/url-tab";
 import { RatingScaleForm } from "./scale-form";
+import { SCORING_TABS } from "./tabs";
 import { ScoringWeightsForm } from "./weights-form";
 
 export const metadata: Metadata = {
@@ -19,15 +20,19 @@ export const metadata: Metadata = {
  * discoverability failure `Settings → Features` had.
  *
  * `ScoringWeightsForm` owns the page header, because it owns the breadcrumb and
- * the demo badge. The scale is a card below it.
+ * the demo badge, and the two are its two tabs: it is handed the scale form to
+ * show on the second.
  */
-export default function PerformanceSettingsPage() {
+export default async function PerformanceSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string | string[] }>;
+}) {
+  const { tab } = await searchParams;
   return (
-    <>
-      <ScoringWeightsForm />
-      <PageBody className="pt-0">
-        <RatingScaleForm />
-      </PageBody>
-    </>
+    <ScoringWeightsForm
+      initialTab={tabFromQuery(tab, SCORING_TABS, "weights")}
+      scale={<RatingScaleForm />}
+    />
   );
 }

@@ -149,7 +149,7 @@ export function ItemPanel({
 
           {detail.holder && (
             <Callout tone="accent" title={`${detail.holder.name} has it`}>
-              Since {dayLabel(detail.holder.assignedOn)} —{" "}
+              Since {dayLabel(detail.holder.assignedOn)},{" "}
               {daysSince(detail.holder.assignedOn, timeZone)} days. Went out{" "}
               {CONDITION_LABEL[detail.holder.conditionOut].toLowerCase()}.{" "}
               <Link

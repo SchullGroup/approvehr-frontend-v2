@@ -1,25 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LayoutGrid } from "lucide-react";
-import { Button, Callout, Card, CardBody, Spinner } from "@/components/ui";
+import { LoadFailure, LoadState } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody } from "@/components/portal/shell";
+import { cn } from "@/lib/cn";
+import {
+  COLLABORATOR_HOME,
+  useIsCollaborator,
+} from "@/lib/hiring/access/collaborator";
 import { useCan, usePermissions } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { useSessionRoles, roleTier, type RoleTier } from "@/lib/roles";
 import { useDashboard, useReports } from "@/lib/store/insights";
-import { useDashboardLayout } from "@/lib/store/dashboard-layout";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
-import { cn } from "@/lib/cn";
 import { checklistRows } from "../settings/checklist";
 import { SetupGuide } from "./setup-guide";
 import { DashboardHeader } from "./header";
-import { CustomizeDrawer } from "./customize-drawer";
 import { WIDGET_COMPONENTS } from "./widgets";
 import {
-  SPAN_CLASS,
   defaultLayout,
   resolveLayout,
   type WidgetContext,
@@ -75,12 +76,17 @@ import {
  */
 export function DashboardScreen() {
   const { data, loading, error, reload } = useDashboard();
-  const layout = useDashboardLayout();
   const { permissions, loading: permissionsLoading } = usePermissions();
   const features = useFeatures();
   const roles = useSessionRoles();
+  const router = useRouter();
 
-  const [customizing, setCustomizing] = useState(false);
+  /* Somebody invited to help hire has no day to look at: their one room is My
+     interviews. Sent there, and shown nothing of the company's figures meanwhile. */
+  const collaborator = useIsCollaborator();
+  useEffect(() => {
+    if (collaborator) router.replace(COLLABORATOR_HOME);
+  }, [collaborator, router]);
 
   /**
    * The two gates a catalogue can answer.
@@ -112,26 +118,27 @@ export function DashboardScreen() {
    * this person may see — see `resolveLayout` for the three things it drops and
    * why it drops rather than rewrites.
    */
-  const chosen = useMemo(() => {
-    if (layout.widgets === null)
-      return resolveLayout(defaultLayout(tier, context), context);
-    return resolveLayout(layout.widgets, context);
-  }, [layout.widgets, tier, context]);
+  /* One arrangement for everybody of a kind. It used to be customisable, and a
+     customised board left gaps and an order nobody could predict; a fixed one
+     can be arranged properly. */
+  const chosen = useMemo(
+    () => resolveLayout(defaultLayout(tier, context), context),
+    [tier, context],
+  );
 
   /* Only ask for the reports payload if something is going to draw it. */
   const needsReports = chosen.some((widget) => widget.source === "reports");
   const reports = useReports(undefined, needsReports);
 
   /* One gate. See the header for why the layout is awaited with the data. */
-  if (loading || layout.loading || permissionsLoading || roles.loading) {
+  if (collaborator || loading || permissionsLoading || roles.loading) {
     return (
       <>
         <DashboardHeader />
         <PageBody>
-          <div className="flex items-center gap-3 py-16">
-            <Spinner />
-            <span className="text-body-sm text-muted">Loading your day…</span>
-          </div>
+          <LoadState loading error={null} subject="your day" skeleton="page">
+            {null}
+          </LoadState>
         </PageBody>
       </>
     );
@@ -142,20 +149,11 @@ export function DashboardScreen() {
       <>
         <DashboardHeader />
         <PageBody>
-          <Card>
-            <CardBody className="flex flex-col items-start gap-3">
-              <p className="text-body">
-                {error ?? "Your dashboard did not load. Try again in a moment."}
-              </p>
-              <button
-                type="button"
-                onClick={reload}
-                className="text-body-sm font-medium text-accent-text underline"
-              >
-                Try again
-              </button>
-            </CardBody>
-          </Card>
+          <LoadFailure
+            subject="your dashboard"
+            error={error ?? new Error("no data")}
+            onRetry={reload}
+          />
         </PageBody>
       </>
     );
@@ -167,225 +165,153 @@ export function DashboardScreen() {
     reportsLoading: needsReports && reports.loading,
   };
 
-  /* Widened so a row of stat tiles actually fills its row. See `tileSpans`. */
-  const spans = tileSpans(chosen);
+  const sections = dashboardSections(chosen, tier);
+  const headerWidgets = chosen.filter((widget) => widget.slot === "header");
 
   return (
     <>
       <DashboardHeader
         action={
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => setCustomizing(true)}
-          >
-            <LayoutGrid aria-hidden="true" className="size-3.5" />
-            Customise
-          </Button>
+          headerWidgets.length > 0 ? (
+            <>
+              {headerWidgets.map((widget) => {
+                const Widget = WIDGET_COMPONENTS[widget.id];
+                return Widget ? <Widget key={widget.id} {...props} /> : null;
+              })}
+            </>
+          ) : undefined
         }
       />
 
       <PageBody>
-        {/* What is still not set up, where somebody actually is.
-        
-            The feedback asks for the post-signup "Complete Setup" prompt to
-            appear on the dashboard too, and it is right about why: the wizard's
-            own CTA is on a screen nobody returns to, so a company that stopped
-            halfway had nothing telling them. `useSetupChecklist` is the same
-            read `/settings` answers from, so the two cannot disagree about
-            what is outstanding.
-        
-            Absent once everything is done, rather than a green "all set" card
-            that lives on the dashboard for ever. */}
+        {/* What is still not set up, where somebody actually is. Absent once
+            everything is done. */}
         <SetupPrompt />
 
-        {/* The arrangement failed to load and the standard one is showing. Said
-            once, here, rather than left for somebody to notice their dashboard
-            has reverted. */}
-        {layout.error && !customizing && (
-          <Callout tone="warning" className="mb-4">
-            {layout.error}
-          </Callout>
-        )}
-
-        {chosen.length === 0 ? (
-          <Card>
-            <CardBody className="flex flex-col items-start gap-3">
-              <p className="text-body">There is nothing on your dashboard.</p>
-              <p className="text-body-sm text-muted">
-                That is a real choice and it stays until you change it — nothing
-                has gone wrong.
-              </p>
-              <Button
-                type="button"
-                variant="accent"
-                size="sm"
-                onClick={() => setCustomizing(true)}
-              >
-                <LayoutGrid aria-hidden="true" className="size-3.5" />
-                Choose what to show
-              </Button>
-            </CardBody>
-          </Card>
-        ) : (
-          /* Twelve columns, so thirds and quarters both divide it. Every widget
-             is full width below `sm` — a stat at a quarter of a phone is
-             unreadable — and each carries `min-w-0` from `SPAN_CLASS`, without
-             which one item that cannot compress floors the whole track. See the
-             responsive entry in HANDOVER.
-
-             `grid-flow-dense`: measured against a live account rather than
-             assumed. It does **not** eliminate a gap — if the spans in a
-             cluster do not sum to a multiple of 12 (a quarter + a half + two
-             quarters is 15), something is short a slot no matter the packing
-             algorithm; dense only chooses which row absorbs it, pulling a
-             later same-size widget forward to close an earlier gap and
-             leaving an equal one behind it. Kept anyway because that pull
-             front-loads completeness — the topmost row ends up full — and it
-             never touches DOM or tab order, only visual position. If a
-             customized arrangement ever reads as widgets shuffled for no
-             reason, this is why; the real fix is choosing spans that sum
-             evenly per cluster, not a CSS property. */
-          <div className="grid grid-cols-12 gap-4 grid-flow-dense">
-            {chosen.map((widget, index) => {
-              const Widget = WIDGET_COMPONENTS[widget.id];
-              if (!Widget) return null;
-              return (
-                <div
-                  key={widget.id}
-                  /* `empty:hidden` is what makes the paragraph above true.
-                     ------------------------------------------------------
-                     Every widget returns `null` when it has nothing to draw,
-                     and the header has always claimed that leaves no hole —
-                     but this wrapper was emitted either way, so a quiet widget
-                     kept its columns and the grid held a gap where it used to
-                     be. On an owner's standard dashboard that was two gaps:
-                     `my-queue` holding the first quarter of the stat row while
-                     drawing nothing, and `chart-headcount-trend` holding half a
-                     row, which left Hiring stranded beside white space.
-
-                     A `null` child leaves the div with no child nodes at all,
-                     so `:empty` matches it and `display: none` takes it out of
-                     the grid — the row closes up and the next widget moves
-                     into the slot. It cannot false-positive on a widget that
-                     drew something, because anything rendered is a child node.
-
-                     Applied here rather than inside each widget so the rule
-                     holds for all of them, including the next one somebody
-                     adds. */
-                  className={cn(spans[index], "empty:hidden")}
-                >
-                  <Widget {...props} />
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <div className="flex flex-col gap-4">
+          {sections.map((section) => (
+            <div key={section.key} className={SECTION_CLASS[section.key]}>
+              {section.widgets.map((widget) => {
+                const Widget = WIDGET_COMPONENTS[widget.id];
+                if (!Widget) return null;
+                /* A widget with nothing to draw returns null and leaves its
+                   wrapper empty, which `empty:hidden` takes out of the row:
+                   the others share it instead of leaving a hole. The wrapper is
+                   a grid so whatever it holds fills the cell, in both
+                   directions, and a row of cards is a row of equal heights. */
+                return (
+                  <div
+                    key={widget.id}
+                    className={cn(CELL_CLASS[section.key], "empty:hidden")}
+                  >
+                    <Widget {...props} />
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </PageBody>
-
-      <CustomizeDrawer
-        open={customizing}
-        onClose={() => setCustomizing(false)}
-        chosen={chosen}
-        context={context}
-        connected={layout.connected}
-        saving={layout.saving}
-        error={layout.error}
-        onChange={(ids) => void layout.save(ids)}
-        onReset={() => void layout.reset()}
-      />
     </>
   );
 }
 
 /**
- * The column span each chosen widget gets, so a row of stat tiles fills its row.
+ * The dashboard in the order it is read, as five kinds of row.
  *
- * ## The gap this closes
+ * ```
+ * page header ........ greeting, date, and the Start-something menu
+ * lead ............... the one thing a tier opens the page to do (staff: clock in)
+ * metrics ............ ONE row of figure cards, four at most
+ * banner ............. one sentence worth knowing, full width
+ * cards .............. a two-column grid of cards, equal height within a row
+ * foot ............... full-width and quiet: the assistant, the noticeboard
+ * ```
  *
- * `SPAN_CLASS` gives a `quarter` widget three of twelve columns whatever else
- * is on the screen, and nothing in the product emits quarters in multiples of
- * four. An employee's standard arrangement is three of them — what is waiting
- * on you, your last payslip, your leave — so the row came to nine columns and
- * left a quarter of the screen blank beside it, every load, for every member
- * of staff. It read as a widget that had failed to render rather than as a row
- * that had finished.
+ * ## What the old arrangement did, and why this is a different shape
  *
- * So a **run** of adjacent quarters divides its row: three become thirds, two
- * become halves, four stay quarters.
+ * Six kinds of row, each with its own width rule, in an order that grew by
+ * accretion: a stat row that orphaned a tile when its count was not a divisor of
+ * twelve, a masonry of halves with dead space beside whichever card was
+ * shortest, "Start something" as eight tiles, and "7 requests waiting" said in
+ * Needs you and again as a stat two inches below it. 4,541px on a phone.
  *
- * ## Each run size gets its own ladder, so none of them orphans a tile
+ * **Metrics are one row and at most four.** Four is what fits a row at the
+ * widest and two-by-two on a phone, and a fifth tile is where the orphan came
+ * from. A tile beyond the fourth is not dropped — it joins the cards, where a
+ * tile is a perfectly good card — because dropping a figure silently is worse
+ * than a row that is a little uneven.
  *
- * The count has to divide the row at *every* width, not only the widest. A run
- * of three stepping 1 → 2 → 3 looks tidy at the ends and puts a lone tile
- * beside half a row of nothing everywhere in between, which is the same hole
- * this function exists to close, moved to the tablet. So a run of three never
- * goes through a two-column stage at all: it holds one column until there is
- * room for three. A run of four can pair, because four pairs evenly.
+ * **Cards are two across, and equal in height within a row.** A row that has one
+ * card left over is not a half and a hole: the leftover takes the whole row, so
+ * there is never an empty column. That is `flex-wrap` with a grow, not a grid —
+ * a grid cannot know that the card in its second column drew nothing.
  *
- * | Run | phone | 640 | 768 | 1280 |
- * |---|---|---|---|---|
- * | 1 | full | full | full | quarter |
- * | 2 | full | half | half | half |
- * | 3 | full | full | third | third |
- * | 4 | full | half | half | quarter |
+ * **Today leads the cards, after Needs you.** Needs you is the company's
+ * held-up work; Today is this person's. Beside each other they are the two
+ * questions somebody opens the page with, and where only one has an answer it
+ * takes the row.
  *
- * Five or more is the one case that can still orphan, and it is left to: past
- * four tiles in a row the arrangement is the reader's own doing, and the
- * alternative is a fifth tile stretched across half the screen.
- *
- * ## Why a run and not the whole list
- *
- * Because the arrangement is the reader's. Somebody who puts a chart between
- * two stat tiles has separated them on purpose, and widening across the chart
- * would silently re-join them. A run is the set of tiles that are actually
- * going to share a row.
- *
- * ## What it deliberately does not try to do
- *
- * A widget with nothing to draw returns `null`, `empty:hidden` takes it out of
- * the grid, and the row closes up short — three thirds where one is quiet
- * leaves four columns over. Sizing for that is not possible here: whether a
- * widget has anything to say is a question only the widget can answer, and it
- * answers it during render. This sizes for what is *on* the dashboard, which
- * is the case that was wrong on every load rather than occasionally.
- *
- * Static class strings, never interpolated: Tailwind reads the source as text
- * and a computed `xl:col-span-${n}` compiles to no CSS at all.
+ * The widths are static class strings, never interpolated: Tailwind reads the
+ * source as text and a computed class compiles to no CSS at all.
  */
-const QUARTER_RUN: Readonly<Record<number, string>> = {
-  1: "col-span-12 xl:col-span-3",
-  2: "col-span-12 sm:col-span-6",
-  3: "col-span-12 md:col-span-4",
-  4: "col-span-12 sm:col-span-6 xl:col-span-3",
-};
-const QUARTER_RUN_MANY = "col-span-12 sm:col-span-6 xl:col-span-3";
+export type SectionKey = "lead" | "metrics" | "banner" | "cards" | "foot";
+export type Section = { key: SectionKey; widgets: WidgetSpec[] };
 
-export function tileSpans(chosen: readonly WidgetSpec[]): string[] {
-  const out: string[] = [];
-  for (let i = 0; i < chosen.length; i += 1) {
-    const widget = chosen[i]!;
-    if (widget.span !== "quarter") {
-      out.push(SPAN_CLASS[widget.span]);
-      continue;
-    }
-    /* The whole run this tile belongs to, measured once at its start and
-       applied to every tile in it. */
-    let end = i;
-    while (end + 1 < chosen.length && chosen[end + 1]!.span === "quarter")
-      end += 1;
-    const run = end - i + 1;
-    const wide = QUARTER_RUN[run] ?? QUARTER_RUN_MANY;
-    /* `min-w-0` on every one of them, always: a grid item's automatic minimum
-       is its min-content width, so a single tile that cannot compress raises
-       the floor of the whole track and takes its siblings with it. That is the
-       documented cause of three of the overflows in HANDOVER's responsive
-       pass. */
-    for (let k = i; k <= end; k += 1) out.push(`min-w-0 ${wide}`);
-    i = end;
-  }
-  return out;
+/** Four across at the widest, two-by-two on a phone, and a lone last one fills its row. */
+export const MAX_METRICS = 4;
+
+const SECTION_CLASS: Readonly<Record<SectionKey, string>> = {
+  lead: "flex flex-col gap-4",
+  metrics: "flex flex-wrap gap-3 sm:gap-4",
+  banner: "flex flex-col gap-4",
+  cards: "flex flex-wrap gap-4",
+  foot: "flex flex-col gap-4",
+};
+
+const CELL_CLASS: Readonly<Record<SectionKey, string>> = {
+  lead: "grid min-w-0",
+  /* 9.5rem is what two tiles need on a 390px phone. Grow, so three tiles in a
+     row of four are three wider tiles and not three tiles and a gap. */
+  metrics: "grid min-w-0 grow basis-[9.5rem]",
+  banner: "grid min-w-0",
+  /* One column below `xl`; two from there. A hair under half, so two cells plus
+     the gap never add up to more than the row and wrap by a rounding error. */
+  cards: "grid min-w-0 grow basis-full xl:basis-[calc(50%-0.55rem)]",
+  foot: "grid min-w-0",
+};
+
+export function dashboardSections(
+  chosen: readonly WidgetSpec[],
+  tier: RoleTier,
+): Section[] {
+  const placed = chosen.filter((widget) => widget.slot !== "header");
+  const leads = (widget: WidgetSpec) => widget.leadFor?.includes(tier) === true;
+
+  const lead = placed.filter(
+    (widget) =>
+      widget.span === "full" && widget.slot === undefined && leads(widget),
+  );
+  const banner = placed.filter((widget) => widget.slot === "banner");
+  const foot = placed.filter((widget) => widget.slot === "foot");
+  const figures = placed.filter((widget) => widget.span === "quarter");
+  const metrics = figures.slice(0, MAX_METRICS);
+  const cards = placed.filter(
+    (widget) =>
+      !lead.includes(widget) &&
+      !banner.includes(widget) &&
+      !foot.includes(widget) &&
+      !metrics.includes(widget),
+  );
+
+  const rows: Section[] = [
+    { key: "lead", widgets: lead },
+    { key: "metrics", widgets: metrics },
+    { key: "banner", widgets: banner },
+    { key: "cards", widgets: cards },
+    { key: "foot", widgets: foot },
+  ];
+  return rows.filter((row) => row.widgets.length > 0);
 }
 
 /**

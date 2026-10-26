@@ -399,6 +399,15 @@ export type RowContext<Field extends string> = {
   error: (field: Field, problem: string) => void;
   /** Imports anyway; somebody should look. */
   warn: (field: Field, problem: string) => void;
+  /**
+   * Whether this row has already been stopped, by a required cell, a date, an
+   * amount or an earlier rule of the entity's own.
+   *
+   * For a caution that is only true of a row that will import. A warning means
+   * "imports anyway", and putting one on a row the same report is skipping would
+   * say both at once. Ask it after the last `error` the rule can raise.
+   */
+  hasErrors: () => boolean;
   /** Bumps a named count, for `fileNotes` to turn into a sentence. */
   tally: (name: string) => void;
   /**
@@ -421,6 +430,20 @@ export type RowContext<Field extends string> = {
 };
 
 export type RowRules<Field extends string> = (ctx: RowContext<Field>) => void;
+
+/**
+ * The least that can be said about a checked row to say something about the
+ * whole file.
+ *
+ * Structural on purpose: the import store's `RowLine` has it, and so does anything
+ * a test builds by hand, and a screen's "N rows have X" sentence should not need
+ * the store to be imported to be written. `field` is the heading the report named,
+ * which `Dictionary.lookup` turns back into a field whatever alias it was spelled in.
+ */
+export type CheckedRowFacts = {
+  action: "create" | "update" | "skip";
+  problems: readonly { field: string; severity: "error" | "warning" }[];
+};
 
 /**
  * Required, then recommended, then everything else — stable inside each tier.
@@ -472,7 +495,7 @@ export function buildDictionary<Field extends string>(
       const claimed = owner.get(normalized);
       if (claimed !== undefined && claimed !== spec.field) {
         throw new Error(
-          `Import dictionary "${identity.slug}": "${key}" is claimed by both ${claimed} and ${spec.field}. One heading cannot mean two things — rename one alias.`,
+          `Import dictionary "${identity.slug}": "${key}" is claimed by both ${claimed} and ${spec.field}. One heading cannot mean two things, rename one alias.`,
         );
       }
       if (!lookup.has(normalized)) {

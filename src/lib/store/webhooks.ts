@@ -337,7 +337,7 @@ const DEMO_CATALOGUE: CatalogueView | null = DEMO_ENABLED
           description:
             "A payroll run has been approved and its figures are now fixed.",
           raisedWhen:
-            "The run is approved. Approving does not move money — this is the event to hook if you post journals to an accounting system.",
+            "The run is approved. Approving does not move money, this is the event to hook if you post journals to an accounting system.",
           wired: false,
           sample: {
             id: "0192f3c3-1122-7bd3-8e44-77a1b0c9d3e2",

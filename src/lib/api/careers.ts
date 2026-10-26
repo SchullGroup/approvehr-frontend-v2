@@ -1,6 +1,14 @@
 "use client";
 
 import { request, requestPaged, type Paged } from "@/lib/api/client";
+import type { ApiHistoryEvent } from "@/lib/api/application-history";
+import type {
+  ApiReminderChoicesPatch,
+  ApiReminderSettings,
+} from "@/lib/api/interviews";
+import type { QuestionKind } from "@/lib/marketing/apply-form";
+import type { ApiScoreStatus, ApiScreeningDetail } from "@/lib/api/screening";
+import type { ScreeningSummary } from "@/lib/hiring/screening/model";
 
 /**
  * Job adverts and the applications they bring in — `/api/v1/careers`.
@@ -99,9 +107,9 @@ export type RequisitionStatus =
 export function requisitionClosedNote(
   status: RequisitionStatus | null,
 ): string | null {
-  if (status === "FILLED") return "Role filled — cannot take a new candidate";
+  if (status === "FILLED") return "Role filled, cannot take a new candidate";
   if (status === "CANCELLED")
-    return "Role cancelled — cannot take a new candidate";
+    return "Role cancelled, cannot take a new candidate";
   return null;
 }
 
@@ -131,6 +139,17 @@ export type ApiPosting = {
   /** `/{orgSlug}/{slug}` — relative to the careers page root, `/careers`. */
   publicPath: string;
   createdAt: string;
+  /**
+   * The sanitised rich-text version of `description`, or `null` when it was typed
+   * as plain text. Absent from an API that predates rich text.
+   */
+  descriptionHtml?: string | null;
+  /** Whether the work can be done from anywhere. Feeds search-engine data. */
+  remote?: boolean;
+  /** Bumped whenever the form's questions or switches change. */
+  formVersion?: number;
+  /** Questions on the form right now. The form itself is `getForm`. */
+  questionCount?: number;
 };
 
 /** `GET /careers/postings/:id`, and the answer to every posting write. */
@@ -148,17 +167,46 @@ export type ApiPostingDetail = ApiPosting & {
 export type ApiClosedPosting = ApiPostingDetail & { waiting: number };
 
 /**
- * Whether anything can open an attached CV.
+ * What a list row knows about an attached CV.
  *
- * `url` is `null` in every environment while no object store is wired, and
- * `note` is the one line the interface shows instead. There is no development
- * shortcut and there cannot be — unlike an email token, the file genuinely does
- * not exist anywhere. See `src/modules/careers/storage.ts`.
+ * `key` is only a record that one was attached. A file is opened through the
+ * audited route (`careersApi.openCv`), which the API logs, never from a link
+ * presigned into a list row — a list of 250 people would otherwise mint 250 live
+ * download addresses, and nothing would say who followed which. `url` is
+ * therefore always `null` here and is kept only because the wire still names it.
+ *
+ * The rest says what is worth knowing *before* pressing Open: whether storage can
+ * serve a file at all, and what the virus check made of it. Optional, because an
+ * API that predates them sends neither.
  */
 export type ApiCvAccess = {
   key: string;
   url: string | null;
   expiresAt: string | null;
+  note: string | null;
+  available?: boolean;
+  scanStatus?: ApiCvLink["scanStatus"];
+  contentType?: string | null;
+  sizeBytes?: number | null;
+};
+
+/**
+ * What opening one CV answers.
+ *
+ * `url` is **null** — with `note` saying why in the API's own words — when there
+ * is nothing to open: file storage is not set up, or the application names a CV
+ * that was never uploaded. That is an answer, not a failure, and the screen shows
+ * the note. When there is a file the address is good for about five minutes and
+ * names that one file.
+ */
+export type ApiCvLink = {
+  url: string | null;
+  expiresAt: string | null;
+  /** What the download will be saved as. */
+  filename: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+  scanStatus: "NOT_SCANNED" | "PENDING" | "CLEAN" | "INFECTED" | "SCAN_FAILED";
   note: string | null;
 };
 
@@ -182,6 +230,32 @@ export type ApiApplication = {
   candidateId: string | null;
   cv: ApiCvAccess | null;
   appliedAt: string;
+  /** What came with the link beyond the channel. */
+  utm?: { medium: string | null; campaign: string | null };
+  /** What the applicant typed, when the link's channel took precedence in `source`. */
+  heardFrom?: string | null;
+  /** What the applicant quotes. `null` on an application from before references. */
+  reference?: string | null;
+  /** Wrong knockout answers. Something to look at, never a rejection. */
+  knockoutCount?: number;
+  /** Set when an earlier application came from the same email or phone. Not a merge. */
+  duplicate?: { ofId: string; reason: string } | null;
+  /**
+   * Where they stand in screening: a fit score and its status, an assessment
+   * score, and whether they are below the pass mark. Advice for a person, never a
+   * decision. Absent from an API that predates screening.
+   */
+  fit?: ScreeningSummary | null;
+  /** The fit score, 0 to 100, or `null` when there is none: never 0 for "no score". */
+  score?: number | null;
+  /** Why there is no score, or `SCORED`. */
+  scoreStatus?: ApiScoreStatus;
+  /** The assessment result the pass mark reads, as a percentage of its maximum. */
+  assessment?: { percent: number } | null;
+  /** Below the advert's pass mark and nobody has said to keep them: on the list to confirm. */
+  belowCutoff?: boolean;
+  /** A person looked and kept them in the running, so the pass mark no longer flags them. */
+  keptInRunning?: boolean;
 };
 
 /** Everything else this email address has applied for. */
@@ -192,8 +266,73 @@ export type ApiOtherApplication = {
   appliedAt: string;
 };
 
+/** One answer, as the API serialises it. Typed by kind; `display` is the same as text. */
+export type ApiAnswer = {
+  id: string;
+  /** `null` only if the question was ever removed outright. */
+  questionId: string | null;
+  position: number;
+  kind: QuestionKind;
+  /** The question as it read when they answered, however it reads now. */
+  question: string;
+  value: string | number | boolean | { id: string; label: string }[] | null;
+  /** The answer as one line of text. */
+  display: string;
+  flagged: boolean;
+  flagReason: string | null;
+  /** Never a link. `openPath` is the audited route that returns a short-lived one. */
+  file: {
+    contentType: string | null;
+    sizeBytes: number | null;
+    scanStatus: ApiCvLink["scanStatus"];
+    openPath: string;
+  } | null;
+};
+
+export type ApiConsent = {
+  noticeRef: string;
+  noticeText: string;
+  noticeUrl: string | null;
+  acceptedAt: string;
+  postingId: string;
+  postingTitle: string;
+};
+
+export type ApiLikelyDuplicate = {
+  id: string;
+  reference: string | null;
+  name: string;
+  postingId: string;
+  postingTitle: string;
+  status: ApplicationStatus;
+  appliedAt: string;
+  reason: "SAME_EMAIL" | "SAME_PHONE";
+};
+
 export type ApiApplicationDetail = ApiApplication & {
+  /** Why they have the score they have, or why they have none. Staff only. */
+  screening?: ApiScreeningDetail;
+  /** The version of the advert's form they were answering. */
+  formVersion?: number | null;
+  /** What they answered, in the order asked. Absent from an API that predates forms. */
+  answers?: ApiAnswer[];
+  /** The privacy notice they accepted, exactly as shown. `null` if they did not tick one. */
+  consent?: ApiConsent | null;
+  /** The confirmation email to the applicant: what happened to it, in words. */
+  acknowledgement?: {
+    status: string;
+    note: string | null;
+    sentAt: string | null;
+  };
+  /** Other applications from the same email or phone. Nothing is merged. */
+  likelyDuplicates?: ApiLikelyDuplicate[];
   otherApplications: ApiOtherApplication[];
+  /**
+   * Every move this application has made, oldest first — its own, plus those of
+   * the pipeline record it became. Empty for one that has not moved since the API
+   * began keeping it: there is no backfill.
+   */
+  history?: ApiHistoryEvent[];
 };
 
 /**
@@ -272,13 +411,49 @@ export type PostingListParams = {
 export type ApplicationListParams = {
   page?: number;
   pageSize?: number;
-  /** Allow-list: createdAt | lastName | status | source. Newest first by default. */
-  sort?: "createdAt" | "lastName" | "status" | "source";
+  /**
+   * Allow-list: createdAt | lastName | status | source, and the screening sorts
+   * (`fitScore`, `assessment`). `knockoutCount` is for the pipeline's own list. Newest first by default.
+   */
+  sort?:
+    | "createdAt"
+    | "lastName"
+    | "status"
+    | "source"
+    | "fitScore"
+    | "assessment"
+    | "knockoutCount";
   order?: "asc" | "desc";
   status?: ApplicationStatus;
   postingId?: string;
   source?: string;
+  /** Every word has to match the first name, last name or email. */
   q?: string;
+  /** `YYYY-MM-DD`, inclusive: the first day they could have applied. */
+  from?: string;
+  /** `YYYY-MM-DD`, inclusive: the last day they could have applied. */
+  to?: string;
+  /** `true`: only applications with a wrong knockout answer. */
+  flagged?: boolean;
+  /** `true`: only those marked as a likely duplicate of an earlier one. */
+  duplicate?: boolean;
+  /** Fit score range, 0 to 100, inclusive. Only people who have a score match. */
+  scoreMin?: number;
+  scoreMax?: number;
+  /** Only people whose score is in this state. */
+  scoreStatus?: ApiScoreStatus;
+  /**
+   * The `meta.nextCursor` of the page before. Opaque — hand back what a
+   * response gave, never build one. Only with the default newest-first order,
+   * which is the order every screen here uses.
+   */
+  cursor?: string;
+};
+
+/** What a keyset-paged list adds to the usual envelope. */
+export type CursorMeta = {
+  /** `null` on the last page. */
+  nextCursor: string | null;
 };
 
 /**
@@ -292,6 +467,7 @@ export type CreatePostingBody = {
   title: string;
   summary: string;
   description: string;
+  remote?: boolean;
   slug?: string;
   location?: string;
   employmentType?: EmploymentType;
@@ -312,7 +488,12 @@ export type CreatePostingBody = {
 export type UpdatePostingBody = {
   title?: string;
   summary?: string;
+  /**
+   * Sent alone, this stores plain text and **clears** any rich-text version — the
+   * two can never disagree. So the editor sends it only when the words changed.
+   */
   description?: string;
+  remote?: boolean;
   slug?: string;
   location?: string | null;
   employmentType?: EmploymentType;
@@ -343,6 +524,218 @@ export type AdvanceBody = {
   rightToWork?: boolean;
 };
 
+/* --------------------------------------------------------- the form, settings */
+
+/** Mirrors `FieldMode`. */
+export type ApiFieldMode = "OFF" | "OPTIONAL" | "REQUIRED";
+
+export type ApiFormQuestion = {
+  id: string;
+  order: number;
+  kind: QuestionKind;
+  label: string;
+  helpText: string | null;
+  required: boolean;
+  maxWords: number | null;
+  minValue: number | null;
+  maxValue: number | null;
+  choices: { id: string; label: string }[] | null;
+  /** `{ flagWhen: false }`: a "No" raises a flag. `null`: not a knockout. */
+  knockout: { flagWhen: boolean } | null;
+  /** Where it was copied from, e.g. `requisition:q1`. */
+  origin: string | null;
+  /** How many applications answered it. Above zero, its kind is fixed. */
+  answerCount: number;
+};
+
+/** `GET /careers/postings/:id/form` and the answer to every write to it. */
+export type ApiForm = {
+  postingId: string;
+  formVersion: number;
+  /** How many applications this advert has taken. */
+  applications: number;
+  settings: {
+    phoneMode: ApiFieldMode;
+    cvMode: ApiFieldMode;
+    coverNoteMode: ApiFieldMode;
+  };
+  questions: ApiFormQuestion[];
+  limits: {
+    maxQuestions: number;
+    maxFileQuestions: number;
+    maxChoices: number;
+    labelChars: number;
+    helpTextChars: number;
+    choiceLabelChars: number;
+    longTextMaxWords: number;
+  } & Record<string, number>;
+  kinds: { kind: QuestionKind; label: string; hint: string }[];
+};
+
+/** One question as the builder sends it. No `id` adds a new one. */
+export type PutFormQuestion = {
+  id?: string;
+  kind: QuestionKind;
+  label: string;
+  helpText?: string | null;
+  required: boolean;
+  maxWords?: number | null;
+  minValue?: number | null;
+  maxValue?: number | null;
+  choices?: { id?: string; label: string }[] | null;
+  knockout?: { flagWhen: boolean } | null;
+};
+
+/** The whole list, in order, and/or the switches. Never a delta. */
+export type PutFormBody = {
+  settings?: {
+    phoneMode?: ApiFieldMode;
+    cvMode?: ApiFieldMode;
+    coverNoteMode?: ApiFieldMode;
+  };
+  questions?: PutFormQuestion[];
+};
+
+export type ApiShareLink = {
+  channel: string;
+  label: string;
+  /** The advert's address with `?src=<channel>`. This is what goes in a post. */
+  url: string;
+  /** Where that site's own "share this" opens, with the tracked link in it. */
+  shareUrl: string | null;
+};
+
+export type ApiShareLinks = {
+  postingId: string;
+  /** False for a draft or closed advert: the links will not open yet. */
+  live: boolean;
+  /** The advert's own address, with no tag. */
+  page: string;
+  links: ApiShareLink[];
+};
+
+/** `GET /careers/settings`: how the company presents itself to applicants. */
+export type ApiCareersSettings = {
+  branding: {
+    displayName: string | null;
+    /** What the page shows: the display name, else the company's own. */
+    name: string;
+    companyName: string;
+    description: string | null;
+    websiteUrl: string | null;
+    accentColor: string | null;
+    /** The company profile's logo, as a path on the API. Nothing to upload here. */
+    logoUrl: string | null;
+  };
+  contact: { replyToEmail: string | null };
+  consent: {
+    required: boolean;
+    /** The text applicants are shown right now. */
+    text: string;
+    /** Your own wording, or `null` while the standard wording is in use. */
+    customText: string | null;
+    url: string | null;
+    version: string;
+    isDefault: boolean;
+    needsReview: boolean;
+    reviewNote: string | null;
+    standardText: string;
+  };
+  acknowledgement: {
+    enabled: boolean;
+    willSend: boolean;
+    /** Why no confirmation email would go out right now, in words. */
+    blockedBy: string[];
+  };
+  /**
+   * Emails to candidates beyond the acknowledgement: invitations, declines, offer
+   * notices and stage messages. Only ever sent because a person asked. Absent from
+   * an API that predates them.
+   */
+  candidateEmails?: {
+    enabled: boolean;
+    willSend: boolean;
+    /** Why none would be sent right now, in words. */
+    blockedBy: string[];
+    /** What has gone against the daily limit, and what is still to go. Absent from an older API. */
+    usage?: {
+      sentLast24Hours: number;
+      dailyLimit: number;
+      /** Everything not yet sent, reminders planned for later included. */
+      waiting: number;
+      /** Of those, due now and held back. */
+      dueNow: number;
+      /** Reminders and nudges planned for a time that has not come. */
+      remindersPlanned: number;
+    };
+  };
+  /**
+   * Reminders before an interview and the nudge after one: this company's choices, what
+   * it gets until it chooses, and the most and least each may be. Absent from an API
+   * that predates them.
+   */
+  interviewReminders?: ApiReminderSettings;
+  /** Whose name those emails are sent in. Always the registered name, or that name with "Careers". */
+  emailSender?: {
+    name: string;
+    source: "registered_name" | "display_name";
+    displayNameAccepted: boolean | null;
+    registeredName: string;
+    note: string | null;
+  };
+  /** How long rejected and withdrawn candidates are kept. `months: null` keeps them. */
+  retention?: {
+    months: number | null;
+    setAt: string | null;
+    /** Nothing is purged before this day, a week after the period was set. */
+    purgeFrom: string | null;
+    graceDays: number;
+  };
+  /**
+   * What accepting an offer does. Absent from an API that predates the Hired list,
+   * which made the employee record at acceptance and had no choice about it.
+   */
+  hiring?: {
+    onOfferAccepted: "HIRED_LIST_ONLY" | "CREATE_EMPLOYEE";
+    /** What will actually happen: the list only, for a company that lost Core HR. */
+    effective: "HIRED_LIST_ONLY" | "CREATE_EMPLOYEE";
+    coreHr: { available: boolean; reason: string | null };
+    options: {
+      value: "HIRED_LIST_ONLY" | "CREATE_EMPLOYEE";
+      label: string;
+      description: string;
+      available: boolean;
+      unavailableReason: string | null;
+    }[];
+  };
+  search: { indexable: boolean };
+  deployment: { fileUploads: boolean };
+};
+
+export type UpdateCareersSettingsBody = {
+  displayName?: string | null;
+  description?: string | null;
+  websiteUrl?: string | null;
+  accentColor?: string | null;
+  replyToEmail?: string | null;
+  privacyNotice?: string | null;
+  privacyNoticeUrl?: string | null;
+  consentRequired?: boolean;
+  ackEmailEnabled?: boolean;
+  searchIndexing?: boolean;
+  /** Whether invitations, declines and stage messages may be sent in the company's name. */
+  candidateEmailsEnabled?: boolean;
+  /** Whole months, 1 to 120. `null` keeps rejected candidates. */
+  retentionMonths?: number | null;
+  /**
+   * What accepting an offer does. `CREATE_EMPLOYEE` needs Core HR and is refused with
+   * a sentence where there is none.
+   */
+  onOfferAccepted?: "HIRED_LIST_ONLY" | "CREATE_EMPLOYEE";
+  /** Any part of the reminders: send only what changes. */
+  interviewReminders?: ApiReminderChoicesPatch;
+};
+
 /* -------------------------------------------------------------------- calls */
 
 const postingQuery = (params: PostingListParams) => ({
@@ -363,6 +756,15 @@ const applicationQuery = (params: ApplicationListParams) => ({
   postingId: params.postingId,
   source: params.source,
   q: params.q,
+  from: params.from,
+  to: params.to,
+  flagged: params.flagged === undefined ? undefined : String(params.flagged),
+  duplicate:
+    params.duplicate === undefined ? undefined : String(params.duplicate),
+  scoreMin: params.scoreMin === undefined ? undefined : String(params.scoreMin),
+  scoreMax: params.scoreMax === undefined ? undefined : String(params.scoreMax),
+  scoreStatus: params.scoreStatus,
+  cursor: params.cursor,
 });
 
 export const careersApi = {
@@ -406,7 +808,7 @@ export const careersApi = {
     params: ApplicationListParams = {},
     signal?: AbortSignal,
   ) =>
-    requestPaged<ApiApplication>("/careers/applications", {
+    requestPaged<ApiApplication, CursorMeta>("/careers/applications", {
       query: applicationQuery(params),
       ...(signal ? { signal } : {}),
     }),
@@ -429,14 +831,75 @@ export const careersApi = {
       body: reason ? { reason } : {},
     }),
 
+  /**
+   * The one way to read a CV. Audited: the API records who opened whose, every
+   * time. Needs `MANAGE_HIRING` or `APPROVE_HIRING`, like reading the application.
+   *
+   * A `GET` and never cached (`Cache-Control: no-store`): the address in the
+   * answer is a live link to a stranger's file.
+   */
+  openCv: (id: string, signal?: AbortSignal) =>
+    request<ApiCvLink>(`/careers/applications/${id}/cv`, {
+      ...(signal ? { signal } : {}),
+    }),
+
   analytics: (signal?: AbortSignal) =>
     request<ApiCareersAnalytics>("/careers/analytics", {
       ...(signal ? { signal } : {}),
     }),
+
+  /** The form as the builder edits it: questions in order, switches, limits. */
+  getForm: (postingId: string, signal?: AbortSignal) =>
+    request<ApiForm>(`/careers/postings/${postingId}/form`, {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * Replace the form. Whole list, never a delta; the answer is the form as it now
+   * stands, with the ids the API gave any new question. A refusal is a 400 whose
+   * `details[].field` is `questions.<n>.<name>`, the position in the list sent.
+   */
+  putForm: (postingId: string, body: PutFormBody) =>
+    request<ApiForm>(`/careers/postings/${postingId}/form`, {
+      method: "PUT",
+      body,
+    }),
+
+  /** One link per place it will be posted. `channel` adds one more by name. */
+  shareLinks: (postingId: string, channel?: string, signal?: AbortSignal) =>
+    request<ApiShareLinks>(`/careers/postings/${postingId}/share-links`, {
+      ...(channel ? { query: { channel } } : {}),
+      ...(signal ? { signal } : {}),
+    }),
+
+  getSettings: (signal?: AbortSignal) =>
+    request<ApiCareersSettings>("/careers/settings", {
+      ...(signal ? { signal } : {}),
+    }),
+
+  updateSettings: (body: UpdateCareersSettingsBody) =>
+    request<ApiCareersSettings>("/careers/settings", {
+      method: "PATCH",
+      body,
+    }),
+
+  /**
+   * Open a file an applicant attached as the answer to a question. The CV's twin:
+   * audited every time, a link good for five minutes, never cached.
+   */
+  openAnswerFile: (
+    applicationId: string,
+    answerId: string,
+    signal?: AbortSignal,
+  ) =>
+    request<ApiCvLink>(
+      `/careers/applications/${applicationId}/answers/${answerId}/file`,
+      { ...(signal ? { signal } : {}) },
+    ),
 };
 
 export type PagedPostings = Paged<ApiPosting>;
-export type PagedApplications = Paged<ApiApplication>;
+export type PagedApplications = Paged<ApiApplication, CursorMeta>;
 
 /* ---------------------------------------------------------------- the money */
 

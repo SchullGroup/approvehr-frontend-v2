@@ -19,12 +19,12 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   ColumnChart,
   EmptyState,
   SegmentedControl,
   Skeleton,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -34,6 +34,7 @@ import {
   TableWrap,
   TextLink,
   formatMoney,
+  ToggleFilter,
 } from "@/components/ui";
 import { ExportButton } from "@/components/portal/export-button";
 import { LoadFailure } from "@/components/portal/load-failure";
@@ -457,7 +458,7 @@ function DaySummary({
   if (day.absent === null) return null;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <StatGrid>
       <Stat
         label="In"
         value={String(day.present + day.late)}
@@ -474,7 +475,7 @@ function DaySummary({
             : "needs a leave request or a correction"
         }
       />
-    </div>
+    </StatGrid>
   );
 }
 
@@ -635,7 +636,7 @@ function DayTable({
     return (
       <Card>
         <CardHeader
-          title={`${shortDate(roster.date)} — ${label}`}
+          title={`${shortDate(roster.date)}, ${label}`}
           description={
             day.kind === "HOLIDAY"
               ? "Payroll withholds nothing."
@@ -976,10 +977,10 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                 export that does not need the pay permission. */}
             {sheet.source === "api" && mayExport && (
               <>
-                <Checkbox
+                <ToggleFilter
                   label="Exceptions only"
                   checked={exceptionsOnly}
-                  onChange={(e) => setExceptionsOnly(e.target.checked)}
+                  onChange={setExceptionsOnly}
                 />
                 <ExportButton
                   label="Download"
@@ -1065,7 +1066,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                         onRota
                           ? "text-muted"
                           : row.daysUnexplained > 0
-                            ? "font-medium text-danger-text"
+                            ? "font-medium text-warning-text"
                             : "text-muted",
                       )}
                     >
@@ -1143,7 +1144,7 @@ function TimesheetView({ sheet }: { sheet: TimesheetState }) {
                       onRota
                         ? "text-muted"
                         : row.daysUnexplained > 0
-                          ? "font-medium text-danger-text"
+                          ? "font-medium text-warning-text"
                           : "text-muted",
                     )}
                   >
@@ -1216,7 +1217,7 @@ function TimesheetPayrollEffect({
   if ((row.proration.amount ?? 0) > 0) {
     return (
       <span className="inline-flex flex-col items-end">
-        <span className="inline-flex items-center gap-1.5 font-medium text-danger-text">
+        <span className="inline-flex items-center gap-1.5 font-medium text-warning-text">
           <TriangleAlert aria-hidden="true" className="size-3.5" />
           {`−${formatMoney(row.proration.amount ?? 0, "NGN", { decimals: true })}`}
         </span>

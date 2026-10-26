@@ -312,6 +312,27 @@ storage directly in the hook body — but prefer the factory to copying.
   fields on old payloads, but a full shape change (like the overrides→store
   rename this session) orphans old data. Consider a version field in the
   persisted payload if you change the shape again.
+- **A native date or time input on an iPhone ignores `width: 100%`, and
+  Chrome will not show you.** iOS Safari paints `type="date"`, `time`,
+  `datetime-local`, `month` and `week` through the platform theme, which sizes
+  the box itself: a time input in a 161px column rendered 187px wide, and two
+  of them in a `grid-cols-2` ran off a 375px screen (the attendance
+  correction sheet — "Clock out should be" could not be reached). Only
+  `appearance: none` hands the sizing back; `globals.css` does that behind
+  `@supports (-webkit-touch-callout: none)`, which only iPhone and iPad
+  answer, so desktop is untouched. Use `Input` (never a raw `<input>`) and
+  `FieldRow` (never a hand-written `grid-cols-2` around fields — a test
+  refuses it). A jsdom test cannot see this and neither can a desktop
+  browser's device mode: open the iOS Simulator and read
+  `getBoundingClientRect` on the thing, or you are guessing.
+- **A page that is wider than the phone widens every sheet opened from it.**
+  A mobile browser answers overflow by growing the layout viewport, so a
+  bottom sheet opened on a 1,563px-wide page comes up at its desktop width.
+  The usual causes are all one shape — something that may not shrink in a grid
+  or flex item (`Card` and `Field` are `min-w-0` for that reason), a
+  `shrink-0` action without `max-w-full`, and an `sr-only` (absolutely
+  positioned) label inside a scroller that is not itself positioned (`scroll-x`
+  is `position: relative` for that reason).
 
 ## Route map (52 routes, all currently building clean)
 
@@ -945,7 +966,8 @@ bolted on. There is no frontend engine to test, so it checks what this repo can
 still be wrong about: 51 assertions over the fixture's reconciliation identities
 (exact integers, no tolerance, the same ones `reconcile.ts` demands), every demo
 salary having a row, the fixture's settings still being this repo's defaults, and
-— when `approvehr-api` is checked out beside this repo — the fixture's recorded
+— when a backend checkout is beside this repo (see "Both repos, and which one
+wins" near the end of this file for where it looks) — the fixture's recorded
 tax schedule matching the API's newest **band for band**, parsed out of the
 backend source as text.
 
@@ -8434,9 +8456,24 @@ Two things that look like duplication and are not:
 The API's dictionary (`modules/imports/*.ts`) is what answers when it is up and
 the frontend's mirror (`lib/imports/*.ts`) is what answers offline, so both were
 changed together and `verify-template` compares every heading between them. It
-only does that when a sibling folder named `approvehr-api` exists (item 38 in
-`out/tasks/`); on a layout that names it `approvehr-backend` it prints `skip` and
-compares nothing. Merge the backend first.
+only does that when it can find a backend checkout, and **until item 38 was fixed it
+never could**: it looked for `../../../approvehr-api`, which is where the backend sat
+in the first layout and nowhere since, so it printed `skip` on every machine, and so
+did `verify-payroll`, `verify-rating-scale` and `verify-signature-wording`. A drift
+between the two repos had no gate for as long as that was true.
+
+`scripts/backend-source.ts` is the one lookup all four use now. It takes
+`APPROVEHR_BACKEND_DIR` first (the root of a checkout; use it to compare against an
+unmerged branch, and a path that is not a backend is an error, not a skip), then a
+folder beside this repo or beside any folder above it, up to six levels, so a
+worktree under `.worktrees/` finds the main checkout's neighbour. `approvehr-api`
+is tried before `approvehr-backend`: a link or an old checkout with that name is
+somebody's choice, while `approvehr-backend` is the folder every clone gets. Each
+gate prints `note  comparing with <path>` so it is visible which backend was read,
+and `skip` only when there is none, which is the frontend's own CI, because it
+clones this repo alone. Both halves are tamper-tested: with the lookup working, a
+changed rating label and a changed signature sentence each fail their gate.
+`tests/backend-source.test.ts` pins the lookup itself. Merge the backend first.
 
 ## Not changed, on purpose
 
@@ -8549,6 +8586,11 @@ against a development build: 1,350 ms a key. Three causes, all fixed:
 2. **Every field carried a tooltip that measures the page when it mounts.** `InfoTooltip` runs a
    layout read per field, so fifty cards were six hundred forced layouts. The help is identical on
    every card, so only the first card carries it.
+   > **The first half is out of date.** `InfoTooltip` no longer measures when it mounts: it renders
+   > its button and nothing else until it is opened, and measures then (see "Fields are 16px under a
+   > finger, and the help icon opens on a tap"). Only the first card still carries the help, which is
+   > still right, since the sentence is identical on every card and saying it fifty times is noise.
+   > It is just no longer what keeps a keystroke cheap.
 3. **Every text control with suggestions wrote its own `<datalist>`.** Two hundred addresses times
    fifty cards is ten thousand `<option>`s. One list per column now, for the whole window.
 
@@ -8665,3 +8707,905 @@ box naming the same email again. Names an item's own error already quotes are no
 its link ("Check your staff list") moves into the red one; an amber box remains only for a name no item
 mentions. `tests/bulk-create-dialog.test.tsx` has two cases (one tamper-tested against the old code).
 
+
+---
+
+# An approval you could see and never decide
+
+A tester told every employee to update their bank details, and they did, up to eight
+times each. The approvals inbox then held eight entries for one change. Only the newest
+could be approved. Approving any other answered "That was already withdrawn", and so did
+sending it back, and the entry stayed. Nothing in `tsc`, lint or 780 tests could see it,
+because each half was correct on its own.
+
+## The cause was on the backend, in a rule that was right
+
+`updateOwnRecord` supersedes rather than queues: a second request for the same field
+marks the first `WITHDRAWN`, because two pending account numbers is a question nobody
+can answer. It did not close the first request's inbox entry (`ApprovalRequest`), which
+stayed `PENDING` for ever. The inbox is sorted oldest first, so the dead entries sat on
+top. Attendance corrections superseded the same way and had the same defect. Every other
+kind that can end without a decision (leave, exits, offers, payroll, loans) already
+mirrors its entry.
+
+> A request and its inbox entry are two rows. Whatever ends one has to end the other in
+> the same transaction. `mirrorApprovalDecision` exists for that; the two paths that
+> skipped it were the two that supersede.
+
+The fix is in `approvehr-backend`, with a data-only migration that closes the entries
+already stuck. It closes only an entry whose own request is `WITHDRAWN`, so anything
+decided or genuinely pending is untouched.
+
+## What changed on this side
+
+- **"Send back" is "Reject".** On the approvals inbox only. The dialog still requires a
+  reason, and now says the person sees it, which is true: the backend notifies the
+  requester of an approval and of a rejection, with the reason. Before, the reason was
+  kept on the request and nothing ever delivered it. `/people/leave` and the objective
+  approvals keep "Send back", where the thing really does go back for revision.
+- **A failed rejection no longer closes its dialog.** `decide` caught the error, showed a
+  toast and returned normally, so `DeclineDialog` believed it had worked, cleared the
+  reason and closed. `decide` now takes `{ throwOnFailure }`; the rejection dialog uses
+  it and shows the server's sentence in its own field, with what was typed still there.
+- **A stale row refreshes the queue.** A 409 or 404 on approve or reject means the row is
+  not what the list says it is, so the inbox asks again and the row leaves, rather than
+  waiting there to fail a second time.
+
+## Deliberately not done
+
+- **A Close or Discard action** for an entry that is neither approved nor rejected. The
+  tester asked; it was left out. What closing would mean differs by kind (a withdrawn
+  leave request, a cancelled requisition and a dismissed record change are different
+  acts), and it needs that decided per kind first.
+- **Renaming "Send back" on `/people/leave`.** Same decision, different screen.
+
+---
+
+# Five Performance layouts broke on a phone, and the causes are not specific to Performance
+
+A measured pass over the Performance module on phones and tablets (#424). It found five layouts that
+needed changing and left everything else alone, because everything else was already right: no text under
+14px, no console errors or failing requests across 194 page loads (17 routes at eight sizes for the
+administrator, 7 for a manager, 6 for an employee), and every one of 16 dialogs and drawers fits at 320,
+375, 812x375 and 768 with its close button visible and focus moved inside. The method is the part to keep.
+Measuring the page found what looking at it did not: the detectors count text over text, text cut by an
+ellipsis or a line clamp, a sentence broken into columns by a flex row, children sticking out of their
+parent, and anything making the page wider than the window.
+
+## The five, and the class each one belongs to
+
+1. **A control that sizes itself to its content cannot share a row** (`appraiser-map.tsx`). `Select` puts
+   its `className` on the `<select>`, and a `<select>` is as wide as its longest option, which here is
+   "Name — Job title". On a tablet it took what it wanted and left the person's name a column about 60px
+   wide; on a phone "More options" ran out of the card, which made the page scroll sideways and a mobile
+   browser zoom out. The row is a grid, `minmax(0,1fr)` for the person, and the select's width is on a
+   wrapper. `basis-48` is the least the wrapper is squeezed to; below that the button drops to its own line
+   and the select keeps the row. The first version squeezed it until the placeholder read "Assign an ap",
+   which a detector did not see and the screenshot did.
+2. **`truncate` on a figure hides the figure** (`Stat`, `components/ui/card.tsx`). The value and the hint
+   wrap now (`break-words`) instead of ending in an ellipsis, so a caveat or an employee's own rating
+   ("Exceeds Expectations") is not cut off. This is the one shared component in the five, used by 52 files.
+   Checked on six screens at two sizes: cards in a row stay level, because grid items stretch, and are up to
+   45px taller where a hint wraps.
+3. **Five column labels do not fit in 55px** (`report-screen.tsx`, `components/ui/chart.tsx`). The spread of
+   marks is drawn as bars below `sm` (`BarChart` takes `tones` now) and as columns from `sm` up. The two
+   are swapped with `hidden` and `sm:hidden`, which is `display: none`, so only one of them reaches the
+   accessibility tree: each chart carries its own data table, and showing both by any other means would
+   announce it twice.
+4. **A grid that scrolls sideways has to say what its rows are** (`nine-box-screen.tsx`). It was 52rem wide,
+   which on an iPad held upright showed two and a half columns and cut the third mid-word with nothing to
+   say it scrolled. It is 44rem, which fits that width exactly. Below it the grid scrolls and the row
+   labels stay put (`sticky left-0 z-10 bg-canvas`): after scrolling 260px on a phone a label sits at
+   x=20, where it was at x=-240.
+5. **Loose text and an inline link inside a flex row are three columns** (`settings/performance/weights-form.tsx`).
+   The paragraph was a flex row so that the lock icon sat beside the words, and a flex row turns every
+   direct child into its own item, so the sentence rendered as three blocks side by side with the link alone
+   in the middle one. The sentence is one `<span className="min-w-0">` now. The save bar lost `shrink-0` for
+   the same page: it held the two buttons at full width and ran them 23px out of the card at 320px.
+
+Numbers one and five are mistakes in how a row is written, and nothing stops the next screen making them;
+number two is a shared component, so its change reached 52 files. `ColumnChart` (number three) has two more
+users, attendance history and the dashboard widgets, that probably have the label problem on a phone and
+were not measured.
+
+## Two guards, and an allowlist entry
+
+`tests/performance-layout-across-devices.test.tsx` pins each fix in the style of
+`pages-do-not-scroll-sideways-on-a-phone.test.tsx`: 11 tests, of which 10 fail on the source before the
+change and one passes (the tooltip, which was always there).
+
+`tests/no-unsafe-form-rows.test.ts` rejects a multi-column grid with no breakpoint prefix that holds a
+form control, and the appraiser row is one. `appraiser-map.tsx` is in its `ALLOWED` list with the measured
+reason beside it, the same two-track design the projects workflow editor is allowed for: the page is exactly
+as wide as the window at 320, 375, 412, 768 and 1366. If a grid like that fails that test, measure it and
+write the widths down; do not just add the name.
+
+## Measured, before and after
+
+Production build, Chromium with touch emulation below 800px, against a seeded scratch company, the build
+before the change against the build after it: text over text 9 to 0; a sentence broken into columns 1 to 0;
+children sticking out of their parent about 20 to 1; content wider than its box on 5 screens to 1; stat and
+heading text cut by an ellipsis on 7 screens to 1 (a header title at 320px).
+
+## Found, and not changed
+
+- **Landscape phone, 812x375.** Dialogs leave 90 to 150px for the form once the header and footer are
+  taken, and the review form's heading takes most of the screen.
+- **320px: "Fill in from the reporting line"** on the period page runs 10px into its card's padding. `Button`
+  is `whitespace-nowrap` and a fixed height.
+- **Touch targets.** Most buttons are 36px. The page-header back link and the breadcrumbs are 20px high, which
+  the WCAG 2.2 spacing exception allows and their size does not.
+- **Design calls, not defects.** Four stat cards stack one to a row on a phone, about 600px before the KPI
+  list; the period page puts seven buttons in four rows before any content; the overview's third tab is cut
+  at the edge of a phone as the only sign that the strip scrolls.
+- **Two recruitment-board tests fail on an unmodified `dev` when run on their own**: `applications-queue`
+  "waits for the typing to pause, then asks the server" and `pipeline-board` "search asks the board, not the
+  cards on screen". They are slow, not wrong. They fail at Testing Library's default one-second `waitFor`,
+  and with that one allowance raised to 20 seconds and nothing else changed (a scratch config, not in the
+  repo) both pass: typing, the debounce and the render of a long list all have to finish inside one second,
+  and on a loaded machine they do not. `npm test` is not in CI, so no pull request was failing on them. Not
+  tried: a quiet machine. The rest of that family fails only on a busy machine too.
+
+**Not verified:** a real device, Safari, the on-screen keyboard, and long lists or long names. The seeded
+company has ten people and one period.
+
+---
+
+# Fields are 16px under a finger, and the help icon opens on a tap
+
+A review of the Performance module on phones found two defects in shared form components. The layout
+change (#424) left both alone on purpose: each is a change to something every form in the product uses.
+
+## Sixteen pixels, keyed on the finger and not on the width
+
+iOS Safari zooms the whole page when a text field whose computed size is under 16px takes focus, and it
+does not zoom back. Every `Input`, `Select` and `Textarea` was 15px (`text-body-sm`), and the viewport
+allows zoom on purpose (`layout.tsx`: a payroll figure somebody cannot enlarge is one they misread), so
+there is no meta tag to switch it off with.
+
+`pointer-coarse:text-body-md` is in `CONTROL` in `components/ui/input.tsx`, which the three share. A touch
+screen gets 16px and a mouse keeps 15px. Three decisions in it:
+
+- **The pointer, not the width.** An iPhone held sideways is 667 to 932px wide, which is large to every
+  width breakpoint and is still an iPhone. `pointer-coarse:` is true for a finger and false for a mouse. A
+  touchscreen laptop whose main pointer is a mouse stays at 15px, and nothing zooms there.
+- **In `CONTROL`, not beside each size.** A caller that passes its own size (`text-meta` on a compact
+  select) changes what a mouse sees and cannot take the finger's 16px away, because `tailwind-merge` keeps a
+  variant apart from the unprefixed size. Checked with the real `cn`.
+- **`text-body-md`, because `text-body` is a colour** (see the type scale entry).
+
+Seven files wrote a raw `<input>`, `<select>` or `<textarea>` at 15px or smaller and carry the class
+themselves: the picker's search box, the bulk-create table cell, the invitation link, three in Projects
+(the issue filter, the mention composer, quick add) and the two marketing calculator fields.
+
+`tests/text-fields-are-16px-on-touch.test.ts` stops the next one. It reads every `.tsx` under `src` with the
+TypeScript compiler, follows same-file `const` class strings and `cn()` calls, maps each size class to
+pixels, and fails for an `input`, `select` or `textarea` whose size on a touch screen is under 16px. A
+control with no size class inherits 16px and passes. It is the technique of `no-unsafe-form-rows.test.ts`,
+and it is what found the seven files. It only parses a file that writes one of the three tags (36 of the 664):
+parsing them all is what made it time out in a full run on a busy machine.
+
+On a touch screen a three-row textarea is about 10px taller, because the 16px size carries a line height of
+1.6 where the 15px one has 1.5. Nothing else moved.
+
+## The help icon
+
+`InfoTooltip` (in `components/ui/field.tsx`, the icon beside every label that has `help`) had three faults.
+The first two were measured in a browser rather than read:
+
+1. **The panel was clipped inside any dialog.** It was an absolutely positioned child of the icon, so the
+   dialog's scroll area cut it off. For the first field in a dialog it opened upward and 55 of its 71px were
+   hidden, on a laptop as much as on a phone.
+2. **It could not be opened on an iPhone.** It was shown by `group-hover` and `group-focus-within` alone, on
+   the reasoning that tapping a button focuses it. That is true in Chrome and false in Safari, which does not
+   give a button focus when it is pressed (on a Mac as well as an iPhone), and a phone cannot hover.
+3. **It was a 14px target with no focus ring.** `focus:outline-none` had replaced the ring with a colour
+   change, which is not a focus indicator.
+
+It now has three states: `closed`, `peek` and `pinned`. A mouse or pen resting on the icon, or a keyboard
+focusing it (`:focus-visible`, so a click that happens to focus it does not count), **peeks**; a press or a
+tap **pins**. A touch pointer never peeks: a finger has no "over", and the mouse events a browser fires
+after a tap would show the panel for as long as the finger was down and then take it away. It closes on the
+icon again, a press anywhere else, a press on the panel, Escape, and the icon losing focus.
+
+- **A portal to `document.body`, at `z-[60]`.** `position: fixed` alone would not escape the dialog: `Modal`
+  and `Drawer` animate in with a transform that is left on afterwards (`animation-fill-mode: both`), and a
+  transformed element is the containing block for its fixed descendants. The body is where `Modal`, `Drawer`,
+  the toasts and the tour already put themselves, and `z-[60]` is the tier above a dialog (`globals.css` lists
+  the help panel there now).
+- **Placement is measured when it opens**, by `placeTooltip` in `lib/place-tooltip.ts`, a pure function of
+  three rectangles: above if it fits, else below, else the larger side with a capped height. It is written
+  straight to the node in a layout effect, as `Spotlight` does, so there is no frame at the wrong place and no
+  state per scroll frame. It is measured against `visualViewport` where there is one, so with the keyboard
+  up the panel lands where the person is looking. An `IntersectionObserver` hides it when the icon is
+  scrolled out of its scroller and shows it again when the icon returns.
+- **The first Escape closes the hint and the second closes the dialog.** `useFocusTrap` listens on `document`
+  in the capture phase; the hint listens on `window`, which comes first, and stops the event. One keystroke
+  must not discard a form to dismiss a sentence.
+- **A press on the panel keeps focus on the icon** (`onMouseDown` cancels it). The icon closes the panel when
+  it loses focus, and Chrome moves focus off a button when a press lands on nothing focusable, so without it
+  the panel was gone before the click that ends the press. Tamper-tested in a browser: with the handler
+  stopped, focus goes to the body and the panel goes with it.
+- **The description for assistive technology did not move.** The `sr-only` span that `aria-describedby` names
+  is still always in the DOM; the visible panel is `aria-hidden` and `role="presentation"`, so nobody hears
+  the sentence twice. The icon has no `aria-expanded` for the same reason: it controls a copy that assistive
+  technology is not shown.
+- **Closed, it costs a button.** Nothing is mounted, measured or listened to until it opens. That is why the
+  bulk-create entry's reason for carrying the help on the first card only is out of date, though not wrong.
+
+## Found, and not changed
+
+- **`cn` drops `text-body-md`.** `FONT_SIZES` in `lib/cn.ts` does not list `body-md`, so
+  `cn("text-body-md font-semibold", "text-ink")` returns `"font-semibold text-ink"`: `tailwind-merge` reads
+  the unregistered size as a colour and the later colour wins. (`cn("text-body-sm", "text-body-md")` keeps
+  both.) Wherever a `text-body-md` string reaches `cn` together with a text colour, the size is silently gone.
+  It is invisible today because 16px is the inherited size. Registering it would also bring the 1.6 line
+  height the token carries to those places, which is a visible change, so it is a decision of its own.
+  Nothing here depends on it: the touch size is written `pointer-coarse:text-body-md`, which `cn` keeps.
+- **jsdom answers `:focus-visible` with false**, for everything. A test of keyboard behaviour that does not
+  stub `Element.prototype.matches` (see `info-tooltip.test.tsx`) will find that focus never opens the panel.
+- **A dev server on `127.0.0.1` never hydrates.** Next 16 blocks `/_next/*` dev resources from an origin that
+  is not in `allowedDevOrigins`, and the page stays on its spinner. A browser script against `next dev` has
+  to use `localhost`, or a production build; it cost an hour here before the log line was read.
+
+## Verified
+
+On a production build, in Chromium with touch emulation, against a seeded scratch company, the original
+build against this one:
+
+- **The panel**, in "New objective" and "Start an appraisal period", at 320x568, 375x812, 812x375,
+  768x1024 and 1366x768. Before, the first icon's panel was 25% visible at every size, the second 50% at
+  812x375, and the period dialog's 90% at 812x375, 768 and 1366. After, 100% visible and inside the screen in
+  all fifteen cases, with every label row still 22.5px high and no sideways overflow.
+- **Behaviour, 26 checks:** a tap opens it, a second tap closes it, a tap elsewhere closes it and leaves the
+  dialog open, a tap on the panel closes it and does not reach what is under it; a mouse peeks, a click pins,
+  the pin survives the mouse leaving, the first Escape closes only the hint and the second closes the dialog;
+  Tab reaches the icon, shows the panel and draws a 2px solid ring; a press on the panel is not undone by the
+  focus change. The icon is a 26x26 target.
+- **Scrolling**, at 812x375 and 320x568, where the dialog scrolls: the panel opens inside the screen, hides when
+  its icon is scrolled out, comes back with it, and follows it while it moves.
+- **Field sizes**, 82 screens at 375px with touch (`(pointer: coarse)` matched): every text field 15px before
+  and 16px after. At 1366px with a mouse: 15px before and after. The counts of fields differ from run to run
+  (121 and 141 on the phone) because screens finish loading at different moments; the sizes are the finding.
+
+**Not verified: iOS Safari, or any real device.** There is no Safari here. The zoom itself, and Safari not
+focusing a button on a press (the reason the panel opens on a click), are both known behaviour and neither was
+reproduced; Chromium was made to behave like a phone, which is not the same. The on-screen keyboard
+(`visualViewport` shrinking under the panel) was not exercised either.
+
+---
+
+# The inventories are generated now, because the hand-kept ones had stopped being true
+
+`docs/pages/` and `docs/components/` exist to answer "does this already exist?", and `CLAUDE.md` tells
+everyone to search them before writing a component, a hook, a helper or an endpoint. They were first
+produced on 2026-09-11 by a one-off pass nobody recorded, and every change after that was a hand patch. By
+20 October the pages list had 113 routes against 145 `page.tsx` files; the components list had 661 files
+against 1,054 and still named five files and seven symbols that no longer exist; the API list lacked seven
+whole modules (`ai2`, `billing`, `job-roles`, `projects`, `screening`, `surveys` and `work-trackers`: 45
+modules against 52); and the landing list had no PAYE calculator. Each patch was a row somebody
+remembered to add, and the rows nobody remembered were the ones a reader needed. `CLAUDE.md` already said to
+re-derive the file rather than patch the row. There was nothing to re-derive it with.
+
+## `npm run docs`
+
+`scripts/generate-docs.ts`, with its parts in `scripts/docs/`. It rewrites four files:
+`docs/pages/frontend-v2.md` and `docs/components/frontend-v2.md` from this checkout,
+`docs/components/landing-frontend.md` from the landing site and `docs/components/backend-api.md` from the
+backend. The two sibling repositories are read at a git ref (`origin/main` and `origin/staging`) through
+`git cat-file --batch`, never from another checkout's working tree, so a stale branch or an untracked scratch
+file cannot leak into the description of a commit. `-- --check` exits 1 if a committed file is stale and
+ignores the `_Snapshot:_` line, which names a commit and so changes whenever the code does; `-- --only a,b`
+limits the run; `LANDING_REPO`, `LANDING_REF`, `BACKEND_REPO` and `BACKEND_REF` say where the siblings are. A
+sibling that is not there is skipped with a message and never replaced by a smaller file. A ref is read as
+last fetched, so run `git fetch` in each sibling first; the `_Snapshot:_` line at the top of a generated
+file says which commit was read. Prettier runs last, so table widths are never the script's opinion and a
+regenerated file differs only where a row does.
+
+It is **not in `npm run check` and not in CI**, on purpose. It would fail every pull request that adds an
+export without regenerating, which is a rule for the team to choose rather than one for a script to
+introduce. `npm run docs -- --check` exists so that "are the inventories current?" has a command.
+
+Not covered: `docs/pages/landing-frontend.md`, which is kept by hand because the landing site's routes
+carry no metadata to read, and the two platform-frontend files, which come from the one-off pass; that
+repository has not changed since 2026-08-21, so nothing there has drifted yet. Each of the three says so at
+its top.
+
+## The rules, because they are what a reader is trusting
+
+- **Pages.** One row per `page.tsx`; the title and the "What it is" cell are the page's own `metadata`. A
+  page whose title or description is computed prints an em dash, unless every `return` of its
+  `generateMetadata` agrees on a literal. A route that `src/proxy.ts` redirects is marked as retired, read
+  from that file's own `REDIRECTED_PATHS` and `REDIRECTED_PREFIXES`: `/demo`, `/privacy`, `/terms`,
+  `/security`, `/dpa` and `/product/*` go to the landing site with a 308, so the old list described pages
+  this application does not serve.
+- **Components.** By the shape of the declaration and its name. A callable named `useX` is a hook; a callable
+  with a capital letter in a `.tsx` file is a component; a `forwardRef(...)` or `memo(...)` of a capitalised
+  name is a component too (the one-off pass missed those: `Button`, `Input`, `Select` and more); any other
+  callable is a function; everything else is counted ("3 const", "2 types"), not listed. A symbol exported
+  through `export { a }` counts only where it is declared. Barrels, an `index.ts` that only re-exports, are
+  left out: 11 of the 1,054 source files. A symbol lands in the wrong column occasionally, because a factory
+  called `makeThing` that returns a component is a function here. The path beside it is always right.
+- **API.** One section per folder under `src/modules`: a table of its files and what they export, and a table
+  of every endpoint with its full mounted path. Routes are found the way Express finds them, by following the
+  mounts from `app.ts`. The generator executes `createApp` over a small subset of TypeScript, resolves each
+  router through the imports to the file that creates it, and evaluates a path written as a template literal
+  over a loop, which is how `imports` registers three routes for every entity. **It refuses to guess.** A
+  route whose path it cannot evaluate, a `.route()`, `.all()`, `.head()` or `.options()` chain, a route or a
+  mount inside an `if` or a `try`, a router that has routes and is never mounted, and a file that creates a
+  router nothing mounts all stop the run and name the line. The fix is to write the route as a literal or to
+  teach `scripts/docs/backend-api.ts` the form. An inventory that quietly leaves a route out is the failure
+  this exists to prevent.
+
+## How it was checked
+
+Not by reading it. Each generator was run on the commit the committed file came from and compared with that
+file.
+
+- **Pages, at `65a45ff0`:** all 113 original rows present and in the same section order; 110 identical in
+  title and description. The other three differ on purpose or by an original slip: two fallback titles
+  ("Job", "Product") are no longer printed as if they were the page's title, and one description the original
+  cut short.
+- **Components, at `65a45ff0`:** 22 groups with the same files in each, and every cell identical except the
+  `forwardRef`/`memo` components and `export { … }` symbols the original skipped, and one file merged after the
+  original was made.
+- **API, at `a04bc6a`,** the commit the original described (2026-09-10): all 644 original endpoints are
+  reproduced. Six are printed with the prefix the original dropped (four `careers` routes sit under
+  `/careers/public` and two `payments` webhooks under `/payments`), and 13 are new to it: the biometric ingest
+  route in `attendance/ingest.ts`, which is not in a `router.ts`, and 12 `imports` routes built in a loop.
+
+On `staging` (`3e86763`) it finds 851 endpoints in 52 modules, against the 644 in 45 that the old file
+claimed.
+
+## Found while documenting, and not changed
+
+- **"Approve routine" approves what you have archived and ignores the filters on screen.** The backend's
+  `approvals/service.ts#approveRoutine` selects every pending approval with no deadline and under five days
+  old across the whole company, with neither `archivedWhere` nor `scopeWhere`, although the comment above
+  `archivedWhere` says that everything which acts on the queue in bulk leaves archived rows alone. Run on a
+  scratch API with one entry archived, it answered `decided: 2`. The approvals walkthrough carries a dated
+  note about it; **delete that note when this is fixed**.
+- **The Fairness screen has no backend on `staging`.** `VIEW_FAIRNESS` and the check itself exist only on the
+  backend branch `tolu/performance-bias`, so on the shared QA site nobody holds the permission and the button
+  never appears. The Performance walkthrough says so in a note to delete when it ships.
+- **A merge dropped an edit to a walkthrough.** `25c109be` (`tolu-dev`, PR #308, 25 September) carried an
+  older copy of `docs/walkthroughs/performance.md` and lost the 23 September edit: a whole step, one of the
+  nine surprises and the footer date, leaving the step numbers half shifted. HANDOVER lost no heading in that
+  merge. The walkthrough was restored and renumbered in the change that added this generator.
+- **The walkthroughs are not generated, and a label check is how they were audited.** Every bold or quoted
+  string in a walkthrough was searched for in `src`, and the misses were read one by one. A template such as
+  `` `Delete this ${word}?` `` or an emphasis phrase is a false alarm; "I do not accept it" (a button removed on
+  11 September, hours after the walkthrough was written) and "12 forms written" (the screen says "created")
+  were not. Then the product's own changes since the document was last edited were read out of git. That is a
+  manual pass and not a gate, and there is no script for it in the repository.
+
+---
+
+# "Approve routine items" asks first, and approves the list it showed
+
+The inbox button that read **Approve 3 routine items** counted the routine rows on screen and then
+pressed a route that decided the **whole routine queue on the server**. Entries in *My archive*, and
+entries the person was never shown, were approved with it, and nothing asked first. Merged on
+2026-10-21 (backend #202 at 07:55 UTC, frontend #431 at 07:56 UTC).
+
+## What it does now
+
+- **The button opens a confirmation** titled `Approve N routine items?` (`routine item` for one) that
+  names every item, with the confirm button reading `Approve N`. The body says: *These are approved
+  now, and the people who asked are told. Each one is checked again as it goes: anything that is no
+  longer routine, or that you cannot approve, stays where it is.*
+- **It sends the rows it showed, and only those.** The dialog takes a snapshot of the items when it
+  opens and posts their ids to `POST /approvals/approve-routine/selected` (1 to 200).
+  `approveSelected` in `lib/api/approvals.ts` is the client, `approveRoutine(items)` on
+  `useApprovalQueue` the store call. The old whole-queue call and its entry in `endpoints.ts` are gone.
+- **The server re-checks every id at the moment it is pressed**, against the one routine predicate
+  (pending, no deadline, waiting under five days), `visibleFor` (is it in this caller's inbox) and
+  `archivedWhere` (not in their archive), and returns a reason per id. An id the caller cannot see gets
+  the same answer as one that does not exist. The audit entry records the ids asked for and the ids
+  decided. **The toast carries the server's own per-row reasons**, never a sentence composed here, and
+  the dialog closes whether it worked or not.
+
+## Two things not to undo
+
+- **A server that predates the route answers 404, and that is never retried as the old sweep.**
+  `SERVER_BEHIND` is the sentence shown: *The server is a version behind this page and cannot approve a
+  list you were shown yet, so nothing was approved. Ask whoever looks after the server to update it.* The route is separate from the old one on
+  purpose: a body sent to the old `/approve-routine` would have been ignored and the whole queue swept.
+  So the order is the backend first, and a frontend that arrives early fails safe.
+- **The Decided view is connected-only.** The inbox's view switch gains **Decided**, with a switch for
+  **Approved** / **Declined**, the same filters as the queue, newest decision first, read-only (its rows
+  are the Sent row reading **Raised**). Empty states: **Nothing approved yet** and **Nothing declined
+  yet**. `useDecidedApprovals` matches its state to the outcome it was asked for, so a row never shows
+  under the wrong one, and it refetches when anything is decided. Demo mode has no decided history and
+  does not offer it. Order is the backend's `DECIDED_ORDER`: `decidedAt` latest first, undecided last.
+  The queue's "what needs me" ranking puts the oldest request on top, which is wrong for a row that is
+  already decided.
+
+## The backend half, found while testing it
+
+- **A declined expense claim never left the inbox.** `reimbursements.decline` did not call
+  `mirrorApprovalDecision` (approve did), so the entry stayed `PENDING` for ever. It does now, and a
+  data-only migration (`20261022130000_close_declined_expense_claims_in_inbox`) closes the entries
+  already stuck, only where the claim itself is `DECLINED`. The rule from "An approval you could see
+  and never decide" above applies again: a request and its inbox entry are two rows, and whatever ends
+  one ends the other in the same transaction.
+- **Archiving was a read-then-write on a shared list** (`archivedByUserIds`), so two people putting the
+  same row away at once lost one archive. It is a compare-and-set, retried, and answers 409 after eight
+  lost races.
+- **The raised-from and raised-to filters cut at UTC midnight.** They cut at the company's midnight now
+  (`zonedInstant`).
+
+## Verified, and what was not
+
+Six test files (34 tests) cover the frontend: `approvals-inbox-routine`, `approvals-routine-selected-api`,
+`approvals-store-routine-decided`, `approvals-inbox-decided`, and the existing `approvals-inbox-archive`
+and `approvals-inbox-reject`. Three deliberate breaks were each caught: a button that sweeps with no
+confirmation, a store that sends the whole queue instead of the rows it was given, and a 404 that falls
+back to the old sweep. The backend has 16 tests in `approvals-routine`, 6 in
+`reimbursements-declined-inbox` and 4 in `approvals-decided-order`.
+
+**Not seen in a browser.** Everything on the frontend side is covered by component tests with the
+store mocked, and nobody has pressed the confirmation or opened the Decided view on a running inbox.
+The QA site is the place to do that once both halves are on `staging` and `test`.
+
+## Not done
+
+- Complaints 3 to 5 of the inbox feedback ("Moves money", "People", "Needs attention"). Frontend #420
+  replaced the first and last filters with module chips; they were not re-walked here.
+
+---
+
+# An uploaded objective takes its parent's appraisal period, and says so when it files nothing
+
+An objective counts towards somebody's appraisal mark only if it is filed in an appraisal period. The
+objectives upload had two gaps, both found on item 36 of the tracker and merged on 2026-10-21 (backend
+#205 at 07:57 UTC, frontend #435 at 07:59 UTC).
+
+## What changed
+
+- **A child takes its parent's period.** A row that names a parent objective and leaves **Appraisal
+  period** blank is filed in the parent's period if that period is **not published**. A period named in
+  the row always wins. A published parent period is never inherited, and then the row is filed in no
+  period. "Give a KPI to people" (`assignObjective`) has always inherited; the single New objective
+  dialog does not, and does not prefill it either. The upload now behaves like the first. The importer
+  checks for a published period; `assignObjective` does not.
+- **The parent has to exist already.** A parent that is another row of the same file is refused
+  (*It has to exist already*), so inheritance works from existing objectives only.
+- **Every row that will really be written with no period carries a warning** on the Appraisal period
+  column (never an error: a company may mean it): *No appraisal period, so this objective counts towards
+  nobody's appraisal mark.* With a parent in a published period the API adds a second sentence naming
+  it, and with a parent that has none it says there was none to take. The file also gets two batch notes
+  in both the validate and the apply response.
+- **The check step says it once, above the report.** `ImportSurface` has a new optional
+  `checkNotices(rows)` hook, rendered by `ImportFlow` through `components/imports/check-notices.tsx`.
+  The check step's `CheckReport` groups the per-row warning into a collapsed disclosure, and
+  `PARITY.md` Rule 5 says a reveal must not be the only place something that matters is said. Objectives
+  is the first user: a warning-tone callout reading **N objectives have no appraisal period**, which never
+  blocks and renders nothing when the count is zero.
+
+## Decisions not to undo
+
+- **The count is found by field, not by wording.** `countUnfiled` looks for a warning on the `period`
+  field through the dictionary's own aliases. The API may reword the sentence, and a count that stopped
+  matching would fail silent, which is the worst way for a warning about nobody's marks to fail.
+  Skipped rows are not counted: they are not going to be filed at all.
+- **The offline checker is a floor, not the count.** Demo mode (`lib/imports/check.ts`,
+  `lib/imports/objectives.ts`) warns, in the API's exact base sentence, only on a row with **neither a
+  period nor a parent**, and only on a row that will import (`RowContext` gained `hasErrors()`). It never
+  claims a child with a parent will be unfiled, because only the API can see the parent's period, and its
+  batch note says so.
+- **The wording is shared by hand.** The twelve column notes and the base sentence are byte-identical
+  between the two repos. `verify-template` compares headings and cell types but **not note text**, so
+  this is not enforced by a gate; change one side and change the other.
+- **The Add multiple window follows the same rule.** The blank period option reads **None chosen (the
+  parent's period, if any)** (it said "counts towards nobody's mark", false for a card whose parent has an
+  open period), and the read-only review keeps a blank field the check had a note about.
+
+## Verified, and what was not
+
+Frontend: `objectives-import`, `import-check-notices`, `bulk-create-dialog` and the neighbouring import
+and objective tests pass; three deliberate breaks were caught (dropping `!hasErrors()`, counting skipped
+rows, dropping the review's "said" rule). Backend: `imports-objectives` has 40 tests, three more breaks
+were caught (inheritance off, a published period also inherited, the unfiled count wrong), and a 7-row
+file went through validate and apply on a scratch API with the same notes in both.
+
+In a browser against the scratch API the callout read **3 objectives have no appraisal period**; typing
+H2 2026 beside a row and checking again turned it into 2. **The `ImportFlow` wiring has no automated
+test**; only that browser run covers it, so if somebody removes it the unit tests still pass.
+
+## Order, and what was left
+
+The backend goes first. The frontend sends the same headings, so a file works against either order, and
+against an older API the callout simply does not appear.
+
+Not fixed, on purpose: an objective with several measures cannot be uploaded in one go (one measure per
+row), and the upload cannot add a measure to an existing objective. The Add multiple window has no
+`maxLength` on title and description; the 140 and 2,000 limits are enforced at Check with a clear
+message, and a hard cap would silently truncate pasted text.
+
+---
+
+# A role editor that seeded once, a sidebar that folds, and a KPI that needs a period
+
+Three small changes from the walk of the `dev` into `test` promotion (#440), recorded together because
+two of them were found by reading what the promotion carried and the third by looking at one screenshot.
+
+## The role editor opened every role blank
+
+`/settings/roles` keeps the editor drawer mounted all the time, because the drawer has to see `open` go
+false to run its exit animation. So its first render has no role, and the form took its starting values
+from that render with `useState(role?.name ?? "")` and never again. Every role opened with a blank
+**Name** and nothing ticked. A custom role could not be saved until its name was retyped, and ticking one
+box on a built-in role and saving would have replaced all of its permissions with that one box.
+
+`RoleEditor` is now a thin wrapper that decides when a new session starts (the drawer opens, or a
+different role is chosen) and renders `RoleEditorForm key={session}`, so the form is created afresh and
+seeds itself from the role it is given. A list refresh that hands over the same role as a new object does
+**not** start a session, so what somebody is typing survives it.
+
+The rule, for any form inside a drawer or dialog that stays mounted: **re-create it per open with a key;
+do not copy props into state once and hope.** An effect that re-seeds on every change of the prop would
+also fix the blank form, and would throw away what somebody typed when the roles list reloads on window
+focus. `tests/role-editor-seeds-on-open.test.tsx` has both halves; against the old file six of its seven
+tests fail.
+
+## The sidebar's back button, and sections that fold
+
+The back button inside a drilled level shows the section's name ("Core HR") and was announced as "Back to
+main menu", so saying its visible label did not reach it (WCAG 2.5.3, label in name). Its accessible name
+is now `<label>, back to main menu`: it starts with what is shown.
+
+A level of eight or more items is filed under small headings, and each heading is now a button that folds
+its section. These are the sections *inside* a level; the rows on the top level already open a level, so
+there was nothing there to fold.
+
+- **What is stored is what is folded, not what is open** (`lib/store/sidebar-sections.ts`, key
+  `approvehr.sidebar.sections`, one browser). Everything starts open, as the sidebar always was, so a
+  section that ships tomorrow is open for people who have folded every other one.
+- **The key is the level and the heading**, written in one place (`sectionKey`), so a second level that
+  one day has a heading called "People" folds on its own.
+- **The heading is still an `h3`**, with the button inside it: the outline a screen reader walks is
+  unchanged. The button reports `aria-expanded` and names the panel it controls.
+- **A fold hides no door.** A folded heading carries a dot when anything inside it has a count waiting
+  ("Lifecycle, needs attention") and a mark when the page you are on is inside it ("People, the page you
+  are on is in here"), and **Find a page** still finds a page inside a folded section.
+
+`tests/sidebar-sections-fold.test.tsx` (11) covers it. The store outlives a render and keeps its state in
+module memory, which clearing `localStorage` does not clear, so a test that folds a section has to open
+it again before it ends.
+
+## A personal KPI has to be filed in an appraisal period
+
+An objective counts towards somebody's appraisal mark only if it is filed in an appraisal period, and the
+New KPI form let you create one with none and said nothing. When there is an open period to choose, the
+**Appraisal period** field is now required on a KPI that is somebody's own: no "Not part of an appraisal
+period" choice, and the only open period is chosen already. **Edit** asks for it too, which is the way out
+for an old KPI that was never filed.
+
+Three things it deliberately does not do:
+
+- **It is the form's rule, not the server's.** The API still accepts an objective with no period. The
+  importer and the Add multiple window warn about an unfiled row and never refuse it, on purpose, so a
+  server-side refusal would be a separate decision with those two in it.
+- **A company-wide or department objective stays optional**: it is a standing target that may belong to
+  no cycle.
+- **A company with no open period yet is not stopped.** It gets a note saying the KPI will count towards
+  nobody's mark, in words, instead of a form that cannot be saved.
+
+While the periods are still loading the **Create** button waits, because a KPI saved in that moment would
+have been filed in none. `tests/kpi-requires-period.test.tsx` (11) covers it: 7 of the 11 fail against the
+previous `goal-dialogs.tsx`, and the other 4 are the controls that must hold either way.
+
+**Not exercised in a browser:** any of the three. They are covered by component tests and `npm run check`.
+
+---
+
+# A measure has a kind, and a measure nobody has read is not at 0%
+
+Step 1 of the measures report (a Claude Docs document; its nine decisions were settled with the owner
+on 2026-10-23). Backend `feat/measure-kinds` into `staging`, frontend `feat/measure-kinds` into `dev`,
+neither merged when this was written. The backend's own note is `docs/backend/measure-kinds-handover.md`
+in that repo; read it for the routes and the exact refusals.
+
+The defect it removes: a new measure began with its current value equal to its start, so it showed 0%
+whether somebody had measured it at 0 or nobody had measured it at all, and the objective's average
+counted that 0. A 0 that is not a result is the failure ADR 0003 names, in a place where it moves a mark.
+
+## What changed
+
+- **A measure has a kind.** `NUMBER` (a number to reach: what every measure was) or `DONE` (done or not
+  done: no number, and a manager confirms it). Both reduce to the same 0 to 100%, so objective progress,
+  the Objectives component and the mark are unchanged for everything that already exists. More kinds are
+  step 2.
+- **A measure is read or not.** `lastReadAt`: `null` is unread. A number added with no current value is
+  unread; a reading stamps it. A `DONE` measure is read from the day it is made, at 0%, because "not done
+  yet" is an answer: a milestone nobody confirmed by the end of the period was not met, and leaving it out
+  of the average would let a miss disappear. Every existing measure was backfilled to `lastReadAt =
+  updatedAt`, so no running period moved.
+- **An objective's progress is the average of the measures read.** `measuredProgress` is `null` when none
+  has been, and the objective then keeps its stored progress instead of being overwritten with a figure the
+  measures do not support. This is the one change that moves a number: an objective with one read measure
+  and one unread now averages the read one alone.
+- **A manager confirms a milestone.** `POST` and `DELETE /performance/key-results/:id/confirm`, for the
+  people who may agree the objective and never its owner. A company or department objective has no owner,
+  so confirming one needs the records permission.
+- **Add a measure is two steps.** `AddMeasureDialog` asks the kind, then the fields that kind needs. A
+  number sends no `kind` (a server that predates kinds has a strict body and would refuse the key). Done or
+  not done sends the kind and its words and nothing else. It starts clean every time it opens, by bumping a
+  key when `open` turns true, so the last measure's fields are never shown against another objective.
+
+## Where "not read" is said, and what is drawn instead of a 0%
+
+`goalFacts` carries `reads` (from `readCount`) so the card and the window cannot differ. It is `null` unless
+some measure is unread, which is deliberate: "4 of 4 read" on every card is noise.
+
+| Where | With nothing read | With some read |
+| ----- | ----------------- | -------------- |
+| The card's face | **No reading yet**, no percentage | the percentage and **1 of 3 read** under it |
+| The objective's window | the bar is labelled **Progress, nothing read yet**, no figure beside it, and a line: **0 of 3 measures read. Nothing is counted yet, so the figure above is not a result.** | **Progress, from the measures read so far** and **1 of 3 measures read. The others are left out of the figure above until somebody enters a reading.** |
+| One measure's row | **Not read yet**, no bar, **No reading yet · target 40 leads · started at 10 leads**, an empty **First reading** box | as before |
+| The average stat | an objective with nothing read is left out, and the caption counts what it averaged: **across 5 of 6 KPIs, the rest not read yet** | |
+| The self-review's "Your objectives" | **No reading entered yet, so there is no figure to show.** | the bar as before |
+| The toast after adding | **No reading yet, so it is left out of progress until there is one.** | the figures alone |
+| The approvals row | **· nothing recorded yet** | **· now 5** |
+
+What being unread costs is said **once**, under the objective's own bar, and not again under each unread
+measure. The first version said it four times in a few lines to somebody with one unread measure.
+
+## Decisions not to undo
+
+- **A server that does not say makes no claim.** `isUnread` is true only when `lastReadAt` is `null`; an
+  absent field is a server that predates the column, and calling those measures unread would tell every user
+  of an older server that nothing they track has been read. `readCount` returns `null` if any measure's
+  field is absent, and `hasNoReading` falls back to the old inference (a figure still equal to its start)
+  only where the field is absent. Each has a test with the field missing.
+- **The Confirm button is offered where it could work.** Never to the owner (the API refuses them in words
+  about confirming, and a yes typed by the person being judged is the weakest evidence there is), and on a
+  company or department objective only to somebody holding the records permission. The owner sees **Your
+  manager confirms it when it is done.** instead of a control that returns a refusal.
+- **A confirmation that did not save keeps the note being typed.** `confirm` resolves `false` when the
+  screen already said why, and the row only closes its box on `true`.
+- **`GoalCard` and `MeasureRow` are exported for tests.** The face and the unread row are where a 0% would
+  do the harm, and neither can be reached from outside `kpis.tsx` otherwise.
+- **Demo mode refuses to confirm**, with the reason. Whether somebody's work is done is a judgement about
+  another person, and one kept in this browser would never reach their review. Demo measures are all
+  `NUMBER` and all read, so the demo stages no unread measure it could not also stage the consequences of.
+- **The Badge on "Not read yet" is `tone="warning"`.** On `dev` that draws an amber chip; on `staging`
+  `Badge` ignores its tone and draws plain muted text, which is what the no-banners rule asks for. Nothing
+  here needs changing when the two meet, and `verify-no-banners` passed on a merge of the two.
+
+## Found, and not changed
+
+- **The window closes after any save.** Saving a reading, confirming a milestone and taking one back all
+  reload the list, which remounts the card and loses its `open` state. It is how the screen behaved before
+  this (a saved reading did the same), so confirming behaves like everything else here, but it means a
+  manager confirming two milestones on one objective opens the card twice.
+- **An uploaded measure is always unread.** The importer has no current-value column, so every measure it
+  creates has a start and a target and no reading. That is the honest reading of such a file, but the
+  column note still says **Where the number is today**, which sits oddly beside a measure that says it has
+  not been read. Whether an uploaded baseline should count as a first reading is a product question; it was
+  not decided here. The importer also has no kind column: an uploaded measure is a number.
+- **Goals created through the AI period draft** add measures with a target and no current value, so they
+  are unread too.
+
+## Verified, and what was not
+
+Frontend. `npm run check` exit 0 (typecheck, lint with the 8 warnings that were already there, and every
+gate), run with `APPROVEHR_BACKEND_DIR` pointing at the unmerged backend so the four cross-repo gates compared
+against it instead of printing `skip`. `next build` exit 0 for production with `NEXT_PUBLIC_DEMO=off`, and `verify-demo`'s bundle half against that
+build: 3034 built files, none carrying demo copy or a seed persona. 77 new
+tests in six files (`measure-kinds` 29, `add-measure-dialog` 12, `done-measure-row` 15, `unread-measure-row` 9,
+`goal-card-face` 8, `self-evidence-readings` 4); with the neighbouring performance, import and bulk-create
+tests that is 18 files and 258 tests, all passing. The whole suite (295 files, 4,227 tests) had 16
+failures, all recruitment screens (the applications queue, the pipeline board, the hired list and the
+screening pass mark) timing out under load in files nothing here touches; those seven files pass on their
+own (116 tests). Each rule was broken on purpose and the test that guards it
+failed: a number sending `kind`, the owner being offered Confirm, a missing field read as unread, the toast
+going back to "0 to 1", the card's face printing a 0%, and the window's bar printing one.
+
+Backend. `tsc`, lint, `format:check` and the six `verify-*` gates exit 0. Ten test files and 445 tests pass on
+the squashed commit, among them `tests/measure-kinds.test.ts` (24) and `tests/tenant-isolation.test.ts`. The
+whole backend suite was not run locally, so CI is its first full run.
+
+Merged with `staging` in a throwaway worktree: typecheck exit 0, `verify-no-banners` passes, and the eight test
+files that cover this pass (122 tests). Both branches also merge cleanly with the two open pull requests that
+change scoring (backend #214, frontend #449).
+
+**In a browser**, against a scratch API on a real Postgres and a production build of this branch, as three
+people (the owner, her manager and an administrator), replayed from fresh data on the build of the final
+commit: 35 of 36, 17 of 17 and 18 of 18 checks. The one miss is the console check of the first stage, which
+flagged a 401 on first load while a saved session's expired token refreshed; every functional check passed. It
+exercised:
+the card's face and the window for an objective with nothing read, one half read and all read; a first reading
+typed as the starting figure; the Add a measure dialog for both kinds, its refusal of an empty answer and its
+toasts; the approvals screen's measure lines; confirming a milestone with a link in the note, taking it back
+and confirming it again; a company milestone that the line manager is not offered a button for and the
+administrator is; and, at 375px with a touch pointer, no sideways scroll on the list, the window or either
+step, and a 16px text field. Three defects were found by
+looking at it and fixed: the window's bar printed **0%** beside "nothing read yet", an unread measure said the
+same thing four times in a few lines, and the average's caption said "across 6" over a mean of five.
+
+**Not exercised:** demo mode in a browser (the walk was connected; the demo's refusal to confirm is one `guard`
+call and is covered by `tsc` alone), the self-review list in a browser (a test covers it), iOS Safari or any real
+device, and the backend suite beyond the ten files above.
+
+## Order, and what was left
+
+The backend goes first. Against a server that predates this, every field is absent and every screen behaves
+as it did, with one exception: the dialog still offers **Done or not done**, and the older server will
+refuse the `kind` key with its own sentence. That is the reason for the order, as with the importer's
+headings.
+
+Not built, on purpose: more kinds (a rate, a limit, a range, milestones), a readings table, per-measure
+weights, the starter library by department, a kind column in the importer, and showing the date of the last
+reading. Each is step 2 or later, and the model and the routes were shaped so each is an addition.
+
+---
+
+# My tasks, Team tasks, and a task that has no board
+
+Joseph Chinedu's frontend #452 (the web half of backend #216), merged on 2026-10-25 as `0a2e4a8b`: 47 files,
++6,556 and −87. It gives everybody a list of their own to-dos that belongs to no project, gives a manager a
+view of what their people have on, and puts **Files** and **Watchers** in the task drawer. This entry records
+what it decided, and what walking it in a browser found, because one of those findings is a defect that is
+still open.
+
+## What changed
+
+| Where                                                    | What                                                                                                                                                                                                                                                         |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/projects/mine` (`my-tasks-screen.tsx`)                 | **My tasks**: your own list, apart from any project. A quick-add row (title, due date, **Attach files**, **Add details**), three groups (**To do**, **In progress**, and **Done this week**, closed), **Open / Done / Overdue** views, and "Set by …" on a task a leader gave you. |
+| `/projects/team` (`team-tasks-screen.tsx`)               | **Team tasks**: one block per person you manage or whose department you run, with a load strip and "2 overdue, 1 this week, 4 open, 2 done this week", **Give a task**, and **Move to…** on a personal task. **Overdue**, **Due this week** and **All open** views. |
+| `/projects/tasks/[id]` (`task-screen.tsx`)               | One task, by its id.                                                                                                                                                                                                                                         |
+| `personal-issue-drawer.tsx`, `reduced-issue-drawer.tsx`  | The drawer for a task with no board, and the read-only view a leader gets of a board task on a board they are not on.                                                                                                                                         |
+| `task-files.tsx`, `watchers.tsx`, `lib/projects/files.ts` | **Files** (thumbnails, attach or drop, open, remove) and **Watchers** in the drawer, and the three-step upload.                                                                                                                                              |
+| `lib/store/team-tasks.ts`                                | `useLeadsTeam`: whether the **Team tasks** nav row exists.                                                                                                                                                                                                   |
+| `next.config.ts`                                         | The policy's `img-src` admits the configured upload origins, for thumbnails.                                                                                                                                                                                 |
+
+The API half is backend #216: `/projects/mine/tasks`, `/projects/team-tasks` and `/leads`, `/issues/:id/move`,
+`/issues/:id/watch` and `/watchers`, and `/issues/:id/attachments` (an upload URL, then the record) with
+`/attachments/:id/url`.
+
+## Decisions not to undo
+
+1. **A personal task is an ordinary issue in a hidden project, so the drawer is the board's drawer.**
+   `PersonalIssueDrawer` builds the context `IssueDrawer` reads out of what the API gives for a task with no
+   board (`GET /projects/:id` is a 404 for its list): the issue with its list's columns, and the tasks the
+   caller already holds. Its actions are the issue endpoints, and every project-level action answers "A
+   personal list has no project to change." Sub-tasks, labels, links, comments, the objective link and the
+   Work record all work on a personal task with no second copy of any of them.
+
+2. **The drawer follows the API's flags and works out no rule itself.** `canEditDetails`,
+   `canManageWatchers` and `canAttachToTask` come with the task. On screen: the owner edits everything; the
+   leader who set a task edits its title, description and due date and nothing else (status, priority,
+   points and labels are greyed); a leader who did not set it has everything greyed, no attach button and a
+   comment box; somebody who holds `EDIT_RECORDS` reads and comments and cannot add a watcher. The API still
+   decides.
+
+3. **Absent, not empty, for somebody who leads nobody.** The **Team tasks** nav row exists only when
+   `GET /projects/team-tasks/leads` says yes. Somebody who leads nobody and types the address gets "Nobody
+   reports to you yet", never anybody's work. An empty page would claim a team that does not exist.
+
+4. **A key names nothing, so the task page takes an id.** Everybody's list has a `MY-1`.
+   `/projects/tasks/[id]` shows a personal task in its drawer over a plain page; a board task goes to
+   `/projects/{id}?issue=KEY`; a board task of somebody you lead, on a board you are not on, opens the
+   reduced view ("You can see this because Chidi Nwosu is in your team.", with status, start date, due date
+   and labels, and nothing to edit); and a task you may not see gets the same "We could not find that task"
+   as one that does not exist, so the page cannot be used to ask whether a task is there. Notifications and
+   the Work record's `MY-n` rows go to `/projects/tasks/{id}`, and that record's project column says
+   "Personal".
+
+5. **A task is created first, then its files, and a file that fails is retried without creating the task
+   twice.** Files go in three steps (ask the API for a signed URL, `PUT` to storage, record it), and nothing
+   is recorded before the `PUT` resolves. If storage refuses, the task still exists and the page says "MY-6
+   was added. These files didn't attach to it:" with the reason and **Try again**. The limits mirror the API:
+   10 files a task and 10 MB each (`MAX_DOCUMENT_BYTES`, not the 25 MB ceiling the storage module has for
+   presigned writes in general), image, PDF or Office only. A refused file stays listed beside its reason
+   while it is being staged and is dropped when the task is added; the "up to 10" sentence sits under the
+   list, not beside the eleventh.
+
+6. **Opening a file is a download.** The API's signed read link carries `attachment; filename="…"`
+   (`presignRead`: "a short-lived link to download one file"), so the click opens a blank tab, synchronously so
+   Safari allows it, and the browser downloads into it. Thumbnails use the same link in an `<img>`, which
+   `attachment` does not affect. If a thumbnail's first load fails it asks for a fresh link once and then
+   gives up, leaving the file name as its alt text.
+
+7. **`NEXT_PUBLIC_UPLOAD_ORIGINS` is now also an `img-src`.** Thumbnails need the storage origin in the
+   build, as the CV upload needs it in `connect-src`; only `https:` origins are admitted (and
+   `http://localhost` outside production). The real bucket needs a CORS rule that lets the app's origin
+   `PUT`, which the CV upload already depends on.
+
+8. **Overdue is the only red.** Counts bucket the way the API does: overdue (before today), due this week
+   (today to Sunday), later or no date, and the three add up to open. People are ordered by overdue count,
+   then name.
+
+9. **Move to… keeps the task and changes who set it.** The task keeps its id, takes the next number on the new
+   list (a `MY-4` became Emeka's `MY-1`), and the leader who moved it becomes who set it, so the new owner
+   sees "Set by" that leader. Only the people in the leader's own team are offered, and **Move task** waits
+   for a choice.
+
+10. **No demo-mode path.** In a development build with no API, **My tasks** (shown to everybody) opens on a
+    load failure and **Team tasks** is hidden; a production build has no demo mode. This is from the code,
+    not run.
+
+## Found by walking it, and not fixed
+
+### The personal-task drawer shows the old values after you save
+
+Open a personal task from **My tasks**, **Team tasks** or its own page, change its title, due date,
+description, priority, labels or status, and leave the drawer open. The save succeeds (`PATCH /issues/:id`
+answers 200 and the lists reload), the row behind the drawer shows the new value, **and the drawer's own field
+goes back to the old one and stays there** until the drawer is closed and opened again. After a save, a status
+of In progress reads "To do" in the drawer while the list behind it says In progress. Nothing is lost: the
+server has the new value, a reopened drawer shows it, and the next edit sends only its own field (a due-date
+change sent `{"dueDate": …}` and nothing else). But it reads as a save that did not take, on the control the
+person has just used. Comments, watchers and files are not affected; they hold their own state.
+
+The control is an ordinary board's drawer, which shows what was saved, so this belongs to the new drawer and
+not to the shared one. The cause is in `personal-issue-drawer.tsx`. The drawer builds the task from the
+caller's list, then from the copy it loaded when it opened (`detail.issue`), then from a short-lived overlay
+of what it has saved. The overlay is cleared whenever the caller's `issues` changes identity, and the callers
+all cause that: **My tasks** reloads its list after a save, and **Team tasks** and the task page pass a fresh
+`issues={[]}` on every render. With the overlay gone, the copy loaded at open time, which is older than the
+save, is applied over the fresh row. The likely fix is to keep the drawer's own copy current: after a
+successful save (and in `refreshIssue`), replace `loaded.detail.issue` with what the API returned. It needs a
+test that edits a field and reads it back after the parent re-renders. The tests for this drawer
+(`team-tasks.test.tsx`, `task-route.test.tsx`) open it; none edits a field, and there is no test file of its own.
+
+### Smaller things
+
+- A malformed id (`/projects/tasks/not-a-uuid`) says "This task did not load. Some fields are not valid.",
+  the API's own 400 sentence, where an unknown id gets the not-found page. Only a hand-typed link reaches it.
+- The delete confirmation, "Delete MY-3? This cannot be undone.", does not say that the task's files go with
+  it. They do: the stored objects and their records are both removed.
+- Under **Count toward**, a personal task is told to "link this issue or the project to an objective". It has
+  no project. The wording is the board drawer's.
+- Opening a file leaves its blank tab open in headless Chromium after the download starts. Whether desktop
+  Chrome or Safari close it was not seen.
+- A Playwright log shows `ERR_ABORTED` for every `DELETE` that answers 204, probably because the client
+  returns without reading the empty body. The delete lands; it is noise.
+
+## Verified, and what was not
+
+Reviewed against the merged backend (routes, query enums, limits, and the flags the drawer follows), and the
+whole suite was run on the merged tree: 303 files, 4,336 of 4,337 tests (the one failure, a recruitment
+test, passes on its own).
+
+**In a browser**, a production build of `dev` at `0a2e4a8b` against backend `staging` at `c11a5bc` on a
+scratch Postgres, as five seeded people: Chidi and Emeka lead nobody, Adaeze leads both and is on board PLT
+but not on BIL, Amara is the administrator and leads five. Storage was a stand-in that recomputes the
+signature of every presigned URL (so a `PUT` that sent a different `Content-Type` than was signed is
+refused), enforces expiry and answers the browser's preflight. Seen on the screen:
+
+- **My tasks**: the empty state; adding by the button and by Enter; a date in the past marking the row
+  Overdue; a task with details; the Open, Done and Overdue views and the closed **Done this week** group; a
+  task made by somebody else showing "Set by …"; the order (by due date, undated last).
+- **Files**: two files with a new task, a type that is not allowed, a file over 10 MB, eleven files, a
+  refusal beside a good file, a storage failure and its **Try again**, a drop onto the section, and a
+  thumbnail that fails once and then loads (and one that keeps failing, which stops after one retry).
+- **The drawer**: title, due date, description, priority, labels and status; two comments (the button and
+  Ctrl+Enter); watching, adding and removing a watcher; opening and removing a file (storage and the record
+  both go); deleting a task that has a file.
+- **Team tasks**: each person's counts against the database; the three views and their empty states;
+  **Give a task** (the database row, the notification, the counts moving); **Move to…**; a leader who set a
+  task and one who did not; the reduced view; an administrator reading a personal task; and, for somebody who
+  leads nobody, the nav row absent and the page empty.
+- **`/projects/tasks/[id]`**: a personal task, a board task, an unknown id and a malformed one, and another
+  person's task and a board's task by id for somebody who may not see them.
+- The Work record's key links, the notifications ("assigned MY-5 to you", "added you as a watcher"), the
+  board regression (create an issue with a file, comment with a file, attach, remove, watch), and, with
+  Projects switched off, the nav and all three routes ("Projects is not switched on").
+- At 390px with a touch pointer: no sideways scroll on My tasks, Team tasks or either drawer.
+
+**Not exercised:** a real bucket (the stand-in answers like one; a real one needs its CORS rule), Safari or
+any browser but Chromium, a leader who leads by heading a department and not by being a manager, a team of
+hundreds, two browsers on one task, email and push (none is configured), and demo mode (from the code only).
+
+## Order, and what was left
+
+Backend #216 is on `staging` already. The frontend needs the storage origin in `NEXT_PUBLIC_UPLOAD_ORIGINS`
+at build for thumbnails; a site that has it for CVs has it.
+
+Open: the drawer defect above. Not built, on purpose: a demo-mode path for the two new screens, sub-tasks in a
+personal task opened by id or from Team tasks (from the code: the drawer is handed no list to find them in),
+and inline viewing of an image or PDF in the new tab (the API's link says `attachment`).

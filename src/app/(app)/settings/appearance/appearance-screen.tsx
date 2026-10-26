@@ -35,8 +35,8 @@ export function AppearanceScreen() {
                 else&apos;s screen changes, and nobody needs to let you do this.
               </p>
               <p className="text-body-sm leading-relaxed text-body">
-                In this browser only — it will not be here on another device.
-                Signing in somewhere else starts back on Light.
+                Saved on this device only. It will not be here on another
+                device. Signing in somewhere else starts back on Light.
               </p>
             </div>
             <SegmentedControl<ThemeChoice>

@@ -851,8 +851,8 @@ export function SetupWizard() {
                     className={cn(
                       "text-body-sm font-medium",
                       Math.abs(splitTotal - 100) < 0.01
-                        ? "text-success-text"
-                        : "text-danger-text",
+                        ? "text-accent-text"
+                        : "text-warning-text",
                     )}
                   >
                     {splitTotal}%

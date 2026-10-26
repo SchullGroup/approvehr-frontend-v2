@@ -2,6 +2,8 @@
 
 _Repo:_ `approvehr-platform-frontend` · _Framework:_ React 19 + React Router (Vite) · _Generated from_ `src/App.tsx`
 
+_Snapshot:_ a one-off pass of 2026-09-11. That repository's last commit on `origin/HEAD` is from 2026-08-21, so nothing has moved under it, but `npm run docs` does not cover this file: if the repository changes, this file is out of date until somebody redoes it.
+
 **152 routes**, resolved through their nesting so each row is the full URL a browser sees.
 A segment beginning with `:` is a parameter; `*` is the catch-all. Layout and guard wrappers
 (`AppLayout`, `ProtectedRoute`, `AuthLayout`, `OnboardingLayout`) are stripped, so the component named

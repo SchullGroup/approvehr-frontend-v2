@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Badge, ButtonLink, ProgressMeter, Spinner } from "@/components/ui";
+import { ProgressMeter, Spinner } from "@/components/ui";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { cn } from "@/lib/cn";
 import {
@@ -100,7 +100,7 @@ function segmentsFrom(report: ApiCycleReport | null): Segment[] {
       stage: "CALIBRATION",
       done: report?.marks.finalised ?? 0,
       total: report?.marks.people ?? 0,
-      notYet: "Nobody is in the register yet",
+      notYet: "Nobody is in this period yet",
     },
     {
       label: "Signed off",
@@ -124,7 +124,6 @@ function RailSegment({
   showFigures: boolean;
 }) {
   const nothingToMeasure = segment.total === 0;
-  const complete = !nothingToMeasure && segment.done === segment.total;
 
   return (
     <div
@@ -161,7 +160,7 @@ function RailSegment({
             className="mt-1.5"
             value={segment.done}
             max={segment.total}
-            tone={complete ? "success" : "accent"}
+            tone="accent"
             size="sm"
             showValue={false}
           />
@@ -274,7 +273,7 @@ export function PeriodStatus({
     return (
       <div className="flex items-center gap-2 border-t border-line px-5 py-4 text-body-sm text-muted">
         <Spinner size="sm" />
-        Reading how far along it is
+        Loading progress
       </div>
     );
   }
@@ -302,43 +301,11 @@ export function PeriodStatus({
         ))}
       </div>
 
-      <p className="flex flex-wrap items-center gap-2 text-meta text-muted">
-        {/* The stage in the API's own words, for everybody. A rail says where
-            in the sequence; this says what that stage is called. */}
-        <span>At {cycle.stageLabel}</span>
-        {cycle.dueDate && <span>· Answers due {dayLabel(cycle.dueDate)}</span>}
-
-        {showFigures && report && (
-          <>
-            <span>
-              ·{" "}
-              {report.marks.people === 1
-                ? "1 person in this period"
-                : `${report.marks.people} people in this period`}
-            </span>
-            {report.marks.disputed > 0 && (
-              <Badge tone="warning" size="sm">
-                {report.marks.disputed === 1
-                  ? "1 mark disputed"
-                  : `${report.marks.disputed} marks disputed`}
-              </Badge>
-            )}
-            <ButtonLink
-              href={`/performance/periods/${cycle.id}/report`}
-              variant="ghost"
-              size="sm"
-            >
-              See the whole report
-            </ButtonLink>
-          </>
-        )}
-
-        {/* The explanation, one link from the thing it explains, instead of
-            four bullets printed on this screen for everybody for ever. */}
-        <ButtonLink href="/performance/how-it-works" variant="ghost" size="sm">
-          How this works
-        </ButtonLink>
-      </p>
+      {cycle.dueDate && (
+        <p className="text-meta text-muted">
+          Answers due {dayLabel(cycle.dueDate)}
+        </p>
+      )}
     </div>
   );
 }

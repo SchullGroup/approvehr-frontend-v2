@@ -135,11 +135,11 @@ describe("making a rating final", () => {
     const dialog = screen.getByRole("dialog");
     expect(
       within(dialog).getByRole("heading", {
-        name: "Make this Chidi Nwosu's rating?",
+        name: "Make Chidi Nwosu's rating final?",
       }),
     ).toBeInTheDocument();
     await user.click(
-      within(dialog).getByRole("button", { name: "Make this the rating" }),
+      within(dialog).getByRole("button", { name: "Make it final" }),
     );
 
     expect(
@@ -149,7 +149,7 @@ describe("making a rating final", () => {
     ).toBeInTheDocument();
     expect(
       within(dialog).getByText(
-        'The mark of record for H1 2026 is "Meets Expectations".',
+        'The rating for H1 2026 is "Meets Expectations".',
       ),
     ).toBeInTheDocument();
     expect(
@@ -158,7 +158,7 @@ describe("making a rating final", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(dialog).queryByRole("button", { name: "Make this the rating" }),
+      within(dialog).queryByRole("button", { name: "Make it final" }),
     ).toBeNull();
 
     await user.click(within(dialog).getByRole("button", { name: "Done" }));
@@ -175,9 +175,7 @@ describe("making a rating final", () => {
         onConfirm={async () => ({ subjectNotified: false })}
       />,
     );
-    await user.click(
-      screen.getByRole("button", { name: "Make this the rating" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Make it final" }));
 
     expect(
       await screen.findByText(
@@ -197,12 +195,10 @@ describe("making a rating final", () => {
         onConfirm={async () => null}
       />,
     );
-    await user.click(
-      screen.getByRole("button", { name: "Make this the rating" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Make it final" }));
 
     expect(
-      await screen.findByRole("button", { name: "Make this the rating" }),
+      await screen.findByRole("button", { name: "Make it final" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
   });

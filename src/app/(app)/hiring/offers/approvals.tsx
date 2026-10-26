@@ -165,7 +165,8 @@ function Approvals() {
           ? `Offer approved for ${fullName(card.candidate)}`
           : `Offer declined for ${fullName(card.candidate)}`,
       tone: decision === "approved" ? "success" : "info",
-      detail: "Shown on this screen only: offers have no endpoint yet.",
+      detail:
+        "Demo mode: this is shown on this screen only and nothing is saved.",
     });
   }
 

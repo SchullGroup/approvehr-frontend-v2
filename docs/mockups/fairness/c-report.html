@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fairness check — C: one-page report</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      main {
+        max-width: 860px;
+      }
+      .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .findings {
+        margin: 32px 0 0;
+        padding: 0;
+        list-style: none;
+        border-top: 1px solid var(--line);
+      }
+      .findings li {
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        gap: 16px;
+        padding: 18px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .findings .n {
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+      }
+      .findings .n.w {
+        color: var(--warning-text);
+      }
+      .findings b {
+        font-weight: 600;
+      }
+      .findings p {
+        margin: 2px 0 0;
+        color: var(--body);
+        font-size: 15px;
+      }
+      h2 {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        margin: 56px 0 4px;
+      }
+      .sub {
+        font-size: 14px;
+        color: var(--muted);
+        margin: 0 0 12px;
+      }
+      details {
+        border-bottom: 1px solid var(--line);
+      }
+      details:first-of-type {
+        border-top: 1px solid var(--line);
+      }
+      summary {
+        list-style: none;
+        cursor: pointer;
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 20px;
+        align-items: center;
+        padding: 14px 4px;
+      }
+      summary::-webkit-details-marker {
+        display: none;
+      }
+      summary:hover {
+        background: var(--canvas);
+      }
+      summary .name {
+        font-weight: 500;
+      }
+      summary .why {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      summary .chev {
+        color: var(--faint);
+        transition: transform 0.15s;
+      }
+      details[open] summary .chev {
+        transform: rotate(90deg);
+      }
+      .body {
+        padding: 8px 4px 32px;
+      }
+      .range {
+        display: grid;
+        grid-template-columns: 150px 1fr 40px;
+        align-items: center;
+        gap: 16px;
+        padding: 8px 0;
+        font-size: 14px;
+      }
+      .track {
+        position: relative;
+        height: 20px;
+      }
+      .track::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 9px;
+        height: 2px;
+        background: var(--sunken);
+      }
+      .avg {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: var(--line-strong);
+      }
+      .dot {
+        position: absolute;
+        top: 4px;
+        width: 12px;
+        height: 12px;
+        margin-left: -6px;
+        border-radius: 50%;
+        background: var(--faint);
+      }
+      .dot.flag {
+        background: var(--warning);
+        box-shadow: 0 0 0 3px var(--warning-soft);
+      }
+      h3 {
+        font-size: 15px;
+        font-weight: 600;
+        margin: 24px 0 4px;
+      }
+      .flagnote {
+        font-size: 14px;
+        color: var(--warning-text);
+        margin: 4px 0 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      th {
+        text-align: left;
+        font-weight: 500;
+        color: var(--muted);
+        padding: 8px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      td {
+        padding: 10px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      td.r,
+      th.r {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      @media (max-width: 760px) {
+        summary {
+          grid-template-columns: 1fr auto;
+        }
+        summary .why {
+          display: none;
+        }
+        .range {
+          grid-template-columns: 96px 1fr 28px;
+          gap: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <nav class="side">
+        <b>ApproveHR</b>
+        <div>Home</div>
+        <div>Employees</div>
+        <div class="on">Performance</div>
+        <div>Monthly payroll</div>
+      </nav>
+      <main>
+        <div class="head">
+          <div>
+            <div class="crumb">Performance / H2 2026 appraisal</div>
+            <h1>Fairness check <span class="stage">Calibration</span></h1>
+          </div>
+          <div class="seg">
+            <button class="on">This period</button
+            ><button>Last 3 periods</button>
+          </div>
+        </div>
+
+        <ul class="findings">
+          <li>
+            <span class="n w">6</span>
+            <div>
+              <b>people are marked well away from their record.</b>
+              <p>
+                3 below, 3 above. Start with these before the calibration
+                meeting.
+              </p>
+            </div>
+          </li>
+          <li>
+            <span class="n w">1</span>
+            <div>
+              <b>group stands apart: Finance.</b>
+              <p>
+                Marked 16 points above everyone else. No gap by gender or time
+                at the company.
+              </p>
+            </div>
+          </li>
+          <li>
+            <span class="n w">1</span>
+            <div>
+              <b>manager marks noticeably high: Tunde Bakare.</b>
+              <p>17.3 points above other managers, across 7 people.</p>
+            </div>
+          </li>
+          <li>
+            <span class="n">58</span>
+            <div>
+              <b>marks compared</b>
+              <p>
+                Company average 60.2%. 6 people couldn’t be checked; 2 groups
+                under 5 people are hidden.
+              </p>
+            </div>
+          </li>
+        </ul>
+
+        <h2>People to review</h2>
+        <p class="sub">Open a person to see why they’re flagged.</p>
+        <div id="people"></div>
+
+        <h2>Groups</h2>
+        <p class="sub">
+          Average mark by group. The line is the company average.
+        </p>
+        <div id="groups"></div>
+
+        <h2>Managers</h2>
+        <p class="sub">
+          How each manager’s marks compare with everyone else’s.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Manager</th>
+              <th class="r">People</th>
+              <th class="r">Average</th>
+              <th class="r">Against others</th>
+            </tr>
+          </thead>
+          <tbody id="mgrs"></tbody>
+        </table>
+
+        <h2>Calibration moves</h2>
+        <p class="sub">Marks changed at calibration, with the reason given.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Person</th>
+              <th class="r">From</th>
+              <th class="r">To</th>
+              <th class="hide-sm" style="padding-left: 24px">Reason</th>
+            </tr>
+          </thead>
+          <tbody id="moves"></tbody>
+        </table>
+      </main>
+    </div>
+    <a class="pick" href="index.html">← All options</a>
+    <script src="data.js"></script>
+    <script>
+      const F = FAIRNESS;
+      document.getElementById("people").innerHTML = F.people
+        .map(
+          (p) => `
+  <details><summary><span><span class="name">${p.name}</span> <span class="role hide-sm">· ${p.role}</span></span><span class="why">${p.why}</span><span class="warn">${p.dir === "below" ? "↓" : "↑"} ${fmt(Math.abs(gapOf(p)))} <span class="chev">›</span></span></summary>
+  <div class="body">${personDetail(p, { header: false })}</div></details>`,
+        )
+        .join("");
+      const x = (v) => `${((v - 40) / 40) * 100}%`;
+      document.getElementById("groups").innerHTML = Object.entries(F.groups)
+        .map(
+          ([name, g]) => `
+  <h3>${name}</h3>
+  ${g.rows.map(([l, v, n, f]) => `<div class="range"><span>${l}</span><div class="track"><div class="avg" style="left:${x(F.average)}"></div><div class="dot ${f ? "flag" : ""}" style="left:${x(v)}"></div></div><span class="num" style="color:var(--muted);text-align:right">${n}</span></div>`).join("")}
+  ${g.flag ? `<p class="flagnote">${g.flag}</p>` : ""}`,
+        )
+        .join("");
+      document.getElementById("mgrs").innerHTML = F.managers
+        .map(
+          ([n, c, a, d]) =>
+            `<tr><td>${n}</td><td class="r">${c}</td><td class="r">${a}%</td><td class="r ${Math.abs(d) > 5 ? "warn" : ""}">${d > 0 ? "+" : "−"}${Math.abs(d)}</td></tr>`,
+        )
+        .join("");
+      document.getElementById("moves").innerHTML = F.moves
+        .map(
+          ([n, a, b, r]) =>
+            `<tr><td>${n}</td><td class="r">${a}%</td><td class="r">${b}%</td><td class="hide-sm" style="padding-left:24px;color:var(--body)">${r}</td></tr>`,
+        )
+        .join("");
+    </script>
+  </body>
+</html>

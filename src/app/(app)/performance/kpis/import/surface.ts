@@ -1,4 +1,4 @@
-import { OBJECTIVES } from "@/lib/imports/objectives";
+import { OBJECTIVES, countUnfiled } from "@/lib/imports/objectives";
 import type { ImportSurface } from "@/lib/imports/surface";
 import { useCanUploadObjectives } from "./access";
 import { useObjectiveTemplateLists } from "./lists";
@@ -47,7 +47,7 @@ export const OBJECTIVES_IMPORT_SURFACE: ImportSurface = {
     periods: {
       title: "Some appraisal periods do not exist",
       consequence:
-        "will be skipped. Name a period that is still open, or leave the cell blank — whoever runs appraisals can tell you what they are called.",
+        "will be skipped. Name a period that is still open, or leave the cell blank to take the parent objective's period if it has one, whoever runs appraisals can tell you what they are called.",
     },
     parents: {
       title: "Some parent objectives do not exist yet",
@@ -55,6 +55,26 @@ export const OBJECTIVES_IMPORT_SURFACE: ImportSurface = {
         "will be skipped. Add the department or company objective first, then upload the rows beneath it.",
       action: { href: "/performance/kpis", label: "Go to KPIs" },
     },
+  },
+  /* The one consequence of this upload that is easy to cause for fifty rows at
+     once and that nothing downstream complains about: an objective filed in no
+     appraisal period is agreed, tracked and scored for nobody. The rows carry the
+     warning and the report groups it, closed, under Appraisal period; this says it
+     once, open, with the count. It never blocks — a company may mean it — and it
+     names the three ways out, each of which exists: a period named in the file, a
+     value typed beside the row in the report, and Edit on a draft (which offers the
+     period until the target is agreed and frozen). */
+  checkNotices: (rows) => {
+    const unfiled = countUnfiled(rows);
+    if (unfiled === 0) return [];
+    const one = unfiled === 1;
+    return [
+      {
+        tone: "warning",
+        title: `${one ? "1 objective has" : `${unfiled.toLocaleString("en-NG")} objectives have`} no appraisal period`,
+        body: `${one ? "It still imports" : "They still import"}, but an objective that is not filed in an appraisal period counts towards nobody's appraisal mark, even once it is agreed. To file ${one ? "it" : "them"} in one, name a period that is still open under Appraisal period (you can type it beside each row below), or choose one with Edit on ${one ? "the objective" : "each objective"} before it is agreed.`,
+      },
+    ];
   },
   refusalWithoutApi: DEMO_ENABLED
     ? "This is demo mode. The file has been read and checked as far as a browser can, and that is where it stops: who may raise an objective for whom is decided on the server, so uploading here would show a team a quarter that nobody was allowed to give them."

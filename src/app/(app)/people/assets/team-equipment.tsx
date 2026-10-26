@@ -78,7 +78,7 @@ export function TeamEquipment() {
 
         <RegisterTable
           title="Your team's equipment"
-          description="Sorted by tag, click any row for its history. Assigning or editing equipment needs the full register — ask whoever manages it."
+          description="Sorted by tag, click any row for its history. Assigning or editing equipment needs the full register, ask whoever manages it."
           items={register.items}
           loading={register.loading}
           onOpen={(item: EquipmentItem) => setPanelId(item.id)}

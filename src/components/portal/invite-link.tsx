@@ -173,7 +173,7 @@ export function InviteLinkButton({
         value={link.url}
         aria-label={`Invitation link for ${name}`}
         onFocus={(event) => event.currentTarget.select()}
-        className="mt-3 w-full rounded-md border border-line bg-surface px-2.5 py-2 font-mono text-meta text-ink"
+        className="mt-3 w-full rounded-md border border-line bg-surface px-2.5 py-2 font-mono text-meta pointer-coarse:text-body-md text-ink"
       />
 
       {failed && <p className="mt-2 text-meta text-danger-text">{failed}</p>}

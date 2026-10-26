@@ -10,6 +10,7 @@ import {
   Select,
   useToast,
 } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
 import { geofenceRefusal, type ApiClockResult } from "@/lib/api/attendance";
 import { PositionError } from "@/lib/geolocation";
@@ -23,6 +24,7 @@ import {
 } from "@/lib/store/attendance";
 import { useSession } from "@/lib/store/session";
 import { DayTimer } from "@/app/(app)/people/attendance/day-timer";
+import { useDismiss } from "@/hooks/use-dismiss";
 
 /**
  * Clocking in and out from the top bar.
@@ -72,6 +74,7 @@ import { DayTimer } from "@/app/(app)/people/attendance/day-timer";
 export function ClockMenu({ roster }: { roster: RosterState }) {
   const session = useSession();
   const [open, setOpen] = useState(false);
+  const { mounted, closing } = useDismiss(open, 170);
 
   /* The id in the session is an *account* id when connected; `employeeId` is
      the one that matches a roster row. `my-clock-card.tsx` says the same. */
@@ -84,7 +87,11 @@ export function ClockMenu({ roster }: { roster: RosterState }) {
   const onTheClock = Boolean(myRow?.clockIn && !myRow.clockOut);
 
   return (
-    <div className="relative">
+    /* `max-sm:static`: on a phone the panel is placed against the header, not
+       against this wrapper. The wrapper sits in the middle of the header, so a
+       288px panel right-aligned to it ran 39px off the left of a 375px screen
+       (80px at 320px) with the start of the form unreachable. */
+    <div className="relative max-sm:static">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -106,17 +113,27 @@ export function ClockMenu({ roster }: { roster: RosterState }) {
         )}
       </button>
 
-      {open && (
+      {mounted && (
         <>
           <div
-            className="fixed inset-0 z-40"
+            className={
+              closing
+                ? "pointer-events-none fixed inset-0 z-40"
+                : "fixed inset-0 z-40"
+            }
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
           <div
             role="dialog"
             aria-label="Your clock"
-            className="animate-scale-in absolute right-0 z-50 mt-1.5 w-72 rounded-lg border border-line bg-surface p-3 shadow-lg"
+            className={cn(
+              closing ? "animate-scale-out" : "animate-scale-in",
+              "origin-top-right absolute right-0 z-50 mt-1.5 w-72 rounded-lg border border-line bg-surface p-3 shadow-lg",
+              /* A phone: the full width of the header, less its own gutter,
+                 directly under it. From `sm` it is the 288px popover it was. */
+              "max-sm:inset-x-3 max-sm:top-full max-sm:w-auto",
+            )}
           >
             <ClockPanel roster={roster} onDone={() => setOpen(false)} />
           </div>

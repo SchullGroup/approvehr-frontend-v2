@@ -23,8 +23,9 @@ import {
   TR,
   TableWrap,
   useToast,
+  RowActions,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -44,7 +45,7 @@ import {
   useOvertime,
   type OvertimeRow,
 } from "@/lib/store/overtime";
-import { TODAY } from "@/lib/today";
+import { useToday } from "@/lib/use-today";
 import { DeclineOvertimeModal } from "./decline-overtime";
 import { MyOvertime } from "./my-overtime";
 import { KIND_TONE, STATUS_TONE } from "./tone";
@@ -135,7 +136,8 @@ function AllOvertime() {
   const { permissions } = usePermissions();
   const toast = useToast();
 
-  const [period, setPeriod] = useState(currentPeriod);
+  const today = useToday();
+  const [period, setPeriod] = useState(() => currentPeriod(today));
   const [status, setStatus] = useState<OvertimeStatus | "ALL">("ALL");
   const [working, setWorking] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -170,8 +172,8 @@ function AllOvertime() {
     permissions.has("RUN_PAYROLL") && (!overtime.policyKnown || policy.enabled);
   const canDecide = permissions.has("APPROVE_LEAVE_ALL");
 
-  const periods = useMemo(() => recentPeriods(TODAY, 12), []);
-  const thisMonth = currentPeriod();
+  const periods = useMemo(() => recentPeriods(today, 12), [today]);
+  const thisMonth = currentPeriod(today);
 
   /** Every failure shows the API's own words — they name who and what. */
   const run = async (action: () => Promise<unknown>, done: string) => {
@@ -275,12 +277,6 @@ function AllOvertime() {
       />
 
       <PageBody className="flex flex-col gap-6">
-        <LoadFailure
-          subject={`the overtime for ${monthLabel(period)}`}
-          error={overtime.error}
-          onRetry={overtime.reload}
-        />
-
         {overtime.policyKnown && !policy.enabled && (
           <Card>
             <EmptyState
@@ -296,49 +292,13 @@ function AllOvertime() {
           </Card>
         )}
 
-        {awaitingApproval.count > 0 && (
-          <div className="rounded-lg border border-warning-line bg-warning-soft p-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="flex items-center gap-2 text-body-sm font-semibold text-ink">
-                  <TriangleAlert
-                    aria-hidden="true"
-                    className="size-4 shrink-0"
-                  />
-                  Waiting for approval
-                </p>
-                <p className="mt-2">
-                  <Money
-                    amount={naira(awaitingApproval.amountKobo)}
-                    decimals
-                    size="lg"
-                  />
-                </p>
-                <p className="mt-1 text-body-sm text-body">
-                  {hoursLabel(awaitingApproval.minutes)} across{" "}
-                  {awaitingApproval.count === 1
-                    ? "one day"
-                    : `${awaitingApproval.count} days`}
-                  , this month and any other. Unapproved overtime is not paid:
-                  the payroll run raises it as a warning.
-                </p>
-              </div>
-              {status !== "PENDING" && (
-                <Button size="sm" onClick={() => setStatus("PENDING")}>
-                  Show what is waiting
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-
         <Card>
           <CardHeader
             title={monthLabel(period)}
             description={
               overtime.loading ? (
                 "Reading the month…"
-              ) : shown.count === 0 ? (
+              ) : overtime.error ? undefined : shown.count === 0 ? (
                 "Nothing worked out yet."
               ) : (
                 <>
@@ -351,101 +311,121 @@ function AllOvertime() {
             action={
               <SegmentedControl
                 label="Show"
-                options={FILTERS}
+                options={FILTERS.map((option) =>
+                  option.value === "PENDING" && awaitingApproval.count > 0
+                    ? {
+                        ...option,
+                        label: `${option.label} ${String(awaitingApproval.count)}`,
+                      }
+                    : option,
+                )}
                 value={status}
                 onChange={setStatus}
               />
             }
           />
 
-          {overtime.rows.length === 0 ? (
-            <EmptyState
-              icon={<Clock aria-hidden="true" />}
-              title={
-                status === "ALL"
-                  ? `Nothing worked out for ${monthLabel(period)}`
-                  : `No ${(FILTERS.find((f) => f.value === status)?.label ?? "").toLowerCase()} overtime in ${monthLabel(period)}`
-              }
-              description={
-                status !== "ALL"
-                  ? undefined
-                  : canWorkOut
-                    ? "Overtime comes from the clock. Work the month out to see what the clock-outs add up to."
-                    : "Somebody who runs payroll works the month out from attendance."
-              }
-              action={
-                status !== "ALL" ? (
-                  <Button size="sm" onClick={() => setStatus("ALL")}>
-                    Show every status
-                  </Button>
-                ) : canWorkOut ? (
-                  workOutButton
-                ) : undefined
-              }
-            />
-          ) : (
-            <>
-              <div className="hidden sm:block">
-                <TableWrap
-                  className="rounded-none border-0 border-t"
-                  caption={`Overtime in ${monthLabel(period)}`}
-                >
-                  <THead>
-                    <TH>Who</TH>
-                    <TH>Day</TH>
-                    <TH align="right">Hours</TH>
-                    <TH>Kind</TH>
-                    <TH align="right">Comes to</TH>
-                    <TH>Status</TH>
-                    <TH>
-                      <span className="sr-only-focusable">Decision</span>
-                    </TH>
-                  </THead>
-                  <TBody>
-                    {overtime.rows.map((row) => (
-                      <Fragment key={row.id}>
-                        <OvertimeTableRow
-                          row={row}
-                          policy={policy}
-                          own={row.employeeId === overtime.ownEmployeeId}
-                          canDecide={canDecide}
-                          busy={busy === row.id}
-                          onApprove={async () => {
-                            setBusy(row.id);
-                            await run(
-                              () => overtime.approve(row.id),
-                              "Approved",
-                            );
-                            setBusy(null);
-                          }}
-                          onDecline={() => setDeclining(row)}
-                        />
-                      </Fragment>
-                    ))}
-                  </TBody>
-                </TableWrap>
-              </div>
+          {/* The one loading and failure rule. While the month was being read
+              this said "Nothing worked out for" it, and after a failure it said
+              so under the failure card. */}
+          <LoadState
+            loading={overtime.loading}
+            error={overtime.error}
+            subject={`the overtime for ${monthLabel(period)}`}
+            onRetry={overtime.reload}
+            skeleton="table"
+            hasData={overtime.rows.length > 0}
+            className="p-5"
+          >
+            {overtime.rows.length === 0 ? (
+              <EmptyState
+                icon={<Clock aria-hidden="true" />}
+                title={
+                  status === "ALL"
+                    ? `Nothing worked out for ${monthLabel(period)}`
+                    : `No ${(FILTERS.find((f) => f.value === status)?.label ?? "").toLowerCase()} overtime in ${monthLabel(period)}`
+                }
+                description={
+                  status !== "ALL"
+                    ? undefined
+                    : canWorkOut
+                      ? "Overtime comes from the clock. Work the month out to see what the clock-outs add up to."
+                      : "Somebody who runs payroll works the month out from attendance."
+                }
+                action={
+                  status !== "ALL" ? (
+                    <Button size="sm" onClick={() => setStatus("ALL")}>
+                      Show every status
+                    </Button>
+                  ) : canWorkOut ? (
+                    workOutButton
+                  ) : undefined
+                }
+              />
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap
+                    className="rounded-none border-0 border-t"
+                    caption={`Overtime in ${monthLabel(period)}`}
+                  >
+                    <THead>
+                      <TH>Who</TH>
+                      <TH>Day</TH>
+                      <TH align="right">Hours</TH>
+                      <TH>Kind</TH>
+                      <TH align="right">Comes to</TH>
+                      <TH>Status</TH>
+                      <TH>
+                        <span className="sr-only-focusable">Decision</span>
+                      </TH>
+                    </THead>
+                    <TBody>
+                      {overtime.rows.map((row) => (
+                        <Fragment key={row.id}>
+                          <OvertimeTableRow
+                            row={row}
+                            policy={policy}
+                            own={row.employeeId === overtime.ownEmployeeId}
+                            canDecide={canDecide}
+                            busy={busy === row.id}
+                            onApprove={async () => {
+                              setBusy(row.id);
+                              await run(
+                                () => overtime.approve(row.id),
+                                "Approved",
+                              );
+                              setBusy(null);
+                            }}
+                            onDecline={() => setDeclining(row)}
+                          />
+                        </Fragment>
+                      ))}
+                    </TBody>
+                  </TableWrap>
+                </div>
 
-              <ul className="divide-y divide-line border-t border-line sm:hidden">
-                {overtime.rows.map((row) => (
-                  <OvertimeCard
-                    key={row.id}
-                    row={row}
-                    policy={policy}
-                    own={row.employeeId === overtime.ownEmployeeId}
-                    canDecide={canDecide}
-                    busy={busy === row.id}
-                    onApprove={async () => {
-                      setBusy(row.id);
-                      await run(() => overtime.approve(row.id), "Approved");
-                      setBusy(null);
-                    }}
-                    onDecline={() => setDeclining(row)}
-                  />
-                ))}
-              </ul>
-            </>
-          )}
+                <ul className="divide-y divide-line border-t border-line sm:hidden">
+                  {overtime.rows.map((row) => (
+                    <OvertimeCard
+                      key={row.id}
+                      row={row}
+                      policy={policy}
+                      own={row.employeeId === overtime.ownEmployeeId}
+                      canDecide={canDecide}
+                      busy={busy === row.id}
+                      onApprove={async () => {
+                        setBusy(row.id);
+                        await run(() => overtime.approve(row.id), "Approved");
+                        setBusy(null);
+                      }}
+                      onDecline={() => setDeclining(row)}
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+          </LoadState>
 
           <CardFooter>
             <div className="min-w-0">
@@ -562,23 +542,29 @@ function OvertimeTableRow({
                 Yours: somebody else approves it
               </span>
             ) : !canDecide ? null : (
-              <>
-                {row.status !== "APPROVED" && (
-                  <Button
-                    variant="approve"
-                    size="sm"
-                    loading={busy}
-                    onClick={onApprove}
-                  >
-                    Approve
-                  </Button>
-                )}
-                {row.status !== "DECLINED" && (
-                  <Button size="sm" disabled={busy} onClick={onDecline}>
-                    Decline
-                  </Button>
-                )}
-              </>
+              <RowActions
+                label={`More actions for ${row.name}'s overtime`}
+                items={[
+                  ...(row.status !== "APPROVED"
+                    ? [
+                        {
+                          label: "Approve",
+                          disabled: busy,
+                          onSelect: onApprove,
+                        },
+                      ]
+                    : []),
+                  ...(row.status !== "DECLINED"
+                    ? [
+                        {
+                          label: "Decline",
+                          disabled: busy,
+                          onSelect: onDecline,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
             )}
           </div>
         </TD>

@@ -104,25 +104,24 @@ export function HowItWorksBody() {
           Judgement, communication, leading a team. They come ready-made in four
           groups &mdash; you can rename them or switch them off &mdash; and
           somebody records a level against each one, once per person per period.
-          Leadership is only rated for people who actually manage somebody; for
-          everybody else it is left out rather than marked low.
+          Leadership is only rated for people who manage somebody. For everyone
+          else it is left out, not marked low.
         </p>
       </div>
 
       <div>
         <p className="text-body-sm font-semibold text-ink">
-          The mark is the two of them, weighted
+          Objectives and competencies make up the mark
         </p>
         <p className="mt-1">
-          Each part carries a share of the mark, and the shares add up to 100%
-          exactly &mdash; there is no state where they do not, so there is
-          nothing to reconcile afterwards.
+          Each part counts for a share of the mark, and the shares always add up
+          to 100%.
         </p>
 
         {loading ? (
           <p className="mt-2 flex items-center gap-2 text-muted">
             <Spinner size="sm" />
-            Reading the weights
+            Loading the weights
           </p>
         ) : (
           <>
@@ -139,9 +138,9 @@ export function HowItWorksBody() {
             {weights && (
               <p className="mt-2 text-meta text-muted">
                 {source === "demo"
-                  ? "The shipped shares. A real company can change them in settings."
+                  ? "The standard shares. You can change them in settings."
                   : weights.source === "default"
-                    ? "The shipped shares, nobody here has changed them."
+                    ? "The standard shares. Nobody here has changed them."
                     : "Your company set these."}{" "}
                 <TextLink href="/settings/performance">
                   Change what each part is worth
@@ -157,40 +156,40 @@ export function HowItWorksBody() {
 
       <div>
         <p className="text-body-sm font-semibold text-ink">
-          The shares are frozen when the period opens
+          The shares are locked in when the period opens
         </p>
         <p className="mt-1">
           They are copied onto the period the moment it starts. Changing them
-          next quarter cannot move a mark already given, which is what makes a
-          mark from two years ago still explainable.
+          later cannot change a mark that has already been given, so a mark from
+          two years ago still adds up.
         </p>
       </div>
 
       <div>
         <p className="text-body-sm font-semibold text-ink">
-          Nothing recorded is not a nought
+          Nothing recorded is not the same as zero
         </p>
         <p className="mt-1">
-          A part with nothing behind it &mdash; no agreed objective, nobody
-          rated the competencies, not a manager &mdash; is left out of the mark,
-          and the remaining parts carry the difference. The screens say which
+          A part with nothing behind it (no agreed objective, no competency
+          ratings, or leadership for someone who manages nobody) is left out of
+          the mark, and the other parts share its weight. The screens say which
           part was left out and for how many people.{" "}
           <span className="text-ink">
-            &ldquo;Scored nought&rdquo; and &ldquo;nothing was recorded&rdquo;
-            are different things to say about a person.
+            &ldquo;Scored 0&rdquo; and &ldquo;nothing was recorded&rdquo; are
+            different things to say about someone.
           </span>
         </p>
       </div>
 
       <div>
         <p className="text-body-sm font-semibold text-ink">
-          Then somebody is told, and answers
+          Then the person is told, and replies
         </p>
         <p className="mt-1">
-          The appraiser makes the mark final, the employee reads it, and either
-          acknowledges it or formally disagrees. Both are recorded with a date.
-          Acknowledging is not agreeing, and the screen says so where somebody
-          is about to do it.
+          The appraiser makes the mark final and the employee reads it. They
+          either acknowledge it or formally disagree, and both are recorded with
+          a date. Acknowledging is not agreeing, and the screen says so before
+          they do it.
         </p>
       </div>
     </div>
@@ -224,7 +223,7 @@ function FrameworkBody() {
     return (
       <p className="flex items-center gap-2 text-body-sm text-muted">
         <Spinner size="sm" />
-        Reading the framework
+        Loading the framework
       </p>
     );
   }

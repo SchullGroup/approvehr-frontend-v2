@@ -10,6 +10,11 @@ import {
   parseMeasure,
   performanceApi,
   type ApiAnswer,
+  type ApiFairness,
+  type ApiClaims,
+  type ApiReviewFlag,
+  type ApiReviewFlags,
+  type FairnessPeriods,
   type ApiCompetency,
   type ApiCycle,
   type ApiCycleParticipants,
@@ -804,7 +809,7 @@ const SEED_QUESTIONS: readonly SeedQuestion[] = DEMO_ENABLED
       },
       {
         id: "demo-q-self-evidence",
-        prompt: "Attach any supporting evidence — a report, a dashboard.",
+        prompt: "Attach any supporting evidence, a report, a dashboard.",
         kind: "FILE",
         /* Not required, and that is the honest default for evidence: somebody
            whose work leaves no artefact should not be held out of their own
@@ -939,10 +944,15 @@ function demoKeyResult(
     id: seed.id,
     goalId,
     label: seed.label,
+    kind: "NUMBER",
     unit: seed.unit ?? null,
     ...measure,
     percent: demoPercent(measure),
     met: demoMet(measure),
+    /* Every seeded measure carries a figure somebody wrote down, so every one is
+       read; the demo does not stage an unread measure it could not also stage
+       the consequences of. */
+    lastReadAt: "2026-08-18T10:00:00.000Z",
     updatedAt: "2026-08-18T10:00:00.000Z",
   };
 }
@@ -1579,6 +1589,31 @@ export function useKpiMutations() {
       [guard],
     ),
 
+    /**
+     * A manager says a done-or-not-done measure is done. Refuses in demo mode:
+     * whether somebody's work is done is a judgement about another person, and
+     * one made in this browser would reach nobody's review.
+     */
+    confirmMeasure: useCallback(
+      async (measureId: string, note?: string) => {
+        guard(
+          "Confirming a measure needs the API. It is a manager's word about " +
+            "somebody else's work, and one kept in this browser would never " +
+            "reach their review.",
+        );
+        return performanceApi.confirmMeasure(measureId, note);
+      },
+      [guard],
+    ),
+
+    unconfirmMeasure: useCallback(
+      async (measureId: string) => {
+        guard("Taking a confirmation back needs the API.");
+        return performanceApi.unconfirmMeasure(measureId);
+      },
+      [guard],
+    ),
+
     completeGoal: useCallback(
       async (id: string, note?: string) => {
         guard("Marking a goal done needs the API.");
@@ -1784,7 +1819,7 @@ export function useObjectiveMutations() {
         if (goal.approval === "REJECTED") {
           offline(
             `"${goal.title}" was not agreed. Write the objective you can agree ` +
-              "on instead of re-sending this one — the refusal is part of the record.",
+              "on instead of re-sending this one, the refusal is part of the record.",
           );
         }
         if (goal.reviewCycleId === null && goal.dueQuarter === null) {
@@ -1817,7 +1852,7 @@ export function useObjectiveMutations() {
           offline(
             goal.approval === "AGREED"
               ? `"${goal.title}" is already agreed.`
-              : `"${goal.title}" has not been sent for agreement yet — it is ` +
+              : `"${goal.title}" has not been sent for agreement yet, it is ` +
                   `${goal.approvalLabel.toLowerCase()}.`,
           );
         }
@@ -1839,7 +1874,7 @@ export function useObjectiveMutations() {
         assertNotOwn(goal);
         if (goal.approval !== "AWAITING_APPROVAL") {
           offline(
-            `"${goal.title}" is not waiting to be agreed — it is ` +
+            `"${goal.title}" is not waiting to be agreed, it is ` +
               `${goal.approvalLabel.toLowerCase()}.`,
           );
         }
@@ -1865,7 +1900,7 @@ export function useObjectiveMutations() {
         }
         if (goal.approval === "AGREED") {
           offline(
-            `"${goal.title}" was agreed. Stop it or reopen it for revision — ` +
+            `"${goal.title}" was agreed. Stop it or reopen it for revision, ` +
               "refusing it now would erase the fact that it was ever agreed.",
           );
         }
@@ -1892,7 +1927,7 @@ export function useObjectiveMutations() {
         if (goal.approval !== "AGREED") {
           offline(
             `"${goal.title}" is not agreed, so there is nothing frozen to ` +
-              `reopen — it is ${goal.approvalLabel.toLowerCase()}.`,
+              `reopen, it is ${goal.approvalLabel.toLowerCase()}.`,
           );
         }
         local(id, {
@@ -3899,7 +3934,7 @@ const DEMO_WEIGHTS: ApiScoringWeights = {
 
 const SCALE_SAVE_OFFLINE =
   "Renaming the scale needs the API. The words are the company's, stored " +
-  "once and frozen onto every period as it starts — there is nothing in this " +
+  "once and frozen onto every period as it starts, there is nothing in this " +
   "browser for a period to freeze.";
 
 /**
@@ -4126,10 +4161,129 @@ export function useCycleReport(
   };
 }
 
+export function useReviewFlags(cycleId: string, enabled: boolean) {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    (signal: AbortSignal) => performanceApi.reviewFlags(cycleId, signal),
+    [cycleId],
+  );
+  const fetched = useFetched<ApiReviewFlags>(
+    `review-flags|${cycleId}`,
+    enabled && isConnected,
+    load,
+  );
+  return {
+    flags: fetched.data,
+    loading: fetched.loading,
+    error: fetched.error,
+    reload: fetched.reload,
+  };
+}
+
+type ReviewFlagDetail = { flag: ApiReviewFlag; claims: ApiClaims };
+
+// A 404 means there is nothing to show this reader about this person, not a failure.
+export function useReviewFlag(
+  cycleId: string | null,
+  employeeId: string | null,
+  enabled: boolean,
+) {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    async (signal: AbortSignal): Promise<ReviewFlagDetail | null> => {
+      try {
+        return await performanceApi.reviewFlag(
+          cycleId ?? "",
+          employeeId ?? "",
+          signal,
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+      }
+    },
+    [cycleId, employeeId],
+  );
+  const fetched = useFetched<ReviewFlagDetail | null>(
+    `review-flag|${cycleId ?? ""}|${employeeId ?? ""}`,
+    enabled && isConnected && cycleId !== null && employeeId !== null,
+    load,
+  );
+  return {
+    flag: fetched.data?.flag ?? null,
+    claims: fetched.data?.claims ?? null,
+    loading: fetched.loading,
+  };
+}
+
+const FLAG_DECISION_OFFLINE =
+  "Deciding on a flagged mark needs the API. The decision is part of the period's record.";
+
+/** "Mark stands" and taking it back. Moving a mark and sending a review back have their own hooks. */
+export function useFlagDecisions() {
+  const { isConnected } = useSession();
+  const stands = useCallback(
+    async (cycleId: string, employeeId: string, note: string | null) => {
+      if (!isConnected) throw new Error(FLAG_DECISION_OFFLINE);
+      return performanceApi.markStands(cycleId, employeeId, note);
+    },
+    [isConnected],
+  );
+  const reopen = useCallback(
+    async (cycleId: string, employeeId: string) => {
+      if (!isConnected) throw new Error(FLAG_DECISION_OFFLINE);
+      return performanceApi.reopenFlag(cycleId, employeeId);
+    },
+    [isConnected],
+  );
+  return { stands, reopen };
+}
+
+export const FAIRNESS_OFFLINE =
+  "The fairness check needs the API. Its figures are drawn from everybody's mark and records.";
+
+export function useCycleFairness(
+  cycleId: string,
+  periods: FairnessPeriods,
+  enabled: boolean,
+): {
+  fairness: ApiFairness | null;
+  cycle: ApiCycle | null;
+  loading: boolean;
+  error: ApiError | null;
+  available: boolean;
+  reload: () => void;
+} {
+  const { isConnected } = useSession();
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      const [cycle, fairness] = await Promise.all([
+        performanceApi.cycle(cycleId, signal),
+        performanceApi.cycleFairness(cycleId, periods, signal),
+      ]);
+      return { cycle, fairness };
+    },
+    [cycleId, periods],
+  );
+  const fetched = useFetched<{ cycle: ApiCycle; fairness: ApiFairness }>(
+    `cycle-fairness|${cycleId}|${String(periods)}`,
+    enabled && isConnected,
+    load,
+  );
+  return {
+    fairness: isConnected ? (fetched.data?.fairness ?? null) : null,
+    cycle: isConnected ? (fetched.data?.cycle ?? null) : null,
+    loading: isConnected && enabled ? fetched.loading : false,
+    error: isConnected ? fetched.error : null,
+    available: isConnected && enabled,
+    reload: fetched.reload,
+  };
+}
+
 const NINE_BOX_OFFLINE =
   "A nine-box needs the API. One half of it is every person's mark, which is " +
   "an aggregate over everybody, and the other half is a judgement somebody " +
-  "recorded — a grid assembled in this browser would place people nobody has " +
+  "recorded, a grid assembled in this browser would place people nobody has " +
   "placed.";
 
 /**

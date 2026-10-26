@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import {
   Button,
   Callout,
@@ -9,10 +9,14 @@ import {
   Input,
   Modal,
   Radio,
+  Switch,
   Textarea,
 } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import {
   DRAFT_EFFECT,
+  MANDATORY_CHANGE_RECORDED,
+  MANDATORY_EFFECT,
   type AnnouncementAudience,
   type ApiAnnouncement,
 } from "@/lib/api/announcements";
@@ -59,6 +63,8 @@ export type Draft = {
   audience: AnnouncementAudience;
   departmentIds: string[];
   pinned: boolean;
+  /** Staff must open it. */
+  mandatory: boolean;
   /** `YYYY-MM-DD`, or empty for no date. */
   expiresOn: string;
 };
@@ -90,6 +96,8 @@ export function AnnouncementForm({
     notice?.departmentIds ?? [],
   );
   const [pinned, setPinned] = useState(notice?.pinned ?? false);
+  const [mandatory, setMandatory] = useState(notice?.mandatory ?? false);
+  const mandatoryTipId = useId();
   const [expiresOn, setExpiresOn] = useState(notice?.expiresOn ?? "");
   const [busy, setBusy] = useState(false);
 
@@ -100,7 +108,7 @@ export function AnnouncementForm({
     trimmedTitle.length > 0 && trimmedTitle.length < 3
       ? "Give it a title of at least three characters."
       : title.length > TITLE_LIMIT
-        ? "Shorten the title — it has to read on one line on the dashboard."
+        ? "Shorten the title, it has to read on one line on the dashboard."
         : undefined;
 
   const bodyError =
@@ -139,6 +147,7 @@ export function AnnouncementForm({
           audience,
           departmentIds: audience === "DEPARTMENTS" ? departmentIds : [],
           pinned,
+          mandatory,
           expiresOn,
         },
         publish,
@@ -303,6 +312,36 @@ export function AnnouncementForm({
           onChange={(event) => {
             const next = event.target.checked;
             setPinned(next);
+          }}
+        />
+
+        <Switch
+          /* The name is set here and not left to the label, because the label
+             holds the tooltip's button and would add its name to the switch's. */
+          aria-label="Must be read"
+          label={
+            <span className="inline-flex items-center gap-1.5">
+              Must be read
+              <InfoTooltip
+                id={mandatoryTipId}
+                text={MANDATORY_CHANGE_RECORDED}
+                label="About changing this after it is published"
+              />
+            </span>
+          }
+          description={
+            /* Said beside the switch at the moment it matters, not in a banner:
+               on a live notice, a change is the thing that gets recorded. */
+            live && notice && mandatory !== notice.mandatory
+              ? mandatory
+                ? "Saving will turn this on, and that is recorded."
+                : "Saving will turn this off, and that is recorded."
+              : MANDATORY_EFFECT
+          }
+          checked={mandatory}
+          onChange={(event) => {
+            const next = event.target.checked;
+            setMandatory(next);
           }}
         />
 

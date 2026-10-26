@@ -975,7 +975,7 @@ export function NewEmployeeForm() {
   const showResume = Boolean(drafts.saved) && !resumeHidden && !finished;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
       <div className="flex flex-col gap-5">
         {/* In production this always saves to the API — there is no other
             destination — so the badge said nothing a reader didn't already
@@ -1170,7 +1170,7 @@ export function NewEmployeeForm() {
                   {draft.email.trim() !== "" && (
                     <Field
                       label="What they can do when they sign in"
-                      help="Employee unless you say otherwise — their own record and their own payslips. You can only give out a role you hold yourself."
+                      help="Employee unless you say otherwise, their own record and their own payslips. You can only give out a role you hold yourself."
                     >
                       <Picker
                         value={draft.accessRoleId}
@@ -1342,7 +1342,7 @@ export function NewEmployeeForm() {
                     label="Gross monthly"
                     optional
                     error={errorFor("grossMonthly")}
-                    help="Before PAYE, pension and NHF. Leave it blank until it is agreed — payroll will name them until it is set."
+                    help="Before PAYE, pension and NHF. Leave it blank until it is agreed, payroll will name them until it is set."
                   >
                     <Input
                       data-employee-field="grossMonthly"
@@ -2084,7 +2084,7 @@ export function NewEmployeeForm() {
                     Still needed to pay them: {added.blocking.join(", ")}.
                     Payroll will hold them back until{" "}
                     {added.blocking.length > 1 ? "these are" : "this is"} on the
-                    record —{" "}
+                    record,{" "}
                     <Link
                       href={`/people/${added.id}`}
                       className="font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"
@@ -2097,7 +2097,7 @@ export function NewEmployeeForm() {
                 {added.advisory.length > 0 && (
                   <p className="rounded-md bg-canvas p-3 text-muted">
                     Also worth adding: {added.advisory.join(", ")}. This does
-                    not hold their pay back —{" "}
+                    not hold their pay back,{" "}
                     <Link
                       href={`/people/${added.id}`}
                       className="font-medium text-accent-text underline decoration-accent-line underline-offset-4 hover:decoration-accent"

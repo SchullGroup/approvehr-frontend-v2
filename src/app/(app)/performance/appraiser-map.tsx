@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, Network, Plus, Trash2, Wand2 } from "lucide-react";
+import { Network, Plus, Settings2, Trash2, Wand2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
-  Badge,
   Button,
   Callout,
   Card,
@@ -17,8 +16,18 @@ import {
   Select,
   Spinner,
   Stat,
-  Switch,
+  StatGrid,
   useToast,
+  IconButton,
+  TableWrap,
+  THead,
+  TH,
+  TBody,
+  TR,
+  TD,
+  TDPrimary,
+  FilterBar,
+  type AppliedFilter,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
@@ -26,13 +35,10 @@ import {
   APPRAISER_ROLES,
   APPRAISER_ROLE_HELP,
   APPRAISER_ROLE_LABEL,
-  EXCEPTION_CODE_SUMMARY,
   FULL_WEIGHT_BP,
   evenWeights,
-  groupExceptionsByCode,
   weightLabel,
   weightProblem,
-  type ApiAppraiser,
   type ApiAppraiserEntry,
   type ApiAppraiserMapRow,
   type AppraiserRole,
@@ -72,6 +78,14 @@ import {
  * instead of, and the words are the same words. HANDOVER's register is full of
  * client-side rules that were not real rules.
  */
+type AppraiserShow = "all" | "none" | "one" | "several";
+const SHOW_LABEL: Record<AppraiserShow, string> = {
+  all: "Everyone",
+  none: "Nobody appraising",
+  one: "One appraiser",
+  several: "Several appraisers",
+};
+
 export function AppraiserMapTab() {
   /* The cycle list is fetched here rather than passed down from the screen, so
      opening `/performance` on the KPI tab does not request it. */
@@ -92,7 +106,9 @@ export function AppraiserMapTab() {
     ) ?? cycles[0];
 
   const [chosen, setChosen] = useState<string | null>(null);
-  const [exceptionsOnly, setExceptionsOnly] = useState(false);
+  const [show, setShow] = useState<AppraiserShow>("all");
+  const [department, setDepartment] = useState("");
+  const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<ApiAppraiserMapRow | null>(null);
   const [autoBusy, setAutoBusy] = useState(false);
 
@@ -118,14 +134,60 @@ export function AppraiserMapTab() {
 
   const { map, loading, error, editable, refusal, reload } = useAppraiserMap(
     cycleId,
-    {
-      exceptionsOnly,
-    },
+    {},
   );
+
+  /* Filtered here rather than asked of the server, so the choices (who has
+     nobody, who has several, which department) are all one click away and the
+     counts above the table stay the whole period's. */
+  const departments = useMemo(
+    () =>
+      [
+        ...new Set(
+          (map?.rows ?? []).flatMap((row) =>
+            row.departmentName ? [row.departmentName] : [],
+          ),
+        ),
+      ].sort(),
+    [map],
+  );
+  const rows = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return (map?.rows ?? []).filter((row) => {
+      if (show === "none" && row.appraisers.length > 0) return false;
+      if (show === "several" && row.appraisers.length < 2) return false;
+      if (show === "one" && row.appraisers.length !== 1) return false;
+      if (department && row.departmentName !== department) return false;
+      if (needle && !row.employeeName.toLowerCase().includes(needle))
+        return false;
+      return true;
+    });
+  }, [map, show, department, query]);
+  const filtering = show !== "all" || department !== "" || query.trim() !== "";
+  const applied: AppliedFilter[] = [
+    ...(show !== "all"
+      ? [
+          {
+            label: "Show",
+            value: SHOW_LABEL[show],
+            onClear: () => setShow("all"),
+          },
+        ]
+      : []),
+    ...(department
+      ? [
+          {
+            label: "Department",
+            value: department,
+            onClear: () => setDepartment(""),
+          },
+        ]
+      : []),
+  ];
 
   if (!editable) {
     return (
-      <Callout tone="warning" title="The mapping needs the API">
+      <Callout tone="warning" title="This needs a connection to the server">
         {refusal}
       </Callout>
     );
@@ -135,7 +197,7 @@ export function AppraiserMapTab() {
     return (
       <p className="flex items-center gap-2 text-body-sm text-muted">
         <Spinner size="sm" />
-        Reading the appraisal periods
+        Loading the appraisal periods
       </p>
     );
   }
@@ -145,23 +207,10 @@ export function AppraiserMapTab() {
       <EmptyState
         icon={<Network aria-hidden="true" />}
         title="No appraisal periods yet"
-        description="A mapping belongs to one appraisal period: who was best placed to judge somebody last half is not who is best placed this half. Start a period first."
+        description="Who appraises whom is set for one appraisal period at a time, because the best person to judge someone can change from one half to the next. Start a period first."
       />
     );
   }
-
-  const blockers =
-    map?.rows.flatMap((row) =>
-      row.exceptions
-        .filter((issue) => issue.severity === "BLOCKER")
-        .map((issue) => ({ key: `${row.employeeId}-${issue.code}`, ...issue })),
-    ) ?? [];
-  const warnings =
-    map?.rows.flatMap((row) =>
-      row.exceptions
-        .filter((issue) => issue.severity === "WARNING")
-        .map((issue) => ({ key: `${row.employeeId}-${issue.code}`, ...issue })),
-    ) ?? [];
 
   /**
    * One appraiser, at 100%, saved from the row.
@@ -223,8 +272,8 @@ export function AppraiserMapTab() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <Field label="Appraisal period" className="min-w-[16rem]">
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Appraisal period" className="w-64 max-w-full">
           <Select
             value={cycleId ?? ""}
             onChange={(event) => {
@@ -234,29 +283,64 @@ export function AppraiserMapTab() {
           >
             {cycles.map((cycle) => (
               <option key={cycle.id} value={cycle.id}>
-                {cycle.name} — {cycle.stageLabel}
+                {cycle.name}, {cycle.stageLabel}
               </option>
             ))}
           </Select>
         </Field>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Switch
-            label="Only what is wrong"
-            checked={exceptionsOnly}
-            onChange={(event) => setExceptionsOnly(event.target.checked)}
-          />
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={autoBusy}
-            disabled={autoBusy}
-            onClick={() => void autoAssign()}
-          >
-            <Wand2 aria-hidden="true" className="size-4" />
-            Fill in the obvious
-          </Button>
-        </div>
+        <FilterBar
+          className="min-w-0 flex-1"
+          search={query}
+          onSearchChange={setQuery}
+          searchPlaceholder="Search people"
+          searchLabel="Search people"
+          applied={applied}
+          onClearAll={() => {
+            setShow("all");
+            setDepartment("");
+          }}
+          count={rows.length}
+          noun={["person", "people"]}
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={autoBusy}
+              disabled={autoBusy}
+              onClick={() => void autoAssign()}
+            >
+              <Wand2 aria-hidden="true" className="size-4" />
+              Fill in from the reporting line
+            </Button>
+          }
+        >
+          <Field label="Show">
+            <Select
+              value={show}
+              onChange={(event) => setShow(event.target.value as AppraiserShow)}
+            >
+              {(Object.keys(SHOW_LABEL) as AppraiserShow[]).map((key) => (
+                <option key={key} value={key}>
+                  {SHOW_LABEL[key]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Department">
+            <Select
+              value={department}
+              onChange={(event) => setDepartment(event.target.value)}
+            >
+              <option value="">Every department</option>
+              {departments.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </FilterBar>
       </div>
 
       <LoadFailure
@@ -266,7 +350,7 @@ export function AppraiserMapTab() {
       />
 
       {map && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatGrid>
           <Stat
             label="People in the period"
             value={String(map.counts.people)}
@@ -281,154 +365,67 @@ export function AppraiserMapTab() {
             value={String(map.counts.multiAppraiser)}
             hint="with roles and weights"
           />
-          <Stat
-            label="Nobody appraising"
-            value={String(map.counts.unassigned)}
-            trend={
-              map.counts.unassigned > 0
-                ? { direction: "down", label: "Would get no mark" }
-                : undefined
-            }
-          />
-        </div>
-      )}
-
-      {/* Exceptions first, before the table, in the shape the payroll run uses.
-          A blocker buried in row 40 of a table is a blocker nobody read. */}
-      {(blockers.length > 0 || warnings.length > 0) && (
-        <Card>
-          <CardHeader
-            title={
-              blockers.length > 0
-                ? blockers.length === 1
-                  ? "1 thing will produce a mark nobody can defend"
-                  : `${blockers.length} things will produce marks nobody can defend`
-                : "Worth a look"
-            }
-            description={
-              map?.started
-                ? "This period is running, so these are live."
-                : "Nothing has started yet, so none of this is final."
-            }
-          />
-          <CardBody className="flex flex-col gap-2">
-            {groupExceptionsByCode([...blockers, ...warnings]).map((group) => {
-              const tone =
-                group.severity === "BLOCKER"
-                  ? "border-danger-line bg-danger-soft text-ink"
-                  : "border-warning-line bg-warning-soft text-ink";
-              const icon =
-                group.severity === "BLOCKER"
-                  ? "text-danger-text"
-                  : "text-warning-text";
-
-              /* One person, one problem — the full sentence, exactly as
-                 before. A single line is not a wall of anything, and naming
-                 them by name here is more useful than a count of one. */
-              if (group.items.length === 1) {
-                const issue = group.items[0]!;
-                return (
-                  <p
-                    key={issue.key}
-                    className={cn(
-                      "flex gap-2.5 rounded-md border px-3.5 py-2.5 text-body-sm",
-                      tone,
-                    )}
-                  >
-                    <AlertTriangle
-                      aria-hidden="true"
-                      className={cn("mt-0.5 size-4 shrink-0", icon)}
-                    />
-                    <span>
-                      <span className="sr-only">
-                        {group.severity === "BLOCKER"
-                          ? "Blocker: "
-                          : "Warning: "}
-                      </span>
-                      {issue.message}
-                    </span>
-                  </p>
-                );
-              }
-
-              /* Several people, the same problem — one line naming the count
-                 rather than the same templated sentence repeated per name.
-                 "Review and fix" is the filter already on this screen: the
-                 table right below is where fixing one of them actually
-                 happens, so there is nothing new to build here. */
-              return (
-                <div
-                  key={group.code}
-                  className={cn(
-                    "flex flex-wrap items-center justify-between gap-3 rounded-md border px-3.5 py-2.5 text-body-sm",
-                    tone,
-                  )}
-                >
-                  <span className="flex gap-2.5">
-                    <AlertTriangle
-                      aria-hidden="true"
-                      className={cn("mt-0.5 size-4 shrink-0", icon)}
-                    />
-                    <span>
-                      <span className="sr-only">
-                        {group.severity === "BLOCKER"
-                          ? "Blocker: "
-                          : "Warning: "}
-                      </span>
-                      {EXCEPTION_CODE_SUMMARY[
-                        group.code as keyof typeof EXCEPTION_CODE_SUMMARY
-                      ](group.items.length)}
-                    </span>
-                  </span>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setExceptionsOnly(true)}
-                  >
-                    Review and fix
-                  </Button>
-                </div>
-              );
-            })}
-          </CardBody>
-        </Card>
+          {map.counts.unassigned > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShow("none")}
+              aria-label={`Nobody appraising: ${map.counts.unassigned}. Show them.`}
+              className="rounded-lg text-left transition-shadow hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text [&>*]:h-full"
+            >
+              <Stat
+                label="Nobody appraising"
+                value={String(map.counts.unassigned)}
+              />
+            </button>
+          ) : (
+            <Stat label="Nobody appraising" value="0" />
+          )}
+        </StatGrid>
       )}
 
       <Card>
         <CardHeader
           title="Who appraises whom"
-          description="One line manager at 100% is the ordinary answer. Change it for the people a project lead or another department's manager actually judges."
+          description="Pick who appraises each person."
         />
         {loading ? (
           <CardBody className="flex items-center gap-2 text-body-sm text-muted">
             <Spinner size="sm" />
-            Reading the mapping
+            Loading the list
           </CardBody>
-        ) : !map || map.rows.length === 0 ? (
+        ) : !map || rows.length === 0 ? (
           <EmptyState
             compact
             icon={<Network aria-hidden="true" />}
-            title={
-              exceptionsOnly ? "Nothing is wrong" : "Nobody in this period"
-            }
+            title={filtering ? "Nobody matches" : "Nobody in this period"}
             description={
-              exceptionsOnly
-                ? "Everybody has an appraiser and every set of weights makes 100%."
+              filtering
+                ? "Change or clear the filters to see more people."
                 : "A period covers everybody who is still employed. Add people first."
             }
           />
         ) : (
-          <CardBody className="flex flex-col gap-2">
-            {map.rows.map((row) => (
-              <PersonRow
-                key={row.employeeId}
-                row={row}
-                people={people}
-                onEdit={() => setEditing(row)}
-                onQuickAssign={(appraiserId) => quickAssign(row, appraiserId)}
-              />
-            ))}
-          </CardBody>
+          <TableWrap className="rounded-none border-0">
+            <THead>
+              <TH>Person</TH>
+              <TH>Appraiser</TH>
+              <TH align="right">Mark</TH>
+              <TH align="right">
+                <span className="sr-only">Split</span>
+              </TH>
+            </THead>
+            <TBody>
+              {rows.map((row) => (
+                <PersonTableRow
+                  key={row.employeeId}
+                  row={row}
+                  people={people}
+                  onEdit={() => setEditing(row)}
+                  onQuickAssign={(appraiserId) => quickAssign(row, appraiserId)}
+                />
+              ))}
+            </TBody>
+          </TableWrap>
         )}
       </Card>
 
@@ -484,219 +481,100 @@ export function AppraiserMapTab() {
  * that would matter — appraising yourself, and dropping somebody who has
  * already sent a review.
  */
-/**
- * How one person's mark divides across the people marking them.
- *
- * ## Why a bar and not three numbers
- *
- * The chips already say `33.34% · 33.33% · 33.33%`, and three percentages are
- * a sum a reader has to do in their head to check they make a whole. The whole
- * is the point: the API refuses a set that does not total exactly 10000 basis
- * points, and this is that rule made visible. A split you can see is also a
- * split you can argue with, which is the thing a disputed mark turns on.
- *
- * ## Submitted is the fill, not the width
- *
- * Width is the share of the mark. Fill is whether that share has actually been
- * answered yet. So a bar that is half solid is half a mark, which is exactly
- * what `weightedRating` divides by — see `submittedWeightBp` beside it. An
- * outstanding share is drawn as a tint rather than left blank, because blank
- * would read as "this share does not exist" rather than "nobody has answered
- * it".
- *
- * Basis points throughout, converted to a percentage only for the width and
- * the spoken label, so the rounding happens in one place.
- */
-function ShareBar({ appraisers }: { appraisers: ApiAppraiser[] }) {
-  const total = appraisers.reduce((sum, one) => sum + one.weightBp, 0);
-  /* Guard a zero total rather than dividing by it: the API refuses a set that
-     does not make 10000, but this component must not be the thing that throws
-     if one ever slips through. */
-  if (total <= 0) return null;
-
-  return (
-    <span
-      className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-sunken"
-      role="img"
-      aria-label={appraisers
-        .map(
-          (one) =>
-            `${one.appraiserName}, ${weightLabel(one.weightBp)}, ${
-              one.submitted ? "sent" : "outstanding"
-            }`,
-        )
-        .join("; ")}
-    >
-      {appraisers.map((one) => (
-        <span
-          key={one.appraiserId}
-          className={cn(
-            "block h-full border-r border-surface last:border-r-0",
-            one.submitted ? "bg-accent" : "bg-accent-soft",
-          )}
-          style={{ width: `${String((one.weightBp / total) * 100)}%` }}
-        />
-      ))}
-    </span>
-  );
-}
-
-function PersonRow({
+function PersonTableRow({
   row,
   people,
   onEdit,
   onQuickAssign,
 }: {
   row: ApiAppraiserMapRow;
-  /** Fetched once by the tab, not once per row. */
   people: { id: string; name: string; jobTitle: string }[];
   onEdit: () => void;
   onQuickAssign: (appraiserId: string) => Promise<void>;
 }) {
-  const [assigning, setAssigning] = useState(false);
-  const [quickFailed, setQuickFailed] = useState<string | null>(null);
-  const worst = row.exceptions.some((issue) => issue.severity === "BLOCKER")
-    ? "BLOCKER"
-    : row.exceptions.length > 0
-      ? "WARNING"
-      : null;
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const several = row.appraisers.length > 1;
+  const current = row.appraisers[0] ?? null;
+  const options = people.filter((person) => person.id !== row.employeeId);
+  /* Somebody who has since left is still the current appraiser until changed,
+     so the dropdown has to be able to show them. */
+  const missing =
+    current && !options.some((person) => person.id === current.appraiserId);
 
   return (
-    <div
-      className={cn(
-        "flex flex-wrap items-center gap-3 rounded-md border p-3",
-        worst === "BLOCKER"
-          ? "border-danger-line bg-danger-soft"
-          : worst === "WARNING"
-            ? "border-warning-line"
-            : "border-line",
-      )}
-    >
-      <div className="min-w-0 flex-1">
-        <p className="text-body-sm font-medium text-ink">{row.employeeName}</p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
-          <span>{row.jobTitle}</span>
-          {row.departmentName && <span>{row.departmentName}</span>}
-        </p>
-
-        {row.appraisers.length === 0 ? (
-          <p className="mt-2 text-body-sm text-ink">
-            Nobody.
-            {row.lineManagerName
-              ? ` Their line manager is ${row.lineManagerName}.`
-              : " They have no line manager either."}
-          </p>
+    <TR>
+      <TDPrimary
+        title={row.employeeName}
+        subtitle={[row.jobTitle, row.departmentName]
+          .filter(Boolean)
+          .join(" · ")}
+      />
+      <TD>
+        {several ? (
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-ink">
+            {row.appraisers
+              .map((one) => `${one.appraiserName} ${weightLabel(one.weightBp)}`)
+              .join(", ")}
+          </span>
         ) : (
-          <ul className="mt-2 flex flex-wrap gap-1.5">
-            {row.appraisers.map((one) => (
-              <li
-                key={one.assignmentId}
-                className="flex items-center gap-2 rounded-md border border-line bg-surface px-2.5 py-1.5"
-              >
-                {/* Submitted or not is a shape as well as a colour: a filled dot
-                    for in, a ring for outstanding. */}
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "size-2 shrink-0 rounded-full",
-                    one.submitted
-                      ? "bg-success-strong"
-                      : "border border-line-strong bg-transparent",
-                  )}
-                />
-                <span className="text-meta text-ink">
-                  {one.appraiserName}
-                  <span className="text-muted">
-                    {" · "}
-                    {one.roleLabel}
-                    {" · "}
-                    {weightLabel(one.weightBp)}
-                  </span>
-                </span>
-                <span className="sr-only">
-                  {one.submitted ? "review sent" : "review outstanding"}
-                </span>
-                {one.unavailable && (
-                  <Badge tone="danger" size="sm">
-                    Has left
-                  </Badge>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* The split, as one object rather than three percentages to add up.
-            Absent for a single appraiser at 100%, because a bar with one
-            segment says nothing the chip above it does not already say. */}
-        {row.appraisers.length > 1 && <ShareBar appraisers={row.appraisers} />}
-      </div>
-
-      <div className="shrink-0 text-right">
-        <p className="text-meta text-faint">Mark</p>
-        <p className="tabular text-body-sm font-medium text-ink">
-          {row.weightedRating === null ? "—" : row.weightedRating}
-        </p>
-        <p className="text-meta text-muted">
-          {row.weightedRating === null
-            ? "nothing in yet"
-            : `${weightLabel(row.submittedWeightBp)} in`}
-        </p>
-      </div>
-
-      {row.appraisers.length > 0 ? (
-        <Button variant="secondary" size="sm" onClick={onEdit}>
-          Change
-        </Button>
-      ) : (
-        <div className="flex flex-col items-end gap-1">
-          <div className="flex items-center gap-2">
-            {/* The subject is filtered out here rather than left for the API to
-                refuse: appraising yourself is not an option worth offering. */}
+          <div className="w-64 max-w-full">
             <Select
               aria-label={`Appraiser for ${row.employeeName}`}
-              className="min-w-[13rem]"
-              disabled={assigning}
-              value=""
+              disabled={saving}
+              value={current?.appraiserId ?? ""}
               onChange={(event) => {
                 const appraiserId = event.target.value;
-                if (!appraiserId) return;
-                setAssigning(true);
-                setQuickFailed(null);
+                if (!appraiserId || appraiserId === current?.appraiserId)
+                  return;
+                setSaving(true);
+                setFailed(null);
                 void onQuickAssign(appraiserId)
                   .catch((error: unknown) => {
-                    setQuickFailed(
+                    setFailed(
                       error instanceof ApiError
                         ? error.message
                         : "That did not save. Try again.",
                     );
                   })
-                  .finally(() => {
-                    setAssigning(false);
-                  });
+                  .finally(() => setSaving(false));
               }}
             >
-              <option value="">
-                {assigning ? "Saving…" : "Assign an appraiser"}
-              </option>
-              {people
-                .filter((person) => person.id !== row.employeeId)
-                .map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name} — {person.jobTitle}
-                  </option>
-                ))}
+              {current === null && (
+                <option value="">
+                  {saving ? "Saving…" : "Choose an appraiser"}
+                </option>
+              )}
+              {missing && current && (
+                <option value={current.appraiserId}>
+                  {current.appraiserName}
+                </option>
+              )}
+              {options.map((person) => (
+                <option key={person.id} value={person.id}>
+                  {person.name}
+                </option>
+              ))}
             </Select>
-            <Button variant="ghost" size="sm" onClick={onEdit}>
-              More options
-            </Button>
+            {failed !== null && (
+              <p className="mt-1 text-meta text-danger-text">{failed}</p>
+            )}
           </div>
-          {quickFailed !== null && (
-            <p className="text-meta text-danger-text">{quickFailed}</p>
-          )}
-        </div>
-      )}
-    </div>
+        )}
+      </TD>
+      <TD align="right" className="tabular">
+        {row.weightedRating ?? ""}
+      </TD>
+      <TD align="right">
+        <IconButton
+          label={`Share the mark for ${row.employeeName} between several appraisers`}
+          variant="ghost"
+          onClick={onEdit}
+        >
+          <Settings2 aria-hidden="true" className="size-4" />
+        </IconButton>
+      </TD>
+    </TR>
   );
 }
 
@@ -816,7 +694,7 @@ export function AppraisersDialog({
   /* Every one of these is the API's rule, checked here so it lands while the row
      is still on screen. The server is where each of them is real. */
   const localProblem = duplicated
-    ? "The same person is listed twice. One appraiser, one row, one role."
+    ? "The same person is listed twice. Each appraiser should appear once, with one role."
     : lineManagers > 1
       ? "Only one person can be the line manager. Make the others functional managers or project leads."
       : missingSubmitted.length > 0
@@ -825,9 +703,9 @@ export function AppraisersDialog({
             .map((one) => one.appraiserName)
             .join(
               ", ",
-            )} already sent their review. Change their weight rather than taking them off.`
+            )} already sent their review. Change their weight instead of taking them off.`
         : entries.some((entry) => entry.weightBp < 1)
-          ? "An appraiser with no weight is not an appraiser. Remove the row instead."
+          ? "An appraiser needs some weight. Remove them instead."
           : weightIssue;
 
   const setRow = (index: number, patch: Partial<DraftRow>) =>
@@ -906,7 +784,7 @@ export function AppraisersDialog({
           <p
             className={cn(
               "tabular text-body-sm",
-              localProblem ? "text-danger-text" : "text-muted",
+              localProblem ? "text-warning-text" : "text-muted",
             )}
           >
             {entries.length === 0
@@ -950,9 +828,8 @@ export function AppraisersDialog({
 
         {rows.length === 0 && (
           <Callout tone="warning" title="Nobody would appraise them">
-            Saving with an empty list is allowed and it is a real state: it is
-            how you undo a mapping. They will finish the period with no mark,
-            and the period will say so by name.
+            You can save with an empty list. It is how you undo a mapping. They
+            will finish the period with no mark, and the period will name them.
           </Callout>
         )}
 

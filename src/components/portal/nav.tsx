@@ -12,6 +12,7 @@ import {
   CheckCheck,
   ClipboardCheck,
   ClipboardList,
+  ListChecks,
   Clock,
   CreditCard,
   DoorOpen,
@@ -19,8 +20,10 @@ import {
   FileSignature,
   FileText,
   FileUp,
+  FolderKanban,
   FolderOpen,
   GraduationCap,
+  HeartPulse,
   History,
   Inbox,
   Laptop,
@@ -29,6 +32,7 @@ import {
   Megaphone,
   MessagesSquare,
   Network,
+  Scale,
   Orbit,
   Receipt,
   ReceiptText,
@@ -36,11 +40,14 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Star,
   Target,
   Timer,
   TrendingUp,
+  UserCheck,
   UserRoundPlus,
   Users,
+  UsersRound,
   Wallet,
 } from "lucide-react";
 import type { PermissionKey } from "@/lib/permissions";
@@ -69,7 +76,8 @@ export type BadgeSource =
  * unanswered fact does not compile. The alternative, a predicate function on
  * the item, would let one be added that nobody ever calls.
  */
-export type NavRowFact = "one-on-ones" | "signatures";
+export type NavRowFact =
+  "one-on-ones" | "signatures" | "interviews" | "team-tasks";
 
 /**
  * What the sidebar knows that is neither a permission nor a feature flag.
@@ -86,8 +94,27 @@ export type NavFacts = {
    * cache the shell already holds (`lib/store/ai.ts`).
    */
   assistantWired: boolean;
+  /**
+   * Whether ApproveHR lets this company offer early pay at all — `earlyPay` on
+   * `GET /setup/features`, which follows a switch only we can move, from the
+   * admin dashboard. Not a `FeatureKey`: the company cannot set it, and as a
+   * flag it would turn up as a toggle on `/settings/features` that always fails.
+   */
+  earlyPay: boolean;
+  /**
+   * True when the company has not switched on pay early **and** this reader
+   * cannot switch it on. Optional so every caller from before this question
+   * keeps compiling; absent reads as "show it".
+   */
+  earlyPayHidden?: boolean;
   /** One answer per row-level question. Total, so none can be forgotten. */
   rows: Record<NavRowFact, boolean>;
+  /**
+   * Somebody invited to help hire, with no employee record and no permissions: they
+   * are shown My interviews and nothing else. See `useIsCollaborator`. Defaults to
+   * false (and may be left out), so nobody is narrowed until it is known.
+   */
+  collaborator?: boolean;
 };
 
 /**
@@ -99,13 +126,40 @@ export type NavFacts = {
  */
 export const NOTHING_ANSWERED_YET: NavFacts = {
   assistantWired: false,
-  rows: { "one-on-ones": false, signatures: false },
+  earlyPay: false,
+  rows: {
+    "one-on-ones": false,
+    signatures: false,
+    interviews: false,
+    "team-tasks": false,
+  },
+  collaborator: false,
 };
 
 export type NavItem = {
   href: string;
   label: string;
   icon: React.ReactNode;
+  /**
+   * The path this item owns, when `href` is only the door into a bigger area.
+   *
+   * "Hiring settings" opens on `/hiring/settings/pipelines`, but Tags, Scorecards
+   * and the other tabs live beside it, not under it — so a plain `href` prefix
+   * test never lit the row on them, and the module's Overview (`/hiring`, a
+   * prefix of everything) took the highlight instead. `resolveActiveHref`
+   * matches on this when set, still longest-match-wins.
+   */
+  activePrefix?: string;
+  /**
+   * Paths under this item's prefix that it must not claim.
+   *
+   * Overview (`/hiring`) is a prefix of everything in the module, so it lit on
+   * a requisition's own page (`/hiring/requisitions/:id`), which has no row of
+   * its own. Naming the path here leaves that page with nothing lit rather than
+   * the wrong row, and "New role" (`/hiring/requisitions/new`) still matches
+   * itself, being a longer match that is not excluded.
+   */
+  activeExcept?: string[];
   /** A fixed count, for modules with no store behind them yet. */
   badge?: number;
   /** Computed in the shell from a store. Takes precedence over `badge`. */
@@ -190,6 +244,19 @@ export type NavItem = {
   assistant?: true;
 
   /**
+   * Hidden unless ApproveHR allows this company early pay. See
+   * `NavFacts.earlyPay`. Like `assistant`, not a question about the reader, so
+   * `always` does not override it.
+   */
+  earlyPay?: true;
+
+  /**
+   * Hidden while `NavFacts.earlyPayHidden`. A row for something the company has
+   * not switched on leads to a screen that can only say no.
+   */
+  hideWhenEarlyPayOff?: true;
+
+  /**
    * Hidden unless the **rows** say this is the reader's.
    *
    * A fourth question, and separate from the three above for the same reason
@@ -217,7 +284,8 @@ export type NavItem = {
    * somebody's memory.
    *
    * Opts out of the **permission** check only. A `feature` still hides an item,
-   * and so does `assistant` — neither is a question about the reader.
+   * and so do `assistant` and `earlyPay` — none of them is a question about
+   * the reader.
    */
   always?: boolean;
 
@@ -241,10 +309,25 @@ export type NavGroup = {
 
   /**
    * Which paid module this group belongs to, for `visibleNav` to check
-   * against the company's plan. Unset for `PERSONAL` and `COMPANY_WIDE` —
-   * neither is sold separately, so neither can ever be outside the plan.
+   * against the company's plan. Unset for `PERSONAL` and the company-wide
+   * groups (Reports, Settings) — neither is sold separately, so neither can
+   * ever be outside the plan. The sidebar reads "set" as "this is a module".
    */
   billingModule?: BillingModule;
+
+  /**
+   * A stable key for the group, which the sidebar uses to say which drill-down
+   * level it is on. Optional so every fixture that builds a `NavGroup` by hand
+   * still compiles; the sidebar falls back to a slug of `heading`.
+   */
+  id?: string;
+
+  /**
+   * The icon the group's own row wears at the top level of the sidebar, where
+   * the group is one row and its items are a click away. Unset falls back to
+   * a generic one. Never read by `visibleNav`.
+   */
+  icon?: React.ReactNode;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -284,6 +367,53 @@ const PERSONAL: NavItem[] = [
     label: "Assistant",
     icon: <Sparkles aria-hidden="true" />,
     assistant: true,
+    always: true,
+  },
+  {
+    /* Here rather than under a module, because the six the site sells are not
+       this one's and a seventh heading for a single row would be furniture.
+       No permission: who sees which project is the API's rule (members, and
+       anybody who manages records), and a person on none sees an empty list with
+       a way to start one if they lead people. The feature flag is what keeps it
+       out of a company that has not switched it on. */
+    href: "/projects",
+    label: "Projects",
+    icon: <FolderKanban aria-hidden="true" />,
+    feature: "projects",
+    always: true,
+  },
+  {
+    /* Under Projects, for the reason Projects is here. Everybody with a staff
+       record has a list of their own; a sign-in with none is told so by the page
+       (the API refuses it) rather than the row vanishing and reappearing. */
+    href: "/projects/mine",
+    label: "My tasks",
+    icon: <ListChecks aria-hidden="true" />,
+    feature: "projects",
+    always: true,
+  },
+  {
+    /* Only for somebody who leads people: the rows decide, because no
+       permission says who has anybody reporting to them or a department to
+       head. Absent rather than an empty page that explains itself. */
+    href: "/projects/team",
+    label: "Team tasks",
+    icon: <Users aria-hidden="true" />,
+    feature: "projects",
+    rows: "team-tasks",
+    always: true,
+  },
+  {
+    /* Here for the reason Projects is: it belongs to the person using it and to
+       no module the site sells. No permission, because every employee keeps
+       their own log and gives kudos; the screens narrow what a role sees (the
+       organisation's challenge and floor settings need `MANAGE_SETTINGS`) and
+       the API decides everything else. The flag is what keeps it out of a
+       company that has not switched it on. */
+    href: "/wellness",
+    label: "Wellness",
+    icon: <HeartPulse aria-hidden="true" />,
+    feature: "wellness",
     always: true,
   },
   /*
@@ -544,11 +674,16 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
          self-service act, and gating it behind a role would hide it from
          exactly the people it exists for. Whether they *can* is decided by the
          company's policy and by what they have earned — the screen asks the
-         API and renders its refusal. */
+         API and renders its refusal.
+
+         `earlyPay` is the one thing that removes it: ApproveHR switching the
+         company off from the admin dashboard. Then there is nothing to ask. */
       href: "/payroll/advances",
       label: "Pay early",
       icon: <Banknote aria-hidden="true" />,
       always: true,
+      earlyPay: true,
+      hideWhenEarlyPayOff: true,
     },
     {
       href: "/payroll/expenses",
@@ -603,6 +738,7 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
     {
       href: "/hiring",
       label: "Overview",
+      activeExcept: ["/hiring/requisitions"],
       icon: <BriefcaseBusiness aria-hidden="true" />,
       anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
       feature: "hiring",
@@ -629,6 +765,13 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "hiring",
     },
     {
+      href: "/hiring/talent-pool",
+      label: "Talent pool",
+      icon: <Star aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
+      feature: "hiring",
+    },
+    {
       href: "/hiring/interviews",
       label: "Interviews",
       icon: <CalendarClock aria-hidden="true" />,
@@ -636,10 +779,37 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "hiring",
     },
     {
+      /* The narrow door: an employee on an interview panel, or hiring for a role,
+         sees the interviews that are theirs and nothing else about hiring. No
+         permission can say who that is, so the rows are asked (`rows`). */
+      href: "/hiring/my-interviews",
+      label: "My interviews",
+      icon: <CalendarCheck aria-hidden="true" />,
+      rows: "interviews",
+      feature: "hiring",
+    },
+    {
       href: "/hiring/offers",
       label: "Offers",
       icon: <FileCheck aria-hidden="true" />,
       anyPermission: ["MANAGE_HIRING", "APPROVE_HIRING"],
+      feature: "hiring",
+    },
+    {
+      /* Where an accepted offer lands. An employee is made from here, on request,
+         and only where the company has Core HR. */
+      href: "/hiring/hired",
+      label: "Hired",
+      icon: <UserCheck aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
+      feature: "hiring",
+    },
+    {
+      href: "/hiring/settings/pipelines",
+      label: "Hiring settings",
+      activePrefix: "/hiring/settings",
+      icon: <SlidersHorizontal aria-hidden="true" />,
+      permission: "MANAGE_HIRING",
       feature: "hiring",
     },
   ],
@@ -730,6 +900,15 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       always: true,
     },
     {
+      href: "/performance/work-record",
+      label: "My work record",
+      icon: <ListChecks aria-hidden="true" />,
+      /* It lists what somebody finished on the project boards, so it exists for
+         a company that has Projects switched on and for nobody else. */
+      feature: "projects",
+      always: true,
+    },
+    {
       /* `SkillsTab` itself decides mine/team/company; the nav only asks
          whether the company scores competencies at all. */
       href: "/performance/skills",
@@ -766,6 +945,15 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
       feature: "multiAppraiser",
       permission: "EDIT_RECORDS",
     },
+    {
+      /* Was reachable only from inside one appraisal period. A module of its
+         own in Performance, for whoever may see it. */
+      href: "/performance/fairness",
+      label: "Fairness check",
+      icon: <Scale aria-hidden="true" />,
+      feature: "appraisals",
+      permission: "VIEW_FAIRNESS",
+    },
   ],
 
   /* The help desk *is* Employee Support: a queue of HR requests with owners
@@ -793,8 +981,12 @@ const MODULE_ITEMS: Record<ModuleId, NavItem[]> = {
  * Reports reads across all six; Settings and Roles configure all six. Nothing
  * here would be true of one heading and false of the others, which is the test
  * for belonging in this block rather than in a module.
+ *
+ * Two lists rather than one so the sidebar can file each under its own row —
+ * Reports and Settings — instead of four loose rows at the top level. Every
+ * item that was in the single list is in exactly one of these two.
  */
-const COMPANY_WIDE: NavItem[] = [
+const REPORT_ITEMS: NavItem[] = [
   {
     href: "/reports",
     label: "Reports",
@@ -811,6 +1003,9 @@ const COMPANY_WIDE: NavItem[] = [
     label: "Explore",
     icon: <Orbit aria-hidden="true" />,
   },
+];
+
+const SETTINGS_ITEMS: NavItem[] = [
   {
     href: "/settings",
     label: "Settings",
@@ -865,14 +1060,42 @@ const BILLING_MODULE_OF: Record<ModuleId, BillingModule> = {
   desk: "HELPDESK",
 };
 
+/**
+ * The icon each module's own row wears in the sidebar's top level.
+ *
+ * `Record<ModuleId, …>`, like `MODULE_ITEMS` above, so a seventh module stops
+ * this file compiling until somebody picks one.
+ */
+const MODULE_ICON: Record<ModuleId, React.ReactNode> = {
+  "core-hr": <UsersRound aria-hidden="true" />,
+  payroll: <Banknote aria-hidden="true" />,
+  hiring: <BriefcaseBusiness aria-hidden="true" />,
+  time: <CalendarDays aria-hidden="true" />,
+  performance: <Target aria-hidden="true" />,
+  desk: <LifeBuoy aria-hidden="true" />,
+};
+
 export const NAV: NavGroup[] = [
-  { items: PERSONAL },
+  { id: "home", items: PERSONAL },
   ...MODULES.map((module) => ({
+    id: module.id,
     heading: module.label,
+    icon: MODULE_ICON[module.id],
     billingModule: BILLING_MODULE_OF[module.id],
     items: MODULE_ITEMS[module.id],
   })).sort((a, b) => Number(comingSoon(a)) - Number(comingSoon(b))),
-  { items: COMPANY_WIDE },
+  {
+    id: "reports",
+    heading: "Reports",
+    icon: <ChartNoAxesColumn aria-hidden="true" />,
+    items: REPORT_ITEMS,
+  },
+  {
+    id: "settings",
+    heading: "Settings",
+    icon: <Settings aria-hidden="true" />,
+    items: SETTINGS_ITEMS,
+  },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -946,7 +1169,15 @@ export function visibleNav(
         if (item.feature !== undefined && features[item.feature] === false) {
           return [];
         }
+        /* A collaborator is shown the one room that is theirs and no door to any other:
+           not hiring, not employees, not payroll, not even Home. The first question
+           asked, so no later rule can let a row through for them. */
+        if (facts.collaborator) {
+          return item.rows === "interviews" ? [item] : [];
+        }
         if (item.assistant && !facts.assistantWired) return [];
+        if (item.earlyPay && !facts.earlyPay) return [];
+        if (item.hideWhenEarlyPayOff && facts.earlyPayHidden) return [];
         /* Before the permission checks, and before `always`, because it is a
            different question from all of them: `always` opts out of asking
            about the *reader*, and this is not about the reader. */

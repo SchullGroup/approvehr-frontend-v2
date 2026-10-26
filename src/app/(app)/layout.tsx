@@ -1,4 +1,5 @@
 import { ToastProvider } from "@/components/ui";
+import { AppOpenBeacon } from "@/components/portal/app-open-beacon";
 import { ErrorReporting } from "@/components/portal/error-reporting";
 import { ServiceWorker } from "@/components/portal/service-worker";
 import { AuthGate } from "@/components/portal/auth-gate";
@@ -32,6 +33,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <ToastProvider>
         <AuthGate>
           <SetupGate>
+            {/* The once-a-day "opened the app" mark behind the pilot's weekly-active
+                measure. Renders nothing, waits for nothing, and stays quiet while the
+                company has tracking off. See the component for the rules. */}
+            <AppOpenBeacon />
             <AppShell>{children}</AppShell>
           </SetupGate>
         </AuthGate>

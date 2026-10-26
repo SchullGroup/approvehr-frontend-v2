@@ -279,6 +279,7 @@ export function BarChart({
   format = (n) => n.toLocaleString(),
   caption,
   colorBy = "single",
+  tones,
   className,
 }: {
   points: Point[];
@@ -286,6 +287,8 @@ export function BarChart({
   caption: string;
   /** "single" keeps one accent bar; "series" walks the categorical ramp. */
   colorBy?: "single" | "series";
+  /** Per-bar colour, by index, for bars that mean something (a score band, a severity). Wins over `colorBy`. */
+  tones?: readonly string[];
   className?: string;
 }) {
   const max = niceCeiling(Math.max(...recorded(points)));
@@ -327,9 +330,10 @@ export function BarChart({
                   style={{
                     width: `${(p.value / max) * 100}%`,
                     backgroundColor:
-                      colorBy === "series"
+                      tones?.[i] ??
+                      (colorBy === "series"
                         ? SERIES[i % SERIES.length]
-                        : "var(--color-accent)",
+                        : "var(--color-accent)"),
                   }}
                 />
               )}
@@ -515,7 +519,7 @@ export function StackedBar({
             style={{
               width: `${Math.min((over / scale) * 100, 100)}%`,
               backgroundImage:
-                "repeating-linear-gradient(45deg, var(--color-danger) 0 4px, var(--color-danger-soft) 4px 8px)",
+                "repeating-linear-gradient(45deg, var(--color-warning) 0 4px, var(--color-warning-soft) 4px 8px)",
             }}
           />
         )}
@@ -543,7 +547,7 @@ export function StackedBar({
           </li>
         )}
         {over > 0 && (
-          <li className="text-meta font-medium text-danger-text">
+          <li className="text-meta font-medium text-warning-text">
             {format(over)} past the limit
           </li>
         )}
@@ -715,7 +719,7 @@ export function Sparkline({
   const stroke = {
     accent: "var(--color-accent)",
     success: "var(--color-success-strong)",
-    danger: "var(--color-danger)",
+    danger: "var(--color-warning-text)",
     muted: "var(--color-faint)",
   }[tone];
 

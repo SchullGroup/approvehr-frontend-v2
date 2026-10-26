@@ -498,7 +498,7 @@ export function EditableSection({
               <span
                 className={
                   f.emptyIsUrgent
-                    ? "font-medium text-danger-text"
+                    ? "font-medium text-warning-text"
                     : "text-muted"
                 }
               >

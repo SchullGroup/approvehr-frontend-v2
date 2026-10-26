@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { tabFromQuery } from "@/lib/url-tab";
 import { PeriodReportScreen } from "./report-screen";
+import { REPORT_TABS } from "./tabs";
 
 export const metadata: Metadata = {
   title: "Period report",
   description:
-    "How an appraisal period came out: the spread of marks, what came in, and who finishes unscored or unfinalised, by name.",
+    "How the period went: how marks are spread, what has come in, and who is still missing a mark or a final rating.",
 };
 
 /**
@@ -21,9 +23,17 @@ export const metadata: Metadata = {
  */
 export default async function PeriodReportPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string | string[] }>;
 }) {
   const { id } = await params;
-  return <PeriodReportScreen cycleId={id} />;
+  const { tab } = await searchParams;
+  return (
+    <PeriodReportScreen
+      cycleId={id}
+      initialTab={tabFromQuery(tab, REPORT_TABS, "marks")}
+    />
+  );
 }

@@ -8,7 +8,6 @@ import {
   Button,
   Card,
   CardHeader,
-  Checkbox,
   EmptyState,
   Field,
   Input,
@@ -21,6 +20,7 @@ import {
   THead,
   TR,
   TableWrap,
+  ToggleFilter,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { EquipmentKind, KindInput } from "@/lib/store/assets";
@@ -73,13 +73,10 @@ export function KindsPanel({
           description="Whether it must be handed back when somebody leaves is decided here."
           action={
             <div className="flex flex-wrap items-center gap-4">
-              <Checkbox
+              <ToggleFilter
                 label="Show switched off"
                 checked={includeInactive}
-                onChange={(e) => {
-                  const value = e.target.checked;
-                  onIncludeInactiveChange(value);
-                }}
+                onChange={onIncludeInactiveChange}
               />
               {canManage && (
                 <Button

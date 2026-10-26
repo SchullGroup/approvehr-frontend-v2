@@ -243,7 +243,7 @@ describe("formatDateTimeShort", () => {
 });
 
 describe("formatWeekdayTime", () => {
-  it("renders the weekday, day, short month and time — no year", () => {
+  it("renders the weekday, day, short month and time, no year", () => {
     /* Both zones: 2026-09-11T23:30:00.000Z is Friday the 11th in UTC and
        already Saturday the 12th in Africa/Lagos, so the two must disagree
        on the weekday as well as the day and the time. */

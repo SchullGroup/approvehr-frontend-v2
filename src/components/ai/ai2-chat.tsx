@@ -156,7 +156,7 @@ export function Ai2Chat() {
                 <span
                   className={
                     overLimit
-                      ? "text-meta text-danger-text"
+                      ? "text-meta text-warning-text"
                       : "text-meta text-muted"
                   }
                 >

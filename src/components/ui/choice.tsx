@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useId } from "react";
+import { forwardRef, useEffect, useId, useRef } from "react";
 import { Check, Minus } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -16,30 +16,73 @@ type ChoiceProps = {
   className?: string;
 };
 
-export type CheckboxProps = ChoiceProps &
+export type CheckboxProps = Omit<ChoiceProps, "label"> &
   Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> & {
+    /**
+     * What it is for, in words. Leave it out and pass `hiddenLabel` for a tick that
+     * stands alone in a row or a column heading, where the name is the row's.
+     */
+    label?: React.ReactNode;
+    /**
+     * The box's accessible name when there is no visible label. No `<label>` is
+     * drawn: a list with a tick on every row used to carry one label per row, and
+     * every one of them is something a test runner's accessibility queries have to
+     * search again for each button on the page.
+     */
+    hiddenLabel?: string;
     indeterminate?: boolean;
   };
 
 export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
   function Checkbox(
-    { label, description, className, indeterminate, disabled, ...props },
+    {
+      label,
+      hiddenLabel,
+      description,
+      className,
+      indeterminate,
+      disabled,
+      ...props
+    },
     ref,
   ) {
     const id = useId();
     const descId = description ? `${id}-desc` : undefined;
+    const own = useRef<HTMLInputElement | null>(null);
+
+    /* `indeterminate` is a property of the element, not an attribute, so React
+       cannot set it. The dash that stands for "some, not all" is shown by the CSS
+       state this sets, and without it the box showed neither tick nor dash. */
+    useEffect(() => {
+      if (own.current) own.current.indeterminate = Boolean(indeterminate);
+    }, [indeterminate]);
 
     return (
       <div className={cn("flex gap-2.5", className)}>
-        <span className="relative flex items-center justify-center shrink-0 mt-px size-[18px]">
+        <span
+          className={cn(
+            "relative flex items-center justify-center shrink-0 mt-px size-[18px]",
+            /* A tick with no words beside it has nothing else to press, so on a
+               touch screen it is the size of a finger's smallest target. */
+            label === undefined && "[@media(pointer:coarse)]:size-6",
+          )}
+        >
           <input
-            ref={ref}
+            ref={(node) => {
+              own.current = node;
+              if (typeof ref === "function") ref(node);
+              else if (ref) ref.current = node;
+            }}
             id={id}
             type="checkbox"
             disabled={disabled}
             aria-describedby={descId}
+            {...(label === undefined && hiddenLabel
+              ? { "aria-label": hiddenLabel }
+              : {})}
             className={cn(
               "peer size-[18px] appearance-none rounded-xs border bg-surface",
+              label === undefined && "[@media(pointer:coarse)]:size-6",
               "border-control-line cursor-pointer transition-colors duration-150",
               "hover:border-ink-soft",
               "checked:bg-fill-strong checked:border-fill-strong",
@@ -63,22 +106,27 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
           )}
         </span>
 
-        <span className="min-w-0">
-          <label
-            htmlFor={id}
-            className={cn(
-              "block text-body-sm text-ink leading-snug",
-              disabled ? "cursor-not-allowed text-muted" : "cursor-pointer",
+        {label !== undefined && (
+          <span className="min-w-0">
+            <label
+              htmlFor={id}
+              className={cn(
+                "block text-body-sm text-ink leading-snug",
+                disabled ? "cursor-not-allowed text-muted" : "cursor-pointer",
+              )}
+            >
+              {label}
+            </label>
+            {description && (
+              <span
+                id={descId}
+                className="mt-0.5 block text-body-sm text-muted"
+              >
+                {description}
+              </span>
             )}
-          >
-            {label}
-          </label>
-          {description && (
-            <span id={descId} className="mt-0.5 block text-body-sm text-muted">
-              {description}
-            </span>
-          )}
-        </span>
+          </span>
+        )}
       </div>
     );
   },
@@ -253,6 +301,19 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(function Switch(
             "peer-checked:translate-x-5",
           )}
         />
+        {/* The track is 44 by 24, and a thumb has to land on 24 of those 44
+            pixels' height. On a phone the same switch gets a transparent label
+            over it that reaches 44 each way: nothing moves on screen, and a
+            toggle stops being something to aim at. A label rather than a taller
+            input, because the input is the visible track. Phones only — with a
+            pointer the 24px is fine, and this would overlap the row above. */}
+        {!disabled && (
+          <label
+            htmlFor={id}
+            aria-hidden="true"
+            className="absolute -inset-x-1 -inset-y-2.5 sm:hidden"
+          />
+        )}
       </span>
     </div>
   );

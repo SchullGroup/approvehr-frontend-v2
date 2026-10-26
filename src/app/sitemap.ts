@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { execFileSync } from "node:child_process";
+import { readSitemapRows } from "@/lib/marketing/careers-sitemap";
 import { MODULES } from "@/lib/marketing/modules";
 import { SITE_URL } from "@/lib/marketing/site";
 
@@ -13,9 +14,10 @@ import { SITE_URL } from "@/lib/marketing/site";
  * belongs here; there is nothing left for a sitemap to omit on the grounds
  * that "the real copy lives elsewhere."
  *
- * `/careers/[org]/**` is real content this domain owns but isn't listed:
- * enumerating it needs a dynamic query for which organisations have a
- * published careers page, which nothing here builds yet.
+ * `/careers/[org]/**` is listed from the API at request time — see
+ * `careers-sitemap.ts` — and only for open adverts of companies that have not
+ * opted out of search results. It is not in this static list because which
+ * companies have anything open is a fact about the database, not the repo.
  */
 const STATIC_ROUTES: { path: string; sourceFile: string; priority: number }[] =
   [
@@ -80,7 +82,10 @@ function lastModifiedOf(file: string): Date | undefined {
   }
 }
 
-export default function sitemap(): MetadataRoute.Sitemap {
+/** Careers addresses change as adverts open and close; re-read every fifteen minutes. */
+export const revalidate = 900;
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries = STATIC_ROUTES.map(({ path, sourceFile, priority }) => ({
     url: `${SITE_URL}${path}`,
     lastModified: lastModifiedOf(sourceFile),
@@ -95,5 +100,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
-  return [...staticEntries, ...moduleEntries];
+  /* Every open advert, and each company that has one. A row's `lastModified`
+     is the advert's own `updatedAt`, which is a claim about the world and
+     therefore never a build-time `new Date()`. */
+  const [postings, companies] = await Promise.all([
+    readSitemapRows("postings"),
+    readSitemapRows("companies"),
+  ]);
+  const careersEntries = [...companies, ...postings].map((row) => ({
+    url: `${SITE_URL}/careers${row.path}`,
+    lastModified: new Date(row.lastModified),
+    changeFrequency: "daily" as const,
+    priority: row.slug ? 0.6 : 0.5,
+  }));
+
+  return [...staticEntries, ...moduleEntries, ...careersEntries];
 }

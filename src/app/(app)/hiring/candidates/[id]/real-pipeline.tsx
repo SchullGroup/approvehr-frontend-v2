@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Briefcase, CalendarClock, Plus, TriangleAlert } from "lucide-react";
+import { Briefcase, Plus, TriangleAlert } from "lucide-react";
 import {
   Badge,
   Button,
@@ -10,6 +10,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Checkbox,
   DescriptionList,
   Field,
   Input,
@@ -20,23 +21,48 @@ import {
   Skeleton,
   Textarea,
 } from "@/components/ui";
+import { AcceptOfferDialog } from "@/components/hiring/hired/accept-offer-dialog";
+import { MoveEmailDialog } from "@/components/hiring/move-email-dialog";
+import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
+import {
+  DeletionNotice,
+  InterviewScoreCard,
+  RecordEmails,
+} from "@/components/hiring/record-comms";
+import { InterviewsCard } from "@/components/hiring/interviews/interviews-card";
+import { RecordTags } from "@/components/hiring/record-tags";
+import { RejectDialog } from "@/components/hiring/reject-dialog";
+import { ScorecardDialog } from "@/components/hiring/scorecard-dialog";
+import { StageHistory } from "@/components/hiring/stage-history";
 import { ExportButton } from "@/components/portal/export-button";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { offerLetter } from "@/lib/api/exports";
 import {
-  INTERVIEW_KIND_LABEL,
   RECOMMENDATION_LABEL,
   kobo,
   naira,
+  recruitmentApi,
   type ApiApplicationDetail,
-  type ApiInterviewSummary,
   type ApiStage,
-  type InterviewKind,
-  type RescheduleInterviewBody,
-  type ScorecardRecommendation,
   type UpdateOfferBody,
 } from "@/lib/api/recruitment";
+import { noticeSentence } from "@/lib/hiring/comms/status";
+import { useConnectedInterviews } from "@/lib/hiring/interviews/use-connected-interviews";
+import { acceptedNotice, whatAcceptingDoes } from "@/lib/hiring/hired/copy";
+import { useHiredSettings } from "@/lib/hiring/hired/use-hired";
+import type { ScorecardInput } from "@/lib/hiring/comms/model";
+import { noticeFrom } from "@/lib/hiring/pipeline/api-gateway";
+import { emailLogFrom, scoreFrom } from "@/lib/hiring/pipeline/api-comms";
+import {
+  useEmailReadiness,
+  useStageMail,
+} from "@/lib/hiring/pipeline/use-comms";
+import {
+  usePipelineGateway,
+  useRejectionReasons,
+} from "@/lib/hiring/pipeline/use-pipeline";
+import { isTerminalType } from "@/lib/hiring/pipeline/stage-types";
 import { useCan } from "@/lib/permissions";
 import {
   useApplicationMutations,
@@ -46,8 +72,19 @@ import {
   useOfferMutations,
   useStages,
 } from "@/lib/store/recruitment";
-import { useOrgTimezone } from "@/lib/store/session";
-import { formatWeekdayTime } from "@/lib/time";
+import { useOrgTimezone, useSession } from "@/lib/store/session";
+
+/** What a scorecard form hands over, as the API's body. */
+const scorecardBody = (input: ScorecardInput) => ({
+  recommendation: input.recommendation,
+  ...(input.notes.trim() ? { notes: input.notes.trim() } : {}),
+  ratings: input.ratings.map((rating) => ({
+    competency: rating.competency,
+    score: rating.score,
+    weight: rating.weight,
+    ...(rating.comment.trim() ? { comment: rating.comment.trim() } : {}),
+  })),
+});
 
 const OUTCOME_TONE = {
   IN_PROGRESS: "info",
@@ -72,13 +109,6 @@ const OFFER_STATUS_TONE = {
   ACCEPTED: "success",
   DECLINED: "danger",
   WITHDRAWN: "neutral",
-} as const;
-
-const INTERVIEW_STATUS_TONE = {
-  SCHEDULED: "info",
-  COMPLETED: "success",
-  CANCELLED: "neutral",
-  NO_SHOW: "danger",
 } as const;
 
 export function realOutcomeBadge(application: ApiApplicationDetail) {
@@ -154,18 +184,36 @@ export function RealPipeline({
   onChanged: () => void;
 }) {
   const stagesState = useStages(application.requisitionId);
+  /* Nobody is moved into Hired by hand (an accepted offer puts them there) and
+     Rejected has its own button with a reason; both are left out of the menu. */
+  const moveOptions = stagesState.stages
+    .filter((stage) => stage.id !== application.stageId)
+    .filter((stage) => !isTerminalType(stage.type));
   const applications = useApplicationMutations();
-  const interviews = useInterviewMutations();
   const offers = useOfferMutations();
   const canApprove = useCan("APPROVE_HIRING");
   const canManage = useCan("MANAGE_HIRING");
   const timeZone = useOrgTimezone();
+  const { employeeId } = useSession();
 
-  const [scheduling, setScheduling] = useState(false);
-  const [rescheduling, setRescheduling] = useState<ApiInterviewSummary | null>(
-    null,
-  );
   const [scoring, setScoring] = useState<string | null>(null);
+  const readiness = useEmailReadiness(canManage);
+  const emailsSupported = readiness.data?.supported === true;
+  const stageMail = useStageMail(application.requisitionId, canManage);
+  const interviews = useInterviewMutations();
+  /* One array per read of the record, so a change made on the card stays on screen
+     until the record is read again and not a render longer. */
+  const rawInterviews = useMemo(
+    () => new Map(application.interviews.map((iv) => [iv.id, iv])),
+    [application.interviews],
+  );
+  const { views: interviewViews, reload: reloadInterviews } =
+    useConnectedInterviews(application.interviews, {
+      applicationId: application.id,
+      candidateName: application.candidateName,
+      role: application.requisitionJobTitle,
+    });
+  const [movingTo, setMovingTo] = useState<string | null>(null);
   const [openScorecards, setOpenScorecards] = useState<Set<string>>(
     () => new Set(),
   );
@@ -178,14 +226,17 @@ export function RealPipeline({
     });
   const [offering, setOffering] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [rejectError, setRejectError] = useState<string | null>(null);
+  const gateway = usePipelineGateway();
+  const reasons = useRejectionReasons();
   const [withdrawingApplication, setWithdrawingApplication] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{
-    tone: "success" | "danger";
+    tone: "success" | "warning" | "danger";
     text: string;
   } | null>(null);
 
-  const say = (tone: "success" | "danger", text: string) =>
+  const say = (tone: "success" | "warning" | "danger", text: string) =>
     setNotice({ tone, text });
   const fail = (error: unknown) =>
     say(
@@ -195,28 +246,91 @@ export function RealPipeline({
         : "Something went wrong. Try again.",
     );
 
-  async function moveTo(stageId: string) {
+  /**
+   * The stage sends an email when somebody is moved into it, so ask first: the API
+   * sends it unless told not to. If it is not known whether the stage sends one,
+   * nothing is sent.
+   */
+  function chooseStage(stageId: string) {
+    if (emailsSupported && stageMail.known && stageMail.byStage.has(stageId)) {
+      setMovingTo(stageId);
+      return;
+    }
+    void moveTo(stageId, false);
+  }
+
+  async function moveTo(stageId: string, sendEmail: boolean) {
     setBusy(true);
     try {
-      await applications.move(application.id, stageId);
-      say("success", "Moved.");
+      const result = await applications.move(
+        application.id,
+        stageId,
+        sendEmail,
+      );
+      const said = noticeSentence(
+        noticeFrom(result.email),
+        application.candidateName,
+      );
+      say(
+        said && (said.tone === "warning" || said.tone === "danger")
+          ? "warning"
+          : "success",
+        said ? `Moved. ${said.text}` : "Moved.",
+      );
+      setMovingTo(null);
       onChanged();
     } catch (error) {
+      setMovingTo(null);
       fail(error);
     } finally {
       setBusy(false);
     }
   }
 
-  async function reject(reason: string) {
+  /** A reason from the company's list, and an optional note. A decline email only if it was ticked. */
+  async function reject(choice: {
+    reasonId: string;
+    note: string | null;
+    sendEmail: boolean;
+  }) {
     setBusy(true);
+    setRejectError(null);
     try {
-      await applications.reject(application.id, reason.trim() || undefined);
-      say("success", "Rejected.");
+      const result = await gateway.reject(
+        {
+          id: application.id,
+          candidateId: application.candidate.id,
+          name: application.candidateName,
+          email: application.candidateEmail,
+          reference: null,
+          source: null,
+          flagged: false,
+          duplicate: false,
+          tags: [],
+          talentPool: false,
+          stageId: application.stageId,
+          stageName: application.stageName,
+          stageEnteredAt: application.stageEnteredAt,
+          outcome: application.outcome,
+          rejectionReason: application.rejectionReason,
+        },
+        choice,
+      );
+      const said = noticeSentence(result.email, application.candidateName);
+      say(
+        said && (said.tone === "warning" || said.tone === "danger")
+          ? "warning"
+          : "success",
+        said ? `Rejected. ${said.text}` : "Rejected. Nothing was sent to them.",
+      );
       setRejecting(false);
       onChanged();
     } catch (error) {
-      fail(error);
+      setRejectError(
+        error instanceof ApiError
+          ? error.message
+          : "Something went wrong. Try again.",
+      );
     } finally {
       setBusy(false);
     }
@@ -244,7 +358,13 @@ export function RealPipeline({
       {notice && (
         <Callout
           tone={notice.tone}
-          title={notice.tone === "success" ? "Done" : "Not done"}
+          title={
+            notice.tone === "success"
+              ? "Done"
+              : notice.tone === "warning"
+                ? "Done, with a note"
+                : "Not done"
+          }
         >
           {notice.text}
         </Callout>
@@ -268,7 +388,7 @@ export function RealPipeline({
             {canManage && !stagesState.loading && stagesState.error && (
               <p className="w-full text-body-sm text-danger-text">
                 {stagesState.error.message} The stages could not be loaded, so
-                no &ldquo;Move to&rdquo; options are shown here — Reject and
+                no &ldquo;Move to&rdquo; options are shown here. Reject and
                 Withdraw below still work.
               </p>
             )}
@@ -276,12 +396,11 @@ export function RealPipeline({
               !stagesState.loading &&
               !stagesState.error &&
               stagesState.stages.length > 0 &&
-              stagesState.stages.filter((s) => s.id !== application.stageId)
-                .length === 0 && (
+              moveOptions.length === 0 && (
                 <p className="w-full text-body-sm text-muted">
                   This requisition has only the one stage they are already in,
-                  so there is nowhere else to move them — reject or withdraw
-                  them instead, or add another stage on the requisition.
+                  so there is nowhere else to move them, reject or withdraw them
+                  instead, or add another stage on the requisition.
                 </p>
               )}
             {/* `POST /applications/:id/move` and `.../reject` are both gated
@@ -292,24 +411,35 @@ export function RealPipeline({
             {canManage &&
               !stagesState.loading &&
               !stagesState.error &&
-              stagesState.stages
-                .filter((s) => s.id !== application.stageId)
-                .map((s) => (
-                  <Button
-                    key={s.id}
-                    variant="secondary"
-                    size="sm"
-                    loading={busy}
-                    onClick={() => void moveTo(s.id)}
-                  >
-                    Move to {s.name}
-                  </Button>
-                ))}
+              moveOptions.length > 0 && (
+                <Select
+                  aria-label="Move to…"
+                  value=""
+                  disabled={busy}
+                  className="w-auto"
+                  onChange={(event) => {
+                    if (event.currentTarget.value)
+                      chooseStage(event.currentTarget.value);
+                  }}
+                >
+                  <option value="" disabled>
+                    Move to…
+                  </option>
+                  {moveOptions.map((stage) => (
+                    <option key={stage.id} value={stage.id}>
+                      {stage.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
             {canManage && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setRejecting(true)}
+                onClick={() => {
+                  setRejectError(null);
+                  setRejecting(true);
+                }}
               >
                 Reject
               </Button>
@@ -330,14 +460,23 @@ export function RealPipeline({
         </Card>
       )}
 
+      <RecordTags
+        application={application}
+        canManage={canManage}
+        onChanged={onChanged}
+      />
+
       {application.offer ? (
         <OfferCard
           offer={application.offer}
           candidateName={application.candidateName}
+          requisitionId={application.requisitionId}
           canApprove={canApprove}
           canManage={canManage}
           onChanged={onChanged}
           onNotice={say}
+          emailsSupported={emailsSupported}
+          blockedBy={readiness.data?.blockedBy ?? []}
         />
       ) : application.outcome === "IN_PROGRESS" ? (
         <Card>
@@ -357,64 +496,54 @@ export function RealPipeline({
         </Card>
       ) : null}
 
-      <Card>
-        <CardHeader
-          title="Interviews"
-          action={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setScheduling(true)}
-            >
-              <Plus aria-hidden="true" className="size-3.5" />
-              Schedule
-            </Button>
-          }
-        />
-        <CardBody className="flex flex-col gap-2.5">
-          {application.interviews.length === 0 && (
-            <p className="text-body-sm text-muted">Nothing scheduled.</p>
-          )}
-          {application.interviews.map((iv) => (
-            <div key={iv.id} className="rounded-md border border-line p-3">
-              <div className="flex items-start gap-3">
-                <CalendarClock
-                  aria-hidden="true"
-                  className="mt-0.5 size-4 shrink-0 text-faint"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-body-sm font-medium text-ink">
-                    {INTERVIEW_KIND_LABEL[iv.kind]}
-                  </p>
-                  <p className="tabular mt-0.5 text-meta text-muted">
-                    {formatWeekdayTime(iv.scheduledFor, timeZone)} ·{" "}
-                    {iv.durationMins} mins
-                    {iv.location ? ` · ${iv.location}` : ""}
-                  </p>
-                </div>
-                <Badge tone={INTERVIEW_STATUS_TONE[iv.status]} size="sm">
-                  {iv.status.replace("_", " ").toLowerCase()}
-                </Badge>
-              </div>
-              {/* Completed with nothing submitted is the same fact the
-                  diary's own "Completed, no scorecard yet" card warns about —
-                  this is the one screen where a refused "Move to" click
-                  (the scorecard gate) is actually experienced, so it is the
-                  one screen that most needs to say so beforehand rather than
-                  render identically to a still-scheduled interview. */}
-              <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-line pt-2.5">
-                {iv.status === "COMPLETED" &&
-                iv.scorecards.filter((s) => s.submitted).length === 0 ? (
-                  <span className="flex items-center gap-1 text-meta text-warning-text">
-                    <TriangleAlert aria-hidden="true" className="size-3.5" />
-                    Completed, no scorecard yet
-                  </span>
-                ) : (
-                  <span className="text-meta text-muted">
-                    {iv.scorecards.filter((s) => s.submitted).length} of{" "}
-                    {iv.scorecards.length || 1} scorecards in
-                  </span>
-                )}
+      <InterviewsCard
+        applicationId={application.id}
+        requisitionId={application.requisitionId}
+        stageId={application.stageId}
+        stageName={application.stageName}
+        candidateName={application.candidateName}
+        role={application.requisitionJobTitle}
+        interviews={interviewViews}
+        canManage={canManage}
+        onChanged={() => {
+          onChanged();
+          reloadInterviews();
+        }}
+        onNotice={say}
+        scorecardActions={(iv) => {
+          const raw = rawInterviews.get(iv.id);
+          if (!raw) return null;
+          const inCount = raw.scorecards.filter((s) => s.submitted).length;
+          return (
+            <>
+              {/* Completed with nothing submitted is the same fact the diary's own
+                  "Completed, no scorecard yet" card warns about: this is the one
+                  screen where a refused "Move to" click (the scorecard gate) is
+                  actually experienced, so it says so beforehand. */}
+              {iv.status === "COMPLETED" && inCount === 0 ? (
+                <span className="flex items-center gap-1 text-meta text-warning-text">
+                  <TriangleAlert aria-hidden="true" className="size-3.5" />
+                  Completed, no scorecard yet
+                </span>
+              ) : (
+                <span className="text-meta text-muted">
+                  {inCount} of{" "}
+                  {raw.panelists && raw.panelists.length > 0
+                    ? raw.panelists.length
+                    : raw.scorecards.length || 1}{" "}
+                  scorecards in
+                </span>
+              )}
+              {employeeId === null ? (
+                /* A scorecard from this screen is filed under the signed-in person's
+                   employee record, and this account has none (a company without
+                   Core HR, whose people were invited by email). They hand theirs in
+                   from My interviews, once invited to the interview. */
+                <span className="text-meta text-muted">
+                  Scorecards are handed in by the people invited to score, from
+                  My interviews.
+                </span>
+              ) : (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -422,134 +551,63 @@ export function RealPipeline({
                 >
                   Submit a scorecard
                 </Button>
-                {iv.scorecards.some((s) => s.submitted) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleScorecards(iv.id)}
-                  >
-                    {openScorecards.has(iv.id)
-                      ? "Hide what was submitted"
-                      : "Show what was submitted"}
-                  </Button>
-                )}
-                {iv.status === "SCHEDULED" && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        void interviews
-                          .complete(iv.id)
-                          .then(onChanged)
-                          .catch(fail)
-                      }
-                    >
-                      Mark complete
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        void interviews
-                          .noShow(iv.id)
-                          .then(onChanged)
-                          .catch(fail)
-                      }
-                    >
-                      No-show
-                    </Button>
-                    {/* `PATCH /interviews/:id` is gated on `MANAGE_HIRING`
-                        server-side, same as `.complete`/`.noShow` above —
-                        this one is offered on that permission rather than
-                        left to refuse on the press. */}
-                    {canManage && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setRescheduling(iv)}
-                      >
-                        Reschedule
-                      </Button>
-                    )}
-                    {/* The one action that models "this interview never
-                        should have happened" — booked by mistake, a
-                        duplicate, or against a role since put on hold. Its
-                        mutation has existed since interviews shipped; nothing
-                        called it, which left "Mark complete" or "No-show" as
-                        the only ways to clear one, both of which misrepresent
-                        what actually happened. `POST .../cancel` is gated on
-                        `MANAGE_HIRING` server-side, same as Reschedule. */}
-                    {canManage && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          void interviews
-                            .cancel(iv.id)
-                            .then(onChanged)
-                            .catch(fail)
-                        }
-                      >
-                        Cancel
-                      </Button>
-                    )}
-                  </>
-                )}
-              </div>
-              {openScorecards.has(iv.id) && (
-                <InterviewScorecards interviewId={iv.id} />
               )}
-            </div>
-          ))}
-        </CardBody>
-      </Card>
+              {inCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toggleScorecards(iv.id)}
+                >
+                  {openScorecards.has(iv.id)
+                    ? "Hide what was submitted"
+                    : "Show what was submitted"}
+                </Button>
+              )}
+            </>
+          );
+        }}
+        scorecardPanel={(iv) =>
+          openScorecards.has(iv.id) ? (
+            <InterviewScorecards interviewId={iv.id} />
+          ) : null
+        }
+      />
+
+      {/* Last, after the live controls: this is the record of what has been
+          done, read after the things that can still be done. It comes with the
+          application itself, so it refreshes with every `onChanged`. */}
+      {application.scores && (
+        <InterviewScoreCard score={scoreFrom(application.scores)} />
+      )}
+
+      {application.emails && (
+        <RecordEmails
+          emails={emailLogFrom(application.emails)}
+          timeZone={timeZone}
+        />
+      )}
+
+      {application.retention &&
+        (application.outcome === "REJECTED" ||
+          application.outcome === "WITHDRAWN") && (
+          <DeletionNotice line={application.retention} />
+        )}
+
+      <StageHistory events={application.history} />
 
       {/* Each dialog below stays mounted regardless of its gating state —
           `Modal` decides whether to render from the real `open` prop, so it
           can see that value go false and play its own exit animation. */}
-      <ScheduleInterviewDialog
-        open={scheduling}
-        onClose={() => setScheduling(false)}
-        onConfirm={async (body) => {
-          try {
-            await interviews.schedule(application.id, body);
-            setScheduling(false);
-            onChanged();
-          } catch (error) {
-            fail(error);
-          }
-        }}
-      />
-
-      <RescheduleInterviewDialog
-        open={rescheduling !== null}
-        interview={rescheduling}
-        onClose={() => setRescheduling(null)}
-        onConfirm={async (body) => {
-          if (!rescheduling) return;
-          try {
-            await interviews.reschedule(rescheduling.id, body);
-            setRescheduling(null);
-            onChanged();
-          } catch (error) {
-            fail(error);
-          }
-        }}
-      />
-
       <ScorecardDialog
         open={scoring !== null}
         onClose={() => setScoring(null)}
-        onConfirm={async (body) => {
+        onConfirm={async (input) => {
           if (!scoring) return;
-          try {
-            await interviews.submitScorecard(scoring, body);
-            setScoring(null);
-            onChanged();
-          } catch (error) {
-            fail(error);
-          }
+          /* A refusal is thrown to the dialog, which shows it where the
+             person is looking and keeps what they wrote. */
+          await interviews.submitScorecard(scoring, scorecardBody(input));
+          setScoring(null);
+          onChanged();
         }}
       />
 
@@ -573,8 +631,35 @@ export function RealPipeline({
       <RejectDialog
         open={rejecting}
         busy={busy}
+        error={rejectError}
+        subject={application.candidateName}
+        reasons={reasons.items}
         onClose={() => setRejecting(false)}
-        onConfirm={reject}
+        emailOffer={
+          emailsSupported
+            ? {
+                label: "Send them a decline email",
+                description:
+                  "Off unless you tick it. Rejecting never emails anybody by itself.",
+                blockedBy: readiness.data?.blockedBy ?? [],
+              }
+            : null
+        }
+        onConfirm={(choice) => void reject(choice)}
+      />
+
+      <MoveEmailDialog
+        open={movingTo !== null}
+        onClose={() => setMovingTo(null)}
+        who={application.candidateName}
+        stage={
+          stageMail.stages?.find((stage) => stage.stageId === movingTo)?.name ??
+          "this stage"
+        }
+        mail={(movingTo && stageMail.byStage.get(movingTo)) || null}
+        readiness={readiness.data}
+        busy={busy}
+        onChoose={(send) => movingTo && void moveTo(movingTo, send)}
       />
 
       <WithdrawApplicationDialog
@@ -669,24 +754,50 @@ function InterviewScorecards({ interviewId }: { interviewId: string }) {
 function OfferCard({
   offer,
   candidateName,
+  requisitionId,
   canApprove,
   canManage,
   onChanged,
   onNotice,
+  emailsSupported,
+  blockedBy,
 }: {
   offer: NonNullable<ApiApplicationDetail["offer"]>;
   candidateName: string;
+  /** The job, for the link to its hires. */
+  requisitionId: string;
   canApprove: boolean;
   canManage: boolean;
+  /** The server can send emails to candidates, so the offer notice is offered. */
+  emailsSupported: boolean;
+  /** Why an email asked for now would not be sent. */
+  blockedBy: readonly string[];
   onChanged: () => void;
   /** Surfaces a fact onto the page's own notice banner — used for accepting,
    *  which can silently reject every other in-progress candidate on the same
    *  requisition (the API fills the role and closes the rest of its own
    *  pipeline in the same transaction) with nothing else on this page ever
    *  saying so. */
-  onNotice: (tone: "success" | "danger", text: string) => void;
+  onNotice: (tone: "success" | "warning" | "danger", text: string) => void;
 }) {
   const offers = useOfferMutations();
+  const [tellThem, setTellThem] = useState(false);
+  /* Recording an acceptance used to **create the employee**, and `POST /employees`
+     needs `EDIT_RECORDS`, so the API asks for it as well as `MANAGE_HIRING`:
+     managing hiring alone was a way round the permission that guards every other
+     way of putting a person on the payroll. It now creates one only where the
+     company's setting says so and it has Core HR. Where that is not known, the
+     stricter rule holds: a control whose only outcome is a 403 is not offered. */
+  const canEditPeople = useCan("EDIT_RECORDS");
+  const hired = useHiredSettings(offer.status === "SENT");
+  const acceptWords = whatAcceptingDoes({
+    setting: hired.settings?.onOfferAccepted ?? null,
+    coreHr: hired.settings?.coreHr ?? null,
+  });
+  const settingKnown = hired.settings !== null;
+  const makesEmployee = !settingKnown || acceptWords.makesEmployee;
+  const canRecordAcceptance = canManage && (!makesEmployee || canEditPeople);
+  const [accepting, setAccepting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -792,14 +903,51 @@ function OfferCard({
           {offer.status === "PENDING_APPROVAL" &&
             offer.approvedAt &&
             canManage && (
-              <Button
-                variant="accent"
-                size="sm"
-                loading={busy}
-                onClick={() => void run(() => offers.send(offer.id))}
-              >
-                Send
-              </Button>
+              <>
+                {emailsSupported && (
+                  <div className="flex w-full flex-col gap-1.5">
+                    <Checkbox
+                      label="Also tell them an offer is on its way"
+                      description="A short email with no figure and no letter. Off unless you tick it."
+                      checked={tellThem}
+                      onChange={(event) => setTellThem(event.target.checked)}
+                    />
+                    {tellThem && blockedBy.length > 0 && (
+                      <p className="text-meta text-warning-text">
+                        It would not be sent right now: {blockedBy.join(" ")}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <Button
+                  variant="accent"
+                  size="sm"
+                  loading={busy}
+                  onClick={() =>
+                    void run(() =>
+                      offers.send(
+                        offer.id,
+                        tellThem ? { sendEmail: true } : {},
+                      ),
+                    ).then((sent) => {
+                      if (!sent) return;
+                      const said = noticeSentence(
+                        noticeFrom(sent.email),
+                        candidateName,
+                      );
+                      if (said)
+                        onNotice(
+                          said.tone === "warning" || said.tone === "danger"
+                            ? "warning"
+                            : "success",
+                          `Offer marked as sent. ${said.text}`,
+                        );
+                    })
+                  }
+                >
+                  Send
+                </Button>
+              </>
             )}
           {offer.status === "PENDING_APPROVAL" &&
             offer.approvedAt &&
@@ -810,26 +958,23 @@ function OfferCard({
             )}
           {offer.status === "SENT" && (
             <>
-              <Button
-                variant="approve"
-                size="sm"
-                loading={busy}
-                onClick={() =>
-                  void run(() => offers.accept(offer.id)).then((result) => {
-                    if (!result || result.rejectedOthers === 0) return;
-                    onNotice(
-                      "success",
-                      `Accepted. ${result.rejectedOthers} other ${
-                        result.rejectedOthers === 1 ? "candidate" : "candidates"
-                      } still in this pipeline ${
-                        result.rejectedOthers === 1 ? "was" : "were"
-                      } automatically rejected — the role is filled.`,
-                    );
-                  })
-                }
-              >
-                Record accepted
-              </Button>
+              {!canRecordAcceptance && (
+                <span className="text-meta text-muted">
+                  Recording that they accepted also creates their employee
+                  record here, so it needs permission to edit people as well as
+                  to manage hiring.
+                </span>
+              )}
+              {canRecordAcceptance && (
+                <Button
+                  variant="approve"
+                  size="sm"
+                  loading={busy}
+                  onClick={() => setAccepting(true)}
+                >
+                  Record accepted
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="sm"
@@ -858,11 +1003,19 @@ function OfferCard({
                 href={`/people/${offer.employeeId}`}
                 className="text-meta text-success-text underline underline-offset-2"
               >
-                Became an employee record.
+                Employee record created.
               </Link>
             ) : (
               <span className="text-meta text-success-text">
-                Became an employee record.
+                On the Hired list. No employee record yet.{" "}
+                {canManage && (
+                  <Link
+                    href={`/hiring/hired?job=${requisitionId}`}
+                    className="underline underline-offset-2"
+                  >
+                    Open the Hired list
+                  </Link>
+                )}
               </span>
             ))}
           {/* Approved, not pending: `approvedAt` is never cleared once set, so
@@ -889,6 +1042,36 @@ function OfferCard({
       {/* Mounted regardless of `editing`/`redoing` — see the note above
           `ScheduleInterviewDialog` on why these dialogs stay mounted rather
           than being conditionally rendered. */}
+      <AcceptOfferDialog
+        open={accepting}
+        onClose={() => setAccepting(false)}
+        name={candidateName}
+        words={acceptWords}
+        known={settingKnown}
+        busy={busy}
+        onConfirm={() =>
+          void run(() => offers.accept(offer.id)).then((result) => {
+            setAccepting(false);
+            if (!result) return;
+            /* Said from the API's answer: an employee record is claimed only if
+               it came back with one, and a role with room for more says which
+               hire this was, so "accepted" is not read as "the role is done". */
+            onNotice(
+              "success",
+              acceptedNotice(candidateName, {
+                employeeId: result.employeeId ?? null,
+                employeeCreated: result.employeeCreated,
+                note: result.onOfferAccepted?.note ?? null,
+                rejectedOthers: result.rejectedOthers,
+                hiresSoFar: result.hiresSoFar,
+                headcount: result.headcount,
+                requisitionFilled: result.requisitionFilled,
+              }),
+            );
+          })
+        }
+      />
+
       <EditOfferDialog
         open={editing}
         offer={offer}
@@ -910,7 +1093,7 @@ function OfferCard({
         onClose={() => setRedoing(false)}
         title="Make a new offer"
         confirmLabel="Save as draft"
-        help="This starts a fresh draft on the same application — the offer that was declined or withdrawn is replaced, not duplicated. Submit it for approval once you are ready."
+        help="This starts a fresh draft on the same application, the offer that was declined or withdrawn is replaced, not duplicated. Submit it for approval once you are ready."
         onConfirm={async (amountNaira, startDate) => {
           try {
             setError(null);
@@ -930,386 +1113,6 @@ function OfferCard({
 }
 
 /* ------------------------------------------------------------------ dialogs */
-
-function ScheduleInterviewDialog({
-  open,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: (body: {
-    kind: InterviewKind;
-    scheduledFor: string;
-    durationMins?: number;
-    location?: string;
-  }) => Promise<void>;
-}) {
-  const [kind, setKind] = useState<InterviewKind>("SCREEN");
-  const [when, setWhen] = useState("");
-  const [duration, setDuration] = useState("60");
-  const [location, setLocation] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      size="md"
-      title="Schedule an interview"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="accent"
-            loading={busy}
-            disabled={!when}
-            onClick={() => {
-              setBusy(true);
-              void onConfirm({
-                kind,
-                scheduledFor: new Date(when).toISOString(),
-                durationMins: Number(duration) || 60,
-                ...(location.trim() ? { location: location.trim() } : {}),
-              }).finally(() => setBusy(false));
-            }}
-          >
-            Schedule
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <Field label="Kind">
-          <Select
-            value={kind}
-            onChange={(e) => setKind(e.currentTarget.value as InterviewKind)}
-          >
-            {(Object.keys(INTERVIEW_KIND_LABEL) as InterviewKind[]).map((k) => (
-              <option key={k} value={k}>
-                {INTERVIEW_KIND_LABEL[k]}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="When" required>
-            <Input
-              type="datetime-local"
-              value={when}
-              onChange={(e) => setWhen(e.currentTarget.value)}
-            />
-          </Field>
-          <Field label="Duration (minutes)">
-            <Input
-              inputMode="numeric"
-              value={duration}
-              onChange={(e) => setDuration(e.currentTarget.value)}
-            />
-          </Field>
-        </div>
-        <Field label="Location" optional help="A room, or a call link.">
-          <Input
-            value={location}
-            onChange={(e) => setLocation(e.currentTarget.value)}
-          />
-        </Field>
-      </div>
-    </Modal>
-  );
-}
-
-/**
- * `2026-09-25T14:00` from an ISO instant — the shape `<input
- * type="datetime-local">` expects, read through the browser's own local
- * time. `ScheduleInterviewDialog` makes the identical simplification on the
- * way back out (`new Date(when).toISOString()`, no org time zone involved),
- * so this keeps a reschedule consistent with a fresh booking rather than
- * inventing a second rule.
- */
-function toDatetimeLocalValue(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
-}
-
-/**
- * Only the fields that actually changed. `RescheduleInterviewBody` is a
- * patch, and sending every field back on every save regardless of whether it
- * moved is the thing this codebase's PATCH endpoints are written not to
- * expect — see `null` clears / absent leaves alone elsewhere in this app's
- * PATCH bodies. `location` is the one field that can be *cleared*: an empty
- * box means "no longer applies," sent as `null`, not left out.
- */
-function rescheduleDiff(
-  interview: ApiInterviewSummary,
-  kind: InterviewKind,
-  when: string,
-  duration: string,
-  location: string,
-): RescheduleInterviewBody {
-  const body: RescheduleInterviewBody = {};
-
-  if (kind !== interview.kind) body.kind = kind;
-
-  const isoWhen = when ? new Date(when).toISOString() : null;
-  if (isoWhen && isoWhen !== interview.scheduledFor) {
-    body.scheduledFor = isoWhen;
-  }
-
-  const durationNum = Number(duration);
-  if (
-    Number.isFinite(durationNum) &&
-    durationNum > 0 &&
-    durationNum !== interview.durationMins
-  ) {
-    body.durationMins = durationNum;
-  }
-
-  const trimmedLocation = location.trim();
-  const originalLocation = interview.location ?? "";
-  if (trimmedLocation !== originalLocation) {
-    body.location = trimmedLocation === "" ? null : trimmedLocation;
-  }
-
-  return body;
-}
-
-function RescheduleInterviewDialog({
-  open,
-  interview,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  /**
-   * `null` before anything has been picked. The dialog stays mounted either
-   * way — see the note above `ScheduleInterviewDialog`'s call site on why —
-   * so there is nothing to prefill from until a specific interview is
-   * targeted.
-   */
-  interview: ApiInterviewSummary | null;
-  onClose: () => void;
-  onConfirm: (body: RescheduleInterviewBody) => Promise<void>;
-}) {
-  const [kind, setKind] = useState<InterviewKind>("SCREEN");
-  const [when, setWhen] = useState("");
-  const [duration, setDuration] = useState("60");
-  const [location, setLocation] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  /*
-   * One dialog instance is shared across every interview on this record, so
-   * a lazily-initialised `useState` (the pattern `ScreeningDialog` uses,
-   * which only ever has one candidate to describe) would keep showing
-   * whichever interview was rescheduled first. This re-syncs the form
-   * during render whenever a *different* interview is targeted — React's
-   * own documented way to adjust state from a prop without an effect's
-   * extra render — keyed on the id rather than the object, because
-   * `application.interviews` is a fresh array on every reload and would
-   * otherwise overwrite a draft mid-edit.
-   */
-  const [loadedFor, setLoadedFor] = useState<string | null>(null);
-  if (interview && interview.id !== loadedFor) {
-    setLoadedFor(interview.id);
-    setKind(interview.kind);
-    setWhen(toDatetimeLocalValue(interview.scheduledFor));
-    setDuration(String(interview.durationMins));
-    setLocation(interview.location ?? "");
-  }
-
-  const body = interview
-    ? rescheduleDiff(interview, kind, when, duration, location)
-    : {};
-  const hasChanges = Object.keys(body).length > 0;
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      size="md"
-      title="Reschedule this interview"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="accent"
-            loading={busy}
-            disabled={!interview || !when || !hasChanges}
-            onClick={() => {
-              setBusy(true);
-              void onConfirm(body).finally(() => setBusy(false));
-            }}
-          >
-            Save
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <Field label="Kind">
-          <Select
-            value={kind}
-            onChange={(e) => setKind(e.currentTarget.value as InterviewKind)}
-          >
-            {(Object.keys(INTERVIEW_KIND_LABEL) as InterviewKind[]).map((k) => (
-              <option key={k} value={k}>
-                {INTERVIEW_KIND_LABEL[k]}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="When" required>
-            <Input
-              type="datetime-local"
-              value={when}
-              onChange={(e) => setWhen(e.currentTarget.value)}
-            />
-          </Field>
-          <Field label="Duration (minutes)">
-            <Input
-              inputMode="numeric"
-              value={duration}
-              onChange={(e) => setDuration(e.currentTarget.value)}
-            />
-          </Field>
-        </div>
-        <Field
-          label="Location"
-          optional
-          help="A room, or a call link. Clear it if it no longer applies."
-        >
-          <Input
-            value={location}
-            onChange={(e) => setLocation(e.currentTarget.value)}
-          />
-        </Field>
-        {interview && !hasChanges && (
-          <p className="text-meta text-muted">
-            Nothing here differs from what is already booked.
-          </p>
-        )}
-      </div>
-    </Modal>
-  );
-}
-
-const COMPETENCIES = [
-  "Technical depth",
-  "Communication",
-  "Ownership",
-  "Culture fit",
-];
-
-function ScorecardDialog({
-  open,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: (body: {
-    recommendation?: ScorecardRecommendation | null;
-    notes?: string;
-    ratings: { competency: string; score: number }[];
-  }) => Promise<void>;
-}) {
-  const [recommendation, setRecommendation] = useState<
-    ScorecardRecommendation | ""
-  >("");
-  const [scores, setScores] = useState<Record<string, number>>({});
-  const [notes, setNotes] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      size="md"
-      title="Submit a scorecard"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="accent"
-            loading={busy}
-            onClick={() => {
-              setBusy(true);
-              void onConfirm({
-                ...(recommendation ? { recommendation } : {}),
-                ...(notes.trim() ? { notes: notes.trim() } : {}),
-                ratings: COMPETENCIES.filter((c) => scores[c]).map((c) => ({
-                  competency: c,
-                  score: scores[c]!,
-                })),
-              }).finally(() => setBusy(false));
-            }}
-          >
-            Submit
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        {COMPETENCIES.map((c) => (
-          <Field key={c} label={c} optional>
-            <Select
-              value={scores[c] ? String(scores[c]) : ""}
-              onChange={(e) => {
-                const score = Number(e.currentTarget.value);
-                setScores((s) => ({ ...s, [c]: score }));
-              }}
-              placeholder="Not rated"
-            >
-              {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>
-                  {n} / 5
-                </option>
-              ))}
-            </Select>
-          </Field>
-        ))}
-        <Field label="Recommendation" optional>
-          <Select
-            value={recommendation}
-            onChange={(e) =>
-              setRecommendation(
-                e.currentTarget.value as ScorecardRecommendation,
-              )
-            }
-            placeholder="Not given"
-          >
-            {(
-              Object.keys(RECOMMENDATION_LABEL) as ScorecardRecommendation[]
-            ).map((r) => (
-              <option key={r} value={r}>
-                {RECOMMENDATION_LABEL[r]}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Notes" optional>
-          <Textarea
-            rows={3}
-            value={notes}
-            onChange={(e) => setNotes(e.currentTarget.value)}
-          />
-        </Field>
-      </div>
-    </Modal>
-  );
-}
 
 /**
  * Also does duty for "make a new offer" on a declined or withdrawn offer
@@ -1469,52 +1272,8 @@ function EditOfferDialog({
   );
 }
 
-function RejectDialog({
-  open,
-  busy,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  busy: boolean;
-  onClose: () => void;
-  onConfirm: (reason: string) => void;
-}) {
-  const [reason, setReason] = useState("");
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      size="md"
-      title="Reject this candidate?"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            loading={busy}
-            onClick={() => onConfirm(reason)}
-          >
-            Reject
-          </Button>
-        </>
-      }
-    >
-      <Field label="Reason" optional help="Kept internal.">
-        <Textarea
-          rows={3}
-          value={reason}
-          onChange={(e) => setReason(e.currentTarget.value)}
-        />
-      </Field>
-    </Modal>
-  );
-}
-
 /**
- * A distinct fact from `RejectDialog` — `ApplicationOutcome` has both
+ * A distinct fact from rejecting — `ApplicationOutcome` has both
  * `REJECTED` and `WITHDRAWN` as separate values, and the two controls must
  * not read as one act wearing two labels. The candidate pulling out on
  * their own is not the company turning them down, so neither this title nor
@@ -1654,7 +1413,7 @@ export function RealScreening({
         {!asked && (
           <p className="text-body-sm text-muted">
             Nothing was recorded when this person was screened in. None of it is
-            required — an offer can be made without any of it — but a notice
+            required, an offer can be made without any of it, but a notice
             period and a salary expectation are what a hiring manager asks for
             first.
           </p>
@@ -1724,7 +1483,11 @@ export function RealScreening({
           ]}
         />
 
-        <CvLine storageKey={candidate.cvStorageKey} source={candidate.source} />
+        <CvLine
+          candidateId={candidate.id}
+          hasCv={Boolean(candidate.cvStorageKey)}
+          source={candidate.source}
+        />
       </CardBody>
 
       {/* `candidate` is always available here (it comes straight from the
@@ -1745,32 +1508,45 @@ export function RealScreening({
 }
 
 /**
- * The CV, and the honest thing to say about it.
+ * The CV, and the one way to read it.
  *
- * `cvStorageKey` is a **key**, not a file. No deployment has ever had
- * `S3_BUCKET` set, so the bytes are not there to serve and the API says so at
- * boot. A download button here would be a control whose only outcome is a
- * refusal — so the key is named as a record that one was attached, and where it
- * has to be fetched from until object storage is wired.
+ * `cvStorageKey` is a **key** — a record that a file was attached on screening —
+ * and nothing here ever shows it or links to it. Reading the file is
+ * `OpenCv`: one audited request that asks the API for a short-lived address, and
+ * the API writes down who asked. It is offered only to whoever may read the
+ * candidate at all, and only when there is a key to open; what the API says when
+ * the file is missing, flagged or unreachable is shown beside the button as it
+ * wrote it.
  */
 function CvLine({
-  storageKey,
+  candidateId,
+  hasCv,
   source,
 }: {
-  storageKey: string | null;
+  candidateId: string;
+  hasCv: boolean;
   source: string | null;
 }) {
-  if (!storageKey && !source) return null;
+  const canOpen = useCanOpenCv();
+  if (!hasCv && !source) return null;
   return (
     <div className="flex flex-col gap-1 border-t border-line pt-3">
-      {storageKey && (
-        <p className="text-meta text-muted">
-          A CV was attached on screening.{" "}
-          <span className="text-faint">
-            It is recorded as a storage key and cannot be downloaded until file
-            storage is configured.
-          </span>
-        </p>
+      {hasCv && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="text-meta text-muted">
+            A CV was attached on screening.
+          </p>
+          {canOpen ? (
+            <OpenCv
+              open={() => recruitmentApi.openCandidateCv(candidateId)}
+              label="Open CV"
+            />
+          ) : (
+            <p className="text-meta text-faint">
+              Opening it is kept to whoever hires or approves hiring.
+            </p>
+          )}
+        </div>
       )}
       {source && (
         <p className="text-meta text-muted">
@@ -1912,7 +1688,7 @@ function ScreeningDialog({
         <Field
           label="Right to work"
           optional
-          help="Blank means nobody asked — which is not the same as being told no."
+          help="Blank means nobody asked, which is not the same as being told no."
         >
           <Select
             value={right}

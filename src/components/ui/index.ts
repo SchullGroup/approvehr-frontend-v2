@@ -1,7 +1,7 @@
 export { Button, ButtonLink, IconButton, TextLink } from "./button";
 export type { ButtonProps, ButtonVariant, ButtonSize } from "./button";
 
-export { Field, FieldSet, useFieldControl } from "./field";
+export { Field, FieldRow, FieldSet, useFieldControl } from "./field";
 export { FileField } from "./file-field";
 export { Input, Textarea, Select } from "./input";
 export { Picker, type PickerOption, type PickerProps } from "./picker";
@@ -14,6 +14,7 @@ export {
   CardFooter,
   LinkCard,
   Stat,
+  StatGrid,
   Callout,
 } from "./card";
 
@@ -31,6 +32,8 @@ export { ProgressMeter, ScoreRing, FactorBars } from "./progress";
 export { SuccessMark, SuccessMoment } from "./success";
 
 export { Modal, Drawer, DrawerSection, ConfirmDialog } from "./modal";
+export { RowActions } from "./row-actions";
+export type { RowAction, RowActionItem } from "./row-actions";
 export { Sortable, SortableHandle } from "./sortable";
 export type { SortableProps, SortableRenderArgs } from "./sortable";
 export type { ModalSize, DrawerSize } from "./modal";
@@ -52,6 +55,7 @@ export {
 
 export { Pagination } from "./pagination";
 export { FilterBar } from "./filter-bar";
+export { ToggleFilter } from "./toggle-filter";
 export type { AppliedFilter } from "./filter-bar";
 
 export {
@@ -62,11 +66,28 @@ export {
   ThinkingState,
 } from "./feedback";
 
+export {
+  LoadState,
+  LoadFailure,
+  ListSkeleton,
+  StatsSkeleton,
+  failureMessage,
+  loadPhase,
+  useHasAnswered,
+} from "./load-state";
+export type {
+  LoadPhase,
+  LoadStateProps,
+  MissingMeans,
+  SkeletonVariant,
+} from "./load-state";
+
 export { Tabs, LinkTabs, SegmentedControl, Accordion } from "./tabs";
 export type { TabItem } from "./tabs";
 
 export { Disclosure } from "./disclosure";
 export { LinkedText } from "./linked-text";
+export { RichText } from "./rich-text";
 
 export { Avatar, Timeline, FileDrop, DescriptionList, CheckList } from "./misc";
 export type { TimelineEntry, DroppedFile } from "./misc";

@@ -71,7 +71,7 @@ export function QuoteWorkings({ slip }: { slip: ComputedPayslip }) {
           <section>
             <h5 className="text-meta font-semibold text-faint">Pension</h5>
             <p className="mt-1 leading-relaxed text-body">
-              {pct(pension.rate)} of {formatKobo(pension.baseKobo)} —{" "}
+              {pct(pension.rate)} of {formatKobo(pension.baseKobo)},{" "}
               {formatKobo(slip.pensionEmployeeKobo)} from their pay. The
               employer adds {pct(pension.employerRate)} on top, which is{" "}
               {formatKobo(slip.pensionEmployerKobo)} and never comes out of it.
@@ -86,7 +86,7 @@ export function QuoteWorkings({ slip }: { slip: ComputedPayslip }) {
               National Housing Fund
             </h5>
             <p className="mt-1 leading-relaxed text-body">
-              {pct(nhf.rate)} of {formatKobo(nhf.baseKobo)} —{" "}
+              {pct(nhf.rate)} of {formatKobo(nhf.baseKobo)},{" "}
               {formatKobo(slip.nhfKobo)}.
             </p>
           </section>

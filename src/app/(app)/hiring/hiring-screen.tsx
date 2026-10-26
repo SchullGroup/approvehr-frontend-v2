@@ -7,19 +7,22 @@ import {
   Lock,
   Megaphone,
   Plus,
+  Settings,
+  Star,
   TriangleAlert,
 } from "lucide-react";
 import {
   Badge,
   BarChart,
-  Button,
   ButtonLink,
   Card,
   CardBody,
   CardHeader,
   EmptyState,
+  LoadState,
   Skeleton,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -41,7 +44,6 @@ import {
   pipelineSnapshot,
   useHiringOverview,
 } from "@/lib/store/hiring";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { useSession } from "@/lib/store/session";
 import { useInterviews, useOffers } from "@/lib/store/recruitment";
 import { fullName } from "@/lib/types";
@@ -53,9 +55,10 @@ import { fullName } from "@/lib/types";
  *
  * The top of this screen is live when the API is up: adverts, how many people
  * applied, how many are waiting to be screened, and how many have been screened
- * in all come from `/careers/postings` and `/careers/analytics`. The bottom —
- * interviews and offers — has no endpoint in this API, so it is the seeded demo
- * data in both modes and says so on each card.
+ * in all come from `/careers/postings` and `/careers/analytics`. The interviews
+ * and offers cards are live too when somebody is signed in
+ * (`LiveInterviewsCard`, `LiveOffersCard`, from `/recruitment`); with no session
+ * they show the demo seed and say so on each card.
  *
  * Splitting the badge per panel rather than per page is the honest version. A
  * single "Live from the API" at the top of a page whose lower half is a fixture
@@ -127,6 +130,22 @@ function Overview() {
               Job adverts
             </ButtonLink>
             <ButtonLink
+              href="/hiring/talent-pool"
+              variant="secondary"
+              size="sm"
+            >
+              <Star aria-hidden="true" className="size-4" />
+              Talent pool
+            </ButtonLink>
+            <ButtonLink
+              href="/hiring/settings/pipelines"
+              variant="secondary"
+              size="sm"
+            >
+              <Settings aria-hidden="true" className="size-4" />
+              Settings
+            </ButtonLink>
+            <ButtonLink
               href="/hiring/requisitions/new"
               variant="accent"
               size="sm"
@@ -141,75 +160,84 @@ function Overview() {
       <PageBody className="flex flex-col gap-6">
         <FeatureOffLine feature="hiring" />
         <div className="flex flex-wrap items-center gap-3">
-          <SourceBadge live={live} />
-          {loading && <span className="text-meta text-muted">Loading…</span>}
+          {/* Not while loading: `live` is false until the first answer, and "Not
+              available yet" is the wording for a module with no API — which is
+              not what a read in flight means. */}
+          {!loading && <SourceBadge live={live} />}
         </div>
-        <LoadFailure
-          subject="your hiring overview"
+
+        {/* Counts, the adverts table and its empty state are statements about
+            the company's hiring, so none of them is said until the overview has
+            answered. They used to open on "No adverts yet" with a Write an
+            advert button while the adverts were still on their way. */}
+        <LoadState
+          loading={loading}
           error={error}
+          subject="your hiring overview"
           onRetry={reload}
-        />
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat
-            label="Live adverts"
-            value={countOrDash(error, numbers.liveAdverts)}
-            hint={
-              error
-                ? "could not be loaded"
-                : numbers.adverts === numbers.liveAdverts
-                  ? "all of them"
-                  : `${numbers.adverts - numbers.liveAdverts} draft or closed`
-            }
-          />
-          <Link
-            href="/hiring/postings/applications?status=ALL"
-            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
+          hasData={roles.length > 0}
+          className="flex flex-col gap-6"
+        >
+          <StatGrid>
             <Stat
-              label="People who applied"
-              value={countOrDash(error, numbers.applications)}
-              className="transition-colors group-hover:border-accent"
-            />
-          </Link>
-          <Link
-            href="/hiring/postings/applications?status=RECEIVED"
-            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <Stat
-              label="Waiting to be screened"
-              value={countOrDash(error, numbers.waiting)}
-              icon={<TriangleAlert aria-hidden="true" />}
+              label="Live adverts"
+              value={countOrDash(error, numbers.liveAdverts)}
               hint={
                 error
                   ? "could not be loaded"
-                  : numbers.waiting > 0
-                    ? "nobody has looked yet"
-                    : "queue is clear"
+                  : numbers.adverts === numbers.liveAdverts
+                    ? "all of them"
+                    : `${numbers.adverts - numbers.liveAdverts} draft or closed`
               }
-              className="transition-colors group-hover:border-accent"
             />
-          </Link>
-          <Link
-            href="/hiring/postings/applications?status=ADVANCED"
-            className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <Stat
-              label="Screened in"
-              value={countOrDash(error, numbers.advanced)}
-              hint={
-                error
-                  ? "could not be loaded"
-                  : numbers.advanceRate === null
-                    ? "no rate until somebody is screened"
-                    : `${numbers.advanceRate}% of everyone screened`
-              }
-              className="transition-colors group-hover:border-accent"
-            />
-          </Link>
-        </div>
+            <Link
+              href="/hiring/postings/applications?status=ALL"
+              className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <Stat
+                label="People who applied"
+                value={countOrDash(error, numbers.applications)}
+                className="transition-colors group-hover:border-accent"
+              />
+            </Link>
+            <Link
+              href="/hiring/postings/applications?status=RECEIVED"
+              className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <Stat
+                label="Waiting to be screened"
+                value={countOrDash(error, numbers.waiting)}
+                icon={<TriangleAlert aria-hidden="true" />}
+                hint={
+                  error
+                    ? "could not be loaded"
+                    : numbers.waiting > 0
+                      ? "nobody has looked yet"
+                      : "queue is clear"
+                }
+                className="transition-colors group-hover:border-accent"
+              />
+            </Link>
+            <Link
+              href="/hiring/postings/applications?status=ADVANCED"
+              className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <Stat
+                label="Screened in"
+                value={countOrDash(error, numbers.advanced)}
+                hint={
+                  error
+                    ? "could not be loaded"
+                    : numbers.advanceRate === null
+                      ? "no rate until somebody is screened"
+                      : `${numbers.advanceRate}% of everyone screened`
+                }
+                className="transition-colors group-hover:border-accent"
+              />
+            </Link>
+          </StatGrid>
 
-        {/* `grid-cols-1` at the base breakpoint, not just implied by having
+          {/* `grid-cols-1` at the base breakpoint, not just implied by having
             one column below `lg`: with no `grid-template-columns` declared,
             the single implicit track sizes to `auto` — its content's own
             width — rather than the container's. The mobile card list below
@@ -217,202 +245,186 @@ function Overview() {
             replaces does, so a track sized to content pushed the whole page
             405px wide at a 375px viewport. `grid-cols-1` gives the track
             `minmax(0, 1fr)`, which respects the container instead. */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
-          <Card>
-            <CardHeader
-              title="Advertised roles"
-              description="Newest first. The count is everybody who applied through that advert."
-              action={
-                numbers.waiting > 0 ? (
-                  <ButtonLink
-                    href="/hiring/postings/applications"
-                    variant="accent"
-                    size="sm"
-                  >
-                    Screen {numbers.waiting} waiting
-                  </ButtonLink>
-                ) : undefined
-              }
-            />
-            {error ? (
-              /* Not "No adverts yet" — that reads as an invitation to write
-                 one, which dead-ends for anybody this error actually applies
-                 to (an `APPROVE_HIRING`-only account could not open
-                 `/hiring/postings` either). The cause is a failed read, so the
-                 next action is retrying it, not writing an advert. */
-              <EmptyState
-                compact
-                icon={<Megaphone aria-hidden="true" />}
-                title="Could not load your adverts"
-                description={error.message}
-                action={
-                  <Button variant="secondary" size="sm" onClick={reload}>
-                    Try again
-                  </Button>
-                }
-              />
-            ) : roles.length === 0 ? (
-              <EmptyState
-                compact
-                icon={<Megaphone aria-hidden="true" />}
-                title="No adverts yet"
-                description="Write one and candidates can apply to it directly."
-                action={
-                  <ButtonLink
-                    href="/hiring/postings"
-                    variant="accent"
-                    size="sm"
-                  >
-                    Write an advert
-                  </ButtonLink>
-                }
-              />
-            ) : (
-              <>
-                <div className="hidden sm:block">
-                  <TableWrap className="rounded-none border-0">
-                    <THead>
-                      <TH>Role</TH>
-                      <TH>Status</TH>
-                      <TH align="right">Applied</TH>
-                      <TH align="right">Waiting</TH>
-                      <TH align="right">Pay range</TH>
-                    </THead>
-                    <TBody>
-                      {roles.map((role) => (
-                        <RoleTableRow key={role.postingId} role={role} />
-                      ))}
-                    </TBody>
-                  </TableWrap>
-                </div>
-
-                <ul className="divide-y divide-line sm:hidden">
-                  {roles.map((role) => (
-                    <RoleCard key={role.postingId} role={role} />
-                  ))}
-                </ul>
-              </>
-            )}
-          </Card>
-
-          <div className="flex flex-col gap-5">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_360px]">
             <Card>
               <CardHeader
-                title="Where applications are"
-                action={<SourceBadge live={live} />}
+                title="Advertised roles"
+                description="Newest first. The count is everybody who applied through that advert."
+                action={
+                  numbers.waiting > 0 ? (
+                    <ButtonLink
+                      href="/hiring/postings/applications"
+                      variant="accent"
+                      size="sm"
+                    >
+                      Screen {numbers.waiting} waiting
+                    </ButtonLink>
+                  ) : undefined
+                }
               />
-              <CardBody>
-                <BarChart
-                  colorBy="series"
-                  caption="Applications by state: waiting to be screened, screened in, turned down, withdrawn"
-                  points={bars}
+              {roles.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon={<Megaphone aria-hidden="true" />}
+                  title="No adverts yet"
+                  description="Write one and candidates can apply to it directly."
+                  action={
+                    <ButtonLink
+                      href="/hiring/postings"
+                      variant="accent"
+                      size="sm"
+                    >
+                      Write an advert
+                    </ButtonLink>
+                  }
                 />
-              </CardBody>
+              ) : (
+                <>
+                  <div className="hidden sm:block">
+                    <TableWrap className="rounded-none border-0">
+                      <THead>
+                        <TH>Role</TH>
+                        <TH>Status</TH>
+                        <TH align="right">Applied</TH>
+                        <TH align="right">Waiting</TH>
+                        <TH align="right">Pay range</TH>
+                      </THead>
+                      <TBody>
+                        {roles.map((role) => (
+                          <RoleTableRow key={role.postingId} role={role} />
+                        ))}
+                      </TBody>
+                    </TableWrap>
+                  </div>
+
+                  <ul className="divide-y divide-line sm:hidden">
+                    {roles.map((role) => (
+                      <RoleCard key={role.postingId} role={role} />
+                    ))}
+                  </ul>
+                </>
+              )}
             </Card>
 
-            {isConnected ? (
-              <LiveInterviewsCard />
-            ) : (
+            <div className="flex flex-col gap-5">
               <Card>
                 <CardHeader
-                  title="Interviews booked"
-                  action={<SourceBadge live={false} />}
+                  title="Where applications are"
+                  action={<SourceBadge live={live} />}
                 />
-                <CardBody className="flex flex-col gap-3">
-                  {pipeline.scheduledInterviews.length === 0 ? (
-                    <p className="text-body-sm text-muted">Nothing booked.</p>
-                  ) : (
-                    <p className="text-body-sm text-body">
-                      <span className="tabular font-medium text-ink">
-                        {pipeline.scheduledInterviews.length}
-                      </span>{" "}
-                      scheduled, and{" "}
-                      <span className="tabular font-medium text-ink">
-                        {pipeline.stalled.length}
-                      </span>{" "}
-                      candidates have sat in one stage for a week or more.
-                    </p>
-                  )}
-                  <ButtonLink
-                    href="/hiring/interviews"
-                    variant="secondary"
-                    size="sm"
-                  >
-                    <CalendarClock aria-hidden="true" className="size-3.5" />
-                    Open interviews
-                  </ButtonLink>
+                <CardBody>
+                  <BarChart
+                    colorBy="series"
+                    caption="Applications by state: waiting to be screened, screened in, turned down, withdrawn"
+                    points={bars}
+                  />
                 </CardBody>
               </Card>
-            )}
 
-            {isConnected ? (
-              <LiveOffersCard />
-            ) : (
-              <Card>
-                <CardHeader
-                  title="Offers out"
-                  action={<SourceBadge live={false} />}
-                />
-                <CardBody className="flex flex-col gap-3">
-                  {pipeline.offersOut.length === 0 && (
-                    <p className="text-body-sm text-muted">
-                      No offers pending.
-                    </p>
-                  )}
-                  {pipeline.offersOut.map((card) => (
-                    /* A plain wrapper with the link stretched over it by
+              {isConnected ? (
+                <LiveInterviewsCard />
+              ) : (
+                <Card>
+                  <CardHeader
+                    title="Interviews booked"
+                    action={<SourceBadge live={false} />}
+                  />
+                  <CardBody className="flex flex-col gap-3">
+                    {pipeline.scheduledInterviews.length === 0 ? (
+                      <p className="text-body-sm text-muted">Nothing booked.</p>
+                    ) : (
+                      <p className="text-body-sm text-body">
+                        <span className="tabular font-medium text-ink">
+                          {pipeline.scheduledInterviews.length}
+                        </span>{" "}
+                        scheduled, and{" "}
+                        <span className="tabular font-medium text-ink">
+                          {pipeline.stalled.length}
+                        </span>{" "}
+                        candidates have sat in one stage for a week or more.
+                      </p>
+                    )}
+                    <ButtonLink
+                      href="/hiring/interviews"
+                      variant="secondary"
+                      size="sm"
+                    >
+                      <CalendarClock aria-hidden="true" className="size-3.5" />
+                      Open interviews
+                    </ButtonLink>
+                  </CardBody>
+                </Card>
+              )}
+
+              {isConnected ? (
+                <LiveOffersCard />
+              ) : (
+                <Card>
+                  <CardHeader
+                    title="Offers out"
+                    action={<SourceBadge live={false} />}
+                  />
+                  <CardBody className="flex flex-col gap-3">
+                    {pipeline.offersOut.length === 0 && (
+                      <p className="text-body-sm text-muted">
+                        No offers pending.
+                      </p>
+                    )}
+                    {pipeline.offersOut.map((card) => (
+                      /* A plain wrapper with the link stretched over it by
                        `after:inset-0`. An outer <Link> wrapping the inner one
                        would nest anchors, which breaks hydration silently and
                        renders the page blank with nothing useful in the console. */
-                    <div
-                      key={card.id}
-                      className="relative flex items-center gap-3 rounded-md border border-line p-2.5 transition-colors hover:bg-canvas"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-body-sm font-medium text-ink">
-                          <TextLink
-                            href={`/hiring/candidates/${card.id}`}
-                            className="after:absolute after:inset-0"
+                      <div
+                        key={card.id}
+                        className="relative flex items-center gap-3 rounded-md border border-line p-2.5 transition-colors hover:bg-canvas"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-body-sm font-medium text-ink">
+                            <TextLink
+                              href={`/hiring/candidates/${card.id}`}
+                              className="after:absolute after:inset-0"
+                            >
+                              {fullName(card.candidate)}
+                            </TextLink>
+                          </p>
+                          <p className="truncate text-meta text-muted">
+                            {card.requisition.title}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="tabular text-body-sm font-medium text-ink">
+                            {formatMoney(card.offer!.grossMonthly, "NGN", {
+                              decimals: true,
+                            })}
+                          </p>
+                          <Badge
+                            tone={
+                              card.offer!.status === "sent" ? "info" : "warning"
+                            }
+                            size="sm"
                           >
-                            {fullName(card.candidate)}
-                          </TextLink>
-                        </p>
-                        <p className="truncate text-meta text-muted">
-                          {card.requisition.title}
-                        </p>
+                            {card.offer!.status === "sent"
+                              ? "With the candidate"
+                              : "Waiting on approval"}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <p className="tabular text-body-sm font-medium text-ink">
-                          {formatMoney(card.offer!.grossMonthly, "NGN", {
-                            decimals: true,
-                          })}
-                        </p>
-                        <Badge
-                          tone={
-                            card.offer!.status === "sent" ? "info" : "warning"
-                          }
-                          size="sm"
-                        >
-                          {card.offer!.status === "sent"
-                            ? "With the candidate"
-                            : "Waiting on approval"}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                  <ButtonLink
-                    href="/hiring/offers"
-                    variant="secondary"
-                    size="sm"
-                  >
-                    Open offer approvals
-                    <ArrowRight aria-hidden="true" className="size-3.5" />
-                  </ButtonLink>
-                </CardBody>
-              </Card>
-            )}
+                    ))}
+                    <ButtonLink
+                      href="/hiring/offers"
+                      variant="secondary"
+                      size="sm"
+                    >
+                      Open offer approvals
+                      <ArrowRight aria-hidden="true" className="size-3.5" />
+                    </ButtonLink>
+                  </CardBody>
+                </Card>
+              )}
+            </div>
           </div>
-        </div>
+        </LoadState>
       </PageBody>
     </>
   );

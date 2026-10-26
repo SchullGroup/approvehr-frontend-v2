@@ -24,8 +24,8 @@ import {
   THead,
   TR,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { FeatureOffLine } from "@/components/portal/feature-off-line";
 import { ApiError } from "@/lib/api/client";
@@ -253,14 +253,6 @@ export function LoansScreen() {
 
       <PageBody className="flex flex-col gap-6">
         <FeatureOffLine feature="loans" />
-        {list.error && (
-          <LoadFailure
-            subject="the loans"
-            error={list.error}
-            onRetry={list.reload}
-          />
-        )}
-
         {seeEverybody && summary && (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <Stat
@@ -319,259 +311,276 @@ export function LoansScreen() {
           />
         )}
 
-        {list.loading && list.loans.length === 0 ? (
-          <div className="flex items-center justify-center py-16">
-            <Spinner />
-            <span className="sr-only">Loading loans</span>
-          </div>
-        ) : list.loans.length === 0 ? (
-          <EmptyState
-            icon={<CreditCard aria-hidden="true" />}
-            title={
-              filter !== "ALL"
-                ? `No loans ${LOAN_STATUS_LABEL[filter as LoanStatus].toLowerCase()}`
-                : seeEverybody
-                  ? "Nobody has a staff loan"
-                  : "You have no loan"
-            }
-            description={
-              filter !== "ALL"
-                ? "Try another tab."
-                : seeEverybody
-                  ? "When you lend somebody money, put it here and payroll recovers it a month at a time."
-                  : "If you need one, ask for it here. You will see what it costs you a month before you send it."
-            }
-            action={
-              filter === "ALL" ? (
-                <Button variant="accent" onClick={() => setApplying(true)}>
-                  {canApplyForOthers ? "Add a loan" : "Apply for a loan"}
-                </Button>
-              ) : (
-                <Button onClick={() => setFilter("ALL")}>Show all loans</Button>
-              )
-            }
-          />
-        ) : (
-          <>
-            <div className="hidden sm:block">
-              <TableWrap caption="Staff loans, with what is left to repay on each">
-                <THead>
-                  <TH>{seeEverybody ? "Who" : "What for"}</TH>
-                  {/* Only the columns the API's own allow-list accepts:
+        {/* The one loading and failure rule. After a failed read this printed
+            "Nobody has a staff loan" under the failure card. */}
+        <LoadState
+          loading={list.loading}
+          error={list.error}
+          subject="the loans"
+          onRetry={list.reload}
+          skeleton="table"
+          hasData={list.loans.length > 0}
+        >
+          {list.loans.length === 0 ? (
+            <EmptyState
+              icon={<CreditCard aria-hidden="true" />}
+              title={
+                filter !== "ALL"
+                  ? `No loans ${LOAN_STATUS_LABEL[filter as LoanStatus].toLowerCase()}`
+                  : seeEverybody
+                    ? "Nobody has a staff loan"
+                    : "You have no loan"
+              }
+              description={
+                filter !== "ALL"
+                  ? "Try another tab."
+                  : seeEverybody
+                    ? "When you lend somebody money, put it here and payroll recovers it a month at a time."
+                    : "If you need one, ask for it here. You will see what it costs you a month before you send it."
+              }
+              action={
+                filter === "ALL" ? (
+                  <Button variant="accent" onClick={() => setApplying(true)}>
+                    {canApplyForOthers ? "Add a loan" : "Apply for a loan"}
+                  </Button>
+                ) : (
+                  <Button onClick={() => setFilter("ALL")}>
+                    Show all loans
+                  </Button>
+                )
+              }
+            />
+          ) : (
+            <>
+              <div className="hidden sm:block">
+                <TableWrap caption="Staff loans, with what is left to repay on each">
+                  <THead>
+                    <TH>{seeEverybody ? "Who" : "What for"}</TH>
+                    {/* Only the columns the API's own allow-list accepts:
                     `createdAt | principal | outstanding | status | startPeriod`.
                     A header offering a column it refuses is one that appears to
                     do nothing. "A month" and "Finishes" are derived from the
                     schedule and are not among them. */}
-                  <SortableTH
-                    column="principal"
-                    active={sort}
-                    order={order}
-                    onSort={(column) => toggleSort(column, true)}
-                    align="right"
-                    startDescending
-                  >
-                    Borrowed
-                  </SortableTH>
-                  <SortableTH
-                    column="outstanding"
-                    active={sort}
-                    order={order}
-                    onSort={(column) => toggleSort(column, true)}
-                    align="right"
-                    startDescending
-                  >
-                    Left to pay
-                  </SortableTH>
-                  <TH align="right">A month</TH>
-                  <TH>Finishes</TH>
-                  <SortableTH
-                    column="status"
-                    active={sort}
-                    order={order}
-                    onSort={(column) => toggleSort(column)}
-                  >
-                    Status
-                  </SortableTH>
-                  <TH>
-                    <span className="sr-only">Decide</span>
-                  </TH>
-                </THead>
-                <TBody>
-                  {list.loans.map((loan) => {
-                    const own = loan.employeeId === employeeId;
-                    const finishes = finishesLabel(loan);
-                    return (
-                      <TR key={loan.id}>
-                        <TDPrimary
-                          title={
-                            <TextLink href={`/payroll/loans/${loan.id}`}>
-                              {seeEverybody
-                                ? loan.employeeName
-                                : (loan.reason ?? "Staff loan")}
-                            </TextLink>
-                          }
-                          subtitle={
-                            seeEverybody
-                              ? `${loan.employeeNo} · ${loan.jobTitle}`
-                              : `Applied ${shortDate(loan.createdAt.slice(0, 10))}`
-                          }
-                        />
-                        <TD align="right">
-                          <Money amount={naira(loan.principalKobo)} decimals />
-                        </TD>
-                        <TD align="right">
-                          {/* Nothing is owed until somebody approves it, and
+                    <SortableTH
+                      column="principal"
+                      active={sort}
+                      order={order}
+                      onSort={(column) => toggleSort(column, true)}
+                      align="right"
+                      startDescending
+                    >
+                      Borrowed
+                    </SortableTH>
+                    <SortableTH
+                      column="outstanding"
+                      active={sort}
+                      order={order}
+                      onSort={(column) => toggleSort(column, true)}
+                      align="right"
+                      startDescending
+                    >
+                      Left to pay
+                    </SortableTH>
+                    <TH align="right">A month</TH>
+                    <TH>Finishes</TH>
+                    <SortableTH
+                      column="status"
+                      active={sort}
+                      order={order}
+                      onSort={(column) => toggleSort(column)}
+                    >
+                      Status
+                    </SortableTH>
+                    <TH>
+                      <span className="sr-only">Decide</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {list.loans.map((loan) => {
+                      const own = loan.employeeId === employeeId;
+                      const finishes = finishesLabel(loan);
+                      return (
+                        <TR key={loan.id}>
+                          <TDPrimary
+                            title={
+                              <TextLink href={`/payroll/loans/${loan.id}`}>
+                                {seeEverybody
+                                  ? loan.employeeName
+                                  : (loan.reason ?? "Staff loan")}
+                              </TextLink>
+                            }
+                            subtitle={
+                              seeEverybody
+                                ? `${loan.employeeNo} · ${loan.jobTitle}`
+                                : `Applied ${shortDate(loan.createdAt.slice(0, 10))}`
+                            }
+                          />
+                          <TD align="right">
+                            <Money
+                              amount={naira(loan.principalKobo)}
+                              decimals
+                            />
+                          </TD>
+                          <TD align="right">
+                            {/* Nothing is owed until somebody approves it, and
                             nothing is owed on a decline. Showing the total
                             repayable here would read as a debt that exists,
                             and on an interest-bearing application it would
                             show more than the row says was borrowed. */}
+                            {loan.status === "PENDING" ||
+                            loan.status === "DECLINED" ? (
+                              <span className="text-muted">—</span>
+                            ) : (
+                              <Money
+                                amount={naira(loan.outstandingKobo)}
+                                decimals
+                              />
+                            )}
+                          </TD>
+                          <TD align="right">
+                            <Money
+                              amount={naira(loan.monthlyRepaymentKobo)}
+                              decimals
+                            />
+                          </TD>
+                          <TD>
+                            {finishes ?? (
+                              <span className="text-muted">
+                                {loan.status === "PENDING"
+                                  ? "Once approved"
+                                  : "—"}
+                              </span>
+                            )}
+                          </TD>
+                          <TD>
+                            <Badge
+                              tone={STATUS_TONE[loan.status]}
+                              size="sm"
+                              dot
+                            >
+                              {LOAN_STATUS_LABEL[loan.status]}
+                            </Badge>
+                          </TD>
+                          <TD align="right">
+                            <LoanRowAction
+                              loan={loan}
+                              own={own}
+                              canDecide={canDecide}
+                              deciding={deciding === loan.id}
+                              onDecide={() => void decide(loan)}
+                              onDecline={() => setDeclining(loan)}
+                              className="justify-end"
+                            />
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
+                {list.loans.map((loan) => {
+                  const own = loan.employeeId === employeeId;
+                  const finishes = finishesLabel(loan);
+                  return (
+                    <li key={loan.id} className="flex flex-col gap-2 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <TextLink
+                            href={`/payroll/loans/${loan.id}`}
+                            className="text-body-sm"
+                          >
+                            {seeEverybody
+                              ? loan.employeeName
+                              : (loan.reason ?? "Staff loan")}
+                          </TextLink>
+                          <p className="mt-0.5 text-meta text-muted">
+                            {seeEverybody
+                              ? `${loan.employeeNo} · ${loan.jobTitle}`
+                              : `Applied ${shortDate(loan.createdAt.slice(0, 10))}`}
+                          </p>
+                        </div>
+                        <Badge tone={STATUS_TONE[loan.status]} size="sm" dot>
+                          {LOAN_STATUS_LABEL[loan.status]}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">
+                          Borrowed
+                        </span>
+                        <span className="tabular text-body-sm text-body">
+                          <Money amount={naira(loan.principalKobo)} decimals />
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">
+                          Left to pay
+                        </span>
+                        <span className="tabular text-body-sm font-medium text-ink">
                           {loan.status === "PENDING" ||
                           loan.status === "DECLINED" ? (
-                            <span className="text-muted">—</span>
+                            "—"
                           ) : (
                             <Money
                               amount={naira(loan.outstandingKobo)}
                               decimals
                             />
                           )}
-                        </TD>
-                        <TD align="right">
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">A month</span>
+                        <span className="tabular text-body-sm text-body">
                           <Money
                             amount={naira(loan.monthlyRepaymentKobo)}
                             decimals
                           />
-                        </TD>
-                        <TD>
-                          {finishes ?? (
-                            <span className="text-muted">
-                              {loan.status === "PENDING"
-                                ? "Once approved"
-                                : "—"}
-                            </span>
-                          )}
-                        </TD>
-                        <TD>
-                          <Badge tone={STATUS_TONE[loan.status]} size="sm" dot>
-                            {LOAN_STATUS_LABEL[loan.status]}
-                          </Badge>
-                        </TD>
-                        <TD align="right">
-                          <LoanRowAction
-                            loan={loan}
-                            own={own}
-                            canDecide={canDecide}
-                            deciding={deciding === loan.id}
-                            onDecide={() => void decide(loan)}
-                            onDecline={() => setDeclining(loan)}
-                            className="justify-end"
-                          />
-                        </TD>
-                      </TR>
-                    );
-                  })}
-                </TBody>
-              </TableWrap>
-            </div>
-
-            <ul className="divide-y divide-line sm:hidden">
-              {list.loans.map((loan) => {
-                const own = loan.employeeId === employeeId;
-                const finishes = finishesLabel(loan);
-                return (
-                  <li key={loan.id} className="flex flex-col gap-2 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <TextLink
-                          href={`/payroll/loans/${loan.id}`}
-                          className="text-body-sm"
-                        >
-                          {seeEverybody
-                            ? loan.employeeName
-                            : (loan.reason ?? "Staff loan")}
-                        </TextLink>
-                        <p className="mt-0.5 text-meta text-muted">
-                          {seeEverybody
-                            ? `${loan.employeeNo} · ${loan.jobTitle}`
-                            : `Applied ${shortDate(loan.createdAt.slice(0, 10))}`}
-                        </p>
+                        </span>
                       </div>
-                      <Badge tone={STATUS_TONE[loan.status]} size="sm" dot>
-                        {LOAN_STATUS_LABEL[loan.status]}
-                      </Badge>
-                    </div>
+                      <p className="text-meta text-muted">
+                        Finishes{" "}
+                        {finishes ??
+                          (loan.status === "PENDING" ? "once approved" : "—")}
+                      </p>
 
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-body-sm text-muted">Borrowed</span>
-                      <span className="tabular text-body-sm text-body">
-                        <Money amount={naira(loan.principalKobo)} decimals />
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-body-sm text-muted">
-                        Left to pay
-                      </span>
-                      <span className="tabular text-body-sm font-medium text-ink">
-                        {loan.status === "PENDING" ||
-                        loan.status === "DECLINED" ? (
-                          "—"
-                        ) : (
-                          <Money
-                            amount={naira(loan.outstandingKobo)}
-                            decimals
-                          />
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-body-sm text-muted">A month</span>
-                      <span className="tabular text-body-sm text-body">
-                        <Money
-                          amount={naira(loan.monthlyRepaymentKobo)}
-                          decimals
-                        />
-                      </span>
-                    </div>
-                    <p className="text-meta text-muted">
-                      Finishes{" "}
-                      {finishes ??
-                        (loan.status === "PENDING" ? "once approved" : "—")}
-                    </p>
+                      <LoanRowAction
+                        loan={loan}
+                        own={own}
+                        canDecide={canDecide}
+                        deciding={deciding === loan.id}
+                        onDecide={() => void decide(loan)}
+                        onDecline={() => setDeclining(loan)}
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
 
-                    <LoanRowAction
-                      loan={loan}
-                      own={own}
-                      canDecide={canDecide}
-                      deciding={deciding === loan.id}
-                      onDecide={() => void decide(loan)}
-                      onDecline={() => setDeclining(loan)}
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-
-            {/* The shared control, replacing a hand-rolled Showing-x–y-of-z and
+              {/* The shared control, replacing a hand-rolled Showing-x–y-of-z and
                 two default-variant buttons. Two reasons beyond consistency: the
                 old buttons were `variant` default, so Previous and Next were the
                 loudest blue on a screen whose real primary action is applying
                 for a loan; and rows-per-page did not exist, so somebody with
                 four hundred loans on file paged through sixteen screens of
                 twenty-five. */}
-            <Pagination
-              className="rounded-lg border border-line border-t bg-surface"
-              page={list.page}
-              pageSize={list.pageSize}
-              total={list.total}
-              onPageChange={setPage}
-              onPageSizeChange={(size) => {
-                setPageSize(size);
-                setPage(1);
-              }}
-              noun={["loan", "loans"]}
-              loading={list.loading}
-            />
-          </>
-        )}
+              <Pagination
+                className="rounded-lg border border-line border-t bg-surface"
+                page={list.page}
+                pageSize={list.pageSize}
+                total={list.total}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+                noun={["loan", "loans"]}
+                loading={list.loading}
+              />
+            </>
+          )}
+        </LoadState>
 
         {/* One line, said once. The other half of this — what happens when a
             month cannot carry the full instalment — belongs on the instalment

@@ -29,8 +29,9 @@ import {
   SegmentedControl,
   FilterBar,
   Select,
-  Spinner,
+  LoadState,
   Stat,
+  StatGrid,
   Textarea,
   useToast,
   type AppliedFilter,
@@ -47,6 +48,8 @@ import { useTaskSummarySuggestion } from "@/lib/store/ai";
 import { useSession } from "@/lib/store/session";
 import {
   formatMeasure,
+  isDoneMeasure,
+  isUnread,
   quarterLabel,
   type ApiGoal,
   type ApiKeyResult,
@@ -69,11 +72,15 @@ import { AddMultipleObjectives } from "./add-multiple-objectives";
 import { ApprovalReasonDialog } from "./approval-dialogs";
 import { goalFacts } from "./goal-facts";
 import {
+  averageProgressHint,
   kpiAddedSaid,
   kpisAssignedSaid,
   markedDoneSaid,
   measureAddedSaid,
   objectiveCreatedSaid,
+  progressLabel,
+  readCountLine,
+  readCountShort,
   reopenedSaid,
   sharedSaid,
   type Said,
@@ -91,6 +98,11 @@ import {
 } from "./goal-dialogs";
 import { TaskLogPanel } from "./task-log";
 import { useCanUploadObjectives } from "./kpis/import/access";
+import {
+  DoneMeasureRow,
+  MeasureConfirmProvider,
+  type MeasureConfirmActions,
+} from "./done-measure";
 
 /**
  * The KPI cascade.
@@ -287,6 +299,29 @@ export function KpisTab({
     if (kpis.source === "api") kpis.reload();
   };
 
+  /* A manager's word that a done-or-not-done measure is done. Each reports its
+     own failure through `announced`, so a refusal shows the API's sentence, and
+     answers whether it saved so the row knows whether to close its note box. */
+  const measureConfirm: MeasureConfirmActions = {
+    confirm: async (measureId, note) =>
+      (
+        await announced(
+          () => mutations.confirmMeasure(measureId, note),
+          (measure) => ({ title: `"${measure.label}" is confirmed as done` }),
+        )
+      ).ok,
+    unconfirm: async (measureId) =>
+      (
+        await announced(
+          () => mutations.unconfirmMeasure(measureId),
+          (measure) => ({
+            title: `"${measure.label}" is back to not done`,
+            tone: "info",
+          }),
+        )
+      ).ok,
+  };
+
   /**
    * What each dropdown offers, taken from the objectives themselves.
    *
@@ -474,17 +509,23 @@ export function KpisTab({
      recorded, and the two read identically on a Stat while meaning opposite
      things. Same rule the module's own `period-status.tsx` states with
      `notYet`. */
+  /* A goal whose measures have all gone unread has no figure, only the 0 it was
+     created with, so it is left out of the mean instead of pulling it down. */
+  const withAFigure = tracked.filter(
+    (goal) => !(goal.keyResults.length > 0 && goal.measuredProgress === null),
+  );
+  const averageHint = averageProgressHint(withAFigure.length, tracked.length);
   const average =
-    tracked.length === 0
+    withAFigure.length === 0
       ? null
       : Math.round(
-          tracked.reduce(
+          withAFigure.reduce(
             (sum, goal) => sum + (goal.measuredProgress ?? goal.progress),
             0,
-          ) / tracked.length,
+          ) / withAFigure.length,
         );
 
-  return (
+  const content = (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {scopes.length > 1 ? (
@@ -544,12 +585,12 @@ export function KpisTab({
       </div>
 
       <LoadFailure
-        subject="the KPI cascade"
+        subject="your KPIs"
         error={kpis.error}
         onRetry={kpis.reload}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatGrid>
         <Stat label="KPIs being tracked" value={String(tracked.length)} />
         <Stat
           label="Average progress"
@@ -564,14 +605,7 @@ export function KpisTab({
               `${average}%`
             )
           }
-          {...(average === null
-            ? {}
-            : {
-                hint:
-                  tracked.length === 1
-                    ? "across 1 KPI"
-                    : `across ${tracked.length} KPIs`,
-              })}
+          {...(averageHint ? { hint: averageHint } : {})}
         />
         <Stat
           label="Needs attention"
@@ -591,7 +625,7 @@ export function KpisTab({
             )
           }
         />
-      </div>
+      </StatGrid>
 
       {/* Delivery against objectives is one of the four parts an appraisal is
           made of, and only an **agreed** objective counts towards it. Somebody
@@ -619,15 +653,15 @@ export function KpisTab({
       {unsent.length > 0 && (
         <NoticeLine tone="warning">
           {unsent.length === 1
-            ? "1 objective has not been sent for approval yet"
-            : `${unsent.length} objectives have not been sent for approval yet`}
+            ? "1 objective has not been sent to be agreed yet"
+            : `${unsent.length} objectives have not been sent to be agreed yet`}
         </NoticeLine>
       )}
 
       <Card>
         <CardHeader
-          title="The cascade"
-          description="Company KPI at the top. Everything below ladders up to it."
+          title="All KPIs"
+          description="The company KPI is at the top. Team and personal KPIs sit underneath the goal they support."
         />
         {kpis.goals.length > 0 && !kpis.loading && (
           <CardBody className="pb-0">
@@ -650,7 +684,7 @@ export function KpisTab({
                     setOrder(event.target.value as Order | "")
                   }
                 >
-                  <option value="">The cascade&rsquo;s own order</option>
+                  <option value="">Grouped under the company goal</option>
                   {ORDERS.map(([key, label]) => (
                     <option key={key} value={key}>
                       {label}
@@ -729,17 +763,18 @@ export function KpisTab({
                   `Showing ${String(matching.length)} of ${String(kpis.goals.length)}. The figures above are for everything, not for what is filtered here.`}
                 {narrowing && order !== "" && " "}
                 {order !== "" &&
-                  "Ordered by date, so the ladder is flattened — nothing is nested while this is on."}
+                  "Ordered by date, so KPIs are not grouped under their parent while this is on."}
               </p>
             )}
           </CardBody>
         )}
         {kpis.loading ? (
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading KPIs
+          <CardBody>
+            <LoadState loading error={null} subject="the KPIs" skeleton="list">
+              {null}
+            </LoadState>
           </CardBody>
-        ) : narrowing && matching.length === 0 ? (
+        ) : kpis.error ? null : narrowing && matching.length === 0 ? (
           /* Distinct from "No KPIs yet". Nothing matching a search is not a
              company with no objectives, and offering "New objective" to
              somebody who mistyped a name would answer a question they did not
@@ -747,7 +782,7 @@ export function KpisTab({
           <EmptyState
             icon={<Target aria-hidden="true" />}
             title="Nothing matches that"
-            description={`${String(kpis.goals.length)} objectives are here, and none of them fits what you have narrowed to.`}
+            description={`None of the ${String(kpis.goals.length)} objectives match your filters.`}
             action={
               <Button variant="ghost" onClick={clearFilters}>
                 Clear the filters
@@ -758,7 +793,7 @@ export function KpisTab({
           <EmptyState
             icon={<Target aria-hidden="true" />}
             title="No KPIs yet"
-            description="Start with one company KPI, then hang each team's under it."
+            description="Start with a company KPI, then add each team's KPIs under it."
             action={
               mutations.editable ? (
                 <Button
@@ -1061,11 +1096,17 @@ export function KpisTab({
         }}
         body={
           completing && completing.keyResults.some((measure) => !measure.met)
-            ? `${completing.keyResults.filter((m) => !m.met).length} of its measures are short of target. Done is your call, and the numbers stay as they are.`
-            : "Progress goes to 100% and it drops out of the tracked list."
+            ? `${completing.keyResults.filter((m) => !m.met).length} of its measures are short of target. You can still mark it done; the numbers stay as they are.`
+            : "Progress goes to 100% and it leaves the tracked list."
         }
       />
     </div>
+  );
+
+  return (
+    <MeasureConfirmProvider value={measureConfirm}>
+      {content}
+    </MeasureConfirmProvider>
   );
 }
 
@@ -1191,7 +1232,7 @@ function GoalBranch({
   );
 }
 
-function GoalCard({
+export function GoalCard({
   goal,
   depth,
   editable,
@@ -1226,7 +1267,7 @@ function GoalCard({
   onRecord: (measureId: string, value: string, note?: string) => Promise<void>;
 }) {
   const facts = goalFacts(goal, actingId);
-  const { progress, done } = facts;
+  const { progress, done, reads } = facts;
 
   /* The detail is a modal, and this is the card's only piece of state.
      Everything the modal renders comes from the same `goal` the card has, so
@@ -1284,25 +1325,28 @@ function GoalCard({
                 {goal.title}
               </p>
             </div>
-            <span className="tabular shrink-0 text-body-sm font-medium text-ink">
-              {progress}%
-            </span>
+            {/* With none of its measures read the figure is the 0 the objective
+                was made with, and a 0% on the face of a card is a claim that the
+                work has not moved. So it is not drawn: what is said instead is
+                that nobody has measured it. With some read, the figure stands
+                and the count beside it says how much of it is a reading. */}
+            {reads?.read === 0 ? (
+              <span className="shrink-0 text-meta text-muted">
+                {readCountShort(reads)}
+              </span>
+            ) : (
+              <span className="shrink-0 text-right">
+                <span className="tabular block text-body-sm font-medium text-ink">
+                  {progress}%
+                </span>
+                {reads && (
+                  <span className="block text-meta text-muted">
+                    {readCountShort(reads)}
+                  </span>
+                )}
+              </span>
+            )}
           </div>
-
-          <ProgressMeter
-            value={progress}
-            size="sm"
-            showValue={false}
-            tone={
-              done
-                ? "ink"
-                : goal.status === "OFF_TRACK"
-                  ? "danger"
-                  : goal.status === "AT_RISK"
-                    ? "warning"
-                    : "accent"
-            }
-          />
 
           <div className="flex w-full flex-wrap items-center justify-between gap-2 text-meta text-muted">
             <span className="flex min-w-0 items-center gap-1.5">
@@ -1326,7 +1370,7 @@ function GoalCard({
             {/* Two axes, both shown, on the face. Agreed and off track at once
                 is the ordinary case and one badge carrying both would hide
                 whichever mattered — the reason this stayed on the card. */}
-            <span className="flex shrink-0 flex-wrap items-center gap-1.5">
+            <span className="flex max-w-full shrink-0 flex-wrap items-center gap-1.5">
               <Badge tone={APPROVAL_TONE[goal.approval]} size="sm" dot>
                 {goal.approvalLabel}
               </Badge>
@@ -1398,6 +1442,7 @@ function GoalDetailModal({
   canShare,
   canLogTasks,
   noPeriod,
+  reads,
   editable,
   onAddMeasure,
   onAddChild,
@@ -1420,6 +1465,8 @@ function GoalDetailModal({
   canShare: boolean;
   canLogTasks: boolean;
   noPeriod: boolean;
+  /** From `goalFacts`: null unless some measure is unread (see `readCount`). */
+  reads: { read: number; of: number } | null;
   editable: boolean;
   onAddMeasure: (goal: ApiGoal) => void;
   onAddChild: (parentId: string) => void;
@@ -1482,9 +1529,11 @@ function GoalDetailModal({
           {goal.parentTitle && <span>Under {goal.parentTitle}</span>}
         </div>
 
+        {/* With nothing read, the label says so and the figure is not drawn: a 0%
+            beside "nothing read yet" would be the claim the label denies. */}
         <ProgressMeter
           value={progress}
-          showValue
+          showValue={reads?.read !== 0}
           size="sm"
           tone={
             done
@@ -1495,30 +1544,39 @@ function GoalDetailModal({
                   ? "warning"
                   : "accent"
           }
-          label={
-            goal.keyResults.length === 0
-              ? "Progress, entered by hand"
-              : goal.keyResults.length === 1
-                ? "Progress, from 1 measure"
-                : `Progress, from ${goal.keyResults.length} measures`
-          }
+          label={progressLabel(goal.keyResults.length, reads)}
         />
+
+        {/* Said only when it is a warning: "4 of 4 read" on every card is noise.
+            With none read, the bar above is the 0 the objective was made with
+            and not a result, so the line says so. */}
+        {reads && (
+          <p className="text-body-sm text-body">{readCountLine(reads)}</p>
+        )}
 
         {goal.keyResults.length > 0 ? (
           <ul className="flex flex-col gap-3 border-t border-line pt-4">
-            {goal.keyResults.map((measure) => (
-              <MeasureRow
-                key={measure.id}
-                measure={measure}
-                goalId={goal.id}
-                editable={!done}
-                onRecord={onRecord}
-              />
-            ))}
+            {goal.keyResults.map((measure) =>
+              isDoneMeasure(measure) ? (
+                <DoneMeasureRow
+                  key={measure.id}
+                  measure={measure}
+                  goalOwnerId={goal.ownerId}
+                />
+              ) : (
+                <MeasureRow
+                  key={measure.id}
+                  measure={measure}
+                  goalId={goal.id}
+                  editable={!done}
+                  onRecord={onRecord}
+                />
+              ),
+            )}
           </ul>
         ) : (
           <p className="text-body-sm text-body">
-            No measure yet, so nothing tracks itself.
+            No measure yet, so its progress has to be entered by hand.
           </p>
         )}
 
@@ -1532,17 +1590,17 @@ function GoalDetailModal({
             to confuse into "this KPI is finished". */}
         {goal.targetFrozen && (
           <p className="border-t border-line pt-4 text-body-sm text-muted">
-            Agreed, so the target is fixed: the title, the period and every
-            measure&apos;s target stay as they are, and no measure can be added
-            because that would change what delivering this means. The numbers
-            still move.
+            Agreed, so the target is fixed. The title, the period and every
+            measure&apos;s target stay as they are, and no new measure can be
+            added, because that would change what delivering this means.
+            Progress numbers can still change.
           </p>
         )}
 
         {noPeriod && goal.approval !== "AGREED" && (
           <p className="text-body-sm text-body">
-            Give this a quarter before it can be sent to be agreed. An objective
-            agreed for no period cannot be agreed before it.
+            Give this a quarter before you send it to be agreed, so it can be
+            agreed before that quarter starts.
           </p>
         )}
 
@@ -1646,7 +1704,7 @@ function GoalDetailModal({
  * on a business figure invite a stray scroll, and `type="number"` silently
  * discards a value it cannot parse.
  */
-function MeasureRow({
+export function MeasureRow({
   measure,
   goalId,
   editable,
@@ -1664,8 +1722,17 @@ function MeasureRow({
   const [failed, setFailed] = useState<string | null>(null);
   const summary = useTaskSummarySuggestion();
 
-  const value = draft ?? measure.currentValue;
-  const changed = draft !== null && draft.trim() !== measure.currentValue;
+  /* Nobody has entered a reading. Its "current value" is the start it was made
+     with, so it is not shown as one: the box is empty and asks for a first
+     reading. Typing the same number as the start is still a reading (0 can be
+     the honest answer), which is why an unread measure is saveable even when
+     the draft equals the figure behind it. */
+  const unread = isUnread(measure);
+  const value = draft ?? (unread ? "" : measure.currentValue);
+  const changed =
+    draft !== null &&
+    draft.trim() !== "" &&
+    (unread || draft.trim() !== measure.currentValue);
 
   const save = async () => {
     if (!changed) return;
@@ -1711,7 +1778,12 @@ function MeasureRow({
           >
             {measure.lowerIsBetter ? "Counting down" : "Counting up"}
           </Badge>
-          {measure.met && (
+          {unread && (
+            <Badge tone="warning" size="sm">
+              Not read yet
+            </Badge>
+          )}
+          {!unread && measure.met && (
             <Badge tone="accent" size="sm" icon={<Check aria-hidden="true" />}>
               At target
             </Badge>
@@ -1719,25 +1791,39 @@ function MeasureRow({
         </span>
       </div>
 
-      <ProgressMeter
-        value={measure.percent}
-        showValue
-        size="sm"
-        tone={measure.met ? "ink" : "accent"}
-      />
+      {/* No bar for a measure nobody has read: a bar at 0% is a result, and the
+          0 is only where the measure began. What being unread costs is said once,
+          under the objective's own bar, because it is a fact about that figure;
+          repeating it under every unread measure said the same sentence four
+          times in a row to somebody with one unread measure. */}
+      {!unread && (
+        <ProgressMeter
+          value={measure.percent}
+          showValue
+          size="sm"
+          tone={measure.met ? "ink" : "accent"}
+        />
+      )}
 
       <p className="tabular text-body-sm text-body">
-        Now {formatMeasure(measure.currentValue, measure.unit)} · target{" "}
-        {formatMeasure(measure.targetValue, measure.unit)} · started at{" "}
+        {unread
+          ? "No reading yet"
+          : `Now ${formatMeasure(measure.currentValue, measure.unit)}`}{" "}
+        · target {formatMeasure(measure.targetValue, measure.unit)} · started at{" "}
         {formatMeasure(measure.startValue, measure.unit)}
       </p>
 
       {editable && (
         <div className="flex flex-wrap items-center gap-2">
           <Input
-            aria-label={`Latest number for ${measure.label}`}
+            aria-label={
+              unread
+                ? `First reading for ${measure.label}`
+                : `Latest number for ${measure.label}`
+            }
             inputMode="decimal"
             className="h-8 w-36"
+            {...(unread ? { placeholder: "First reading" } : {})}
             value={value}
             onChange={(event) => setDraft(event.target.value)}
           />
