@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { payslipsCsv } from "@/lib/api/exports";
 import { useCan } from "@/lib/permissions";
 import { ExportButton } from "@/components/portal/export-button";
-import Link from "next/link";
 import { CalendarClock, Mail } from "lucide-react";
 import {
   Badge,
@@ -27,7 +27,9 @@ import {
   THead,
   TR,
   TableWrap,
+  TextLink,
   loadPhase,
+  rowClick,
   type AppliedFilter,
   type BadgeTone,
 } from "@/components/ui";
@@ -138,6 +140,7 @@ export function PayslipRoute() {
 }
 
 function PayslipIndex() {
+  const router = useRouter();
   const runsState = usePayrollRuns();
   const { runs, loading, error, connected } = runsState;
   /* Both, matching the API's own gate exactly. `EXPORT_DATA` alone gets the
@@ -468,38 +471,13 @@ function PayslipIndex() {
                       run ? `?run=${run.id}` : ""
                     }`;
                     return (
-                      /**
-                       * The whole row opens the payslip, and it is still one
-                       * link.
-                       *
-                       * There was an Open button in an Actions column — a
-                       * seventh column, on every row, for the only thing this
-                       * table does. The row is the target now.
-                       *
-                       * `after:absolute after:inset-0` stretches the name's
-                       * existing link across the row rather than putting an
-                       * `onClick` on the `<tr>`. That keeps everything a link
-                       * gives free and a handler does not: middle-click and
-                       * ⌘-click open a payslip in a new tab, the status bar
-                       * shows where the row goes, Tab reaches it, and Enter
-                       * follows it. A clickable `<tr>` would need `role`,
-                       * `tabIndex` and a key handler to get halfway there.
-                       *
-                       * `relative` on the row is what the stretched link is
-                       * measured against — without it the overlay would size
-                       * itself to the nearest positioned ancestor, which is the
-                       * whole table.
-                       */
-                      <TR key={slip.id} interactive className="relative">
+                      <TR
+                        key={slip.id}
+                        interactive
+                        onClick={rowClick(() => router.push(href))}
+                      >
                         <TDPrimary
-                          title={
-                            <Link
-                              href={href}
-                              className="after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
-                            >
-                              {slip.name}
-                            </Link>
-                          }
+                          title={<TextLink href={href}>{slip.name}</TextLink>}
                           subtitle={slip.employeeNo}
                         />
                         <TD align="right">
@@ -535,16 +513,14 @@ function PayslipIndex() {
                 return (
                   <li
                     key={slip.id}
-                    className="relative flex flex-col gap-2 p-4"
+                    onClick={rowClick(() => router.push(href))}
+                    className="flex flex-col gap-2 p-4"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <Link
-                          href={href}
-                          className="text-body-sm font-medium text-ink after:absolute after:inset-0 hover:text-accent-text hover:underline underline-offset-4"
-                        >
+                        <TextLink href={href} className="text-body-sm">
                           {slip.name}
-                        </Link>
+                        </TextLink>
                         <p className="mt-0.5 text-meta text-muted">
                           {slip.employeeNo}
                         </p>
