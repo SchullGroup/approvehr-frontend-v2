@@ -160,6 +160,7 @@ export function OvertimePolicyFields() {
     EXAMPLE_MONTHLY_KOBO,
     settings.workingDaysPerMonth,
     value.hoursPerDay,
+    value.hourlyBasis,
   );
 
   const onSave = async () => {
@@ -365,7 +366,7 @@ export function OvertimePolicyFields() {
                 {formatMoney(naira(hourly), "NGN", { decimals: true })}
               </Badge>
             }
-            hint={`On a ₦1,000,000 monthly salary, at ${settings.workingDaysPerMonth} working days a month.`}
+            hint={`On a ₦1,000,000 monthly salary, calculated on ${value.hourlyBasis === "CALENDAR_DAYS" ? "a 365-day year" : `${settings.workingDaysPerMonth} working days a month`}.`}
             panelClassName="flex flex-col gap-4 p-5"
           >
             <ExampleFigures policy={value} hourly={hourly} />
