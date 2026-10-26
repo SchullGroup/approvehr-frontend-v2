@@ -161,14 +161,14 @@ export function RangeChart({
 }
 
 export const BANDS: { key: ScoreBand; label: string; fill: string }[] = [
-  { key: "BELOW", label: "Below", fill: "var(--color-danger)" },
+  { key: "BELOW", label: "Below", fill: "var(--color-cat-4)" },
   {
     key: "PARTIALLY_MEETS",
     label: "Partially meets",
     fill: "var(--color-warning)",
   },
   { key: "MEETS", label: "Meets", fill: "var(--color-line-strong)" },
-  { key: "EXCEEDS", label: "Exceeds", fill: "var(--color-accent)" },
+  { key: "EXCEEDS", label: "Exceeds", fill: "var(--color-info)" },
   {
     key: "OUTSTANDING",
     label: "Outstanding",

@@ -51,6 +51,10 @@ export default function OfflinePage() {
           control that needs React would be a dead button — the exact thing this
           codebase keeps recording. A link re-issues the navigation, which is
           all "try again" ever meant. */}
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages --
+          deliberately not a `Link`: a router link needs the very JavaScript this
+          page is served without, and a plain navigation is the whole of "try
+          again". */}
       <a
         href="/dashboard"
         className="rounded-md bg-accent px-4 py-2 text-body-sm font-medium text-white"

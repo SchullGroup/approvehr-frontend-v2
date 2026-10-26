@@ -16,6 +16,7 @@ import {
   ProgressMeter,
   Spinner,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -25,6 +26,7 @@ import {
   TableWrap,
   formatMoney,
   useToast,
+  RowActions,
 } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
@@ -368,7 +370,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
         {/* ------------------------------------------------------- progress */}
 
         {loan.schedule.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatGrid>
             <Stat
               label="Repaid so far"
               value={
@@ -425,7 +427,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
                   : "nothing written off"
               }
             />
-          </div>
+          </StatGrid>
         )}
 
         {loan.schedule.length > 0 && (
@@ -498,27 +500,29 @@ export function LoanDetailScreen({ id }: { id: string }) {
                           </TD>
                           {columns === 6 && (
                             <TD align="right">
-                              {open && (
-                                <div className="flex justify-end gap-1.5">
-                                  {canRecord && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => setPaying(row)}
-                                    >
-                                      Record a payment
-                                    </Button>
-                                  )}
-                                  {canDecide && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => setWaiving(row)}
-                                    >
-                                      Write off
-                                    </Button>
-                                  )}
-                                </div>
+                              {open && (canRecord || canDecide) && (
+                                <RowActions
+                                  label={`More actions for instalment ${String(row.sequence)}`}
+                                  items={[
+                                    ...(canRecord
+                                      ? [
+                                          {
+                                            label: "Record a payment",
+                                            onSelect: () => setPaying(row),
+                                          },
+                                        ]
+                                      : []),
+                                    ...(canDecide
+                                      ? [
+                                          {
+                                            label: "Write off",
+                                            tone: "danger" as const,
+                                            onSelect: () => setWaiving(row),
+                                          },
+                                        ]
+                                      : []),
+                                  ]}
+                                />
                               )}
                             </TD>
                           )}

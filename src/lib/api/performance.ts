@@ -125,6 +125,11 @@ export type ApiKeyResult = {
   id: string;
   goalId: string;
   label: string;
+  /**
+   * What the measure is. Absent on a server that predates measure kinds, and
+   * absent means a number, which is all there was.
+   */
+  kind?: MeasureKind;
   /** "₦", "%", "customers". Free text: every company invents its own. */
   unit: string | null;
   startValue: string;
@@ -132,11 +137,30 @@ export type ApiKeyResult = {
   currentValue: string;
   /** True when success means the number going down. */
   lowerIsBetter: boolean;
-  /** 0–100, honouring `lowerIsBetter`. Read this; do not derive it. */
+  /**
+   * 0–100, honouring `lowerIsBetter`. Read this; do not derive it.
+   *
+   * **A number even when nobody has read the measure**, where it is the 0 it
+   * started at. `lastReadAt` says whether it means anything: read it before
+   * drawing a bar, or an unread measure shows as a result.
+   */
   percent: number;
   met: boolean;
+  /**
+   * When a reading was last entered. **Null is unread**, which is a different
+   * fact from "no movement". Absent (a server that predates this) makes no
+   * claim either way, so a screen must not call that measure unread.
+   */
+  lastReadAt?: string | null;
+  /** A done-or-not-done measure's confirmation. Null until a manager says so. */
+  confirmedAt?: string | null;
+  confirmedByName?: string | null;
+  confirmNote?: string | null;
   updatedAt: string;
 };
+
+/** What a measure is. A closed list: see the design report. */
+export type MeasureKind = "NUMBER" | "DONE";
 
 export type ApiGoal = {
   id: string;
@@ -160,9 +184,17 @@ export type ApiGoal = {
   parentId: string | null;
   parentTitle: string | null;
   status: GoalStatus;
-  /** The stored figure. Equal to `measuredProgress` whenever there are measures. */
+  /**
+   * The stored figure. Equal to `measuredProgress` whenever it is not null; when
+   * it is null this is what the goal was created with, or the owner's own
+   * figure, and is not a result.
+   */
   progress: number;
-  /** From the measures. Null when the goal has none and progress is by hand. */
+  /**
+   * From the measures **that have been read**. Null when the goal has none, so
+   * progress is by hand, and also when it has measures and none has been read:
+   * there is nothing to average, and `progress` must not be shown as one.
+   */
   measuredProgress: number | null;
   dueQuarter: string | null;
   /**
@@ -255,7 +287,10 @@ export type ApiGoalCancelled = ApiGoal & {
 
 /** Every key-result write returns the goal's recomputed progress beside it. */
 export type ApiKeyResultWritten = ApiKeyResult & {
-  /** Null only when the goal somehow has no measures left. */
+  /**
+   * Null when the goal has no measures, and also when none of them has been read
+   * yet: there is nothing to average, so the goal keeps the figure it had.
+   */
   goalProgress: number | null;
 };
 
@@ -1221,6 +1256,12 @@ export type ApiFairnessMove = {
 
 export type ApiReviewStatus = "below" | "above" | "matches" | "unclear";
 
+export type ApiFlagResolution =
+  | { state: "open" }
+  | { state: "waiting"; since: string; reason: string }
+  | { state: "moved"; by: string | null; at: string; reason: string }
+  | { state: "stands"; by: string | null; at: string; note: string | null };
+
 export type ApiReviewFlag = {
   employeeId: string;
   name: string;
@@ -1238,6 +1279,10 @@ export type ApiReviewFlag = {
     history: { periods: number; averageBp: number } | null;
   };
   patterns: { kind: string; text: string }[];
+  /** What has been done about a flagged mark. Null when the mark isn't flagged. */
+  resolution: ApiFlagResolution | null;
+  /** Whether there is a submitted manager review that could be sent back. */
+  managerReviewSubmitted: boolean;
 };
 
 export type ApiClaim = {
@@ -1255,7 +1300,14 @@ export type ApiClaims = {
 export type ApiReviewFlags = {
   cycle: { id: string; name: string };
   rules: { gapBp: number; peerFloor: number };
-  counts: Record<ApiReviewStatus, number>;
+  counts: Record<ApiReviewStatus, number> & {
+    /** Flagged marks that stand or were moved. */
+    decided: number;
+    /** Flagged marks whose review is back with the manager. */
+    waiting: number;
+    /** Flagged marks nobody has acted on yet. */
+    open: number;
+  };
   people: ApiReviewFlag[];
 };
 
@@ -1458,6 +1510,20 @@ export type ApiRevisionRequest = {
 export type ApiTaskGrade =
   "COMPLETED" | "PARTIALLY_COMPLETED" | "NOT_COMPLETED" | "REJECTED";
 
+/**
+ * Where a weekly task came from, when a finished Projects issue filed it.
+ *
+ * `null`, or absent on an API that predates the field, for a task somebody typed
+ * in and for one a Jira ticket filed. `projectId` is `null` once the issue or its
+ * project has been deleted: the tag keeps its text and loses its link. Whether
+ * the viewer may open the project is not in here — see `ProjectSourceTag`.
+ */
+export type ApiProjectSource = {
+  /** `CHK-2`. */
+  key: string;
+  projectId: string | null;
+};
+
 /** One task logged against an objective, within one open week. */
 export type ApiTask = {
   id: string;
@@ -1472,6 +1538,7 @@ export type ApiTask = {
   gradedById: string | null;
   gradedAt: string | null;
   createdAt: string;
+  projectSource?: ApiProjectSource | null;
 };
 
 /**
@@ -1507,6 +1574,7 @@ export type ApiMyTask = {
   weekStart: string;
   weekEnd: string;
   createdAt: string;
+  projectSource?: ApiProjectSource | null;
 };
 
 /**
@@ -1536,6 +1604,7 @@ export type ApiTaskForGrading = {
    * that predates the field simply leaves it out, and absent means open.
    */
   weekClosed?: boolean;
+  projectSource?: ApiProjectSource | null;
 };
 
 /* -------------------------------------------------------------------- bodies */
@@ -1604,10 +1673,13 @@ export type UpdateGoalBody = {
 
 export type CreateKeyResultBody = {
   label: string;
+  /** Absent means a number. A done-or-not-done measure sends only `label`. */
+  kind?: MeasureKind;
   unit?: string;
   /** Decimal strings. See the header on why these are not numbers. */
   startValue?: string;
-  targetValue: string;
+  /** Required for a number, and refused for a done-or-not-done measure. */
+  targetValue?: string;
   currentValue?: string;
   lowerIsBetter?: boolean;
 };
@@ -1834,7 +1906,7 @@ export const POTENTIAL_MEANING: Record<ApiPotentialLevel, string> = {
   HIGH: "Could take on a substantially bigger or different role within a year or two.",
   MEDIUM:
     "Could grow further in this kind of role, or take a bigger one in time.",
-  LOW: "Well placed where they are. This is not a judgement of their value — most people are here, and it is what makes a company work.",
+  LOW: "Well placed where they are. This is not a judgement of their value, most people are here, and it is what makes a company work.",
 };
 
 export const PERFORMANCE_AXIS_LABELS: Record<ApiPerformanceAxis, string> = {
@@ -1849,11 +1921,80 @@ export const POTENTIAL_REASON_MIN = 10;
 export function potentialReasonProblem(reason: string): string | null {
   if (reason.trim().length >= POTENTIAL_REASON_MIN) return null;
   return (
-    `Say why in a sentence — at least ${String(POTENTIAL_REASON_MIN)} characters. ` +
+    `Say why in a sentence, at least ${String(POTENTIAL_REASON_MIN)} characters. ` +
     "This placement is read by the people who decide promotions, and one " +
     "nobody can explain should not be deciding anything."
   );
 }
+
+/* ------------------------------------------------------------ work record */
+
+export type ApiWorkRecordPeriod = "day" | "week" | "month" | "quarter";
+
+export type ApiWorkRecordIssue = {
+  id: string;
+  key: string;
+  title: string;
+  projectId: string;
+  projectName: string;
+  type: string;
+  labels: string[];
+  doneAt: string;
+  /** A calendar date, `YYYY-MM-DD`. */
+  dueDate: string | null;
+  /** `null` when the issue has no due date. */
+  onTime: boolean | null;
+  grade: ApiTaskGrade | null;
+  gradedByName: string | null;
+  /** True when a weekly task of theirs is attached and still ungraded. */
+  waitingForGrade: boolean;
+  /** `otherKey` is `null` when the viewer may not open the other task. */
+  links: { label: string; otherKey: string | null }[];
+};
+
+/**
+ * What somebody finished on the project boards in a day, week, month or
+ * quarter — `GET /performance/employees/:id/work-record`, or `/work-record/mine`.
+ * `period.start` is inclusive and `period.end` exclusive, both instants.
+ */
+export type ApiWorkRecord = {
+  employee: {
+    id: string;
+    name: string;
+    jobTitle: string;
+    departmentName: string | null;
+  };
+  period: {
+    kind: ApiWorkRecordPeriod;
+    start: string;
+    end: string;
+    label: string;
+  };
+  summary: {
+    finished: number;
+    withDueDate: number;
+    onTime: number;
+    /** 0 to 100, or `null` when nothing in the period has been graded. */
+    completionRate: number | null;
+    graded: number;
+    linkedToObjective: number;
+  };
+  byObjective: {
+    /** `null` for the row of issues with no objective. */
+    goalId: string | null;
+    title: string;
+    keyResultTitle?: string;
+    finished: number;
+    completionRate: number | null;
+  }[];
+  days: { date: string; issues: ApiWorkRecordIssue[] }[];
+};
+
+export type WorkRecordParams = {
+  period: ApiWorkRecordPeriod;
+  /** Any day inside the period. Omit for today. */
+  date?: string | undefined;
+};
 
 export const performanceApi = {
   /* ------------------------------------------------------------------ goals */
@@ -2011,6 +2152,27 @@ export const performanceApi = {
         method: "POST",
         body: note === undefined ? { currentValue } : { currentValue, note },
       },
+    ),
+
+  /**
+   * A manager says a done-or-not-done measure is done. The note is free text and
+   * is where a link to the evidence goes.
+   *
+   * The owner is refused, and so is anyone who may not agree their objective:
+   * the API says which, in words about confirming, and that sentence is shown
+   * as it arrives.
+   */
+  confirmMeasure: (id: string, note?: string) =>
+    request<ApiKeyResultWritten & { met: boolean }>(
+      `/performance/key-results/${id}/confirm`,
+      { method: "POST", body: note === undefined ? {} : { note } },
+    ),
+
+  /** Takes a confirmation back, by the same people. The measure stays read. */
+  unconfirmMeasure: (id: string) =>
+    request<ApiKeyResultWritten & { met: boolean }>(
+      `/performance/key-results/${id}/confirm`,
+      { method: "DELETE" },
     ),
 
   /* ----------------------------------------------------------- competencies */
@@ -2430,6 +2592,18 @@ export const performanceApi = {
       signalOf(signal),
     ),
 
+  markStands: (cycleId: string, employeeId: string, note: string | null) =>
+    request<{ flag: ApiReviewFlag }>(
+      `/performance/cycles/${cycleId}/review-flags/${employeeId}/decision`,
+      { method: "POST", body: { note } },
+    ),
+
+  reopenFlag: (cycleId: string, employeeId: string) =>
+    request<{ flag: ApiReviewFlag }>(
+      `/performance/cycles/${cycleId}/review-flags/${employeeId}/decision`,
+      { method: "DELETE" },
+    ),
+
   reviewNote: ({
     cycleId,
     employeeId,
@@ -2533,6 +2707,27 @@ export const performanceApi = {
       `/performance/employees/${employeeId}/score-history`,
       signalOf(signal),
     ),
+
+  /**
+   * What somebody finished on the boards. Their own, or somebody they lead
+   * (HR, their manager, their department's head); anybody else gets the same
+   * 404 a missing employee gets.
+   */
+  workRecord: (
+    employeeId: string,
+    params: WorkRecordParams,
+    signal?: AbortSignal,
+  ) =>
+    request<ApiWorkRecord>(`/performance/employees/${employeeId}/work-record`, {
+      query: { period: params.period, date: params.date },
+      ...signalOf(signal),
+    }),
+
+  myWorkRecord: (params: WorkRecordParams, signal?: AbortSignal) =>
+    request<ApiWorkRecord>("/performance/work-record/mine", {
+      query: { period: params.period, date: params.date },
+      ...signalOf(signal),
+    }),
 
   /** A manager or `EDIT_RECORDS`: nobody else knows who a person's peers are. */
   askPeers: (cycleId: string, subjectId: string, peerIds: string[]) =>
@@ -2908,7 +3103,7 @@ export const RATING_LABELS: Record<number, string> = {
 export const RATING_MEANING: Record<number, string> = {
   5: "Consistently well beyond what the role asks for, and others learn from how they do it.",
   4: "Delivers more than the role asks for, reliably.",
-  3: "Does what the role asks for. The ordinary, good outcome — most people, most periods.",
+  3: "Does what the role asks for. The ordinary, good outcome, most people, most periods.",
   2: "Falls short of what the role asks for in ways that need addressing.",
   1: "Well short of what the role asks for.",
 };
@@ -3018,6 +3213,56 @@ export function ratingWordsFrom(
 export function parseMeasure(value: string): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** Is this a done-or-not-done measure? Absent `kind` is a number. */
+export function isDoneMeasure(measure: Pick<ApiKeyResult, "kind">): boolean {
+  return measure.kind === "DONE";
+}
+
+/**
+ * Has nobody entered a reading on this measure yet?
+ *
+ * **True only when the server said so** (`lastReadAt` is null). An absent field
+ * is a server that predates the column, and calling those measures unread would
+ * tell every user of an older server that nothing they track has been read.
+ */
+export function isUnread(measure: Pick<ApiKeyResult, "lastReadAt">): boolean {
+  return measure.lastReadAt === null;
+}
+
+/**
+ * Has nothing been recorded on this measure, for a screen that has always said
+ * so and has to keep saying it on a server that predates `lastReadAt`?
+ *
+ * The server's word wins when it gives one. Without it, a figure still equal to
+ * where it started is taken as unrecorded, which is the inference the approvals
+ * screen was built on: it was the only signal there was. It is no longer exact
+ * (a reading of the starting figure is a reading), which is why the field
+ * exists, and why this prefers it.
+ */
+export function hasNoReading(
+  measure: Pick<ApiKeyResult, "lastReadAt" | "currentValue" | "startValue">,
+): boolean {
+  if (measure.lastReadAt !== undefined) return measure.lastReadAt === null;
+  return measure.currentValue === measure.startValue;
+}
+
+/**
+ * How many of a goal's measures have been read, or null when that is not worth
+ * saying: no measures, an older server, or every one of them read.
+ *
+ * Null for "all read" is deliberate. "4 of 4 measures read" on every card is
+ * noise that teaches people to skip the line, so the count appears only when it
+ * is a warning: some figure on this objective is not a reading.
+ */
+export function readCount(
+  measures: readonly Pick<ApiKeyResult, "lastReadAt">[],
+): { read: number; of: number } | null {
+  if (measures.length === 0) return null;
+  if (measures.some((measure) => measure.lastReadAt === undefined)) return null;
+  const read = measures.filter((measure) => measure.lastReadAt !== null).length;
+  return read === measures.length ? null : { read, of: measures.length };
 }
 
 /**

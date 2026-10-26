@@ -1,4 +1,5 @@
-import { createElement } from "react";
+import { createElement, useId } from "react";
+import { InfoTooltip } from "./field";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -25,7 +26,11 @@ export function Card({
      library-managed-attributes machinery, so it never hits that collapse. */
   return createElement(As, {
     className: cn(
-      "rounded-lg border border-line bg-surface",
+      /* `min-w-0`: a card is very often a grid or flex item, and an item's
+         automatic minimum width is its content's. One row with a no-wrap
+         progress bar made a card 510px wide inside a 335px column and the
+         whole onboarding page scroll sideways on a phone. */
+      "min-w-0 rounded-lg border border-line bg-surface",
       "transition-shadow duration-200",
       className,
     ),
@@ -79,7 +84,11 @@ export function CardHeader({
           </p>
         )}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {/* `max-w-full`: `shrink-0` alone let a wide action — a four-option
+          SegmentedControl is the case that found this — claim more than the
+          card has, and the page grew a sideways scrollbar at 320px. Capped at
+          the header's own width, the action wraps inside it instead. */}
+      {action && <div className="max-w-full shrink-0">{action}</div>}
     </div>
   );
 }
@@ -181,17 +190,18 @@ export function Stat({
   icon?: React.ReactNode;
   className?: string;
 }) {
+  /* Never red and green. A trend is a remark on a figure, not an alarm: the
+     good direction takes the brand colour and the rest stay quiet. */
   const trendTone =
-    trend?.direction === "up"
-      ? "text-success-text"
-      : trend?.direction === "down"
-        ? "text-danger-text"
-        : "text-muted";
+    trend?.direction === "up" ? "text-accent-text" : "text-muted";
 
   return (
     <div
       className={cn(
-        "rounded-lg border border-line bg-surface p-5 min-w-0",
+        /* Compact below `sm`, roomy from there up. A phone shows these two to a
+           row (see `StatGrid`), so the padding that suits a 300px card is far
+           too much for a 170px one. */
+        "min-w-0 rounded-lg border border-line bg-surface p-3.5 sm:p-5",
         className,
       )}
     >
@@ -203,7 +213,7 @@ export function Stat({
           </span>
         )}
       </div>
-      <p className="mt-2 text-h3 text-ink tabular truncate">{value}</p>
+      <p className="mt-2 break-words text-h3 text-ink tabular">{value}</p>
       {/*
        * Two lines when there are two things to say.
        *
@@ -219,19 +229,25 @@ export function Stat({
       )}
       {hint && (
         /*
-         * Truncated, with the whole thing in the tooltip.
+         * Wraps. It used to truncate, with the whole thing in a tooltip.
          *
-         * The hint is usually four words. It is also where a **filename** goes —
-         * "ApproveHR_employees_reformatted.xlsx" — and a long one spilled past
-         * the card's edge and over the card beside it. `truncate` needs
-         * `min-w-0` on every flex ancestor to have anything to shrink against;
-         * the card root already carries it.
+         * Truncating was right for the case it was written for — a filename,
+         * "ApproveHR_employees_reformatted.xlsx", which spilled past the card's
+         * edge and over the card beside it — and wrong for the case that is now
+         * most of its use: a hint is a full clause ("Across the 9 marks given.
+         * People with no mark are not counted."), and the half of the sentence
+         * that was cut off is usually the caveat. On a phone there is no hover
+         * to read a `title`, so the caveat was simply gone, and it was gone on
+         * a laptop too, where four cards share a row.
          *
-         * `title` rather than a wrap, because the card's height is what keeps a
-         * row of four stats aligned. A hint that wraps to three lines makes one
-         * card taller than its neighbours, which reads as a layout bug.
+         * `break-words` keeps the filename inside the card: it only breaks a
+         * word that cannot fit, so a sentence wraps at its spaces. The reason
+         * for truncating was that "a hint that wraps to three lines makes one
+         * card taller than its neighbours". Stats sit in grids, and a grid item
+         * stretches to its row's tallest, so the row grows and the cards still
+         * line up; the `title` stays for anybody who hovers.
          */
-        <p className="mt-1 truncate text-body-sm text-muted" title={hint}>
+        <p className="mt-1 break-words text-body-sm text-muted" title={hint}>
           {hint}
         </p>
       )}
@@ -239,7 +255,66 @@ export function Stat({
   );
 }
 
+/**
+ * A row of `Stat`s, two to a row on a phone.
+ *
+ * Four stat cards stacked one to a row took more than a screen before the page's
+ * own content began, on a dozen screens (payroll, payslips, the period screen,
+ * the directory, departments, hiring, leave, shifts, KPIs and more). Two across
+ * is the shape a phone can hold — with `Stat`'s own padding and figure size
+ * stepping down to match — so four become a 2×2 block under the header and the
+ * content is back in the first screenful.
+ *
+ * From `sm` up it is the layout every screen already had, so a desktop does not
+ * change: two across at `sm`, and `columns` across from `xl` (or from `sm` for
+ * three). An odd stat out spans the phone's full width rather than leaving a
+ * hole beside it.
+ *
+ * This is the one place that decides how a row of metrics lays out. A screen
+ * that writes its own `grid` around `Stat`s is the thing this replaces.
+ */
+export function StatGrid({
+  columns = 4,
+  className,
+  children,
+}: {
+  /** How many across on a wide screen. Two across on a phone whatever this is. */
+  columns?: 2 | 3 | 4;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-3 sm:gap-4",
+        columns === 3 && "sm:grid-cols-3",
+        columns === 4 && "xl:grid-cols-4",
+        /* The last of an odd number takes the whole row on a phone. */
+        "[&>:last-child:nth-child(odd)]:col-span-2 sm:[&>:last-child:nth-child(odd)]:col-span-1",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
+
+/** The words of a callout whose children are only words, or null. */
+function plainText(children: React.ReactNode): string | null {
+  if (typeof children === "string") return children;
+  if (typeof children === "number") return String(children);
+  if (
+    Array.isArray(children) &&
+    children.every(
+      (child) => typeof child === "string" || typeof child === "number",
+    )
+  ) {
+    return children.join("");
+  }
+  return null;
+}
 
 /** A tinted callout. Used for AI output, regulatory notes and warnings. */
 export function Callout({
@@ -255,11 +330,42 @@ export function Callout({
   className?: string;
   children: React.ReactNode;
 }) {
+  const quiet = useId();
+  /* Information is not worth a coloured block on the page. It becomes a quiet
+     line, with anything past the first sentence behind an info icon that shows
+     it on hover or focus. Errors, successes and anything with something to
+     click stay as they are. */
+  const text = plainText(children);
+  if (
+    text !== null &&
+    (tone === "info" ||
+      tone === "neutral" ||
+      tone === "accent" ||
+      tone === "warning")
+  ) {
+    const first = text.match(/^.*?[.!?](?:\s|$)/)?.[0].trim() ?? text;
+    const visible = title ?? first;
+    const detail = title ? text : text.slice(first.length).trim();
+    return (
+      <p
+        className={cn(
+          "inline-flex max-w-full items-center gap-2 text-body-sm text-muted",
+          className,
+        )}
+      >
+        <span className="min-w-0">{visible}</span>
+        {detail.length > 0 && (
+          <InfoTooltip id={quiet} text={detail} label="Read more" />
+        )}
+      </p>
+    );
+  }
+
   const tones = {
     info: "bg-info-soft border-info-line text-info-text",
-    success: "bg-success-soft border-success-line text-success-text",
+    success: "bg-accent-soft border-accent-line text-accent-text",
     warning: "bg-warning-soft border-warning-line text-warning-text",
-    danger: "bg-danger-soft border-danger-line text-danger-text",
+    danger: "bg-warning-soft border-warning-line text-warning-text",
     accent: "bg-accent-soft border-accent-line text-accent-text",
     neutral: "bg-canvas border-line text-body",
   } as const;

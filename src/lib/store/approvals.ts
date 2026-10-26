@@ -32,14 +32,16 @@ export type DecisionRecord = {
 
 type ApprovalState = {
   decisions: Record<string, DecisionRecord>;
+  /** Ids the person has put away. Personal, and never a decision. */
+  archived: string[];
 };
 
-const EMPTY: ApprovalState = { decisions: {} };
+const EMPTY: ApprovalState = { decisions: {}, archived: [] };
 
 const store = createPersistedState<ApprovalState>({
   key: "approvehr.approvals.store",
   empty: EMPTY,
-  version: 1,
+  version: 2,
 });
 
 export function useApprovalStore() {
@@ -54,6 +56,7 @@ export function useApprovalStore() {
     (id: string, decision: Decision, note?: string) => {
       const s = store.current();
       store.commit({
+        ...s,
         decisions: {
           ...s.decisions,
           [id]: {
@@ -76,7 +79,7 @@ export function useApprovalStore() {
       for (const id of ids) {
         next[id] = { decision, at: TODAY, byId: actingId };
       }
-      store.commit({ decisions: next });
+      store.commit({ ...s, decisions: next });
     },
     [actingId],
   );
@@ -86,13 +89,21 @@ export function useApprovalStore() {
     if (!s.decisions[id]) return;
     const next = { ...s.decisions };
     delete next[id];
-    store.commit({ decisions: next });
+    store.commit({ ...s, decisions: next });
+  }, []);
+
+  const setArchived = useCallback((id: string, archived: boolean) => {
+    const s = store.current();
+    const without = s.archived.filter((other) => other !== id);
+    store.commit({ ...s, archived: archived ? [...without, id] : without });
   }, []);
 
   const resetAll = useCallback(() => store.reset(), []);
 
   return {
     decisions: state.decisions,
+    archived: state.archived,
+    setArchived,
     decisionFor: (id: string) => state.decisions[id],
     decide,
     decideMany,

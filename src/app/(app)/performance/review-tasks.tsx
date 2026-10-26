@@ -20,6 +20,7 @@ import {
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { TaskSource } from "@/components/performance/task-source";
+import { ProjectSourceTag } from "@/components/projects/project-source-tag";
 import { ApiError } from "@/lib/api/client";
 import type { ApiTaskForGrading, ApiTaskGrade } from "@/lib/api/performance";
 import { dayOf } from "@/lib/api/performance";
@@ -242,6 +243,11 @@ export function ReviewTasksTab() {
                           <TD>{task.goalTitle}</TD>
                           <TD className="max-w-xs">
                             <LinkedText>{task.description}</LinkedText>
+                            {task.projectSource && (
+                              <div className="mt-1.5">
+                                <ProjectSourceTag source={task.projectSource} />
+                              </div>
+                            )}
                             <TaskSource source={task.source} />
                           </TD>
                           <TD align="right">
@@ -286,6 +292,11 @@ export function ReviewTasksTab() {
                         <p className="text-body-sm text-body">
                           <LinkedText>{task.description}</LinkedText>
                         </p>
+                        {task.projectSource && (
+                          <div>
+                            <ProjectSourceTag source={task.projectSource} />
+                          </div>
+                        )}
                         <TaskSource source={task.source} />
                         <GradeActions
                           task={task}
@@ -444,7 +455,7 @@ function GradeActions({
           size="sm"
           variant="ghost"
           loading={busy}
-          className="text-danger-text hover:bg-danger-soft hover:text-danger-text"
+          className="text-ink hover:bg-sunken"
           onClick={() => onAsk("REJECTED")}
         >
           Reject

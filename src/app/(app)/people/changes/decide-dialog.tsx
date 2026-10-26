@@ -49,7 +49,7 @@ export function DecideChangeDialog({
         await decide(row.id, true, note.trim() || undefined);
         toast.push({
           tone: "success",
-          title: `Agreed — ${row.name}'s ${row.kindLabel.toLowerCase()} takes effect on ${row.effectiveOn}`,
+          title: `Agreed, ${row.name}'s ${row.kindLabel.toLowerCase()} takes effect on ${row.effectiveOn}`,
           detail: "Nothing on their record has changed yet.",
         });
       } else if (action === "decline") {
@@ -83,7 +83,7 @@ export function DecideChangeDialog({
     <Modal
       open
       onClose={onClose}
-      title={`${row.kindLabel} — ${row.name}`}
+      title={`${row.kindLabel}, ${row.name}`}
       description={`${summarise(row)} · takes effect ${row.effectiveOn}`}
       footer={
         <div className="flex flex-wrap justify-end gap-2">
@@ -129,8 +129,8 @@ export function DecideChangeDialog({
           }
         >
           {scheduled
-            ? `This was already agreed and is waiting for ${row.effectiveOn}. Withdrawing it now leaves the record exactly as it is. Once it has taken effect it cannot be withdrawn — the way back is a change in the other direction, so the history keeps both.`
-            : `Their record stays exactly as it is until ${row.effectiveOn}, when it is written automatically. A payroll prepared before then pays the figure they are on now, which is correct — the run says so on its own list.`}
+            ? `This was already agreed and is waiting for ${row.effectiveOn}. Withdrawing it now leaves the record exactly as it is. Once it has taken effect it cannot be withdrawn, the way back is a change in the other direction, so the history keeps both.`
+            : `Their record stays exactly as it is until ${row.effectiveOn}, when it is written automatically. A payroll prepared before then pays the figure they are on now, which is correct, the run says so on its own list.`}
         </Callout>
 
         {row.note && (

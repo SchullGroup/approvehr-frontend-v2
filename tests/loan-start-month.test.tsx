@@ -308,7 +308,7 @@ describe("approving different terms", () => {
 });
 
 describe("a pending loan's proposed schedule", () => {
-  it("connected, starts next month when no start was asked for — as the API will", () => {
+  it("connected, starts next month when no start was asked for, as the API will", () => {
     loanOnScreen.current = pending({ startPeriod: null });
     render(<LoanDetailScreen id="loan-9" />);
 

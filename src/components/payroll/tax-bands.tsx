@@ -55,7 +55,7 @@ export function TaxBands({ slip }: { slip: Payslip }) {
       dense
       title="How this tax figure was reached"
       meta={`${working.bands.length} ${working.bands.length === 1 ? "band" : "bands"}`}
-      hint="The arithmetic behind the figure above. Not a separate calculation — the same one, shown."
+      hint="The arithmetic behind the figure above. Not a separate calculation, the same one, shown."
     >
       <dl className="flex flex-col gap-1 text-body-sm">
         <Row

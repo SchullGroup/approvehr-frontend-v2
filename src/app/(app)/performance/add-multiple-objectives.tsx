@@ -13,7 +13,7 @@ import { OBJECTIVES, type ObjectiveField } from "@/lib/imports/objectives";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useSession } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
-import { quarterOptions, quarterText } from "./goal-dialogs";
+import { quarterOptions, quarterText, useQuarterToday } from "./goal-dialogs";
 import { OBJECTIVES_IMPORT_SURFACE } from "./kpis/import/surface";
 import { useObjectiveTemplateLists } from "./kpis/import/lists";
 
@@ -78,7 +78,7 @@ const parentSuggestions = (goals: readonly ApiGoal[]): FieldOption[] => {
     seen.add(title);
     options.push({
       value: title,
-      label: `${title} — ${goal.level === "company" ? "company" : (goal.departmentName ?? "department")}`,
+      label: `${title}, ${goal.level === "company" ? "company" : (goal.departmentName ?? "department")}`,
     });
   }
   return options;
@@ -116,16 +116,20 @@ function Loaded({
   const { user } = useSession();
   const ownEmail = user?.email ?? null;
 
+  /* Not `TODAY`: that is the demo's fixed August, which left "Due quarter" on an
+     ended quarter for a real company. */
+  const today = useQuarterToday();
+
   const surface = useMemo<BulkSurface>(() => {
-    const quarters = quarterOptions();
+    const quarters = quarterOptions(today);
     const people: FieldOption[] = employees
       .filter((person) => person.email && !archivedIds.has(person.id))
       .map((person) => ({
         value: person.email as string,
-        label: `${fullName(person)} — ${person.email as string}`,
+        label: `${fullName(person)}, ${person.email as string}`,
       }));
     if (ownEmail && !people.some((option) => option.value === ownEmail)) {
-      people.unshift({ value: ownEmail, label: `Me — ${ownEmail}` });
+      people.unshift({ value: ownEmail, label: `Me, ${ownEmail}` });
     }
 
     const chooseFrom = (
@@ -158,9 +162,12 @@ function Loaded({
           suggestions: people,
         },
         department: chooseFrom(lists["department"], "No department"),
+        /* Not "counts towards nobody's mark": that is only true of a card with no
+           parent, or whose parent has no open period to give it. The check says
+           which, on the card, after it has run. */
         period: chooseFrom(
           lists["period"],
-          "No period (counts towards nobody's mark)",
+          "None chosen (the parent's period, if any)",
         ),
         parent: {
           kind: "text",
@@ -185,7 +192,7 @@ function Loaded({
       refusalWithoutApi: OBJECTIVES_IMPORT_SURFACE.refusalWithoutApi,
       onChanged,
     };
-  }, [employees, archivedIds, ownEmail, lists, goals, onChanged]);
+  }, [employees, archivedIds, ownEmail, lists, goals, onChanged, today]);
 
   return <BulkCreateDialog open={open} onClose={onClose} surface={surface} />;
 }

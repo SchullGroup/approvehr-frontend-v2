@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -18,12 +19,15 @@ import {
   EmptyState,
   Spinner,
   Stat,
+  StatGrid,
+  Tabs,
   TextLink,
   type BadgeTone,
 } from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { WorkRecordPanel } from "@/components/performance/work-record";
 import {
   changeLabel,
   dayLabel,
@@ -72,6 +76,7 @@ import { BAND_TONE, useScoreHistory } from "@/lib/store/performance";
 export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
   const detail = useScoreHistory(employeeId, true);
   const history = detail.history;
+  const [tab, setTab] = useState("history");
 
   return (
     <>
@@ -96,65 +101,80 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
       />
 
       <PageBody className="flex flex-col gap-6">
-        {DEMO_ENABLED && !detail.available && (
-          <Callout tone="warning" title="Demo data, this browser only">
-            <p>{detail.refusal}</p>
-          </Callout>
-        )}
+        <Tabs
+          items={[
+            { id: "history", label: "Appraisal history" },
+            { id: "work-record", label: "Work record" },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
 
-        {/* A 403 here reaches the reader as the server's own sentence, which is
+        {tab === "work-record" && <WorkRecordPanel employeeId={employeeId} />}
+
+        {tab === "history" && (
+          <>
+            {DEMO_ENABLED && !detail.available && (
+              <Callout tone="warning" title="Demo data, this browser only">
+                <p>{detail.refusal}</p>
+              </Callout>
+            )}
+
+            {/* A 403 here reaches the reader as the server's own sentence, which is
             the one that names the rule: self, direct report, or the records
             permission. An appraiser assigned to one period is refused on
             purpose, and only the server can say so. */}
-        <LoadFailure
-          subject="this person's score history"
-          error={detail.error}
-          onRetry={detail.reload}
-        />
+            <LoadFailure
+              subject="this person's score history"
+              error={detail.error}
+              onRetry={detail.reload}
+            />
 
-        {detail.loading && (
-          <Card>
-            <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-              <Spinner size="sm" />
-              Reading every period
-            </CardBody>
-          </Card>
-        )}
-
-        {history && (
-          <>
-            <Who history={history} />
-
-            {/* The API's own sentence, on its own line. The heading over it
-                said what the sentence already says. */}
-            {history.withheldNote && (
-              <NoticeLine tone="muted">{history.withheldNote}</NoticeLine>
+            {detail.loading && (
+              <Card>
+                <CardBody className="flex items-center gap-2 text-body-sm text-muted">
+                  <Spinner size="sm" />
+                  Loading every period
+                </CardBody>
+              </Card>
             )}
 
-            {history.points.length === 0 ? (
-              <Card>
-                <EmptyState
-                  compact
-                  icon={<TriangleAlert aria-hidden="true" />}
-                  title="No appraisal period has covered them yet"
-                  description="A person appears here once an appraisal period they are in has started. A period that has not been started has no marks to show."
-                />
-              </Card>
-            ) : (
+            {history && (
               <>
-                <Trend history={history} />
-                {history.unscoredCycles.length > 0 && (
-                  <NoMark cycles={history.unscoredCycles} />
+                <Who history={history} />
+
+                {/* The API's own sentence, on its own line. The heading over it
+                said what the sentence already says. */}
+                {history.withheldNote && (
+                  <NoticeLine tone="muted">{history.withheldNote}</NoticeLine>
                 )}
-                {history.truncated && (
-                  <p className="text-body-sm text-muted">
-                    The {history.limit} most recent periods are shown. Older
-                    ones exist and are not on this page.
-                  </p>
+
+                {history.points.length === 0 ? (
+                  <Card>
+                    <EmptyState
+                      compact
+                      icon={<TriangleAlert aria-hidden="true" />}
+                      title="No appraisal period has covered them yet"
+                      description="Someone shows up here once an appraisal period they are part of has started. A period that has not started has no marks yet."
+                    />
+                  </Card>
+                ) : (
+                  <>
+                    <Trend history={history} />
+                    {history.unscoredCycles.length > 0 && (
+                      <NoMark cycles={history.unscoredCycles} />
+                    )}
+                    {history.truncated && (
+                      <p className="text-body-sm text-muted">
+                        The {history.limit} most recent periods are shown. Older
+                        ones exist and are not on this page.
+                      </p>
+                    )}
+                    {[...history.points].reverse().map((point) => (
+                      <Point key={point.cycleId} point={point} />
+                    ))}
+                  </>
                 )}
-                {[...history.points].reverse().map((point) => (
-                  <Point key={point.cycleId} point={point} />
-                ))}
               </>
             )}
           </>
@@ -171,7 +191,7 @@ function Who({ history }: { history: ApiScoreHistory }) {
   const latest = scored[scored.length - 1];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <StatGrid>
       <Stat
         label="Who"
         value={history.employeeName}
@@ -191,7 +211,7 @@ function Who({ history }: { history: ApiScoreHistory }) {
             scoreLabel(latest.scoreBp)
           )
         }
-        hint={latest ? latest.cycleName : "No cycle has produced one"}
+        hint={latest ? latest.cycleName : "No period has given a mark yet"}
       />
       <Stat
         label="Periods with a mark"
@@ -212,7 +232,7 @@ function Who({ history }: { history: ApiScoreHistory }) {
             ? "No appraisal period has covered them yet"
             : history.counts.unscored === 0
               ? "Every period has one"
-              : `${history.counts.unscored} ${history.counts.unscored === 1 ? "period" : "periods"} recorded nothing that counts`
+              : `${history.counts.unscored} ${history.counts.unscored === 1 ? "period" : "periods"} had no mark`
         }
       />
       <Stat
@@ -226,11 +246,11 @@ function Who({ history }: { history: ApiScoreHistory }) {
         }
         hint={
           history.trend === null
-            ? "One mark is not a direction, and none is not a flat line"
+            ? "Needs at least two marks to show a trend"
             : `${history.trend.fromCycle} to ${history.trend.toCycle}`
         }
       />
-    </div>
+    </StatGrid>
   );
 }
 
@@ -279,8 +299,8 @@ function Trend({ history }: { history: ApiScoreHistory }) {
         title="The marks, in order"
         description={
           scored.length < 2
-            ? "A line needs two marks. The figures are below."
-            : "Only the periods with a mark are plotted. The ones without are listed separately, never drawn as nought."
+            ? "A chart needs at least two marks. The figures are below."
+            : "Only periods with a mark are on the chart. Periods with no mark are listed separately."
         }
         {...(direction
           ? {
@@ -306,7 +326,7 @@ function Trend({ history }: { history: ApiScoreHistory }) {
           <p className="text-body-sm text-muted">
             {scored.length === 1
               ? `One mark so far: ${scoreLabel(scored[0]?.scoreBp ?? 0)} in ${scored[0]?.cycleName}.`
-              : "No mark has been recorded in any period, so there is nothing to plot."}
+              : "No marks yet, so there is nothing to chart."}
           </p>
         )}
       </CardBody>
@@ -323,8 +343,8 @@ function NoMark({ cycles }: { cycles: string[] }) {
   return (
     <NoticeLine tone="muted">
       {cycles.length === 1
-        ? `No mark was recorded in ${cycles[0]}.`
-        : `No mark was recorded in ${cycles.length} periods: ${cycles.join(", ")}.`}
+        ? `${cycles[0]} has no mark.`
+        : `${cycles.length} periods have no mark: ${cycles.join(", ")}.`}
     </NoticeLine>
   );
 }
@@ -498,10 +518,10 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
         {
           term: "Told the person",
           value: signOff.finalised
-            ? "Finalised"
+            ? "Final"
             : signOff.reviewId === null
               ? "No manager review exists"
-              : "Not finalised, so they have not been told",
+              : "Not final yet, so they have not been told",
         },
         {
           term: "Their answer",
@@ -534,9 +554,7 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
           ? [
               {
                 term: "What they said",
-                value:
-                  signOff.employeeComment ??
-                  "Nothing, which they were not obliged to add",
+                value: signOff.employeeComment ?? "No comment added",
               },
             ]
           : []),
@@ -556,8 +574,8 @@ function SignOff({ point }: { point: ApiHistoryPoint }) {
           term: "Appraisers' overall mark",
           value:
             point.appraiserMark.ratingBp === null
-              ? "None in yet"
-              : `${scoreLabel(point.appraiserMark.ratingBp)} across ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"}, weighted over the ${weightLabel(point.appraiserMark.submittedWeightBp)} that has come in, not scored`,
+              ? "None yet"
+              : `${scoreLabel(point.appraiserMark.ratingBp)}, from ${point.appraiserMark.appraisers} ${point.appraiserMark.appraisers === 1 ? "appraiser" : "appraisers"} (${weightLabel(point.appraiserMark.submittedWeightBp)} of the weight is in). For reference; it is not part of the score.`,
         },
       ]}
     />

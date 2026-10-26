@@ -10,11 +10,13 @@ import {
   CardHeader,
   EmptyState,
   Field,
+  FieldRow,
   FilterBar,
   Input,
   Modal,
   Select,
-  Spinner,
+  LoadState,
+  useHasAnswered,
   TBody,
   TD,
   TH,
@@ -25,7 +27,6 @@ import {
   useToast,
   type AppliedFilter,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import type { ApiHistoryRow, HistoryStatusFilter } from "@/lib/api/attendance";
 import {
@@ -67,6 +68,11 @@ export function MyAttendanceHistoryPanel() {
     ...(status ? { status } : {}),
   });
   const corrections = useMyCorrections();
+  /* A filter changes the request and `loading` goes true again; what is on
+     screen is the last answer until the next lands, so the controls are not
+     taken away from under the person using them. */
+  const answered = useHasAnswered(history.loading);
+  const ready = answered && !history.error;
 
   /** A pending request against a given day, if there is one. */
   const pendingFor = (date: string) =>
@@ -119,7 +125,7 @@ export function MyAttendanceHistoryPanel() {
               setTo("");
               setStatus("");
             }}
-            count={history.rows.length}
+            {...(ready ? { count: history.rows.length } : {})}
             noun={["day", "days"]}
           >
             <Field label="From">
@@ -159,133 +165,134 @@ export function MyAttendanceHistoryPanel() {
         }
       />
       <CardBody className="flex flex-col gap-4">
-        {history.error && (
-          <LoadFailure
-            subject="your attendance history"
-            error={history.error}
-          />
-        )}
-
-        {history.loading ? (
-          <div className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading
-          </div>
-        ) : history.rows.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<CalendarSearch aria-hidden="true" />}
-            title="Nothing in this range"
-            description="Nothing was recorded, or nothing here matches the filter."
-          />
-        ) : (
-          <>
-            <div className="hidden sm:block">
-              <TableWrap caption="Your attendance, one row per day">
-                <THead>
-                  <TH>Date</TH>
-                  <TH>Status</TH>
-                  <TH>Clock in</TH>
-                  <TH>Clock out</TH>
-                  <TH>&nbsp;</TH>
-                </THead>
-                <TBody>
-                  {history.rows.map((row) => {
-                    const pending = pendingFor(row.date);
-                    return (
-                      <TR key={row.date}>
-                        <TD>{shortDate(row.date)}</TD>
-                        <TD>
-                          <span className="flex flex-wrap items-center gap-1.5">
-                            <Badge tone={STATUS_TONE[row.status]} size="sm">
-                              {STATUS_LABEL[row.status]}
-                            </Badge>
-                            {row.earlyByMinutes > 0 && (
-                              <Badge tone="warning" size="sm">
-                                Left early
+        <LoadState
+          loading={history.loading}
+          error={history.error}
+          subject="your attendance history"
+          skeleton="list"
+          hasData={answered}
+          onRetry={history.reload}
+        >
+          {history.rows.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<CalendarSearch aria-hidden="true" />}
+              title="Nothing in this range"
+              description="Nothing was recorded, or nothing here matches the filter."
+            />
+          ) : (
+            <>
+              <div className="hidden sm:block">
+                <TableWrap caption="Your attendance, one row per day">
+                  <THead>
+                    <TH>Date</TH>
+                    <TH>Status</TH>
+                    <TH>Clock in</TH>
+                    <TH>Clock out</TH>
+                    <TH>&nbsp;</TH>
+                  </THead>
+                  <TBody>
+                    {history.rows.map((row) => {
+                      const pending = pendingFor(row.date);
+                      return (
+                        <TR key={row.date}>
+                          <TD>{shortDate(row.date)}</TD>
+                          <TD>
+                            <span className="flex flex-wrap items-center gap-1.5">
+                              <Badge tone={STATUS_TONE[row.status]} size="sm">
+                                {STATUS_LABEL[row.status]}
                               </Badge>
-                            )}
-                          </span>
-                        </TD>
-                        <TD>{row.clockIn ?? "—"}</TD>
-                        <TD>{row.clockOut ?? "—"}</TD>
-                        <TD align="right">
-                          {pending ? (
-                            <span className="text-meta text-muted">
-                              Correction pending
+                              {row.earlyByMinutes > 0 && (
+                                <Badge tone="warning" size="sm">
+                                  Left early
+                                </Badge>
+                              )}
                             </span>
-                          ) : (
-                            (row.status === "PRESENT" ||
-                              row.status === "LATE" ||
-                              row.status === "ABSENT") && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setCorrecting(row)}
-                              >
-                                <Pencil
-                                  aria-hidden="true"
-                                  className="size-3.5"
-                                />
-                                Something wrong?
-                              </Button>
-                            )
-                          )}
-                        </TD>
-                      </TR>
-                    );
-                  })}
-                </TBody>
-              </TableWrap>
-            </div>
+                          </TD>
+                          <TD>{row.clockIn ?? "—"}</TD>
+                          <TD>{row.clockOut ?? "—"}</TD>
+                          <TD align="right">
+                            {pending ? (
+                              <span className="text-meta text-muted">
+                                Correction pending
+                              </span>
+                            ) : (
+                              (row.status === "PRESENT" ||
+                                row.status === "LATE" ||
+                                row.status === "ABSENT") && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setCorrecting(row)}
+                                >
+                                  <Pencil
+                                    aria-hidden="true"
+                                    className="size-3.5"
+                                  />
+                                  Something wrong?
+                                </Button>
+                              )
+                            )}
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </TableWrap>
+              </div>
 
-            <ul className="divide-y divide-line sm:hidden">
-              {history.rows.map((row) => {
-                const pending = pendingFor(row.date);
-                return (
-                  <li key={row.date} className="flex flex-col gap-2 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="tabular text-body-sm font-medium text-ink">
-                        {shortDate(row.date)}
-                      </span>
-                      <span className="flex flex-wrap items-center gap-1.5">
-                        <Badge tone={STATUS_TONE[row.status]} size="sm">
-                          {STATUS_LABEL[row.status]}
-                        </Badge>
-                        {row.earlyByMinutes > 0 && (
-                          <Badge tone="warning" size="sm">
-                            Left early
+              <ul className="divide-y divide-line sm:hidden">
+                {history.rows.map((row) => {
+                  const pending = pendingFor(row.date);
+                  return (
+                    <li key={row.date} className="flex flex-col gap-2 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="tabular text-body-sm font-medium text-ink">
+                          {shortDate(row.date)}
+                        </span>
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <Badge tone={STATUS_TONE[row.status]} size="sm">
+                            {STATUS_LABEL[row.status]}
                           </Badge>
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
-                      <span className="tabular">In {row.clockIn ?? "—"}</span>
-                      <span className="tabular">Out {row.clockOut ?? "—"}</span>
-                    </div>
-                    {pending ? (
-                      <p className="text-meta text-muted">Correction pending</p>
-                    ) : (
-                      (row.status === "PRESENT" ||
-                        row.status === "LATE" ||
-                        row.status === "ABSENT") && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="self-start"
-                          onClick={() => setCorrecting(row)}
-                        >
-                          <Pencil aria-hidden="true" className="size-3.5" />
-                          Something wrong?
-                        </Button>
-                      )
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        )}
+                          {row.earlyByMinutes > 0 && (
+                            <Badge tone="warning" size="sm">
+                              Left early
+                            </Badge>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
+                        <span className="tabular">In {row.clockIn ?? "—"}</span>
+                        <span className="tabular">
+                          Out {row.clockOut ?? "—"}
+                        </span>
+                      </div>
+                      {pending ? (
+                        <p className="text-meta text-muted">
+                          Correction pending
+                        </p>
+                      ) : (
+                        (row.status === "PRESENT" ||
+                          row.status === "LATE" ||
+                          row.status === "ABSENT") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="self-start"
+                            onClick={() => setCorrecting(row)}
+                          >
+                            <Pencil aria-hidden="true" className="size-3.5" />
+                            Something wrong?
+                          </Button>
+                        )
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </LoadState>
       </CardBody>
 
       {correcting && (
@@ -348,7 +355,7 @@ export function RequestCorrectionDialog({
       return;
     }
     if (reason.trim().length < 10) {
-      setError("Say a bit more — this is what HR has to go on.");
+      setError("Say a bit more, this is what HR has to go on.");
       return;
     }
     setSaving(true);
@@ -389,7 +396,11 @@ export function RequestCorrectionDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3">
+        {/* Two clock times stay side by side on a phone: each is short and
+            half of a 320px sheet is still wider than "12:00 PM" needs. They
+            are in a `FieldRow` because a hand-written grid here once let the
+            second one run off the screen in iPhone Safari. */}
+        <FieldRow phone="pair">
           <Field label="Clock in should be">
             <Input
               type="time"
@@ -406,7 +417,7 @@ export function RequestCorrectionDialog({
               onChange={(event) => setClockOut(event.target.value)}
             />
           </Field>
-        </div>
+        </FieldRow>
         <p className="text-meta text-muted">
           The record currently says {row.clockIn ?? "no clock-in"} to{" "}
           {row.clockOut ?? "no clock-out"}.

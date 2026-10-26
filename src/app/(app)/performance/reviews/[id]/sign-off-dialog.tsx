@@ -110,7 +110,7 @@ export function SignOffDialog({
       description={
         recorded
           ? undefined
-          : `A record that you were shown your rating for ${review.cycleName}.`
+          : `Confirms you have seen your rating for ${review.cycleName}.`
       }
       size="sm"
       footer={
@@ -148,8 +148,8 @@ export function SignOffDialog({
       ) : (
         <div className="flex flex-col gap-4">
           <p className="text-body-sm leading-relaxed text-body">
-            This records that you have seen this rating and when. It is not a
-            record that you agree with it, and nothing here says it is.
+            This records that you have seen your rating, and when. It does not
+            mean you agree with it.
           </p>
 
           <Field

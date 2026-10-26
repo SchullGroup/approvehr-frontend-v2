@@ -13,8 +13,34 @@ import { useFieldControl } from "./field";
  * moments the field is meant to stand out.
  */
 
+/*
+ * `min-w-0 max-w-full` on every control, not only the date and time ones.
+ *
+ * A control is a flex or grid item far more often than not — it sits in a
+ * `Field`, which sits in a two-column row — and an item's automatic minimum
+ * size is its content's, so a control that cannot shrink below its own
+ * intrinsic width pushes the whole row wider than the screen. `w-full` says
+ * how wide it wants to be; these two say it may always be less. See the base
+ * rule in `globals.css` for the iPhone date/time case, which needs more than
+ * this.
+ *
+ * `pointer-coarse:text-body-md` is the size on a finger. iOS Safari zooms the
+ * whole page the moment a field under 16px is focused, and the viewport
+ * deliberately allows zoom (see `layout.tsx`), so every field here was 15px
+ * and every tap on one threw the form off the screen. It is the touch screen
+ * that decides and not the width, because an iPhone held sideways is 667 to
+ * 932px wide and no breakpoint calls that small; a mouse keeps its 15px.
+ *
+ * It sits in `CONTROL` and not beside each `text-body-sm` below, so a caller
+ * that passes its own size (`text-meta` on a compact select) changes what a
+ * mouse sees and cannot take the finger's 16px away. A raw `<input>` written
+ * outside this file has to carry it itself, and
+ * `tests/text-fields-are-16px-on-touch.test.ts` fails the build if one does
+ * not.
+ */
 const CONTROL =
-  "w-full bg-surface text-ink placeholder:text-muted " +
+  "w-full min-w-0 max-w-full bg-surface text-ink placeholder:text-muted " +
+  "pointer-coarse:text-body-md " +
   "border border-field-line rounded-md " +
   "transition-[border-color,box-shadow] duration-150 " +
   "hover:border-ink-soft " +
@@ -111,7 +137,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   if (!icon && !shownSuffix) return control;
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       {icon && (
         <span
           aria-hidden="true"
@@ -162,7 +188,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   function Select({ className, children, placeholder, ...props }, ref) {
     const field = useFieldControl();
     return (
-      <div className="relative">
+      <div className="relative min-w-0">
         <select
           ref={ref}
           className={cn(

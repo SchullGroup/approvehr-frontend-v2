@@ -40,7 +40,7 @@ export const EQUIPMENT_IMPORT_SURFACE: ImportSurface = {
       title:
         "Some of the people named as holding something are not on your staff list",
       consequence:
-        "will import, with nobody recorded as holding them — so they will not appear on anybody's exit checklist until you hand them over.",
+        "will import, with nobody recorded as holding them, so they will not appear on anybody's exit checklist until you hand them over.",
       action: { href: "/people", label: "Add the people first" },
     },
   },

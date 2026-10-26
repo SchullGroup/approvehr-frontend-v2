@@ -14,20 +14,22 @@ export type BadgeTone =
 export const TONES: Record<BadgeTone, string> = {
   neutral: "bg-sunken text-body border-line",
   accent: "bg-accent-soft text-accent-text border-accent-line",
-  success: "bg-success-soft text-success-text border-success-line",
+  /* Two hues, not five: good and informational are the brand indigo, a thing
+     to look at or a problem is ochre. Red is not used for a label. */
+  success: "bg-accent-soft text-accent-text border-accent-line",
   warning: "bg-warning-soft text-warning-text border-warning-line",
-  danger: "bg-danger-soft text-danger-text border-danger-line",
-  info: "bg-info-soft text-info-text border-info-line",
+  danger: "bg-warning-soft text-warning-text border-warning-line",
+  info: "bg-accent-soft text-accent-text border-accent-line",
   ink: "bg-fill-strong text-white border-fill-strong",
 };
 
 const DOTS: Record<BadgeTone, string> = {
   neutral: "bg-muted",
   accent: "bg-accent",
-  success: "bg-success",
+  success: "bg-accent",
   warning: "bg-warning",
-  danger: "bg-danger",
-  info: "bg-info",
+  danger: "bg-warning",
+  info: "bg-accent",
   ink: "bg-white",
 };
 

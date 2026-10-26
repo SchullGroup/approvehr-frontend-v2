@@ -279,6 +279,7 @@ export default async function ModulePage({
               <Reveal key={other.id} as="li" delay={i * 50}>
                 <Link
                   href={`/product/${other.id}`}
+                  prefetch={false}
                   className="group flex h-full items-start gap-3 rounded-2xl border border-sand-line bg-sand p-5 transition-all duration-300 ease-out-soft hover:-translate-y-0.5 hover:bg-white"
                 >
                   <div className="min-w-0 flex-1">

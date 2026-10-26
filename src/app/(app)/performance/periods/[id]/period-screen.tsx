@@ -12,7 +12,6 @@ import {
   Trash2,
   UserX,
   Users,
-  Wand2,
 } from "lucide-react";
 import {
   Badge,
@@ -41,23 +40,19 @@ import {
   Textarea,
   TextLink,
   useToast,
+  Tabs,
 } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/field";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
-import { cn } from "@/lib/cn";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
-  EXCEPTION_CODE_SUMMARY,
-  dayLabel,
-  groupExceptionsByCode,
   ratingWordsFrom,
   scoreLabel,
   weightLabel,
-  type ApiAppraiserMap,
   type ApiComponentScore,
   type ReviewCycleStage,
-  type ApiAppraiserMapRow,
   type ApiCycle,
   type ApiCycleParticipants,
   type ApiRevisionRequest,
@@ -67,20 +62,18 @@ import {
 import { useCan } from "@/lib/permissions";
 import {
   outstandingIn,
-  useAppraiserMutations,
   useCycleMutations,
   useCycleRegister,
   useRatingScale,
-  useReviewFlag,
+  useReviewFlags,
 } from "@/lib/store/performance";
-import { exactPoints } from "@/components/performance/record-check";
+import { CalibrateDialog } from "@/components/performance/calibrate-dialog";
 import { periodWords } from "../../review-parts";
 import { QuestionsDialog } from "../../period-dialogs";
 import { SectionsDialog } from "../../sections-dialog";
-import { AppraisersDialog } from "../../appraiser-map";
 import { AskPeersButton } from "./ask-peers";
 import { CalibrationAudit } from "./fairness/calibration-audit";
-import { FairnessStatus } from "./fairness/fairness-status";
+import { FairnessStatus, publishLock } from "./fairness/fairness-status";
 
 /**
  * Running one appraisal period.
@@ -156,6 +149,8 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   const router = useRouter();
   const canSeeCompany = useCan("EDIT_RECORDS");
   const canManage = useCan("MANAGE_SETTINGS");
+  const canSeeFairness = useCan("VIEW_FAIRNESS");
+  const review = useReviewFlags(cycleId, canSeeFairness);
   const detail = useCycleRegister(cycleId, canSeeCompany);
   const periods = useCycleMutations();
   const toast = useToast();
@@ -174,35 +169,11 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
     setSectionsOpen(true);
   }, []);
   const [publishing, setPublishing] = useState(false);
+  const [periodTab, setPeriodTab] = useState<"overview" | "marks">("overview");
   const [advancing, setAdvancing] = useState(false);
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
-  const [noAppraiser, setNoAppraiser] = useState<string[] | null>(null);
   const [noObjectives, setNoObjectives] = useState<string[] | null>(null);
-
-  /**
-   * The last exceptions map that actually loaded, kept across a background
-   * `detail.reload()`.
-   *
-   * `useCycleRegister` nulls its data the instant `reload()` is called and only
-   * repopulates it once the refetch resolves — a "flash blank, then pop back"
-   * shape that is harmless for the stat grid below, but not for
-   * `NobodyAppraising`: assigning one person inside its "N people have no
-   * appraiser" list calls this same `reload()` to pick up the change, which
-   * would otherwise unmount that list (wiping which group it had open) on
-   * every single save. Twenty-seven people meant twenty-seven trips back
-   * through "Review and fix" for one click each. This is fed to it instead of
-   * `detail.exceptions` directly, so it keeps rendering the same list, now
-   * one person shorter, straight through the reload. */
-  const [stableExceptions, setStableExceptions] =
-    useState<ApiAppraiserMap | null>(null);
-  /* Adjusted during render, not an effect — the "you might not need an
-     effect" pattern for remembering the latest non-null value of a prop.
-     An effect would apply this a frame late, which is exactly the flash this
-     exists to avoid. */
-  if (detail.exceptions && detail.exceptions !== stableExceptions) {
-    setStableExceptions(detail.exceptions);
-  }
 
   const period = detail.cycle;
   const outstanding = outstandingIn(detail.participants);
@@ -214,6 +185,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
      published one is a record. `undefined` at calibration, which is the last
      stage before publishing. */
   const nextStage = running && period ? STAGE_AFTER[period.stage] : undefined;
+  const lock = publishLock(review.flags, period?.stage ?? null);
 
   const failed = (error: unknown) => {
     toast.push({
@@ -241,11 +213,8 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
       toast.push({
         title: `${period.name} started`,
         tone: "success",
-        detail: `${result.reviewsCreated} ${result.reviewsCreated === 1 ? "form" : "forms"} written · ${result.notified} told in the app. Nothing here sends email.`,
+        detail: `${result.reviewsCreated} ${result.reviewsCreated === 1 ? "form" : "forms"} created · ${result.notified} told in the app. No emails are sent from here.`,
       });
-      setNoAppraiser(
-        result.withoutAppraiser.length > 0 ? result.withoutAppraiser : null,
-      );
       setNoObjectives(
         result.withoutAgreedObjectives.length > 0
           ? result.withoutAgreedObjectives
@@ -273,7 +242,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
       toast.push({
         title: `${period.name} deleted`,
         tone: "success",
-        detail: "Nothing was ever sent, so there is nothing to undo.",
+        detail: "Nobody had been sent anything, so there is nothing to undo.",
       });
       router.push("/performance/periods");
     } catch (error) {
@@ -295,7 +264,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         detail:
           nextStage === "MANAGER"
             ? "Managers write their reviews now. Self-reviews already in are kept."
-            : "Marks are in. Nothing else is asked for until you publish.",
+            : "Marks are in. Nothing more is asked of anyone until you publish.",
       });
       detail.reload();
     } catch (error) {
@@ -315,7 +284,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
         detail:
           result.unscored.length > 0
             ? `${result.unscored.length} ${result.unscored.length === 1 ? "person finishes" : "people finish"} with no mark: ${result.unscored.join(", ")}.`
-            : "Every manager's review is now readable by the person it is about.",
+            : "People can now read what their manager wrote about them.",
       });
       detail.reload();
     } catch (error) {
@@ -332,7 +301,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
       toast.push({
         title:
           result.outstanding === 0
-            ? "Nobody owes anything"
+            ? "Nobody is late"
             : `Nudged ${result.reminded} ${result.reminded === 1 ? "person" : "people"}`,
         tone: "success",
         /* The count that does not add up is the useful one: somebody with no
@@ -340,7 +309,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
            that quietly disagrees with the outstanding list. */
         ...(result.noAccount > 0
           ? {
-              detail: `${result.noAccount} ${result.noAccount === 1 ? "person has" : "people have"} no sign-in, so they were not reached. Nothing here sends email.`,
+              detail: `${result.noAccount} ${result.noAccount === 1 ? "person has" : "people have"} no sign-in, so the reminder did not reach them. No emails are sent from here.`,
             }
           : {}),
       });
@@ -449,6 +418,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
                 Nine-box
               </ButtonLink>
             )}
+            {canSeeFairness && !draft && (
+              <ButtonLink
+                size="sm"
+                variant="secondary"
+                href={`/performance/periods/${cycleId}/fairness`}
+              >
+                Fairness check
+              </ButtonLink>
+            )}
 
             {/* The stage never moved on its own, and nothing moved it: the
                 endpoint has always accepted `MANAGER` and `CALIBRATION`,
@@ -473,7 +451,12 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               </Button>
             )}
             {canManage && running && (
-              <Button size="sm" onClick={() => setPublishing(true)}>
+              <Button
+                size="sm"
+                disabled={lock !== null}
+                title={lock ?? undefined}
+                onClick={() => setPublishing(true)}
+              >
                 Publish the results
               </Button>
             )}
@@ -498,6 +481,16 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
 
       <PageBody>
         <div className="flex flex-col gap-6">
+          {running && canSeeFairness && (
+            <FairnessStatus
+              cycleId={cycleId}
+              stage={period?.stage ?? null}
+              flags={review.flags}
+              loading={review.loading}
+              error={review.error}
+              reload={review.reload}
+            />
+          )}
           {/* Setting it up is the whole of this screen while it is a draft, so it
               is first and it is the only accent control on the page. `canManage`
               rather than `canSeeCompany`: starting a period and reading everybody's
@@ -580,27 +573,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               `activateCycle`), so this cannot open the dialog on one person
               directly. Scrolling to the card that can is the honest
               affordance rather than a control that guesses. */}
-          {noAppraiser && (
-            <NoticeLine tone="accent">
-              <span>
-                {noAppraiser.length === 1
-                  ? `${noAppraiser[0]} has no appraiser`
-                  : `${noAppraiser.length} people have no appraiser: ${noAppraiser.join(", ")}`}
-              </span>
-              <button
-                type="button"
-                className={NOTICE_LINK}
-                onClick={() => {
-                  document
-                    .getElementById(APPRAISER_EXCEPTIONS_ANCHOR)
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-              >
-                Assign appraisers
-              </button>
-            </NoticeLine>
-          )}
-
           {noObjectives && (
             <NoticeLine tone="warning">
               <span>
@@ -629,8 +601,8 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             <Card>
               <EmptyState
                 icon={<Users aria-hidden="true" />}
-                title="This page is a company-wide view"
-                description="Your own review and objectives are on the performance screen."
+                title="This page covers the whole company"
+                description="Your own review and objectives are on your Performance page."
                 action={
                   <ButtonLink href="/performance" variant="accent" size="sm">
                     Go to your performance
@@ -662,100 +634,74 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             />
           )}
 
-          {period && (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Stat
-                label="Stage"
-                value={period.stageLabel}
-                {...(period.dueDate
-                  ? { hint: `Answers due ${dayLabel(period.dueDate)}` }
-                  : {})}
-              />
-              <Stat
-                label="Questions"
-                value={String(period.questionCount)}
-                hint={
-                  period.questionCount === 0
-                    ? "A form with no questions asks nobody anything"
-                    : "Asked across the self and manager forms"
-                }
-              />
-              <Stat
-                label="Forms in this period"
-                value={String(period.reviewCount)}
-                hint="One self-review each, plus one per appraiser"
-              />
-              <Stat
-                label="Scoring weights"
-                value={period.scoringFrozen ? "Frozen" : "Live"}
-                hint={
-                  period.scoringFrozen
-                    ? "A later change to the company's weights cannot move these marks"
-                    : /* Two different reasons weights are still live, and only
-                         one of them was being stated. Starting a period is what
-                         freezes them, so EVERY period that has not started yet
-                         is "Live" — and it was being told it "started before
-                         weights were frozen", two lines under a badge reading
-                         `not started`. The legacy case is real but rare; the
-                         not-started case is every new period there is, and the
-                         useful thing to say about it is that a change now
-                         still lands. */
-                      period.stage === "DRAFT"
-                      ? "Whatever they are when this period starts is what it keeps"
-                      : "This period started before weights were frozen onto a period"
-                }
-              />
-            </div>
-          )}
+          <Tabs
+            items={[
+              { id: "overview", label: "Overview" },
+              { id: "marks", label: "Marks" },
+            ]}
+            value={periodTab}
+            onChange={(next) => setPeriodTab(next as "overview" | "marks")}
+          >
+            {periodTab === "overview" && (
+              <div className="flex flex-col gap-6">
+                {period && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Stat
+                      label="Questions"
+                      value={String(period.questionCount)}
+                      hint={
+                        period.questionCount === 0
+                          ? "No questions yet, so nobody would be asked anything"
+                          : "Used on both the self and manager forms"
+                      }
+                    />
+                    <Stat
+                      label="Forms in this period"
+                      value={String(period.reviewCount)}
+                      hint="One self-review each, plus one per appraiser"
+                    />
+                  </div>
+                )}
 
-          {detail.loading && (
-            <Card>
-              <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-                <Spinner size="sm" />
-                Reading the period
-              </CardBody>
-            </Card>
-          )}
+                {detail.loading && (
+                  <Card>
+                    <CardBody className="flex items-center gap-2 text-body-sm text-muted">
+                      <Spinner size="sm" />
+                      Loading the period
+                    </CardBody>
+                  </Card>
+                )}
 
-          {/* Fed the stable snapshot, not `detail.exceptions` — see its own
-              comment above. Gated on the snapshot rather than on
-              `detail.available && !detail.loading` so this survives the very
-              reload its own "Assign" button triggers. */}
-          {stableExceptions && (
-            <NobodyAppraising
-              cycleId={cycleId}
-              exceptions={stableExceptions}
-              draft={draft}
-              onFixed={() => detail.reload()}
-            />
-          )}
-
-          {detail.available && !detail.loading && (
-            <>
-              <Outstanding
-                rows={outstanding}
-                participants={detail.participants}
-              />
-              {period?.stage === "CALIBRATION" && (
-                <FairnessStatus cycleId={cycleId} />
-              )}
-              <Register
-                register={detail.register}
-                cycleId={cycleId}
-                canAskPeers={running && canSeeCompany}
-                canCalibrate={period?.stage === "CALIBRATION" && canManage}
-                canRequestRevision={running && canManage}
-                revisionRequests={detail.revisionRequests}
-                revisionsUnavailable={detail.revisionsUnavailable}
-                onAsked={() => detail.reload()}
-              />
-              <MultiAppraiserReviews participants={detail.participants} />
-              {(period?.stage === "CALIBRATION" ||
-                period?.stage === "PUBLISHED") && (
-                <CalibrationAudit cycleId={cycleId} />
-              )}
-            </>
-          )}
+                {detail.available && !detail.loading && (
+                  <>
+                    <Outstanding
+                      rows={outstanding}
+                      participants={detail.participants}
+                    />
+                    <MultiAppraiserReviews participants={detail.participants} />
+                  </>
+                )}
+              </div>
+            )}
+            {periodTab === "marks" && detail.available && !detail.loading && (
+              <div className="flex flex-col gap-6">
+                <Register
+                  register={detail.register}
+                  cycleId={cycleId}
+                  canAskPeers={running && canSeeCompany}
+                  canCalibrate={period?.stage === "CALIBRATION" && canManage}
+                  canRequestRevision={running && canManage}
+                  revisionRequests={detail.revisionRequests}
+                  revisionsUnavailable={detail.revisionsUnavailable}
+                  onAsked={() => detail.reload()}
+                />
+                {(period?.stage === "CALIBRATION" ||
+                  period?.stage === "PUBLISHED") && (
+                  <CalibrationAudit cycleId={cycleId} />
+                )}
+              </div>
+            )}
+          </Tabs>
         </div>
       </PageBody>
 
@@ -849,7 +795,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           title="Start the period?"
           confirmLabel="Start it"
           tone="primary"
-          body="Everybody gets their form today, and the questions are fixed the moment it starts — add any more first."
+          body="Everyone gets their form today, and the questions cannot be changed once it starts, so add any more first."
         />
       )}
 
@@ -862,7 +808,7 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
           title="Delete this period?"
           confirmLabel="Delete it"
           tone="danger"
-          body={`Nothing has been sent for ${period.name}, so nothing is lost by deleting it — the questions go with it, and this cannot be undone.`}
+          body={`Nobody has been sent anything for ${period.name} yet. Deleting it removes its questions too, and this cannot be undone.`}
         />
       )}
     </>
@@ -891,328 +837,6 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
  * genuinely different problem, or a lone occurrence of this one, still gets
  * its own full sentence. See its own header on `lib/api/performance.ts`.
  */
-/**
- * The anchor the activation callout scrolls to.
- *
- * One constant rather than a string in two files, because a mistyped id here is
- * a button that silently does nothing — the exact failure the rule about
- * resolvable errors exists to prevent, wearing a fix.
- */
-const APPRAISER_EXCEPTIONS_ANCHOR = "appraiser-exceptions";
-
-function NobodyAppraising({
-  cycleId,
-  exceptions,
-  draft,
-  onFixed,
-}: {
-  cycleId: string;
-  exceptions: ApiAppraiserMap | null;
-  /** Before the period starts, when starting it is itself the fix. */
-  draft: boolean;
-  onFixed: () => void;
-}) {
-  const appraisers = useAppraiserMutations();
-  const toast = useToast();
-  const [filling, setFilling] = useState(false);
-
-  /**
-   * The same act `activateCycle` performs, on its own button.
-   *
-   * A second control for one mutation is usually how two screens come to
-   * disagree, and it is safe here for a reason worth stating: `auto` is
-   * **idempotent and only ever fills blanks** — `autoAssignFromReportingLine`
-   * skips anybody already mapped — so pressing it twice, or pressing it and
-   * then starting the period, cannot double-assign or overwrite a mapping
-   * somebody built by hand. That is not true of the payment batch this
-   * codebase refuses to give two doors.
-   *
-   * It exists because the alternative was navigating away from the screen that
-   * raised the problem to find the button that answers it.
-   */
-  const fillFromReportingLine = async () => {
-    setFilling(true);
-    try {
-      const result = await appraisers.autoAssign(cycleId);
-      toast.push({
-        title:
-          result.created === 0
-            ? "Everybody already has an appraiser"
-            : result.created === 1
-              ? "1 person given their line manager"
-              : `${result.created} people given their line manager`,
-        tone: "success",
-        /* Named, not counted. These are the people who would otherwise finish
-           the period with no mark at all, and a number tells nobody who to go
-           and look at. */
-        ...(result.withoutManager.length > 0
-          ? {
-              detail: `Still nobody appraising: ${result.withoutManager.join(", ")}. They have no manager either, so assign somebody by hand.`,
-            }
-          : {}),
-      });
-      onFixed();
-    } catch (caught) {
-      toast.push({
-        title: "That did not work",
-        tone: "danger",
-        detail:
-          caught instanceof ApiError
-            ? caught.message
-            : "Something went wrong. Try again.",
-      });
-    } finally {
-      setFilling(false);
-    }
-  };
-
-  const [reviewing, setReviewing] = useState<{
-    code: string;
-    severity: "BLOCKER" | "WARNING";
-  } | null>(null);
-  const [assigning, setAssigning] = useState<ApiAppraiserMapRow | null>(null);
-
-  if (!exceptions) return null;
-
-  const rows = exceptions.rows.filter((row) => row.exceptions.length > 0);
-
-  if (rows.length === 0) {
-    return (
-      <Card>
-        <CardHeader title="Who is appraising whom" />
-        <CardBody className="flex items-center gap-2 text-body-sm text-body">
-          <CheckCheck aria-hidden="true" className="size-4 text-success-text" />
-          All {exceptions.counts.people} people have somebody appraising them,
-          and every set of weights makes a whole mark.
-        </CardBody>
-      </Card>
-    );
-  }
-
-  const byRow = new Map(rows.map((row) => [row.employeeId, row]));
-  const flat = rows.flatMap((row) =>
-    row.exceptions.map((issue) => ({
-      key: `${row.employeeId}-${issue.code}`,
-      employeeId: row.employeeId,
-      ...issue,
-    })),
-  );
-  const blockerCount = flat.filter(
-    (issue) => issue.severity === "BLOCKER",
-  ).length;
-  const warningCount = flat.length - blockerCount;
-
-  return (
-    <Card id={APPRAISER_EXCEPTIONS_ANCHOR}>
-      <CardHeader
-        title="Who is appraising whom"
-        description={
-          exceptions.counts.unassigned === 0
-            ? "What is wrong with the mapping, by name."
-            : draft
-              ? /* The sentence this replaced said only "set a manager on their
-                   record, or assign an appraiser" — true, and it invited
-                   somebody to do by hand what starting the period does for
-                   everybody at once. On a draft that is a hundred clicks
-                   offered in place of one, and it was reported as exactly
-                   that. */
-                "Starting the period gives everybody their line manager automatically — nobody here needs assigning by hand first. Do it now with the button below if you would rather see the mapping before you start, and assign anybody the reporting line cannot cover."
-              : "Somebody with no appraiser finishes this period with no mark. Set a manager on their record, or assign an appraiser."
-        }
-        action={
-          <Badge
-            tone={blockerCount > 0 ? "danger" : "warning"}
-            size="sm"
-            icon={<UserX aria-hidden="true" />}
-          >
-            {blockerCount > 0
-              ? `${blockerCount} ${blockerCount === 1 ? "blocker" : "blockers"}`
-              : `${warningCount} to look at`}
-          </Badge>
-        }
-      />
-      <CardBody className="flex flex-col gap-2">
-        {exceptions.counts.unassigned > 0 && (
-          <div>
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={filling}
-              disabled={filling}
-              onClick={() => void fillFromReportingLine()}
-            >
-              <Wand2 aria-hidden="true" className="size-4" />
-              Fill in from the reporting line
-            </Button>
-          </div>
-        )}
-        {groupExceptionsByCode(flat).map((group) => {
-          const tone =
-            group.severity === "BLOCKER"
-              ? "border-danger-line bg-danger-soft"
-              : "border-warning-line bg-warning-soft";
-
-          /* One person, and the fix is the same fix.
-             ------------------------------------------
-             This branch used to render the message as a bare paragraph with no
-             button, while the branch below — the identical problem affecting
-             two or more people — got "Review and fix" and the assign dialog.
-             So a period with one person missing an appraiser was the *only*
-             shape of that problem with no way to resolve it, which is precisely
-             backwards: one is the easy case.
-
-             `byRow` already holds the row the dialog needs. */
-          if (group.items.length === 1) {
-            const issue = group.items[0]!;
-            const row = byRow.get(issue.employeeId);
-            return (
-              <div
-                key={issue.key}
-                className={cn(
-                  "flex flex-wrap items-center justify-between gap-3 rounded-md border px-3.5 py-2.5 text-body-sm text-ink",
-                  tone,
-                )}
-              >
-                <span>{issue.message}</span>
-                {row && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setAssigning(row)}
-                  >
-                    {row.appraisers.length === 0 ? "Assign" : "Change"}
-                  </Button>
-                )}
-              </div>
-            );
-          }
-
-          return (
-            <div
-              key={group.code}
-              className={cn(
-                "flex flex-wrap items-center justify-between gap-3 rounded-md border px-3.5 py-2.5 text-body-sm text-ink",
-                tone,
-              )}
-            >
-              <span>
-                {EXCEPTION_CODE_SUMMARY[
-                  group.code as keyof typeof EXCEPTION_CODE_SUMMARY
-                ](group.items.length)}
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() =>
-                  setReviewing({ code: group.code, severity: group.severity })
-                }
-              >
-                Review and fix
-              </Button>
-            </div>
-          );
-        })}
-      </CardBody>
-
-      {reviewing && (
-        <ReviewGroupModal
-          title={EXCEPTION_CODE_SUMMARY[
-            reviewing.code as keyof typeof EXCEPTION_CODE_SUMMARY
-          ](
-            flat.filter(
-              (issue) =>
-                issue.code === reviewing.code &&
-                issue.severity === reviewing.severity,
-            ).length,
-          )}
-          people={flat
-            .filter(
-              (issue) =>
-                issue.code === reviewing.code &&
-                issue.severity === reviewing.severity,
-            )
-            .map((issue) => byRow.get(issue.employeeId))
-            .filter((row): row is ApiAppraiserMapRow => row !== undefined)}
-          onClose={() => setReviewing(null)}
-          onAssign={(row) => setAssigning(row)}
-        />
-      )}
-
-      {assigning && (
-        <AppraisersDialog
-          cycleId={cycleId}
-          row={assigning}
-          onClose={() => setAssigning(null)}
-          onSaved={() => {
-            setAssigning(null);
-            /* `reviewing` stays open on purpose. This dialog is most often
-               reached from inside the "N people have no appraiser yet" list,
-               and closing that list after every single save turned a
-               twenty-seven-person backlog into twenty-seven trips back
-               through "Review and fix". `onFixed` reloads the period, which
-               reloads `exceptions`, which the modal's own `people` list is
-               filtered from below — the person just assigned drops out of it
-               on its own. The list closes itself once nothing is left in it
-               (the `rows.length === 0` branch above returns before reaching
-               this JSX at all), or whenever the reader clicks "Done". */
-            onFixed();
-          }}
-        />
-      )}
-    </Card>
-  );
-}
-
-/**
- * Everybody caught by one collapsed exception group, named — the detail a
- * summary line deliberately does not carry. "Assign" opens the exact same
- * dialog `appraiser-map.tsx`'s own table uses, so there is one appraiser
- * editor in the product, not a second one built for this modal.
- */
-function ReviewGroupModal({
-  title,
-  people,
-  onClose,
-  onAssign,
-}: {
-  title: string;
-  people: ApiAppraiserMapRow[];
-  onClose: () => void;
-  onAssign: (row: ApiAppraiserMapRow) => void;
-}) {
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={title}
-      size="lg"
-      footer={<Button onClick={onClose}>Done</Button>}
-    >
-      <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
-        {people.map((row) => (
-          <li
-            key={row.employeeId}
-            className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-2.5"
-          >
-            <span className="min-w-0">
-              <span className="block text-body-sm font-medium text-ink">
-                {row.employeeName}
-              </span>
-              <span className="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
-                <span>{row.jobTitle}</span>
-                {row.departmentName && <span>{row.departmentName}</span>}
-              </span>
-            </span>
-            <Button variant="secondary" size="sm" onClick={() => onAssign(row)}>
-              {row.appraisers.length === 0 ? "Assign" : "Change"}
-            </Button>
-          </li>
-        ))}
-      </ul>
-    </Modal>
-  );
-}
-
 /**
  * Who has not sent a form yet, by name and by what is missing.
  *
@@ -1271,7 +895,7 @@ function Outstanding({
     <Card>
       <CardHeader
         title="Still to come in"
-        description="A form somebody has not got round to. Different from nobody being asked at all, which is above."
+        description="Forms that were asked for and have not been sent yet. People nobody asked are listed above."
       />
       <CardBody className="flex flex-col gap-4">
         {/* A period nobody is in yet has no ratio to state. "0 of 0" reads as
@@ -1372,7 +996,7 @@ function MultiAppraiserReviews({
     <Card>
       <CardHeader
         title="Manager reviews, by appraiser"
-        description="More than one manager appraises some of these people. Every one of their reviews is listed here, not only the one picked as the mark of record."
+        description="Some of these people have more than one appraiser. Every review is listed here, including the ones that are not the main rating."
       />
       <CardBody className="flex flex-col gap-2">
         {rows.flatMap((row) =>
@@ -1461,7 +1085,7 @@ function Register({
           compact
           icon={<UserX aria-hidden="true" />}
           title="Nobody is in this period"
-          description="Starting a period creates a form for every employee who is not archived or exited."
+          description="Starting a period gives every current employee a form."
         />
       </Card>
     );
@@ -1474,7 +1098,7 @@ function Register({
         description={
           register.weightsFrom === "snapshot"
             ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these marks.`
-            : `Scored on the company's weights as they stand today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own copy, so changing the company's weights would recalculate every mark here, including ones already given.`
+            : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every mark here, including ones already given.`
         }
         action={
           <span className="flex flex-wrap gap-2">
@@ -1603,8 +1227,17 @@ function RegisterRow({
           <span className="text-muted">No mark</span>
         ) : (
           <>
-            <span className="tabular font-medium text-ink">
-              {scoreLabel(row.scoreBp)}
+            <span className="inline-flex items-center justify-end gap-1.5">
+              <span className="tabular font-medium text-ink">
+                {scoreLabel(row.scoreBp)}
+              </span>
+              {row.components.length > 0 && (
+                <InfoTooltip
+                  id={`mark-parts-${row.employeeId}`}
+                  text={breakdownSentence(row.components)}
+                  label={`How ${row.employeeName}’s mark is made up`}
+                />
+              )}
             </span>
             {/* A moved mark never stands on its own. The computed figure is
                 what the answers produced and it survives beside the decision,
@@ -1620,7 +1253,6 @@ function RegisterRow({
                 Moved from {scoreLabel(row.calibration.originalBp)}
               </span>
             )}
-            <ScoreParts components={row.components} />
           </>
         )}
       </TD>
@@ -1790,37 +1422,66 @@ function RegisterCard({
  * out; three screens render it and the register, which is where a cycle owner
  * actually reads a company's marks, showed only the final figure.
  *
- * Rendered as a line rather than behind a reveal. A total nobody can account
- * for is the thing the whole scoring model exists to avoid, and hiding the
- * account behind a click means most readers never see it.
+ * A total nobody can account for is the thing the whole scoring model exists to
+ * avoid. On a phone the card carries the account as a line under the mark. In
+ * the table a row stays within two lines, so the same account sits behind the
+ * info icon beside the mark, one hover away.
  *
- * **Excluded components are named, not dropped.** A component with nothing
+ * **Excluded components are counted, not dropped.** A component with nothing
  * recorded and a component weighted at nothing are different facts, and the
- * API distinguishes them; showing only what counted would leave a reader
- * wondering why four sections produced three figures. `scoreBp` null renders
- * as an em dash and never as 0% — absent is not zero, here as everywhere.
+ * API distinguishes them; the line says how many were left out and the tooltip
+ * names each with the API's sentence, so a reader is never left wondering why
+ * four sections produced three figures. A missing figure is never shown as 0%:
+ * absent is not zero, here as everywhere.
  */
 function ScoreParts({ components }: { components: ApiComponentScore[] }) {
   if (components.length === 0) return null;
+  const { counted, leftOut } = splitComponents(components);
   return (
     <span className="mt-1 block text-meta leading-relaxed text-muted">
-      {components.map((part, index) => (
+      {counted.map((part, index) => (
         <span key={part.component}>
           {index > 0 && <span aria-hidden="true"> · </span>}
-          <span
-            className={part.included ? undefined : "text-faint"}
-            /* The API's sentence for the exclusion, never one written here. */
-            {...(part.excludedNote ? { title: part.excludedNote } : {})}
-          >
-            {part.label}{" "}
-            <span className="tabular">
-              {part.scoreBp === null ? "—" : scoreLabel(part.scoreBp)}
-            </span>
-          </span>
+          {part.label}{" "}
+          <span className="tabular">{scoreLabel(part.scoreBp ?? 0)}</span>
         </span>
       ))}
+      {leftOut.length > 0 && (
+        <span className="text-faint" title={leftOutSentence(leftOut)}>
+          {counted.length > 0 && <span aria-hidden="true"> · </span>}
+          {leftOut.length} left out
+        </span>
+      )}
     </span>
   );
+}
+
+function splitComponents(components: ApiComponentScore[]) {
+  const counted = components.filter(
+    (part) => part.included && part.scoreBp !== null,
+  );
+  const leftOut = components.filter(
+    (part) => !(part.included && part.scoreBp !== null),
+  );
+  return { counted, leftOut };
+}
+
+/* The API's own sentence for each exclusion, never one written here. */
+function leftOutSentence(leftOut: ApiComponentScore[]): string {
+  return leftOut
+    .map((part) => `${part.label}: ${part.excludedNote ?? "nothing recorded"}`)
+    .join(" ");
+}
+
+/** The whole account of a mark in one sentence, for the table's tooltip. */
+function breakdownSentence(components: ApiComponentScore[]): string {
+  const { counted, leftOut } = splitComponents(components);
+  const parts = counted
+    .map((part) => `${part.label} ${scoreLabel(part.scoreBp ?? 0)}`)
+    .join(", ");
+  const rest =
+    leftOut.length > 0 ? ` Left out: ${leftOutSentence(leftOut)}` : "";
+  return `${parts || "Nothing counted yet"}.${rest}`;
 }
 
 function SignOffCell({ row }: { row: ApiScoreRow }) {
@@ -1991,7 +1652,7 @@ function PeriodFramingEditor({
     >
       <div className="flex flex-col gap-3">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field optional label="Period covered — from">
+          <Field optional label="Period covered, from">
             <Input
               type="date"
               value={start}
@@ -2167,8 +1828,8 @@ function AppraiseLeadersToggle({
       />
       <p className="text-meta text-muted">
         Off for both by default. Whoever is left out still appraises their own
-        team &mdash; they simply get no form of their own, so they do not finish
-        the period counted as unscored.
+        team. They just do not get a form of their own, so they are not left
+        with no mark.
       </p>
     </div>
   );
@@ -2209,203 +1870,22 @@ function CalibrateButton({
   row: ApiScoreRow;
   onChanged: () => void;
 }) {
-  const periods = useCycleMutations();
-  const toast = useToast();
-
   const [open, setOpen] = useState(false);
-  const [percent, setPercent] = useState("");
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-
-  const existing = row.calibration;
-  const canSeeFairness = useCan("VIEW_FAIRNESS");
-  const { flag } = useReviewFlag(
-    cycleId,
-    row.employeeId,
-    open && canSeeFairness,
-  );
-  const offRecord =
-    flag && (flag.status === "below" || flag.status === "above") ? flag : null;
-
-  const start = () => {
-    /* Seeded with what is on screen, so somebody nudging a mark by two points
-       does not retype it. The reason is deliberately NOT seeded from the old
-       one — a new decision needs a new account of itself. */
-    setPercent(
-      String(Math.round((existing?.calibratedBp ?? row.scoreBp ?? 0) / 100)),
-    );
-    setReason("");
-    setFailed(null);
-    setOpen(true);
-  };
-
-  const save = async () => {
-    const value = Number(percent);
-    if (!Number.isInteger(value) || value < 0 || value > 100) {
-      setFailed("Give a whole percentage between 0 and 100.");
-      return;
-    }
-    if (reason.trim().length < 10) {
-      setFailed("Say why in a few more words: this is the record of it.");
-      return;
-    }
-    setBusy(true);
-    setFailed(null);
-    try {
-      await periods.calibrate(cycleId, row.employeeId, {
-        calibratedBp: value * 100,
-        reason: reason.trim(),
-      });
-      toast.push({
-        title: `${row.employeeName}'s mark is now ${String(value)}%`,
-        tone: "success",
-        detail: "What the answers produced is kept beside it.",
-      });
-      setOpen(false);
-      onChanged();
-    } catch (caught) {
-      setFailed(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not move that mark.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const clear = async () => {
-    setBusy(true);
-    setFailed(null);
-    try {
-      await periods.clearCalibration(cycleId, row.employeeId);
-      toast.push({
-        title: `${row.employeeName}'s mark is back to what the answers produced`,
-        tone: "success",
-      });
-      setOpen(false);
-      onChanged();
-    } catch (caught) {
-      setFailed(
-        caught instanceof ApiError
-          ? caught.message
-          : "Could not put that mark back.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <>
-      <Button variant="secondary" size="sm" onClick={start}>
-        {existing ? "Change it" : "Move the mark"}
+      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
+        {row.calibration ? "Change it" : "Change the mark"}
       </Button>
-
-      {/* No open-gating here: `Modal` decides whether to render from its own
-          `useDismiss` state, so this has to stay mounted and keep passing the
-          real `open` through for its exit animation to have a chance to play. */}
-      <Modal
+      <CalibrateDialog
         open={open}
         onClose={() => setOpen(false)}
-        title={`Move ${row.employeeName}'s mark`}
-        description={`The answers produced ${scoreLabel(row.computedBp ?? row.scoreBp ?? 0)}.`}
-        size="sm"
-        footer={
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            {/* Only offered where there is something to undo, and away from
-                the save button — it is the destructive half. */}
-            {existing ? (
-              <Button
-                variant="ghost"
-                disabled={busy}
-                onClick={() => void clear()}
-              >
-                Put it back
-              </Button>
-            ) : (
-              <span />
-            )}
-            <div className="flex gap-2">
-              <Button disabled={busy} onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="accent"
-                loading={busy}
-                onClick={() => void save()}
-              >
-                Save the change
-              </Button>
-            </div>
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          {offRecord &&
-            offRecord.gapBp !== null &&
-            offRecord.expectedBp !== null && (
-              <Callout
-                tone="warning"
-                title="This mark doesn't match the evidence"
-              >
-                The evidence suggests {scoreLabel(offRecord.expectedBp)}, a gap
-                of {exactPoints(offRecord.gapBp)}. Check the evidence on the
-                fairness check before moving it.
-              </Callout>
-            )}
-
-          {existing && (
-            <Callout tone="neutral" title="It has already been moved">
-              Now {scoreLabel(existing.calibratedBp)}, from{" "}
-              {scoreLabel(existing.originalBp)}
-              {existing.calibratedByName
-                ? `, by ${existing.calibratedByName}`
-                : ""}
-              . The reason given was &ldquo;{existing.reason}&rdquo;.
-            </Callout>
-          )}
-
-          <Field
-            label="Mark it as"
-            required
-            {...(failed ? { error: failed } : {})}
-          >
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                inputMode="numeric"
-                className="w-28"
-                value={percent}
-                disabled={busy}
-                onChange={(event) => setPercent(event.target.value)}
-              />
-              <span className="text-body-sm text-muted">%</span>
-            </div>
-          </Field>
-
-          <Field
-            label="Why"
-            required
-            help="This is kept with the mark and is what explains it if anybody asks later."
-          >
-            <Textarea
-              rows={3}
-              value={reason}
-              disabled={busy}
-              placeholder="Moderated at the calibration meeting: the team's targets were set higher than the rest of the department."
-              onChange={(event) => setReason(event.target.value)}
-            />
-          </Field>
-
-          <p className="text-meta text-muted">
-            What the answers produced is kept beside this, not replaced.
-          </p>
-        </div>
-      </Modal>
+        onChanged={onChanged}
+        cycleId={cycleId}
+        employeeId={row.employeeId}
+        employeeName={row.employeeName}
+        computedBp={row.computedBp ?? row.scoreBp ?? 0}
+        existing={row.calibration}
+      />
     </>
   );
 }
@@ -2501,9 +1981,9 @@ function RevisionButton({
     return (
       <span
         className="text-meta text-muted"
-        title={`${existing.targetStage === "SELF" ? "Self-appraisal" : "Manager review"} — ${existing.reason}`}
+        title={`${existing.targetStage === "SELF" ? "Self-appraisal" : "Manager review"}, ${existing.reason}`}
       >
-        Sent back, awaiting resubmission
+        Sent back, waiting for them to send it again
       </span>
     );
   }
@@ -2521,7 +2001,7 @@ function RevisionButton({
         open={open}
         onClose={() => setOpen(false)}
         title={`Send ${row.employeeName}'s review back`}
-        description="Reopens that one review so they can redo it. Nobody else's review moves."
+        description="Opens that one review again so they can redo it. Nobody else's review changes."
         size="sm"
         footer={
           <div className="flex justify-end gap-2">

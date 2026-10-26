@@ -9,6 +9,7 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
+  LoadState,
   Field,
   Input,
   Modal,
@@ -22,6 +23,7 @@ import {
   TR,
   TableWrap,
   type BadgeTone,
+  RowActions,
 } from "@/components/ui";
 import type { SortOrder } from "@/lib/use-list-query";
 import {
@@ -73,6 +75,8 @@ export function ClaimsRegister({
   claims,
   types,
   loading,
+  error,
+  onRetry,
   showWho,
   canSettle,
   myEmployeeId,
@@ -87,6 +91,9 @@ export function ClaimsRegister({
   claims: Claim[];
   types: ExpenseType[];
   loading: boolean;
+  /** The read failed. The register then says so and nothing about its contents. */
+  error?: unknown;
+  onRetry?: () => void;
   /** Off when the list is only ever the reader's own claims. */
   showWho: boolean;
   /** `APPROVE_EXPENSES`. Settling is the same finance role that approved it. */
@@ -145,199 +152,219 @@ export function ClaimsRegister({
           <CardBody className="border-b border-line">{filters}</CardBody>
         )}
 
-        {claims.length === 0 ? (
-          <EmptyState
-            icon={<ReceiptText aria-hidden="true" />}
-            title={loading ? "Loading…" : "No claims here"}
-            description={
-              loading
-                ? "Reading the claims."
-                : "Nothing matches. Claims appear here the moment they are sent."
-            }
-            {...(emptyAction && !loading ? { action: emptyAction } : {})}
-          />
-        ) : (
-          <>
-            <div className="hidden sm:block">
-              <TableWrap className="rounded-none border-0" caption={title}>
-                <THead>
-                  {showWho && <TH>Who</TH>}
-                  <TH>What for</TH>
-                  {column("incurredOn", "Spent on", { startDescending: true })}
-                  {column("amount", "Amount", {
-                    align: "right",
-                    startDescending: true,
-                  })}
-                  <TH>Receipt</TH>
-                  {column("status", "State")}
-                  <TH align="right">
-                    <span className="sr-only">Actions</span>
-                  </TH>
-                </THead>
-                <TBody>
-                  {claims.map((claim) => {
-                    const mine = claim.employeeId === myEmployeeId;
-                    return (
-                      <TR key={claim.id}>
-                        {showWho && (
-                          <TD>
-                            <span className="block font-medium text-ink">
-                              {claim.employeeName}
+        {/* The one loading and failure rule: skeletons while the claims are
+            being read, the failure card after they could not be, and "No
+            claims here" only once the read has answered with none. It was
+            "No claims here" under a failure, and an empty state titled
+            "Loading…" while it waited. */}
+        <LoadState
+          loading={loading}
+          error={error ?? null}
+          subject="the claims"
+          skeleton="list"
+          hasData={claims.length > 0}
+          {...(onRetry ? { onRetry } : {})}
+        >
+          {claims.length === 0 ? (
+            <EmptyState
+              icon={<ReceiptText aria-hidden="true" />}
+              title="No claims here"
+              description="Nothing matches. Claims appear here the moment they are sent."
+              {...(emptyAction ? { action: emptyAction } : {})}
+            />
+          ) : (
+            <>
+              <div className="hidden sm:block">
+                <TableWrap className="rounded-none border-0" caption={title}>
+                  <THead>
+                    {showWho && <TH>Who</TH>}
+                    <TH>What for</TH>
+                    {column("incurredOn", "Spent on", {
+                      startDescending: true,
+                    })}
+                    {column("amount", "Amount", {
+                      align: "right",
+                      startDescending: true,
+                    })}
+                    <TH>Receipt</TH>
+                    {column("status", "State")}
+                    <TH align="right">
+                      <span className="sr-only">Actions</span>
+                    </TH>
+                  </THead>
+                  <TBody>
+                    {claims.map((claim) => {
+                      const mine = claim.employeeId === myEmployeeId;
+                      return (
+                        <TR key={claim.id}>
+                          {showWho && (
+                            <TD>
+                              <span className="block font-medium text-ink">
+                                {claim.employeeName}
+                              </span>
+                              <span className="block text-meta text-muted">
+                                {claim.employeeNo}
+                              </span>
+                            </TD>
+                          )}
+
+                          <TD className="max-w-88">
+                            <span className="block text-ink">
+                              {claim.description}
                             </span>
                             <span className="block text-meta text-muted">
-                              {claim.employeeNo}
+                              {claim.type}
                             </span>
+                            {claim.status === "DECLINED" &&
+                              claim.declinedReason && (
+                                <span className="mt-1 block text-body-sm text-body">
+                                  {claim.approvedByName
+                                    ? `${claim.approvedByName}: `
+                                    : ""}
+                                  {claim.declinedReason}
+                                </span>
+                              )}
                           </TD>
-                        )}
 
-                        <TD className="max-w-88">
-                          <span className="block text-ink">
+                          <TD className="tabular text-body">
+                            {claim.incurredOn}
+                          </TD>
+
+                          <TD
+                            align="right"
+                            className="tabular font-medium text-ink"
+                          >
+                            <Money amount={claim.amount} decimals />
+                          </TD>
+
+                          <TD>
+                            <ReceiptCell claim={claim} types={types} />
+                          </TD>
+
+                          <TD>
+                            <StatusBadge claim={claim} />
+                          </TD>
+
+                          <TD align="right">
+                            {((claim.editable && mine && onEdit) ||
+                              (claim.outstanding &&
+                                canSettle &&
+                                onMarkPaid)) && (
+                              <RowActions
+                                label={`More actions for ${claim.employeeName}'s claim`}
+                                items={[
+                                  ...(claim.editable && mine && onEdit
+                                    ? [
+                                        {
+                                          label: "Edit",
+                                          onSelect: () => onEdit(claim),
+                                        },
+                                      ]
+                                    : []),
+                                  ...(claim.outstanding &&
+                                  canSettle &&
+                                  onMarkPaid
+                                    ? [
+                                        {
+                                          label: "Mark paid",
+                                          onSelect: () => setSettling(claim),
+                                        },
+                                      ]
+                                    : []),
+                                ]}
+                              />
+                            )}
+                          </TD>
+                        </TR>
+                      );
+                    })}
+                  </TBody>
+                </TableWrap>
+              </div>
+
+              <ul className="divide-y divide-line sm:hidden">
+                {claims.map((claim) => {
+                  const mine = claim.employeeId === myEmployeeId;
+                  return (
+                    <li key={claim.id} className="flex flex-col gap-2 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          {showWho && (
+                            <>
+                              <p className="font-medium text-ink">
+                                {claim.employeeName}
+                              </p>
+                              <p className="text-meta text-muted">
+                                {claim.employeeNo}
+                              </p>
+                            </>
+                          )}
+                          <p className={showWho ? "mt-1 text-ink" : "text-ink"}>
                             {claim.description}
-                          </span>
-                          <span className="block text-meta text-muted">
-                            {claim.type}
-                          </span>
-                          {claim.status === "DECLINED" &&
-                            claim.declinedReason && (
-                              <span className="mt-1 block text-body-sm text-body">
-                                {claim.approvedByName
-                                  ? `${claim.approvedByName}: `
-                                  : ""}
-                                {claim.declinedReason}
-                              </span>
-                            )}
-                        </TD>
-
-                        <TD className="tabular text-body">
-                          {claim.incurredOn}
-                        </TD>
-
-                        <TD
-                          align="right"
-                          className="tabular font-medium text-ink"
-                        >
+                          </p>
+                          <p className="text-meta text-muted">
+                            {claim.type} · {claim.incurredOn}
+                          </p>
+                        </div>
+                        <span className="tabular shrink-0 font-medium text-ink">
                           <Money amount={claim.amount} decimals />
-                        </TD>
+                        </span>
+                      </div>
 
-                        <TD>
-                          <ReceiptCell claim={claim} types={types} />
-                        </TD>
+                      {claim.status === "DECLINED" && claim.declinedReason && (
+                        <p className="text-body-sm text-body">
+                          {claim.approvedByName
+                            ? `${claim.approvedByName}: `
+                            : ""}
+                          {claim.declinedReason}
+                        </p>
+                      )}
 
-                        <TD>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-3">
                           <StatusBadge claim={claim} />
-                        </TD>
-
-                        <TD align="right">
-                          <div className="flex justify-end gap-1.5">
-                            {claim.editable && mine && onEdit && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onEdit(claim)}
-                              >
-                                Edit
-                              </Button>
-                            )}
-                            {claim.outstanding && canSettle && onMarkPaid && (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => setSettling(claim)}
-                              >
-                                Mark paid
-                              </Button>
-                            )}
-                          </div>
-                        </TD>
-                      </TR>
-                    );
-                  })}
-                </TBody>
-              </TableWrap>
-            </div>
-
-            <ul className="divide-y divide-line sm:hidden">
-              {claims.map((claim) => {
-                const mine = claim.employeeId === myEmployeeId;
-                return (
-                  <li key={claim.id} className="flex flex-col gap-2 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        {showWho && (
-                          <>
-                            <p className="font-medium text-ink">
-                              {claim.employeeName}
-                            </p>
-                            <p className="text-meta text-muted">
-                              {claim.employeeNo}
-                            </p>
-                          </>
-                        )}
-                        <p className={showWho ? "mt-1 text-ink" : "text-ink"}>
-                          {claim.description}
-                        </p>
-                        <p className="text-meta text-muted">
-                          {claim.type} · {claim.incurredOn}
-                        </p>
+                          <ReceiptCell claim={claim} types={types} />
+                        </div>
+                        <div className="flex gap-1.5">
+                          {claim.editable && mine && onEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onEdit(claim)}
+                            >
+                              Edit
+                            </Button>
+                          )}
+                          {claim.outstanding && canSettle && onMarkPaid && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setSettling(claim)}
+                            >
+                              Mark paid
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <span className="tabular shrink-0 font-medium text-ink">
-                        <Money amount={claim.amount} decimals />
-                      </span>
-                    </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
 
-                    {claim.status === "DECLINED" && claim.declinedReason && (
-                      <p className="text-body-sm text-body">
-                        {claim.approvedByName
-                          ? `${claim.approvedByName}: `
-                          : ""}
-                        {claim.declinedReason}
-                      </p>
-                    )}
-
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-3">
-                        <StatusBadge claim={claim} />
-                        <ReceiptCell claim={claim} types={types} />
-                      </div>
-                      <div className="flex gap-1.5">
-                        {claim.editable && mine && onEdit && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onEdit(claim)}
-                          >
-                            Edit
-                          </Button>
-                        )}
-                        {claim.outstanding && canSettle && onMarkPaid && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setSettling(claim)}
-                          >
-                            Mark paid
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        )}
-
-        {paging && claims.length > 0 && (
-          <Pagination
-            page={paging.page}
-            pageSize={paging.pageSize}
-            total={paging.total}
-            onPageChange={paging.onPageChange}
-            onPageSizeChange={paging.onPageSizeChange}
-            noun={["claim", "claims"]}
-            loading={loading}
-          />
-        )}
+          {paging && claims.length > 0 && (
+            <Pagination
+              page={paging.page}
+              pageSize={paging.pageSize}
+              total={paging.total}
+              onPageChange={paging.onPageChange}
+              onPageSizeChange={paging.onPageSizeChange}
+              noun={["claim", "claims"]}
+              loading={loading}
+            />
+          )}
+        </LoadState>
       </Card>
 
       {/* `onMarkPaid` is unrelated to open/closed — it is absent for callers

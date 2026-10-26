@@ -22,6 +22,7 @@ import {
   Select,
   Spinner,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TH,
@@ -30,6 +31,7 @@ import {
   TableWrap,
   Textarea,
   useToast,
+  RowActions,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
@@ -167,7 +169,7 @@ export function BenefitsPanel() {
         ) : (
           <div className="flex flex-col gap-6">
             {canSeeMoney && cost.data && (
-              <div className="grid gap-3 sm:grid-cols-3">
+              <StatGrid columns={3}>
                 {/* Two figures, two cards, labelled apart. Never one "cost". */}
                 <Stat
                   label="Company pays a month"
@@ -188,7 +190,7 @@ export function BenefitsPanel() {
                   value={String(cost.data.people)}
                   hint={`across ${String(cost.data.plans)} ${cost.data.plans === 1 ? "plan" : "plans"}`}
                 />
-              </div>
+              </StatGrid>
             )}
 
             {tab === "plans" ? (
@@ -343,26 +345,31 @@ function Plans({
                   </Badge>
                 </TD>
                 <TD align="right">
-                  <div className="flex flex-wrap justify-end gap-2">
-                    {canEnrol && !plan.archived && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => onEnrol(plan)}
-                      >
-                        Put somebody on
-                      </Button>
-                    )}
-                    {canPrice && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => void togglePlan(plan)}
-                      >
-                        {plan.archived ? "Switch on" : "Switch off"}
-                      </Button>
-                    )}
-                  </div>
+                  {((canEnrol && !plan.archived) || canPrice) && (
+                    <RowActions
+                      label={`More actions for ${plan.name}`}
+                      items={[
+                        ...(canEnrol && !plan.archived
+                          ? [
+                              {
+                                label: "Put somebody on",
+                                onSelect: () => onEnrol(plan),
+                              },
+                            ]
+                          : []),
+                        ...(canPrice
+                          ? [
+                              {
+                                label: plan.archived
+                                  ? "Switch on"
+                                  : "Switch off",
+                                onSelect: () => void togglePlan(plan),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  )}
                 </TD>
               </TR>
             ))}

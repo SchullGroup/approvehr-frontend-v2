@@ -12,11 +12,14 @@ import {
   Field,
   Select,
   Switch,
+  Tabs,
   useToast,
 } from "@/components/ui";
+import type { TabItem } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
+import { useUrlTab } from "@/hooks/use-url-tab";
 import { ApiError } from "@/lib/api/client";
 import {
   ADVANCED_FEATURE_KEYS,
@@ -31,6 +34,13 @@ import {
   HEADCOUNT_LABELS,
   useFeatureSettings,
 } from "@/lib/store/features";
+import { FEATURE_TABS, type FeatureTabId } from "./tabs";
+
+const TAB_ITEMS: TabItem[] = [
+  { id: "modules", label: "Modules" },
+  { id: "record", label: "Employee record" },
+  { id: "advanced", label: "More detail" },
+];
 
 /**
  * Turn on more features.
@@ -73,7 +83,12 @@ import {
  * switch above that opens it. Hiding the row instead would make the capability
  * undiscoverable, which is the failure this whole page exists to prevent.
  */
-export function FeaturesScreen() {
+export function FeaturesScreen({
+  initialTab = "modules",
+}: {
+  initialTab?: FeatureTabId;
+}) {
+  const [tab, changeTab] = useUrlTab<FeatureTabId>(initialTab, FEATURE_TABS);
   const features = useFeatureSettings();
   const toast = useToast();
   const connected = features.source === "api";
@@ -274,49 +289,59 @@ export function FeaturesScreen() {
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader
-            title="Modules"
-            description={`${modulesOn} of ${MODULE_FEATURE_KEYS.length} on. Changes save as you make them.`}
-            level={2}
-          />
-          <CardBody className="flex flex-col divide-y divide-line py-0">
-            {MODULE_FEATURE_KEYS.map(row)}
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader
-            title="What an employee record asks for"
-            description={`${fieldsOn} of ${RECORD_FIELD_KEYS.length} on. These change the add-an-employee form, not the menu.`}
-            level={2}
-          />
-          <CardBody className="flex flex-col gap-4">
-            <Callout
-              tone="info"
-              title="Turning one off does not change anybody's pay"
-            >
-              A person who already has a TIN keeps it, payroll keeps filing with
-              it, and their record still shows it. What stops is being asked for
-              it on new records, and the payroll run still holds back anybody it
-              cannot pay, for the same reasons as before.
-            </Callout>
-            <div className="flex flex-col divide-y divide-line">
-              {RECORD_FIELD_KEYS.map(row)}
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader
-            title="For companies that need more detail"
-            description="Depth inside something you already have on. Leave these off unless you recognise the situation."
-            level={2}
-          />
-          <CardBody className="flex flex-col divide-y divide-line py-0">
-            {ADVANCED_FEATURE_KEYS.map(row)}
-          </CardBody>
-        </Card>
+        {/* The headcount answer above decides what is offered, so it stays out
+            of the tabs. Below it, three groups that share no switch: which
+            screens exist, which fields a new record asks for, and the depth
+            inside a module that is already on. */}
+        <Tabs items={TAB_ITEMS} value={tab} onChange={changeTab}>
+          {tab === "modules" && (
+            <Card>
+              <CardHeader
+                title="Modules"
+                description={`${modulesOn} of ${MODULE_FEATURE_KEYS.length} on. Changes save as you make them.`}
+                level={2}
+              />
+              <CardBody className="flex flex-col divide-y divide-line py-0">
+                {MODULE_FEATURE_KEYS.map(row)}
+              </CardBody>
+            </Card>
+          )}
+          {tab === "record" && (
+            <Card>
+              <CardHeader
+                title="What an employee record asks for"
+                description={`${fieldsOn} of ${RECORD_FIELD_KEYS.length} on. These change the add-an-employee form, not the menu.`}
+                level={2}
+              />
+              <CardBody className="flex flex-col gap-4">
+                <Callout
+                  tone="info"
+                  title="Turning one off does not change anybody's pay"
+                >
+                  A person who already has a TIN keeps it, payroll keeps filing
+                  with it, and their record still shows it. What stops is being
+                  asked for it on new records, and the payroll run still holds
+                  back anybody it cannot pay, for the same reasons as before.
+                </Callout>
+                <div className="flex flex-col divide-y divide-line">
+                  {RECORD_FIELD_KEYS.map(row)}
+                </div>
+              </CardBody>
+            </Card>
+          )}
+          {tab === "advanced" && (
+            <Card>
+              <CardHeader
+                title="For companies that need more detail"
+                description="Depth inside something you already have on. Leave these off unless you recognise the situation."
+                level={2}
+              />
+              <CardBody className="flex flex-col divide-y divide-line py-0">
+                {ADVANCED_FEATURE_KEYS.map(row)}
+              </CardBody>
+            </Card>
+          )}
+        </Tabs>
       </PageBody>
     </>
   );

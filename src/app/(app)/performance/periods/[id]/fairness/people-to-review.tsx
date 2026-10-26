@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import {
+  CheckCircle2,
+  Clock,
   ArrowDown,
   ArrowLeft,
   ArrowRight,
@@ -13,6 +15,7 @@ import { Button, Select, Spinner } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { exactPct, exactPoints } from "@/components/performance/record-check";
 import type {
+  ReviewCycleStage,
   ApiClaim,
   ApiClaims,
   ApiReviewFlag,
@@ -21,6 +24,9 @@ import type {
 import { useAutoReviewNote } from "@/lib/store/ai";
 import { useReviewFlag } from "@/lib/store/performance";
 import { cn } from "@/lib/cn";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDateShort } from "@/lib/time";
+import { FlagActions } from "./flag-actions";
 
 export function flaggedCount(flags: ApiReviewFlags | null) {
   return flags ? flags.counts.below + flags.counts.above : 0;
@@ -35,12 +41,14 @@ export function PeopleToReview({
   loading,
   error,
   reload,
+  stage,
 }: {
   cycleId: string;
   flags: ApiReviewFlags | null;
   loading: boolean;
   error: Error | null;
   reload: () => void;
+  stage: ReviewCycleStage | null;
 }) {
   const [index, setIndex] = useState(0);
   const detail = useRef<HTMLDivElement>(null);
@@ -116,7 +124,10 @@ export function PeopleToReview({
                             : "text-body hover:bg-canvas",
                         )}
                       >
-                        <span className="truncate">{p.name}</span>
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <Decided person={p} />
+                          <span className="truncate">{p.name}</span>
+                        </span>
                         {p.gapBp !== null && <Gap bp={p.gapBp} />}
                       </button>
                     </li>
@@ -136,7 +147,11 @@ export function PeopleToReview({
       <div ref={detail} className="min-w-0 scroll-mt-4">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
           <span className="hidden text-body-sm text-muted lg:inline">
-            {at + 1} of {queue.length} to review
+            {at + 1} of {queue.length} to review · {flags.counts.decided}{" "}
+            decided
+            {flags.counts.waiting > 0
+              ? `, ${String(flags.counts.waiting)} waiting on a manager`
+              : ""}
           </span>
           <div className="min-w-0 flex-1 lg:hidden">
             <Select
@@ -172,10 +187,36 @@ export function PeopleToReview({
             </Button>
           </div>
         </div>
-        <Person key={person.employeeId} cycleId={cycleId} person={person} />
+        <Person
+          key={person.employeeId}
+          cycleId={cycleId}
+          person={person}
+          stage={stage}
+          onChanged={reload}
+        />
       </div>
     </div>
   );
+}
+
+// A tick for a decided mark and a clock for one back with the manager; nothing while open.
+function Decided({ person }: { person: ApiReviewFlag }) {
+  const state = person.resolution?.state;
+  if (state === "stands" || state === "moved")
+    return (
+      <CheckCircle2
+        aria-label="Decided"
+        className="size-4 shrink-0 text-success-text"
+      />
+    );
+  if (state === "waiting")
+    return (
+      <Clock
+        aria-label="Waiting on the manager"
+        className="size-4 shrink-0 text-muted"
+      />
+    );
+  return null;
 }
 
 function Gap({ bp }: { bp: number }) {
@@ -195,11 +236,16 @@ function Gap({ bp }: { bp: number }) {
 function Person({
   cycleId,
   person,
+  stage,
+  onChanged,
 }: {
   cycleId: string;
   person: ApiReviewFlag;
+  stage: ReviewCycleStage | null;
+  onChanged: () => void;
 }) {
   const note = useAutoReviewNote(cycleId, person.employeeId, true);
+  const timeZone = useOrgTimezone();
   const { claims } = useReviewFlag(cycleId, person.employeeId, true);
   const summary = note.outcome?.available
     ? note.outcome.suggestions[0]
@@ -227,11 +273,7 @@ function Person({
           {writtenAt && (
             <span className="font-normal text-muted">
               {" "}
-              · written{" "}
-              {new Date(writtenAt).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "short",
-              })}
+              · written {formatDateShort(writtenAt, timeZone)}
             </span>
           )}
         </p>
@@ -262,6 +304,13 @@ function Person({
           </div>
         )}
       </section>
+
+      <FlagActions
+        cycleId={cycleId}
+        person={person}
+        stage={stage}
+        onChanged={onChanged}
+      />
 
       <section className="mt-10 border-t border-line pt-6">
         <button
@@ -304,7 +353,7 @@ function Figures({ person }: { person: ApiReviewFlag }) {
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-h3 tabular-nums sm:text-h2",
-                "bg-warning-subtle text-warning-text",
+                "bg-warning-soft text-warning-text",
               )}
             >
               {exactPoints(person.gapBp).replace(" pts", "")}

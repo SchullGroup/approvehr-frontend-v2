@@ -1,6 +1,5 @@
 "use client";
 
-import { ClipboardList } from "lucide-react";
 import {
   ButtonLink,
   Card,
@@ -8,7 +7,6 @@ import {
   CardHeader,
   Spinner,
 } from "@/components/ui";
-import { StartPeriodButton } from "@/app/(app)/performance";
 import { PeriodStatus } from "@/app/(app)/performance/period-status";
 import { periodInPlay } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
@@ -96,36 +94,32 @@ export function AppraisalsCard() {
               : "Nobody has been appraised through ApproveHR yet."
         }
         action={
-          /* Renders nothing when the company has appraisals off or the reader
-             cannot run one — its own gate, unchanged. A dead control on the
-             screen people open first is worse than no control. */
-          <StartPeriodButton withIcon />
+          running ? (
+            <ButtonLink href="/performance" variant="ghost" size="sm">
+              Open
+            </ButtonLink>
+          ) : undefined
         }
       />
 
       {running ? (
         <>
-          <CardBody className="flex flex-wrap items-center gap-2">
-            <ButtonLink href="/performance" variant="secondary" size="sm">
-              <ClipboardList aria-hidden="true" className="size-3.5" />
-              Open appraisals
-            </ButtonLink>
-          </CardBody>
           {/* The figures. Absent for a reader without the permission, and for a
               period with no report yet — never zeroed. */}
           {/* The whole cycle, not its id: staging changed `PeriodStatus` to take
               the object so it can read the stage and the dates without a
               second fetch. Caught by `tsc` when this branch merged staging —
               the text merged cleanly and the contract had moved. */}
-          <PeriodStatus cycle={period} canSeeCompany={canSeeCompany} />
+          <PeriodStatus
+            cycle={period}
+            canSeeCompany={canSeeCompany}
+            showExceptions={false}
+          />
         </>
       ) : (
         <CardBody>
           <p className="text-body-sm text-muted">
-            An appraisal period asks everybody to write their own review, asks
-            their manager to write one back, and produces a mark that can be
-            explained afterwards. Nothing happens to anybody&rsquo;s pay
-            automatically.
+            No appraisal period is running.
           </p>
         </CardBody>
       )}

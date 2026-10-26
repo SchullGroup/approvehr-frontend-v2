@@ -3,8 +3,9 @@
 import { useId, useState } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { Badge, TONES } from "./badge";
-import { Button } from "./button";
+import { useDismiss } from "@/hooks/use-dismiss";
+import { TONES } from "./badge";
+import { Button, IconButton } from "./button";
 import { Input } from "./input";
 
 /**
@@ -12,8 +13,8 @@ import { Input } from "./input";
  *
  * ## Rule 5, and the one place it must not be obeyed
  *
- * The controls are **closed by default** and the trigger says what is inside and
- * how much: "Filters · 2 applied". A directory offering eight selects above the
+ * The controls are **closed by default** behind a filter icon that carries a count
+ * of what is applied. A directory offering eight selects above the
  * table is eight things to read before the list, and seven of them are not the
  * question the reader came with.
  *
@@ -84,6 +85,7 @@ export function FilterBar({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const { mounted, closing } = useDismiss(open, 170);
   const panelId = useId();
   const hasPanel = Boolean(children);
 
@@ -91,7 +93,11 @@ export function FilterBar({
     <div className={cn("flex flex-col gap-3", className)}>
       <div className="flex flex-wrap items-center gap-3">
         {onSearchChange && (
-          <div className="relative min-w-0 flex-1 sm:max-w-sm">
+          /* `min-w-44`, not `min-w-0`: the row wraps, but a search box that may
+             shrink to nothing never has to — at 320px beside "Filters" and a
+             count it was a 16px sliver under the button. With a floor it takes
+             a line of its own instead. */
+          <div className="relative min-w-44 max-w-full flex-1 sm:max-w-sm">
             <Search
               aria-hidden="true"
               className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-faint"
@@ -107,20 +113,58 @@ export function FilterBar({
         )}
 
         {hasPanel && (
-          <Button
-            variant="secondary"
-            aria-expanded={open}
-            aria-controls={panelId}
-            onClick={() => setOpen((was) => !was)}
-          >
-            <SlidersHorizontal aria-hidden="true" className="size-4" />
-            Filters
-            {applied.length > 0 && (
-              <Badge tone="accent" size="sm" className="font-semibold">
-                {applied.length}
-              </Badge>
+          <div className="relative">
+            <IconButton
+              label={
+                applied.length > 0
+                  ? `Filters, ${String(applied.length)} applied`
+                  : "Filters"
+              }
+              variant="secondary"
+              aria-expanded={open}
+              aria-controls={panelId}
+              onClick={() => setOpen((was) => !was)}
+              className="relative"
+            >
+              <SlidersHorizontal aria-hidden="true" className="size-4" />
+              {applied.length > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-fill-strong text-meta font-semibold text-surface"
+                >
+                  {applied.length}
+                </span>
+              )}
+            </IconButton>
+            {/* A small menu under the button, not a band across the page: the
+                list below does not move when it opens, and a click anywhere
+                else or Escape puts it away. Each filter is one labelled
+                dropdown, one under the other. */}
+            {mounted && (
+              <>
+                <div
+                  className={
+                    closing
+                      ? "pointer-events-none fixed inset-0 z-30"
+                      : "fixed inset-0 z-30"
+                  }
+                  aria-hidden="true"
+                  onClick={() => setOpen(false)}
+                />
+                <div
+                  id={panelId}
+                  role="group"
+                  aria-label="Filters"
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setOpen(false);
+                  }}
+                  className={`${closing ? "animate-scale-out" : "animate-scale-in"} origin-top-left absolute left-0 top-full z-40 mt-2 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 rounded-lg border border-line bg-surface p-3 shadow-lg`}
+                >
+                  {children}
+                </div>
+              </>
             )}
-          </Button>
+          </div>
         )}
 
         {sort}
@@ -179,16 +223,6 @@ export function FilterBar({
               Clear all
             </Button>
           )}
-        </div>
-      )}
-
-      {hasPanel && (
-        <div
-          id={panelId}
-          hidden={!open}
-          className="grid gap-4 rounded-lg border border-line bg-canvas p-4 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          {open && children}
         </div>
       )}
     </div>

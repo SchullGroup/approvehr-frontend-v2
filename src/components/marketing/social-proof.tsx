@@ -58,7 +58,7 @@ const TESTIMONIALS = [
   },
   {
     quote:
-      "It is not just payroll. Recruitment, attendance, onboarding, leave, assets, the help desk — all of it sits in one place now. My team stops chasing people for information that should already be on the system.",
+      "It is not just payroll. Recruitment, attendance, onboarding, leave, assets, the help desk, all of it sits in one place now. My team stops chasing people for information that should already be on the system.",
     name: "Miracle Ebalukhota",
     role: "Business Manager",
     company: "Beate Synergy",

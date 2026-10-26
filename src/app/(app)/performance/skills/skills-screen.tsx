@@ -7,6 +7,7 @@ import { useCan, useIsManager } from "@/lib/permissions";
 import { useFeatures } from "@/lib/store/features";
 import { SkillsTab } from "../skills";
 import { StartPeriodButton } from "../start-period";
+import type { SkillsTabId } from "./tabs";
 
 /**
  * Competency ratings, on its own route.
@@ -16,7 +17,7 @@ import { StartPeriodButton } from "../start-period";
  * a company; this is the direct-link case, answered the same way
  * `/performance/approvals` answers it.
  */
-export function SkillsScreen() {
+export function SkillsScreen({ initialTab }: { initialTab: SkillsTabId }) {
   const features = useFeatures();
   const canSeeCompany = useCan("EDIT_RECORDS");
   const isManager = useIsManager();
@@ -61,7 +62,11 @@ export function SkillsScreen() {
         action={<StartPeriodButton withIcon />}
       />
       <PageBody>
-        <SkillsTab canSeeCompany={canSeeCompany} isManager={isManager} />
+        <SkillsTab
+          canSeeCompany={canSeeCompany}
+          isManager={isManager}
+          initialTab={initialTab}
+        />
       </PageBody>
     </>
   );

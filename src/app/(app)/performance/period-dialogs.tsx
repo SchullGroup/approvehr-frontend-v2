@@ -68,7 +68,7 @@ const KINDS: { value: ReviewQuestionKind; label: string }[] = [
   { value: "RATING", label: "A rating on the company scale" },
   { value: "BOOLEAN", label: "Yes or no" },
   { value: "CHOICE", label: "Pick from a list" },
-  { value: "FILE", label: "A file — a report, a dashboard, a screenshot" },
+  { value: "FILE", label: "A file, a report, a dashboard, a screenshot" },
 ];
 
 const AUDIENCE_LABEL: Record<ReviewAudience, string> = {
@@ -749,8 +749,8 @@ function FiledUnderPicker({
        its ratings recorded and excluded, and 0% would read as a weight
        somebody chose. */
     return option.weightBp === null
-      ? `${option.name} — not weighted`
-      : `${option.name} — ${weightLabel(option.weightBp)} of the mark`;
+      ? `${option.name}, not weighted`
+      : `${option.name}, ${weightLabel(option.weightBp)} of the mark`;
   };
 
   const addSubsection = async () => {
@@ -880,7 +880,7 @@ function FiledUnderPicker({
                   ? `Answers to this count towards ${chosen.name}.`
                   : `Answers to this count towards ${chosen.name}, which is ${weightLabel(chosen.weightBp)} of the mark.`
             : sectionId !== ""
-              ? "Nothing is filed under a section on its own. Pick a subsection, or this question is asked, answered, and counts towards no part of the mark."
+              ? "Pick a subsection for this question, or it will be asked and answered but count towards no part of the mark."
               : "Unfiled questions are asked and answered, and count towards no part of the mark."}
         </span>
       </NoticeLine>

@@ -38,7 +38,7 @@ import { salesScriptAssistantName, scriptedFallback } from "@/lib/sales-script";
 
 /** Matches `NO_ASSISTANT_REASON` on the API. */
 export const SUGGESTIONS_UNAVAILABLE =
-  "Suggestions are switched off — no assistant is connected. " +
+  "Suggestions are switched off, no assistant is connected. " +
   "Everything here still works; you write it yourself.";
 
 /* --------------------------------------------------- the status, asked once */

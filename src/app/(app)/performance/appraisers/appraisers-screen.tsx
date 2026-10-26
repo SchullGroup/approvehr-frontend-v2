@@ -82,8 +82,8 @@ export function AppraisersScreen() {
         />
         <PageBody>
           <EmptyState
-            title="Not yours to read"
-            description="Who appraises whom covers everybody in the company, so it needs the permission to see everybody's record."
+            title="Not available to you"
+            description="This covers everyone in the company, so it is only open to people who can see every employee's record."
           />
         </PageBody>
       </>
@@ -101,7 +101,7 @@ export function AppraisersScreen() {
           <EmptyState
             icon={<ToggleRight aria-hidden="true" />}
             title="One appraiser per person, today"
-            description="This company has not turned on more than one appraiser per person, so nobody needs a mapping or a weighting table."
+            description="This company has not turned on more than one appraiser per person, so there is nothing to map or weight."
             action={
               canChangeFeatures ? (
                 <ButtonLink variant="accent" href="/settings/features">

@@ -2,14 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowRight,
-  Inbox,
-  Mail,
-  Megaphone,
-  Paperclip,
-  Phone,
-} from "lucide-react";
+import { ArrowRight, Inbox, Mail, Megaphone, Phone, UserX } from "lucide-react";
 import {
   Badge,
   Button,
@@ -20,10 +13,12 @@ import {
   EmptyState,
   LinkedText,
   Skeleton,
-  TextLink,
   useToast,
+  TextLink,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { LoadMore } from "@/components/portal/load-more";
+import { OpenCv, useCanOpenCv } from "@/components/hiring/open-cv";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/hiring/source-badge";
 import {
@@ -31,9 +26,10 @@ import {
   ScreenInDialog,
 } from "@/components/hiring/screening-dialogs";
 import { ApiError } from "@/lib/api/client";
-import { careersPath } from "@/lib/api/careers";
+import { careersApi, careersPath } from "@/lib/api/careers";
 import type { ScreeningRow } from "@/lib/api/hiring";
 import { useRoleQueue, type RoleQueue } from "@/lib/store/hiring";
+import { RowMenu, type RowMenuEntry } from "./row-menu";
 
 /**
  * Everybody who applied for this role through the careers page.
@@ -54,9 +50,10 @@ import { useRoleQueue, type RoleQueue } from "@/lib/store/hiring";
  *
  * ## Two sources, one page
  *
- * This panel is live whenever the API is up. The board below it is not — there
- * is no route for a pipeline `Application` — so each carries its own badge
- * rather than the page carrying one for both.
+ * This panel is live whenever the API is up, and so is the board below it when
+ * somebody is signed in (`RealRequisitionWorkspace`). With no session the board
+ * is the demo seed while this panel is the careers-page demo applications, so
+ * each carries its own badge rather than the page carrying one for both.
  */
 export function RequisitionScreening({
   requisitionId,
@@ -78,7 +75,7 @@ export function RequisitionScreening({
  * two endpoints again — two extra requests per render of one page, which is how
  * a screen walks into a rate limiter.
  */
-function ScreeningCard({
+export function ScreeningCard({
   queue,
   roleName,
 }: {
@@ -106,9 +103,9 @@ function ScreeningCard({
         <CardHeader
           title="Applied through the careers page"
           description={
-            queue.adverts.length === 0
+            queue.adverts.length === 0 || queue.waiting === null
               ? undefined
-              : `${queue.waiting} waiting on a first look.`
+              : `${queue.waiting.toLocaleString("en-NG")} waiting on a first look.`
           }
           action={<SourceBadge live={queue.live} />}
         />
@@ -165,7 +162,7 @@ function ScreeningCard({
             }
           />
         ) : (
-          <CardBody className="flex flex-col gap-3">
+          <CardBody className="flex flex-col divide-y divide-line">
             {queue.rows.map((row) => (
               <ApplicantRow
                 key={row.id}
@@ -175,8 +172,17 @@ function ScreeningCard({
                 onDecline={() => setDeclining(row)}
               />
             ))}
+            <LoadMore
+              shown={queue.rows.length}
+              total={queue.total}
+              noun={["application", "applications"]}
+              hasMore={queue.hasMore}
+              loading={queue.loadingMore}
+              error={queue.moreError}
+              onLoadMore={queue.loadMore}
+            />
             {!queue.editable && (
-              <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
+              <div className="flex flex-wrap items-center gap-3 pt-3">
                 <p className="text-body-sm text-body">
                   Screening somebody in writes a candidate into the pipeline, so
                   it needs the API.
@@ -189,9 +195,6 @@ function ScreeningCard({
                   Check again
                 </Button>
               </div>
-            )}
-            {queue.cvNote && (
-              <p className="text-meta text-muted">{queue.cvNote}</p>
             )}
           </CardBody>
         )}
@@ -242,7 +245,8 @@ function ScreeningCard({
             toast.push({
               title: `${declining.name} turned down`,
               tone: "success",
-              detail: "Nothing was sent to them. Write to them yourself.",
+              detail:
+                "Nothing was sent to them: ApproveHR does not email applicants yet. Write to them yourself.",
             });
             setDeclining(null);
           } catch (error) {
@@ -257,11 +261,11 @@ function ScreeningCard({
 /**
  * A requisition this browser has never heard of.
  *
- * Reachable in connected mode: the roles list is built from adverts, and an
- * advert's `requisitionId` is a real database id with no route behind it. Rather
- * than a bare 404 — which is what the applications queue currently walks into —
- * the page still does the one useful thing it can, which is show that role's
- * applications and let somebody screen them in.
+ * Reached only from the demo: a role id the seed does not hold, usually one the
+ * demo's own adverts point at. Connected, an unknown id is a genuine 404 — see
+ * `RealRequisitionDetail`. Rather than a bare 404 the demo page still does the
+ * one useful thing it can, which is show that role's applications and let
+ * somebody screen them in.
  */
 export function UnknownRequisition({ id }: { id: string }) {
   const queue = useRoleQueue(id);
@@ -296,6 +300,26 @@ export function UnknownRequisition({ id }: { id: string }) {
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * One person who applied, with what is needed to decide on them and the actions to.
+ *
+ * ## What moved
+ *
+ * The row carried up to six controls in two styles: an underlined email, an
+ * underlined phone number, an underlined "See their record", and two or three
+ * buttons, none of them 44px on a phone (the audit counted 23px links and 32px
+ * buttons, 17 targets under 44px in four rows). Now:
+ *
+ * - **The decision is visible**: "Screen in" is the one filled button, and "Open
+ *   CV" stays beside it because it is what is opened first to decide.
+ * - **Everything else is one menu**: write to them, call them, turn them down.
+ *   Turning somebody down is kept in the menu on purpose, apart from the button
+ *   that sits next to it; it is the one action here that cannot be un-pressed
+ *   from this screen, and it used to be a plain button beside "Screen in".
+ * - **The address is plain text**, still selectable and copyable. The menu's
+ *   "Email" and "Call" rows show it again as their hint, so the number is on
+ *   screen in both places and a mistyped one is easy to see.
+ */
 function ApplicantRow({
   row,
   editable,
@@ -307,9 +331,42 @@ function ApplicantRow({
   onScreenIn: () => void;
   onDecline: () => void;
 }) {
+  const canOpenCv = useCanOpenCv();
+  const menu: RowMenuEntry[] = [
+    {
+      label: "Email",
+      icon: <Mail />,
+      href: `mailto:${row.email}`,
+      external: true,
+      hint: row.email,
+    },
+    ...(row.phone
+      ? [
+          {
+            label: "Call",
+            icon: <Phone />,
+            href: `tel:${row.phone}`,
+            external: true,
+            hint: row.phone,
+          },
+        ]
+      : []),
+    ...(editable && row.waiting
+      ? [
+          "separator" as const,
+          {
+            label: "Turn down",
+            icon: <UserX />,
+            tone: "danger" as const,
+            onSelect: onDecline,
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-line p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-2 text-body-sm font-medium text-ink">
             {row.name}
@@ -322,66 +379,60 @@ function ApplicantRow({
                 Screened
               </Badge>
             )}
-            {row.cvUrl ? (
-              <TextLink
-                href={row.cvUrl}
-                className="inline-flex items-center gap-1 text-body-sm"
-              >
-                <Paperclip aria-hidden="true" className="size-3.5" />
-                Open CV
-              </TextLink>
-            ) : (
-              <Badge
-                tone="neutral"
-                size="sm"
-                icon={<Paperclip aria-hidden="true" />}
-              >
-                CV cannot be opened
+            {editable && canOpenCv && row.cvFlagged && (
+              <Badge tone="danger" size="sm">
+                CV flagged by the virus check
               </Badge>
             )}
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-muted">
             <TextLink
               href={`mailto:${row.email}`}
-              className="inline-flex items-center gap-1 font-normal"
+              className="inline-flex max-w-full items-center gap-1 font-normal break-all"
             >
               <Mail aria-hidden="true" className="size-3.5" />
               {row.email}
             </TextLink>
             {row.phone && (
-              <TextLink
-                href={`tel:${row.phone}`}
-                className="tabular inline-flex items-center gap-1 font-normal"
-              >
-                <Phone aria-hidden="true" className="size-3.5" />
+              <span className="tabular inline-flex items-center gap-1">
+                <Phone aria-hidden="true" className="size-3.5 shrink-0" />
                 {row.phone}
-              </TextLink>
+              </span>
             )}
             <span className="tabular">Applied {row.appliedOn}</span>
             {row.source && <span>Heard: {row.source}</span>}
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+        <div className="flex max-w-full shrink-0 flex-wrap items-center gap-1.5">
+          {editable && canOpenCv && row.hasCv && !row.cvFlagged && (
+            <OpenCv
+              open={() => careersApi.openCv(row.id)}
+              className="max-sm:h-11"
+            />
+          )}
           {!row.waiting && row.candidateId && (
-            <TextLink
+            <ButtonLink
               href={`/hiring/candidates/${row.candidateId}`}
-              className="inline-flex items-center gap-1 text-body-sm"
+              variant="secondary"
+              size="sm"
+              className="max-sm:h-11"
             >
               See their record
               <ArrowRight aria-hidden="true" className="size-3.5" />
-            </TextLink>
+            </ButtonLink>
           )}
           {editable && row.waiting && (
-            <>
-              <Button variant="secondary" size="sm" onClick={onDecline}>
-                Turn down
-              </Button>
-              <Button variant="accent" size="sm" onClick={onScreenIn}>
-                Screen in
-              </Button>
-            </>
+            <Button
+              variant="accent"
+              size="sm"
+              className="max-sm:h-11"
+              onClick={onScreenIn}
+            >
+              Screen in
+            </Button>
           )}
+          <RowMenu label={`More actions for ${row.name}`} items={menu} />
         </div>
       </div>
 

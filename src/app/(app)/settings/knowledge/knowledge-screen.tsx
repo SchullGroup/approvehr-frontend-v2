@@ -13,10 +13,9 @@ import {
   CardHeader,
   ConfirmDialog,
   EmptyState,
-  Input,
-  SegmentedControl,
   SkeletonText,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -26,6 +25,9 @@ import {
   TR,
   TableWrap,
   useToast,
+  Field,
+  FilterBar,
+  Select,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { useCan } from "@/lib/permissions";
@@ -216,7 +218,7 @@ export function KnowledgeScreen() {
           <LoadFailure subject="the article figures" error={analyticsError} />
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatGrid>
           {/* `?? 0` was a measurement claimed over a figure nobody read. A
               refused or failed analytics call now says so rather than
               publishing four zeros above a list of articles that contradicts
@@ -237,7 +239,7 @@ export function KnowledgeScreen() {
             value={totals ? count(totals.neverRead) : "\u2014"}
             hint={totals ? "published, no reads" : "not counted"}
           />
-        </div>
+        </StatGrid>
 
         {/* The editorial backlog. First, because it is the useful one. */}
         <Card>
@@ -399,36 +401,55 @@ export function KnowledgeScreen() {
         <Card>
           <CardHeader title="Every article" />
 
-          <CardBody className="flex flex-wrap items-center gap-3">
-            <SegmentedControl<Filter>
-              label="Which articles to show"
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { value: "all", label: "All" },
-                { value: "published", label: "Live" },
-                { value: "draft", label: "Drafts" },
+          <CardBody>
+            <FilterBar
+              search={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Find an article by title"
+              searchLabel="Find an article by title"
+              applied={[
+                ...(filter !== "all"
+                  ? [
+                      {
+                        label: "Show",
+                        value: filter === "draft" ? "Drafts" : "Live",
+                        onClear: () => setFilter("all"),
+                      },
+                    ]
+                  : []),
+                ...(order !== "views"
+                  ? [
+                      {
+                        label: "Order",
+                        value:
+                          order === "title" ? "A to Z" : "Recently changed",
+                        onClear: () => setOrder("views"),
+                      },
+                    ]
+                  : []),
               ]}
-            />
-            <SegmentedControl<Order>
-              label="Order"
-              value={order}
-              onChange={setOrder}
-              options={[
-                { value: "views", label: "Most read" },
-                { value: "updatedAt", label: "Recently changed" },
-                { value: "title", label: "A–Z" },
-              ]}
-            />
-            <div className="min-w-[13rem] flex-1">
-              <Input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Find an article by title"
-                aria-label="Find an article by title"
-              />
-            </div>
+            >
+              <Field label="Which articles to show">
+                <Select
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value as Filter)}
+                >
+                  <option value="all">All</option>
+                  <option value="published">Live</option>
+                  <option value="draft">Drafts</option>
+                </Select>
+              </Field>
+              <Field label="Order">
+                <Select
+                  value={order}
+                  onChange={(event) => setOrder(event.target.value as Order)}
+                >
+                  <option value="views">Most read</option>
+                  <option value="updatedAt">Recently changed</option>
+                  <option value="title">A to Z</option>
+                </Select>
+              </Field>
+            </FilterBar>
           </CardBody>
 
           {articles.error && (
@@ -638,7 +659,7 @@ export function KnowledgeScreen() {
         title={`Hide ${hiding?.title ?? ""}?`}
         confirmLabel="Hide it"
         tone="danger"
-        body="Staff stop seeing it straight away. Nothing is deleted — publish it again whenever you like."
+        body="Staff stop seeing it straight away. Nothing is deleted, publish it again whenever you like."
         onConfirm={() => {
           if (!hiding) return;
           void articles

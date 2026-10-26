@@ -80,6 +80,18 @@ type State = {
    * inventing a policy.
    */
   probationMonths: number;
+  /**
+   * Whether ApproveHR lets this company offer early pay. Not in `flags`: the
+   * company cannot set it, so it must not turn up as a toggle. The sidebar
+   * reads it through `NavFacts.earlyPay`.
+   */
+  earlyPay: boolean;
+  /**
+   * Whether the company has switched on drawing pay early. Null until the
+   * server has said, which the nav reads as "show it": a menu that hides a row
+   * on a guess is worse than one that shows it a moment early.
+   */
+  earnedWage: boolean | null;
   headcountBand: HeadcountBand;
   setupStep: number;
   totalSteps: number;
@@ -127,6 +139,12 @@ const BASE_FLAGS: FeatureFlags = {
   departments: false,
   /* Off, like every module. */
   surveys: false,
+  /* Off, like every module: a company that has not asked for a tracker keeps a
+     sidebar without one. */
+  projects: false,
+  /* Off, like every module. The screens hold private records, so nothing about
+     them is shown to a company that has not asked for them. */
+  wellness: false,
   grades: false,
   shifts: false,
   loans: false,
@@ -159,7 +177,14 @@ const BASE_FLAGS: FeatureFlags = {
      that have never run one — and the screen it belongs to is deliberately not
      gated on this, so nothing is hidden by the default. */
   probationTracking: false,
+  /* Off, matching the schema. A company that has not switched the text digest on
+     is texting nobody, and nobody has been asked. */
+  smsDigest: false,
   twoFactor: false,
+  /* Off, matching the schema. Nothing is recorded about anybody opening the app
+     until a company turns this on, and the app does not even send the event
+     while it is off. */
+  appOpenTracking: false,
 };
 
 /** The schema's own default, and what renders before the real row arrives. */
@@ -181,6 +206,10 @@ const LOADING: State = {
      same and nothing is gated on it, so an empty default is safe here. */
   stepUpActions: [],
   probationMonths: PROBATION_MONTHS_FALLBACK,
+  /* Hidden until the server answers: a row that appears late is better than
+     one that vanishes under somebody's pointer. */
+  earlyPay: false,
+  earnedWage: null,
   loading: true,
   error: null,
   source: "loading",
@@ -242,6 +271,14 @@ export const FEATURE_COPY: Record<
     label: "Appraisals",
     line: "Scored reviews inside an appraisal period, on top of shared goals.",
   },
+  projects: {
+    label: "Projects",
+    line: "Plan work as projects with issues, sprints and a board, and let people track it together.",
+  },
+  wellness: {
+    label: "Wellness",
+    line: "Break reminders, private water and steps logs, challenges and kudos. You see totals only, never a person\u2019s own figures.",
+  },
   hiring: {
     label: "Hiring",
     line: "Post a role, track candidates through a pipeline, send an offer.",
@@ -279,6 +316,13 @@ export const FEATURE_COPY: Record<
     label: "Ask for a code from email",
     line: "People who have set it up are asked for a six-digit code when they sign in. You choose separately which actions also need one.",
   },
+  /* Says what is kept and, in the same breath, what is not: a switch that
+     records when people use a tool is read first as surveillance, and the
+     accurate answer is that it keeps a day and nothing finer. */
+  appOpenTracking: {
+    label: "Count days people open the app",
+    line: "Keeps one mark per person per day, with no time or device. HR sees team totals only, never one person's days.",
+  },
   /* Rendered on `/settings/leave` rather than `/settings/features` — see
      `WORKFLOW_FEATURE_KEYS`. The copy lives here anyway so the label and the
      consequence are written once, wherever the switch is placed. */
@@ -291,7 +335,14 @@ export const FEATURE_COPY: Record<
      with the switch above. */
   probationTracking: {
     label: "Put a probation end date on new hires",
-    line: "Somebody joining is given an end date from the day they start, and it appears here as it approaches. Nobody already on a probation is given one — their record is what it is.",
+    line: "Somebody joining is given an end date from the day they start, and it appears here as it approaches. Nobody already on a probation is given one, their record is what it is.",
+  },
+  /* Rendered on `/settings/sms`, which is where the people who have opted in,
+     and whether anything can be sent at all, are on the same screen as the
+     switch. */
+  smsDigest: {
+    label: "Weekly text message",
+    line: "A weekly text of counts and a link, for the people who opt in.",
   },
 };
 
@@ -482,7 +533,7 @@ const DEMO_QUESTIONS: ApiWizardQuestion[] = DEMO_ENABLED
           { value: "yes", label: "Yes", sets: { attendance: true } },
           {
             value: "no",
-            label: "No — we do not track attendance",
+            label: "No, we do not track attendance",
             sets: { attendance: false },
             consequence:
               "Nobody sees a check-in button, and there is no roster or attendance " +
@@ -611,7 +662,11 @@ function demoApply(state: DemoState, patch: FeaturePatch): DemoState {
  */
 function demoDefaults(): DemoState {
   const base: DemoState = {
-    flags: BASE_FLAGS,
+    /* Projects is on in the demo, unlike every other module: a demonstration is
+       the one place where "off until you ask" would mean nobody ever sees it,
+       and the sample project it opens with is the point. Settings → Features
+       still turns it off, which is how the switched-off screen is shown. */
+    flags: { ...BASE_FLAGS, projects: true },
     headcountBand: "UNDER_10",
     setupStep: 0,
     /* `null` for the self-serve demo — a genuinely new company should meet the
@@ -693,9 +748,18 @@ function fromApi(features: ApiFeatures): State {
     deductions: null,
     stepUpActions: features.stepUpActions,
     probationMonths: features.probationMonths,
+    /* An API one deploy behind does not send it, and that API has no switch
+       to have turned anybody off. */
+    earlyPay: features.earlyPay ?? true,
+    /* Only the read carries it; a save's answer must not erase what was known. */
+    earnedWage: features.earnedWage ?? cache.earnedWage,
     flags: {
       departments: features.departments,
       surveys: features.surveys,
+      /* Optional on the wire, and a company that was never asked is a company
+         without it. */
+      projects: features.projects ?? false,
+      wellness: features.wellness ?? false,
       twoFactor: features.twoFactor,
       grades: features.grades,
       shifts: features.shifts,
@@ -710,6 +774,11 @@ function fromApi(features: ApiFeatures): State {
       multiAppraiser: features.multiAppraiser,
       leaveTwoStepApproval: features.leaveTwoStepApproval,
       probationTracking: features.probationTracking,
+      /* Optional on the wire; a company that was never asked is not tracking. */
+      appOpenTracking: features.appOpenTracking ?? false,
+      /* Optional on the wire, and a company that was never asked is a company
+         without it. */
+      smsDigest: features.smsDigest ?? false,
     },
     headcountBand: features.headcountBand,
     setupStep: features.setupStep,
@@ -735,6 +804,9 @@ function fromDemo(demo: DemoState): State {
        answer to carry, and a number somebody had "set" here would describe a
        policy no employee record in this browser was created under. */
     probationMonths: PROBATION_MONTHS_FALLBACK,
+    /* Nobody switches a demo company off. */
+    earlyPay: true,
+    earnedWage: null,
     headcountBand: demo.headcountBand,
     setupStep: demo.setupStep,
     totalSteps: DEMO_QUESTIONS.length,
@@ -826,10 +898,14 @@ function useLoadedState(): State {
  */
 export function useFeatures(): FeatureFlags & {
   headcountBand: HeadcountBand;
+  /** See `State.earlyPay`. */
+  earlyPay: boolean;
   setupRequired: boolean;
   setupStep: number;
   totalSteps: number;
   setupCompletedAt: string | null;
+  /** See `State.earnedWage`. */
+  earnedWage: boolean | null;
   loading: boolean;
   /**
    * The failure itself, not its sentence.
@@ -860,10 +936,12 @@ export function useFeatures(): FeatureFlags & {
   return {
     ...state.flags,
     headcountBand: state.headcountBand,
+    earlyPay: state.earlyPay,
     setupRequired: state.setupRequired,
     setupStep: state.setupStep,
     totalSteps: state.totalSteps,
     setupCompletedAt: state.setupCompletedAt,
+    earnedWage: state.earnedWage,
     loading: state.loading,
     error: state.error,
     source: state.source,
@@ -904,6 +982,8 @@ export function useFeatureSettings() {
         return {
           departments: features.departments,
           surveys: features.surveys,
+          projects: features.projects ?? false,
+          wellness: features.wellness ?? false,
           twoFactor: features.twoFactor,
           grades: features.grades,
           shifts: features.shifts,
@@ -918,6 +998,8 @@ export function useFeatureSettings() {
           multiAppraiser: features.multiAppraiser,
           leaveTwoStepApproval: features.leaveTwoStepApproval,
           probationTracking: features.probationTracking,
+          appOpenTracking: features.appOpenTracking ?? false,
+          smsDigest: features.smsDigest ?? false,
           headcountBand: features.headcountBand,
         };
       } finally {

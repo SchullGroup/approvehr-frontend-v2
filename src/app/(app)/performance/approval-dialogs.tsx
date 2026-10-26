@@ -39,7 +39,7 @@ const ACTS: Record<
   send_back: {
     title: (title) => `Send "${title}" back?`,
     consequence:
-      "They can change it and send it again. Nothing is agreed and nothing is refused: the objective carries the fact that somebody looked at it and asked for a change.",
+      "They can change it and send it again. Nothing is agreed or refused yet. The objective just records that you looked at it and asked for a change.",
     label: "Send it back",
     tone: "accent",
     help: "They will read this. Say what would make it agreeable.",
@@ -47,18 +47,18 @@ const ACTS: Record<
   reject: {
     title: (title) => `Refuse "${title}"?`,
     consequence:
-      "This is final. A refused objective cannot be sent again: the answer to one is a different objective, so the refusal stays on the record rather than being written over.",
+      "This is final. A refused objective cannot be sent again. If it should be done differently, they need to create a new objective, and the refusal stays on record.",
     label: "Refuse it",
     tone: "danger",
-    help: "This reason is the record of the refusal. Nothing else explains it later.",
+    help: "This reason is the only record of why it was refused.",
   },
   revise: {
     title: (title) => `Reopen "${title}"?`,
     consequence:
-      "The target stops being frozen and has to be agreed again. Who reopened it, when and why is recorded: a target that moved with no record of why is what makes a rating impossible to defend.",
+      "The target can be changed again, but it has to be agreed again afterwards. Who reopened it, when and why is recorded.",
     label: "Reopen it",
     tone: "accent",
-    help: "Say what changed. This is the only account of why the target moved.",
+    help: "Say what changed. This is the only record of why the target moved.",
   },
 };
 

@@ -10,11 +10,11 @@ import {
   EmptyState,
   IconButton,
   SegmentedControl,
+  LoadState,
   Skeleton,
   useToast,
   type BadgeTone,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { dayHeading, dayKey, fullStamp, timeLabel } from "@/lib/audit/language";
@@ -176,14 +176,6 @@ export function NotificationsInbox() {
       />
 
       <PageBody className="flex flex-col gap-5">
-        {notifications.error && (
-          <LoadFailure
-            subject="your notifications"
-            error={notifications.error}
-            onRetry={notifications.reload}
-          />
-        )}
-
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SegmentedControl
             options={TABS}
@@ -201,72 +193,83 @@ export function NotificationsInbox() {
           </Button>
         </div>
 
-        {notifications.loading && notifications.items.length === 0 ? (
-          <div className="flex flex-col gap-2">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-[4.5rem] w-full" />
-            <Skeleton className="h-[4.5rem] w-full" />
-            <Skeleton className="h-[4.5rem] w-full" />
-            <span className="sr-only">Loading your notifications</span>
-          </div>
-        ) : notifications.items.length === 0 ? (
-          <div className="rounded-xl border border-line bg-surface">
-            <EmptyState
-              icon={<BellOff aria-hidden="true" />}
-              title={EMPTY_COPY[tab].title}
-              description={EMPTY_COPY[tab].description}
-            />
-          </div>
-        ) : (
-          <div className="flex flex-col gap-6">
-            {groups.map((group) => (
-              <section key={group.key} aria-labelledby={`day-${group.key}`}>
-                <h2
-                  id={`day-${group.key}`}
-                  className="mb-2 text-meta font-semibold text-faint"
-                >
-                  {group.heading}
-                </h2>
-                <ul role="list" className="flex flex-col gap-2">
-                  {group.items.map((item) => (
-                    <Row
-                      key={item.id}
-                      item={item}
-                      now={notifications.now}
-                      timeZone={timeZone}
-                      busy={busy}
-                      onOpen={() => {
-                        /* Following the action is reading it. Fire and forget:
+        {/* The one loading and failure rule. After a failed read this used to
+            print the failure and then "Nothing here yet" under it, which is a
+            claim about the inbox that the page cannot make. */}
+        <LoadState
+          loading={notifications.loading}
+          error={notifications.error}
+          subject="your notifications"
+          onRetry={notifications.reload}
+          hasData={notifications.items.length > 0}
+          skeleton={
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-[4.5rem] w-full" />
+              <Skeleton className="h-[4.5rem] w-full" />
+              <Skeleton className="h-[4.5rem] w-full" />
+            </div>
+          }
+        >
+          {notifications.items.length === 0 ? (
+            <div className="rounded-xl border border-line bg-surface">
+              <EmptyState
+                icon={<BellOff aria-hidden="true" />}
+                title={EMPTY_COPY[tab].title}
+                description={EMPTY_COPY[tab].description}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {groups.map((group) => (
+                <section key={group.key} aria-labelledby={`day-${group.key}`}>
+                  <h2
+                    id={`day-${group.key}`}
+                    className="mb-2 text-meta font-semibold text-faint"
+                  >
+                    {group.heading}
+                  </h2>
+                  <ul role="list" className="flex flex-col gap-2">
+                    {group.items.map((item) => (
+                      <Row
+                        key={item.id}
+                        item={item}
+                        now={notifications.now}
+                        timeZone={timeZone}
+                        busy={busy}
+                        onOpen={() => {
+                          /* Following the action is reading it. Fire and forget:
                            navigation has already started and a failed mark-read
                            must not hold up the page you asked for. */
-                        if (!item.read) void notifications.markRead(item.id);
-                      }}
-                      onMarkRead={() =>
-                        void run(() => notifications.markRead(item.id))
-                      }
-                      onDismiss={() =>
-                        void run(() => notifications.remove(item.id))
-                      }
-                    />
-                  ))}
-                </ul>
-              </section>
-            ))}
+                          if (!item.read) void notifications.markRead(item.id);
+                        }}
+                        onMarkRead={() =>
+                          void run(() => notifications.markRead(item.id))
+                        }
+                        onDismiss={() =>
+                          void run(() => notifications.remove(item.id))
+                        }
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ))}
 
-            {notifications.hasMore && (
-              <div className="flex justify-center">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={notifications.loading}
-                  onClick={notifications.showMore}
-                >
-                  {notifications.loading ? "Loading…" : "Show older"}
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
+              {notifications.hasMore && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={notifications.loading}
+                    onClick={notifications.showMore}
+                  >
+                    {notifications.loading ? "Loading…" : "Show older"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </LoadState>
       </PageBody>
     </>
   );

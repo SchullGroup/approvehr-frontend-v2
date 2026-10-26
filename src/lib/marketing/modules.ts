@@ -256,7 +256,7 @@ export const MODULES: ModuleDef[] = [
        five places, so an over-reaching word here becomes a claim over the
        homepage grid and the platform rail as well. */
     blurb:
-      "A built-in language check flags biased wording — comparisons, absolutes, protected characteristics — before a review is sent. Objectives ladder up to company goals, and every rating carries its evidence.",
+      "A built-in language check flags biased wording, comparisons, absolutes, protected characteristics, before a review is sent. Objectives ladder up to company goals, and every rating carries its evidence.",
     wash: "violet",
     capabilities: [
       {
@@ -299,7 +299,7 @@ export const MODULES: ModuleDef[] = [
       heading: "A draft, never a decision",
       lead: "Three fields offer a draft: an objective under a company goal, a progress note from a headline you type, or development areas behind a competency scored below target. A language model writes the first pass. You decide whether any of it survives.",
       points: [
-        "Every suggestion lands in a field you edit and submit yourself — nothing is saved until you do.",
+        "Every suggestion lands in a field you edit and submit yourself, nothing is saved until you do.",
         "Every draft says what it was based on, and the exact facts behind it are one click away.",
         "The target is yours to set. A suggested measure carries no figure of its own.",
         "The judgement stays the manager's: it works from competency scores, not from an opinion about what someone is like.",

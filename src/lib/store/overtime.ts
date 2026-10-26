@@ -26,7 +26,6 @@ import {
 } from "@/lib/overtime/derive";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { useCan } from "@/lib/permissions";
-import { TODAY } from "@/lib/today";
 import { fullName } from "@/lib/types";
 import { useAttendanceStore } from "./attendance";
 import { useEmployeeStore } from "./employees";
@@ -752,5 +751,11 @@ export function useMyOvertime(take = 24): MyOvertimeState {
   };
 }
 
-/** The month the product is "in", for the period selector's default. */
-export const currentPeriod = (): string => periodOf(TODAY);
+/**
+ * The month the product is "in", for the period selector's default.
+ *
+ * Takes the day rather than reading one: a connected company's month is its own
+ * calendar's, and this used to answer from the demo dataset's day in every
+ * build, so in October the screen opened on August. Callers pass `useToday()`.
+ */
+export const currentPeriod = (today: string): string => periodOf(today);

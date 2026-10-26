@@ -226,7 +226,7 @@ export function TaxCalculator() {
                 value={rentInput}
                 onChange={(e) => setRentInput(e.currentTarget.value)}
                 placeholder="0"
-                className="h-11 w-full min-w-0 rounded-xl border border-sand-line bg-white pl-8 pr-4 text-body-sm tabular-nums text-slate focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
+                className="h-11 w-full min-w-0 rounded-xl border border-sand-line bg-white pl-8 pr-4 text-body-sm pointer-coarse:text-body-md tabular-nums text-slate focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
               />
             </div>
             <p className="mt-2 text-meta leading-relaxed text-slate-muted">
@@ -246,7 +246,7 @@ export function TaxCalculator() {
                 id="state"
                 value={state}
                 onChange={(e) => setState(e.currentTarget.value)}
-                className="h-11 w-full min-w-0 appearance-none rounded-xl border border-sand-line bg-white px-4 pr-10 text-body-sm text-slate focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
+                className="h-11 w-full min-w-0 appearance-none rounded-xl border border-sand-line bg-white px-4 pr-10 text-body-sm pointer-coarse:text-body-md text-slate focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate"
               >
                 {NIGERIAN_STATES.map((s) => (
                   <option key={s} value={s}>

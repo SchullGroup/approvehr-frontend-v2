@@ -267,7 +267,7 @@ export const SuggestionLists = memo(function SuggestionLists({
 /* -------------------------------------------------------------------------- */
 
 const CELL =
-  "h-10 w-full min-w-0 bg-transparent px-2.5 text-body-sm text-ink " +
+  "h-10 w-full min-w-0 bg-transparent px-2.5 text-body-sm pointer-coarse:text-body-md text-ink " +
   "placeholder:text-muted focus:bg-surface focus:outline-none " +
   "focus:ring-2 focus:ring-inset focus:ring-accent/40 " +
   "aria-[invalid=true]:bg-danger-soft aria-[invalid=true]:ring-1 " +

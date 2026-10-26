@@ -11,6 +11,7 @@ import { TODAY, daysSince, shortDate } from "@/lib/today";
 import {
   deadlineLabel,
   isPastDeadline,
+  type ApprovalModule,
   type ApprovalRow,
 } from "@/lib/api/approvals";
 import type { DecisionRecord } from "@/lib/store/approvals";
@@ -63,12 +64,13 @@ function leaveApproval(
   return {
     id: `leave:${request.id}`,
     kind: "leave",
-    title: `${request.type} leave — ${who}`,
+    title: `${request.type} leave, ${who}`,
     summary: `${shortDate(request.from)}–${shortDate(request.to)} · ${
       request.days
     } ${request.days === 1 ? "day" : "days"} · ${cover}`,
     requestedById: request.employeeId,
     requestedAt: raised ? shortDate(raised) : "—",
+    ...(raised ? { raisedOn: raised.slice(0, 10) } : {}),
     waitingDays: raised ? Math.max(0, daysSince(raised)) : 0,
     /* Deep-linked to the request itself, so "decide this" and "look at it
        properly" are one click apart. The leave screen reads `?request=`. */
@@ -173,6 +175,8 @@ export type QueueItem = {
   requestedById?: string;
   /** Display, e.g. `12 Aug`. */
   requestedAt: string;
+  /** `YYYY-MM-DD`, for the date filter. Absent where the row never had one. */
+  raisedOn?: string;
   waitingDays: number;
   /** Naira, where the decision moves money. */
   amount?: number;
@@ -183,6 +187,31 @@ export type QueueItem = {
   pastDeadline?: boolean;
   ref?: QueueRef;
 };
+
+/**
+ * Which module an approval belongs to, by who acts on it.
+ *
+ * Mirrors `moduleWhere` in the API, which is what answers it when connected;
+ * this is the demo's copy. A bank-account change is a record change and sits
+ * under payroll because payroll is who decides it.
+ */
+const MODULE_OF: Record<ApprovalKind, ApprovalModule> = {
+  payroll_run: "payroll",
+  loan: "payroll",
+  expense: "payroll",
+  record_change: "payroll",
+  leave: "leave",
+  holiday: "leave",
+  offer: "hiring",
+  requisition: "hiring",
+  confirmation: "people",
+  employment_change: "people",
+};
+
+export const moduleOf = (
+  item: Pick<QueueItem, "kind" | "href">,
+): ApprovalModule =>
+  item.href.startsWith("/people/offboarding") ? "people" : MODULE_OF[item.kind];
 
 /**
  * Where the record behind a row lives.
@@ -210,7 +239,7 @@ export function toQueueItem(item: ApprovalItem): QueueItem {
     id: item.id,
     kind: item.kind,
     kindLabel: APPROVAL_LABEL[item.kind],
-    title: item.title,
+    title: plainTitle(item.title),
     summary: item.summary,
     requestedById: item.requestedById,
     requestedAt: item.requestedAt,
@@ -266,9 +295,10 @@ export function queueItemFromApproval(
     id: row.id,
     kind: row.kind,
     kindLabel: row.kindLabel,
-    title: row.title,
+    title: plainTitle(row.title),
     summary: row.summary ?? "",
     requestedAt: shortDate(row.requestedAt),
+    raisedOn: row.requestedAt,
     waitingDays: row.waitingDays,
     ...(row.amount === null ? {} : { amount: row.amount }),
     href,
@@ -276,4 +306,9 @@ export function queueItemFromApproval(
     ...(isPastDeadline(row.deadlineAt) ? { pastDeadline: true } : {}),
     ref: { store: "approval", id: row.id },
   };
+}
+
+/** The API writes "Kind — Person"; the inbox reads "Kind for Person". */
+function plainTitle(title: string): string {
+  return title.replace(/ — /g, " for ");
 }

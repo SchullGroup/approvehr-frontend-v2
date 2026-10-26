@@ -8,10 +8,9 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
-  Spinner,
+  LoadState,
   useToast,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import type { ApiDocumentRequest } from "@/lib/api/documents";
 import { useMyDocuments } from "@/lib/store/documents";
 import { AddDocumentModal, AttachDocumentModal } from "./dialogs";
@@ -77,92 +76,96 @@ export function MyDocuments({
           {!heading && addButton && (
             <div className="flex justify-end">{addButton}</div>
           )}
-          {mine.loading ? (
-            <div className="flex items-center gap-2 text-body-sm text-muted">
-              <Spinner size="sm" />
-              Loading
-            </div>
-          ) : !mine.linked ? (
-            <EmptyState
-              compact
-              icon={<UserRound aria-hidden="true" />}
-              title="Not linked to a staff record"
-              description="This sign-in has no personnel file yet. An administrator can link it from that person's record page, using “Link an existing sign-in”."
-            />
-          ) : (
-            <>
-              {mine.error && (
-                <div role="alert">
-                  <LoadFailure
-                    subject="your documents"
-                    error={mine.error}
-                    onRetry={mine.reload}
-                  />
-                </div>
-              )}
+          {/* The one loading and failure rule: skeletons while it asks, the
+              failure card (and nothing else) when it could not, and only then
+              "Nothing on file yet" or the link state. This used to print the
+              failure card and "Nothing on file yet" under it. */}
+          <LoadState
+            loading={mine.loading}
+            error={mine.error}
+            subject="your documents"
+            skeleton="list"
+            onRetry={mine.reload}
+            hasData={
+              mine.documents.length > 0 ||
+              mine.outstanding.length > 0 ||
+              mine.settled.length > 0
+            }
+          >
+            {!mine.linked ? (
+              <EmptyState
+                compact
+                icon={<UserRound aria-hidden="true" />}
+                title="Not linked to a staff record"
+                description="This sign-in has no personnel file yet. An administrator can link it from that person's record page, using “Link an existing sign-in”."
+              />
+            ) : (
+              <>
+                {/* The half with something to do in it, first. */}
+                {mine.outstanding.length > 0 && (
+                  <section className="flex flex-col gap-2">
+                    <h4 className="text-body-sm font-semibold text-ink">
+                      {mine.outstanding.length === 1
+                        ? "1 document to send"
+                        : `${mine.outstanding.length} documents to send`}
+                    </h4>
+                    {mine.outstanding.map((request) => (
+                      <RequestRow
+                        key={request.id}
+                        request={request}
+                        actions={
+                          mine.editable ? (
+                            <Button
+                              variant="accent"
+                              size="sm"
+                              onClick={() => setAttaching(request)}
+                            >
+                              Attach it
+                            </Button>
+                          ) : undefined
+                        }
+                      />
+                    ))}
+                    {!mine.editable && (
+                      <p className="text-body-sm text-muted">
+                        Attaching needs the API: a reference kept in this
+                        browser is on nobody&rsquo;s record.
+                      </p>
+                    )}
+                  </section>
+                )}
 
-              {/* The half with something to do in it, first. */}
-              {mine.outstanding.length > 0 && (
                 <section className="flex flex-col gap-2">
                   <h4 className="text-body-sm font-semibold text-ink">
-                    {mine.outstanding.length === 1
-                      ? "1 document to send"
-                      : `${mine.outstanding.length} documents to send`}
+                    On file
                   </h4>
-                  {mine.outstanding.map((request) => (
-                    <RequestRow
-                      key={request.id}
-                      request={request}
-                      actions={
-                        mine.editable ? (
-                          <Button
-                            variant="accent"
-                            size="sm"
-                            onClick={() => setAttaching(request)}
-                          >
-                            Attach it
-                          </Button>
-                        ) : undefined
-                      }
+                  {mine.documents.length === 0 ? (
+                    <EmptyState
+                      compact
+                      icon={<FileText aria-hidden="true" />}
+                      title="Nothing on file yet"
+                      description="Your contract and ID will show here once they are added."
                     />
-                  ))}
-                  {!mine.editable && (
-                    <p className="text-body-sm text-muted">
-                      Attaching needs the API: a reference kept in this browser
-                      is on nobody&rsquo;s record.
-                    </p>
+                  ) : (
+                    mine.documents.map((document) => (
+                      <DocumentRow key={document.id} document={document} />
+                    ))
                   )}
                 </section>
-              )}
 
-              <section className="flex flex-col gap-2">
-                <h4 className="text-body-sm font-semibold text-ink">On file</h4>
-                {mine.documents.length === 0 ? (
-                  <EmptyState
-                    compact
-                    icon={<FileText aria-hidden="true" />}
-                    title="Nothing on file yet"
-                    description="Your contract and ID will show here once they are added."
-                  />
-                ) : (
-                  mine.documents.map((document) => (
-                    <DocumentRow key={document.id} document={document} />
-                  ))
+                {mine.settled.length > 0 && (
+                  <section className="flex flex-col gap-2">
+                    <h4 className="text-body-sm font-semibold text-ink">
+                      Already answered
+                    </h4>
+                    {mine.settled.map((request) => (
+                      <RequestRow key={request.id} request={request} />
+                    ))}
+                  </section>
                 )}
-              </section>
-
-              {mine.settled.length > 0 && (
-                <section className="flex flex-col gap-2">
-                  <h4 className="text-body-sm font-semibold text-ink">
-                    Already answered
-                  </h4>
-                  {mine.settled.map((request) => (
-                    <RequestRow key={request.id} request={request} />
-                  ))}
-                </section>
-              )}
-            </>
-          )}
+              </>
+            )}
+          </LoadState>
         </CardBody>
       </Card>
 

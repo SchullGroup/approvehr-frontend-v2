@@ -219,6 +219,7 @@ export function Disclosure({
         hidden={!open}
         className={cn(
           "border-t border-line px-4 py-4",
+          open && "animate-open",
           dense && "p-3",
           panelClassName,
         )}

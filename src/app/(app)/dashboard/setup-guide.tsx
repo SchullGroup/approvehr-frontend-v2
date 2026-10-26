@@ -229,7 +229,7 @@ export function SetupGuide({
         </p>
       ) : step === undefined ? (
         <p className="text-body-sm leading-relaxed text-body">
-          There is nothing to walk through — this company is set up. Everything
+          There is nothing to walk through, this company is set up. Everything
           here lives under Settings if you want to change it.
         </p>
       ) : (

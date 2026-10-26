@@ -150,7 +150,13 @@ function visibleSteps(
    make this render "undefined things". */
 const WORD: Record<number, string> = { 5: "Five", 6: "Six" };
 
-const STEPS: readonly Step[] = [
+/**
+ * Exported so a test can hold every step's targets to something the sidebar
+ * actually renders — the tour points at the sidebar by selector, and a
+ * selector that matches nothing falls through to a centred card without
+ * anybody noticing it has stopped pointing.
+ */
+export const TOUR_STEPS: readonly Step[] = [
   {
     id: "welcome",
     title: "A quick look round",
@@ -167,11 +173,13 @@ const STEPS: readonly Step[] = [
       canSettings
         ? "The menu is built from the answers you gave during setup. A " +
           "company that does not lend to staff has no Loans; turn one on " +
-          "in Settings and it appears here."
+          "in Settings and it appears here. Sections open to show what is " +
+          "in them, and Find at the top jumps to any page."
         : "The menu only shows what your company has actually turned on " +
           "— a company that does not lend to staff has no Loans, for " +
           "instance. Whoever manages your company's settings controls " +
-          "what's here.",
+          "what's here. Sections open to show what is in them, and Find " +
+          "at the top jumps to any page.",
     target: ['[data-tour="nav"]', '[data-tour="nav-toggle"]'],
     always: true,
   },
@@ -179,13 +187,17 @@ const STEPS: readonly Step[] = [
     id: "yours",
     title: "Your day, and your time off",
     body:
-      "Attendance shows where your day stands — clock yourself in if your " +
+      "Attendance shows where your day stands, clock yourself in if your " +
       "company has you do that, or see today's record if HR does it for " +
       "you. Leave shows your own balance and lets you ask for time off; " +
       "pending days are already held back from what's left.",
+    /* Attendance and Leave live one level down, inside the Time & Leave row, so
+       on the sidebar's top level the row itself is the thing to point at. When
+       the sidebar is already on that level, the items are. */
     target: [
       '[data-tour="nav-item:/people/attendance"]',
       '[data-tour="nav-item:/people/leave"]',
+      '[data-tour="nav-group:time"]',
       '[data-tour="nav"]',
     ],
     always: true,
@@ -200,7 +212,7 @@ const STEPS: readonly Step[] = [
           "no module to remember to check."
         : "Approving isn't part of your role, and this screen says so if " +
           "you ever wonder. Switch to Sent by you to see where a leave " +
-          "request — or anything else you've sent off — currently stands, " +
+          "request, or anything else you've sent off, currently stands, " +
           "without having to ask.",
     target: ['[data-tour="nav-item:/approvals"]', '[data-tour="nav"]'],
     always: true,
@@ -224,7 +236,13 @@ const STEPS: readonly Step[] = [
       "Settings keeps a checklist of what a payroll needs before it can run: " +
       "work locations, leave, pay, who can approve, and marks off what you " +
       "have already done.",
-    target: ['[data-tour="nav-item:/settings"]', '[data-tour="nav"]'],
+    /* Settings is its own link when it is all this person has under that name,
+       and a row that opens Settings and Roles when they have both. */
+    target: [
+      '[data-tour="nav-item:/settings"]',
+      '[data-tour="nav-group:settings"]',
+      '[data-tour="nav"]',
+    ],
     permission: "MANAGE_SETTINGS",
   },
 ];
@@ -268,7 +286,7 @@ export function GuidedTour() {
    * means a reader's position survives a recompute as long as their step
    * still exists at all.
    */
-  const [stepId, setStepId] = useState<string>(STEPS[0]!.id);
+  const [stepId, setStepId] = useState<string>(TOUR_STEPS[0]!.id);
 
   /**
    * Reopening from the account menu.
@@ -284,7 +302,7 @@ export function GuidedTour() {
    */
   useEffect(() => {
     const onOpen = () => {
-      setStepId(STEPS[0]!.id);
+      setStepId(TOUR_STEPS[0]!.id);
       setAsked(true);
     };
     window.addEventListener(TOUR_OPEN, onOpen);
@@ -292,7 +310,7 @@ export function GuidedTour() {
   }, []);
 
   const steps = useMemo(
-    () => visibleSteps(STEPS, permissions, features),
+    () => visibleSteps(TOUR_STEPS, permissions, features),
     [permissions, features],
   );
 

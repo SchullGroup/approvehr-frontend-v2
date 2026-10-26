@@ -23,12 +23,12 @@ function headingFor(billing: ApiBilling, timeZone: string): string {
     timeZone,
   );
   if (billing.status === "CANCELLED") {
-    return `Your subscription was cancelled and ended on ${date}. Your data is safe — renew to carry on.`;
+    return `Your subscription was cancelled and ended on ${date}. Your data is safe, renew to carry on.`;
   }
   if (billing.reason === "no_subscription") {
     return "Choose a plan to start using ApproveHR.";
   }
-  return `Your subscription ended on ${date}. Your data is safe — renew to carry on.`;
+  return `Your subscription ended on ${date}. Your data is safe, renew to carry on.`;
 }
 
 /**

@@ -365,6 +365,11 @@ export const imports = {
       rows: ImportRow[];
       /** Answers to duplicates found on a previous pass. Part of the fingerprint. */
       decisions?: ApiDuplicateDecision[];
+      /**
+       * What the file cannot say and the request has to, such as the advert an
+       * assessment file is for. Sent with both steps: the fingerprint covers it.
+       */
+      context?: Record<string, string>;
     },
     signal?: AbortSignal,
   ) =>
@@ -390,6 +395,8 @@ export const imports = {
       rows: ImportRow[];
       /** The same answers the check was run with — the fingerprint covers them. */
       decisions?: ApiDuplicateDecision[];
+      /** The same context the check was run with. */
+      context?: Record<string, string>;
     },
     signal?: AbortSignal,
   ) =>

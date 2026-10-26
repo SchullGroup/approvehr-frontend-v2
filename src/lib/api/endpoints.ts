@@ -988,12 +988,6 @@ export const approvals = {
 
   reopen: (id: string) =>
     request<ApiApproval | null>(`/approvals/${id}/reopen`, { method: "POST" }),
-
-  approveRoutine: () =>
-    request<{ decided: number; skipped: { id: string; reason: string }[] }>(
-      "/approvals/approve-routine",
-      { method: "POST" },
-    ),
 };
 
 /* --------------------------------------------------------------- attendance */

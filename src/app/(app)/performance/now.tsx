@@ -301,72 +301,6 @@ export function WhatNeedsYouTab({
     awaitingAnswer.length +
     (scored ? appraisingMe.length : 0);
 
-  /**
-   * The whole of what used to be three stat tiles, as one sentence.
-   *
-   * Built from clauses so a nought is never printed as a figure: what is
-   * waiting on you breaks down only when there is something to break down,
-   * and "nothing else is waiting on you" is a clause rather than a tile
-   * showing 0. The order is the same order the tabs below run in.
-   */
-  const needsYouLine = (() => {
-    const parts: string[] = [];
-    if (owedNow.length > 0) {
-      parts.push(
-        owedNow.length === 1
-          ? "1 review to write"
-          : `${owedNow.length} reviews to write`,
-      );
-    }
-    if (scored && owesAnswer.length > 0) {
-      parts.push(
-        owesAnswer.length === 1
-          ? "1 rating to answer"
-          : `${owesAnswer.length} ratings to answer`,
-      );
-    }
-    if (finaliseNow.length > 0) {
-      parts.push(
-        finaliseNow.length === 1
-          ? "1 rating to finalise"
-          : `${finaliseNow.length} ratings to finalise`,
-      );
-    }
-    if (queue.length > 0) {
-      parts.push(
-        queue.length === 1
-          ? "1 objective to agree"
-          : `${queue.length} objectives to agree`,
-      );
-    }
-    if (toSend.length > 0) {
-      parts.push(
-        toSend.length === 1
-          ? "1 of yours to send"
-          : `${toSend.length} of yours to send`,
-      );
-    }
-
-    const mine =
-      parts.length === 0
-        ? ""
-        : parts.length === 1
-          ? parts[0]!
-          : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]!}`;
-
-    const theirs =
-      waitingOnOthers === 0
-        ? "nothing is waiting on anybody else"
-        : waitingOnOthers === 1
-          ? "1 thing is waiting on somebody else"
-          : `${waitingOnOthers} things are waiting on somebody else`;
-
-    if (mine === "") {
-      return `Nothing is waiting on you, and ${theirs}.`;
-    }
-    return `${mine.charAt(0).toUpperCase()}${mine.slice(1)} — and ${theirs}.`;
-  })();
-
   /* A manager's third question is "who has not sent theirs in", and the honest
      answer is an aggregate over the period — one register read, on the period's
      own screen. So this is a link and not a count: a number here would either be
@@ -488,21 +422,6 @@ export function WhatNeedsYouTab({
           third ("No appraisal period is running" on "This period"). A real
           count is worth a card; a card whose only content is the absence of
           one is furniture. */}
-      {waitingOnMe > 0 && (
-        <Card>
-          <CardBody className="flex flex-col gap-1">
-            <p className="flex flex-wrap items-baseline gap-2">
-              <span className="tabular text-h2 font-semibold text-ink">
-                {waitingOnMe}
-              </span>
-              <span className="font-semibold text-ink">
-                {waitingOnMe === 1 ? "thing needs you" : "things need you"}
-              </span>
-            </p>
-            <p className="text-body-sm text-muted">{needsYouLine}</p>
-          </CardBody>
-        </Card>
-      )}
 
       {/* Switched off, and the way to switch it on. The one appraisal thing a
           company that said "no formal appraisals" is shown, because the answer
@@ -513,7 +432,7 @@ export function WhatNeedsYouTab({
             title="Appraisals are switched off"
             description={
               canManagePeriods
-                ? "KPIs work without them. Turning them on adds appraisal periods, a mark made of objectives and competencies, and a record of what each person was told."
+                ? "KPIs work without them. Turn them on to add appraisal periods, a mark made from objectives and skills, and a record of what each person was told."
                 : "Your company does not run formal appraisals. KPIs still work."
             }
             action={
@@ -541,7 +460,7 @@ export function WhatNeedsYouTab({
         <Card>
           <CardHeader
             title="Your rating is final"
-            description="Read it, then acknowledge that you have seen it. If you do not accept it, say so to HR — recording a formal dispute is theirs to do, not yours. Acknowledging is not agreeing."
+            description="Read it, then acknowledge that you have seen it. If you do not accept it, tell HR, because only they can record a formal dispute. Acknowledging is not agreeing."
             action={
               <Badge
                 tone="accent"
@@ -722,7 +641,7 @@ export function WhatNeedsYouTab({
                 compact
                 icon={<CheckCheck aria-hidden="true" />}
                 title="Nothing needs you"
-                description="When a period starts, your form turns up here. So does anything of yours to send, and anybody's objectives to agree."
+                description="When a period starts, your form shows up here, along with any objectives you need to send or agree."
               />
             ) : (
               <CardBody className="flex flex-col gap-2">
@@ -748,8 +667,8 @@ export function WhatNeedsYouTab({
                     icon={<ClipboardList aria-hidden="true" />}
                     title={
                       toSend.length === 1
-                        ? "1 objective of yours has not been sent for approval"
-                        : `${toSend.length} objectives of yours have not been sent for approval`
+                        ? "1 objective of yours has not been sent to be agreed"
+                        : `${toSend.length} objectives of yours have not been sent to be agreed`
                     }
                     detail={objectiveNames(toSend)}
                     href="/performance/kpis"
@@ -779,7 +698,7 @@ export function WhatNeedsYouTab({
                     key={review.id}
                     icon={<ShieldCheck aria-hidden="true" />}
                     title={`${review.subjectName}'s rating is written and not final`}
-                    detail="Calibration is running. Finalising makes this the rating of record and tells them, and it cannot be re-marked."
+                    detail="Calibration is running. Making it final tells them their rating, and it cannot be changed after that."
                     href={`/performance/reviews/${review.id}`}
                     action="Open it"
                   />
@@ -796,8 +715,8 @@ export function WhatNeedsYouTab({
               <EmptyState
                 compact
                 icon={<Clock aria-hidden="true" />}
-                title="Nothing is out with anybody"
-                description="Objectives you send for approval, ratings you have made final that nobody has answered, and the appraiser writing about you, all show up here."
+                title="Nothing is waiting on anyone else"
+                description="Objectives you have sent to be agreed, final ratings still waiting for a reply, and reviews being written about you all show up here."
               />
             ) : (
               <CardBody className="flex flex-col gap-2">
@@ -840,7 +759,7 @@ export function WhatNeedsYouTab({
                   <TaskRow
                     icon={<CalendarRange aria-hidden="true" />}
                     title={`Forms other people owe in ${openPeriod.name}`}
-                    detail="Who has not sent theirs in, by name, and one button to nudge them."
+                    detail="See who is late, by name, and nudge them."
                     href={`/performance/periods/${openPeriod.id}`}
                     action="Who is outstanding"
                   />
@@ -910,7 +829,7 @@ export function WhatNeedsYouTab({
       {scored && (
         <Disclosure
           title="How a mark is made"
-          hint="The weights behind a composite score, and what each point on the scale means."
+          hint="How much each part counts for, and what each point on the scale means."
           level={2}
         >
           <ScoringSettingsBody canManage={canManagePeriods} />

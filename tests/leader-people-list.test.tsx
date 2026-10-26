@@ -205,7 +205,7 @@ describe("New KPI, as a department head", () => {
       .map((option) => option.textContent);
     expect(options).toEqual([
       "Mine",
-      "Engineering — the whole department",
+      "Engineering, the whole department",
       "Tunde Bello · Analyst",
       "Ife Adeyemi · Analyst",
       "Kemi Cole · Analyst",

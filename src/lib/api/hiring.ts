@@ -16,6 +16,9 @@ import {
   type PostingStatus,
   type RequisitionStatus,
 } from "@/lib/api/careers";
+import type { ApiHistoryEvent } from "@/lib/api/application-history";
+import type { ApplicationExtras } from "@/lib/hiring/answers-view";
+import { extrasFromDetail } from "@/lib/hiring/form-wire";
 import type { ApiGrade } from "@/lib/api/grades";
 import type { Band } from "@/lib/grades/band";
 
@@ -240,11 +243,14 @@ export type ScreeningRow = {
   waiting: boolean;
   /** Set once screened in, so a row can point at the pipeline record. */
   candidateId: string | null;
-  /** False while no object store is wired, which is every environment today. */
-  cvOpenable: boolean;
-  cvUrl: string | null;
-  /** The API's own sentence about why the CV cannot be opened. */
-  cvNote: string | null;
+  /**
+   * Whether the applicant attached a file. A row never carries the file's
+   * address: opening it is a request of its own (`OpenCv`), so the API can say who
+   * asked.
+   */
+  hasCv: boolean;
+  /** The virus check flagged the file; opening it would be refused. */
+  cvFlagged: boolean;
 };
 
 export function toScreeningRow(application: ApiApplication): ScreeningRow {
@@ -260,9 +266,8 @@ export function toScreeningRow(application: ApiApplication): ScreeningRow {
     appliedOn: application.appliedAt.slice(0, 10),
     waiting: application.status === "RECEIVED",
     candidateId: application.candidateId,
-    cvOpenable: application.cv?.url !== null && application.cv !== null,
-    cvUrl: application.cv?.url ?? null,
-    cvNote: application.cv?.note ?? null,
+    hasCv: application.cv !== null,
+    cvFlagged: application.cv?.scanStatus === "INFECTED",
   };
 }
 
@@ -314,10 +319,11 @@ export function toAdvanceBody(input: ScreenInInput): AdvanceBody {
  * A role written in the requisition wizard, on its way to becoming an advert.
  *
  * The wizard collects more than an advert can hold — pipeline stages, screening
- * questions, a hiring manager, a note for approvers. Those belong to
- * `Requisition`, which has no route, so they are not sent and the review step
- * says which parts are saved. Inventing a field to put them in would be worse:
- * the advert would carry data nothing reads.
+ * questions, a hiring manager, a note for approvers. Connected, the stages and
+ * the hiring manager go to the requisition (see the wizard's `submit`); the
+ * screening questions go nowhere, because nothing in the API stores a question
+ * or an answer yet. Inventing an advert field to put them in would be worse: the
+ * advert would carry data nothing reads.
  */
 export type AdvertDraft = {
   title: string;
@@ -372,11 +378,11 @@ export type OtherApplicationRow = {
  *
  * This is the **live** half of a candidate record: who applied, for what,
  * through which advert, and what a screener has done about it. It is not the
- * pipeline record — no interviews, no scorecards, no stage — because
- * `Interview`, `Scorecard` and the pipeline `Application` have no route. The
- * screen renders this half live and the pipeline half from the seed, and badges
- * each one, rather than blending the two into a page that cannot say where any
- * given line came from.
+ * pipeline record — no interviews, no scorecards, no stage — which lives under
+ * `/recruitment` and is read by `store/recruitment.ts`. The screen renders this
+ * half from `/careers` and the pipeline half from the pipeline (or, with no
+ * session, the demo seed), and badges each one, rather than blending the two
+ * into a page that cannot say where any given line came from.
  */
 export type ApplicantRecord = {
   /** The `JobApplication` id. The only applicant id this API resolves. */
@@ -401,10 +407,24 @@ export type ApplicantRecord = {
   /** `YYYY-MM-DD`, once somebody has looked. */
   screenedOn: string | null;
   declineReason: string | null;
-  cvUrl: string | null;
-  /** The API's own sentence about why the CV cannot be opened. */
-  cvNote: string | null;
+  /** Whether a CV was attached. Opening it is `OpenCv`'s request, not a link. */
+  hasCv: boolean;
+  /** What the virus check made of it, when the API says. */
+  cvFlagged: boolean;
+  /**
+   * Every move this application has made, oldest first — its own and its
+   * pipeline record's. `undefined` from an API that predates history, which is
+   * not the same fact as an empty list.
+   */
+  history: ApiHistoryEvent[] | undefined;
   otherApplications: OtherApplicationRow[];
+  /**
+   * What they answered, what they agreed to, the reference they were given, and
+   * what to look at twice (a flagged answer, a possible duplicate). Empty for an
+   * advert that asked nothing beyond the basics, and for an API that predates
+   * forms.
+   */
+  extras: ApplicationExtras;
 };
 
 /**
@@ -453,56 +473,16 @@ export function toApplicantRecord(
     screenedOn:
       detail.screenedAt === null ? null : detail.screenedAt.slice(0, 10),
     declineReason: detail.declineReason,
-    cvUrl: detail.cv?.url ?? null,
-    cvNote: detail.cv?.note ?? null,
+    hasCv: detail.cv !== null,
+    cvFlagged: detail.cv?.scanStatus === "INFECTED",
+    history: detail.history,
+    extras: extrasFromDetail(detail),
     otherApplications: detail.otherApplications.map((entry) => ({
       id: entry.id,
       postingTitle: entry.postingTitle,
       statusLabel: APPLICATION_STATUS_LABEL[entry.status],
       appliedOn: entry.appliedAt.slice(0, 10),
     })),
-  };
-}
-
-/**
- * A list row, widened to a detail so one projection serves both.
- *
- * `GET /careers/applications` and `GET /careers/applications/:id` differ by
- * exactly one field. Rather than a second projection that could drift from the
- * first, the list row is widened with an empty `otherApplications` and passed
- * through `toApplicantRecord`. The screen therefore renders the moment the list
- * is in and gains the cross-application history a beat later, instead of
- * holding a blank page until two requests have both landed.
- */
-export function toApplicantRecordFromRow(row: ApiApplication): ApplicantRecord {
-  return toApplicantRecord({ ...row, otherApplications: [] });
-}
-
-/**
- * The list row wins; the detail contributes only the history.
- *
- * ## Why the precedence matters, and how getting it wrong looked
- *
- * The first version of this preferred the detail response outright, because it
- * carries strictly more. That is true and it was still wrong: the detail is
- * fetched once per id, and `advance` and `decline` reload the **list**. So
- * screening somebody in left the page showing "Waiting on a first look" beside a
- * "Screen in" button, over a record the database had already moved — the exact
- * failure the two-mode badges exist to prevent, arrived at from the other
- * direction. It survived typecheck and lint and was found by pressing the button.
- *
- * So the row is authoritative for every field the row has, and the detail
- * contributes the one field it alone knows. A reload then updates the whole
- * screen and the history simply persists.
- */
-export function mergeApplicantHistory(
-  base: ApplicantRecord,
-  detail: ApiApplicationDetail | null,
-): ApplicantRecord {
-  if (detail === null) return base;
-  return {
-    ...base,
-    otherApplications: toApplicantRecord(detail).otherApplications,
   };
 }
 

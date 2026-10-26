@@ -13,6 +13,7 @@ import {
   EmptyState,
   SkeletonText,
 } from "@/components/ui";
+import { plainText } from "@/lib/inline-markdown";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { Can } from "@/lib/permissions";
@@ -175,7 +176,7 @@ export function KbScreen() {
                         )}
                       </span>
                       <span className="mt-1 block text-body-sm leading-relaxed text-muted">
-                        {article.excerpt}
+                        {plainText(article.excerpt)}
                       </span>
                     </span>
                     <span className="flex shrink-0 items-center gap-1.5 text-meta text-muted">

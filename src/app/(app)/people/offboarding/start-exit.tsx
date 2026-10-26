@@ -19,8 +19,10 @@ import {
   type ExitKind,
 } from "@/lib/api/offboarding";
 import { useStartExit } from "@/lib/store/offboarding";
+import { useOrgTimezone } from "@/lib/store/session";
+import { formatDate } from "@/lib/time";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
-import { TODAY } from "@/lib/today";
+import { useToday } from "@/lib/use-today";
 
 /**
  * Who this exit is about, when the caller already knows.
@@ -93,6 +95,8 @@ export function StartExitDialog({
   const router = useRouter();
   const toast = useToast();
   const { start } = useStartExit();
+  const today = useToday();
+  const timeZone = useOrgTimezone();
 
   const [chosenId, setChosenId] = useState("");
   const [kind, setKind] = useState<ExitKind>("RESIGNATION");
@@ -204,7 +208,7 @@ export function StartExitDialog({
         <Field
           label="Last working day"
           required
-          help={`Their final day on the payroll. Today is ${TODAY}.`}
+          help={`Their final day on the payroll. Today is ${formatDate(today, timeZone)}.`}
         >
           <Input
             type="date"

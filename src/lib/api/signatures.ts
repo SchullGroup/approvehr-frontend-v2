@@ -55,7 +55,7 @@ export type ApiSignature = {
 export const SIGNATURE_KIND =
   "This is an electronic signature: the record of a named, authenticated user " +
   "adopting the document identified by its SHA-256 fingerprint. It is not a " +
-  "cryptographic digital signature — no private key or certificate authority " +
+  "cryptographic digital signature, no private key or certificate authority " +
   "is involved.";
 
 export const SIGNING_WORDING =

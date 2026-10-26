@@ -13,6 +13,7 @@ import {
   EmptyState,
   Skeleton,
   Stat,
+  StatGrid,
   TextLink,
   useToast,
 } from "@/components/ui";
@@ -30,6 +31,13 @@ import { employeeById } from "@/lib/mock/people";
 import { fullName } from "@/lib/types";
 import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { formatDate, formatTime } from "@/lib/time";
+import { CalendarMenu } from "@/components/hiring/interviews/calendar-menu";
+import { JoinLink } from "@/components/hiring/interviews/join-link";
+import { INTERVIEW_KIND_LABEL } from "@/lib/api/recruitment";
+import { demoPlan, demoRoster } from "@/lib/hiring/interviews/demo-gateway";
+import { viewOf } from "@/lib/hiring/interviews/demo-ops";
+import { useDemoInterviews } from "@/lib/hiring/interviews/demo-store";
+import { useInterviewsGateway } from "@/lib/hiring/interviews/use-interviews";
 import { RealDiary } from "./real-diary";
 
 /**
@@ -112,9 +120,12 @@ function Diary() {
   const pipeline = pipelineSnapshot();
   const toast = useToast();
 
-  const scheduled = [...pipeline.scheduledInterviews].sort((a, b) =>
-    a.scheduledFor.localeCompare(b.scheduledFor),
-  );
+  /* The practice book, so an interview booked or cancelled on a record shows here. */
+  const interviewBook = useDemoInterviews();
+  const interviewsGateway = useInterviewsGateway();
+  const scheduled = interviewBook.interviews
+    .filter((iv) => iv.status === "SCHEDULED")
+    .sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor));
 
   /* Scorecards owed — the thing that actually blocks a pipeline. */
   const owed = pipeline.cards.flatMap((card) =>
@@ -158,7 +169,7 @@ function Diary() {
                 Try again
               </Button>
             </LoadFailure>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <StatGrid columns={3}>
               <Link
                 href="/hiring/postings/applications?status=RECEIVED"
                 className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -205,7 +216,7 @@ function Diary() {
                   className="transition-colors group-hover:border-accent"
                 />
               </Link>
-            </div>
+            </StatGrid>
             {backlog.numbers.waiting > 0 && (
               <ButtonLink
                 href="/hiring/postings/applications"
@@ -259,7 +270,7 @@ function Diary() {
                               title: "Nothing was sent",
                               tone: "info",
                               detail:
-                                "Interviews and scorecards have no endpoint yet, so there is nobody to remind. Ask " +
+                                "Demo mode: nobody was reminded. Ask " +
                                 `${name.split(" ")[0]} directly.`,
                             })
                           }
@@ -326,7 +337,7 @@ function Diary() {
                           </TextLink>
                         </p>
                         <p className="text-meta text-muted">
-                          {KIND_LABEL[iv.kind] ?? iv.kind} ·{" "}
+                          {INTERVIEW_KIND_LABEL[iv.kind]} ·{" "}
                           <TextLink
                             href={`/hiring/requisitions/${card.requisitionId}`}
                             className="font-normal"
@@ -336,14 +347,25 @@ function Diary() {
                         </p>
                         <p className="tabular mt-0.5 text-meta text-muted">
                           {formatTime(iv.scheduledFor, timeZone)} ·{" "}
-                          {iv.durationMins} mins ·{" "}
-                          {iv.interviewerIds
-                            .map((id) => {
-                              const person = employeeById(id);
-                              return person ? fullName(person) : "Unknown";
-                            })
+                          {iv.durationMins} mins
+                          {iv.location ? ` · ${iv.location}` : ""} ·{" "}
+                          {iv.seats
+                            .map((seat) => demoRoster().nameOf(seat))
                             .join(", ")}
                         </p>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+                          <JoinLink url={iv.joinUrl} />
+                          <CalendarMenu
+                            interview={viewOf(iv, demoRoster(), demoPlan())}
+                            who="staff"
+                            getFile={() =>
+                              interviewsGateway.calendarFile(
+                                viewOf(iv, demoRoster(), demoPlan()),
+                                "staff",
+                              )
+                            }
+                          />
+                        </div>
                       </div>
 
                       <Badge tone="info" size="sm" dot>

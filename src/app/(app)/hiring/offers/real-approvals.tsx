@@ -153,7 +153,7 @@ function RealOfferCard({
         action={
           <Badge tone="warning" dot>
             {offer.approvedAt
-              ? "Approved — ready to send"
+              ? "Approved, ready to send"
               : "Awaiting your approval"}
           </Badge>
         }

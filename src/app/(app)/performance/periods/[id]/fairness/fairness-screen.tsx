@@ -41,10 +41,19 @@ import { PeopleToReview, flaggedCount } from "./people-to-review";
 type Tab = "groups" | "managers" | "people";
 type View = "average" | "bands" | "table";
 
-export function FairnessScreen({ cycleId }: { cycleId: string }) {
+export function FairnessScreen({
+  cycleId,
+  picker,
+  initialTab,
+}: {
+  cycleId: string;
+  /** Set when this is the Performance module page rather than one period's. */
+  picker?: React.ReactNode;
+  initialTab?: "people" | undefined;
+}) {
   const allowed = useCan("VIEW_FAIRNESS");
   const [periods, setPeriods] = useState<FairnessPeriods>(1);
-  const [tab, setTab] = useState<Tab>("groups");
+  const [tab, setTab] = useState<Tab>(initialTab ?? "groups");
   const detail = useCycleFairness(cycleId, periods, allowed);
   const data = detail.fairness;
   const review = useReviewFlags(cycleId, allowed);
@@ -52,19 +61,28 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
   return (
     <>
       <PageHeader
-        breadcrumb={[
-          { href: "/performance", label: "Performance" },
-          {
-            href: `/performance/periods/${cycleId}`,
-            label: detail.cycle?.name ?? "Appraisal period",
-          },
-        ]}
+        breadcrumb={
+          picker
+            ? [{ href: "/performance", label: "Performance" }]
+            : [
+                { href: "/performance", label: "Performance" },
+                {
+                  href: `/performance/periods/${cycleId}`,
+                  label: detail.cycle?.name ?? "Appraisal period",
+                },
+              ]
+        }
         title="Fairness check"
         meta={
-          detail.cycle ? (
-            <Badge tone="neutral" size="sm" dot>
-              {detail.cycle.stageLabel}
-            </Badge>
+          picker || detail.cycle ? (
+            <span className="flex flex-wrap items-center gap-2">
+              {picker}
+              {detail.cycle && (
+                <Badge tone="neutral" size="sm" dot>
+                  {detail.cycle.stageLabel}
+                </Badge>
+              )}
+            </span>
           ) : undefined
         }
         action={
@@ -147,6 +165,7 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
                   loading={review.loading}
                   error={review.error}
                   reload={review.reload}
+                  stage={detail.cycle?.stage ?? null}
                 />
               )}
             </Tabs>
@@ -160,11 +179,11 @@ export function FairnessScreen({ cycleId }: { cycleId: string }) {
                   <li>
                     A group is flagged when its gap is at least{" "}
                     {pct(data.rules.minGapBp).replace("%", "")} points and the
-                    likely range doesn’t cross zero.
+                    likely range doesn&apos;t cross zero.
                   </li>
                   <li>
                     Groups under {data.rules.minGroup} people are hidden.
-                    Religion and state of origin aren’t checked.
+                    Religion and state of origin aren&apos;t checked.
                   </li>
                   <li>
                     A manager is flagged at{" "}
@@ -254,18 +273,43 @@ function Groups({ data }: { data: ApiFairness }) {
           key={dimension.key}
           dimension={dimension}
           averageBp={data.averageBp}
+          minGroup={data.rules.minGroup}
         />
       ))}
     </div>
   );
 }
 
-function GroupCard({
+/**
+ * What to say when a dimension has no group it can show.
+ *
+ * A hidden group has one of two reasons. `small` is the plain rule: under the
+ * minimum size. `protects` is a group that is itself big enough but is held
+ * back because showing it would let anyone work out the small ones by
+ * subtraction (total minus the visible groups). Saying "under the size it can
+ * be shown at" for the second reads as wrong — the group is large — so name it
+ * and say why.
+ */
+export function allHiddenText(
+  hidden: ApiFairnessDimension["hidden"],
+  minGroup: number,
+): string {
+  const protecting = hidden.filter((h) => h.reason === "protects");
+  if (protecting.length === 0) {
+    return "Every group here is under the size it can be shown at.";
+  }
+  const names = protecting.map((h) => h.label).join(", ");
+  return `Groups under ${String(minGroup)} people are hidden, and so ${protecting.length === 1 ? "is" : "are"} ${names}, because showing ${protecting.length === 1 ? "it" : "them"} would reveal the smaller groups by subtraction.`;
+}
+
+export function GroupCard({
   dimension,
   averageBp,
+  minGroup,
 }: {
   dimension: ApiFairnessDimension;
   averageBp: number | null;
+  minGroup: number;
 }) {
   const [view, setView] = useState<View>("average");
   const flagged = new Set(
@@ -329,7 +373,7 @@ function GroupCard({
       />
       {dimension.groups.length === 0 ? (
         <CardBody className="text-body-sm text-muted">
-          Every group here is under the size it can be shown at.
+          {allHiddenText(dimension.hidden, minGroup)}
         </CardBody>
       ) : view === "table" ? (
         <TableWrap caption={`${dimension.label} by group`}>

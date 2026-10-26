@@ -48,9 +48,20 @@ type Result = {
  * `?tab=`) to seed that same state, so landing here from a search opens the
  * role directly instead of leaving somebody to find it in a list of eight.
  */
-export function CommandPalette({ onClose }: { onClose: () => void }) {
+export function CommandPalette({
+  onClose,
+  initialQuery = "",
+}: {
+  onClose: () => void;
+  /**
+   * What the box opens holding. The sidebar's Find hands over what somebody
+   * typed when no page matched it, so "Search people for 'ada'" arrives with
+   * the search already run rather than asking them to type it again.
+   */
+  initialQuery?: string;
+}) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [activeIndex, setActiveIndex] = useState(0);
   const debounced = useDebounced(query.trim(), 200);
 

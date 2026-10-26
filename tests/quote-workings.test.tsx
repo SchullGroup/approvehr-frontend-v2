@@ -71,7 +71,7 @@ describe("the pension percentage the feedback asked for", () => {
     render(<QuoteWorkings slip={slipWith(WORKINGS)} />);
     await open();
     expect(
-      screen.getByText(/8% of ₦450,000\.00 — ₦36,000\.00 from their pay/),
+      screen.getByText(/8% of ₦450,000\.00, ₦36,000\.00 from their pay/),
     ).toBeInTheDocument();
     /* Employer pension is added on top, never subtracted. Every surface that
        renders it says so; this one has to as well. */
@@ -82,7 +82,7 @@ describe("the pension percentage the feedback asked for", () => {
     render(<QuoteWorkings slip={slipWith(WORKINGS)} />);
     await open();
     expect(
-      screen.getByText(/2\.50% of ₦300,000\.00 — ₦7,500\.00/),
+      screen.getByText(/2\.50% of ₦300,000\.00, ₦7,500\.00/),
     ).toBeInTheDocument();
   });
 });

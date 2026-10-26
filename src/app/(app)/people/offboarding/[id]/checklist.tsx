@@ -472,7 +472,7 @@ function HandOverDialog({
       title={task.label}
       description={`Right now this is ${ownerLabel(task.owner)}${
         task.assigneeName
-          ? ` — ${task.assigneeName}`
+          ? `, ${task.assigneeName}`
           : " and nobody in particular"
       }.`}
       footer={

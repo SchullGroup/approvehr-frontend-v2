@@ -2,22 +2,41 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { AlertCircle, Info } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { placeTooltip, TOOLTIP_MARGIN, type Box } from "@/lib/place-tooltip";
 
-/** The panel's own width — `w-64` below, kept as a number so the placement
-    check can do the same arithmetic the browser is about to. */
-const TOOLTIP_PANEL_WIDTH = 256;
+/**
+ * What the help panel is doing.
+ *
+ * `peek` is the pointer resting on the icon or a keyboard having focused it: it
+ * goes when the pointer or the focus does. `pinned` is a press or a tap: it
+ * stays until something dismisses it. They are different states because they
+ * end differently, and a press on an icon that is already being peeked at has
+ * to mean "keep it", not "hide what I am looking at".
+ */
+type Showing = "closed" | "peek" | "pinned";
 
-/** Clear of the true screen edge on either side, so the panel never lands
-    flush against it. */
-const TOOLTIP_SAFE_MARGIN = 16;
+/** Whether a focus came from a keyboard. Chrome focuses a button when it is
+    clicked, and that must not read as somebody having tabbed to it. An engine
+    without `:focus-visible` throws on the selector, and gets the old answer:
+    any focus shows the panel. */
+function focusCameFromKeyboard(node: HTMLElement): boolean {
+  try {
+    return node.matches(":focus-visible");
+  } catch {
+    return true;
+  }
+}
 
 /**
  * The label-line info icon that replaced help text sitting under every field.
@@ -29,113 +48,279 @@ const TOOLTIP_SAFE_MARGIN = 16;
  *   is what `aria-describedby` on the control actually points at, so a
  *   screen-reader user hears the guidance the moment they land on the field,
  *   exactly as before. Its visibility never depends on hover.
- * - A visible panel, `aria-hidden`, shown only on hover or focus. It exists
- *   for sighted mouse and keyboard users, and is hidden from assistive tech
- *   so the same sentence is not announced twice.
+ * - A visible panel, `aria-hidden`, which exists for sighted people and is
+ *   hidden from assistive tech so the same sentence is not announced twice.
  *
- * `group-focus-within` is what makes the panel appear for a keyboard user —
- * tabbing to the trigger focuses it, which is also what happens when a touch
- * screen taps a button, so no separate touch handling was needed.
+ * ## It opens when it is pressed, because hovering and focusing are not enough
  *
- * ## Which side it opens on is measured, not fixed
+ * This used to be shown by `group-hover` and `group-focus-within` alone, on the
+ * reasoning that tapping a button focuses it, "so no separate touch handling
+ * was needed". That is true in Chrome on Android and false in Safari, which
+ * does not give a button focus when it is pressed — on a Mac or on an iPhone.
+ * The one platform that cannot hover either was left with an icon that could
+ * not be opened. A press is a `click` in every engine, so a press now sets
+ * state.
  *
- * This used to always anchor its own left edge to the icon's, on the
- * reasoning that "a label's icon is never the last thing in a line running
- * off the right of its container" — true of a full-width page, and false of
- * a field inside a narrow `size="sm"` modal, where an icon can sit close
- * enough to the dialog's own right edge that a fixed-rightward 256px panel
- * has nowhere to grow into.
+ * It is peeked at by a mouse or pen resting on the icon, or a keyboard
+ * focusing it (`focus-visible`, so a click that happens to focus it does not
+ * count), and **pinned** by a press, which keeps it open for somebody reading
+ * it with their thumb. A touch pointer never peeks: a finger has no "over",
+ * and the compatibility mouse events a browser fires after a tap would show
+ * the panel for as long as the finger was down and then hide it again.
  *
- * That was not a cosmetic miss: on a phone, the panel's own right edge
- * landing past the true viewport width is genuine overflowing content, and
- * this app's mobile layout responds to genuine overflow by widening the
- * whole page's layout viewport to fit it — which then re-resolves every
- * percentage-sized box on the page, including an unrelated `size="sm"`
- * `Modal` sitting at `width:100%`, against that wider viewport. The dialog
- * measurably grew from 375px to its 448px cap while the tooltip was open,
- * on a page with nothing else acting on it — traced to exactly this.
+ * It is dismissed the ways anyone expects: the icon again, Escape, a press
+ * anywhere else, the panel itself, and the field losing focus. An icon
+ * scrolled out of its scroller takes its panel with it and brings it back when
+ * it scrolls in again. Escape is taken on `window` in the capture phase, which
+ * runs before the dialog's own handler on `document` — so the first Escape
+ * closes the hint and the second closes the dialog, instead of one keystroke
+ * discarding the form somebody was filling in to dismiss a sentence.
  *
- * `offset` is a pixel `left` value, in the panel's own positioning space
- * (relative to the trigger's wrapper span), rather than a plain `left-0` /
- * `right-0` choice. A binary side flip is not enough: a trigger sitting
- * anywhere near the *middle* of a narrow viewport has room for the panel on
- * neither pure side — growing right overflows the right edge, growing left
- * overflows the left just as the original bug did. `offset` instead starts
- * from "grow rightward from the icon" (the original, still-correct default
- * for most triggers) and is clamped so the panel's own edges never cross
- * `TOOLTIP_SAFE_MARGIN` in from the true screen edges, on either side —
- * correct for a trigger anywhere, not only the two ends.
+ * A press on the panel does not take focus off the icon. It would otherwise:
+ * the icon closes the panel when it loses focus, which would unmount it before
+ * the click that ends the press, and that click would land on whatever the
+ * panel was covering.
  *
- * ## Measured once at mount, in a layout effect — not on hover or focus
+ * The target is 26px around a 14px icon, and the negative margin takes the
+ * padding back out of the layout so no label row grew. The ring is the house
+ * focus ring from `globals.css`: the colour change this used to rely on is not
+ * a focus indicator.
  *
- * The first version measured when the pointer entered or the trigger gained
- * focus, in a plain event handler. That reopened the exact bug it was
- * fixing, intermittently: `group-focus-within` is a CSS pseudo-class, so the
- * browser can make the panel visible in the *same* paint the focus event
- * fires in, while the event handler's `setState` is a React update that is
- * not guaranteed to land before that paint. On a freshly mounted field the
- * race was frequently lost — the panel painted once at its default offset,
- * wide enough to overflow, and the viewport had already widened to fit it
- * by the time React caught up and corrected it. `useLayoutEffect` runs
- * synchronously after the DOM commits and before the browser paints, so the
- * correct offset is already settled — with the panel still `hidden`, since
- * nothing has been hovered or focused yet — long before a user could reach
- * it. There is nothing left to race.
+ * ## Why the panel is in a portal
+ *
+ * It was an absolutely positioned child of the icon, and inside a dialog that
+ * is cut off by the dialog's scroll area. The first field in a dialog sits a
+ * few pixels under the top of that area, the panel opened upward, and 55 of its
+ * 71 pixels were hidden — on a laptop as much as on a phone.
+ *
+ * `position: fixed` alone would not escape it. `Modal` and `Drawer` animate in
+ * with a transform that is left on afterwards (`animation-fill-mode: both`),
+ * and a transformed element is the containing block for its fixed descendants:
+ * the panel would be placed against the dialog and clipped by it all the same.
+ * The body has neither problem, and it is where `Modal`, `Drawer`, the toasts
+ * and the tour already put themselves. `z-[60]` is the tier `globals.css`
+ * reserves for what has to sit above a dialog.
+ *
+ * ## Which side it opens on is measured, when it opens
+ *
+ * `placeTooltip` decides and this measures, in a layout effect: after the panel
+ * is in the DOM and before the browser paints it, so there is no frame at the
+ * wrong place. It writes `top` and `left` straight to the node rather than into
+ * state, as `Spotlight` does for the same reason — nothing else reads a
+ * measurement, and storing it would be a render per scroll frame.
+ *
+ * It used to measure once, at mount, because that was the only moment it could
+ * do so without racing a CSS `:hover`: the panel could be painted in the same
+ * frame the focus event fired in, before React had corrected it, and a panel
+ * painted past the right edge made a phone widen its whole layout viewport to
+ * fit. Visibility is state now, so there is no race, and the decision is made
+ * with the page as it is at that moment — scrolled, with the keyboard up, with
+ * the dialog animated into place. Nor can it overflow sideways any more: a
+ * fixed panel is part of no scroller's overflow, and it is clamped inside the
+ * margin besides.
+ *
+ * The region it is measured against is the visual viewport where there is one,
+ * so with the keyboard up or the page zoomed in, the panel lands where the
+ * person is looking and not behind their keyboard.
  */
-function InfoTooltip({ id, text }: { id: string; text: string }) {
-  const wrapperRef = useRef<HTMLSpanElement>(null);
-  const [offset, setOffset] = useState(0);
-
-  useLayoutEffect(() => {
-    const wrapperRect = wrapperRef.current?.getBoundingClientRect();
-    if (!wrapperRect) return;
-    /* Where the panel's left edge would land, viewport-relative, if it grew
-       rightward from the trigger as it always used to — then pulled back
-       just far enough that neither of its own edges crosses the safe
-       margin, whichever edge that turns out to be. */
-    const desired = wrapperRect.left;
-    const clamped = Math.min(
-      Math.max(desired, TOOLTIP_SAFE_MARGIN),
-      window.innerWidth - TOOLTIP_PANEL_WIDTH - TOOLTIP_SAFE_MARGIN,
-    );
-    /* Back into the panel's own coordinate space: `position: absolute`
-       resolves `left` against `wrapperRef`, not the viewport. */
-    setOffset(clamped - wrapperRect.left);
-  }, []);
+export function InfoTooltip({
+  id,
+  text,
+  label = "More about this field",
+}: {
+  id: string;
+  text: string;
+  label?: string;
+}) {
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [showing, setShowing] = useState<Showing>("closed");
+  const close = useCallback(() => setShowing("closed"), []);
 
   return (
-    <span ref={wrapperRef} className="group relative inline-flex">
+    <span ref={anchorRef} className="relative inline-flex">
       <span id={id} className="sr-only">
         {text}
       </span>
       <button
         type="button"
-        aria-label="More about this field"
-        className="text-muted hover:text-ink focus:text-ink focus:outline-none"
+        aria-label={label}
+        onClick={() =>
+          setShowing((now) => (now === "pinned" ? "closed" : "pinned"))
+        }
+        onPointerEnter={(event) => {
+          if (event.pointerType === "touch") return;
+          setShowing((now) => (now === "closed" ? "peek" : now));
+        }}
+        onPointerLeave={(event) => {
+          if (event.pointerType === "touch") return;
+          setShowing((now) => (now === "peek" ? "closed" : now));
+        }}
+        onFocus={(event) => {
+          if (!focusCameFromKeyboard(event.currentTarget)) return;
+          setShowing((now) => (now === "closed" ? "peek" : now));
+        }}
+        onBlur={close}
+        className="-m-1.5 rounded-full p-1.5 text-muted hover:text-ink focus-visible:text-ink"
       >
         <Info aria-hidden="true" className="size-3.5" />
       </button>
-      <span
-        aria-hidden="true"
-        role="presentation"
-        style={{ left: `${offset}px` }}
-        className={cn(
-          /* `hidden`, not `invisible`: a `visibility:hidden` panel still
-             occupies its absolutely-positioned box, and a 256px-wide one
-             anchored near the right end of a field's label row pushed the
-             whole row's (and its ancestors') scrollWidth out with it — on a
-             narrow card this read as horizontal overflow with nothing
-             visible causing it. `display:none` removes it from layout
-             entirely until it is actually shown. */
-          "hidden absolute bottom-full z-50 mb-2 w-64",
-          "rounded-md border border-line bg-surface p-2.5 text-body-sm leading-relaxed text-body shadow-lg",
-          "opacity-0 transition-opacity duration-100",
-          "group-hover:block group-hover:opacity-100 group-focus-within:block group-focus-within:opacity-100",
-        )}
-      >
-        {text}
-      </span>
+      {showing !== "closed" && (
+        <TooltipPanel anchorRef={anchorRef} text={text} onDismiss={close} />
+      )}
     </span>
+  );
+}
+
+function TooltipPanel({
+  anchorRef,
+  text,
+  onDismiss,
+}: {
+  anchorRef: React.RefObject<HTMLSpanElement | null>;
+  text: string;
+  onDismiss: () => void;
+}) {
+  const panelRef = useRef<HTMLSpanElement>(null);
+
+  const place = useCallback(() => {
+    const panel = panelRef.current;
+    const anchor = anchorRef.current;
+    if (!panel || !anchor) return;
+
+    const viewport = window.visualViewport;
+    const bounds: Box = viewport
+      ? {
+          top: viewport.offsetTop,
+          left: viewport.offsetLeft,
+          right: viewport.offsetLeft + viewport.width,
+          bottom: viewport.offsetTop + viewport.height,
+        }
+      : {
+          top: 0,
+          left: 0,
+          right: window.innerWidth,
+          bottom: window.innerHeight,
+        };
+
+    /* Read at its natural height and at the width it will have, so what an
+       earlier call capped is put back before it is measured again. */
+    panel.style.maxHeight = "";
+    panel.style.maxWidth = `${Math.max(
+      0,
+      bounds.right - bounds.left - 2 * TOOLTIP_MARGIN,
+    )}px`;
+    const placed = placeTooltip({
+      anchor: anchor.getBoundingClientRect(),
+      panel: { width: panel.offsetWidth, height: panel.offsetHeight },
+      bounds,
+    });
+    panel.style.left = `${placed.left}px`;
+    panel.style.top = `${placed.top}px`;
+    if (placed.maxHeight !== undefined) {
+      panel.style.maxHeight = `${placed.maxHeight}px`;
+    }
+  }, [anchorRef]);
+
+  /* Layout, not effect: the panel is painted where it belongs rather than at
+     the corner for one frame and then moved. */
+  useLayoutEffect(() => {
+    place();
+  }, [place]);
+
+  useEffect(() => {
+    const anchor = anchorRef.current;
+    const viewport = window.visualViewport;
+
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      onDismiss();
+    };
+    /* The panel counts as inside: it is dismissed by its own `onClick`, so a
+       press on it is not unmounted from under the click that follows. */
+    const dismissOnPressElsewhere = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (anchor?.contains(target) || panelRef.current?.contains(target)) {
+        return;
+      }
+      onDismiss();
+    };
+
+    /* Not the panel's own: a capped panel scrolls, and measuring it again
+       would put it back at the top every time it moved. */
+    const followOnScroll = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Node && panelRef.current?.contains(target)) return;
+      place();
+    };
+
+    window.addEventListener("keydown", dismissOnEscape, true);
+    document.addEventListener("pointerdown", dismissOnPressElsewhere, true);
+    window.addEventListener("resize", place);
+    /* Capture, so a scroll inside a dialog's body is seen and not only a
+       scroll of the window. */
+    window.addEventListener("scroll", followOnScroll, true);
+    viewport?.addEventListener("resize", place);
+    viewport?.addEventListener("scroll", place);
+
+    /* An icon scrolled out of its scroller takes its panel with it. The
+       observer accounts for every clipping ancestor, which a rectangle against
+       the window does not. */
+    let observer: IntersectionObserver | undefined;
+    if (anchor && typeof IntersectionObserver !== "undefined") {
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          const panel = panelRef.current;
+          if (!panel || !entry) return;
+          panel.style.visibility =
+            entry.intersectionRatio < 0.5 ? "hidden" : "";
+        },
+        { threshold: [0, 0.5, 1] },
+      );
+      observer.observe(anchor);
+    }
+
+    return () => {
+      window.removeEventListener("keydown", dismissOnEscape, true);
+      document.removeEventListener(
+        "pointerdown",
+        dismissOnPressElsewhere,
+        true,
+      );
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", followOnScroll, true);
+      viewport?.removeEventListener("resize", place);
+      viewport?.removeEventListener("scroll", place);
+      observer?.disconnect();
+    };
+  }, [anchorRef, onDismiss, place]);
+
+  return createPortal(
+    <span
+      ref={panelRef}
+      aria-hidden="true"
+      role="presentation"
+      /* A press on the panel is the first half of a click on it. Left alone it
+         takes focus off the icon, the icon closes the panel when it loses
+         focus, and the click that ends the press lands on whatever the panel
+         was covering. */
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={(event) => {
+        /* A portal's events bubble through the React tree it was opened from,
+           and the field it belongs to may sit inside something clickable. */
+        event.stopPropagation();
+        onDismiss();
+      }}
+      className={cn(
+        "fixed left-0 top-0 z-[60] block w-64 overflow-y-auto",
+        "rounded-md border border-line bg-surface p-2.5 text-body-sm leading-relaxed text-body shadow-lg",
+        "animate-[ahr-fade_100ms_ease-out_both]",
+      )}
+    >
+      {text}
+    </span>,
+    document.body,
   );
 }
 
@@ -228,16 +413,22 @@ export function Field({
     <FieldContext.Provider
       value={{ inputId, helpId, errorId, hasError, describedBy, required }}
     >
-      <div className={cn("flex flex-col gap-1.5", className)}>
+      <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
         <span
           className={cn(
-            "flex items-center gap-1.5",
+            "flex min-w-0 items-center gap-1.5",
             hideLabel && "sr-only-focusable",
           )}
         >
           <label
             htmlFor={inputId}
-            className="text-body-sm font-medium text-ink"
+            /* Only a visible label is allowed to shrink and wrap: a hidden one
+               lives in a 1px box, and shrinking it there would wrap it a word
+               to a line for nothing. */
+            className={cn(
+              "text-body-sm font-medium text-ink",
+              !hideLabel && "min-w-0",
+            )}
           >
             {label}
             {required && (
@@ -284,6 +475,74 @@ export function Field({
         )}
       </div>
     </FieldContext.Provider>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How many columns a `FieldRow` has, and whether a phone gets them.
+ *
+ * Written out in full rather than assembled from the numbers: Tailwind finds
+ * classes by reading the source, and `grid-cols-${n}` is not in it.
+ */
+const FIELD_ROW_COLUMNS = {
+  stack: {
+    2: "grid-cols-1 sm:grid-cols-2",
+    3: "grid-cols-1 sm:grid-cols-3",
+  },
+  pair: {
+    2: "grid-cols-2",
+    3: "grid-cols-3",
+  },
+} as const;
+
+/**
+ * Fields side by side, built so that neither can push the row off the screen.
+ *
+ * ## Why this exists rather than a `grid grid-cols-2` at each call site
+ *
+ * A grid item's automatic minimum width is its content's, and a control's
+ * content is whatever the engine says it is. In iPhone Safari a time input in a
+ * 161px column rendered 187px wide, so two of them overran a 375px sheet and
+ * the second — "Clock out should be", on the attendance correction — could not
+ * be reached at all. Every row written by hand has to remember
+ * `min-w-0` on every cell, and none of the ones that forgot looked wrong on a
+ * laptop. This one does it for the cells, so a row cannot be made wrong by
+ * adding a field to it.
+ *
+ * ## `phone`: one per line, or still two across
+ *
+ * - `"stack"` (the default) is a single column below `sm` and `cols` columns
+ *   from there. Use it for anything a thumb has to read inside: two native date
+ *   pickers, two money figures, a select beside a date.
+ * - `"pair"` keeps the columns on a phone. Only for short controls that fit at
+ *   320px with room to spare — first and last name, two clock times, two small
+ *   numbers. Half of a 320px sheet is about 134px, less its padding.
+ *
+ * Choosing is the point: a row nobody chose for is the row that overflows.
+ */
+export function FieldRow({
+  cols = 2,
+  phone = "stack",
+  className,
+  children,
+}: {
+  cols?: 2 | 3;
+  phone?: "stack" | "pair";
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid gap-3 [&>*]:min-w-0",
+        FIELD_ROW_COLUMNS[phone][cols],
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
 }
 

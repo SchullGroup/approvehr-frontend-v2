@@ -34,7 +34,7 @@ export type ApiAdvanceStatus =
 
 export const STATUS_LABELS: Record<ApiAdvanceStatus, string> = {
   REQUESTED: "Waiting on a decision",
-  APPROVED: "Approved — money not sent yet",
+  APPROVED: "Approved, money not sent yet",
   PAID: "Paid, to come off your payslip",
   DECLINED: "Declined",
   CANCELLED: "Withdrawn",

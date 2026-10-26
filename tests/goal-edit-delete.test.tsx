@@ -144,7 +144,12 @@ describe("the edit dialog", () => {
 
   it("clears a description by sending null, not an empty string", async () => {
     const user = userEvent.setup();
-    const onSave = open();
+    /* Filed in a period already, so the description is the only change. A KPI
+       with no period is asked for one before anything else is saved. */
+    const onSave = open({
+      reviewCycleId: "c-open",
+      reviewCycleName: "H2 2026",
+    });
     await user.clear(screen.getByLabelText(/Description/));
     await user.click(screen.getByRole("button", { name: "Save changes" }));
     expect(onSave).toHaveBeenCalledWith("g-1", { description: null });

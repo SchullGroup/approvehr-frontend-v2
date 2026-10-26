@@ -85,7 +85,17 @@ export function useDragInto({
   /** Refuses a target before it lights up — its own subtree, itself, and so on. */
   canDrop,
 }: {
-  onDrop: (moved: { id: string; kind: string }, targetId: string) => void;
+  /**
+   * `point` is where the pointer was released, in client coordinates. Most
+   * callers ignore it — a candidate dropped on a column goes to that column —
+   * and a board that orders cards inside a column reads it to find which card
+   * the drop landed in front of.
+   */
+  onDrop: (
+    moved: { id: string; kind: string },
+    targetId: string,
+    point: { x: number; y: number },
+  ) => void;
   canDrop: (moved: { id: string; kind: string }, targetId: string) => boolean;
 }) {
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -195,7 +205,10 @@ export function useDragInto({
       const current = dragRef.current;
       commit(null);
       if (current?.over)
-        onDrop({ id: current.id, kind: current.kind }, current.over);
+        onDrop({ id: current.id, kind: current.kind }, current.over, {
+          x: current.x,
+          y: current.y,
+        });
     };
 
     /* Escape abandons. A drag with no way out is a drag people are afraid to

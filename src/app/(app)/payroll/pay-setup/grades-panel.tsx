@@ -9,6 +9,7 @@ import {
   Search,
   Trash2,
   TrendingUp,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -18,7 +19,6 @@ import {
   Card,
   CardBody,
   CardHeader,
-  Checkbox,
   ConfirmDialog,
   Drawer,
   EmptyState,
@@ -28,6 +28,7 @@ import {
   Money,
   Select,
   Stat,
+  StatGrid,
   TBody,
   TD,
   TDPrimary,
@@ -37,6 +38,8 @@ import {
   TableWrap,
   formatMoney,
   useToast,
+  ToggleFilter,
+  RowActions,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
@@ -158,7 +161,7 @@ export function GradesPanel() {
         />
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatGrid>
         <Stat
           label="Salary grades"
           value={String(totals.grades)}
@@ -188,7 +191,7 @@ export function GradesPanel() {
             : {})}
           hint={totals.outsideBand === 1 ? "one person" : "people"}
         />
-      </div>
+      </StatGrid>
 
       <Card>
         <CardHeader
@@ -223,13 +226,10 @@ export function GradesPanel() {
                 }}
               />
             </div>
-            <Checkbox
+            <ToggleFilter
               label="Show archived"
               checked={includeArchived}
-              onChange={(e) => {
-                const value = e.target.checked;
-                setIncludeArchived(value);
-              }}
+              onChange={setIncludeArchived}
             />
           </div>
 
@@ -442,11 +442,8 @@ function GradeRow({
 
       <TD>
         <span className="block tabular text-body-sm text-ink">
-          <Money amount={naira(row.minGrossKobo)} decimals /> —{" "}
+          <Money amount={naira(row.minGrossKobo)} decimals /> to{" "}
           <Money amount={naira(row.maxGrossKobo)} decimals />
-        </span>
-        <span className="mt-0.5 block text-meta text-muted">
-          Mid-point <Money amount={naira(row.midGrossKobo)} decimals />
         </span>
       </TD>
 
@@ -468,46 +465,54 @@ function GradeRow({
         <Money amount={naira(row.monthlyPayrollKobo)} decimals />
       </TD>
 
-      <TD>
-        <div className="flex justify-end gap-1.5">
-          {row.archived ? (
-            editable && (
-              <Button variant="secondary" size="sm" onClick={onRestore}>
-                <RotateCcw aria-hidden="true" className="size-3.5" />
-                Restore
-              </Button>
-            )
-          ) : (
-            <>
-              {row.employees > 0 && canApply && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={onRaise}
-                  aria-label={`Give everyone on ${row.code} a rise`}
-                >
-                  <TrendingUp aria-hidden="true" className="size-3.5" />
-                  Give a rise
-                </Button>
-              )}
-              {editable && (
-                <>
-                  <Button variant="ghost" size="sm" onClick={onEdit}>
-                    Edit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onArchive}
-                    aria-label={`Archive ${row.code}`}
-                  >
-                    <Trash2 aria-hidden="true" className="size-3.5" />
-                  </Button>
-                </>
-              )}
-            </>
-          )}
-        </div>
+      <TD align="right">
+        <RowActions
+          label={`More actions for ${row.code}`}
+          items={
+            row.archived
+              ? editable
+                ? [
+                    {
+                      label: "Restore",
+                      icon: <RotateCcw aria-hidden="true" className="size-4" />,
+                      onSelect: onRestore,
+                    },
+                  ]
+                : []
+              : [
+                  ...(row.employees > 0 && canApply
+                    ? [
+                        {
+                          label: "Give everyone a rise",
+                          icon: (
+                            <TrendingUp aria-hidden="true" className="size-4" />
+                          ),
+                          onSelect: onRaise,
+                        },
+                      ]
+                    : []),
+                  ...(editable
+                    ? [
+                        {
+                          label: "Edit",
+                          icon: (
+                            <Pencil aria-hidden="true" className="size-4" />
+                          ),
+                          onSelect: onEdit,
+                        },
+                        {
+                          label: "Archive",
+                          icon: (
+                            <Trash2 aria-hidden="true" className="size-4" />
+                          ),
+                          tone: "danger" as const,
+                          onSelect: onArchive,
+                        },
+                      ]
+                    : []),
+                ]
+          }
+        />
       </TD>
     </TR>
   );
@@ -559,11 +564,8 @@ function GradeCard({
 
       <div className="text-body-sm text-ink">
         <span className="tabular">
-          <Money amount={naira(row.minGrossKobo)} decimals /> —{" "}
+          <Money amount={naira(row.minGrossKobo)} decimals /> to{" "}
           <Money amount={naira(row.maxGrossKobo)} decimals />
-        </span>
-        <span className="mt-0.5 block text-meta text-muted">
-          Mid-point <Money amount={naira(row.midGrossKobo)} decimals />
         </span>
       </div>
 
