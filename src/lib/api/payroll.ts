@@ -369,6 +369,16 @@ export type Payslip = {
   netKobo: number;
   unpaidDays: number;
   proratedDeductionKobo: number;
+  /**
+   * Days worked, when somebody entered them by hand so this person is paid by
+   * the day rather than the whole month. Null means the whole month.
+   */
+  daysWorked: number | null;
+  /**
+   * The working month the contract was divided by. Null on payslips written
+   * before the API recorded it — the caller falls back to the company setting.
+   */
+  workingDays: number | null;
   publishedAt: string | null;
   emailedAt: string | null;
   viewedAt: string | null;
@@ -440,6 +450,21 @@ export type OvertimeOverrideChange = {
   setAsideCount: number;
   setAsideMinutes: number;
   reason: string;
+  setAt: string;
+  run: PreparedRun;
+};
+
+export type DaysWorkedChange = {
+  employeeId: string;
+  name: string;
+  days: number;
+  /** The working month the contract is divided by for this person. */
+  workingDays: number;
+  /** Monthly pay ÷ `workingDays`. */
+  dailyRateKobo: number;
+  /** Gross after proration, as the payslip was written. */
+  grossKobo: number;
+  reason: string | null;
   setAt: string;
   run: PreparedRun;
 };
@@ -1137,6 +1162,9 @@ type ApiPayslip = {
   net: Decimalish;
   unpaidDays: number;
   proratedDeduction: Decimalish;
+  /** Optional on the wire: an older API answers without them. */
+  daysWorked?: number | null;
+  workingDays?: number | null;
   publishedAt: string | null;
   emailedAt: string | null;
   viewedAt: string | null;
@@ -1356,6 +1384,8 @@ function toPayslip(row: ApiPayslip): Payslip {
     netKobo: koboFromDecimal(row.net),
     unpaidDays: row.unpaidDays,
     proratedDeductionKobo: koboFromDecimal(row.proratedDeduction),
+    daysWorked: row.daysWorked ?? null,
+    workingDays: row.workingDays ?? null,
     publishedAt: row.publishedAt,
     emailedAt: row.emailedAt,
     viewedAt: row.viewedAt,
@@ -1695,6 +1725,25 @@ export const payrollApi = {
       `/payroll/runs/${id}/overtime-overrides/${employeeId}`,
       { method: "DELETE" },
     ),
+
+  /**
+   * Pays one person for the days they worked this period, not the whole
+   * month. The API prorates: monthly ÷ working days × days.
+   */
+  setDaysWorked: (
+    id: string,
+    body: { employeeId: string; days: number; reason?: string },
+  ) =>
+    request<DaysWorkedChange>(`/payroll/runs/${id}/days-worked`, {
+      method: "POST",
+      body,
+    }),
+
+  /** Takes the typed days off, so the person is paid the whole month again. */
+  clearDaysWorked: (id: string, employeeId: string) =>
+    request<PreparedRun>(`/payroll/runs/${id}/days-worked/${employeeId}`, {
+      method: "DELETE",
+    }),
 
   /**
    * A one-off payment for one person on this run.
