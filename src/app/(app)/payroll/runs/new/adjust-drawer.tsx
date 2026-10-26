@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { Pencil } from "lucide-react";
-import { Badge, Button, ButtonLink, Callout, Drawer } from "@/components/ui";
+import {
+  AttentionMark,
+  Button,
+  ButtonLink,
+  Drawer,
+} from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -275,20 +280,17 @@ export function AdjustDrawer({
           )}
 
           {warnings.length > 0 && (
-            <Callout
-              tone={blocking ? "danger" : "warning"}
-              title={
-                warnings.length === 1
-                  ? `1 thing to look at for ${firstName}`
-                  : `${warnings.length} things to look at for ${firstName}`
-              }
-            >
-              <ul className="flex flex-col gap-1.5">
-                {warnings.map((warning) => (
-                  <li key={warning.id}>{warning.message}</li>
-                ))}
-              </ul>
-            </Callout>
+            <p className="inline-flex max-w-full items-center gap-2 text-body-sm text-muted">
+              <span className="min-w-0">
+                {warnings.length === 1
+                  ? `1 note for ${firstName}`
+                  : `${warnings.length} notes for ${firstName}`}
+              </span>
+              <AttentionMark
+                tone={blocking ? "attention" : "info"}
+                text={warnings.map((warning) => warning.message)}
+              />
+            </p>
           )}
 
           {scheduled && scheduled.length > 0 && (
@@ -722,9 +724,10 @@ function Line({
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-ink">
           {label}
           {marked && (
-            <Badge tone="accent" size="sm" icon={<Pencil aria-hidden="true" />}>
-              Entered by hand
-            </Badge>
+            <span className="inline-flex items-center gap-1 text-[11px] leading-none text-muted">
+              <Pencil aria-hidden="true" className="size-2.5" />
+              entered by hand
+            </span>
           )}
         </p>
         {note && (

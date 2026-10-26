@@ -628,6 +628,29 @@ export function PayslipDocument({
         <p className="tabular text-h2 text-ink">{formatKobo(slip.netKobo)}</p>
       </section>
 
+      {/* Staff loans — the same four figures every month, so a loan can be
+          followed down: what was lent, what was owed coming in, what came off
+          this month, what is left. Shown only where there is a loan. */}
+      {(slip.loans?.length ?? 0) > 0 && (
+        <section className="mt-6 rounded-md border border-line bg-canvas p-4">
+          <ColumnHead>Staff loan</ColumnHead>
+          {slip.loans?.map((loan) => (
+            <dl key={loan.loanId} className="mt-3 flex flex-col">
+              <LineItem label="Accumulated loan" kobo={loan.accumulatedKobo} />
+              <LineItem
+                label="Balance before this month"
+                kobo={loan.balanceBeforeKobo}
+              />
+              <LineItem
+                label="Loan deduction this month"
+                kobo={loan.deductionKobo}
+              />
+              <LineItem label="Loan balance after" kobo={loan.balanceAfterKobo} />
+            </dl>
+          ))}
+        </section>
+      )}
+
       {/* Employer contributions — deliberately outside the deductions column */}
       {employerLines.length > 0 && (
         <section className="mt-6 rounded-md border border-line bg-canvas p-4">

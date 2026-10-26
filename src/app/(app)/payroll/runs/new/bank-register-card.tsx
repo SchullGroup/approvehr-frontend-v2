@@ -5,11 +5,9 @@ import { FileSpreadsheet } from "lucide-react";
 import { Button, Callout } from "@/components/ui";
 import { useToast } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import { payrollApi, periodLabel } from "@/lib/api/payroll";
+import { payrollApi } from "@/lib/api/payroll";
 import type { BankRegister, PayrollRunDetail } from "@/lib/api/payroll";
 import { useCan } from "@/lib/permissions";
-import { useOrgTimezone } from "@/lib/store/session";
-import { formatDateTimeShort } from "@/lib/time";
 import { downloadXlsx, writeXlsx } from "@/lib/xlsx";
 import type { SheetSpec } from "@/lib/xlsx";
 
@@ -36,7 +34,6 @@ import type { SheetSpec } from "@/lib/xlsx";
  */
 export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
   const canDownload = useCan("RUN_PAYROLL");
-  const timeZone = useOrgTimezone();
   const { push } = useToast();
   const [busy, setBusy] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
@@ -48,15 +45,15 @@ export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
     setRefused(null);
     try {
       const register = await payrollApi.bankRegister(run.id);
-      downloadXlsx(
-        filenameFor(register),
-        writeXlsx(sheetsFor(register, timeZone)),
-      );
+      downloadXlsx(filenameFor(register), writeXlsx(sheetsFor(register)));
+      const missing = unpayable(register);
       push({
         tone: "success",
-        title: "Bank register downloaded",
+        title: "Bank payment schedule downloaded",
         detail:
-          "Every calculated figure, with bank details for everyone on this payroll.",
+          missing > 0
+            ? `${String(missing)} ${missing === 1 ? "person has" : "people have"} no account number or bank on file, so the bank cannot pay ${missing === 1 ? "them" : "them"} yet.`
+            : "One amount per person, ready to send to your bank.",
       });
     } catch (error) {
       setRefused(
@@ -78,17 +75,17 @@ export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
       )}
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1 basis-72">
-          <h3 className="text-body-sm font-semibold text-ink">Bank register</h3>
+          <h3 className="text-body-sm font-semibold text-ink">Bank payment schedule</h3>
           {/* The one thing worth saying before somebody downloads this: it
               carries what `payslips.csv` deliberately does not. Said here
               rather than only discovered on open, since a spreadsheet with
               account numbers on it is a different thing to keep and to send
               than one without. */}
           <p className="mt-0.5 text-meta leading-relaxed text-muted">
-            For paying by bank file. Every calculated figure, with bank name,
-            account number and account name for each person. Unlike the payslip
-            export it includes bank details, so keep it as carefully as you
-            would a bank statement.
+            For when your bank pays directly. One sheet: bank code, bank,
+            account number, account name and the amount to pay each person.
+            It carries account numbers, so keep it as carefully as you would a
+            bank statement.
           </p>
         </div>
         <Button
@@ -98,7 +95,7 @@ export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
           onClick={() => void download()}
         >
           {!busy && <FileSpreadsheet aria-hidden="true" className="size-4" />}
-          Download the bank register
+          Download the bank payment schedule
         </Button>
       </div>
     </div>
@@ -106,76 +103,72 @@ export function BankRegisterCard({ run }: { run: PayrollRunDetail }) {
 }
 
 function filenameFor(register: BankRegister): string {
-  return `bank-register-${register.run.period}.xlsx`;
+  return `bank-payment-schedule-${register.run.period}.xlsx`;
 }
 
-/** `"2026-08-20T09:00:00.000Z"` → `"20 Aug, 09:00"`, or blank if unset. */
-function stamp(iso: string | null, timeZone: string): string {
-  if (!iso) return "";
-  return formatDateTimeShort(iso, timeZone);
-}
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+] as const;
 
-function sheetsFor(register: BankRegister, timeZone: string): SheetSpec[] {
-  const meta = register.run;
-
-  const infoRows: string[][] = [
-    ["Company", meta.organizationName],
-    ["Pay period", periodLabel(meta.period)],
-    ["Status", meta.status],
-    ["Prepared at", stamp(meta.preparedAt, timeZone)],
-    ["Prepared by", meta.preparedByName ?? ""],
-    ["Approved at", stamp(meta.approvedAt, timeZone)],
-    ["Approved by", meta.approvedByName ?? ""],
-    ["Paid at", stamp(meta.paidAt, timeZone)],
-    ["Generated at", stamp(register.generatedAt, timeZone)],
-  ];
+/**
+ * The payment schedule a bank pays from: one sheet, one amount per person.
+ *
+ * The same layout companies already send their bank — Id, Destination Bank Code,
+ * DestinationBank Name, Account No, Account Name, Amount, Currency, Narration,
+ * Reference No. Everything a payslip carries beyond the figure that moves (gross,
+ * housing, transport, PAYE, pension) is left out: the bank needs a single value
+ * to pay, and the rest only invites questions.
+ *
+ * Only people with something to pay are listed. Somebody whose net is nil has no
+ * transfer to make, so they are not a row the bank has to skip.
+ */
+function sheetsFor(register: BankRegister): SheetSpec[] {
+  const month = MONTHS[Number(register.run.period.slice(5, 7)) - 1] ?? "";
+  const narration = `${month} Salary`;
+  const payable = register.employees.filter((e) => Number(e.net) > 0);
 
   const header = [
-    "employee_no",
-    "first_name",
-    "last_name",
-    "bank_name",
-    "bank_account_number",
-    "bank_account_name",
-    "gross",
-    "basic",
-    "housing",
-    "transport",
-    "paye",
-    "pension_employee",
-    "pension_employer",
-    "nhf",
-    "other_deductions",
-    "net",
-    "unpaid_days",
+    "Id",
+    "Destination Bank Code",
+    "DestinationBank Name",
+    "Account No",
+    "Account Name",
+    "Amount",
+    "Currency",
+    "Narration",
+    "Reference No",
   ];
-  const dataRows = register.employees.map((e) => [
-    e.employeeNo,
-    e.firstName,
-    e.lastName,
-    e.bankName,
-    e.bankAccountNumber,
-    e.bankAccountName,
-    e.gross,
-    e.basic,
-    e.housing,
-    e.transport,
-    e.paye,
-    e.pensionEmployee,
-    e.pensionEmployer,
-    e.nhf,
-    e.otherDeductions,
-    e.net,
-    String(e.unpaidDays),
-  ]);
+  const rows = payable.map((e, index) => {
+    const n = String(index + 1).padStart(3, "0");
+    return [
+      n,
+      e.bankCode ?? "",
+      e.bankName,
+      e.bankAccountNumber,
+      e.bankAccountName,
+      e.net,
+      "NGN",
+      narration,
+      `TRN${n}`,
+    ];
+  });
 
   return [
-    { name: "Run Info", rows: infoRows },
     {
-      name: "Bank Register",
-      rows: [header, ...dataRows],
+      name: "Payment Schedule",
+      rows: [header, ...rows],
       boldRows: [0],
       freezeFirstRow: true,
+      numberColumns: [5],
+      widths: [6, 22, 24, 16, 30, 16, 10, 16, 14],
     },
   ];
+}
+
+/** People on the schedule the bank cannot pay yet: no account, or no bank code. */
+function unpayable(register: BankRegister): number {
+  return register.employees.filter(
+    (e) => Number(e.net) > 0 && (!e.bankAccountNumber || !e.bankCode),
+  ).length;
 }

@@ -63,7 +63,10 @@ export type ApiLoan = {
   employeeNo: string;
   jobTitle: string;
 
+  /** The accumulated loan: what was originally lent. Never reduced. */
   principalKobo: number;
+  /** Repaid before it was entered here. Zero or absent for a loan that started here. */
+  alreadyRepaidKobo?: number;
   /** Flat annual rate as a fraction: 0.05 is 5% a year. 0 is the common case. */
   interestRate: number;
   interestKobo: number;
@@ -181,6 +184,8 @@ export type LoanListParams = {
 export type ApplyLoanBody = {
   employeeId?: string;
   principalKobo: number;
+  /** Repaid before this was entered here. `principalKobo` stays the original. */
+  alreadyRepaidKobo?: number;
   termMonths: number;
   /** Fraction, not a percentage. Defaults to 0 server-side. */
   interestRate?: number;
@@ -199,6 +204,7 @@ export type ApplyLoanBody = {
  */
 export type ApproveLoanBody = {
   principalKobo?: number;
+  alreadyRepaidKobo?: number;
   termMonths?: number;
   interestRate?: number;
   startPeriod?: string;

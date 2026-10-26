@@ -185,6 +185,7 @@ export function ApplyLoanModal({
   const fixedId = forEmployeeId ?? selfId ?? null;
   const [target, setTarget] = useState<string>(fixedId ?? "");
   const [amount, setAmount] = useState("");
+  const [repaidText, setRepaidText] = useState("");
   const [term, setTerm] = useState("6");
   const [reason, setReason] = useState("");
   const [startsIn, setStartsIn] = useState<"0" | "1" | "2">("1");
@@ -236,21 +237,25 @@ export function ApplyLoanModal({
   const netBeforeKobo = pay.data?.payslip.netKobo ?? null;
 
   const principal = parseNaira(amount);
+  /* What was repaid before this was entered. The loan keeps its original amount
+     (it is the "accumulated loan" the payslip shows); only what is left is
+     scheduled. */
+  const alreadyRepaid = parseNaira(repaidText) ?? 0;
   const months = parseWhole(term);
   const interestRate = charging ? (parseNaira(rate) ?? 0) / 100 : 0;
   const startPeriod = addMonths(today, Number(startsIn));
 
   const priced = useMemo(
     () =>
-      principal !== null && months !== null
+      principal !== null && months !== null && alreadyRepaid < principal
         ? priceLoan({
-            principalKobo: kobo(principal),
+            principalKobo: kobo(principal) - kobo(alreadyRepaid),
             termMonths: months,
             interestRate,
             startPeriod,
           })
         : null,
-    [principal, months, interestRate, startPeriod],
+    [principal, alreadyRepaid, months, interestRate, startPeriod],
   );
 
   /**
@@ -302,7 +307,8 @@ export function ApplyLoanModal({
         ...(explicitApplicant && applicantId
           ? { employeeId: applicantId }
           : {}),
-        principalKobo: priced.principalKobo,
+        principalKobo: kobo(principal),
+        ...(alreadyRepaid > 0 ? { alreadyRepaidKobo: kobo(alreadyRepaid) } : {}),
         termMonths: months,
         ...(interestRate > 0 ? { interestRate } : {}),
         ...(reason.trim() ? { reason: reason.trim() } : {}),
@@ -491,7 +497,13 @@ export function ApplyLoanModal({
                 className="mt-4"
                 columns={2}
                 items={[
-                  { term: "Borrowing", value: money(priced.principalKobo) },
+                  ...(alreadyRepaid > 0
+                    ? [
+                        { term: "Originally lent", value: money(kobo(principal ?? 0)) },
+                        { term: "Already repaid", value: money(kobo(alreadyRepaid)) },
+                        { term: "Still to repay", value: money(priced.principalKobo) },
+                      ]
+                    : [{ term: "Borrowing", value: money(priced.principalKobo) }]),
                   {
                     term: "Interest",
                     value:
@@ -586,6 +598,20 @@ export function ApplyLoanModal({
                 </Select>
               </Field>
 
+              <Field
+                label="Already repaid"
+                error={failure?.messageFor("alreadyRepaidKobo")}
+                help="Only for a loan that already exists on paper. Enter the full amount lent above, and what has been paid back so far here. The payslip keeps showing the original amount, with the balance coming down each month."
+              >
+                <Input
+                  value={repaidText}
+                  onChange={(event) => setRepaidText(event.target.value)}
+                  inputMode="decimal"
+                  placeholder="0"
+                  className="max-w-48"
+                />
+              </Field>
+
               <Switch
                 label="Charge interest on this loan"
                 description="Most staff loans here are interest-free. Leave this alone unless yours is not."
@@ -619,7 +645,7 @@ export function ApplyLoanModal({
               className="max-w-full self-start max-sm:h-auto max-sm:whitespace-normal max-sm:py-1.5 max-sm:text-left"
               onClick={() => setShowMore(true)}
             >
-              Change the start month or add interest
+              Change the start month, add interest or record what is already repaid
             </Button>
           )}
         </div>
