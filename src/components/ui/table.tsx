@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { AttentionMark } from "./attention-mark";
 import type { SortOrder } from "@/lib/use-list-query";
 
 /*
@@ -248,10 +249,16 @@ export function TD({
 export function TDPrimary({
   title,
   subtitle,
+  mark,
   className,
 }: {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
+  /**
+   * Something about this row that is worth a look, as an `AttentionMark` after
+   * the name. Pass the sentence, or a list of them, or nothing.
+   */
+  mark?: string | readonly (string | null | false | undefined)[] | null | false;
   className?: string;
 }) {
   return (
@@ -259,7 +266,10 @@ export function TDPrimary({
       scope="row"
       className={cn("px-4 py-3 text-left align-middle font-normal", className)}
     >
-      <span className="block text-body-sm font-medium text-ink">{title}</span>
+      <span className="block text-body-sm font-medium text-ink">
+        {title}
+        {mark && <AttentionMark text={mark} className="ml-1.5" />}
+      </span>
       {subtitle && (
         <span className="mt-0.5 block text-meta text-muted">{subtitle}</span>
       )}

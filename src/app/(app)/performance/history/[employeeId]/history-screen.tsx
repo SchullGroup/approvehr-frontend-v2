@@ -17,15 +17,14 @@ import {
   CardHeader,
   DescriptionList,
   EmptyState,
-  Spinner,
   Stat,
   StatGrid,
   Tabs,
   TextLink,
   type BadgeTone,
+  LoadState,
 } from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { WorkRecordPanel } from "@/components/performance/work-record";
 import {
@@ -110,75 +109,56 @@ export function ScoreHistoryScreen({ employeeId }: { employeeId: string }) {
           onChange={setTab}
         />
 
-        {tab === "work-record" && <WorkRecordPanel employeeId={employeeId} />}
+        {/* The one loading and failure rule. A 403 here reaches the reader as the
+            server's own sentence, which is the one that names the rule: self,
+            direct report, or the records permission. An appraiser assigned to
+            one period is refused on purpose, and only the server can say so. */}
+        <LoadState
+          loading={detail.loading}
+          error={detail.error}
+          subject="this person's score history"
+          onRetry={detail.reload}
+          skeleton="detail"
+        >
+          {history && (
+            <>
+              <Who history={history} />
 
-        {tab === "history" && (
-          <>
-            {DEMO_ENABLED && !detail.available && (
-              <Callout tone="warning" title="Demo data, this browser only">
-                <p>{detail.refusal}</p>
-              </Callout>
-            )}
-
-            {/* A 403 here reaches the reader as the server's own sentence, which is
-            the one that names the rule: self, direct report, or the records
-            permission. An appraiser assigned to one period is refused on
-            purpose, and only the server can say so. */}
-            <LoadFailure
-              subject="this person's score history"
-              error={detail.error}
-              onRetry={detail.reload}
-            />
-
-            {detail.loading && (
-              <Card>
-                <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-                  <Spinner size="sm" />
-                  Loading every period
-                </CardBody>
-              </Card>
-            )}
-
-            {history && (
-              <>
-                <Who history={history} />
-
-                {/* The API's own sentence, on its own line. The heading over it
+              {/* The API's own sentence, on its own line. The heading over it
                 said what the sentence already says. */}
-                {history.withheldNote && (
-                  <NoticeLine tone="muted">{history.withheldNote}</NoticeLine>
-                )}
+              {history.withheldNote && (
+                <NoticeLine tone="muted">{history.withheldNote}</NoticeLine>
+              )}
 
-                {history.points.length === 0 ? (
-                  <Card>
-                    <EmptyState
-                      compact
-                      icon={<TriangleAlert aria-hidden="true" />}
-                      title="No appraisal period has covered them yet"
-                      description="Someone shows up here once an appraisal period they are part of has started. A period that has not started has no marks yet."
-                    />
-                  </Card>
-                ) : (
-                  <>
-                    <Trend history={history} />
-                    {history.unscoredCycles.length > 0 && (
-                      <NoMark cycles={history.unscoredCycles} />
-                    )}
-                    {history.truncated && (
-                      <p className="text-body-sm text-muted">
-                        The {history.limit} most recent periods are shown. Older
-                        ones exist and are not on this page.
-                      </p>
-                    )}
-                    {[...history.points].reverse().map((point) => (
-                      <Point key={point.cycleId} point={point} />
-                    ))}
-                  </>
-                )}
-              </>
-            )}
-          </>
-        )}
+              {history.points.length === 0 ? (
+                <Card>
+                  <EmptyState
+                    compact
+                    icon={<TriangleAlert aria-hidden="true" />}
+                    title="No appraisal period has covered them yet"
+                    description="Someone shows up here once an appraisal period they are part of has started. A period that has not started has no marks yet."
+                  />
+                </Card>
+              ) : (
+                <>
+                  <Trend history={history} />
+                  {history.unscoredCycles.length > 0 && (
+                    <NoMark cycles={history.unscoredCycles} />
+                  )}
+                  {history.truncated && (
+                    <p className="text-body-sm text-muted">
+                      The {history.limit} most recent periods are shown. Older
+                      ones exist and are not on this page.
+                    </p>
+                  )}
+                  {[...history.points].reverse().map((point) => (
+                    <Point key={point.cycleId} point={point} />
+                  ))}
+                </>
+              )}
+            </>
+          )}
+        </LoadState>
       </PageBody>
     </>
   );
@@ -440,8 +420,8 @@ function Point({ point }: { point: ApiHistoryPoint }) {
                 key={issue.code}
                 className={
                   issue.severity === "BLOCKER"
-                    ? "rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
-                    : "rounded-md border border-warning-line bg-warning-soft px-3.5 py-2.5 text-body-sm text-ink"
+                    ? "text-body-sm text-danger-text"
+                    : "text-body-sm text-muted"
                 }
               >
                 {issue.message}

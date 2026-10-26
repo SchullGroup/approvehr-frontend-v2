@@ -16,8 +16,8 @@ import {
   TextLink,
   useToast,
   type AppliedFilter,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { LoadMore } from "@/components/portal/load-more";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { sentenceOf } from "@/lib/hiring/pipeline/errors";
@@ -236,125 +236,124 @@ function Pool() {
           </Field>
         </FilterBar>
 
-        {list.loading ? (
-          <>
-            <Skeleton className="h-32 w-full" />
-            <span className="sr-only-focusable">Loading the talent pool</span>
-          </>
-        ) : list.error ? (
-          <LoadFailure
-            subject="the talent pool"
-            error={list.error}
-            onRetry={list.reload}
-          />
-        ) : list.rows.length === 0 && !stale ? (
-          <Card>
-            <EmptyState
-              icon={<Star aria-hidden="true" />}
-              title={narrowed ? "Nobody matches" : "Nobody is kept on file yet"}
-              description={
-                narrowed
-                  ? "Nobody in the talent pool fits the search and filters above."
-                  : "Keep somebody from a role's board or table, using Keep in the talent pool."
+        <LoadState
+          loading={list.loading}
+          subject="the talent pool"
+          error={list.error}
+          onRetry={list.reload}
+          skeleton="table"
+        >
+          {list.rows.length === 0 && !stale ? (
+            <Card>
+              <EmptyState
+                icon={<Star aria-hidden="true" />}
+                title={
+                  narrowed ? "Nobody matches" : "Nobody is kept on file yet"
+                }
+                description={
+                  narrowed
+                    ? "Nobody in the talent pool fits the search and filters above."
+                    : "Keep somebody from a role's board or table, using Keep in the talent pool."
+                }
+              />
+            </Card>
+          ) : (
+            <div
+              aria-busy={stale}
+              className={
+                stale
+                  ? "flex flex-col gap-3 opacity-60 transition-opacity"
+                  : "flex flex-col gap-3 transition-opacity"
               }
-            />
-          </Card>
-        ) : (
-          <div
-            aria-busy={stale}
-            className={
-              stale
-                ? "flex flex-col gap-3 opacity-60 transition-opacity"
-                : "flex flex-col gap-3 transition-opacity"
-            }
-          >
-            <ul className="flex flex-col gap-3">
-              {list.rows.map((entry) => (
-                <li key={entry.candidateId}>
-                  <Card className="flex flex-col gap-3 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-body-sm font-medium text-ink">
-                          {entry.name}
-                        </p>
-                        <p className="text-body-sm text-muted">
-                          {[
-                            entry.email,
-                            entry.source ? channelLabel(entry.source) : null,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </p>
-                      </div>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => setLeaving(entry)}
-                      >
-                        Take out of the talent pool
-                      </Button>
-                    </div>
-
-                    {entry.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {entry.tags.map((tag) => (
-                          <Tag key={tag.id}>{tag.name}</Tag>
-                        ))}
-                      </div>
-                    )}
-
-                    {entry.note && (
-                      <p className="text-body-sm text-body">{entry.note}</p>
-                    )}
-
-                    <ul
-                      aria-label={`Roles ${entry.name} has been in`}
-                      className="flex flex-col gap-1"
-                    >
-                      {entry.applications.map((application) => (
-                        <li
-                          key={application.id}
-                          className="flex flex-wrap items-center gap-2 text-body-sm"
+            >
+              <ul className="flex flex-col gap-3">
+                {list.rows.map((entry) => (
+                  <li key={entry.candidateId}>
+                    <Card className="flex flex-col gap-3 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-body-sm font-medium text-ink">
+                            {entry.name}
+                          </p>
+                          <p className="text-body-sm text-muted">
+                            {[
+                              entry.email,
+                              entry.source ? channelLabel(entry.source) : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => setLeaving(entry)}
                         >
-                          <TextLink
-                            href={`/hiring/candidates/${application.id}`}
-                          >
-                            {application.role}
-                          </TextLink>
-                          <Badge tone="neutral" size="sm">
-                            {OUTCOME_LABEL[application.outcome] ??
-                              application.outcome}
-                          </Badge>
-                          {application.stageName && (
-                            <span className="text-muted">
-                              {application.stageName}
-                            </span>
-                          )}
-                          {application.reason && (
-                            <span className="text-muted">
-                              Reason: {application.reason}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                </li>
-              ))}
-            </ul>
+                          Take out of the talent pool
+                        </Button>
+                      </div>
 
-            <LoadMore
-              shown={list.rows.length}
-              total={list.total}
-              noun={["person", "people"]}
-              hasMore={list.hasMore}
-              loading={list.loadingMore}
-              error={list.moreError}
-              onLoadMore={list.loadMore}
-            />
-          </div>
-        )}
+                      {entry.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {entry.tags.map((tag) => (
+                            <Tag key={tag.id}>{tag.name}</Tag>
+                          ))}
+                        </div>
+                      )}
+
+                      {entry.note && (
+                        <p className="text-body-sm text-body">{entry.note}</p>
+                      )}
+
+                      <ul
+                        aria-label={`Roles ${entry.name} has been in`}
+                        className="flex flex-col gap-1"
+                      >
+                        {entry.applications.map((application) => (
+                          <li
+                            key={application.id}
+                            className="flex flex-wrap items-center gap-2 text-body-sm"
+                          >
+                            <TextLink
+                              href={`/hiring/candidates/${application.id}`}
+                            >
+                              {application.role}
+                            </TextLink>
+                            <Badge tone="neutral" size="sm">
+                              {OUTCOME_LABEL[application.outcome] ??
+                                application.outcome}
+                            </Badge>
+                            {application.stageName && (
+                              <span className="text-muted">
+                                {application.stageName}
+                              </span>
+                            )}
+                            {application.reason && (
+                              <span className="text-muted">
+                                Reason: {application.reason}
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </Card>
+                  </li>
+                ))}
+              </ul>
+
+              <LoadMore
+                shown={list.rows.length}
+                total={list.total}
+                noun={["person", "people"]}
+                hasMore={list.hasMore}
+                loading={list.loadingMore}
+                error={list.moreError}
+                onLoadMore={list.loadMore}
+              />
+            </div>
+          )}
+        </LoadState>
       </PageBody>
 
       <ConfirmDialog

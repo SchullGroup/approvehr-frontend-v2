@@ -6,6 +6,7 @@ import { Briefcase, Plus, TriangleAlert } from "lucide-react";
 import {
   Badge,
   Button,
+  AttentionMark,
   Callout,
   Card,
   CardBody,
@@ -152,20 +153,22 @@ export function RealRole({
           columns={1}
           items={[
             { term: "Stage", value: application.stageName ?? "Not yet placed" },
-            { term: "Outcome", value: realOutcomeBadge(application) },
+            {
+              term: "Outcome",
+              value: (
+                <span className="inline-flex items-center gap-1.5">
+                  {realOutcomeBadge(application)}
+                  {application.outcome === "REJECTED" &&
+                    application.rejectionReason && (
+                      <AttentionMark
+                        text={["Rejected.", application.rejectionReason]}
+                      />
+                    )}
+                </span>
+              ),
+            },
           ]}
         />
-        {/* The API writes this automatically — most often "Role filled by
-            <name>." — the instant somebody else's offer is accepted on the
-            same requisition, and until now nothing here rendered it: a
-            recruiter watching the board saw this person flip to Rejected
-            with no visible cause. Same treatment as the seeded `Pipeline`
-            component's identical Callout, which already does this. */}
-        {application.outcome === "REJECTED" && application.rejectionReason && (
-          <Callout tone="danger" title="Rejected">
-            {application.rejectionReason}
-          </Callout>
-        )}
       </CardBody>
     </Card>
   );

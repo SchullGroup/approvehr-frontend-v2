@@ -7,7 +7,6 @@ import {
   Button,
   Callout,
   Card,
-  CardBody,
   CardHeader,
   ConfirmDialog,
   EmptyState,
@@ -24,8 +23,8 @@ import {
   Textarea,
   useToast,
   RowActions,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { Can, useCan } from "@/lib/permissions";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -71,16 +70,6 @@ export function JobRolesScreen() {
 
   const live = useMemo(() => roles.filter((r) => !r.archived), [roles]);
   const archived = useMemo(() => roles.filter((r) => r.archived), [roles]);
-
-  if (error) {
-    return (
-      <LoadFailure
-        subject="the job role catalogue"
-        error={error}
-        onRetry={reload}
-      />
-    );
-  }
 
   async function confirmArchive() {
     if (!archiving) return;
@@ -137,65 +126,74 @@ export function JobRolesScreen() {
             </Can>
           }
         />
-        {loading ? (
-          <CardBody className="text-body-sm text-muted">Loading…</CardBody>
-        ) : live.length === 0 ? (
-          <EmptyState
-            icon={<BriefcaseBusiness aria-hidden="true" className="size-5" />}
-            title="No job roles yet"
-            description="Job titles stay free text until there are some. Adding roles is what makes a competency set assignable per job and headcount by role a question you can ask."
-          />
-        ) : (
-          <TableWrap caption="Job roles in this company">
-            <THead>
-              <TH>Role</TH>
-              <TH>Family</TH>
-              <TH>On it</TH>
-              <TH>Recruiting</TH>
-              <TH />
-            </THead>
-            <TBody>
-              {live.map((role) => (
-                <TR key={role.id}>
-                  <TDPrimary
-                    title={role.title}
-                    subtitle={role.summary ?? undefined}
-                  />
-                  <TD>
-                    {role.family ? (
-                      <Badge tone="neutral">{role.family}</Badge>
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </TD>
-                  <TD className="tabular-nums">{role.headcount}</TD>
-                  <TD className="tabular-nums">
-                    {role.openRequisitions > 0 ? (
-                      <Badge tone="accent">{role.openRequisitions} open</Badge>
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </TD>
-                  <TD className="text-right">
-                    {canManage && (
-                      <RowActions
-                        label={`More actions for ${role.title}`}
-                        disabled={readOnly}
-                        items={[
-                          { label: "Edit", onSelect: () => setEditing(role) },
-                          {
-                            label: "Switch off",
-                            onSelect: () => setArchiving(role),
-                          },
-                        ]}
-                      />
-                    )}
-                  </TD>
-                </TR>
-              ))}
-            </TBody>
-          </TableWrap>
-        )}
+        <LoadState
+          loading={loading}
+          error={error}
+          subject="the job role catalogue"
+          onRetry={reload}
+          hasData={live.length > 0}
+          skeleton="table"
+        >
+          {live.length === 0 ? (
+            <EmptyState
+              icon={<BriefcaseBusiness aria-hidden="true" className="size-5" />}
+              title="No job roles yet"
+              description="Job titles stay free text until there are some. Adding roles is what makes a competency set assignable per job and headcount by role a question you can ask."
+            />
+          ) : (
+            <TableWrap caption="Job roles in this company">
+              <THead>
+                <TH>Role</TH>
+                <TH>Family</TH>
+                <TH>On it</TH>
+                <TH>Recruiting</TH>
+                <TH />
+              </THead>
+              <TBody>
+                {live.map((role) => (
+                  <TR key={role.id}>
+                    <TDPrimary
+                      title={role.title}
+                      subtitle={role.summary ?? undefined}
+                    />
+                    <TD>
+                      {role.family ? (
+                        <Badge tone="neutral">{role.family}</Badge>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </TD>
+                    <TD className="tabular-nums">{role.headcount}</TD>
+                    <TD className="tabular-nums">
+                      {role.openRequisitions > 0 ? (
+                        <Badge tone="accent">
+                          {role.openRequisitions} open
+                        </Badge>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </TD>
+                    <TD className="text-right">
+                      {canManage && (
+                        <RowActions
+                          label={`More actions for ${role.title}`}
+                          disabled={readOnly}
+                          items={[
+                            { label: "Edit", onSelect: () => setEditing(role) },
+                            {
+                              label: "Switch off",
+                              onSelect: () => setArchiving(role),
+                            },
+                          ]}
+                        />
+                      )}
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </TableWrap>
+          )}
+        </LoadState>
       </Card>
 
       {archived.length > 0 && (

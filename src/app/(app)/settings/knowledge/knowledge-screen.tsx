@@ -28,6 +28,7 @@ import {
   Field,
   FilterBar,
   Select,
+  LoadState,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { useCan } from "@/lib/permissions";
@@ -452,180 +453,182 @@ export function KnowledgeScreen() {
             </FilterBar>
           </CardBody>
 
-          {articles.error && (
-            <CardBody>
-              <LoadFailure
-                subject="the knowledge base"
-                error={articles.error}
-                onRetry={articles.reload}
+          <LoadState
+            loading={articles.loading}
+            error={articles.error}
+            subject="the knowledge base"
+            onRetry={articles.reload}
+            hasData={articles.articles.length > 0}
+            skeleton="list"
+          >
+            {articles.articles.length === 0 ? (
+              <EmptyState
+                icon={<BookOpen aria-hidden="true" />}
+                title={
+                  search.trim()
+                    ? "No article with that title"
+                    : "No articles yet"
+                }
+                description={
+                  search.trim()
+                    ? "Try fewer words: this searches titles only."
+                    : "Start with the question people ask most."
+                }
+                action={
+                  articles.editable && !search.trim() ? (
+                    <Button
+                      variant="accent"
+                      size="sm"
+                      onClick={() => setWriting({})}
+                    >
+                      Write the first article
+                    </Button>
+                  ) : undefined
+                }
               />
-            </CardBody>
-          )}
-
-          {articles.loading ? (
-            <CardBody>
-              <SkeletonText lines={6} />
-            </CardBody>
-          ) : articles.articles.length === 0 ? (
-            <EmptyState
-              icon={<BookOpen aria-hidden="true" />}
-              title={
-                search.trim() ? "No article with that title" : "No articles yet"
-              }
-              description={
-                search.trim()
-                  ? "Try fewer words: this searches titles only."
-                  : "Start with the question people ask most."
-              }
-              action={
-                articles.editable && !search.trim() ? (
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    onClick={() => setWriting({})}
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap
+                    className="rounded-none border-0"
+                    caption="Every article with its reads and how readers rated it"
                   >
-                    Write the first article
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <>
-              <div className="hidden sm:block">
-                <TableWrap
-                  className="rounded-none border-0"
-                  caption="Every article with its reads and how readers rated it"
-                >
-                  <THead>
-                    <TH>Article</TH>
-                    <TH align="right">Reads</TH>
-                    <TH>Helpful?</TH>
-                    <TH>State</TH>
-                    <TH>
-                      <span className="sr-only-focusable">Actions</span>
-                    </TH>
-                  </THead>
-                  <TBody>
-                    {articles.articles.map((article) => (
-                      <TR key={article.id}>
-                        <TDPrimary
-                          title={
-                            article.status === "published" ? (
-                              <TextLink href={`/help/kb/${article.slug}`}>
-                                {article.title}
-                              </TextLink>
-                            ) : (
-                              article.title
-                            )
-                          }
-                          subtitle={article.categoryName ?? "No section"}
-                        />
-                        <TD align="right">
-                          <span className="tabular inline-flex items-center gap-1.5 text-muted">
-                            <Eye aria-hidden="true" className="size-3.5" />
-                            {count(article.views)}
-                          </span>
-                        </TD>
-                        <TD>
-                          <ArticleHelpfulness
-                            article={article}
-                            unavailable={unavailable}
+                    <THead>
+                      <TH>Article</TH>
+                      <TH align="right">Reads</TH>
+                      <TH>Helpful?</TH>
+                      <TH>State</TH>
+                      <TH>
+                        <span className="sr-only-focusable">Actions</span>
+                      </TH>
+                    </THead>
+                    <TBody>
+                      {articles.articles.map((article) => (
+                        <TR key={article.id}>
+                          <TDPrimary
+                            title={
+                              article.status === "published" ? (
+                                <TextLink href={`/help/kb/${article.slug}`}>
+                                  {article.title}
+                                </TextLink>
+                              ) : (
+                                article.title
+                              )
+                            }
+                            subtitle={article.categoryName ?? "No section"}
                           />
-                        </TD>
-                        <TD>
-                          <ArticleStateBadge article={article} />
-                        </TD>
-                        <TD align="right">
-                          {articles.editable && (
-                            <span className="flex justify-end gap-1.5">
-                              <ArticleRowActions
-                                article={article}
-                                onEdit={() => setEditingId(article.id)}
-                                onPublish={() =>
-                                  void articles
-                                    .publish(article.id)
-                                    .then(() =>
-                                      done(`${article.title} is live`),
-                                    )
-                                    .catch(report)
-                                }
-                                onHide={() =>
-                                  setHiding({
-                                    id: article.id,
-                                    title: article.title,
-                                  })
-                                }
-                              />
+                          <TD align="right">
+                            <span className="tabular inline-flex items-center gap-1.5 text-muted">
+                              <Eye aria-hidden="true" className="size-3.5" />
+                              {count(article.views)}
                             </span>
+                          </TD>
+                          <TD>
+                            <ArticleHelpfulness
+                              article={article}
+                              unavailable={unavailable}
+                            />
+                          </TD>
+                          <TD>
+                            <ArticleStateBadge article={article} />
+                          </TD>
+                          <TD align="right">
+                            {articles.editable && (
+                              <span className="flex justify-end gap-1.5">
+                                <ArticleRowActions
+                                  article={article}
+                                  onEdit={() => setEditingId(article.id)}
+                                  onPublish={() =>
+                                    void articles
+                                      .publish(article.id)
+                                      .then(() =>
+                                        done(`${article.title} is live`),
+                                      )
+                                      .catch(report)
+                                  }
+                                  onHide={() =>
+                                    setHiding({
+                                      id: article.id,
+                                      title: article.title,
+                                    })
+                                  }
+                                />
+                              </span>
+                            )}
+                          </TD>
+                        </TR>
+                      ))}
+                    </TBody>
+                  </TableWrap>
+                </div>
+
+                <ul className="divide-y divide-line sm:hidden">
+                  {articles.articles.map((article) => (
+                    <li key={article.id} className="flex flex-col gap-2 p-4">
+                      <div className="min-w-0">
+                        <p className="text-body-sm font-medium text-ink">
+                          {article.status === "published" ? (
+                            <TextLink href={`/help/kb/${article.slug}`}>
+                              {article.title}
+                            </TextLink>
+                          ) : (
+                            article.title
                           )}
-                        </TD>
-                      </TR>
-                    ))}
-                  </TBody>
-                </TableWrap>
-              </div>
+                        </p>
+                        <p className="mt-0.5 text-meta text-muted">
+                          {article.categoryName ?? "No section"}
+                        </p>
+                      </div>
 
-              <ul className="divide-y divide-line sm:hidden">
-                {articles.articles.map((article) => (
-                  <li key={article.id} className="flex flex-col gap-2 p-4">
-                    <div className="min-w-0">
-                      <p className="text-body-sm font-medium text-ink">
-                        {article.status === "published" ? (
-                          <TextLink href={`/help/kb/${article.slug}`}>
-                            {article.title}
-                          </TextLink>
-                        ) : (
-                          article.title
-                        )}
-                      </p>
-                      <p className="mt-0.5 text-meta text-muted">
-                        {article.categoryName ?? "No section"}
-                      </p>
-                    </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">Reads</span>
+                        <span className="tabular inline-flex items-center gap-1.5 text-body-sm text-body">
+                          <Eye aria-hidden="true" className="size-3.5" />
+                          {count(article.views)}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-body-sm text-muted">Reads</span>
-                      <span className="tabular inline-flex items-center gap-1.5 text-body-sm text-body">
-                        <Eye aria-hidden="true" className="size-3.5" />
-                        {count(article.views)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-body-sm text-muted">Helpful?</span>
-                      <ArticleHelpfulness
-                        article={article}
-                        unavailable={unavailable}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-body-sm text-muted">State</span>
-                      <ArticleStateBadge article={article} />
-                    </div>
-
-                    {articles.editable && (
-                      <div className="flex gap-1.5">
-                        <ArticleRowActions
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">
+                          Helpful?
+                        </span>
+                        <ArticleHelpfulness
                           article={article}
-                          onEdit={() => setEditingId(article.id)}
-                          onPublish={() =>
-                            void articles
-                              .publish(article.id)
-                              .then(() => done(`${article.title} is live`))
-                              .catch(report)
-                          }
-                          onHide={() =>
-                            setHiding({ id: article.id, title: article.title })
-                          }
+                          unavailable={unavailable}
                         />
                       </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-body-sm text-muted">State</span>
+                        <ArticleStateBadge article={article} />
+                      </div>
+
+                      {articles.editable && (
+                        <div className="flex gap-1.5">
+                          <ArticleRowActions
+                            article={article}
+                            onEdit={() => setEditingId(article.id)}
+                            onPublish={() =>
+                              void articles
+                                .publish(article.id)
+                                .then(() => done(`${article.title} is live`))
+                                .catch(report)
+                            }
+                            onHide={() =>
+                              setHiding({
+                                id: article.id,
+                                title: article.title,
+                              })
+                            }
+                          />
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </LoadState>
 
           {articles.articles.length > 0 &&
             articles.total > articles.articles.length && (

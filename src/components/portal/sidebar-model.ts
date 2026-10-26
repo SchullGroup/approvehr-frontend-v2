@@ -544,7 +544,14 @@ const KEYWORDS: Record<string, string[]> = {
   "desk/Help articles": ["faq", "knowledge base", "kb", "guides", "policies"],
 
   "reports/Reports": ["export", "charts", "analytics", "download", "headcount"],
-  "reports/Explore": ["3d", "workforce", "clusters", "visual", "graph"],
+  "reports/Company reports": [
+    "insights",
+    "headline",
+    "departments",
+    "fairness",
+    "analysis",
+    "board",
+  ],
 
   "settings/Settings": ["configuration", "company", "preferences", "features"],
   "settings/Roles": ["permissions", "access", "admins", "security"],

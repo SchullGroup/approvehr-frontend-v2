@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { CheckCircle2, Scale } from "lucide-react";
-import { ButtonLink, Spinner } from "@/components/ui";
+import { AttentionMark, ButtonLink, Spinner } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import type { ApiReviewFlags, ReviewCycleStage } from "@/lib/api/performance";
 import { flaggedCount } from "./people-to-review";
@@ -76,106 +76,90 @@ export function FairnessStatus({
 
   if (!flagged) {
     return (
-      <Banner tone="success">
-        <p className="font-medium">
-          No marks are flagged by the fairness check.
-        </p>
-        <p className="mt-1 text-body">
-          Every mark is within {String(flags.rules.gapBp / 100)} points of what
-          the evidence suggests.{unchecked}
-        </p>
-        <Link
-          href={href}
-          className="mt-2 inline-block text-muted underline-offset-2 hover:underline"
-        >
-          See the full check
-        </Link>
-      </Banner>
+      <Status
+        tone="success"
+        headline="No marks are flagged by the fairness check."
+        detail={`Every mark is within ${String(flags.rules.gapBp / 100)} points of what the evidence suggests.${unchecked}`}
+        action={
+          <Link
+            href={href}
+            className="text-muted underline-offset-2 hover:underline"
+          >
+            See the full check
+          </Link>
+        }
+      />
     );
   }
 
   if (stage !== "CALIBRATION") {
     return (
-      <Banner tone="warning" action={<Open href={href} label="See them" />}>
-        <p className="font-medium">
-          The fairness check flagged {marks(flagged)}.
-        </p>
-        <p className="mt-1 text-body">
-          The period goes through calibration before it can be published, and
-          each one gets a decision there: let it stand, change it, or ask the
-          manager.
-        </p>
-      </Banner>
+      <Status
+        tone="warning"
+        headline={`The fairness check flagged ${marks(flagged)}.`}
+        detail="The period goes through calibration before it can be published, and each one gets a decision there: let it stand, change it, or ask the manager."
+        action={<Open href={href} label="See them" />}
+      />
     );
   }
 
   if (open + waiting === 0) {
     return (
-      <Banner
+      <Status
         tone="success"
+        headline={`Every flagged mark has a decision (${String(decided)} of ${String(flagged)}).`}
+        detail="You can publish the results."
         action={<Open href={href} label="See decisions" />}
-      >
-        <p className="font-medium">
-          Every flagged mark has a decision ({String(decided)} of{" "}
-          {String(flagged)}).
-        </p>
-        <p className="mt-1 text-body">You can publish the results.</p>
-      </Banner>
+      />
     );
   }
 
   return (
-    <Banner
+    <Status
       tone="warning"
+      headline={`${String(decided)} of ${String(flagged)} flagged marks decided${waiting ? `, ${String(waiting)} waiting on a manager` : ""}${open ? `, ${String(open)} to go` : ""}.`}
+      detail="Publishing unlocks when every flagged mark has a decision. Their manager may have a good reason; the check flags, it doesn’t decide."
       action={<Open href={href} label="Review flagged marks" />}
-    >
-      <p className="font-medium">
-        {String(decided)} of {String(flagged)} flagged marks decided
-        {waiting ? `, ${String(waiting)} waiting on a manager` : ""}
-        {open ? `, ${String(open)} to go` : ""}.
-      </p>
-      <p className="mt-1 text-body">
-        Publishing unlocks when every flagged mark has a decision. Their manager
-        may have a good reason; the check flags, it doesn’t decide.
-      </p>
-    </Banner>
+    />
   );
 }
 
-function Banner({
+/**
+ * One line: what the check found, the rest behind a mark, and the way into it.
+ *
+ * It was a bordered panel with two paragraphs at the top of the period page,
+ * over the figures somebody opened the page to read. The sentence that decides
+ * what to do next is the headline; the reasoning is behind the mark.
+ */
+function Status({
   tone,
+  headline,
+  detail,
   action,
-  children,
 }: {
   tone: "warning" | "success";
+  headline: string;
+  detail: string;
   action?: React.ReactNode;
-  children: React.ReactNode;
 }) {
   const warning = tone === "warning";
   return (
-    <div
-      className={
-        warning
-          ? "flex flex-wrap items-start gap-4 rounded-lg border border-warning-line bg-warning-soft px-5 py-4"
-          : "flex flex-wrap items-start gap-4 rounded-lg border border-success-line bg-success-soft px-5 py-4"
-      }
-    >
-      {warning ? (
-        <Scale
-          aria-hidden="true"
-          className="mt-0.5 size-4 shrink-0 text-warning-text"
-        />
-      ) : (
-        <CheckCircle2
-          aria-hidden="true"
-          className="mt-0.5 size-4 shrink-0 text-success-text"
-        />
-      )}
-      <div
-        className={`min-w-0 flex-1 text-body-sm ${warning ? "text-warning-text" : "text-success-text"}`}
-      >
-        {children}
-      </div>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-body-sm">
+      <span className="inline-flex items-center gap-2">
+        {warning ? (
+          <Scale
+            aria-hidden="true"
+            className="size-4 shrink-0 text-warning-text"
+          />
+        ) : (
+          <CheckCircle2
+            aria-hidden="true"
+            className="size-4 shrink-0 text-accent-text"
+          />
+        )}
+        <span className="font-medium text-ink">{headline}</span>
+        <AttentionMark tone={warning ? "attention" : "info"} text={detail} />
+      </span>
       {action}
     </div>
   );

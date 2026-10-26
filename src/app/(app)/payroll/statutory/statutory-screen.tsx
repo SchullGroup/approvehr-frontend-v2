@@ -2,8 +2,7 @@
 
 import { ShieldAlert } from "lucide-react";
 import {
-  ButtonLink,
-  Callout,
+  AttentionMark,
   Card,
   CardBody,
   CardHeader,
@@ -12,6 +11,8 @@ import {
   Stat,
   StatGrid,
 } from "@/components/ui";
+import Link from "next/link";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { SourceBadge } from "@/components/payroll/run-panels";
 import { useCan } from "@/lib/permissions";
@@ -180,27 +181,19 @@ export function StatutoryScreen() {
           `statutoryNotices` in the payroll engine, rendered verbatim.
         */}
         {deductions.notices.map((notice) => (
-          <Callout
-            key={notice.code}
-            tone="warning"
-            title="Nothing to file, and what that means"
-          >
-            <p>{notice.message}</p>
-            {/* `shortNoticeFor` states the convention out loud — that
-                `/settings/payroll` links here rather than repeating itself —
-                and the link only ever ran one way. The reader on this screen is
-                a payroll admin, which is exactly who changes it. */}
+          <NoticeLine key={notice.code} tone="warning">
+            <span>Nothing to file, and what that means.</span>
+            <AttentionMark text={notice.message} />
+            {/* `shortNoticeFor` states the convention out loud: that
+                `/settings/payroll` links here rather than repeating itself, and
+                the link only ever ran one way. The reader on this screen is a
+                payroll admin, which is exactly who changes it. */}
             {canManage && (
-              <ButtonLink
-                href="/settings/payroll"
-                variant="secondary"
-                size="sm"
-                className="mt-3"
-              >
+              <Link className={NOTICE_LINK} href="/settings/payroll">
                 Change what you deduct
-              </ButtonLink>
+              </Link>
             )}
-          </Callout>
+          </NoticeLine>
         ))}
 
         {deductions.loading ? (

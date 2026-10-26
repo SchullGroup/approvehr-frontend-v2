@@ -35,9 +35,9 @@ import {
   TextLink,
   formatMoney,
   ToggleFilter,
+  LoadState,
 } from "@/components/ui";
 import { ExportButton } from "@/components/portal/export-button";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import type {
   ApiAttendanceDay,
@@ -297,21 +297,33 @@ export function HistoryScreen({
 
       <PageBody className="flex flex-col gap-6">
         {tab === "timesheet" ? (
-          sheet.error ? (
-            <LoadFailure subject="the timesheet" error={sheet.error} />
-          ) : sheet.from ? (
-            <TimesheetView sheet={sheet} />
+          sheet.error || !sheet.from ? (
+            /* The one loading and failure rule, as a gate. */
+            <LoadState
+              loading={!sheet.error}
+              error={sheet.error}
+              subject="the timesheet"
+              skeleton="table"
+            >
+              {null}
+            </LoadState>
           ) : (
-            <LoadingPanel label="Loading the timesheet" />
+            <TimesheetView sheet={sheet} />
           )
         ) : (
           <>
+            {/* The month's read failing is said once, here. The day figures and
+                the day's table below are drawn from it, and with it gone they sat
+                on skeletons for ever under the failure. */}
             {summary.error && (
-              <LoadFailure
-                subject="this month's attendance"
+              <LoadState
+                loading={false}
                 error={summary.error}
+                subject="this month's attendance"
                 onRetry={summary.reload}
-              />
+              >
+                {null}
+              </LoadState>
             )}
 
             {/* ---- Turnout across the month ----------------------------------
@@ -384,15 +396,20 @@ export function HistoryScreen({
               />
             )}
 
-            <DaySummary day={day} loading={summary.loading} />
+            {!summary.error && (
+              <DaySummary day={day} loading={summary.loading} />
+            )}
 
             {roster.error ? (
-              <LoadFailure
-                subject="that day's roster"
+              <LoadState
+                loading={false}
                 error={roster.error}
+                subject="that day's roster"
                 onRetry={roster.reload}
-              />
-            ) : (
+              >
+                {null}
+              </LoadState>
+            ) : summary.error ? null : (
               <DayTable
                 roster={roster}
                 day={day}
@@ -915,22 +932,6 @@ function CorrectButton({
     >
       {label}
     </Button>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-function LoadingPanel({ label }: { label: string }) {
-  return (
-    <Card>
-      <CardBody className="flex flex-col gap-3">
-        <span className="sr-only">{label}</span>
-        <Skeleton className="h-4 w-48" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-2/3" />
-      </CardBody>
-    </Card>
   );
 }
 

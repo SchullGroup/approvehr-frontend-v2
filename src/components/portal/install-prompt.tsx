@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Share, Smartphone, X } from "lucide-react";
-import { Button } from "@/components/ui";
+import { AttentionMark, Button } from "@/components/ui";
 
 /**
  * "Put ApproveHR on your home screen" — on a phone, once, and only where it
@@ -195,7 +195,7 @@ export function InstallPrompt() {
 
   return (
     <div
-      className="flex items-start gap-3 border-b border-line bg-accent-soft px-5 py-3"
+      className="flex items-start gap-3 border-b border-line bg-surface px-5 py-2"
       /* A suggestion, not an alert. Announced when a screen reader gets to it
          rather than interrupting whatever it is reading. */
       role="region"
@@ -205,17 +205,19 @@ export function InstallPrompt() {
         aria-hidden="true"
         className="mt-0.5 size-4 shrink-0 text-accent-text"
       />
-      <div className="min-w-0 flex-1">
-        <p className="text-body-sm font-medium text-ink">
+      <div className="min-w-0 flex-1 text-body-sm text-muted">
+        <span className="font-medium text-ink">
           Add ApproveHR to your home screen
-        </p>
+        </span>
         {offer ? (
-          <p className="mt-0.5 text-meta text-body">
-            It opens like an app, and clocking in works even when the signal
-            drops.
-          </p>
+          <AttentionMark
+            tone="info"
+            className="ml-1.5"
+            text="It opens like an app, and clocking in works even when the signal drops."
+          />
         ) : (
-          <p className="mt-0.5 text-meta leading-relaxed text-body">
+          <>
+            {" "}
             Tap{" "}
             <Share
               aria-label="the Share button"
@@ -223,7 +225,7 @@ export function InstallPrompt() {
             />{" "}
             in Safari&apos;s toolbar, then <strong>Add to Home Screen</strong>.
             It opens like an app afterwards.
-          </p>
+          </>
         )}
       </div>
 

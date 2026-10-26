@@ -20,7 +20,6 @@ import {
   Money,
   SegmentedControl,
   Select,
-  Spinner,
   Stat,
   StatGrid,
   TBody,
@@ -32,8 +31,8 @@ import {
   Textarea,
   useToast,
   RowActions,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import type {
   ApiBenefitEnrolment,
@@ -158,14 +157,17 @@ export function BenefitsPanel() {
           <Callout tone="info" title="This needs the API">
             {plans.refusal}
           </Callout>
-        ) : plans.error ? (
-          <LoadFailure
-            subject="the benefits"
+        ) : plans.error || plans.loading || !plans.data ? (
+          /* The one loading and failure rule, as a gate. */
+          <LoadState
+            loading={plans.loading}
             error={plans.error}
+            subject="the benefits"
             onRetry={plans.reload}
-          />
-        ) : plans.loading || !plans.data ? (
-          <Spinner label="Loading" />
+            skeleton="list"
+          >
+            {null}
+          </LoadState>
         ) : (
           <div className="flex flex-col gap-6">
             {canSeeMoney && cost.data && (
@@ -454,16 +456,19 @@ function People({
   const toast = useToast();
   const timeZone = useOrgTimezone();
 
-  if (read.error) {
+  if (read.error || read.loading || !read.data) {
     return (
-      <LoadFailure
-        subject="who is on what"
+      <LoadState
+        loading={read.loading}
         error={read.error}
+        subject="who is on what"
         onRetry={read.reload}
-      />
+        skeleton="list"
+      >
+        {null}
+      </LoadState>
     );
   }
-  if (read.loading || !read.data) return <Spinner label="Loading" />;
   if (read.data.length === 0) {
     return (
       <EmptyState

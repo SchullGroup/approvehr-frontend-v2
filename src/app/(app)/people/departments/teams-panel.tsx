@@ -12,6 +12,7 @@ import {
 import {
   Badge,
   Button,
+  AttentionMark,
   Callout,
   Card,
   CardBody,
@@ -24,13 +25,12 @@ import {
   Modal,
   Money,
   Select,
-  Spinner,
   Stat,
   StatGrid,
   TextLink,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import { membershipEffect, type ApiMoved, type ApiTeam } from "@/lib/api/teams";
 import { useCan } from "@/lib/permissions";
@@ -87,6 +87,9 @@ export function TeamsPanel({
   }[];
 }) {
   const teams = useTeams({ includeArchived: true });
+  /* The three figures count what the read returned: nothing, both before it
+     answers and after it fails. A dash, not a 0. */
+  const teamsReady = !teams.loading && !teams.error;
   const mutations = useTeamMutations();
   const canManage = useCan("MANAGE_SETTINGS");
   const canEditRecords = useCan("EDIT_RECORDS");
@@ -152,24 +155,19 @@ export function TeamsPanel({
 
   return (
     <div className="flex flex-col gap-6">
-      {teams.error && (
-        <LoadFailure
-          subject="the teams"
-          error={teams.error}
-          onRetry={teams.reload}
-        />
-      )}
-
       <StatGrid columns={3}>
-        <Stat label="Teams" value={String(teams.counts.teams)} />
+        <Stat
+          label="Teams"
+          value={teamsReady ? String(teams.counts.teams) : "—"}
+        />
         <Stat
           label="Cross-functional"
-          value={String(teams.counts.crossFunctional)}
+          value={teamsReady ? String(teams.counts.crossFunctional) : "—"}
           hint="belong to no department"
         />
         <Stat
           label="People on a team"
-          value={String(teams.counts.peopleOnATeam)}
+          value={teamsReady ? String(teams.counts.peopleOnATeam) : "—"}
           hint="counted once, however many teams"
         />
       </StatGrid>
@@ -193,44 +191,48 @@ export function TeamsPanel({
               }
             : {})}
         />
-        {teams.loading ? (
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading the teams
-          </CardBody>
-        ) : active.length === 0 ? (
-          <EmptyState
-            icon={<UsersRound aria-hidden="true" />}
-            title="No teams yet"
-            description="A team is for the group that actually works together, which is not always a department. Somebody can be on two."
-            action={
-              canManage ? (
-                <Button variant="accent" onClick={() => setCreating(true)}>
-                  Add the first team
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <CardBody className="flex flex-col gap-1.5">
-            {active.map((team) => (
-              <TeamRow
-                key={team.id}
-                team={team}
-                canManage={canManage}
-                onOpen={() => setOpened(team.id)}
-                onEdit={() => setEditing(team)}
-                onArchive={() => setArchiving(team)}
-                onRestore={() =>
-                  void run(
-                    () => mutations.restore(team.id),
-                    `${team.name} restored`,
-                  )
-                }
-              />
-            ))}
-          </CardBody>
-        )}
+        <LoadState
+          loading={teams.loading}
+          error={teams.error}
+          subject="the teams"
+          onRetry={teams.reload}
+          hasData={active.length > 0}
+          skeleton="list"
+        >
+          {active.length === 0 ? (
+            <EmptyState
+              icon={<UsersRound aria-hidden="true" />}
+              title="No teams yet"
+              description="A team is for the group that actually works together, which is not always a department. Somebody can be on two."
+              action={
+                canManage ? (
+                  <Button variant="accent" onClick={() => setCreating(true)}>
+                    Add the first team
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <CardBody className="flex flex-col gap-1.5">
+              {active.map((team) => (
+                <TeamRow
+                  key={team.id}
+                  team={team}
+                  canManage={canManage}
+                  onOpen={() => setOpened(team.id)}
+                  onEdit={() => setEditing(team)}
+                  onArchive={() => setArchiving(team)}
+                  onRestore={() =>
+                    void run(
+                      () => mutations.restore(team.id),
+                      `${team.name} restored`,
+                    )
+                  }
+                />
+              ))}
+            </CardBody>
+          )}
+        </LoadState>
       </Card>
 
       {archived.length > 0 && (
@@ -495,9 +497,6 @@ function TeamDrawer({
   const memberIds = new Set(
     (team?.members ?? []).map((member) => member.employeeId),
   );
-  const mismatches = (team?.members ?? []).filter(
-    (member) => member.departmentMismatch,
-  );
 
   return (
     <>
@@ -536,114 +535,124 @@ function TeamDrawer({
           </div>
         }
       >
-        {loading ? (
-          <span className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading the team
-          </span>
-        ) : !team ? (
-          <p className="text-body-sm text-body">
-            {error?.message ?? "That team is not available."}
-          </p>
-        ) : (
-          <div className="flex flex-col gap-5">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-md border border-line p-3">
-                <p className="text-meta text-faint">Lead</p>
-                <p className="mt-0.5 text-body-sm text-ink">
-                  {team.leadName ?? "Nobody assigned"}
-                </p>
-              </div>
-              {/* The whole tile is dropped for a reader who may not see pay,
-                  rather than headed "Monthly cost" with a dash in it. */}
-              {team.payrollKobo !== null && (
-                <div className="rounded-md border border-line p-3">
-                  <p className="text-meta text-faint">Monthly cost</p>
-                  <p className="tabular mt-0.5 text-body-sm text-ink">
-                    <Money amount={team.payrollKobo / 100} compact />
-                  </p>
-                  {team.payrollUnknown !== null && team.payrollUnknown > 0 && (
-                    <p className="mt-0.5 text-meta text-faint">
-                      {team.members.length - team.payrollUnknown} of{" "}
-                      {team.members.length} — {team.payrollUnknown} have no pay
-                      set
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {mismatches.length > 0 && (
-              <Callout tone="warning" title="Somebody's department disagrees">
-                {mismatches.map((member) => member.name).join(", ")}{" "}
-                {mismatches.length === 1 ? "is" : "are"} on this team but
-                recorded under a different department. Nothing has been changed
-                for them: moving a cost centre is not a repair. Fix it on their
-                record, or move the team.
-              </Callout>
-            )}
-
-            {team.members.length === 0 ? (
-              <EmptyState
-                compact
-                icon={<Users aria-hidden="true" />}
-                title="Nobody on it yet"
-                description="Add the people who actually work together here."
-              />
-            ) : (
-              <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
-                {team.members.map((member) => (
-                  <li
-                    key={member.membershipId}
-                    className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-body-sm font-medium text-ink">
-                        <TextLink href={`/people/${member.employeeId}`}>
-                          {member.name}
-                        </TextLink>
-                      </p>
-                      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
-                        <span>{member.jobTitle}</span>
-                        {member.departmentName && (
-                          <span className="flex items-center gap-1">
-                            <Building2 aria-hidden="true" className="size-3" />
-                            {member.departmentName}
-                          </span>
-                        )}
-                        {member.roleLabel && (
-                          <Badge tone="neutral" size="sm">
-                            {member.roleLabel}
-                          </Badge>
-                        )}
-                      </p>
-                    </div>
-                    {canEditRecords && !team.archived && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => {
-                          setBusy(true);
-                          void onRemove(team.id, member.employeeId, member.name)
-                            .then(() => reload())
-                            .finally(() => setBusy(false));
-                        }}
-                      >
-                        Take off
-                      </Button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <p className="text-body-sm text-muted">
-              Taking somebody off a team leaves their department exactly where
-              it is. Leaving a team is not leaving a cost centre.
+        <LoadState
+          loading={loading}
+          error={error}
+          subject="the team"
+          onRetry={reload}
+          skeleton="detail"
+        >
+          {!team ? (
+            <p className="text-body-sm text-body">
+              That team is not available.
             </p>
-          </div>
-        )}
+          ) : (
+            <div className="flex flex-col gap-5">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-md border border-line p-3">
+                  <p className="text-meta text-faint">Lead</p>
+                  <p className="mt-0.5 text-body-sm text-ink">
+                    {team.leadName ?? "Nobody assigned"}
+                  </p>
+                </div>
+                {/* The whole tile is dropped for a reader who may not see pay,
+                  rather than headed "Monthly cost" with a dash in it. */}
+                {team.payrollKobo !== null && (
+                  <div className="rounded-md border border-line p-3">
+                    <p className="text-meta text-faint">Monthly cost</p>
+                    <p className="tabular mt-0.5 text-body-sm text-ink">
+                      <Money amount={team.payrollKobo / 100} compact />
+                    </p>
+                    {team.payrollUnknown !== null &&
+                      team.payrollUnknown > 0 && (
+                        <p className="mt-0.5 text-meta text-faint">
+                          {team.members.length - team.payrollUnknown} of{" "}
+                          {team.members.length} — {team.payrollUnknown} have no
+                          pay set
+                        </p>
+                      )}
+                  </div>
+                )}
+              </div>
+
+              {team.members.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon={<Users aria-hidden="true" />}
+                  title="Nobody on it yet"
+                  description="Add the people who actually work together here."
+                />
+              ) : (
+                <ul className="flex flex-col divide-y divide-line rounded-md border border-line">
+                  {team.members.map((member) => (
+                    <li
+                      key={member.membershipId}
+                      className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-body-sm font-medium text-ink">
+                          <TextLink href={`/people/${member.employeeId}`}>
+                            {member.name}
+                          </TextLink>
+                          {member.departmentMismatch && (
+                            <AttentionMark
+                              className="ml-1.5"
+                              text={[
+                                "Their department disagrees with this team's.",
+                                "They are on this team but recorded under a different department. Nothing has been changed for them: moving a cost centre is not a repair. Fix it on their record, or move the team.",
+                              ]}
+                            />
+                          )}
+                        </p>
+                        <p className="mt-0.5 flex flex-wrap items-center gap-2 text-meta text-muted">
+                          <span>{member.jobTitle}</span>
+                          {member.departmentName && (
+                            <span className="flex items-center gap-1">
+                              <Building2
+                                aria-hidden="true"
+                                className="size-3"
+                              />
+                              {member.departmentName}
+                            </span>
+                          )}
+                          {member.roleLabel && (
+                            <Badge tone="neutral" size="sm">
+                              {member.roleLabel}
+                            </Badge>
+                          )}
+                        </p>
+                      </div>
+                      {canEditRecords && !team.archived && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => {
+                            setBusy(true);
+                            void onRemove(
+                              team.id,
+                              member.employeeId,
+                              member.name,
+                            )
+                              .then(() => reload())
+                              .finally(() => setBusy(false));
+                          }}
+                        >
+                          Take off
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <p className="text-body-sm text-muted">
+                Taking somebody off a team leaves their department exactly where
+                it is. Leaving a team is not leaving a cost centre.
+              </p>
+            </div>
+          )}
+        </LoadState>
       </Drawer>
 
       {adding && team && (

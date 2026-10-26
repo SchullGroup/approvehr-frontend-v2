@@ -8,6 +8,7 @@ import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { useIsClient } from "@/hooks/use-is-client";
 import { useDismiss } from "@/hooks/use-dismiss";
 import { Button, IconButton } from "./button";
+import { InDialog } from "./in-dialog";
 
 /*
  * Modal and Drawer share the same overlay behaviour: focus trap, Escape to
@@ -134,7 +135,7 @@ export function Modal({
             field somebody cannot use, so the real cure is always that the
             child shrinks (see `Field`, `Input` and `globals.css`). */}
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-clip px-5 py-5 sm:px-6">
-          {children}
+          <InDialog.Provider value>{children}</InDialog.Provider>
         </div>
 
         {footer && (
@@ -293,7 +294,7 @@ export function Drawer({
         </div>
 
         <div className="min-h-0 min-w-0 overflow-y-auto overflow-x-clip overscroll-contain px-5 py-5 sm:px-6">
-          {children}
+          <InDialog.Provider value>{children}</InDialog.Provider>
         </div>
 
         {footer && (

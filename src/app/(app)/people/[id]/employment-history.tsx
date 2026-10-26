@@ -1,8 +1,14 @@
 "use client";
 
 import { History } from "lucide-react";
-import { Badge, Card, CardBody, CardHeader, EmptyState } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
+import {
+  Badge,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+  LoadState,
+} from "@/components/ui";
 import type {
   ApiEmploymentChange,
   ApiEmploymentChangeKind,
@@ -44,16 +50,6 @@ export function EmploymentHistoryPanel({ employeeId }: { employeeId: string }) {
      department somebody was moved into in 2024 may well be gone. */
   const departments = useDepartments(true);
 
-  if (error) {
-    return (
-      <LoadFailure
-        subject="this person's employment history"
-        error={error}
-        onRetry={reload}
-      />
-    );
-  }
-
   const departmentName = (id: string | null | undefined) =>
     id === null || id === undefined
       ? null
@@ -67,47 +63,56 @@ export function EmploymentHistoryPanel({ employeeId }: { employeeId: string }) {
         level={3}
         description="Every confirmation, promotion, transfer and pay change on this record, and who decided each one."
       />
-      {loading ? (
-        <CardBody className="text-body-sm text-muted">Loading…</CardBody>
-      ) : changes.length === 0 ? (
-        <EmptyState
-          icon={<History aria-hidden="true" className="size-5" />}
-          title="Nothing recorded yet"
-          description="Confirmations, promotions, transfers and pay changes appear here as they happen, including ones made straight on this record."
-        />
-      ) : (
-        <CardBody className="flex flex-col gap-0 p-0">
-          <ol className="flex flex-col">
-            {changes.map((change, index) => (
-              <li
-                key={change.id}
-                className={
-                  index === 0 ? "px-5 py-4" : "border-t border-line px-5 py-4"
-                }
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone={TONE[change.kind]}>{LABEL[change.kind]}</Badge>
-                  <span className="text-body-sm text-muted tabular-nums">
-                    {change.effectiveOn}
-                  </span>
-                </div>
+      <LoadState
+        loading={loading}
+        error={error}
+        subject="this person's employment history"
+        onRetry={reload}
+        hasData={changes.length > 0}
+        skeleton="list"
+      >
+        {changes.length === 0 ? (
+          <EmptyState
+            icon={<History aria-hidden="true" className="size-5" />}
+            title="Nothing recorded yet"
+            description="Confirmations, promotions, transfers and pay changes appear here as they happen, including ones made straight on this record."
+          />
+        ) : (
+          <CardBody className="flex flex-col gap-0 p-0">
+            <ol className="flex flex-col">
+              {changes.map((change, index) => (
+                <li
+                  key={change.id}
+                  className={
+                    index === 0 ? "px-5 py-4" : "border-t border-line px-5 py-4"
+                  }
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={TONE[change.kind]}>{LABEL[change.kind]}</Badge>
+                    <span className="text-body-sm text-muted tabular-nums">
+                      {change.effectiveOn}
+                    </span>
+                  </div>
 
-                <div className="mt-2 flex flex-col gap-1">
-                  {describe(change, departmentName).map((line) => (
-                    <p key={line} className="text-body-sm text-body">
-                      {line}
+                  <div className="mt-2 flex flex-col gap-1">
+                    {describe(change, departmentName).map((line) => (
+                      <p key={line} className="text-body-sm text-body">
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+
+                  {change.note && (
+                    <p className="mt-2 text-body-sm text-muted">
+                      {change.note}
                     </p>
-                  ))}
-                </div>
-
-                {change.note && (
-                  <p className="mt-2 text-body-sm text-muted">{change.note}</p>
-                )}
-              </li>
-            ))}
-          </ol>
-        </CardBody>
-      )}
+                  )}
+                </li>
+              ))}
+            </ol>
+          </CardBody>
+        )}
+      </LoadState>
     </Card>
   );
 }

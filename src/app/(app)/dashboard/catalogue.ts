@@ -177,9 +177,9 @@ export const WIDGETS: readonly WidgetSpec[] = [
   },
   {
     id: "workforce-headline",
-    title: "Workforce headline",
+    title: "Company report headline",
     blurb:
-      "One sentence worth knowing this cycle, the department most off-track, a quiet task tracker, or someone who has cleared the promotion bar.",
+      "The one thing the company report says needs doing first, in a sentence, with a link to the report.",
     group: "attention",
     span: "full",
     slot: "banner",

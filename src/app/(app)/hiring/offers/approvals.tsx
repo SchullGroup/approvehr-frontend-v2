@@ -429,7 +429,7 @@ function OutsideBandNote({ placement }: { placement: OfferBand }) {
   const standing = bandStanding(placement.offerKobo, placement.band);
   if (standing === "above") {
     return (
-      <Callout tone="danger" title="Above the top of the grade">
+      <Callout tone="warning" title="Above the top of the grade">
         Approving this sets a new internal reference for {placement.label}. The
         next offer at this level will be argued against it.
       </Callout>

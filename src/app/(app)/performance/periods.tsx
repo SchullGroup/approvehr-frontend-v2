@@ -9,11 +9,10 @@ import {
   CardHeader,
   Disclosure,
   EmptyState,
-  Spinner,
   TextLink,
+  LoadState,
 } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { dayLabel, type ApiCycle } from "@/lib/api/performance";
 import { useAppraisals } from "@/lib/store/performance";
 
@@ -58,40 +57,31 @@ export function PeriodsTab() {
         </div>
       )}
 
-      {/* `useAppraisals` no longer merges its two failures, so this is now
-          only ever the company list genuinely failing — which is a real
-          failure of the periods list, for everybody, and no longer needs the
-          `employeeId` guard that used to suppress the founder-account false
-          positive along with real failures. The personal half failing is
-          `mineError` and has nothing to do with this list, so this screen
-          does not render it at all. */}
-      <LoadFailure
-        subject="the appraisal periods"
-        error={appraisals.error}
-        onRetry={appraisals.reload}
-      />
-
       <Card>
         <CardHeader title="Open periods" />
-        {appraisals.loading ? (
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading the periods
-          </CardBody>
-        ) : live.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<CalendarRange aria-hidden="true" />}
-            title="No appraisal period is open"
-            description="Start one, write the questions, then start it. Nobody is asked anything until you do."
-          />
-        ) : (
-          <CardBody className="flex flex-col gap-2">
-            {live.map((period) => (
-              <PeriodRow key={period.id} period={period} />
-            ))}
-          </CardBody>
-        )}
+        <LoadState
+          loading={appraisals.loading}
+          error={appraisals.error}
+          subject="the appraisal periods"
+          onRetry={appraisals.reload}
+          hasData={live.length > 0}
+          skeleton="list"
+        >
+          {live.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<CalendarRange aria-hidden="true" />}
+              title="No appraisal period is open"
+              description="Start one, write the questions, then start it. Nobody is asked anything until you do."
+            />
+          ) : (
+            <CardBody className="flex flex-col gap-2">
+              {live.map((period) => (
+                <PeriodRow key={period.id} period={period} />
+              ))}
+            </CardBody>
+          )}
+        </LoadState>
       </Card>
 
       {finished.length > 0 && (

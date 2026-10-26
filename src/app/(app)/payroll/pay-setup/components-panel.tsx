@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Coins, Pencil, Plus, Scissors, Search, Trash2 } from "lucide-react";
+import {
+  CalendarClock,
+  Coins,
+  Pencil,
+  Plus,
+  Scissors,
+  Search,
+  Trash2,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -13,9 +21,9 @@ import {
   Drawer,
   EmptyState,
   Field,
-  IconButton,
   Input,
   Modal,
+  RowActions,
   SegmentedControl,
   Switch,
   TBody,
@@ -27,9 +35,12 @@ import {
   TableWrap,
   useToast,
   ToggleFilter,
+  LoadState,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { AssignComponentToManyDialog } from "./assign-to-many-dialog";
+import { ScheduleFields, useScheduleForm } from "./schedule-fields";
+import { type RowActionItem } from "@/components/ui";
 import { type AssignCandidate } from "@/app/(app)/people/departments/assign-people-dialog";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -55,6 +66,14 @@ import {
   preTaxSwitch,
   taxableSwitch,
 } from "@/lib/pay/flags";
+import {
+  draftFromSchedule,
+  isScheduled,
+  openRunsSentence,
+  sameSchedule,
+  scheduleText,
+  type ScheduleDraft,
+} from "@/lib/pay/schedule";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import {
@@ -138,6 +157,7 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
 
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<ApiPayComponent | null>(null);
+  const [scheduling, setScheduling] = useState<ApiPayComponent | null>(null);
   const [archiving, setArchiving] = useState<ApiPayComponent | null>(null);
   const [viewing, setViewing] = useState<ApiPayComponent | null>(null);
 
@@ -166,6 +186,37 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
     }
   };
 
+  /**
+   * An edit, and what a schedule change reaches.
+   *
+   * The API's answer names the open payrolls that will pick the new schedule up
+   * the next time they are calculated, and nothing is recalculated by the edit
+   * itself, so that sentence is the only way anybody finds out. Approved and
+   * paid payrolls are never touched, and are not mentioned.
+   */
+  const saveEdit = async (id: string, body: UpdatePayComponentBody) => {
+    try {
+      const updated = await components.update(id, body);
+      const reaches = openRunsSentence(updated.scheduleChange);
+      toast.push({
+        title: "Saved",
+        tone: "success",
+        ...(reaches ? { detail: reaches } : {}),
+      });
+      return true;
+    } catch (error) {
+      toast.push({
+        title: "That did not work",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
+      });
+      return false;
+    }
+  };
+
   return (
     <div className="flex flex-col gap-5">
       {DEMO_ENABLED && !components.connected && !components.loading && (
@@ -175,12 +226,6 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
           would never reach a payroll run.
         </Callout>
       )}
-
-      <LoadFailure
-        subject={`the ${copy.plural}`}
-        error={components.error}
-        onRetry={components.reload}
-      />
 
       <Card>
         <CardHeader
@@ -217,7 +262,10 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
               />
             </div>
             <div className="flex items-center gap-4">
-              <p className="text-body-sm text-muted">{onCount} switched on</p>
+              {/* Counted from the rows, so not before they have arrived. */}
+              {!components.loading && !components.error && (
+                <p className="text-body-sm text-muted">{onCount} switched on</p>
+              )}
               <ToggleFilter
                 label="Show archived"
                 checked={includeArchived}
@@ -226,98 +274,98 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
             </div>
           </div>
 
-          {components.rows.length === 0 ? (
-            <EmptyState
-              compact
-              icon={copy.icon}
-              title={
-                components.loading
-                  ? "Loading…"
-                  : search
-                    ? "Nothing matches that"
-                    : copy.empty
-              }
-              description={
-                components.loading
-                  ? undefined
-                  : search
-                    ? "Try a different name."
-                    : copy.emptyHint
-              }
-              action={
-                !components.loading && !search && components.editable ? (
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    onClick={() => setCreating(true)}
-                  >
-                    <Plus aria-hidden="true" className="size-4" />
-                    {copy.add}
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <>
-              <div className="hidden sm:block">
-                <TableWrap caption={copy.caption}>
-                  <THead>
-                    <TH>Name</TH>
-                    <TH>How much</TH>
-                    <TH>What it does</TH>
-                    <TH align="right">People</TH>
-                    <TH>Status</TH>
-                    <TH>
-                      <span className="sr-only-focusable">Actions</span>
-                    </TH>
-                  </THead>
-                  <TBody>
-                    {components.rows.map((row) => (
-                      <ComponentRow
-                        key={row.id}
-                        row={row}
-                        rates={settings.pension}
-                        editable={components.editable}
-                        onView={() => setViewing(row)}
-                        onEdit={() => setEditing(row)}
-                        onArchive={() => setArchiving(row)}
-                        onToggle={() =>
-                          void run(
-                            () => components.setActive(row.id, !row.active),
-                            row.active
-                              ? `${row.name} is off. The next run will not include it.`
-                              : `${row.name} is on again.`,
-                          )
-                        }
-                      />
-                    ))}
-                  </TBody>
-                </TableWrap>
-              </div>
+          <LoadState
+            loading={components.loading}
+            error={components.error}
+            subject={`the ${copy.plural}`}
+            onRetry={components.reload}
+            hasData={components.rows.length > 0}
+            skeleton="table"
+          >
+            {components.rows.length === 0 ? (
+              <EmptyState
+                compact
+                icon={copy.icon}
+                title={search ? "Nothing matches that" : copy.empty}
+                description={search ? "Try a different name." : copy.emptyHint}
+                action={
+                  !search && components.editable ? (
+                    <Button
+                      variant="accent"
+                      size="sm"
+                      onClick={() => setCreating(true)}
+                    >
+                      <Plus aria-hidden="true" className="size-4" />
+                      {copy.add}
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  <TableWrap caption={copy.caption}>
+                    <THead>
+                      <TH>Name</TH>
+                      <TH>How much</TH>
+                      <TH>What it does</TH>
+                      {kind === "ALLOWANCE" && <TH>Paid</TH>}
+                      <TH align="right">People</TH>
+                      <TH>Status</TH>
+                      <TH>
+                        <span className="sr-only-focusable">Actions</span>
+                      </TH>
+                    </THead>
+                    <TBody>
+                      {components.rows.map((row) => (
+                        <ComponentRow
+                          key={row.id}
+                          row={row}
+                          rates={settings.pension}
+                          editable={components.editable}
+                          onView={() => setViewing(row)}
+                          onEdit={() => setEditing(row)}
+                          onSchedule={() => setScheduling(row)}
+                          onArchive={() => setArchiving(row)}
+                          onToggle={() =>
+                            void run(
+                              () => components.setActive(row.id, !row.active),
+                              row.active
+                                ? `${row.name} is off. The next run will not include it.`
+                                : `${row.name} is on again.`,
+                            )
+                          }
+                        />
+                      ))}
+                    </TBody>
+                  </TableWrap>
+                </div>
 
-              <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
-                {components.rows.map((row) => (
-                  <ComponentCard
-                    key={row.id}
-                    row={row}
-                    rates={settings.pension}
-                    editable={components.editable}
-                    onView={() => setViewing(row)}
-                    onEdit={() => setEditing(row)}
-                    onArchive={() => setArchiving(row)}
-                    onToggle={() =>
-                      void run(
-                        () => components.setActive(row.id, !row.active),
-                        row.active
-                          ? `${row.name} is off. The next run will not include it.`
-                          : `${row.name} is on again.`,
-                      )
-                    }
-                  />
-                ))}
-              </ul>
-            </>
-          )}
+                <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
+                  {components.rows.map((row) => (
+                    <ComponentCard
+                      key={row.id}
+                      row={row}
+                      rates={settings.pension}
+                      editable={components.editable}
+                      onView={() => setViewing(row)}
+                      onEdit={() => setEditing(row)}
+                      onSchedule={() => setScheduling(row)}
+                      onArchive={() => setArchiving(row)}
+                      onToggle={() =>
+                        void run(
+                          () => components.setActive(row.id, !row.active),
+                          row.active
+                            ? `${row.name} is off. The next run will not include it.`
+                            : `${row.name} is on again.`,
+                        )
+                      }
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+          </LoadState>
         </CardBody>
       </Card>
 
@@ -338,8 +386,17 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
           if (ok) setCreating(false);
         }}
         onUpdate={async (id, body) => {
-          const ok = await run(() => components.update(id, body), "Saved");
+          const ok = await saveEdit(id, body);
           if (ok) setEditing(null);
+        }}
+      />
+
+      <ScheduleDialog
+        component={scheduling}
+        onClose={() => setScheduling(null)}
+        onSave={async (id, body) => {
+          const ok = await saveEdit(id, body);
+          if (ok) setScheduling(null);
         }}
       />
 
@@ -405,12 +462,62 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
 
 type Rates = { employeeRate: number; employerRate: number };
 
+/**
+ * What can be done to one component, behind one button.
+ *
+ * Switching it on or off is the one act worth a button of its own on the row;
+ * everything else is here. **Change schedule** is for an allowance only: a
+ * deduction has no schedule and the API refuses one. The whole list is offered
+ * only to somebody who may define a component (`MANAGE_PAY_STRUCTURE`); anybody
+ * else reads the Paid column and has no menu, rather than a menu of refusals.
+ */
+function componentActions(
+  row: ApiPayComponent,
+  handlers: {
+    onEdit: () => void;
+    onSchedule: () => void;
+    onArchive: () => void;
+  },
+): RowActionItem[] {
+  return [
+    {
+      label: "Edit",
+      icon: <Pencil aria-hidden="true" className="size-4" />,
+      onSelect: handlers.onEdit,
+    },
+    ...(row.kind === "ALLOWANCE"
+      ? [
+          {
+            label: "Change schedule",
+            icon: <CalendarClock aria-hidden="true" className="size-4" />,
+            onSelect: handlers.onSchedule,
+          },
+        ]
+      : []),
+    "separator" as const,
+    row.isSystem
+      ? {
+          label: "Archive",
+          icon: <Trash2 aria-hidden="true" className="size-4" />,
+          disabled: true,
+          hint: "Built in. Turn it off instead of removing it",
+        }
+      : {
+          label: "Archive",
+          icon: <Trash2 aria-hidden="true" className="size-4" />,
+          tone: "danger" as const,
+          onSelect: handlers.onArchive,
+        },
+  ];
+}
+
 function ComponentRow({
   row,
   rates,
   editable,
   onView,
   onEdit,
+  onSchedule,
   onArchive,
   onToggle,
 }: {
@@ -419,6 +526,7 @@ function ComponentRow({
   editable: boolean;
   onView: () => void;
   onEdit: () => void;
+  onSchedule: () => void;
   onArchive: () => void;
   onToggle: () => void;
 }) {
@@ -475,6 +583,16 @@ function ComponentRow({
         </span>
       </TD>
 
+      {row.kind === "ALLOWANCE" && (
+        <TD>
+          {/* Plain muted words, from the API's own sentence: no pill, and never
+              blank. An allowance with no schedule is paid every month. */}
+          <span className="text-body-sm text-muted">
+            {scheduleText(row.schedule)}
+          </span>
+        </TD>
+      )}
+
       <TD align="right">
         <span className="tabular text-body-sm text-body">
           {row.assignmentCount}
@@ -497,52 +615,22 @@ function ComponentRow({
         )}
       </TD>
 
-      {/* The row opens the drawer, so each control below stops the click from
-          reaching it. Done per button rather than on a wrapping span: a click
-          handler on a plain span is not something a keyboard can reach. */}
+      {/* The row opens the drawer, so the controls stop the click from reaching
+          it. The wrapper is only there to catch what bubbles up from the menu,
+          which is portalled but still part of this row as far as React goes. */}
       <TD>
         {editable && !row.archived ? (
-          <span className="flex items-center justify-end gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggle();
-              }}
-            >
+          <span
+            className="flex items-center justify-end gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button variant="ghost" size="sm" onClick={onToggle}>
               {row.active ? "Turn off" : "Turn on"}
             </Button>
-            <IconButton
-              size="sm"
-              label={`Edit ${row.name}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit();
-              }}
-            >
-              <Pencil aria-hidden="true" className="size-4" />
-            </IconButton>
-            {row.isSystem ? (
-              <IconButton
-                size="sm"
-                disabled
-                label="Built in. Turn it off instead of removing it"
-              >
-                <Trash2 aria-hidden="true" className="size-4" />
-              </IconButton>
-            ) : (
-              <IconButton
-                size="sm"
-                label={`Archive ${row.name}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onArchive();
-                }}
-              >
-                <Trash2 aria-hidden="true" className="size-4" />
-              </IconButton>
-            )}
+            <RowActions
+              label={`More actions for ${row.name}`}
+              items={componentActions(row, { onEdit, onSchedule, onArchive })}
+            />
           </span>
         ) : null}
       </TD>
@@ -560,6 +648,7 @@ function ComponentCard({
   editable,
   onView,
   onEdit,
+  onSchedule,
   onArchive,
   onToggle,
 }: {
@@ -568,6 +657,7 @@ function ComponentCard({
   editable: boolean;
   onView: () => void;
   onEdit: () => void;
+  onSchedule: () => void;
   onArchive: () => void;
   onToggle: () => void;
 }) {
@@ -607,6 +697,11 @@ function ComponentCard({
       </div>
 
       <p className="text-body-sm text-body">{amountLine(row)}</p>
+      {row.kind === "ALLOWANCE" && (
+        <p className="text-body-sm text-muted">
+          Paid: {scheduleText(row.schedule)}
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-1.5">
         {chips.map((chip) => (
@@ -633,26 +728,10 @@ function ComponentCard({
           <Button variant="ghost" size="sm" onClick={onToggle}>
             {row.active ? "Turn off" : "Turn on"}
           </Button>
-          <IconButton size="sm" label={`Edit ${row.name}`} onClick={onEdit}>
-            <Pencil aria-hidden="true" className="size-4" />
-          </IconButton>
-          {row.isSystem ? (
-            <IconButton
-              size="sm"
-              disabled
-              label="Built in. Turn it off instead of removing it"
-            >
-              <Trash2 aria-hidden="true" className="size-4" />
-            </IconButton>
-          ) : (
-            <IconButton
-              size="sm"
-              label={`Archive ${row.name}`}
-              onClick={onArchive}
-            >
-              <Trash2 aria-hidden="true" className="size-4" />
-            </IconButton>
-          )}
+          <RowActions
+            label={`More actions for ${row.name}`}
+            items={componentActions(row, { onEdit, onSchedule, onArchive })}
+          />
         </div>
       )}
     </li>
@@ -755,6 +834,13 @@ function AssigneesDrawer({
               </Badge>
             ))}
           </div>
+
+          {component?.kind === "ALLOWANCE" && (
+            <p className="text-body-sm leading-relaxed text-body">
+              <span className="font-medium text-ink">Paid</span>:{" "}
+              {scheduleText(component.schedule)}
+            </p>
+          )}
 
           <ul className="flex flex-col gap-2">
             {chips.map((chip) => (
@@ -907,6 +993,8 @@ type Draft = {
   pensionable: boolean;
   preTax: boolean;
   applyMode: PayComponentApplyMode;
+  /** When it falls due. Allowances only; a deduction never reads it. */
+  schedule: ScheduleDraft;
 };
 
 const BASIS_OPTIONS: { value: PayComponentBasis; label: string }[] = [
@@ -932,6 +1020,7 @@ function draftFor(component: ApiPayComponent | null): Draft {
     pensionable: component?.pensionable ?? false,
     preTax: component?.preTax ?? false,
     applyMode: component?.applyMode ?? "OPTIONAL",
+    schedule: draftFromSchedule(component?.schedule),
   };
 }
 
@@ -1009,8 +1098,22 @@ function ComponentDialog({
       ? "Either a percentage above zero, or leave it blank to set it per person."
       : undefined;
 
+  /* The schedule is an allowance's. `blocked` is true only once the form or the
+     API has said the schedule would be refused, so Save is not offered for a
+     thing that is known to fail, and not withheld while nothing has answered. */
+  const scheduleForm = useScheduleForm(
+    draft.schedule,
+    draft.applyMode,
+    kind === "ALLOWANCE" && open,
+  );
+  const scheduled = kind === "ALLOWANCE" && isScheduled(scheduleForm.schedule);
+
   const valid =
-    draft.name.trim().length >= 2 && !amountError && !rateError && !nameError;
+    draft.name.trim().length >= 2 &&
+    !amountError &&
+    !rateError &&
+    !nameError &&
+    !scheduleForm.blocked;
 
   const submit = async () => {
     if (!valid || saving) return;
@@ -1029,6 +1132,13 @@ function ComponentDialog({
           ...(kind === "ALLOWANCE"
             ? { taxable: draft.taxable, pensionable: draft.pensionable }
             : { preTax: draft.preTax }),
+          /* The whole schedule, all six fields, whenever it has changed: on
+             update it replaces the stored one, so a part would reset the rest. */
+          ...(kind === "ALLOWANCE" &&
+          scheduleForm.schedule &&
+          !sameSchedule(scheduleForm.schedule, component.schedule)
+            ? { schedule: scheduleForm.schedule }
+            : {}),
         });
       } else {
         await onCreate({
@@ -1044,6 +1154,9 @@ function ComponentDialog({
           ...(kind === "ALLOWANCE"
             ? { taxable: draft.taxable, pensionable: draft.pensionable }
             : { preTax: draft.preTax }),
+          ...(kind === "ALLOWANCE" && scheduleForm.schedule
+            ? { schedule: scheduleForm.schedule }
+            : {}),
         });
       }
     } finally {
@@ -1130,8 +1243,14 @@ function ComponentDialog({
         {fixed ? (
           <Field
             optional
-            label="Amount each month (₦)"
-            help="Leave it blank if the figure differs by person. Most do."
+            label={
+              scheduled ? "Amount per payment (₦)" : "Amount each month (₦)"
+            }
+            help={
+              scheduled
+                ? "Paid each time it falls due, not every month. Leave it blank if the figure differs by person."
+                : "Leave it blank if the figure differs by person. Most do."
+            }
             {...(amountError ? { error: amountError } : {})}
           >
             <Input
@@ -1217,7 +1336,105 @@ function ComponentDialog({
             }}
           />
         </div>
+
+        {kind === "ALLOWANCE" && (
+          <ScheduleFields
+            className="rounded-lg border border-line bg-canvas p-4"
+            draft={draft.schedule}
+            onChange={(next) => set("schedule", next)}
+            form={scheduleForm}
+            applyMode={draft.applyMode}
+            editing={editing}
+            assignmentCount={component?.assignmentCount ?? 0}
+          />
+        )}
       </div>
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------- change the schedule */
+
+/**
+ * The one thing about an allowance that moves *when* it is paid, on its own.
+ *
+ * The edit form carries the same section; this is for somebody who came to do
+ * exactly this, and it saves exactly this, the whole schedule and nothing else.
+ * Saved through the same call, so the API's answer names the open payrolls the
+ * change will reach and the panel says so.
+ */
+function ScheduleDialog({
+  component: componentProp,
+  onClose,
+  onSave,
+}: {
+  component: ApiPayComponent | null;
+  onClose: () => void;
+  onSave: (id: string, body: UpdatePayComponentBody) => Promise<void>;
+}) {
+  /* Held past close for the exit animation, as `ComponentDialog` does. */
+  const [component, setComponent] = useState(componentProp);
+  if (componentProp && componentProp !== component) {
+    setComponent(componentProp);
+  }
+  const open = componentProp !== null;
+
+  const [draft, setDraft] = useState(() =>
+    draftFromSchedule(componentProp?.schedule),
+  );
+  const [saving, setSaving] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setDraft(draftFromSchedule(componentProp?.schedule));
+  }
+
+  const applyMode = component?.applyMode ?? "OPTIONAL";
+  const form = useScheduleForm(draft, applyMode, open);
+  const changed =
+    form.schedule !== null && !sameSchedule(form.schedule, component?.schedule);
+
+  const submit = async () => {
+    if (!component || !form.schedule || !changed || saving) return;
+    setSaving(true);
+    try {
+      await onSave(component.id, { schedule: form.schedule });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="md"
+      title={`Change schedule${component ? `: ${component.name}` : ""}`}
+      description="When it falls due. The amount and the tax and pension switches stay as they are."
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="accent"
+            loading={saving}
+            disabled={!changed || form.blocked}
+            onClick={() => void submit()}
+          >
+            Save
+          </Button>
+        </>
+      }
+    >
+      <ScheduleFields
+        draft={draft}
+        onChange={setDraft}
+        form={form}
+        applyMode={applyMode}
+        editing
+        assignmentCount={component?.assignmentCount ?? 0}
+      />
     </Modal>
   );
 }

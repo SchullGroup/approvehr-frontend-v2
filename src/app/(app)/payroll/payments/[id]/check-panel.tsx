@@ -3,8 +3,8 @@
 import { AlertTriangle, Check, RefreshCw, TriangleAlert } from "lucide-react";
 import {
   Button,
+  AttentionMark,
   ButtonLink,
-  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -15,6 +15,8 @@ import {
   type ApiBatchDetail,
   type PaymentDiscrepancy,
 } from "@/lib/api/payments";
+import Link from "next/link";
+import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
 import { people } from "../format";
 
 /**
@@ -133,32 +135,24 @@ export function CheckPanel({
             anybody with a bank-detail problem, so a batch reaching this page
             with one is almost always older than that rule. */}
         {bankProblems.length > 0 && (
-          <Callout
-            tone="warning"
-            title="Bank details need fixing on the payroll"
-          >
-            <p>
-              {people(bankProblems.length)} on this batch{" "}
-              {bankProblems.length === 1 ? "has" : "have"} a bank detail that is
-              missing or does not add up. Fix it on their record, then rebuild
-              this batch: the details on it were copied in when it was built and
-              will not update on their own.
-            </p>
+          <NoticeLine tone="warning">
+            <span>Bank details need fixing on the payroll.</span>
+            <AttentionMark
+              text={`${people(bankProblems.length)} on this batch ${bankProblems.length === 1 ? "has" : "have"} a bank detail that is missing or does not add up. Fix it on their record, then rebuild this batch: the details on it were copied in when it was built and will not update on their own.`}
+            />
             {batch.payrollRunId && (
-              <ButtonLink
+              <Link
+                className={NOTICE_LINK}
                 href={
                   batch.period
                     ? `/payroll/runs/new?period=${batch.period.slice(0, 7)}`
                     : "/payroll"
                 }
-                variant="secondary"
-                size="sm"
-                className="mt-3"
               >
                 Open the payroll run
-              </ButtonLink>
+              </Link>
             )}
-          </Callout>
+          </NoticeLine>
         )}
 
         {blockers.length > 0 && (
@@ -168,14 +162,14 @@ export function CheckPanel({
               return (
                 <li
                   key={`${finding.code}-${finding.instructionId ?? index}`}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger-line bg-danger-soft px-3.5 py-3"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line px-3.5 py-3"
                 >
                   <span className="flex min-w-0 items-start gap-2.5">
                     <TriangleAlert
                       aria-hidden="true"
                       className="mt-0.5 size-4 shrink-0 text-warning-text"
                     />
-                    <span className="text-body-sm leading-relaxed text-warning-text">
+                    <span className="text-body-sm leading-relaxed text-body">
                       <span className="sr-only">Blocked: </span>
                       {finding.message}
                     </span>
@@ -215,14 +209,14 @@ export function CheckPanel({
                 return (
                   <li
                     key={`${finding.code}-${finding.instructionId ?? index}`}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-warning-line bg-warning-soft px-3.5 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line px-3.5 py-3"
                   >
                     <span className="flex min-w-0 items-start gap-2.5">
                       <AlertTriangle
                         aria-hidden="true"
                         className="mt-0.5 size-4 shrink-0 text-warning-text"
                       />
-                      <span className="text-body-sm leading-relaxed text-warning-text">
+                      <span className="text-body-sm leading-relaxed text-body">
                         <span className="sr-only">Warning: </span>
                         {finding.message}
                       </span>

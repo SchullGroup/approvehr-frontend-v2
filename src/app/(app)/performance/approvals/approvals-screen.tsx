@@ -11,13 +11,12 @@ import {
   CardHeader,
   ConfirmDialog,
   EmptyState,
-  Spinner,
   Stat,
   StatGrid,
   TextLink,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -170,12 +169,6 @@ export function ApprovalsScreen() {
 
       <PageBody>
         <div className="flex flex-col gap-6">
-          <LoadFailure
-            subject="the objectives waiting on you"
-            error={approvals.error}
-            onRetry={approvals.reload}
-          />
-
           {/* Absent for somebody with no queue, not zeroed.
               ---------------------------------------------------
               An employee was given "Waiting on you 0" and "With a measure on
@@ -189,20 +182,22 @@ export function ApprovalsScreen() {
               earlier: a 0 that is really "not known yet" is a figure somebody
               can read and act on before it is true. The card underneath
               carries the spinner. */}
-          {!approvals.loading && approvals.couldHaveQueue && (
-            <StatGrid columns={2}>
-              <Stat
-                label="Waiting on you"
-                value={String(approvals.queue.length)}
-                hint="Nobody agrees their own, so yours are not here"
-              />
-              <Stat
-                label="With a measure on them"
-                value={`${measured} of ${approvals.queue.length}`}
-                hint="An objective with no measure is scored on a stated figure"
-              />
-            </StatGrid>
-          )}
+          {!approvals.loading &&
+            !approvals.error &&
+            approvals.couldHaveQueue && (
+              <StatGrid columns={2}>
+                <Stat
+                  label="Waiting on you"
+                  value={String(approvals.queue.length)}
+                  hint="Nobody agrees their own, so yours are not here"
+                />
+                <Stat
+                  label="With a measure on them"
+                  value={`${measured} of ${approvals.queue.length}`}
+                  hint="An objective with no measure is scored on a stated figure"
+                />
+              </StatGrid>
+            )}
 
           {agreed && (
             <AgreedMoment
@@ -217,45 +212,51 @@ export function ApprovalsScreen() {
               title="Waiting to be agreed"
               description="Once you agree it, the target is fixed. Progress can still change, but changing the target itself means reopening it with a recorded reason."
             />
-            {approvals.loading ? (
-              <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-                <Spinner size="sm" />
-                Loading the queue
-              </CardBody>
-            ) : approvals.queue.length === 0 ? (
-              <EmptyState
-                compact
-                icon={
-                  approvals.couldHaveQueue ? (
-                    <CheckCheck aria-hidden="true" />
-                  ) : (
-                    <Inbox aria-hidden="true" />
-                  )
-                }
-                title={
-                  approvals.couldHaveQueue
-                    ? "Nothing waiting"
-                    : "You agree nobody's objectives"
-                }
-                description={
-                  approvals.couldHaveQueue
-                    ? "Every objective sent to you has been answered. New ones turn up here."
-                    : "This queue fills up for whoever people report to. Yours are on the KPI tab, where you can send them to be agreed."
-                }
-              />
-            ) : (
-              <CardBody className="flex flex-col gap-3">
-                {approvals.queue.map((goal) => (
-                  <ObjectiveCard
-                    key={goal.id}
-                    goal={goal}
-                    onAgree={() => setAgreeing(goal)}
-                    onSendBack={() => setReasonFor({ goal, act: "send_back" })}
-                    onReject={() => setReasonFor({ goal, act: "reject" })}
-                  />
-                ))}
-              </CardBody>
-            )}
+            <LoadState
+              loading={approvals.loading}
+              error={approvals.error}
+              subject="the objectives waiting on you"
+              onRetry={approvals.reload}
+              hasData={approvals.queue.length > 0}
+              skeleton="list"
+            >
+              {approvals.queue.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon={
+                    approvals.couldHaveQueue ? (
+                      <CheckCheck aria-hidden="true" />
+                    ) : (
+                      <Inbox aria-hidden="true" />
+                    )
+                  }
+                  title={
+                    approvals.couldHaveQueue
+                      ? "Nothing waiting"
+                      : "You agree nobody's objectives"
+                  }
+                  description={
+                    approvals.couldHaveQueue
+                      ? "Every objective sent to you has been answered. New ones turn up here."
+                      : "This queue fills up for whoever people report to. Yours are on the KPI tab, where you can send them to be agreed."
+                  }
+                />
+              ) : (
+                <CardBody className="flex flex-col gap-3">
+                  {approvals.queue.map((goal) => (
+                    <ObjectiveCard
+                      key={goal.id}
+                      goal={goal}
+                      onAgree={() => setAgreeing(goal)}
+                      onSendBack={() =>
+                        setReasonFor({ goal, act: "send_back" })
+                      }
+                      onReject={() => setReasonFor({ goal, act: "reject" })}
+                    />
+                  ))}
+                </CardBody>
+              )}
+            </LoadState>
           </Card>
         </div>
       </PageBody>

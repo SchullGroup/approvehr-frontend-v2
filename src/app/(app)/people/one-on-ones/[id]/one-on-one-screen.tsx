@@ -15,11 +15,10 @@ import {
   Input,
   Modal,
   Select,
-  Spinner,
   Textarea,
   useToast,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -93,16 +92,18 @@ export function OneOnOneScreen({ seriesId }: { seriesId: string }) {
           <Callout tone="info" title="This needs the API">
             {read.refusal}
           </Callout>
-        ) : read.error ? (
-          /* The 403 sentence is the API's and is shown as written — see the
-             header. `LoadFailure` renders a 4xx message verbatim. */
-          <LoadFailure
-            subject="this one-to-one"
+        ) : read.error || read.loading || !read.data ? (
+          /* The one loading and failure rule, as a gate. The 403 sentence is
+             the API's and is shown as written — see the header. */
+          <LoadState
+            loading={read.loading}
             error={read.error}
+            subject="this one-to-one"
             onRetry={read.reload}
-          />
-        ) : read.loading || !read.data ? (
-          <Spinner label="Loading" />
+            skeleton="list"
+          >
+            {null}
+          </LoadState>
         ) : read.data.length === 0 ? (
           <EmptyState
             icon={<MessagesSquare aria-hidden="true" />}

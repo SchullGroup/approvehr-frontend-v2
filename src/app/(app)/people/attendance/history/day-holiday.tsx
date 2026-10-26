@@ -319,7 +319,7 @@ function AddHolidayDialog({
             Somebody adding an expected date needs to know that half the product
             will act on it tonight and half will not. */}
         {!confirmed && (
-          <div className="flex flex-col gap-1.5 rounded-md border border-warning-line bg-warning-soft px-3.5 py-2.5 text-meta text-ink">
+          <div className="flex flex-col gap-1.5 text-meta text-muted">
             {/* Two halves, and they are the point: one part of the product acts
                 on an ungazetted date tonight and the other does not. Rendered
                 as the API names them rather than joined into a sentence, so a

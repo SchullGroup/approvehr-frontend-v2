@@ -7,14 +7,12 @@ import {
   Button,
   Callout,
   Card,
-  CardBody,
   CardHeader,
   EmptyState,
   Field,
   Input,
   Modal,
   Select,
-  Spinner,
   Stat,
   StatGrid,
   useToast,
@@ -28,8 +26,8 @@ import {
   TDPrimary,
   FilterBar,
   type AppliedFilter,
+  LoadState,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { ApiError } from "@/lib/api/client";
 import {
   APPRAISER_ROLES,
@@ -195,10 +193,14 @@ export function AppraiserMapTab() {
 
   if (cyclesLoading && cycles.length === 0) {
     return (
-      <p className="flex items-center gap-2 text-body-sm text-muted">
-        <Spinner size="sm" />
-        Loading the appraisal periods
-      </p>
+      <LoadState
+        loading
+        error={null}
+        subject="the appraisal periods"
+        skeleton="list"
+      >
+        {null}
+      </LoadState>
     );
   }
 
@@ -343,12 +345,6 @@ export function AppraiserMapTab() {
         </FilterBar>
       </div>
 
-      <LoadFailure
-        subject="the appraiser mapping"
-        error={error}
-        onRetry={reload}
-      />
-
       {map && (
         <StatGrid>
           <Stat
@@ -388,45 +384,51 @@ export function AppraiserMapTab() {
           title="Who appraises whom"
           description="Pick who appraises each person."
         />
-        {loading ? (
-          <CardBody className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading the list
-          </CardBody>
-        ) : !map || rows.length === 0 ? (
-          <EmptyState
-            compact
-            icon={<Network aria-hidden="true" />}
-            title={filtering ? "Nobody matches" : "Nobody in this period"}
-            description={
-              filtering
-                ? "Change or clear the filters to see more people."
-                : "A period covers everybody who is still employed. Add people first."
-            }
-          />
-        ) : (
-          <TableWrap className="rounded-none border-0">
-            <THead>
-              <TH>Person</TH>
-              <TH>Appraiser</TH>
-              <TH align="right">Mark</TH>
-              <TH align="right">
-                <span className="sr-only">Split</span>
-              </TH>
-            </THead>
-            <TBody>
-              {rows.map((row) => (
-                <PersonTableRow
-                  key={row.employeeId}
-                  row={row}
-                  people={people}
-                  onEdit={() => setEditing(row)}
-                  onQuickAssign={(appraiserId) => quickAssign(row, appraiserId)}
-                />
-              ))}
-            </TBody>
-          </TableWrap>
-        )}
+        <LoadState
+          loading={loading}
+          error={error}
+          subject="the appraiser mapping"
+          onRetry={reload}
+          hasData={rows.length > 0}
+          skeleton="table"
+        >
+          {!map || rows.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<Network aria-hidden="true" />}
+              title={filtering ? "Nobody matches" : "Nobody in this period"}
+              description={
+                filtering
+                  ? "Change or clear the filters to see more people."
+                  : "A period covers everybody who is still employed. Add people first."
+              }
+            />
+          ) : (
+            <TableWrap className="rounded-none border-0">
+              <THead>
+                <TH>Person</TH>
+                <TH>Appraiser</TH>
+                <TH align="right">Mark</TH>
+                <TH align="right">
+                  <span className="sr-only">Split</span>
+                </TH>
+              </THead>
+              <TBody>
+                {rows.map((row) => (
+                  <PersonTableRow
+                    key={row.employeeId}
+                    row={row}
+                    people={people}
+                    onEdit={() => setEditing(row)}
+                    onQuickAssign={(appraiserId) =>
+                      quickAssign(row, appraiserId)
+                    }
+                  />
+                ))}
+              </TBody>
+            </TableWrap>
+          )}
+        </LoadState>
       </Card>
 
       {editing && cycleId && (
@@ -809,19 +811,13 @@ export function AppraisersDialog({
     >
       <div className="flex flex-col gap-4">
         {failed && (
-          <p
-            role="status"
-            className="rounded-md border border-danger-line bg-danger-soft px-3.5 py-2.5 text-body-sm text-ink"
-          >
+          <p role="status" className="text-body-sm text-danger-text">
             {failed}
           </p>
         )}
 
         {localProblem && !failed && (
-          <p
-            role="status"
-            className="rounded-md border border-warning-line bg-warning-soft px-3.5 py-2.5 text-body-sm text-ink"
-          >
+          <p role="status" className="text-body-sm text-muted">
             {localProblem}
           </p>
         )}
