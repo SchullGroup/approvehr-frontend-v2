@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Pencil, Search } from "lucide-react";
+import { Pencil, Search } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
+  AttentionMark,
   Badge,
   Button,
   ButtonLink,
@@ -322,7 +323,7 @@ export function ReviewStep({
                 },
                 {
                   value: "warnings",
-                  label: `With warnings (${String(warningCount)})`,
+                  label: `With notes (${String(warningCount)})`,
                 },
               ]}
             />
@@ -934,7 +935,14 @@ function Figure({
   );
 }
 
-/** What is notable about a person, next to their name. */
+/**
+ * What is notable about a person, next to their name.
+ *
+ * Deliberately quiet: "adjusted" is a tiny grey note, and anything worth a look
+ * is a small icon with the sentences behind it. Neither is a coloured pill, so
+ * a table where everybody is adjusted does not shout at the reader forty times.
+ * A figure that stops the run still gets the ochre mark; the rest are grey.
+ */
 function Flags({
   adjusted,
   warnings,
@@ -948,28 +956,25 @@ function Flags({
   if (adjusted.length === 0 && warnings.length === 0) return null;
   const toFix = warnings.filter((w) => w.severity === "BLOCKER").length;
   return (
-    <span className={cn("flex flex-wrap gap-1.5", !bare && "mt-1.5")}>
+    <span
+      className={cn("inline-flex flex-wrap items-center gap-2", !bare && "mt-1")}
+    >
       {adjusted.length > 0 && (
-        <Badge tone="accent" size="sm" icon={<Pencil />}>
-          Adjusted
+        <span
+          className="inline-flex items-center gap-1 text-[11px] leading-none text-muted"
+          title={adjusted.map((kind) => ADJUSTMENT_LABEL[kind]).join(", ")}
+        >
+          <Pencil aria-hidden="true" className="size-2.5" />
+          adjusted
           <span className="sr-only">
             : {adjusted.map((kind) => ADJUSTMENT_LABEL[kind]).join(", ")}
           </span>
-        </Badge>
+        </span>
       )}
-      {warnings.length > 0 && (
-        <Badge
-          tone={toFix > 0 ? "danger" : "warning"}
-          size="sm"
-          icon={<AlertTriangle />}
-        >
-          {toFix > 0
-            ? `${String(toFix)} to fix`
-            : warnings.length === 1
-              ? "1 warning"
-              : `${String(warnings.length)} warnings`}
-        </Badge>
-      )}
+      <AttentionMark
+        tone={toFix > 0 ? "attention" : "info"}
+        text={warnings.map((warning) => warning.message)}
+      />
     </span>
   );
 }
