@@ -11,6 +11,7 @@ import {
   bonusOn,
   deductionLabels,
   deductionTotal,
+  loanTotal,
   hasManualOvertime,
   hourlyFor,
   manualOvertimeHours,
@@ -219,19 +220,40 @@ describe("the deductions total", () => {
       id: "11",
       name: "Kemi S",
       otherDeductionsKobo: 4_000_00,
-      lines: [line("DEDUCTION", "Staff loan", 4_000_00)],
+      lines: [line("DEDUCTION", "Union dues", 4_000_00)],
     });
-    expect(deductionLabels(one)).toEqual(["Pension", "Staff loan"]);
+    expect(deductionLabels(one)).toEqual(["Pension", "Union dues"]);
     const many = slip({
       id: "12",
       name: "Lola U",
       otherDeductionsKobo: 6_000_00,
       lines: [
-        line("DEDUCTION", "Staff loan", 4_000_00),
+        line("DEDUCTION", "Cooperative", 4_000_00),
         line("DEDUCTION", "Union dues", 2_000_00),
       ],
     });
     expect(deductionLabels(many)).toEqual(["Pension", "Other"]);
+  });
+
+  it("keeps a staff loan out of the deductions and counts it on its own", () => {
+    const withLoan = slip({
+      id: "13",
+      name: "Dayo P",
+      otherDeductionsKobo: 6_000_00,
+      lines: [
+        line("DEDUCTION", "Staff loan 1 of 3", 4_000_00),
+        line("DEDUCTION", "Union dues", 2_000_00),
+      ],
+    });
+    expect(loanTotal(withLoan)).toBe(4_000_00);
+    const without = slip({
+      id: "14",
+      name: "Dayo P",
+      otherDeductionsKobo: 2_000_00,
+      lines: [line("DEDUCTION", "Union dues", 2_000_00)],
+    });
+    expect(deductionTotal(withLoan)).toBe(deductionTotal(without));
+    expect(deductionLabels(withLoan)).toEqual(["Pension", "Union dues"]);
   });
 });
 

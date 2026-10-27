@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pencil } from "lucide-react";
 import { AttentionMark, Button, ButtonLink, Drawer } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
@@ -239,6 +238,14 @@ export function AdjustDrawer({
 
   const employeeId = person.employeeId;
   const overridden = person.overriddenDeductions ?? [];
+  /* Loan instalments are their own lines above; what is left is everything else. */
+  const loanKobo = person.lines
+    .filter(
+      (line) =>
+        line.kind === "DEDUCTION" && line.label.startsWith("Staff loan"),
+    )
+    .reduce((sum, line) => sum + line.amountKobo, 0);
+  const otherKobo = Math.max(0, person.otherDeductionsKobo - loanKobo);
   const overtimeKobo = overtimeOn(person);
   const manualOvertime = hasManualOvertime(person);
   const bonus = bonusOn(person);
@@ -509,11 +516,10 @@ export function AdjustDrawer({
               <Line
                 key={loan.loanId}
                 editColumn={editable}
-                label="Staff loan"
-                note={`Owed ${formatKobo(loan.balanceBeforeKobo)}, ${formatKobo(loan.balanceAfterKobo)} after this month · of ${formatKobo(loan.accumulatedKobo)} borrowed`}
+                label="Loan"
+                note={`Borrowed ${formatKobo(loan.accumulatedKobo)} · owed ${formatKobo(loan.balanceBeforeKobo)} before this month · ${formatKobo(loan.balanceAfterKobo)} left after`}
                 value={minus(loan.deductionKobo)}
                 marked={loan.overridden === true}
-                indent
                 edit={
                   editable
                     ? {
@@ -531,12 +537,8 @@ export function AdjustDrawer({
             <Line
               editColumn={editable}
               label="Other deductions"
-              note="Loan instalments, expense claims and anything typed here"
-              value={
-                person.otherDeductionsKobo > 0
-                  ? minus(person.otherDeductionsKobo)
-                  : "—"
-              }
+              note="Expense claims and anything typed here"
+              value={otherKobo > 0 ? minus(otherKobo) : "—"}
               marked={typedLines}
               edit={
                 editable
@@ -831,7 +833,6 @@ function Line({
   label,
   note,
   value,
-  marked = false,
   indent = false,
   editColumn,
   edit,
@@ -865,12 +866,6 @@ function Line({
       <div className="min-w-0">
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-ink">
           {label}
-          {marked && (
-            <span className="inline-flex items-center gap-1 text-meta leading-none text-muted">
-              <Pencil aria-hidden="true" className="size-2.5" />
-              entered by hand
-            </span>
-          )}
         </p>
         {note && (
           <p className="mt-0.5 text-meta leading-snug text-muted">{note}</p>
