@@ -24,6 +24,7 @@ import type { PayrollRunDetail } from "@/lib/api/payroll";
 import { availableFigure } from "@/lib/api/payments";
 import type { PaymentDiscrepancy } from "@/lib/api/payments";
 import { usePaymentActions } from "@/lib/store/payments";
+import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import {
   RecordPaidDialog,
   type RecordedPayment,
@@ -112,6 +113,10 @@ export function PayPanel({
 }) {
   const actions = usePaymentActions();
   const { push } = useToast();
+  /* A company that pays from its own bank account is offered the bank file and
+     nothing else: no wallet button, no explanation of a wallet it does not use. */
+  const { settings: paySettings } = usePayrollSettings();
+  const walletPayout = paySettings.payout.wallet;
 
   const [busy, setBusy] = useState<"pay" | "file" | null>(null);
   const [recording, setRecording] = useState(false);
@@ -347,8 +352,10 @@ export function PayPanel({
           <p className="text-body-sm text-body">
             Recorded as paid by your bank: {formatKobo(run.netKobo)} to{" "}
             {paidPeopleLabel(run)}, against{" "}
-            <span className="font-medium text-ink">{batch.reference}</span>. The
-            wallet has come down by that amount.
+            <span className="font-medium text-ink">{batch.reference}</span>.{" "}
+            {walletPayout
+              ? "The wallet has come down by that amount."
+              : "Paid from your bank account, not the wallet."}
           </p>
         ) : settled ? (
           <p className="text-body-sm text-body">
@@ -374,19 +381,21 @@ export function PayPanel({
             )}
 
             <div className="flex flex-wrap gap-2">
+              {walletPayout && (
+                <Button
+                  variant="accent"
+                  loading={busy === "pay"}
+                  disabled={busy !== null}
+                  onClick={() => void pay()}
+                >
+                  {busy !== "pay" && (
+                    <Banknote aria-hidden="true" className="size-4" />
+                  )}
+                  Pay {formatKobo(run.netKobo)} to {paidPeopleLabel(run)}
+                </Button>
+              )}
               <Button
-                variant="accent"
-                loading={busy === "pay"}
-                disabled={busy !== null}
-                onClick={() => void pay()}
-              >
-                {busy !== "pay" && (
-                  <Banknote aria-hidden="true" className="size-4" />
-                )}
-                Pay {formatKobo(run.netKobo)} to {paidPeopleLabel(run)}
-              </Button>
-              <Button
-                variant="secondary"
+                variant={walletPayout ? "secondary" : "accent"}
                 loading={busy === "file"}
                 disabled={busy !== null}
                 onClick={() => void file()}
@@ -418,7 +427,7 @@ export function PayPanel({
                 and false are treated the same on purpose: an older API does not
                 send the field, and in that case the bank file is still the path
                 that is certain to work, so saying so is never wrong. */}
-            {run.payoutAvailable !== true && (
+            {walletPayout && run.payoutAvailable !== true && (
               <p className="text-meta text-muted">{WALLET_PAYOUT_STATE}</p>
             )}
 

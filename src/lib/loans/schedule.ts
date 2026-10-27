@@ -38,6 +38,8 @@ export type ScheduleInput = {
   interestRate: number;
   /** The pay period the first instalment comes out of, as `YYYY-MM-DD`. */
   startPeriod: string;
+  /** Take this much a month and let the term follow. Interest-free loans only. */
+  fixedInstalmentKobo?: number;
 };
 
 export type ScheduleLine = {
@@ -118,10 +120,16 @@ export function isBeforeMonth(iso: string, reference: string): boolean {
 
 export function buildSchedule({
   principalKobo,
-  termMonths,
+  termMonths: requestedTerm,
   interestRate,
   startPeriod,
+  fixedInstalmentKobo,
 }: ScheduleInput): Schedule {
+  /* Mirrors the API: the monthly amount is the decision and the term follows. */
+  const termMonths =
+    fixedInstalmentKobo === undefined
+      ? requestedTerm
+      : Math.max(1, Math.ceil(principalKobo / fixedInstalmentKobo));
   if (!Number.isInteger(principalKobo) || principalKobo <= 0) {
     throw new Error("A loan needs an amount above zero, in whole kobo.");
   }
@@ -138,7 +146,10 @@ export function buildSchedule({
     (principalKobo * interestRate * termMonths) / 12,
   );
   const totalKobo = principalKobo + interestKobo;
-  const instalmentKobo = Math.floor(totalKobo / termMonths);
+  const instalmentKobo =
+    fixedInstalmentKobo === undefined
+      ? Math.floor(totalKobo / termMonths)
+      : Math.min(fixedInstalmentKobo, totalKobo);
 
   const first = monthStart(startPeriod);
   const lines: ScheduleLine[] = [];
@@ -187,20 +198,30 @@ export function priceLoan(input: {
   termMonths: number;
   interestRate?: number;
   startPeriod: string;
+  fixedInstalmentKobo?: number;
 }): Schedule | null {
-  const { principalKobo, termMonths, interestRate = 0, startPeriod } = input;
+  const {
+    principalKobo,
+    termMonths,
+    interestRate = 0,
+    startPeriod,
+    fixedInstalmentKobo,
+  } = input;
   if (!Number.isInteger(principalKobo) || principalKobo <= 0) return null;
   if (!Number.isInteger(termMonths) || termMonths < 1) return null;
   if (!Number.isFinite(interestRate) || interestRate < 0) return null;
   /* An amount that cannot reach a kobo a month is a term to shorten, not a
      schedule to draw. The API says the same thing with a 422. */
   if (Math.floor(principalKobo / termMonths) === 0) return null;
+  if (fixedInstalmentKobo !== undefined && fixedInstalmentKobo <= 0)
+    return null;
   try {
     return buildSchedule({
       principalKobo,
       termMonths,
       interestRate,
       startPeriod,
+      ...(fixedInstalmentKobo !== undefined ? { fixedInstalmentKobo } : {}),
     });
   } catch {
     return null;

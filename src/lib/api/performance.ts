@@ -294,6 +294,16 @@ export type ApiKeyResultWritten = ApiKeyResult & {
   goalProgress: number | null;
 };
 
+/**
+ * What a section can be told. `component` is the part of the mark its ratings
+ * count towards; `null` clears it, and leaving it out leaves it as it is.
+ */
+export type SectionBody = {
+  name?: string;
+  order?: number;
+  component?: ScoreComponent | null;
+};
+
 /** A section of an appraisal — "Core competency", a company's own values. */
 export type ApiSection = {
   id: string;
@@ -2755,10 +2765,10 @@ export const performanceApi = {
   sections: (signal?: AbortSignal) =>
     request<ApiSection[]>("/performance/sections", signalOf(signal)),
 
-  createSection: (body: { name: string; order?: number }) =>
+  createSection: (body: SectionBody) =>
     request<ApiSection>("/performance/sections", { method: "POST", body }),
 
-  updateSection: (id: string, body: { name?: string; order?: number }) =>
+  updateSection: (id: string, body: SectionBody) =>
     request<ApiSection>(`/performance/sections/${id}`, {
       method: "PATCH",
       body,

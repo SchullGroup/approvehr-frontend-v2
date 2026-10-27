@@ -272,6 +272,10 @@ export type PayslipLoan = {
   deductionKobo: number;
   /** What is left once this month's deduction is taken. */
   balanceAfterKobo: number;
+  /** What the schedule would take this month, whatever HR decided. */
+  scheduledKobo?: number;
+  /** HR set this month's deduction by hand instead of the scheduled instalment. */
+  overridden?: boolean;
 };
 
 export type Payslip = {
@@ -987,6 +991,8 @@ export type PayrollSettingsRow = {
    * bonus is not part of one.
    */
   bonusEnabled: boolean;
+  /** False: the company pays from its own bank account with the payment schedule. */
+  walletPayoutEnabled?: boolean;
   netSwingThreshold: Decimalish;
   requireBankAccount: boolean;
   requirePensionPin: boolean;
@@ -1028,6 +1034,7 @@ export type PayrollSettingsPatch = Partial<{
   nhfRate: number;
   nhfOnGross: boolean;
   bonusEnabled: boolean;
+  walletPayoutEnabled: boolean;
   netSwingThreshold: number;
   requireBankAccount: boolean;
   requirePensionPin: boolean;
@@ -1740,6 +1747,28 @@ export const payrollApi = {
     request<OvertimeOverrideChange>(`/payroll/runs/${id}/overtime-overrides`, {
       method: "POST",
       body,
+    }),
+
+  /** Every loan on the run as its payslip reports it. Nobody without a loan appears. */
+  runLoans: (id: string) =>
+    request<{ employeeId: string; loans: PayslipLoan[] }[]>(
+      `/payroll/runs/${id}/loans`,
+    ),
+
+  /** What one loan takes from this month's pay, in place of the scheduled instalment. */
+  setLoanDeduction: (
+    id: string,
+    body: { loanId: string; amountKobo: number; reason?: string },
+  ) =>
+    request<PreparedRun>(`/payroll/runs/${id}/loan-deductions`, {
+      method: "POST",
+      body,
+    }),
+
+  /** Back to the scheduled instalment for this month. */
+  clearLoanDeduction: (id: string, loanId: string) =>
+    request<PreparedRun>(`/payroll/runs/${id}/loan-deductions/${loanId}`, {
+      method: "DELETE",
     }),
 
   /** Takes the typed hours off, so the clock's records pay again. */
