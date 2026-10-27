@@ -253,6 +253,12 @@ export function notOperated(
   ].filter((row) => !wasDeducted(operates, row.key));
 }
 
+/** A loan instalment line. `loans/service.ts` writes every one as "Staff loan …". */
+const isLoanLine = (label: string) => label.startsWith("Staff loan");
+
+const sumOf = <T,>(rows: readonly T[] | undefined, pick: (row: T) => number) =>
+  (rows ?? []).reduce((sum, row) => sum + pick(row), 0);
+
 export function PayslipDocument({
   employee,
   slip,
@@ -332,6 +338,9 @@ export function PayslipDocument({
         wasDeducted(slip.operates, "pension")),
   );
   const carried = carriedForwardKobo(slip);
+  const loanPaidKobo = postTax
+    .filter((line) => isLoanLine(line.label))
+    .reduce((sum, line) => sum + line.amountKobo, 0);
 
   /* A company that has not split gross into parts has 100% basic and 0%
      housing and transport — the product's own default — and a payslip is not
@@ -396,12 +405,20 @@ export function PayslipDocument({
     ...(wasDeducted(slip.operates, "paye")
       ? [{ label: "PAYE income tax", kobo: slip.payeKobo }]
       : []),
-    ...postTax.map((line) => ({
-      /* The full instalment is what the employee agreed to; what fitted this
-         month is shown under the total, not by silently shrinking the line. */
-      label: line.label,
-      kobo: line.amountKobo,
-    })),
+    ...postTax
+      .filter((line) => !isLoanLine(line.label))
+      .map((line) => ({
+        /* The full instalment is what the employee agreed to; what fitted this
+           month is shown under the total, not by silently shrinking the line. */
+        label: line.label,
+        kobo: line.amountKobo,
+      })),
+    /* Every loan instalment is one line here. "1 of 3, 2 of 3" is the
+       schedule's bookkeeping, not something an employee needs to read; the
+       loan section below says what was lent and what is left. */
+    ...(loanPaidKobo > 0
+      ? [{ label: "Loan repayment", kobo: loanPaidKobo }]
+      : []),
   ];
 
   /* Only what was actually deducted. Adding a not-operated zero changes nothing
@@ -568,29 +585,25 @@ export function PayslipDocument({
         <p className="tabular text-h2 text-ink">{formatKobo(slip.netKobo)}</p>
       </section>
 
-      {/* Staff loans — the same four figures every month, so a loan can be
-          followed down: what was lent, what was owed coming in, what came off
-          this month, what is left. Shown only where there is a loan. */}
+      {/* Staff loans, added together: what was lent, what came off this month,
+          what is left. Shown only where there is a loan. */}
       {(slip.loans?.length ?? 0) > 0 && (
         <section className="mt-6 rounded-md border border-line bg-canvas p-4">
           <ColumnHead>Staff loan</ColumnHead>
-          {slip.loans?.map((loan) => (
-            <dl key={loan.loanId} className="mt-3 flex flex-col">
-              <LineItem label="Accumulated loan" kobo={loan.accumulatedKobo} />
-              <LineItem
-                label="Balance before this month"
-                kobo={loan.balanceBeforeKobo}
-              />
-              <LineItem
-                label="Loan deduction this month"
-                kobo={loan.deductionKobo}
-              />
-              <LineItem
-                label="Loan balance after"
-                kobo={loan.balanceAfterKobo}
-              />
-            </dl>
-          ))}
+          <dl className="mt-3 flex flex-col">
+            <LineItem
+              label="Total loan"
+              kobo={sumOf(slip.loans, (loan) => loan.accumulatedKobo)}
+            />
+            <LineItem
+              label="Paid this month"
+              kobo={sumOf(slip.loans, (loan) => loan.deductionKobo)}
+            />
+            <LineItem
+              label="Balance left"
+              kobo={sumOf(slip.loans, (loan) => loan.balanceAfterKobo)}
+            />
+          </dl>
         </section>
       )}
 
