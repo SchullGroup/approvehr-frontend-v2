@@ -197,6 +197,8 @@ function settingsToPatch(s: PayrollSettings): PayrollSettingsPatch {
   };
 }
 
+const NO_REASONS = { bonus: [], deduction: [] };
+
 export type DeductionKey = "payeEnabled" | "pensionEnabled" | "nhfEnabled";
 
 /**
@@ -229,6 +231,10 @@ export type PayrollSettingsState = {
   reset: () => Promise<void> | void;
   /** One switch, saved immediately, never batched with `save`. */
   saveDeduction: (key: SwitchKey, value: boolean) => Promise<void>;
+  /** The company's own bonus and deduction kinds, for the dropdown on a line. */
+  reasons: { bonus: string[]; deduction: string[] };
+  /** Replaces one list. Refuses offline. */
+  saveReasons: (kind: "bonus" | "deduction", list: string[]) => Promise<void>;
   /** Re-fetches the connected row from scratch. A no-op offline. */
   reload: () => void;
 };
@@ -272,6 +278,13 @@ export function usePayrollSettings(): PayrollSettingsState {
   }, []);
 
   const row = outcome?.settings?.settings ?? null;
+  const reasons = useMemo(
+    () => ({
+      bonus: row?.bonusReasons ?? [],
+      deduction: row?.deductionReasons ?? [],
+    }),
+    [row],
+  );
   /**
    * Memoised on the row itself, not recomputed inline every render.
    *
@@ -298,6 +311,8 @@ export function usePayrollSettings(): PayrollSettingsState {
       save: local.save,
       reset: local.reset,
       saveDeduction: () => Promise.reject(new Error(DEMO_REFUSAL)),
+      reasons: NO_REASONS,
+      saveReasons: () => Promise.reject(new Error(DEMO_REFUSAL)),
       reload: () => {
         /* Nothing to re-fetch offline; the local store is already live. */
       },
@@ -315,6 +330,11 @@ export function usePayrollSettings(): PayrollSettingsState {
     save: (next) => patch(settingsToPatch(next)),
     reset: () => patch(settingsToPatch(DEFAULT_SETTINGS)),
     saveDeduction: (deductionKey, value) => patch({ [deductionKey]: value }),
+    reasons,
+    saveReasons: (kind, list) =>
+      patch(
+        kind === "bonus" ? { bonusReasons: list } : { deductionReasons: list },
+      ),
     reload,
   };
 }
