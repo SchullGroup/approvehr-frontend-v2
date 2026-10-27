@@ -805,6 +805,8 @@ export type LoanActions = {
   /** `{}` approves exactly as applied for. Fields are a counter-offer. */
   approve: (id: string, body?: ApproveLoanBody) => Promise<ApiLoanDetail>;
   decline: (id: string, reason: string) => Promise<ApiLoanDetail>;
+  /** Move the first deduction. Needs the API: a demo book has nothing to move. */
+  reschedule: (id: string, startPeriod: string) => Promise<ApiLoanDetail>;
   pay: (
     id: string,
     sequence: number,
@@ -1124,7 +1126,23 @@ export function useLoanActions(): LoanActions {
     [isConnected, write],
   );
 
-  return { apply, approve, decline, pay, waive, live: isConnected };
+  const reschedule = useCallback(
+    async (id: string, startPeriod: string): Promise<ApiLoanDetail> => {
+      if (!isConnected) {
+        throw new ApiError(
+          0,
+          "offline",
+          "Changing when a loan starts needs the API.",
+        );
+      }
+      const loan = await loansApi.reschedule(id, startPeriod);
+      bumpRevision();
+      return loan;
+    },
+    [isConnected],
+  );
+
+  return { apply, approve, decline, reschedule, pay, waive, live: isConnected };
 }
 
 /* ------------------------------------------------------------------- labels */
