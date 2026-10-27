@@ -188,7 +188,7 @@ export function HoursForm({
 /**
  * Paying somebody for the days they worked rather than the whole month.
  *
- * For a person on long leave who worked five days of twenty-two. The daily rate
+ * For a person on long leave who worked five days of a thirty-one-day month. The daily rate
  * is their monthly pay over the working month, shown before anything is typed so
  * the arithmetic is visible; the server does the proration, and if the preview
  * and the payslip ever disagree the payslip is right.
@@ -255,8 +255,8 @@ export function DaysForm({
 
         <p role="status" className="tabular text-body-sm text-ink">
           {priced
-            ? `Daily rate: ${formatKobo(monthlyKobo)} ÷ ${String(workingDays)} working days = ${formatKobo(dailyKobo)} a day.`
-            : `The working month is ${String(workingDays)} days. Their daily rate comes from their monthly pay, which is not shown to you here.`}
+            ? `Daily rate: ${formatKobo(monthlyKobo)} ÷ ${String(workingDays)} days in the month = ${formatKobo(dailyKobo)} a day.`
+            : `The month has ${String(workingDays)} days. Their daily rate comes from their monthly pay, which is not shown to you here.`}
         </p>
 
         {currentDays !== null && (
@@ -276,7 +276,7 @@ export function DaysForm({
             ? { error: "Whole days only." }
             : tooMany
               ? {
-                  error: `The working month is ${String(workingDays)} days.`,
+                  error: `The month has ${String(workingDays)} days.`,
                 }
               : {})}
         >
@@ -331,6 +331,128 @@ export function DaysForm({
           disabled={!valid || saving}
         >
           {amount === null ? "Pay by days worked" : `Pay ${formatKobo(amount)}`}
+        </Button>
+      </FormFooter>
+    </form>
+  );
+}
+
+/* -------------------------------------------------------------------- loan */
+
+/**
+ * What one loan takes from this person this month.
+ *
+ * Starts from the scheduled instalment. More than that shortens the loan (the
+ * extra comes off the end of the schedule when the payroll is approved); less
+ * leaves the rest owing. It applies to this month only.
+ */
+export function LoanForm({
+  name,
+  scheduledKobo,
+  balanceBeforeKobo,
+  currentKobo,
+  overridden,
+  saving,
+  error,
+  onSave,
+  onReset,
+  onBack,
+}: {
+  name: string;
+  /** The instalment the schedule would take. */
+  scheduledKobo: number;
+  /** Owed going into the month. */
+  balanceBeforeKobo: number;
+  /** What is set for this month now. */
+  currentKobo: number;
+  overridden: boolean;
+  saving: boolean;
+  error: string | null;
+  onSave: (kobo: number) => void;
+  onReset: () => void;
+  onBack: () => void;
+}) {
+  const [text, setText] = useState(String(currentKobo / 100));
+  const naira = Number(text.replace(/,/g, ""));
+  const kobo = Math.round(naira * 100);
+  const valid =
+    text.trim() !== "" &&
+    Number.isFinite(naira) &&
+    kobo >= 0 &&
+    kobo <= balanceBeforeKobo;
+
+  return (
+    <form
+      className="flow-root -mb-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (valid && !saving) onSave(kobo);
+      }}
+    >
+      <BackToPayslip onBack={onBack} disabled={saving} />
+
+      <div className="flex flex-col gap-4">
+        <p className="text-body-sm leading-relaxed text-body">
+          How much of {name}&rsquo;s loan to take this month. The schedule says{" "}
+          {formatKobo(scheduledKobo)}; they owe {formatKobo(balanceBeforeKobo)}.
+          Taking more shortens the loan. Taking less leaves the rest owing. Only
+          this month changes.
+        </p>
+
+        <ServerRefusal message={error} />
+
+        <Field label="Loan deduction this month (₦)" required>
+          <Input
+            autoFocus
+            inputMode="decimal"
+            value={text}
+            disabled={saving}
+            className="max-sm:h-11"
+            onChange={(event) => setText(event.target.value)}
+          />
+        </Field>
+
+        {valid && (
+          <p role="status" className="tabular text-body-sm text-muted">
+            {formatKobo(Math.max(0, balanceBeforeKobo - kobo))} left after this
+            month.
+          </p>
+        )}
+      </div>
+
+      <FormFooter
+        summary={
+          overridden ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={saving}
+              className={`-ml-2 text-danger-text hover:bg-danger-soft ${TOUCH}`}
+              onClick={onReset}
+            >
+              Back to the scheduled instalment
+            </Button>
+          ) : undefined
+        }
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          className={TOUCH}
+          disabled={saving}
+          onClick={onBack}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          variant="accent"
+          className={TOUCH}
+          loading={saving}
+          disabled={!valid || saving}
+        >
+          Save
         </Button>
       </FormFooter>
     </form>

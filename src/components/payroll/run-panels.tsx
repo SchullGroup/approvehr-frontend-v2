@@ -37,7 +37,6 @@ import {
   type RunException,
   type RunExclusion,
 } from "@/lib/api/payroll";
-import { notOperated } from "@/components/payroll/payslip-document";
 
 /**
  * The panels three payroll screens share.
@@ -653,7 +652,6 @@ export function TotalsPanel({ run }: { run: PayrollRun }) {
     <Card>
       <CardHeader
         title="What leaves the account"
-        description="Net pay reaches employees. Everything else is remitted on their behalf."
         action={
           <Badge tone="neutral" size="sm">
             {headcountLabel(run)}
@@ -694,21 +692,8 @@ export function TotalsPanel({ run }: { run: PayrollRun }) {
             <TotalRow
               label="Pension (employer share)"
               kobo={run.pensionEmployerKobo}
-              note="A company cost on top of gross. It does not reduce anyone's pay."
             />
           </div>
-        )}
-        {notOperated(run.operates).length > 0 && (
-          <p className="text-meta leading-relaxed text-body">
-            Nothing is remitted for{" "}
-            {notOperated(run.operates)
-              .map((row) => row.label)
-              .join(", ")
-              .replace(/, ([^,]*)$/, " or $1")}
-            . This payroll did not deduct{" "}
-            {notOperated(run.operates).length === 1 ? "it" : "them"}, so there
-            is no schedule to file.
-          </p>
         )}
         <div className="mt-1 border-t border-line pt-3">
           <TotalRow

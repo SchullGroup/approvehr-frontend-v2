@@ -93,6 +93,7 @@ const DEMO_ROW: PayrollSettingsRow = {
      switch had the Bonus column on its payroll run, so this is what they
      already had. See `PayrollSettings.bonusEnabled`. */
   bonusEnabled: true,
+  walletPayoutEnabled: true,
   netSwingThreshold: "0.25",
   requireBankAccount: true,
   requirePensionPin: true,
