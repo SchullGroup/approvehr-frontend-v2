@@ -127,6 +127,7 @@ describe("the top level", () => {
       "My approvals",
       "Assistant",
       "Projects",
+      "My tasks",
       "Wellness",
       "Core HR",
       "Payroll",
@@ -162,6 +163,7 @@ describe("the top level", () => {
       "My approvals",
       "Assistant",
       "Projects",
+      "My tasks",
       "Wellness",
     ]);
     /* A row that opens is a button and is never also a link. */

@@ -1,4 +1,4 @@
-import type { ApiGoal } from "@/lib/api/performance";
+import { readCount, type ApiGoal } from "@/lib/api/performance";
 import type { DirectoryPerson } from "@/lib/types";
 
 /**
@@ -37,6 +37,12 @@ export type GoalFacts = {
   canShare: boolean;
   canLogTasks: boolean;
   noPeriod: boolean;
+  /**
+   * How many of its measures have been read, or null when that is not worth
+   * saying (see `readCount`). With none read, `progress` is the 0 the objective
+   * was made with and not a result, and no screen may draw it as one.
+   */
+  reads: { read: number; of: number } | null;
 };
 
 /**
@@ -58,6 +64,7 @@ export function goalFacts(goal: ApiGoal, actingId: string | null): GoalFacts {
        belongs to no period, because one agreed for no period cannot be agreed
        before it. */
     noPeriod: goal.reviewCycleId === null && goal.dueQuarter === null,
+    reads: readCount(goal.keyResults),
   };
 }
 

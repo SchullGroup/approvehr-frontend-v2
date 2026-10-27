@@ -72,8 +72,8 @@ import {
 
 type View =
   | "overview"
-  | "overtime"
   | "days"
+  | "overtime"
   | "loan"
   | "bonus"
   | "paye"
@@ -255,6 +255,15 @@ export function AdjustDrawer({
   const typedLines =
     typedDeduction !== undefined && typedDeduction.state !== "none";
   const firstName = person.name.split(" ")[0] ?? person.name;
+  /* Somebody paid by the day is paid by the calendar day, so the month they
+     are counted against is the month's own length (31 in October), not the
+     company's working month. Once days are typed the payslip carries the
+     divisor the API used. */
+  const daysWorked = person.daysWorked ?? null;
+  const workingDays =
+    daysWorked !== null
+      ? (person.workingDays ?? daysInLabel(periodLabel))
+      : daysInLabel(periodLabel);
 
   const canEditOvertime =
     editable && (overtimePolicy.policy.enabled || manualOvertime);
@@ -263,8 +272,8 @@ export function AdjustDrawer({
 
   const title: Record<View, string> = {
     overview: person.name,
-    overtime: "Overtime",
     days: "Days worked",
+    overtime: "Overtime",
     loan: "Staff loan",
     bonus: "Bonus",
     paye: "PAYE",
@@ -361,35 +370,28 @@ export function AdjustDrawer({
               editColumn={editable}
               label="Gross pay"
               value={formatKobo(person.grossKobo)}
-              {...(person.unpaidDays > 0
+              {...(daysWorked !== null
                 ? {
-                    note: `After ${person.unpaidDays} unpaid ${
-                      person.unpaidDays === 1 ? "day" : "days"
-                    }`,
+                    note: `Paid for ${daysWorked} of ${workingDays} days`,
                   }
-                : {})}
+                : person.unpaidDays > 0
+                  ? {
+                      note: `After ${person.unpaidDays} unpaid ${
+                        person.unpaidDays === 1 ? "day" : "days"
+                      }`,
+                    }
+                  : { note: "The whole month" })}
+              marked={daysWorked !== null}
+              edit={
+                editable
+                  ? {
+                      label: `Pay ${person.name} by days worked`,
+                      disabled: refreshing,
+                      onClick: () => go("days"),
+                    }
+                  : undefined
+              }
             />
-            {editable && (
-              <Line
-                editColumn={editable}
-                label="Days worked"
-                note={
-                  person.daysWorked == null
-                    ? "Paid the whole month"
-                    : `Out of ${String(person.workingDays ?? "")} days in the month`
-                }
-                value={
-                  person.daysWorked == null ? "—" : String(person.daysWorked)
-                }
-                marked={person.daysWorked != null}
-                indent
-                edit={{
-                  label: `Set days worked for ${person.name}`,
-                  disabled: refreshing,
-                  onClick: () => go("days"),
-                }}
-              />
-            )}
             {showOvertime && (
               <Line
                 editColumn={editable}
@@ -602,9 +604,10 @@ export function AdjustDrawer({
       {view === "days" && (
         <DaysForm
           name={person.name}
-          daysInMonth={daysInLabel(periodLabel)}
+          periodLabel={periodLabel}
           monthlyKobo={monthlyOf(person, employees)}
-          currentDays={person.daysWorked ?? null}
+          workingDays={workingDays}
+          currentDays={daysWorked}
           saving={busy}
           error={error}
           onBack={() => go("overview")}

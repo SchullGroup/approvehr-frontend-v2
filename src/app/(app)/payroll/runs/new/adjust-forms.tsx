@@ -7,7 +7,7 @@ import { BackToPayslip, FormFooter, TOUCH } from "./drawer-parts";
 import { nairaToKobo } from "./review-model";
 
 /**
- * The two small forms the adjust drawer opens: hours, and an amount.
+ * The small forms the adjust drawer opens: hours, days worked, and an amount.
  *
  * Both are the inline editors the table used to carry in its cells, with the
  * same validation and the same working shown, given room. What they replace sat
@@ -183,20 +183,21 @@ export function HoursForm({
   );
 }
 
-/* ------------------------------------------------------------ days worked */
+/* ------------------------------------------------------------- days worked */
 
 /**
- * Pays one person for the days they worked this month rather than all of it.
+ * Paying somebody for the days they worked rather than the whole month.
  *
- * A joiner part-way through, someone back from long leave. A whole number of
- * days, counted against the calendar month, so ten days in October is ten
- * thirty-firsts of their pay. The API does the arithmetic; the line below the
- * field only restates it from the daily rate when the salary is visible.
+ * For a person on long leave who worked five days of a thirty-one-day month. The daily rate
+ * is their monthly pay over the working month, shown before anything is typed so
+ * the arithmetic is visible; the server does the proration, and if the preview
+ * and the payslip ever disagree the payslip is right.
  */
 export function DaysForm({
   name,
-  daysInMonth,
+  periodLabel,
   monthlyKobo,
+  workingDays,
   currentDays,
   saving,
   error,
@@ -205,11 +206,12 @@ export function DaysForm({
   onBack,
 }: {
   name: string;
-  /** The month the days are counted against. */
-  daysInMonth: number;
-  /** Their contract per month, in kobo; 0 when the directory withholds it. */
+  periodLabel: string;
+  /** Contractual monthly pay. Zero when this viewer may not see it. */
   monthlyKobo: number;
-  /** Days already entered for this run, or null. */
+  /** The working month the contract is divided by. */
+  workingDays: number;
+  /** Days already entered by hand. Null when they are paid the whole month. */
   currentDays: number | null;
   saving: boolean;
   error: string | null;
@@ -221,16 +223,15 @@ export function DaysForm({
     currentDays === null ? "" : String(currentDays),
   );
   const parsed = Number(text);
-  const valid =
-    text.trim() !== "" &&
-    Number.isInteger(parsed) &&
-    parsed >= 0 &&
-    parsed <= daysInMonth;
-  const dailyKobo = monthlyKobo > 0 ? Math.round(monthlyKobo / daysInMonth) : 0;
+  const whole = text.trim() !== "" && Number.isInteger(parsed) && parsed >= 0;
+  const tooMany = whole && parsed > workingDays;
+  const valid = whole && !tooMany;
+  /* Same rule as an hour's value: zero monthly pay means "not shown to you",
+     never "worth nothing". */
+  const priced = monthlyKobo > 0;
+  const dailyKobo = Math.round(monthlyKobo / Math.max(1, workingDays));
   const amount =
-    valid && dailyKobo > 0
-      ? Math.round((monthlyKobo * parsed) / daysInMonth)
-      : null;
+    valid && priced ? Math.round((monthlyKobo * parsed) / workingDays) : null;
 
   return (
     <form
@@ -244,18 +245,45 @@ export function DaysForm({
 
       <div className="flex flex-col gap-4">
         <p className="text-body-sm leading-relaxed text-body">
-          Enter how many days {name} worked this month. Their pay is the monthly
-          contract divided by the {String(daysInMonth)} days in the month, times
-          the days worked. Allowances are prorated with it.
+          Pay {name} for the days they worked in {periodLabel} instead of the
+          whole month. Gross is their daily rate times the days, and PAYE,
+          pension and net are worked out again from that. This is for{" "}
+          {periodLabel} only; next month starts from the full month again.
         </p>
 
         <ServerRefusal message={error} />
 
-        <Field label={`Days worked (out of ${String(daysInMonth)})`} required>
+        <p role="status" className="tabular text-body-sm text-ink">
+          {priced
+            ? `Daily rate: ${formatKobo(monthlyKobo)} ÷ ${String(workingDays)} days in the month = ${formatKobo(dailyKobo)} a day.`
+            : `The month has ${String(workingDays)} days. Their daily rate comes from their monthly pay, which is not shown to you here.`}
+        </p>
+
+        {currentDays !== null && (
+          <p className="text-body-sm text-ink">
+            Entered by hand now:{" "}
+            <span className="tabular font-medium">
+              {currentDays} of {workingDays} days
+            </span>
+            .
+          </p>
+        )}
+
+        <Field
+          label="Days worked"
+          required
+          {...(text.trim() !== "" && !whole
+            ? { error: "Whole days only." }
+            : tooMany
+              ? {
+                  error: `The month has ${String(workingDays)} days.`,
+                }
+              : {})}
+        >
           <Input
             autoFocus
             inputMode="numeric"
-            placeholder="e.g. 10"
+            placeholder={`0 to ${String(workingDays)}`}
             value={text}
             disabled={saving}
             className="max-sm:h-11"
@@ -263,16 +291,11 @@ export function DaysForm({
           />
         </Field>
 
-        <p
-          role="status"
-          className="tabular text-body-sm leading-relaxed text-muted"
-        >
-          {dailyKobo === 0
-            ? "The payroll works out the daily rate from their monthly pay when you save."
-            : amount === null
-              ? `A day is worth ${formatKobo(dailyKobo)}.`
-              : `${formatKobo(dailyKobo)} × ${text} days ≈ ${formatKobo(amount)} gross`}
-        </p>
+        {amount !== null && (
+          <p role="status" className="tabular text-body-sm text-muted">
+            {formatKobo(dailyKobo)} × {text} days = {formatKobo(amount)} gross.
+          </p>
+        )}
       </div>
 
       <FormFooter
@@ -283,10 +306,10 @@ export function DaysForm({
               variant="ghost"
               size="sm"
               disabled={saving}
-              className={`-ml-2 text-danger-text hover:bg-danger-soft ${TOUCH}`}
+              className={`-ml-2 ${TOUCH}`}
               onClick={onRemove}
             >
-              Pay the whole month
+              Undo: pay the whole month
             </Button>
           ) : undefined
         }
@@ -307,7 +330,7 @@ export function DaysForm({
           loading={saving}
           disabled={!valid || saving}
         >
-          Save days
+          {amount === null ? "Pay by days worked" : `Pay ${formatKobo(amount)}`}
         </Button>
       </FormFooter>
     </form>

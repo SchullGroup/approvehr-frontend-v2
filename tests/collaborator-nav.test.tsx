@@ -58,7 +58,12 @@ const NOTHING = new Set<PermissionKey>([]);
 const facts = (collaborator: boolean | undefined): NavFacts => ({
   assistantWired: true,
   earlyPay: true,
-  rows: { "one-on-ones": true, signatures: true, interviews: true },
+  rows: {
+    "one-on-ones": true,
+    signatures: true,
+    interviews: true,
+    "team-tasks": false,
+  },
   ...(collaborator === undefined ? {} : { collaborator }),
 });
 
