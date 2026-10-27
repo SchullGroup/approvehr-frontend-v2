@@ -47,6 +47,7 @@ import {
   bonusOn,
   deductionLabels,
   deductionTotal,
+  loanTotal,
   visiblePayslips,
   warningsByPerson,
   type AdjustmentKind,
@@ -192,6 +193,7 @@ export function ReviewStep({
     paySettings.bonus.enabled ||
     payslips.some((slip) => (bonusOn(slip)?.amountKobo ?? 0) > 0);
   const anyUnpaid = payslips.some((slip) => slip.unpaidDays > 0);
+  const showLoans = payslips.some((slip) => loanTotal(slip) > 0);
 
   /* ---------------------------------------------------------- the toolbar */
 
@@ -427,6 +429,7 @@ export function ReviewStep({
                   onSort={onSort}
                   showOvertime={showOvertime}
                   showBonus={showBonus}
+                  showLoans={showLoans}
                   anyUnpaid={anyUnpaid}
                 />
                 <TBody>
@@ -436,6 +439,7 @@ export function ReviewStep({
                       slip={slip}
                       showOvertime={showOvertime}
                       showBonus={showBonus}
+                      showLoans={showLoans}
                       anyUnpaid={anyUnpaid}
                       {...rowProps}
                     />
@@ -451,6 +455,7 @@ export function ReviewStep({
                   slip={slip}
                   showOvertime={showOvertime}
                   showBonus={showBonus}
+                  showLoans={showLoans}
                   anyUnpaid={anyUnpaid}
                   {...rowProps}
                 />
@@ -539,12 +544,14 @@ function ReviewHead({
   onSort,
   showOvertime,
   showBonus,
+  showLoans,
   anyUnpaid,
 }: {
   view: ReviewView;
   onSort: (column: string, startDescending?: boolean) => void;
   showOvertime: boolean;
   showBonus: boolean;
+  showLoans: boolean;
   anyUnpaid: boolean;
 }) {
   const active = view.sort?.column;
@@ -635,6 +642,18 @@ function ReviewHead({
         >
           Deductions
         </SortableTH>
+        {showLoans && (
+          <SortableTH
+            column="loans"
+            active={active}
+            order={order}
+            onSort={onSort}
+            align="right"
+            startDescending
+          >
+            Loans
+          </SortableTH>
+        )}
         <SortableTH
           column="net"
           active={active}
@@ -671,11 +690,13 @@ function PayslipRow({
   onOpen,
   showOvertime,
   showBonus,
+  showLoans,
   anyUnpaid,
 }: RowShared & {
   slip: Payslip;
   showOvertime: boolean;
   showBonus: boolean;
+  showLoans: boolean;
   anyUnpaid: boolean;
 }) {
   const facts = factsOf(slip, typedDeductions);
@@ -737,6 +758,11 @@ function PayslipRow({
           </span>
         )}
       </TD>
+      {showLoans && (
+        <TD align="right" className="tabular text-body-sm">
+          <Figure kobo={facts.loans} />
+        </TD>
+      )}
       {/* The figure a reader came here to check. Heavier and larger than anything
           beside it, on its own tint, so the eye lands on it before the rest. */}
       <TD
@@ -775,11 +801,13 @@ function PayslipCard({
   onOpen,
   showOvertime,
   showBonus,
+  showLoans,
   anyUnpaid,
 }: RowShared & {
   slip: Payslip;
   showOvertime: boolean;
   showBonus: boolean;
+  showLoans: boolean;
   anyUnpaid: boolean;
 }) {
   const facts = factsOf(slip, typedDeductions);
@@ -826,6 +854,11 @@ function PayslipCard({
                 facts.adjusted.includes("deductions")
               }
             />
+          </CardFact>
+        )}
+        {showLoans && facts.loans > 0 && (
+          <CardFact label="Loans">
+            <Figure kobo={facts.loans} />
           </CardFact>
         )}
         {showOvertime && facts.overtime > 0 && (
@@ -889,6 +922,7 @@ function factsOf(slip: Payslip, typedDeductions: LineSummaryByEmployee | null) {
     bonus: bonusOn(slip)?.amountKobo ?? 0,
     payeOperated: wasDeducted(slip.operates, "paye"),
     deductions: deductionTotal(slip),
+    loans: loanTotal(slip),
     deductionLabels: deductionLabels(slip),
   };
 }

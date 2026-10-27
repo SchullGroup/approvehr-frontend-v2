@@ -2,12 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Pencil } from "lucide-react";
-import {
-  AttentionMark,
-  Button,
-  ButtonLink,
-  Drawer,
-} from "@/components/ui";
+import { AttentionMark, Button, ButtonLink, Drawer } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -244,6 +239,14 @@ export function AdjustDrawer({
 
   const employeeId = person.employeeId;
   const overridden = person.overriddenDeductions ?? [];
+  /* Loan instalments are their own lines above; what is left is everything else. */
+  const loanKobo = person.lines
+    .filter(
+      (line) =>
+        line.kind === "DEDUCTION" && line.label.startsWith("Staff loan"),
+    )
+    .reduce((sum, line) => sum + line.amountKobo, 0);
+  const otherKobo = Math.max(0, person.otherDeductionsKobo - loanKobo);
   const overtimeKobo = overtimeOn(person);
   const manualOvertime = hasManualOvertime(person);
   const bonus = bonusOn(person);
@@ -505,40 +508,36 @@ export function AdjustDrawer({
                 }
               />
             )}
-            {(loansOnRun?.find((row) => row.employeeId === employeeId)?.loans ?? []).map(
-              (loan) => (
-                <Line
-                  key={loan.loanId}
-                  editColumn={editable}
-                  label="Staff loan"
-                  note={`Owed ${formatKobo(loan.balanceBeforeKobo)}, ${formatKobo(loan.balanceAfterKobo)} after this month · of ${formatKobo(loan.accumulatedKobo)} borrowed`}
-                  value={minus(loan.deductionKobo)}
-                  marked={loan.overridden === true}
-                  indent
-                  edit={
-                    editable
-                      ? {
-                          label: `Change this month's loan deduction for ${person.name}`,
-                          disabled: refreshing,
-                          onClick: () => {
-                            setLoanId(loan.loanId);
-                            go("loan");
-                          },
-                        }
-                      : undefined
-                  }
-                />
-              ),
-            )}
+            {(
+              loansOnRun?.find((row) => row.employeeId === employeeId)?.loans ??
+              []
+            ).map((loan) => (
+              <Line
+                key={loan.loanId}
+                editColumn={editable}
+                label="Loan"
+                note={`Borrowed ${formatKobo(loan.accumulatedKobo)} · owed ${formatKobo(loan.balanceBeforeKobo)} before this month · ${formatKobo(loan.balanceAfterKobo)} left after`}
+                value={minus(loan.deductionKobo)}
+                marked={loan.overridden === true}
+                edit={
+                  editable
+                    ? {
+                        label: `Change this month's loan deduction for ${person.name}`,
+                        disabled: refreshing,
+                        onClick: () => {
+                          setLoanId(loan.loanId);
+                          go("loan");
+                        },
+                      }
+                    : undefined
+                }
+              />
+            ))}
             <Line
               editColumn={editable}
               label="Other deductions"
-              note="Loan instalments, expense claims and anything typed here"
-              value={
-                person.otherDeductionsKobo > 0
-                  ? minus(person.otherDeductionsKobo)
-                  : "—"
-              }
+              note="Expense claims and anything typed here"
+              value={otherKobo > 0 ? minus(otherKobo) : "—"}
               marked={typedLines}
               edit={
                 editable
@@ -568,37 +567,38 @@ export function AdjustDrawer({
         </div>
       )}
 
-      {view === "loan" && (() => {
-        const loan = loansOnRun
-          ?.find((row) => row.employeeId === employeeId)
-          ?.loans.find((l) => l.loanId === loanId);
-        if (!loan) return null;
-        return (
-          <LoanForm
-            name={person.name}
-            scheduledKobo={loan.scheduledKobo ?? loan.deductionKobo}
-            balanceBeforeKobo={loan.balanceBeforeKobo}
-            currentKobo={loan.deductionKobo}
-            overridden={loan.overridden === true}
-            saving={busy}
-            error={error}
-            onBack={() => go("overview")}
-            onSave={(amountKobo) =>
-              void perform(() =>
-                payrollApi.setLoanDeduction(runId, {
-                  loanId: loan.loanId,
-                  amountKobo,
-                }),
-              )
-            }
-            onReset={() =>
-              void perform(() =>
-                payrollApi.clearLoanDeduction(runId, loan.loanId),
-              )
-            }
-          />
-        );
-      })()}
+      {view === "loan" &&
+        (() => {
+          const loan = loansOnRun
+            ?.find((row) => row.employeeId === employeeId)
+            ?.loans.find((l) => l.loanId === loanId);
+          if (!loan) return null;
+          return (
+            <LoanForm
+              name={person.name}
+              scheduledKobo={loan.scheduledKobo ?? loan.deductionKobo}
+              balanceBeforeKobo={loan.balanceBeforeKobo}
+              currentKobo={loan.deductionKobo}
+              overridden={loan.overridden === true}
+              saving={busy}
+              error={error}
+              onBack={() => go("overview")}
+              onSave={(amountKobo) =>
+                void perform(() =>
+                  payrollApi.setLoanDeduction(runId, {
+                    loanId: loan.loanId,
+                    amountKobo,
+                  }),
+                )
+              }
+              onReset={() =>
+                void perform(() =>
+                  payrollApi.clearLoanDeduction(runId, loan.loanId),
+                )
+              }
+            />
+          );
+        })()}
 
       {view === "days" && (
         <DaysForm
