@@ -217,7 +217,9 @@ export function DaysForm({
   onRemove: () => void;
   onBack: () => void;
 }) {
-  const [text, setText] = useState(currentDays === null ? "" : String(currentDays));
+  const [text, setText] = useState(
+    currentDays === null ? "" : String(currentDays),
+  );
   const parsed = Number(text);
   const valid =
     text.trim() !== "" &&
@@ -243,8 +245,8 @@ export function DaysForm({
       <div className="flex flex-col gap-4">
         <p className="text-body-sm leading-relaxed text-body">
           Enter how many days {name} worked this month. Their pay is the monthly
-          contract divided by the {String(daysInMonth)} days in the month,
-          times the days worked. Allowances are prorated with it.
+          contract divided by the {String(daysInMonth)} days in the month, times
+          the days worked. Allowances are prorated with it.
         </p>
 
         <ServerRefusal message={error} />
@@ -370,8 +372,8 @@ export function LoanForm({
         <p className="text-body-sm leading-relaxed text-body">
           How much of {name}&rsquo;s loan to take this month. The schedule says{" "}
           {formatKobo(scheduledKobo)}; they owe {formatKobo(balanceBeforeKobo)}.
-          Taking more shortens the loan. Taking less leaves the rest owing.
-          Only this month changes.
+          Taking more shortens the loan. Taking less leaves the rest owing. Only
+          this month changes.
         </p>
 
         <ServerRefusal message={error} />

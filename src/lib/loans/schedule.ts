@@ -213,7 +213,8 @@ export function priceLoan(input: {
   /* An amount that cannot reach a kobo a month is a term to shorten, not a
      schedule to draw. The API says the same thing with a 422. */
   if (Math.floor(principalKobo / termMonths) === 0) return null;
-  if (fixedInstalmentKobo !== undefined && fixedInstalmentKobo <= 0) return null;
+  if (fixedInstalmentKobo !== undefined && fixedInstalmentKobo <= 0)
+    return null;
   try {
     return buildSchedule({
       principalKobo,
