@@ -42,7 +42,6 @@ import { ScheduledNote } from "./scheduled-note";
 import type { ScheduledAllowancesState } from "@/lib/store/scheduled-allowances";
 import { TOUCH } from "./drawer-parts";
 import {
-  ADJUSTMENT_LABEL,
   adjustmentsOf,
   bonusOn,
   deductionLabels,
@@ -50,7 +49,6 @@ import {
   loanTotal,
   visiblePayslips,
   warningsByPerson,
-  type AdjustmentKind,
   type ReviewFilter,
   type ReviewView,
   type SortColumn,
@@ -711,7 +709,7 @@ function PayslipRow({
         subtitle={
           <>
             {slip.employeeNo}
-            <Flags adjusted={facts.adjusted} warnings={mine} />
+            <Flags warnings={mine} />
           </>
         }
       />
@@ -879,7 +877,7 @@ function PayslipCard({
       </dl>
 
       <div className="flex items-center justify-between gap-3">
-        <Flags adjusted={facts.adjusted} warnings={mine} bare />
+        <Flags warnings={mine} bare />
         <div className="ml-auto">
           <OpenButton
             slip={slip}
@@ -971,16 +969,14 @@ function Figure({
  * A figure that stops the run still gets the ochre mark; the rest are grey.
  */
 function Flags({
-  adjusted,
   warnings,
   bare = false,
 }: {
-  adjusted: readonly AdjustmentKind[];
   warnings: readonly RunException[];
   /** No margin above it: it is not sitting under a name. */
   bare?: boolean;
 }) {
-  if (adjusted.length === 0 && warnings.length === 0) return null;
+  if (warnings.length === 0) return null;
   const toFix = warnings.filter((w) => w.severity === "BLOCKER").length;
   return (
     <span
@@ -989,18 +985,6 @@ function Flags({
         !bare && "mt-1",
       )}
     >
-      {adjusted.length > 0 && (
-        <span
-          className="inline-flex items-center gap-1 text-[11px] leading-none text-muted"
-          title={adjusted.map((kind) => ADJUSTMENT_LABEL[kind]).join(", ")}
-        >
-          <Pencil aria-hidden="true" className="size-2.5" />
-          adjusted
-          <span className="sr-only">
-            : {adjusted.map((kind) => ADJUSTMENT_LABEL[kind]).join(", ")}
-          </span>
-        </span>
-      )}
       <AttentionMark
         tone={toFix > 0 ? "attention" : "info"}
         text={warnings.map((warning) => warning.message)}

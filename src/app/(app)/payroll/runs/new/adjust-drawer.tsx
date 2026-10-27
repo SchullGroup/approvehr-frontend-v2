@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pencil } from "lucide-react";
 import { AttentionMark, Button, ButtonLink, Drawer } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { ApiError } from "@/lib/api/client";
@@ -831,7 +830,6 @@ function Line({
   label,
   note,
   value,
-  marked = false,
   indent = false,
   editColumn,
   edit,
@@ -865,12 +863,6 @@ function Line({
       <div className="min-w-0">
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body-sm text-ink">
           {label}
-          {marked && (
-            <span className="inline-flex items-center gap-1 text-[11px] leading-none text-muted">
-              <Pencil aria-hidden="true" className="size-2.5" />
-              entered by hand
-            </span>
-          )}
         </p>
         {note && (
           <p className="mt-0.5 text-meta leading-snug text-muted">{note}</p>

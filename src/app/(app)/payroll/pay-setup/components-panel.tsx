@@ -38,6 +38,7 @@ import {
   LoadState,
 } from "@/components/ui";
 import { LoadFailure } from "@/components/portal/load-failure";
+import { ComponentPeople } from "./component-people";
 import { AssignComponentToManyDialog } from "./assign-to-many-dialog";
 import { ScheduleFields, useScheduleForm } from "./schedule-fields";
 import { type RowActionItem } from "@/components/ui";
@@ -882,6 +883,15 @@ function AssigneesDrawer({
                 </Button>
               )}
             </div>
+          )}
+
+          {component && (
+            <ComponentPeople
+              key={component.id}
+              componentId={component.id}
+              canEdit={editable}
+              onChanged={reload}
+            />
           )}
 
           {error && <LoadFailure subject="who is on it" error={error} />}
