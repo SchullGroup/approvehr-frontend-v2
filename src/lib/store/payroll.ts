@@ -36,6 +36,7 @@ import {
   type AdjustmentUpload,
   type SheetOutcome,
   type MonthlyPayChange,
+  type DaysWorkedChange,
   type OvertimeOverrideChange,
   type OvertimeOverrideKind,
   type TaxOverrideChange,
@@ -1715,6 +1716,35 @@ export function usePayrollActions() {
     [isConnected],
   );
 
+  const setDaysWorked = useCallback(
+    async (
+      runId: string,
+      input: { employeeId: string; days: number; reason?: string },
+    ): Promise<DaysWorkedChange> => {
+      if (isConnected) return payrollApi.setDaysWorked(runId, input);
+      throw new ApiError(
+        0,
+        "offline",
+        "Paying by days worked needs the API, which prorates the contract over " +
+          "the month. The demo has no engine to do it, so it will not pretend it has.",
+      );
+    },
+    [isConnected],
+  );
+
+  const clearDaysWorked = useCallback(
+    async (runId: string, employeeId: string): Promise<PreparedRun> => {
+      if (isConnected) return payrollApi.clearDaysWorked(runId, employeeId);
+      throw new ApiError(
+        0,
+        "offline",
+        "Paying by days worked needs the API, so there is nothing here for the " +
+          "demo to clear.",
+      );
+    },
+    [isConnected],
+  );
+
   const clearOvertimeOverride = useCallback(
     async (runId: string, employeeId: string): Promise<PreparedRun> => {
       if (isConnected)
@@ -1996,6 +2026,8 @@ export function usePayrollActions() {
     clearDeductionOverride,
     setOvertimeOverride,
     clearOvertimeOverride,
+    setDaysWorked,
+    clearDaysWorked,
     setBonus,
     clearBonus,
     adjustmentLines,

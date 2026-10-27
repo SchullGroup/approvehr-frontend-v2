@@ -186,6 +186,7 @@ export function ApplyLoanModal({
   const [target, setTarget] = useState<string>(fixedId ?? "");
   const [amount, setAmount] = useState("");
   const [repaidText, setRepaidText] = useState("");
+  const [monthlyText, setMonthlyText] = useState("");
   const [term, setTerm] = useState("6");
   const [reason, setReason] = useState("");
   const [startsIn, setStartsIn] = useState<"0" | "1" | "2">("1");
@@ -241,7 +242,20 @@ export function ApplyLoanModal({
      (it is the "accumulated loan" the payslip shows); only what is left is
      scheduled. */
   const alreadyRepaid = parseNaira(repaidText) ?? 0;
-  const months = parseWhole(term);
+  /* A loan that already exists is usually known by what comes off each month,
+     not by a number of months. Given that, the term follows from it. */
+  const monthlyNaira = parseNaira(monthlyText);
+  const monthlyKobo =
+    monthlyNaira !== null && monthlyNaira > 0 && !charging
+      ? kobo(monthlyNaira)
+      : null;
+  const months =
+    monthlyKobo !== null && principal !== null && alreadyRepaid < principal
+      ? Math.max(
+          1,
+          Math.ceil((kobo(principal) - kobo(alreadyRepaid)) / monthlyKobo),
+        )
+      : parseWhole(term);
   const interestRate = charging ? (parseNaira(rate) ?? 0) / 100 : 0;
   const startPeriod = addMonths(today, Number(startsIn));
 
@@ -253,9 +267,12 @@ export function ApplyLoanModal({
             termMonths: months,
             interestRate,
             startPeriod,
+            ...(monthlyKobo !== null
+              ? { fixedInstalmentKobo: monthlyKobo }
+              : {}),
           })
         : null,
-    [principal, alreadyRepaid, months, interestRate, startPeriod],
+    [principal, alreadyRepaid, months, interestRate, startPeriod, monthlyKobo],
   );
 
   /**
@@ -308,8 +325,10 @@ export function ApplyLoanModal({
           ? { employeeId: applicantId }
           : {}),
         principalKobo: kobo(principal),
-        ...(alreadyRepaid > 0 ? { alreadyRepaidKobo: kobo(alreadyRepaid) } : {}),
-        termMonths: months,
+        ...(alreadyRepaid > 0
+          ? { alreadyRepaidKobo: kobo(alreadyRepaid) }
+          : {}),
+        ...(monthlyKobo !== null ? { monthlyKobo } : { termMonths: months }),
         ...(interestRate > 0 ? { interestRate } : {}),
         ...(reason.trim() ? { reason: reason.trim() } : {}),
         startPeriod,
@@ -499,11 +518,25 @@ export function ApplyLoanModal({
                 items={[
                   ...(alreadyRepaid > 0
                     ? [
-                        { term: "Originally lent", value: money(kobo(principal ?? 0)) },
-                        { term: "Already repaid", value: money(kobo(alreadyRepaid)) },
-                        { term: "Still to repay", value: money(priced.principalKobo) },
+                        {
+                          term: "Originally lent",
+                          value: money(kobo(principal ?? 0)),
+                        },
+                        {
+                          term: "Already repaid",
+                          value: money(kobo(alreadyRepaid)),
+                        },
+                        {
+                          term: "Still to repay",
+                          value: money(priced.principalKobo),
+                        },
                       ]
-                    : [{ term: "Borrowing", value: money(priced.principalKobo) }]),
+                    : [
+                        {
+                          term: "Borrowing",
+                          value: money(priced.principalKobo),
+                        },
+                      ]),
                   {
                     term: "Interest",
                     value:
@@ -599,6 +632,20 @@ export function ApplyLoanModal({
               </Field>
 
               <Field
+                label="Monthly deduction"
+                error={failure?.messageFor("monthlyKobo")}
+                help="Optional. If you know what is taken each month, type it here instead of the number of months. The last month takes whatever is left."
+              >
+                <Input
+                  value={monthlyText}
+                  onChange={(event) => setMonthlyText(event.target.value)}
+                  inputMode="decimal"
+                  placeholder="e.g. 50,000"
+                  className="max-w-48"
+                />
+              </Field>
+
+              <Field
                 label="Already repaid"
                 error={failure?.messageFor("alreadyRepaidKobo")}
                 help="Only for a loan that already exists on paper. Enter the full amount lent above, and what has been paid back so far here. The payslip keeps showing the original amount, with the balance coming down each month."
@@ -645,7 +692,8 @@ export function ApplyLoanModal({
               className="max-w-full self-start max-sm:h-auto max-sm:whitespace-normal max-sm:py-1.5 max-sm:text-left"
               onClick={() => setShowMore(true)}
             >
-              Change the start month, add interest or record what is already repaid
+              Change the start month, add interest or record what is already
+              repaid
             </Button>
           )}
         </div>
