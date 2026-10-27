@@ -19,7 +19,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
-import { excludedNote, formatKobo, paidPeopleLabel } from "@/lib/api/payroll";
+import { formatKobo, paidPeopleLabel } from "@/lib/api/payroll";
 import type { PayrollRunDetail } from "@/lib/api/payroll";
 import { availableFigure } from "@/lib/api/payments";
 import type { PaymentDiscrepancy } from "@/lib/api/payments";
@@ -352,7 +352,8 @@ export function PayPanel({
           <p className="text-body-sm text-body">
             Recorded as paid by your bank: {formatKobo(run.netKobo)} to{" "}
             {paidPeopleLabel(run)}, against{" "}
-            <span className="font-medium text-ink">{batch.reference}</span>. {walletPayout
+            <span className="font-medium text-ink">{batch.reference}</span>.{" "}
+            {walletPayout
               ? "The wallet has come down by that amount."
               : "Paid from your bank account, not the wallet."}
           </p>
@@ -411,17 +412,6 @@ export function PayPanel({
                 wallet needs a provider nobody has wired here; the file is the
                 path that works, and it is not a workaround — it is how most
                 Nigerian companies pay staff today. */}
-            {/* Said beside the amount, never folded into it.
-                ---------------------------------------------------------
-                `headcountLabel` returns "9 of 10 — 1 excluded", which is
-                right in a `Stat` where the label carries the noun and wrong
-                inside a sentence: "Pay ₦8,497,077.00 to 9 of 10 — 1 excluded"
-                reads as though the money were being split with somebody who
-                is not being paid. The button names who is paid; this names
-                who is not. */}
-            {excludedNote(run) && (
-              <p className="text-meta text-muted">{excludedNote(run)}</p>
-            )}
             {/* Shown unless the API says a payout could actually run. Absent
                 and false are treated the same on purpose: an older API does not
                 send the field, and in that case the bank file is still the path

@@ -14,14 +14,12 @@ import {
   ArrowLeft,
   ArrowRight,
   Ban,
-  CalendarClock,
   Check,
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
   RefreshCw,
 } from "lucide-react";
-import { cn } from "@/lib/cn";
 import {
   Button,
   Callout,
@@ -95,10 +93,8 @@ import {
   usePayrollRun,
   usePayrollRuns,
 } from "@/lib/store/payroll";
-import { useOrgTimezone } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
 import { TODAY } from "@/lib/today";
-import { todayIn } from "@/lib/time";
 
 /**
  * Running a payroll period.
@@ -163,77 +159,11 @@ function shiftPeriod(period: string, months: number): string {
   return moved.toISOString().slice(0, 7);
 }
 
-/**
- * Where a period sits relative to today, which is the only thing that makes
- * one month different from another to prepare.
- *
- * A **finished** month is the ordinary case. A month **still running** can be
- * prepared — a company paying on the 25th has no choice — and the figures
- * cover it as worked so far; the API raises `period_not_finished` saying so,
- * and `unpaidDaysFor` stops counting at today so nobody is docked for a day
- * that has not happened. A month that has **not started** is a payment in
- * advance, which is ordinary for a December run made before the holidays.
- *
- * None of the three is refused. The point is that somebody moving off the
- * obvious month is told what they have moved to, before they calculate.
- *
- * ## Two rules about where the numbers come from
- *
- * **The real clock, not `TODAY`.** `TODAY` is pinned to the demo dataset's day
- * so the seed stays coherent; whether a month has ended is not a question
- * about the seed. The real clock is the *company's*, via `timeZone` — a
- * payroll period is a calendar concept the whole company shares, and reading
- * it against whichever browser happens to be open would tell two colleagues
- * in different countries two different things about the same run.
- *
- * **No day count here.** The first draft worked one out and would have read
- * "12 days to come" beside the API's own "2 days are still to come" — one
- * fact, two numbers, on adjacent surfaces, because the two were counting from
- * different clocks. `period_not_finished` carries the figure; this carries the
- * consequence. Same rule as never re-implementing a score on this side.
- */
-function periodStanding(
-  period: string,
-  timeZone: string,
-): {
-  tone: "finished" | "running" | "ahead";
-  line: string;
-} {
-  /* Reading the clock during render is safe *here* and would not be in most
-     components. This route is prerendered, and the wizard uses
-     `useSearchParams`, so its Suspense boundary renders the fallback on the
-     server and this subtree is client-only — the date never reaches
-     prerendered HTML, so there is nothing for hydration to disagree with. If
-     that boundary or that hook ever goes, this becomes a build-time date
-     baked into the page. `page.tsx` says the same thing from its end. */
-  const thisMonth = todayIn(timeZone).slice(0, 7);
-
-  if (period < thisMonth) {
-    return { tone: "finished", line: "This month is over: the usual case." };
-  }
-  if (period > thisMonth) {
-    return {
-      tone: "ahead",
-      line:
-        "This month has not started, so this pays it in advance. Everybody is " +
-        "paid a full month, and nothing worked in it is known yet.",
-    };
-  }
-  return {
-    tone: "running",
-    line:
-      "This month is still running. The figures cover it as worked so far and " +
-      "nobody is docked for a day that has not happened. Calculate again once " +
-      "it ends to pick up the rest.",
-  };
-}
-
 export function PayrollRunWizard() {
   const router = useRouter();
   const toast = useToast();
   const stepUp = useStepUp();
   const params = useSearchParams();
-  const timeZone = useOrgTimezone();
 
   /* A period in the URL means somebody came from the dashboard to look at a run
      that already exists, so the rail opens on the checks rather than on a form
@@ -256,10 +186,7 @@ export function PayrollRunWizard() {
    */
   const stepParam = params.get("step");
   const requested = STEPS.findIndex((step) => step.id === stepParam);
-  const stepper = useStepper(
-    STEPS,
-    requested >= 0 ? requested : 0,
-  );
+  const stepper = useStepper(STEPS, requested >= 0 ? requested : 0);
 
   const canPrepare = useCan("RUN_PAYROLL");
   const canApprove = useCan("APPROVE_PAYROLL");
@@ -312,8 +239,6 @@ export function PayrollRunWizard() {
 
   const moveMonth = (months: number) =>
     patch(withPayDate(shiftPeriod(period, months)));
-
-  const standing = periodStanding(period, timeZone);
 
   const [prepared, setPrepared] = useState<PreparedRun | null>(null);
   /**
@@ -903,7 +828,7 @@ export function PayrollRunWizard() {
                 title="What are you paying?"
                 description="The month decides whose contracts, new starters and exits are picked up."
               />
-              <CardBody className="grid max-w-2xl gap-5 sm:grid-cols-2">
+              <CardBody className="grid max-w-4xl gap-5 sm:grid-cols-3">
                 {/* The month was a bare `type="month"` input, which *could* already
                 reach any period and gave nobody a reason to think so — a
                 spinner most people read as a fixed value. The arrows are the
@@ -951,30 +876,10 @@ export function PayrollRunWizard() {
                     onChange={(e) => patch({ payDate: e.target.value })}
                   />
                 </Field>
-                {/* What moving off this month means, stated where the month is
-                chosen rather than after Calculate. `period_not_finished` says
-                the same thing on the exception list for the run itself — this
-                is the half somebody reads *before* spending the calculation. */}
-                <p
-                  className={cn(
-                    "text-body-sm leading-relaxed sm:col-span-2",
-                    standing.tone === "finished" ? "text-muted" : "text-body",
-                  )}
-                >
-                  {standing.tone !== "finished" && (
-                    <CalendarClock
-                      aria-hidden="true"
-                      className="mr-1.5 inline size-4 -translate-y-px text-warning-text"
-                    />
-                  )}
-                  {standing.line}
-                </p>
-
                 <Field
                   optional
                   label="Name this run"
                   help="Useful when a month has more than one."
-                  className="sm:col-span-2"
                 >
                   <Input
                     value={label}
