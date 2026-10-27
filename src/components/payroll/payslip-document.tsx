@@ -215,69 +215,13 @@ export function reliefLine(slip: Payslip): {
 }
 
 /**
- * How an overtime line came to its figure, for the person being paid it.
- *
- * "Overtime, entered by hand (6.00h at 1.5x) — ₦18,493.11" tells somebody two
- * of the three numbers in the sum and leaves out the one they would check
- * against their contract: what an hour of theirs is worth. This puts it back.
- *
- * ## This is arithmetic, not a second engine
- *
- * The hourly figure is **divided out of the amount the payslip already
- * carries**, never computed from a salary and a policy. That distinction is the
- * whole reason this is allowed to exist: `hourlyRateKobo` on the API decides
- * what an hour is worth, from the company's `OvertimeHourlyBasis` and a
- * contractual salary this document does not have and must not guess at. A
- * second implementation of that here is exactly the duplicate-engine mistake
- * this repo deleted once and paid for.
- *
- * So the sum always reconciles: it is the stored figure, factored.
- *
- * Two shapes, because the two sources label themselves differently and only one
- * of them records a multiplier:
- *
- * - `(6.00h at 1.5x)` — entered by hand. Hours, the rate, and the hourly
- *   figure the two of them imply.
- * - `(4.0h)` — off the clock. No multiplier in the label, so no multiplier is
- *   invented: what is stated is the hours and what they averaged an hour,
- *   which is a true sentence about the money either way.
- *
- * Returns null for anything that is not overtime, and for a line whose hours
- * are zero or unreadable — a working somebody cannot check is worse than none.
- */
-export function overtimeWorking(
-  label: string,
-  amountKobo: number,
-): string | null {
-  if (!label.startsWith("Overtime")) return null;
-
-  const hours = Number(/\(([\d.]+)\s*h/i.exec(label)?.[1]);
-  if (!Number.isFinite(hours) || hours <= 0) return null;
-
-  const money = (kobo: number) =>
-    `₦${(kobo / 100).toLocaleString("en-NG", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-
-  const rate = Number(/at\s+([\d.]+)x/i.exec(label)?.[1]);
-  if (Number.isFinite(rate) && rate > 0) {
-    return (
-      `${String(hours)} hours at ${money(Math.round(amountKobo / hours / rate))} ` +
-      `an hour, times ${String(rate)}`
-    );
-  }
-
-  return `${String(hours)} hours, ${money(Math.round(amountKobo / hours))} an hour`;
-}
-
-/**
- * "Entered by hand" versus off the clock is the payroll clerk's own record of
- * how a figure reached the run — not a distinction an employee reading their
- * own payslip has any reason to parse. The hours and rate are still in the
- * label, and `overtimeWorking` restates them in words directly underneath.
+ * The payslip says "Overtime" and the amount, nothing else. The hours, the
+ * multiplier and "entered by hand" are the payroll clerk's record of how the
+ * figure was reached; they stay on the run's review and in the stored line, and
+ * an employee reading their own payslip is shown the line and the money.
  */
 function displayLabel(label: string): string {
+  if (label.startsWith("Overtime")) return "Overtime";
   return label.replace(", entered by hand", "");
 }
 
@@ -411,7 +355,6 @@ export function PayslipDocument({
     ...allowances.map((line) => ({
       label: displayLabel(line.label),
       kobo: line.amountKobo,
-      note: overtimeWorking(line.label, line.amountKobo),
     })),
   ];
 
@@ -569,7 +512,6 @@ export function PayslipDocument({
                 key={`${line.label}-${i}`}
                 label={line.label}
                 kobo={line.kobo}
-                note={"note" in line ? line.note : null}
               />
             ))}
             <LineItem label="Gross pay" kobo={slip.grossKobo} total />

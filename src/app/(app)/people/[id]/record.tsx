@@ -35,6 +35,7 @@ import {
   Money,
   ProgressMeter,
   Skeleton,
+  Switch,
   Tabs,
   TBody,
   TD,
@@ -1338,6 +1339,24 @@ export function EmployeeRecord({
                 },
               ]}
             />
+
+            {/* Pension is a company-wide switch, and not everybody is in the
+                scheme. This is the exception for one person: nothing is taken
+                from them, the company adds no employer contribution, and they
+                are not chased for a pension PIN. */}
+            <Card>
+              <CardBody>
+                <Switch
+                  label="Not in the pension scheme"
+                  description="Nothing is deducted from this person for pension, the company pays no employer contribution for them, and payroll stops asking for their pension PIN. Everybody else is unchanged."
+                  checked={employee.pensionExempt === true}
+                  disabled={!canEditRecords}
+                  onChange={(event) =>
+                    void onSave({ pensionExempt: event.target.checked })
+                  }
+                />
+              </CardBody>
+            </Card>
 
             {/* What they get on top of salary belongs on their record, not on a
                 separate setup screen. The panel owns its own loading, errors
