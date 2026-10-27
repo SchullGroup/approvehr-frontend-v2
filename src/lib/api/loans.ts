@@ -186,7 +186,10 @@ export type ApplyLoanBody = {
   principalKobo: number;
   /** Repaid before this was entered here. `principalKobo` stays the original. */
   alreadyRepaidKobo?: number;
-  termMonths: number;
+  /** Either this, or `monthlyKobo`. */
+  termMonths?: number;
+  /** Take this much a month and let the term follow. Interest-free loans only. */
+  monthlyKobo?: number;
   /** Fraction, not a percentage. Defaults to 0 server-side. */
   interestRate?: number;
   reason?: string;

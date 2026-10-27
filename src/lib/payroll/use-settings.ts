@@ -166,6 +166,7 @@ function rowToSettings(row: PayrollSettingsRow): PayrollSettings {
       basis: row.nhfOnGross ? "gross" : "basic",
     },
     bonus: { enabled: row.bonusEnabled },
+    payout: { wallet: row.walletPayoutEnabled ?? true },
     exceptions: {
       netSwingThreshold: Number(row.netSwingThreshold),
       requireBankAccount: row.requireBankAccount,
@@ -208,7 +209,7 @@ export type DeductionKey = "payeEnabled" | "pensionEnabled" | "nhfEnabled";
  * `payroll-deductions.ts` warns about for PAYE, so it gets the same treatment
  * and `settingsToPatch` deliberately omits it.
  */
-export type SwitchKey = DeductionKey | "bonusEnabled";
+export type SwitchKey = DeductionKey | "bonusEnabled" | "walletPayoutEnabled";
 
 export type PayrollSettingsState = {
   settings: PayrollSettings;

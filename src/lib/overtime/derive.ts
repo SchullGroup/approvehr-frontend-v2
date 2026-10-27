@@ -93,10 +93,13 @@ export function hourlyRateKobo(
   grossMonthlyKobo: number,
   workingDaysPerMonth: number,
   hoursPerDay: number,
+  basis: OvertimeHourlyBasis = "WORKING_DAYS",
 ): number {
   const days = Math.max(1, workingDaysPerMonth);
   const hours = Math.max(1, hoursPerDay);
-  return Math.round(grossMonthlyKobo / days / hours);
+  return basis === "CALENDAR_DAYS"
+    ? Math.round((grossMonthlyKobo * 12) / 365 / hours)
+    : Math.round(grossMonthlyKobo / days / hours);
 }
 
 export function rateFor(policy: OvertimePolicy, kind: OvertimeKind): number {
@@ -213,6 +216,7 @@ export function deriveOvertime(input: DeriveInput): DerivedOvertime[] {
       gross,
       workingDaysPerMonth,
       policy.hoursPerDay,
+      policy.hourlyBasis,
     );
 
     found.push({

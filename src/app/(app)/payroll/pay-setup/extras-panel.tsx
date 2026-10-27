@@ -67,6 +67,7 @@ export function ExtrasPanel() {
 
       <OvertimePolicyFields />
       <BonusSwitch canEdit={canEdit} />
+      <WalletPayoutSwitch canEdit={canEdit} />
       <PayrollSettingsForm />
 
       <Card>
@@ -95,6 +96,61 @@ export function ExtrasPanel() {
 function Saved({ note }: { note: string | null }) {
   if (!note) return null;
   return <p className="mt-3 text-body-sm text-muted">{note}</p>;
+}
+
+function WalletPayoutSwitch({ canEdit }: { canEdit: boolean }) {
+  const { settings, loading, available, saveDeduction } = usePayrollSettings();
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  async function toggle(next: boolean) {
+    setSaving(true);
+    setFailed(null);
+    try {
+      await saveDeduction("walletPayoutEnabled", next);
+      toast.push({
+        title: next
+          ? "Payroll can be paid from the wallet"
+          : "Payroll is paid from your bank account",
+        tone: "success",
+      });
+    } catch (error) {
+      setFailed(
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Could not save that.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardBody>
+        <Switch
+          label="Pay payroll from the wallet"
+          description="Off, the payroll offers the bank payment schedule only: download it, upload it to your bank, and the money leaves your own bank account, so it is on your bank statement. Approving a payroll does not take anything out of the wallet."
+          checked={settings.payout.wallet}
+          disabled={!canEdit || !available || loading || saving}
+          onChange={(event) => void toggle(event.target.checked)}
+        />
+        {!canEdit && (
+          <p className="mt-3 text-body-sm text-muted">
+            Changing this needs the “Manage pay structure” permission.
+          </p>
+        )}
+        {failed && (
+          <Callout tone="danger" className="mt-3">
+            {failed}
+          </Callout>
+        )}
+      </CardBody>
+    </Card>
+  );
 }
 
 function BonusSwitch({ canEdit }: { canEdit: boolean }) {

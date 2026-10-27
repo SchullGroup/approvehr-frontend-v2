@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pencil } from "lucide-react";
 import { AttentionMark, Button, ButtonLink, Drawer } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -12,13 +12,15 @@ import {
   type DeductionKind,
   type LineSummary,
   type Payslip,
+  type PayslipLoan,
+  payrollApi,
   type RunException,
 } from "@/lib/api/payroll";
 import { useOvertimePolicy } from "@/lib/store/overtime";
 import { usePayrollActions } from "@/lib/store/payroll";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import type { ApiScheduledAllowance } from "@/lib/api/pay-components";
-import { AmountForm, DaysForm, HoursForm } from "./adjust-forms";
+import { AmountForm, DaysForm, HoursForm, LoanForm } from "./adjust-forms";
 import { allowanceLine } from "./scheduled-note";
 import { TOUCH } from "./drawer-parts";
 import { LinesEditor } from "./lines-editor";
@@ -73,11 +75,24 @@ type View =
   | "overview"
   | "days"
   | "overtime"
+  | "loan"
   | "bonus"
   | "paye"
   | "PENSION_EMPLOYEE"
   | "NHF"
   | "deductions";
+
+/**
+ * How many days the month named by "October 2026" has. People paid by the day
+ * are paid by the calendar day, so the divisor is the month's own length. An
+ * unreadable label falls back to 30 rather than refusing the form; the API
+ * validates the count against the real period anyway.
+ */
+function daysInLabel(label: string): number {
+  const first = new Date(`1 ${label}`);
+  if (Number.isNaN(first.getTime())) return 30;
+  return new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+}
 
 /** The − minus sign, not a hyphen: it is the one that sits at figure width. */
 const minus = (kobo: number) => `−${formatKobo(kobo)}`;
@@ -134,6 +149,7 @@ export function AdjustDrawer({
   /* Remembers the last real payslip: `slip` goes null the instant this closes,
      but the drawer has to stay mounted with real content so it can animate out
      rather than emptying while it slides away. */
+  const open = slip !== null;
   const [shown, setShown] = useState(slip);
   if (slip && slip !== shown) setShown(slip);
 
@@ -146,6 +162,32 @@ export function AdjustDrawer({
 
   const view: View =
     shown && state.forId === shown.employeeId ? state.view : "overview";
+
+  /* The loans on this run, with this month's instalment, balance and whether HR
+     has changed it. Read from the API when the drawer opens and after each save
+     (the net moves with a save); offline there is nothing to read, and the loan
+     lines simply do not appear. */
+  const [loansOnRun, setLoansOnRun] = useState<
+    { employeeId: string; loans: PayslipLoan[] }[] | null
+  >(null);
+  const [loanId, setLoanId] = useState("");
+  const shownId = shown?.employeeId;
+  const shownNet = shown?.netKobo;
+  useEffect(() => {
+    if (!open || !shownId) return;
+    let cancelled = false;
+    payrollApi
+      .runLoans(runId)
+      .then((rows) => {
+        if (!cancelled) setLoansOnRun(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setLoansOnRun(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [runId, shownId, shownNet, open]);
 
   const go = (next: View) => {
     if (!shown) return;
@@ -186,7 +228,6 @@ export function AdjustDrawer({
   }
 
   const person = shown;
-  const open = slip !== null;
 
   if (!person) {
     return (
@@ -207,10 +248,15 @@ export function AdjustDrawer({
   const typedLines =
     typedDeduction !== undefined && typedDeduction.state !== "none";
   const firstName = person.name.split(" ")[0] ?? person.name;
-  /* The divisor the API used. An older payslip does not carry it, and the
-     company setting is what it divided by for anybody not on a rota. */
-  const workingDays = person.workingDays ?? paySettings.workingDaysPerMonth;
+  /* Somebody paid by the day is paid by the calendar day, so the month they
+     are counted against is the month's own length (31 in October), not the
+     company's working month. Once days are typed the payslip carries the
+     divisor the API used. */
   const daysWorked = person.daysWorked ?? null;
+  const workingDays =
+    daysWorked !== null
+      ? (person.workingDays ?? daysInLabel(periodLabel))
+      : daysInLabel(periodLabel);
 
   const canEditOvertime =
     editable && (overtimePolicy.policy.enabled || manualOvertime);
@@ -221,6 +267,7 @@ export function AdjustDrawer({
     overview: person.name,
     days: "Days worked",
     overtime: "Overtime",
+    loan: "Staff loan",
     bonus: "Bonus",
     paye: "PAYE",
     PENSION_EMPLOYEE: "Pension",
@@ -318,7 +365,7 @@ export function AdjustDrawer({
               value={formatKobo(person.grossKobo)}
               {...(daysWorked !== null
                 ? {
-                    note: `Paid for ${daysWorked} of ${workingDays} working days`,
+                    note: `Paid for ${daysWorked} of ${workingDays} days`,
                   }
                 : person.unpaidDays > 0
                   ? {
@@ -455,6 +502,31 @@ export function AdjustDrawer({
                 }
               />
             )}
+            {(loansOnRun?.find((row) => row.employeeId === employeeId)?.loans ?? []).map(
+              (loan) => (
+                <Line
+                  key={loan.loanId}
+                  editColumn={editable}
+                  label="Staff loan"
+                  note={`Owed ${formatKobo(loan.balanceBeforeKobo)}, ${formatKobo(loan.balanceAfterKobo)} after this month · of ${formatKobo(loan.accumulatedKobo)} borrowed`}
+                  value={minus(loan.deductionKobo)}
+                  marked={loan.overridden === true}
+                  indent
+                  edit={
+                    editable
+                      ? {
+                          label: `Change this month's loan deduction for ${person.name}`,
+                          disabled: refreshing,
+                          onClick: () => {
+                            setLoanId(loan.loanId);
+                            go("loan");
+                          },
+                        }
+                      : undefined
+                  }
+                />
+              ),
+            )}
             <Line
               editColumn={editable}
               label="Other deductions"
@@ -492,6 +564,38 @@ export function AdjustDrawer({
           )}
         </div>
       )}
+
+      {view === "loan" && (() => {
+        const loan = loansOnRun
+          ?.find((row) => row.employeeId === employeeId)
+          ?.loans.find((l) => l.loanId === loanId);
+        if (!loan) return null;
+        return (
+          <LoanForm
+            name={person.name}
+            scheduledKobo={loan.scheduledKobo ?? loan.deductionKobo}
+            balanceBeforeKobo={loan.balanceBeforeKobo}
+            currentKobo={loan.deductionKobo}
+            overridden={loan.overridden === true}
+            saving={busy}
+            error={error}
+            onBack={() => go("overview")}
+            onSave={(amountKobo) =>
+              void perform(() =>
+                payrollApi.setLoanDeduction(runId, {
+                  loanId: loan.loanId,
+                  amountKobo,
+                }),
+              )
+            }
+            onReset={() =>
+              void perform(() =>
+                payrollApi.clearLoanDeduction(runId, loan.loanId),
+              )
+            }
+          />
+        );
+      })()}
 
       {view === "days" && (
         <DaysForm

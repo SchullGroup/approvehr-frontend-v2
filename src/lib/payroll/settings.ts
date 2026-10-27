@@ -69,6 +69,13 @@ export type PayrollSettings = {
    */
   bonus: { enabled: boolean };
 
+  /**
+   * How the company pays out. `wallet` off means it disburses from its own
+   * bank account with the payment schedule, so the run offers the bank file
+   * and nothing else. On by default: it is what every company had.
+   */
+  payout: { wallet: boolean };
+
   exceptions: {
     /**
      * Fractional month-on-month change in net pay that raises a warning.
@@ -110,6 +117,7 @@ export const DEFAULT_SETTINGS: PayrollSettings = {
   /* On, matching the column's own default: every company that existed before
      the switch had the Bonus column, so this is what they already had. */
   bonus: { enabled: true },
+  payout: { wallet: true },
   exceptions: {
     netSwingThreshold: 0.25,
     requireBankAccount: true,

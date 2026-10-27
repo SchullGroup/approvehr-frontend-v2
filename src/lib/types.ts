@@ -123,6 +123,8 @@ export type Employee = {
   bankAccount: string | null;
   pensionPin: string | null;
   pensionProvider: string | null;
+  /** Not in the pension scheme: nothing deducted, no employer contribution. */
+  pensionExempt?: boolean;
   taxState: string;
   tin: string | null;
   nhfNumber: string | null;

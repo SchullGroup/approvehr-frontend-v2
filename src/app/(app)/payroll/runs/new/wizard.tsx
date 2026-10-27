@@ -20,7 +20,6 @@ import {
   ChevronRight,
   FileSpreadsheet,
   RefreshCw,
-  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -32,7 +31,6 @@ import {
   Checkbox,
   ConfirmDialog,
   Disclosure,
-  EmptyState,
   Field,
   Input,
   Select,
@@ -79,7 +77,6 @@ import { ApproveStep } from "./approve-step";
 import { BankRegisterCard } from "./bank-register-card";
 import { RUN_BREADCRUMB } from "./breadcrumb";
 import { OverflowMenu } from "./overflow-menu";
-import { PreflightChecklist } from "./preflight-checklist";
 import { useScheduledAllowances } from "@/lib/store/scheduled-allowances";
 import { ReviewStep } from "./review-step";
 import { DEFAULT_REVIEW_VIEW, type ReviewView } from "./review-model";
@@ -116,12 +113,16 @@ import { todayIn } from "@/lib/time";
  * would be collecting a figure the run then ignored, which is worse than not
  * offering the box.
  *
- * So the four steps are what actually happens:
+ * So the two steps are what actually happens:
  *
- *   1 Period    what is being paid, and when it lands
- *   2 Check     prepare it, then work through what came back
- *   3 Review    every payslip, itemised
- *   4 Approve   the one-way door, with what it will settle spelled out
+ *   1 Period & review   pick the month and pay date, run it, and read the whole
+ *                       table on the same page
+ *   2 Approve           the one-way door, with what it will settle spelled out
+ *
+ * There used to be a Check step between running and reading, a list of every
+ * warning the records could raise. It is gone: the table is the thing to read,
+ * and only what actually stops a run (missing pay, a figure that does not add
+ * up) is shown above it.
  *
  * ## Preparing versus approving
  *
@@ -140,9 +141,11 @@ import { todayIn } from "@/lib/time";
  */
 
 const STEPS = [
-  { id: "period", label: "Period", hint: "Month and pay date" },
-  { id: "check", label: "Check", hint: "Calculate and fix" },
-  { id: "review", label: "Review", hint: "Every payslip" },
+  {
+    id: "review",
+    label: "Period & review",
+    hint: "Pick the month, run it, read every payslip",
+  },
   { id: "approve", label: "Approve", hint: "Settle and freeze" },
 ];
 
@@ -255,7 +258,7 @@ export function PayrollRunWizard() {
   const requested = STEPS.findIndex((step) => step.id === stepParam);
   const stepper = useStepper(
     STEPS,
-    requested >= 0 ? requested : periodParam ? 1 : 0,
+    requested >= 0 ? requested : 0,
   );
 
   const canPrepare = useCan("RUN_PAYROLL");
@@ -487,7 +490,10 @@ export function PayrollRunWizard() {
   const exceptions = useMemo(
     () =>
       allExceptions.filter(
-        (e) => e.code !== "missing_pay" && e.code !== "missing_tax_state",
+        (e) =>
+          e.severity === "BLOCKER" &&
+          e.code !== "missing_pay" &&
+          e.code !== "missing_tax_state",
       ),
     [allExceptions],
   );
@@ -566,19 +572,9 @@ export function PayrollRunWizard() {
   );
 
   const blocked = counts.blockers > 0 || discrepancies.length > 0;
-  const canContinue = [
-    Boolean(period && payDate),
-    Boolean(run) && !blocked,
-    Boolean(run) && !blocked,
-    false,
-  ][stepper.index];
+  const canContinue = [Boolean(run) && !blocked, false][stepper.index];
 
-  const doneFlags = [
-    Boolean(period && payDate),
-    Boolean(run) && !blocked,
-    Boolean(run) && !blocked,
-    settled,
-  ];
+  const doneFlags = [Boolean(run) && !blocked, settled];
   const displaySteps = stepper.steps.map((step, i) => ({
     ...step,
     isComplete: i <= stepper.furthest && Boolean(doneFlags[i]),
@@ -607,7 +603,6 @@ export function PayrollRunWizard() {
           (result.excluded > 0 ? ` · ${result.excluded} excluded` : "") +
           ` · ${result.blockers} to fix · ${result.warnings} to look at`,
       });
-      if (stepper.index === 0) stepper.goTo(1);
     } catch (caught) {
       toast.push({
         title: "Could not calculate this payroll",
@@ -1024,10 +1019,8 @@ export function PayrollRunWizard() {
             </Card>
           )}
 
-          {stepper.index === 0 && <PreflightChecklist />}
-
-          {/* ---------------------------------------------------------- 2 Check */}
-          {stepper.index === 1 && (
+          {/* ------------------------------------------------- Run it, same page */}
+          {stepper.index === 0 && (
             <div className="flex flex-col gap-5">
               {!canPrepare && (
                 <Callout tone="warning" title="You cannot run payroll yet">
@@ -1084,9 +1077,7 @@ export function PayrollRunWizard() {
                     {busy !== "prepare" && (
                       <RefreshCw aria-hidden="true" className="size-4" />
                     )}
-                    {run
-                      ? "Calculate again"
-                      : `Calculate ${periodLabel(period)}`}
+                    {run ? "Run again" : `Run ${periodLabel(period)}`}
                   </Button>
                   {run && (
                     <p className="text-meta leading-relaxed text-muted">
@@ -1183,51 +1174,23 @@ export function PayrollRunWizard() {
                       onSaved={() => void prepare()}
                     />
                   )}
-                  <ExceptionList
-                    exceptions={exceptions}
-                    actionFor={actionFor}
-                  />
-                  {/* Under the list rather than inside it. The exception rows say
-                  what happened; this says who is not on the payroll, in four
-                  facts a person can act on a year from now. */}
-                  <ExcludedList
-                    exclusions={run.exclusions}
-                    {...(canPrepare && !settled ? { onPutBack: putBack } : {})}
-                    busyFor={puttingBack}
-                  />
-
-                  {/* The "Changing a figure by hand" callout stood here, and is
-                  gone at the product owner's instruction.
-
-                  It existed because the same person had twice failed to find
-                  the tax, overtime and bonus controls — they are on the *next*
-                  step, and this one is about what is wrong with the records.
-                  Every word of it was true. It was also four sentences and a
-                  button explaining an interaction that should announce itself:
-                  the Review table has an Overtime column, a Bonus column and a
-                  PAYE column, each of which opens an input where you click it.
-
-                  The lesson it was written for still stands — a control the
-                  reader cannot find is a control they do not have. What was
-                  wrong was the remedy: make the control legible, do not put a
-                  paragraph in front of it. If those columns ever stop looking
-                  editable, fix the columns rather than restoring this. */}
+                  {/* Only what stops the run, and only when something does. The
+                      warnings this page used to list are gone: the table below
+                      is what to read, and a warning never refused an approval. */}
+                  {exceptions.length > 0 && (
+                    <ExceptionList
+                      exceptions={exceptions}
+                      actionFor={actionFor}
+                    />
+                  )}
                 </>
-              ) : (
-                <EmptyState
-                  compact
-                  icon={<ShieldCheck aria-hidden="true" />}
-                  title="Nothing calculated yet"
-                  description="Calculate the month and anything wrong with the records will be listed here, with the screen that fixes it."
-                />
-              )}
+              ) : null}
             </div>
           )}
 
-          {/* --------------------------------------------------------- 3 Review */}
-          {stepper.index === 2 && (
+          {/* ------------------------------------- The table, under the run */}
+          {stepper.index === 0 && reviewRun && (
             <div className="flex flex-col gap-5">
-              <DiscrepancyPanel discrepancies={discrepancies} />
               {reviewRun ? (
                 <>
                   <ReviewStep
@@ -1267,19 +1230,12 @@ export function PayrollRunWizard() {
                   />
                   <BankRegisterCard run={reviewRun} />
                 </>
-              ) : (
-                <EmptyState
-                  compact
-                  icon={<ShieldCheck aria-hidden="true" />}
-                  title="Nothing to review"
-                  description="Go back a step and calculate the month first."
-                />
-              )}
+              ) : null}
             </div>
           )}
 
-          {/* -------------------------------------------------------- 4 Approve */}
-          {stepper.index === 3 && run && (
+          {/* -------------------------------------------------------- 2 Approve */}
+          {stepper.index === 1 && run && (
             <ApproveStep
               run={run}
               settled={settled}
@@ -1291,7 +1247,7 @@ export function PayrollRunWizard() {
               onChanged={detail.reload}
               blockers={counts.blockers}
               warnings={counts.warnings}
-              onSeeChecks={() => stepper.goTo(1)}
+              onSeeChecks={() => stepper.goTo(0)}
               scheduled={scheduled}
             />
           )}
@@ -1358,7 +1314,7 @@ export function PayrollRunWizard() {
                   Counted rather than named: the list above is where the
                   names are, and repeating one of them here would make a
                   reader think it was the only one. */}
-                  {stepper.index > 0 && blocked && (
+                  {run && blocked && (
                     <span className="text-meta text-muted">
                       {counts.blockers + discrepancies.length === 1
                         ? "1 thing still stops this run."
