@@ -62,6 +62,7 @@ import {
   type RateBody,
   type ReviewQuestionKind,
   type SubmitReviewBody,
+  type SectionBody,
 } from "@/lib/api/performance";
 import { EMPLOYEES, employeeById } from "@/lib/mock/people";
 /* `lib/permissions` does not import this module, so this closes no cycle —
@@ -2580,7 +2581,7 @@ export function useFrameworkActions() {
     editable: isConnected,
 
     createSection: useCallback(
-      async (body: { name: string; order?: number }) => {
+      async (body: SectionBody & { name: string }) => {
         guard(
           "Adding a section needs the API: sections are shared across every " +
             "appraisal period, and one kept in this browser would vanish the " +
@@ -2620,7 +2621,7 @@ export function useFrameworkActions() {
      * every rating under it counting.
      */
     updateSection: useCallback(
-      async (id: string, body: { name?: string; order?: number }) => {
+      async (id: string, body: SectionBody) => {
         guard(
           "Renaming a section needs the API: sections are shared across every " +
             "appraisal period, and a name kept in this browser would not " +

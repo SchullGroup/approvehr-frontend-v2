@@ -865,9 +865,12 @@ export function useLoanActions(): LoanActions {
       const startPeriod = body.startPeriod ?? addMonths(TODAY, 1);
       const priced = priceLoan({
         principalKobo: body.principalKobo,
-        termMonths: body.termMonths,
+        termMonths: body.termMonths ?? 1,
         interestRate: body.interestRate ?? 0,
         startPeriod,
+        ...(body.monthlyKobo !== undefined
+          ? { fixedInstalmentKobo: body.monthlyKobo }
+          : {}),
       });
       if (!priced) {
         throw unprocessable(
@@ -883,7 +886,7 @@ export function useLoanActions(): LoanActions {
         interestRate: body.interestRate ?? 0,
         interestKobo: priced.interestKobo,
         totalRepayableKobo: priced.totalKobo,
-        termMonths: body.termMonths,
+        termMonths: priced.lines.length,
         monthlyRepaymentKobo: priced.instalmentKobo,
         status: "PENDING",
         reason: body.reason ?? null,

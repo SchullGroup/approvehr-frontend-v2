@@ -375,6 +375,7 @@ export type ApiEmployee = {
   religion: string | null;
   pensionPin: string | null;
   pensionProvider: string | null;
+  pensionExempt?: boolean;
   taxState: string;
   tin: string | null;
   nhfNumber: string | null;
@@ -1369,6 +1370,9 @@ export function toEmployee(api: ApiEmployee): Employee {
     bankAccount: api.bankAccount,
     pensionPin: api.pensionPin,
     pensionProvider: api.pensionProvider,
+    ...(api.pensionExempt !== undefined
+      ? { pensionExempt: api.pensionExempt }
+      : {}),
     taxState: api.taxState,
     tin: api.tin,
     nhfNumber: api.nhfNumber,
