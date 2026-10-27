@@ -315,28 +315,10 @@ export function PayslipDocument({
   const postTax = slip.lines.filter(
     (line) => line.kind === "DEDUCTION" && !line.taxable,
   );
-  /**
-   * What the employer paid on top — minus anything for a scheme it does not run.
-   *
-   * The API writes an "Employer pension" line on every payslip, at ₦0.00 where
-   * there is no scheme, exactly as it stores `pensionEmployeeKobo: 0` and
-   * `payeKobo: 0`. Storing the zero is right; **printing** it is not, and this
-   * filter is the same `wasDeducted` decision the deductions column makes one
-   * section up.
-   *
-   * Printing "Employer pension ₦0.00" is the worst of the three zeroes on this
-   * document. It is the figure an employee checks to see what went into their
-   * retirement savings, so a nil there reads as an employer that owed a
-   * contribution and paid nothing — an accusation — when the truth is that there
-   * is no scheme to contribute to. The employee column was gated when the
-   * switches went in and this column was missed.
-   */
-  const employerLines = slip.lines.filter(
-    (line) =>
-      line.kind === "EMPLOYER_CONTRIBUTION" &&
-      (line.label !== "Employer pension" ||
-        wasDeducted(slip.operates, "pension")),
-  );
+  /* Pension appears only where something was actually taken for it. A company
+     with no scheme, or somebody outside it, has no pension on the payslip. */
+  const pensionShown =
+    wasDeducted(slip.operates, "pension") && slip.pensionEmployeeKobo > 0;
   const loanPaidKobo = postTax
     .filter((line) => isLoanLine(line.label))
     .reduce((sum, line) => sum + line.amountKobo, 0);
@@ -372,7 +354,7 @@ export function PayslipDocument({
      real figure and prints; a company with no scheme has no line at all and is
      named below the column instead. */
   const deductions = [
-    ...(wasDeducted(slip.operates, "pension")
+    ...(pensionShown
       ? [
           {
             label: rates
@@ -480,7 +462,9 @@ export function PayslipDocument({
         <Detail label="Job title" value={employee.jobTitle} />
         <Detail label="Department" value={employee.department} />
         <Detail label="Tax state" value={employee.taxState} />
-        <Detail label="Pension PIN" value={employee.pensionPin} />
+        {pensionShown && (
+          <Detail label="Pension PIN" value={employee.pensionPin} />
+        )}
         {/* The account the money actually went to, named.
             ----------------------------------------------------------------
             This printed the NUBAN alone, and ten digits on their own identify
@@ -602,26 +586,6 @@ export function PayslipDocument({
               label="Balance left"
               kobo={sumOf(slip.loans, (loan) => loan.balanceAfterKobo)}
             />
-          </dl>
-        </section>
-      )}
-
-      {/* Employer contributions — deliberately outside the deductions column */}
-      {employerLines.length > 0 && (
-        <section className="mt-6 rounded-md border border-line bg-canvas p-4">
-          <ColumnHead>Paid by your employer</ColumnHead>
-          <dl className="mt-3 flex flex-col">
-            {employerLines.map((line) => (
-              <LineItem
-                key={line.id}
-                label={
-                  line.label === "Employer pension" && rates
-                    ? `Employer pension (${pct(rates.pensionEmployer)})`
-                    : line.label
-                }
-                kobo={line.amountKobo}
-              />
-            ))}
           </dl>
         </section>
       )}
