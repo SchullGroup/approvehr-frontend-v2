@@ -993,6 +993,9 @@ export type PayrollSettingsRow = {
   bonusEnabled: boolean;
   /** False: the company pays from its own bank account with the payment schedule. */
   walletPayoutEnabled?: boolean;
+  /** The company's own bonus and deduction kinds, offered as dropdown choices. */
+  bonusReasons?: string[];
+  deductionReasons?: string[];
   netSwingThreshold: Decimalish;
   requireBankAccount: boolean;
   requirePensionPin: boolean;
@@ -1035,6 +1038,8 @@ export type PayrollSettingsPatch = Partial<{
   nhfOnGross: boolean;
   bonusEnabled: boolean;
   walletPayoutEnabled: boolean;
+  bonusReasons: string[];
+  deductionReasons: string[];
   netSwingThreshold: number;
   requireBankAccount: boolean;
   requirePensionPin: boolean;
