@@ -609,6 +609,13 @@ export const employees = {
       { method: "POST", body: input },
     ),
 
+  /** Put people in or out of the pension scheme. `exempt: true` takes them out. */
+  bulkPensionScheme: (input: { employeeIds: string[]; exempt: boolean }) =>
+    request<{ requested: number; changed: number; unchanged: number }>(
+      "/employees/bulk-pension-scheme",
+      { method: "POST", body: input },
+    ),
+
   /**
    * `invited` rides on the same object as the created record — see
    * `ApiCreateInviteOutcome` for why a caller must not discard it the way
