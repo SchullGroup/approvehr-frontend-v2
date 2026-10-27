@@ -2,10 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { Button, Callout, Field, Input, Spinner } from "@/components/ui";
+import {
+  Button,
+  Callout,
+  Field,
+  Input,
+  Select,
+  Spinner,
+} from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { formatKobo, type AdjustmentLine } from "@/lib/api/payroll";
 import { usePayrollActions } from "@/lib/store/payroll";
+import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { BackToPayslip, FormFooter, TOUCH } from "./drawer-parts";
 
 /**
@@ -75,6 +83,34 @@ export function LinesEditor({
   const [failed, setFailed] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
 
+  /* The company's own kinds, so "Production" is picked rather than typed for
+     every person. The first one is what a new line starts on. */
+  const { reasons: saved, saveReasons } = usePayrollSettings();
+  const kinds = kind === "bonus" ? saved.bonus : saved.deduction;
+  const firstKind = kinds[0] ?? "";
+  const [newKindError, setNewKindError] = useState<string | null>(null);
+
+  /** Adds a kind to the company's list, then puts it on that line. */
+  async function addKind(rowKey: string, text: string) {
+    const name = text.trim();
+    if (!name) return;
+    setNewKindError(null);
+    try {
+      if (!kinds.includes(name)) await saveReasons(kind, [...kinds, name]);
+    } catch (error) {
+      setNewKindError(
+        error instanceof ApiError
+          ? error.message
+          : "That could not be added to the list, so it is on this line only.",
+      );
+    }
+    setRows((was) =>
+      was.map((r) =>
+        r.key === rowKey ? { ...r, reason: name, adding: false } : r,
+      ),
+    );
+  }
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -84,7 +120,7 @@ export function LinesEditor({
         const existing = kind === "bonus" ? lines.bonuses : lines.deductions;
         /* One blank row when there is nothing yet, so the view opens on
            something to type into rather than on an empty box and a button. */
-        setRows(existing.length > 0 ? existing.map(toRow) : [blank()]);
+        setRows(existing.length > 0 ? existing.map(toRow) : [blank(firstKind)]);
       } catch (error) {
         if (cancelled) return;
         setFailed(
@@ -92,7 +128,7 @@ export function LinesEditor({
             ? error.message
             : "Those lines could not be read.",
         );
-        setRows([blank()]);
+        setRows([blank(firstKind)]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -100,6 +136,7 @@ export function LinesEditor({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seeds once per person; the list arriving later must not wipe typing
   }, [adjustmentLines, runId, employeeId, kind]);
 
   const noun = kind === "bonus" ? "bonus" : "deduction";
@@ -220,28 +257,80 @@ export function LinesEditor({
                   hideLabel={at !== 0}
                   help={
                     at === 0
-                      ? "Optional. It becomes the payslip line, and it is what makes several lines tell anybody apart a year from now."
+                      ? "Pick one from your list, or add a new kind. It becomes the payslip line."
                       : undefined
                   }
                 >
-                  <Input
-                    placeholder={
-                      kind === "bonus"
-                        ? "Lagos install"
-                        : "Staff loan repayment"
-                    }
-                    value={row.reason}
-                    maxLength={200}
-                    className="max-sm:h-11"
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      setRows((was) =>
-                        was.map((r) =>
-                          r.key === row.key ? { ...r, reason: next } : r,
-                        ),
-                      );
-                    }}
-                  />
+                  {row.adding ? (
+                    <div className="flex gap-2">
+                      <Input
+                        autoFocus
+                        placeholder={
+                          kind === "bonus" ? "Production" : "Cooperative"
+                        }
+                        value={row.draft}
+                        maxLength={200}
+                        className="max-sm:h-11"
+                        onChange={(event) => {
+                          const next = event.target.value;
+                          setRows((was) =>
+                            was.map((r) =>
+                              r.key === row.key ? { ...r, draft: next } : r,
+                            ),
+                          );
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void addKind(row.key, row.draft);
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={row.draft.trim() === ""}
+                        onClick={() => void addKind(row.key, row.draft)}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  ) : (
+                    <Select
+                      value={row.reason}
+                      className="max-sm:h-11"
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        setRows((was) =>
+                          was.map((r) =>
+                            r.key !== row.key
+                              ? r
+                              : next === ADD_NEW
+                                ? { ...r, adding: true, draft: "" }
+                                : { ...r, reason: next },
+                          ),
+                        );
+                      }}
+                    >
+                      <option value="">No reason</option>
+                      {/* A line saved with its own wording keeps showing it. */}
+                      {row.reason !== "" && !kinds.includes(row.reason) && (
+                        <option value={row.reason}>{row.reason}</option>
+                      )}
+                      {kinds.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                      <option value={ADD_NEW}>+ Add new…</option>
+                    </Select>
+                  )}
+                  {newKindError && at === 0 && (
+                    <p className="mt-1 text-meta text-warning-text">
+                      {newKindError}
+                    </p>
+                  )}
                 </Field>
                 <div className={at === 0 ? "sm:pt-7" : undefined}>
                   <Button
@@ -275,7 +364,7 @@ export function LinesEditor({
               className={TOUCH}
               disabled={rows.length >= MAX_LINES}
               onClick={() => {
-                setRows((was) => [...was, blank()]);
+                setRows((was) => [...was, blank(firstKind)]);
               }}
             >
               <Plus aria-hidden="true" className="size-4" />
@@ -367,12 +456,24 @@ type Row = {
   /** As typed. Parsed on save, so a half-typed "12." is not an error yet. */
   amount: string;
   reason: string;
+  /** Typing a new kind into the list. */
+  adding: boolean;
+  draft: string;
 };
 
 let counter = 0;
-function blank(): Row {
+const ADD_NEW = "__add_new__";
+
+function blank(reason = ""): Row {
   counter += 1;
-  return { key: `new-${String(counter)}`, id: null, amount: "", reason: "" };
+  return {
+    key: `new-${String(counter)}`,
+    id: null,
+    amount: "",
+    reason,
+    adding: false,
+    draft: "",
+  };
 }
 
 function toRow(line: AdjustmentLine): Row {
@@ -384,6 +485,8 @@ function toRow(line: AdjustmentLine): Row {
        through a string is exact for whole and fractional naira alike. */
     amount: (line.amountKobo / 100).toFixed(2),
     reason: line.reason ?? "",
+    adding: false,
+    draft: "",
   };
 }
 
