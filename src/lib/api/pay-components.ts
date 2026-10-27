@@ -571,6 +571,20 @@ export type PreviewParams = {
 
 /* -------------------------------------------------------------------- calls */
 
+export type ApiComponentPeople = {
+  componentId: string;
+  name: string;
+  /** Charged to every active employee, with no list. */
+  everyone: boolean;
+  people: {
+    employeeId: string;
+    name: string;
+    employeeNo: string;
+    department: string | null;
+    on: boolean;
+  }[];
+};
+
 export const payComponentsApi = {
   list: (params: PayComponentListParams = {}, signal?: AbortSignal) =>
     requestPaged<ApiPayComponent>("/pay-components", {
@@ -660,6 +674,20 @@ export const payComponentsApi = {
       method: "POST",
       body,
     }),
+
+  /** Everybody who could have this component, ticked where they do this month. */
+  people: (componentId: string) =>
+    request<ApiComponentPeople>(`/pay-components/${componentId}/people`),
+
+  /** Everyone, or exactly these people. Takes the others off. */
+  setPeople: (
+    componentId: string,
+    body: { everyone: boolean; employeeIds?: string[] },
+  ) =>
+    request<{ everyone: boolean; added: number; removed: number }>(
+      `/pay-components/${componentId}/people`,
+      { method: "PUT", body },
+    ),
 
   updateAssignment: (id: string, body: UpdateAssignmentBody) =>
     request<ApiAssignment>(`/pay-components/assignments/${id}`, {

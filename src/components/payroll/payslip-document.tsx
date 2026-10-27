@@ -337,7 +337,6 @@ export function PayslipDocument({
       (line.label !== "Employer pension" ||
         wasDeducted(slip.operates, "pension")),
   );
-  const carried = carriedForwardKobo(slip);
   const loanPaidKobo = postTax
     .filter((line) => isLoanLine(line.label))
     .reduce((sum, line) => sum + line.amountKobo, 0);
@@ -569,13 +568,6 @@ export function PayslipDocument({
               reader *is* somebody deciding what to remit, and does need to
               know a schedule is empty on purpose rather than by mistake. The
               distinction is the audience, not the fact. */}
-          {carried > 0 && (
-            <p className="mt-2 text-meta leading-relaxed text-body">
-              {formatKobo(carried)} of the above could not be taken this month:
-              there was not enough pay left after tax. It carries over to next
-              month rather than being written off.
-            </p>
-          )}
         </div>
       </section>
 

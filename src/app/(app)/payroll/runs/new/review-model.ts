@@ -124,8 +124,23 @@ export function deductionTotal(slip: Payslip): number {
   return (
     (wasDeducted(slip.operates, "pension") ? slip.pensionEmployeeKobo : 0) +
     (wasDeducted(slip.operates, "nhf") ? slip.nhfKobo : 0) +
-    slip.otherDeductionsKobo
+    otherTotal(slip)
   );
+}
+
+/** A loan instalment line. `loans/service.ts` writes every one as "Staff loan …". */
+const isLoanLine = (label: string) => label.startsWith("Staff loan");
+
+/** What comes off for staff loans this month, on its own: not in `deductionTotal`. */
+export function loanTotal(slip: Payslip): number {
+  return slip.lines
+    .filter((line) => line.kind === "DEDUCTION" && isLoanLine(line.label))
+    .reduce((sum, line) => sum + line.amountKobo, 0);
+}
+
+/** Deductions that are neither pension, housing fund nor a loan. */
+function otherTotal(slip: Payslip): number {
+  return Math.max(0, slip.otherDeductionsKobo - loanTotal(slip));
 }
 
 /**
@@ -146,8 +161,10 @@ export function deductionLabels(slip: Payslip): string[] {
   if (wasDeducted(slip.operates, "nhf") && slip.nhfKobo > 0) {
     labels.push("Housing fund");
   }
-  if (slip.otherDeductionsKobo > 0) {
-    const lines = slip.lines.filter((line) => line.kind === "DEDUCTION");
+  if (otherTotal(slip) > 0) {
+    const lines = slip.lines.filter(
+      (line) => line.kind === "DEDUCTION" && !isLoanLine(line.label),
+    );
     labels.push(lines.length === 1 ? (lines[0]?.label ?? "Other") : "Other");
   }
   return labels;
@@ -165,6 +182,7 @@ export type SortColumn =
   | "bonus"
   | "paye"
   | "deductions"
+  | "loans"
   | "net";
 
 export type SortOrder = "asc" | "desc";
@@ -208,6 +226,7 @@ const SORT_VALUE: Record<
      mixing a missing figure in as though it were a zero. */
   paye: (slip) => (wasDeducted(slip.operates, "paye") ? slip.payeKobo : -1),
   deductions: (slip) => deductionTotal(slip),
+  loans: (slip) => loanTotal(slip),
   net: (slip) => slip.netKobo,
 };
 
