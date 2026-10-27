@@ -166,6 +166,14 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
     [components.rows],
   );
 
+  /* Switched on first, then off, then archived; the order the API sent is kept
+     inside each group, so a row does not jump about while somebody edits it. */
+  const ordered = useMemo(() => {
+    const rank = (row: { archived: boolean; active: boolean }) =>
+      row.archived ? 2 : row.active ? 0 : 1;
+    return [...components.rows].sort((a, b) => rank(a) - rank(b));
+  }, [components.rows]);
+
   /** Every mutation reports its own failure — the API messages are the useful
       part, and the archive refusal names the people still on the component. */
   const run = async (action: () => Promise<unknown>, success: string) => {
@@ -317,7 +325,7 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
                       </TH>
                     </THead>
                     <TBody>
-                      {components.rows.map((row) => (
+                      {ordered.map((row) => (
                         <ComponentRow
                           key={row.id}
                           row={row}
@@ -342,7 +350,7 @@ export function ComponentsPanel({ kind }: { kind: PayComponentKind }) {
                 </div>
 
                 <ul className="divide-y divide-line rounded-lg border border-line sm:hidden">
-                  {components.rows.map((row) => (
+                  {ordered.map((row) => (
                     <ComponentCard
                       key={row.id}
                       row={row}

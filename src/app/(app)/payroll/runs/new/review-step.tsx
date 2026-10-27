@@ -47,7 +47,6 @@ import {
   bonusOn,
   deductionLabels,
   deductionTotal,
-  hasManualOvertime,
   visiblePayslips,
   warningsByPerson,
   type AdjustmentKind,
@@ -709,12 +708,12 @@ function PayslipRow({
       </TD>
       {showOvertime && (
         <TD align="right" className="tabular text-body-sm">
-          <Figure kobo={facts.overtime} marked={facts.manualOvertime} />
+          <Figure kobo={facts.overtime} />
         </TD>
       )}
       {showBonus && (
         <TD align="right" className="tabular text-body-sm">
-          <Figure kobo={facts.bonus} marked={facts.bonus > 0} />
+          <Figure kobo={facts.bonus} />
         </TD>
       )}
       <TD align="right" className="tabular text-body-sm">
@@ -831,12 +830,12 @@ function PayslipCard({
         )}
         {showOvertime && facts.overtime > 0 && (
           <CardFact label="Overtime">
-            <Figure kobo={facts.overtime} marked={facts.manualOvertime} />
+            <Figure kobo={facts.overtime} />
           </CardFact>
         )}
         {showBonus && facts.bonus > 0 && (
           <CardFact label="Bonus">
-            <Figure kobo={facts.bonus} marked />
+            <Figure kobo={facts.bonus} />
           </CardFact>
         )}
         {anyUnpaid && slip.unpaidDays > 0 && (
@@ -881,9 +880,12 @@ function CardFact({
 /** What a row needs, worked out once so the table and the card cannot differ. */
 function factsOf(slip: Payslip, typedDeductions: LineSummaryByEmployee | null) {
   return {
-    adjusted: adjustmentsOf(slip, typedDeductions),
+    /* Overtime and bonus are what the Adjust drawer is for; marking every one
+       of them "adjusted" or "entered by hand" says nothing. */
+    adjusted: adjustmentsOf(slip, typedDeductions).filter(
+      (kind) => kind !== "overtime" && kind !== "bonus",
+    ),
     overtime: overtimeOn(slip),
-    manualOvertime: hasManualOvertime(slip),
     bonus: bonusOn(slip)?.amountKobo ?? 0,
     payeOperated: wasDeducted(slip.operates, "paye"),
     deductions: deductionTotal(slip),
