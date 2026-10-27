@@ -56,6 +56,7 @@ import { useOrgTimezone, useSession } from "@/lib/store/session";
 import { ApprovedLoanCard } from "../approved-loan-card";
 import {
   CounterOfferModal,
+  RescheduleLoanModal,
   DeclineLoanModal,
   PayInstalmentModal,
   WaiveInstalmentModal,
@@ -133,6 +134,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
   } | null>(null);
   const [countering, setCountering] = useState<ApiLoanDetail | null>(null);
   const [declining, setDeclining] = useState<ApiLoanDetail | null>(null);
+  const [rescheduling, setRescheduling] = useState<ApiLoanDetail | null>(null);
   const [paying, setPaying] = useState<ApiRepayment | null>(null);
   const [waiving, setWaiving] = useState<ApiRepayment | null>(null);
 
@@ -187,7 +189,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
         principalKobo: loan.principalKobo,
         termMonths: loan.termMonths,
         interestRate: loan.interestRate,
-        startPeriod: loan.startPeriod ?? addMonths(today, 1),
+        startPeriod: loan.startPeriod ?? today,
       })
     : null;
 
@@ -294,6 +296,17 @@ export function LoanDetailScreen({ id }: { id: string }) {
               onClick={() => setDeclining(loan)}
             >
               Withdraw it
+            </Button>
+          ) : loan.status === "ACTIVE" &&
+            canDecide &&
+            loan.schedule.every(
+              (row) =>
+                row.status === "SCHEDULED" &&
+                row.paidAmountKobo === 0 &&
+                row.payslipId === null,
+            ) ? (
+            <Button size="sm" onClick={() => setRescheduling(loan)}>
+              Change first deduction
             </Button>
           ) : undefined
         }
@@ -764,6 +777,12 @@ export function LoanDetailScreen({ id }: { id: string }) {
               n: (current?.n ?? 0) + 1,
             }))
           }
+        />
+      )}
+      {rescheduling && (
+        <RescheduleLoanModal
+          loan={rescheduling}
+          onClose={() => setRescheduling(null)}
         />
       )}
       {declining && (
