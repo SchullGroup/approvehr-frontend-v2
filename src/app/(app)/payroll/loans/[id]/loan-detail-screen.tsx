@@ -187,7 +187,7 @@ export function LoanDetailScreen({ id }: { id: string }) {
         principalKobo: loan.principalKobo,
         termMonths: loan.termMonths,
         interestRate: loan.interestRate,
-        startPeriod: loan.startPeriod ?? addMonths(today, 1),
+        startPeriod: loan.startPeriod ?? today,
       })
     : null;
 

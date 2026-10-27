@@ -209,7 +209,7 @@ export function CounterOfferModal({
   /* Seeded from what was applied for, because a counter-offer is an edit to it. */
   const [amount, setAmount] = useState(String(naira(loan.principalKobo)));
   const [term, setTerm] = useState(String(loan.termMonths));
-  const [startsIn, setStartsIn] = useState<"0" | "1" | "2">("1");
+  const [startsIn, setStartsIn] = useState<"0" | "1" | "2">("0");
   const [saving, setSaving] = useState(false);
 
   const principal = Number(amount.replace(/[^0-9.]/g, ""));
@@ -294,7 +294,7 @@ export function CounterOfferModal({
         <Field
           label="First deduction"
           error={failure?.messageFor("startPeriod")}
-          help="Payroll that has already been calculated cannot take this month's."
+          help="This month comes off the payroll being worked the next time it is calculated."
         >
           <Select
             value={startsIn}
