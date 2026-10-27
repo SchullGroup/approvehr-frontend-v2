@@ -40,6 +40,8 @@ export function ComponentPeople({
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
+  /* An API that predates this list answers 404: show nothing rather than an error. */
+  const [unavailable, setUnavailable] = useState(false);
 
   const apply = useCallback((result: ApiComponentPeople) => {
     setError(null);
@@ -119,6 +121,8 @@ export function ComponentPeople({
       setSaving(false);
     }
   }
+
+  if (unavailable) return null;
 
   if (!data && !error) {
     return (
