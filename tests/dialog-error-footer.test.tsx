@@ -28,7 +28,9 @@ describe("a failure inside a dialog", () => {
   it("stays where it was written when the dialog has no footer", () => {
     render(
       <Modal open onClose={() => {}} title="Bonus">
-        <Callout tone="danger" title="Nothing was saved" />
+        <Callout tone="danger" title="Nothing was saved">
+          {null}
+        </Callout>
       </Modal>,
     );
     expect(screen.getByText("Nothing was saved")).toBeTruthy();
