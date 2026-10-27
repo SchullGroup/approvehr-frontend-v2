@@ -16,6 +16,7 @@ import { useCan } from "@/lib/permissions";
 import { usePayrollSettings } from "@/lib/payroll/use-settings";
 import { OvertimePolicyFields } from "@/app/(app)/settings/overtime/form";
 import { PayrollSettingsForm } from "@/app/(app)/settings/payroll/form";
+import { PensionSchemePanel } from "./pension-scheme-panel";
 
 /**
  * What a payroll run carries besides salary — the Extras tab of Pay setup.
@@ -54,6 +55,7 @@ import { PayrollSettingsForm } from "@/app/(app)/settings/payroll/form";
 
 export function ExtrasPanel() {
   const canEdit = useCan("MANAGE_PAY_STRUCTURE");
+  const canEditRecords = useCan("EDIT_RECORDS");
 
   return (
     <div className="grid gap-4">
@@ -69,6 +71,7 @@ export function ExtrasPanel() {
       <BonusSwitch canEdit={canEdit} />
       <WalletPayoutSwitch canEdit={canEdit} />
       <PayrollSettingsForm />
+      <PensionSchemePanel canEdit={canEditRecords} />
 
       <Card>
         <CardHeader

@@ -1,6 +1,5 @@
 import { cn } from "@/lib/cn";
 import { LogoMark } from "@/components/brand/logo";
-import { TaxBands } from "@/components/payroll/tax-bands";
 import {
   formatKobo,
   naira,
@@ -333,7 +332,6 @@ export function PayslipDocument({
         wasDeducted(slip.operates, "pension")),
   );
   const carried = carriedForwardKobo(slip);
-  const relief = reliefLine(slip);
 
   /* A company that has not split gross into parts has 100% basic and 0%
      housing and transport — the product's own default — and a payslip is not
@@ -600,10 +598,6 @@ export function PayslipDocument({
       {employerLines.length > 0 && (
         <section className="mt-6 rounded-md border border-line bg-canvas p-4">
           <ColumnHead>Paid by your employer</ColumnHead>
-          <p className="mt-1.5 text-meta leading-relaxed text-muted">
-            Paid by {company?.name ?? "your employer"} on your behalf. These are
-            not deducted from your pay and do not reduce the net figure above.
-          </p>
           <dl className="mt-3 flex flex-col">
             {employerLines.map((line) => (
               <LineItem
@@ -619,53 +613,6 @@ export function PayslipDocument({
           </dl>
         </section>
       )}
-
-      {/* How the tax was worked out.
-
-          Replaced wholesale where no tax was worked out. Printing a relief
-          figure and a taxable-pay figure under a heading that says "how the tax
-          was worked out", on a payslip with no tax on it, invites the reader to
-          reconstruct a deduction that never happened — which is exactly what the
-          abolished-relief line did when it printed ₦0.00 under a statute that no
-          longer existed. */}
-      <section className="mt-6 rounded-md border border-line p-4">
-        <ColumnHead>
-          {wasDeducted(slip.operates, "paye")
-            ? "How the tax was worked out"
-            : "Income tax"}
-        </ColumnHead>
-        {!wasDeducted(slip.operates, "paye") ? (
-          <p className="mt-2 text-meta leading-relaxed text-body">
-            No PAYE was deducted from this pay, so there is no tax working to
-            show. Your employer does not operate PAYE: you are responsible for
-            filing your own return with your state tax authority.
-          </p>
-        ) : (
-          <dl className="mt-3 flex flex-col">
-            <LineItem label={relief.label} kobo={slip.reliefKobo} />
-            <LineItem
-              label="Taxable pay (per month)"
-              kobo={slip.taxableIncomeKobo}
-            />
-            <LineItem label="PAYE" kobo={slip.payeKobo} total />
-          </dl>
-        )}
-        {/* Prints. A relief nobody has claimed is the one thing on this document
-            the employee themselves can do something about, so it is not hidden
-            behind `no-print` on the copy they are handed. Suppressed where no
-            tax ran: there is nothing for a relief to reduce. */}
-        {wasDeducted(slip.operates, "paye") && relief.note && (
-          <p className="mt-2 text-meta leading-relaxed text-body">
-            {relief.note}
-          </p>
-        )}
-        {/* And the step between those three lines, for the reader who wants to
-            check the figure rather than take it. Renders nothing whenever the
-            API cannot stand behind a working — a hand-entered tax figure being
-            the case worth knowing about, since the reason for that one is
-            printed above instead. */}
-        <TaxBands slip={slip} />
-      </section>
 
       {/* Year to date */}
       {ytd && (
