@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Badge,
   Button,
   Callout,
   Checkbox,
@@ -202,12 +203,12 @@ export function ComponentPeople({
           </p>
           <ul className="max-h-80 divide-y divide-line overflow-y-auto rounded-lg border border-line px-3">
             {shown.map((person) => (
-              <li key={person.employeeId} className="py-2">
+              <li
+                key={person.employeeId}
+                className="flex items-center justify-between gap-3 py-2"
+              >
                 <Checkbox
                   label={person.name}
-                  description={[person.employeeNo, person.department]
-                    .filter(Boolean)
-                    .join(" · ")}
                   checked={ticked.has(person.employeeId)}
                   disabled={!canEdit || saving}
                   onChange={(event) => {
@@ -220,6 +221,15 @@ export function ComponentPeople({
                     });
                   }}
                 />
+                {ticked.has(person.employeeId) ? (
+                  <Badge tone="success" size="sm" dot>
+                    Added
+                  </Badge>
+                ) : (
+                  <Badge tone="neutral" size="sm">
+                    Not added
+                  </Badge>
+                )}
               </li>
             ))}
           </ul>
