@@ -592,6 +592,13 @@ export function PayslipDocument({
               kobo={sumOf(slip.loans, (loan) => loan.deductionKobo)}
             />
             <LineItem
+              label="Total collected"
+              kobo={sumOf(
+                slip.loans,
+                (loan) => loan.accumulatedKobo - loan.balanceAfterKobo,
+              )}
+            />
+            <LineItem
               label="Balance left"
               kobo={sumOf(slip.loans, (loan) => loan.balanceAfterKobo)}
             />
