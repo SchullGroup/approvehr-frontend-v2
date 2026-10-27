@@ -62,6 +62,7 @@ import {
   type RateBody,
   type ReviewQuestionKind,
   type SubmitReviewBody,
+  type SectionBody,
 } from "@/lib/api/performance";
 import { EMPLOYEES, employeeById } from "@/lib/mock/people";
 /* `lib/permissions` does not import this module, so this closes no cycle —
@@ -944,10 +945,15 @@ function demoKeyResult(
     id: seed.id,
     goalId,
     label: seed.label,
+    kind: "NUMBER",
     unit: seed.unit ?? null,
     ...measure,
     percent: demoPercent(measure),
     met: demoMet(measure),
+    /* Every seeded measure carries a figure somebody wrote down, so every one is
+       read; the demo does not stage an unread measure it could not also stage
+       the consequences of. */
+    lastReadAt: "2026-08-18T10:00:00.000Z",
     updatedAt: "2026-08-18T10:00:00.000Z",
   };
 }
@@ -1580,6 +1586,31 @@ export function useKpiMutations() {
             "but you can move any of their numbers.",
         );
         return performanceApi.addKeyResult(goalId, body);
+      },
+      [guard],
+    ),
+
+    /**
+     * A manager says a done-or-not-done measure is done. Refuses in demo mode:
+     * whether somebody's work is done is a judgement about another person, and
+     * one made in this browser would reach nobody's review.
+     */
+    confirmMeasure: useCallback(
+      async (measureId: string, note?: string) => {
+        guard(
+          "Confirming a measure needs the API. It is a manager's word about " +
+            "somebody else's work, and one kept in this browser would never " +
+            "reach their review.",
+        );
+        return performanceApi.confirmMeasure(measureId, note);
+      },
+      [guard],
+    ),
+
+    unconfirmMeasure: useCallback(
+      async (measureId: string) => {
+        guard("Taking a confirmation back needs the API.");
+        return performanceApi.unconfirmMeasure(measureId);
       },
       [guard],
     ),
@@ -2550,7 +2581,7 @@ export function useFrameworkActions() {
     editable: isConnected,
 
     createSection: useCallback(
-      async (body: { name: string; order?: number }) => {
+      async (body: SectionBody & { name: string }) => {
         guard(
           "Adding a section needs the API: sections are shared across every " +
             "appraisal period, and one kept in this browser would vanish the " +
@@ -2590,7 +2621,7 @@ export function useFrameworkActions() {
      * every rating under it counting.
      */
     updateSection: useCallback(
-      async (id: string, body: { name?: string; order?: number }) => {
+      async (id: string, body: SectionBody) => {
         guard(
           "Renaming a section needs the API: sections are shared across every " +
             "appraisal period, and a name kept in this browser would not " +

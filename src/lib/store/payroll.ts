@@ -356,6 +356,8 @@ function demoPayslip(
       netKobo: figures.netKobo - takenKobo,
       unpaidDays: 0,
       proratedDeductionKobo: 0,
+      daysWorked: null,
+      workingDays: null,
       publishedAt: null,
       emailedAt: null,
       viewedAt: null,
@@ -1716,6 +1718,10 @@ export function usePayrollActions() {
     [isConnected],
   );
 
+  /**
+   * Days worked, for paying somebody by the day. Refuses offline for the same
+   * reason overtime does: the demo has no engine to prorate with.
+   */
   const setDaysWorked = useCallback(
     async (
       runId: string,
@@ -1725,8 +1731,8 @@ export function usePayrollActions() {
       throw new ApiError(
         0,
         "offline",
-        "Paying by days worked needs the API, which prorates the contract over " +
-          "the month. The demo has no engine to do it, so it will not pretend it has.",
+        "Paying by days worked needs the API. The demo has no engine to " +
+          "work out the daily rate, so it will not pretend it has.",
       );
     },
     [isConnected],
@@ -1738,8 +1744,8 @@ export function usePayrollActions() {
       throw new ApiError(
         0,
         "offline",
-        "Paying by days worked needs the API, so there is nothing here for the " +
-          "demo to clear.",
+        "Paying by days worked needs the API, so there is nothing here for " +
+          "the demo to clear.",
       );
     },
     [isConnected],

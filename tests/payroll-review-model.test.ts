@@ -106,6 +106,21 @@ describe("what counts as entered by hand", () => {
     expect(adjustmentsOf(clocked, null)).toEqual([]);
   });
 
+  it("finds days worked entered by hand, and only a real count", () => {
+    const byTheDay = slip({ id: "06", name: "Femi O", daysWorked: 5 });
+    expect(adjustmentsOf(byTheDay, null)).toEqual(["days"]);
+    /* Zero days is still a figure somebody typed. */
+    expect(
+      adjustmentsOf(slip({ id: "07", name: "Gbenga P", daysWorked: 0 }), null),
+    ).toEqual(["days"]);
+    expect(
+      adjustmentsOf(
+        slip({ id: "08", name: "Hauwa Q", daysWorked: null }),
+        null,
+      ),
+    ).toEqual([]);
+  });
+
   it("finds a statutory deduction set by hand", () => {
     const edited = slip({
       id: "05",

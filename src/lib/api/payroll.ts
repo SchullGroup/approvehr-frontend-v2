@@ -391,11 +391,17 @@ export type Payslip = {
   otherDeductionsKobo: number;
   netKobo: number;
   unpaidDays: number;
-  /** Days typed for this person on this run; null when they are paid the full month. */
-  daysWorked?: number | null;
-  /** The month those days are counted against (calendar days, or a shift worker's roster). */
-  workingDays?: number | null;
   proratedDeductionKobo: number;
+  /**
+   * Days worked, when somebody entered them by hand so this person is paid by
+   * the day rather than the whole month. Null means the whole month.
+   */
+  daysWorked: number | null;
+  /**
+   * The working month the contract was divided by. Null on payslips written
+   * before the API recorded it — the caller falls back to the company setting.
+   */
+  workingDays: number | null;
   publishedAt: string | null;
   emailedAt: string | null;
   viewedAt: string | null;
@@ -475,9 +481,11 @@ export type DaysWorkedChange = {
   employeeId: string;
   name: string;
   days: number;
-  /** The month the days are counted against. */
+  /** The working month the contract is divided by for this person. */
   workingDays: number;
+  /** Monthly pay ÷ `workingDays`. */
   dailyRateKobo: number;
+  /** Gross after proration, as the payslip was written. */
   grossKobo: number;
   reason: string | null;
   setAt: string;
@@ -1185,9 +1193,10 @@ type ApiPayslip = {
   otherDeductions: Decimalish;
   net: Decimalish;
   unpaidDays: number;
+  proratedDeduction: Decimalish;
+  /** Optional on the wire: an older API answers without them. */
   daysWorked?: number | null;
   workingDays?: number | null;
-  proratedDeduction: Decimalish;
   publishedAt: string | null;
   emailedAt: string | null;
   viewedAt: string | null;
@@ -1409,9 +1418,9 @@ function toPayslip(row: ApiPayslip): Payslip {
     otherDeductionsKobo: koboFromDecimal(row.otherDeductions),
     netKobo: koboFromDecimal(row.net),
     unpaidDays: row.unpaidDays,
+    proratedDeductionKobo: koboFromDecimal(row.proratedDeduction),
     daysWorked: row.daysWorked ?? null,
     workingDays: row.workingDays ?? null,
-    proratedDeductionKobo: koboFromDecimal(row.proratedDeduction),
     publishedAt: row.publishedAt,
     emailedAt: row.emailedAt,
     viewedAt: row.viewedAt,
@@ -1745,19 +1754,6 @@ export const payrollApi = {
       body,
     }),
 
-  /**
-   * Pays one person for the days they worked rather than the whole month.
-   * A count of days; the proration is the API's, over the calendar month.
-   */
-  setDaysWorked: (
-    id: string,
-    body: { employeeId: string; days: number; reason?: string },
-  ) =>
-    request<DaysWorkedChange>(`/payroll/runs/${id}/days-worked`, {
-      method: "POST",
-      body,
-    }),
-
   /** Every loan on the run as its payslip reports it. Nobody without a loan appears. */
   runLoans: (id: string) =>
     request<{ employeeId: string; loans: PayslipLoan[] }[]>(
@@ -1780,18 +1776,31 @@ export const payrollApi = {
       method: "DELETE",
     }),
 
-  /** Takes the typed days off, so the person is paid the whole month again. */
-  clearDaysWorked: (id: string, employeeId: string) =>
-    request<PreparedRun>(`/payroll/runs/${id}/days-worked/${employeeId}`, {
-      method: "DELETE",
-    }),
-
   /** Takes the typed hours off, so the clock's records pay again. */
   clearOvertimeOverride: (id: string, employeeId: string) =>
     request<PreparedRun>(
       `/payroll/runs/${id}/overtime-overrides/${employeeId}`,
       { method: "DELETE" },
     ),
+
+  /**
+   * Pays one person for the days they worked this period, not the whole
+   * month. The API prorates: monthly ÷ working days × days.
+   */
+  setDaysWorked: (
+    id: string,
+    body: { employeeId: string; days: number; reason?: string },
+  ) =>
+    request<DaysWorkedChange>(`/payroll/runs/${id}/days-worked`, {
+      method: "POST",
+      body,
+    }),
+
+  /** Takes the typed days off, so the person is paid the whole month again. */
+  clearDaysWorked: (id: string, employeeId: string) =>
+    request<PreparedRun>(`/payroll/runs/${id}/days-worked/${employeeId}`, {
+      method: "DELETE",
+    }),
 
   /**
    * A one-off payment for one person on this run.

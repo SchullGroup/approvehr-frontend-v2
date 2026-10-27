@@ -125,6 +125,24 @@ describe("the linked tasks list", () => {
     expect(ctx.openIssue).not.toHaveBeenCalled();
   });
 
+  it("opens a linked personal task by id, since a personal list has no board", async () => {
+    api.links.mockResolvedValue([
+      visible({
+        other: {
+          ...visible().other,
+          id: "i9",
+          key: "MY-4",
+          projectId: "p-somebodys-list",
+          projectName: "Personal",
+        },
+      }),
+    ]);
+    const ctx = renderLinks();
+    await userEvent.click(await screen.findByRole("button", { name: "MY-4" }));
+    expect(push).toHaveBeenCalledWith("/projects/tasks/i9");
+    expect(ctx.openIssue).not.toHaveBeenCalled();
+  });
+
   it("removes a link and drops the row", async () => {
     api.links.mockResolvedValue([visible()]);
     api.removeLink.mockResolvedValue(undefined);
