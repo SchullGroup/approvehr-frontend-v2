@@ -89,6 +89,7 @@ export function AssignComponentToManyDialog({
 
   return (
     <AssignPeopleDialog
+      statusOnly
       title={`Assign ${component.name} to specific people`}
       description="Pick who gets it. Everyone chosen gets the same figure and the same start date."
       effect={
