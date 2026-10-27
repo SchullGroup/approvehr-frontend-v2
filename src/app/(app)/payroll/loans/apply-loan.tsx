@@ -189,7 +189,7 @@ export function ApplyLoanModal({
   const [monthlyText, setMonthlyText] = useState("");
   const [term, setTerm] = useState("6");
   const [reason, setReason] = useState("");
-  const [startsIn, setStartsIn] = useState<"0" | "1" | "2">("1");
+  const [startsIn, setStartsIn] = useState<"0" | "1" | "2">("0");
   const [charging, setCharging] = useState(false);
   const [rate, setRate] = useState("5");
   const [showMore, setShowMore] = useState(false);
@@ -610,27 +610,31 @@ export function ApplyLoanModal({
 
           {/* ------------------------------------------------- everything else */}
 
+          <Field
+            label="When do deductions start?"
+            error={failure?.messageFor("startPeriod")}
+            help={
+              startsIn === "0"
+                ? "Once it is approved it comes off this month's payroll the next time that is calculated."
+                : undefined
+            }
+          >
+            <Select
+              value={startsIn}
+              onChange={(event) =>
+                setStartsIn(event.target.value as "0" | "1" | "2")
+              }
+            >
+              <option value="0">
+                {monthLabel(addMonths(today, 0))} (this month&rsquo;s payroll)
+              </option>
+              <option value="1">{monthLabel(addMonths(today, 1))}</option>
+              <option value="2">{monthLabel(addMonths(today, 2))}</option>
+            </Select>
+          </Field>
+
           {showMore ? (
             <div className="flex flex-col gap-4 rounded-lg border border-line p-4">
-              <Field
-                label="When do deductions start?"
-                error={failure?.messageFor("startPeriod")}
-              >
-                <Select
-                  value={startsIn}
-                  onChange={(event) =>
-                    setStartsIn(event.target.value as "0" | "1" | "2")
-                  }
-                >
-                  <option value="0">
-                    {monthLabel(addMonths(today, 0))} (this month&rsquo;s
-                    payroll)
-                  </option>
-                  <option value="1">{monthLabel(addMonths(today, 1))}</option>
-                  <option value="2">{monthLabel(addMonths(today, 2))}</option>
-                </Select>
-              </Field>
-
               <Field
                 label="Monthly deduction"
                 error={failure?.messageFor("monthlyKobo")}
