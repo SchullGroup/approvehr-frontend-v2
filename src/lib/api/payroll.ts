@@ -1758,6 +1758,13 @@ export const payrollApi = {
       body,
     }),
 
+  /** The maker says the run is ready: the approvers are told, once. */
+  submitForApproval: (id: string) =>
+    request<{ runId: string; told: number }>(
+      `/payroll/runs/${id}/submit-for-approval`,
+      { method: "POST" },
+    ),
+
   /** Every loan on the run as its payslip reports it. Nobody without a loan appears. */
   runLoans: (id: string) =>
     request<{ employeeId: string; loans: PayslipLoan[] }[]>(
