@@ -277,6 +277,13 @@ export const loansApi = {
   approve: (id: string, body: ApproveLoanBody = {}) =>
     request<ApiLoanDetail>(`/loans/${id}/approve`, { method: "POST", body }),
 
+  /** Move the first deduction of a loan nothing has come off yet. */
+  reschedule: (id: string, startPeriod: string) =>
+    request<ApiLoanDetail>(`/loans/${id}/reschedule`, {
+      method: "POST",
+      body: { startPeriod },
+    }),
+
   /** The reason is required. "Declined" with nothing against it is a support call. */
   decline: (id: string, reason: string) =>
     request<ApiLoanDetail>(`/loans/${id}/decline`, {
