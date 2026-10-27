@@ -25,7 +25,6 @@ import {
   TextLink,
 } from "@/components/ui";
 import {
-  excludedNote,
   formatKobo,
   overtimeOn,
   payslipCountLabel,
@@ -250,7 +249,6 @@ export function ReviewStep({
   const shown = visible.slice(0, limit);
   const rest = visible.length - shown.length;
   const narrowed = visible.length !== payslips.length;
-  const note = excludedNote(run);
 
   const adjusting =
     payslips.find((slip) => slip.employeeId === adjustingId) ?? null;
@@ -279,13 +277,6 @@ export function ReviewStep({
             </Badge>
           }
         />
-        {note && (
-          <CardBody className="border-b border-line">
-            <p className="text-body-sm leading-relaxed text-warning-text">
-              {note}
-            </p>
-          </CardBody>
-        )}
         {scheduled && heldBack && (
           <CardBody className="border-b border-line">{heldBack}</CardBody>
         )}
