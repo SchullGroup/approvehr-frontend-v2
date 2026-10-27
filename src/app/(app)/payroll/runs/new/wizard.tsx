@@ -256,10 +256,7 @@ export function PayrollRunWizard() {
    */
   const stepParam = params.get("step");
   const requested = STEPS.findIndex((step) => step.id === stepParam);
-  const stepper = useStepper(
-    STEPS,
-    requested >= 0 ? requested : 0,
-  );
+  const stepper = useStepper(STEPS, requested >= 0 ? requested : 0);
 
   const canPrepare = useCan("RUN_PAYROLL");
   const canApprove = useCan("APPROVE_PAYROLL");

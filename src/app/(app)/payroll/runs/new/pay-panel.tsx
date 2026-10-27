@@ -352,7 +352,8 @@ export function PayPanel({
           <p className="text-body-sm text-body">
             Recorded as paid by your bank: {formatKobo(run.netKobo)} to{" "}
             {paidPeopleLabel(run)}, against{" "}
-            <span className="font-medium text-ink">{batch.reference}</span>. {walletPayout
+            <span className="font-medium text-ink">{batch.reference}</span>.{" "}
+            {walletPayout
               ? "The wallet has come down by that amount."
               : "Paid from your bank account, not the wallet."}
           </p>

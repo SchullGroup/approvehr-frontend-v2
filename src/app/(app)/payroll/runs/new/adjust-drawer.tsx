@@ -502,31 +502,32 @@ export function AdjustDrawer({
                 }
               />
             )}
-            {(loansOnRun?.find((row) => row.employeeId === employeeId)?.loans ?? []).map(
-              (loan) => (
-                <Line
-                  key={loan.loanId}
-                  editColumn={editable}
-                  label="Staff loan"
-                  note={`Owed ${formatKobo(loan.balanceBeforeKobo)}, ${formatKobo(loan.balanceAfterKobo)} after this month · of ${formatKobo(loan.accumulatedKobo)} borrowed`}
-                  value={minus(loan.deductionKobo)}
-                  marked={loan.overridden === true}
-                  indent
-                  edit={
-                    editable
-                      ? {
-                          label: `Change this month's loan deduction for ${person.name}`,
-                          disabled: refreshing,
-                          onClick: () => {
-                            setLoanId(loan.loanId);
-                            go("loan");
-                          },
-                        }
-                      : undefined
-                  }
-                />
-              ),
-            )}
+            {(
+              loansOnRun?.find((row) => row.employeeId === employeeId)?.loans ??
+              []
+            ).map((loan) => (
+              <Line
+                key={loan.loanId}
+                editColumn={editable}
+                label="Staff loan"
+                note={`Owed ${formatKobo(loan.balanceBeforeKobo)}, ${formatKobo(loan.balanceAfterKobo)} after this month · of ${formatKobo(loan.accumulatedKobo)} borrowed`}
+                value={minus(loan.deductionKobo)}
+                marked={loan.overridden === true}
+                indent
+                edit={
+                  editable
+                    ? {
+                        label: `Change this month's loan deduction for ${person.name}`,
+                        disabled: refreshing,
+                        onClick: () => {
+                          setLoanId(loan.loanId);
+                          go("loan");
+                        },
+                      }
+                    : undefined
+                }
+              />
+            ))}
             <Line
               editColumn={editable}
               label="Other deductions"
@@ -565,37 +566,38 @@ export function AdjustDrawer({
         </div>
       )}
 
-      {view === "loan" && (() => {
-        const loan = loansOnRun
-          ?.find((row) => row.employeeId === employeeId)
-          ?.loans.find((l) => l.loanId === loanId);
-        if (!loan) return null;
-        return (
-          <LoanForm
-            name={person.name}
-            scheduledKobo={loan.scheduledKobo ?? loan.deductionKobo}
-            balanceBeforeKobo={loan.balanceBeforeKobo}
-            currentKobo={loan.deductionKobo}
-            overridden={loan.overridden === true}
-            saving={busy}
-            error={error}
-            onBack={() => go("overview")}
-            onSave={(amountKobo) =>
-              void perform(() =>
-                payrollApi.setLoanDeduction(runId, {
-                  loanId: loan.loanId,
-                  amountKobo,
-                }),
-              )
-            }
-            onReset={() =>
-              void perform(() =>
-                payrollApi.clearLoanDeduction(runId, loan.loanId),
-              )
-            }
-          />
-        );
-      })()}
+      {view === "loan" &&
+        (() => {
+          const loan = loansOnRun
+            ?.find((row) => row.employeeId === employeeId)
+            ?.loans.find((l) => l.loanId === loanId);
+          if (!loan) return null;
+          return (
+            <LoanForm
+              name={person.name}
+              scheduledKobo={loan.scheduledKobo ?? loan.deductionKobo}
+              balanceBeforeKobo={loan.balanceBeforeKobo}
+              currentKobo={loan.deductionKobo}
+              overridden={loan.overridden === true}
+              saving={busy}
+              error={error}
+              onBack={() => go("overview")}
+              onSave={(amountKobo) =>
+                void perform(() =>
+                  payrollApi.setLoanDeduction(runId, {
+                    loanId: loan.loanId,
+                    amountKobo,
+                  }),
+                )
+              }
+              onReset={() =>
+                void perform(() =>
+                  payrollApi.clearLoanDeduction(runId, loan.loanId),
+                )
+              }
+            />
+          );
+        })()}
 
       {view === "days" && (
         <DaysForm

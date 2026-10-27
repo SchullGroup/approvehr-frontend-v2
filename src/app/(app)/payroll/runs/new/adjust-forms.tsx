@@ -395,8 +395,8 @@ export function LoanForm({
         <p className="text-body-sm leading-relaxed text-body">
           How much of {name}&rsquo;s loan to take this month. The schedule says{" "}
           {formatKobo(scheduledKobo)}; they owe {formatKobo(balanceBeforeKobo)}.
-          Taking more shortens the loan. Taking less leaves the rest owing.
-          Only this month changes.
+          Taking more shortens the loan. Taking less leaves the rest owing. Only
+          this month changes.
         </p>
 
         <ServerRefusal message={error} />
