@@ -321,9 +321,12 @@ The three settings on a question:
 - **How they answer** — in their own words, on the rating scale, or pick from a list you write.
 - **Who is asked** — the person themselves, their manager, or their colleagues anonymously. A
   question can go to more than one.
-- **Filed under** — which competency subsection it counts towards. A question filed under nothing is
-  still asked and answered; it just counts towards no part of the mark. That is a legitimate choice,
-  not a mistake, but know you are making it.
+- **Filed under** — which competency subsection it sits under in the list. That only groups the
+  question. **An answer to a question never counts towards the mark, however it is filed.** The
+  competency part of the mark comes from the level a manager records on the subsection itself (step
+  22, **Record a level**), and the dialog says so under the two pickers. A question filed under
+  nothing is still asked and answered. Choosing a section and leaving **Subsection** on _None_ files
+  it under nothing, and the dialog warns you before you save.
 
 > ✅ **Shortcut.** There is a **Copy from** control that lifts every question off a previous period.
 > On a second period this is the whole of this step.
