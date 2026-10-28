@@ -234,10 +234,26 @@ company's own words if you have them.
 > ⚠️ **Careful.** Two levels cannot share a word — the product refuses it, because a reader could not
 > tell them apart. And a period that has already started keeps the words it started with.
 
+The first card on that same tab decides whether a form asks for one of those words at all, as an
+**overall mark** after the last question. It is **off** for a new company: a form is its answers.
+
+|                |                                                                                                           |
+| -------------- | --------------------------------------------------------------------------------------------------------- |
+| **Where**      | `/settings/performance` → **Names of marks** → **Overall mark on appraisals**                             |
+| **Who**        | HR / Owner (the permission to change company settings; everybody else can read it)                        |
+| **Click**      | **Ask for an overall mark at the end of an appraisal**                                                    |
+| **You'll see** | A toast saying it applies to the next form anybody opens, and that marks already given are not touched    |
+
+> 💡 **What it does and does not do.** A manager's overall mark is shown beside the score and is **not**
+> counted in it. The one exception is Self-assessment (step 3), which _is_ the overall mark somebody
+> gave themselves. Switching this off never hides or changes a mark already given, and a form that is
+> already open keeps the pages it opened with.
+
 #### 3. Set what the mark is made of
 
 Five parts — objectives, core competencies, behavioural competencies, leadership, and what somebody
-said about themselves. You choose the percentage each one carries.
+said about themselves. You choose the percentage each one carries. That last one is the overall mark
+somebody gave themselves, so it only has anything to count while overall marks are switched on (step 2).
 
 |                |                                                                                                      |
 | -------------- | ---------------------------------------------------------------------------------------------------- |
@@ -246,9 +262,11 @@ said about themselves. You choose the percentage each one carries.
 | **Click**      | Type a whole percentage into each **Weight** box until the running total reads 100%, then save       |
 | **You'll see** | Save stays dead until the total is exactly 100%, with a line telling you how much to add or take off |
 
-> 💡 **Worth showing a stakeholder.** The self-assessment card underneath does the arithmetic out
-> loud: at 20%, somebody who rates themselves 5 out of 5 rather than 3 out of 5 moves their own final
-> mark by 10%. That figure moves as you drag the weight, before you save.
+> 💡 **Worth showing a stakeholder.** With overall marks on, the self-assessment card underneath does
+> the arithmetic out loud: at 20%, somebody who rates themselves 5 out of 5 rather than 3 out of 5
+> moves their own final mark by 10%. That figure moves as you drag the weight, before you save. With
+> overall marks off it says the part has nothing to count and offers **Switch overall marks on under
+> Names of marks**, and the card on that tab carries a small notice if a weight is already saved.
 
 ### Phase B — once per period: build it, and leave it as a draft
 
@@ -686,8 +704,11 @@ the module, so it is worth walking properly.
 - **Save and finish later** keeps a half-typed answer without sending it. Nobody else can see a form
   that has not been sent.
 - The form ends on **Preview**. It reads every answer back and sends nothing: press anything on it
-  to change it, and **Send it** is what sends. There is no overall mark to give. A review is its
-  answers, and the mark comes from the scores (step 22).
+  to change it, and **Send it** is what sends. There is no overall mark to give unless the company
+  has switched one on (step 2). Then one optional page, **Is there an overall mark?**, sits between
+  the last question and **Anything to add?**, the **Preview** has an **Overall mark** row, and the
+  confirmation says _"… and an overall mark of Meets Expectations"_. Either way the mark comes from
+  the scores (step 22).
 - Questions marked as required must be answered before Send will work. The screen counts what is
   still missing.
 - **The leadership question is only on a form about somebody who leads others** — people report to
@@ -1117,6 +1138,7 @@ on purpose — they are the arguments the module is built on.
 | **A measure nobody has read is not a measure at 0%.** | A number added with no current value reads *Not read yet* and is left out of the objective's progress until somebody enters a figure, and an objective with nothing read shows *No reading yet* instead of a percentage. A zero would claim the work had not moved, which is a different fact from nobody having looked. Typing the starting figure as a first reading is a reading. |
 | **Only a manager says a milestone is done.** | A *Done or not done* measure has no number to type, and the person whose work it is never sees a Confirm button. Until it is confirmed it counts as *not done*, because a milestone nobody confirmed by the end of the period was not met. |
 | **A manager cannot press Send until the person has sent theirs.** | Their self-appraisal is meant to inform the manager's, so **Send it** stays shut and the form says **Sending is not open yet.** with the reason, on the first page and on the **Preview**. Answering is never blocked. The due date passing, **Edit records**, or a period with no self-review all open it (step 21). |
+| **There is no overall mark unless the company turns it on.** | A form is its answers and the score comes from them. The switch is **Overall mark on appraisals** under Names of marks, off by default, read when a form opens, and it never changes a mark already given. A manager's overall mark sits beside the score and is not counted in it; Self-assessment is the exception, because it is the mark somebody gave themselves. |
 | **The Owner and the HR manager get no form.** | Both off on every new period, and each is its own tick box. The Owner reports to nobody, so the reporting line has no one to put on their form; the HR manager would otherwise be marking themselves against questions they wrote. Neither is let off anything — both still appraise their own teams. Tick either box on the period to include them (step 8). |
 
 ---
@@ -1159,7 +1181,7 @@ seeded accounts to use.
 | 5   | **Manager** — `/performance`. The same objective is in **Waiting on you**. Open the queue and agree it.                     | Both sides of one action, thirty seconds apart. **This is the moment the demo lands.**                                             |
 | 6   | **Manager** — go back to KPIs and try to change the target you just agreed.                                                 | The controls are gone and a sentence above says why. Not a refusal after the click — the offer was never made.                     |
 | 7   | **HR** — **Start the period**. Confirm, then read the result out loud.                                                      | How many forms, how many told, and any names it gives you. "Nobody is appraising them" if it appears.                              |
-| 8   | **Employee** — **Fill it in**. Answer, read the **Preview**, send it.                                                       | The Preview reads everything back and sends nothing. There is no overall mark to give: the answers are the review.                 |
+| 8   | **Employee** — **Fill it in**. Answer, read the **Preview**, send it.                                                       | The Preview reads everything back and sends nothing. There is no overall mark to give while the company has it off, which is the default: the answers are the review.                 |
 | 9   | **HR** — **Move to manager review**.                                                                                        | Self-reviews already in are kept. Say it; people assume otherwise.                                                                 |
 | 10  | **Manager** — write the review. Type _"Chidera is quite disorganised"_ and press Send.                                      | It quotes the phrase back at you and the button becomes **Send anyway**. It never blocks — and nothing you typed left the product. |
 | 11  | **HR** — **Move to calibration**, then **Change the mark** on one person with a reason.                                       | The row keeps both figures: what the answers produced, and what it was moved to.                                                   |
