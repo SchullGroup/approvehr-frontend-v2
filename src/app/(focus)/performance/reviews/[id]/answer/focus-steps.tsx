@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui";
+import { NoticeLine } from "@/components/portal/notice-line";
 import { LanguageCheck } from "@/components/performance/language-check";
 import {
   SuggestButton,
@@ -11,7 +12,6 @@ import {
 import type { useDevelopmentSuggestions } from "@/lib/store/ai";
 import {
   dayLabel,
-  ratingWordsFrom,
   type ApiFormQuestion,
   type ApiRatingScale,
   type ApiReviewDetail,
@@ -23,12 +23,7 @@ import {
   filled,
   type Draft,
 } from "@/app/(app)/performance/review-parts";
-import {
-  FocusQuestion,
-  PickList,
-  WriteBox,
-  ratingOptions,
-} from "./focus-question";
+import { FocusQuestion, WriteBox } from "./focus-question";
 
 /**
  * What each page of the review says.
@@ -89,6 +84,26 @@ function continueKeys(): string {
   return /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ Enter" : "Ctrl Enter";
 }
 
+/**
+ * Why Send is shut, said where somebody is about to start and again where they
+ * are about to press it.
+ *
+ * The reason is the API's own sentence, shown as it comes: it names the person
+ * and, when there is one, the date that would release it. A manager used to find
+ * this out only when Send was refused, after the whole form was filled in, and
+ * reported it as being unable to do the appraisal at all. They can answer now;
+ * what waits is Send.
+ */
+export function SendClosed({ reason }: { reason: string }) {
+  return (
+    <NoticeLine tone="warning">
+      <span>
+        <span className="font-medium">Sending is not open yet.</span> {reason}
+      </span>
+    </NoticeLine>
+  );
+}
+
 export function IntroStep({
   review,
   resumed,
@@ -126,6 +141,8 @@ export function IntroStep({
       {review.appraiser && (
         <AppraiserStrip appraiser={review.appraiser} mine={review.mine} />
       )}
+
+      {review.sendBlockedBy && <SendClosed reason={review.sendBlockedBy} />}
 
       <div className="flex flex-col gap-1.5 text-body-sm text-body">
         {total === 0 ? (
@@ -250,47 +267,6 @@ export function QuestionStep({
   );
 }
 
-export function MarkStep({
-  scale,
-  mark,
-  onPick,
-  onClear,
-}: {
-  scale: ApiRatingScale;
-  mark: string;
-  onPick: (value: string) => void;
-  onClear: () => void;
-}) {
-  return (
-    <Frame
-      headingId={HEADING}
-      title="Is there an overall mark?"
-      lead="Optional. Leave it if the answers say enough."
-    >
-      <div className="flex flex-col gap-3">
-        <PickList
-          name="overall-mark"
-          options={ratingOptions(scale)}
-          value={mark || undefined}
-          onPick={onPick}
-        />
-        <p className="text-meta text-muted">
-          Pick one, or press its number.{" "}
-          {mark && (
-            <button
-              type="button"
-              onClick={onClear}
-              className="cursor-pointer font-medium text-accent-text underline underline-offset-4"
-            >
-              Leave it blank instead
-            </button>
-          )}
-        </p>
-      </div>
-    </Frame>
-  );
-}
-
 export function SummaryStep({
   review,
   summary,
@@ -358,9 +334,7 @@ export function SummaryStep({
 
 export function CheckStep({
   review,
-  scale,
   onRecord,
-  mark,
   summary,
   outstanding,
   coaching,
@@ -369,26 +343,25 @@ export function CheckStep({
   onEdit,
 }: {
   review: ApiReviewDetail;
-  scale: ApiRatingScale;
   /** What will be on the record for a question — see `onRecordOf`. */
   onRecord: (question: ApiFormQuestion) => Draft;
-  mark: string;
   summary: string;
   outstanding: ApiFormQuestion[];
   /** A manager or peer form: the language check applies. */
   coaching: boolean;
   languageTexts: string[];
   languageSeen: boolean;
-  /** Jump to the page where a question (or the mark, or the note) is answered. */
-  onEdit: (where: ApiFormQuestion | "mark" | "summary") => void;
+  /** Jump to the page where a question (or the note) is answered. */
+  onEdit: (where: ApiFormQuestion | "summary") => void;
 }) {
-  const words = ratingWordsFrom(scale.levels);
   return (
     <Frame
       headingId={HEADING}
-      title="Look it over"
+      title="Preview"
       lead="Press anything to change it. Nothing goes until you send it."
     >
+      {review.sendBlockedBy && <SendClosed reason={review.sendBlockedBy} />}
+
       {outstanding.length > 0 && (
         <p role="alert" className="text-body-sm text-danger-text">
           {outstanding.length === 1
@@ -435,18 +408,6 @@ export function CheckStep({
             </li>
           );
         })}
-        <li>
-          <button
-            type="button"
-            onClick={() => onEdit("mark")}
-            className="block w-full cursor-pointer rounded-lg border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-          >
-            <p className="text-meta font-medium text-muted">Overall mark</p>
-            <p className="mt-1 text-body-sm leading-relaxed text-ink">
-              {mark ? (words(Number(mark)) ?? mark) : "No overall mark"}
-            </p>
-          </button>
-        </li>
         <li>
           <button
             type="button"

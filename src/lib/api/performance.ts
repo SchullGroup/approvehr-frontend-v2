@@ -787,6 +787,22 @@ export type ApiReviewDetail = ApiReview & {
   /** Whether *this* caller is the one who has to fill it in. */
   mine: boolean;
   /**
+   * Why Send would be refused right now, in the API's own sentence, or `null`
+   * when it would not.
+   *
+   * It is the rule that holds a manager's review until the employee has sent
+   * their self-appraisal (released by a past due date, by the appraiser holding
+   * the records permission, or when nobody was asked for one). Only the author
+   * of an unsent form is told, because it is a fact about their next press. The
+   * form says it at the start and keeps Send shut, so nobody fills in twelve
+   * answers to learn at the end that it could not go.
+   *
+   * **Absent from a server that predates it, and absent means there is nothing
+   * to say**, never "Send is open": the API still refuses at Send with the same
+   * sentence, and the form shows that.
+   */
+  sendBlockedBy?: string | null;
+  /**
    * What the author is to the subject, on a manager form.
    *
    * **Absent when there is no appraiser assignment** — not a role of "line
