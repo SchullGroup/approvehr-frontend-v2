@@ -9,6 +9,7 @@ import {
   RATING_MEANING,
   parseMeasure,
   performanceApi,
+  type AnswerKind,
   type ApiAnswer,
   type ApiFairness,
   type ApiClaims,
@@ -51,6 +52,7 @@ import {
   type ScoreBand,
   type ScoreComponent,
   type AnswerBody,
+  type ChoiceOptionBody,
   type CreateGoalBody,
   type UpdateGoalBody,
   type CreateKeyResultBody,
@@ -1087,7 +1089,10 @@ function demoEmployeeCompetencies(employeeId: string): ApiEmployeeCompetencies {
     rows,
     summary: {
       total: rows.length,
-      rated: rows.filter((row) => row.level !== null).length,
+      /* `ratedAt`, not `level`: a yes or no and a pick have no level and are
+         answered all the same. Every demo subsection is a level, so the two
+         agree here, and this is the form that stays true. */
+      rated: rows.filter((row) => row.ratedAt !== null).length,
       gaps: rows.filter((row) => (row.gap ?? 0) > 0).length,
     },
   };
@@ -2599,6 +2604,7 @@ export function useFrameworkActions() {
         description?: string;
         isCore?: boolean;
         scaleMax: number;
+        answerKind?: AnswerKind;
       }) => {
         guard(
           "Adding a competency needs the API: the demo framework is fixed, " +
@@ -2672,6 +2678,7 @@ export function useFrameworkActions() {
           isCore?: boolean;
           scaleMax?: number;
           active?: boolean;
+          answerKind?: AnswerKind;
         },
       ) => {
         guard(
@@ -2679,6 +2686,26 @@ export function useFrameworkActions() {
             "but you can still rate anybody against it.",
         );
         return performanceApi.updateCompetency(id, body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Replace the whole list of choices of a `CHOICE` subsection.
+     *
+     * Its own write, from its own button, the same shape as the scoring
+     * weights: the set is the unit, so it is saved as one. No demo
+     * simulation, for the reason every write in this hook has none: the
+     * framework is a company's standing configuration, and a list of scored
+     * choices kept in one browser would move no mark anywhere.
+     */
+    setChoiceOptions: useCallback(
+      async (competencyId: string, options: ChoiceOptionBody[]) => {
+        guard(
+          "Setting a subsection's choices needs the API: the demo framework " +
+            "is fixed, but you can still rate anybody against it.",
+        );
+        return performanceApi.setChoiceOptions(competencyId, options);
       },
       [guard],
     ),

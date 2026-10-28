@@ -853,7 +853,7 @@ const RATED_PARTS: { value: ScoreComponent; label: string }[] = [
   { value: "LEADERSHIP", label: "Leadership (managers only)" },
 ];
 
-function CountsTowards({
+export function CountsTowards({
   value,
   disabled,
   label,
