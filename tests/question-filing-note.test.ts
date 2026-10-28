@@ -105,9 +105,50 @@ describe("what a question's filing says about the mark", () => {
   });
 
   it("falls back to a plain sentence when nothing is chosen", () => {
+    /* No subsection is named, so no kind is: "what is recorded" is true of a
+       level, a yes or no and a pick alike. */
     expect(filingNote(everyState[5]![1]).text).toBe(
-      "Answers to a question do not count towards the mark. The mark comes from the level recorded on each subsection, under Competency ratings.",
+      "Answers to a question do not count towards the mark. The mark comes from what is recorded on each subsection, under Competency ratings.",
     );
+  });
+
+  describe("what is recorded depends on how the subsection is answered", () => {
+    const filed = (answerKind?: "RATING" | "BOOLEAN" | "CHOICE"): Filing => ({
+      sectionId: "s-1",
+      competencyId: "c-1",
+      section: core,
+      subsectionName: "Diligence",
+      ...(answerKind ? { answerKind } : {}),
+    });
+
+    it("says a level for a rated subsection, and when the kind is absent", () => {
+      const absent = filingNote(filed()).text;
+      expect(absent).toContain("the level recorded on Diligence");
+      expect(filingNote(filed("RATING")).text).toBe(absent);
+    });
+
+    it("says an answer, never a level, for a yes or no and for a pick", () => {
+      for (const kind of ["BOOLEAN", "CHOICE"] as const) {
+        const { text } = filingNote(filed(kind));
+        expect(text).toContain("the answer recorded on Diligence");
+        expect(text).not.toContain("level");
+      }
+    });
+
+    it("keeps the article right where the sentence says it twice", () => {
+      const unfiled: Filing = {
+        sectionId: "",
+        competencyId: "c-3",
+        subsectionName: "Punctuality",
+        answerKind: "BOOLEAN",
+      };
+      expect(filingNote(unfiled).text).toContain(
+        "so an answer recorded on it counts towards no part of the mark either",
+      );
+      expect(filingNote({ ...unfiled, answerKind: "RATING" }).text).toContain(
+        "so a level recorded on it counts towards no part of the mark either",
+      );
+    });
   });
 
   describe.each(everyState)("%s", (_name, filing) => {

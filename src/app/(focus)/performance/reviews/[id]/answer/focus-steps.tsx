@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui";
+import { NoticeLine } from "@/components/portal/notice-line";
 import { LanguageCheck } from "@/components/performance/language-check";
 import {
   SuggestButton,
@@ -83,6 +84,26 @@ function continueKeys(): string {
   return /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ Enter" : "Ctrl Enter";
 }
 
+/**
+ * Why Send is shut, said where somebody is about to start and again where they
+ * are about to press it.
+ *
+ * The reason is the API's own sentence, shown as it comes: it names the person
+ * and, when there is one, the date that would release it. A manager used to find
+ * this out only when Send was refused, after the whole form was filled in, and
+ * reported it as being unable to do the appraisal at all. They can answer now;
+ * what waits is Send.
+ */
+export function SendClosed({ reason }: { reason: string }) {
+  return (
+    <NoticeLine tone="warning">
+      <span>
+        <span className="font-medium">Sending is not open yet.</span> {reason}
+      </span>
+    </NoticeLine>
+  );
+}
+
 export function IntroStep({
   review,
   resumed,
@@ -120,6 +141,8 @@ export function IntroStep({
       {review.appraiser && (
         <AppraiserStrip appraiser={review.appraiser} mine={review.mine} />
       )}
+
+      {review.sendBlockedBy && <SendClosed reason={review.sendBlockedBy} />}
 
       <div className="flex flex-col gap-1.5 text-body-sm text-body">
         {total === 0 ? (
@@ -337,6 +360,8 @@ export function CheckStep({
       title="Preview"
       lead="Press anything to change it. Nothing goes until you send it."
     >
+      {review.sendBlockedBy && <SendClosed reason={review.sendBlockedBy} />}
+
       {outstanding.length > 0 && (
         <p role="alert" className="text-body-sm text-danger-text">
           {outstanding.length === 1

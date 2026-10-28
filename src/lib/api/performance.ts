@@ -330,6 +330,33 @@ export type ApiSection = {
   weightBp: number | null;
 };
 
+/**
+ * How a subsection is answered when somebody records an answer on it directly.
+ *
+ * `RATING` is a level from 1 to the subsection's `scaleMax`, and is what every
+ * subsection was before there were kinds. `BOOLEAN` is a yes or a no. `CHOICE`
+ * is one pick from the subsection's own list, each pick carrying a score
+ * somebody set by hand. Whatever the kind, an answer reduces to the same 0 to
+ * 10,000 basis points on the API, so nothing about weights or bands changed.
+ *
+ * Text and file answers are deliberately not a kind: a score is never made up
+ * from a paragraph (ADR 0003, an absent figure is never a zero).
+ */
+export type AnswerKind = "RATING" | "BOOLEAN" | "CHOICE";
+
+/** One pick on a `CHOICE` subsection, and what picking it is worth. */
+export type ApiChoiceOption = {
+  id: string;
+  label: string;
+  /**
+   * What a pick of this choice scores, 0 to 10,000 basis points. Set by hand and
+   * never worked out from the other choices. A choice that any rating has picked
+   * keeps its score for good: the API refuses to change it.
+   */
+  scoreBp: number;
+  sortOrder: number;
+};
+
 export type ApiCompetency = {
   id: string;
   name: string;
@@ -340,19 +367,42 @@ export type ApiCompetency = {
   description: string | null;
   /** Expected of everybody, as against role-specific. */
   isCore: boolean;
-  /** The ceiling of the scale. A level means nothing without it. */
+  /**
+   * The ceiling of the scale. A level means nothing without it. Carried for
+   * every kind, and means nothing for a yes or no and for a pick.
+   */
   scaleMax: number;
   active: boolean;
   archived: boolean;
+  /**
+   * Ratings of any kind recorded against it. Above 0, `answerKind` can no
+   * longer be changed, which is how a screen knows to say so beforehand.
+   */
   ratingCount: number;
+  /**
+   * How it is answered. **Optional on this side**, because a server that
+   * predates answer kinds sends neither field, and the API's own rule is that a
+   * subsection that does not say is `RATING`. Read it through `answerKindOf` in
+   * `lib/performance/answer-kind.ts` rather than by hand, so that one decision
+   * is made in one place.
+   */
+  answerKind?: AnswerKind;
+  /**
+   * The live choices, in `sortOrder`. **Read only when `answerKind` is
+   * `CHOICE`**: a subsection switched away from `CHOICE` before its first
+   * rating keeps its old choices, and the API still lists them.
+   */
+  choiceOptions?: ApiChoiceOption[];
 };
 
 /**
  * One line of somebody's framework.
  *
- * `level: null` means **never assessed**, which is a different fact from a low
- * score and must not render as zero. `gap` is null until there is both a level
- * and a target.
+ * **`ratedAt: null` means never answered**, which is a different fact from a low
+ * score and must not render as zero. It is not `level: null`: a yes or no and a
+ * pick have no level, so their rows always carry `level: null` and are answered
+ * all the same. `gap` is null until there is both a level and a target, and only
+ * a rated level can have either.
  */
 export type ApiCompetencyRow = {
   competencyId: string;
@@ -361,7 +411,17 @@ export type ApiCompetencyRow = {
   sectionName: string | null;
   isCore: boolean;
   scaleMax: number;
+  /** Absent from a server that predates answer kinds, which means `RATING`. */
+  answerKind?: AnswerKind;
+  /** `RATING` only. `null` on a yes or no and on a pick, answered or not. */
   level: number | null;
+  /** `BOOLEAN` only. `null` until somebody answers it. */
+  boolValue?: boolean | null;
+  /**
+   * `CHOICE` only: the label of the pick, **not its id**. Labels are not unique,
+   * so a form cannot preselect a current pick by matching on this.
+   */
+  choiceOptionLabel?: string | null;
   target: number | null;
   gap: number | null;
   note: string | null;
@@ -428,7 +488,16 @@ export type ApiRating = {
   id: string;
   competencyId: string;
   employeeId: string;
-  level: number;
+  /** Absent from a server that predates answer kinds, which means `RATING`. */
+  answerKind?: AnswerKind;
+  /** `RATING` only. A yes or no and a pick have no level. */
+  level: number | null;
+  /** `BOOLEAN` only. */
+  boolValue?: boolean | null;
+  /** `CHOICE` only. */
+  choiceOptionId?: string | null;
+  /** `CHOICE` only. */
+  choiceOptionLabel?: string | null;
   target: number | null;
   note: string | null;
   createdAt: string;
@@ -717,6 +786,22 @@ export type ApiFormQuestion = {
 export type ApiReviewDetail = ApiReview & {
   /** Whether *this* caller is the one who has to fill it in. */
   mine: boolean;
+  /**
+   * Why Send would be refused right now, in the API's own sentence, or `null`
+   * when it would not.
+   *
+   * It is the rule that holds a manager's review until the employee has sent
+   * their self-appraisal (released by a past due date, by the appraiser holding
+   * the records permission, or when nobody was asked for one). Only the author
+   * of an unsent form is told, because it is a fact about their next press. The
+   * form says it at the start and keeps Send shut, so nobody fills in twelve
+   * answers to learn at the end that it could not go.
+   *
+   * **Absent from a server that predates it, and absent means there is nothing
+   * to say**, never "Send is open": the API still refuses at Send with the same
+   * sentence, and the form shows that.
+   */
+  sendBlockedBy?: string | null;
   /**
    * What the author is to the subject, on a manager form.
    *
@@ -1719,13 +1804,44 @@ export type GapListParams = {
   employeeId?: string;
 };
 
+/**
+ * One answer on one subsection.
+ *
+ * **Exactly one of `level`, `boolValue` and `choiceOptionId`, the one the
+ * subsection's kind names.** The API refuses any other of the three by name, so
+ * a form builds the body from the kind rather than sending all of them.
+ */
 export type RateBody = {
   employeeId: string;
-  level: number;
-  /** Where the company wants them, so a gap is arithmetic rather than opinion. */
+  /** `RATING` only. */
+  level?: number;
+  /** `BOOLEAN` only. */
+  boolValue?: boolean;
+  /** `CHOICE` only: one of the subsection's own live choices. */
+  choiceOptionId?: string;
+  /**
+   * `RATING` only. Where the company wants them, so a gap is arithmetic rather
+   * than opinion. A yes or no and a pick have no target, because there is no
+   * honest distance between two answers that are not on a scale.
+   */
   target?: number;
   reviewCycleId?: string;
   note?: string;
+};
+
+/** One row of the whole list `PUT .../choice-options` replaces. */
+export type ChoiceOptionBody = {
+  /**
+   * Present means this existing choice, which keeps its identity. Absent makes
+   * a new one. A live choice left out of the list is archived, never deleted,
+   * because a rating can point at it.
+   */
+  id?: string;
+  /** 1 to 80 characters. */
+  label: string;
+  /** A whole number from 0 to 10,000. */
+  scoreBp: number;
+  sortOrder: number;
 };
 
 export type CycleListParams = {
@@ -2780,18 +2896,29 @@ export const performanceApi = {
       method: "DELETE",
     }),
 
+  /**
+   * `scaleMax` is **still required whatever the kind**, and means nothing for a
+   * yes or no and a pick: send 5. An absent `answerKind` is `RATING`, which is
+   * what a body that never mentions it has always meant.
+   */
   createCompetency: (body: {
     name: string;
     sectionId?: string;
     description?: string;
     isCore?: boolean;
     scaleMax: number;
+    answerKind?: AnswerKind;
   }) =>
     request<ApiCompetency>("/performance/competencies", {
       method: "POST",
       body,
     }),
 
+  /**
+   * A **change of kind** is refused once any rating exists, and when a job role
+   * targets a `RATING` subsection. Both refusals arrive as the API's own
+   * sentence, naming the subsection, and are shown as they come.
+   */
   updateCompetency: (
     id: string,
     body: {
@@ -2801,12 +2928,28 @@ export const performanceApi = {
       isCore?: boolean;
       scaleMax?: number;
       active?: boolean;
+      answerKind?: AnswerKind;
     },
   ) =>
     request<ApiCompetency>(`/performance/competencies/${id}`, {
       method: "PATCH",
       body,
     }),
+
+  /**
+   * Replace the whole list of choices of a `CHOICE` subsection.
+   *
+   * The whole set at once, like the scoring weights: removing one cannot be
+   * said as a partial list, and "at least two" is only checkable on the set. A
+   * choice that any rating has picked **keeps its score**, so a changed score on
+   * one is refused (409) and every such choice is named in the one sentence.
+   * Answers with the subsection, its live choices in `sortOrder`.
+   */
+  setChoiceOptions: (competencyId: string, options: ChoiceOptionBody[]) =>
+    request<ApiCompetency>(
+      `/performance/competencies/${competencyId}/choice-options`,
+      { method: "PUT", body: { options } },
+    ),
 
   /** Archive, not delete: past ratings are the evidence somebody improved. */
   archiveCompetency: (id: string) =>
