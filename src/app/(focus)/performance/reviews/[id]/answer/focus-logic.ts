@@ -31,22 +31,25 @@ export const sigOf = (held: Draft): string =>
  * Which page the form opens on.
  *
  * Where they were, if this browser remembers — the last page being the
- * questions plus the introduction, the mark, the note and the look-over, minus
- * one. Otherwise from what the server holds: the first required question with
- * no answer, or the overall mark if every required one has one. A review with
- * nothing in it opens on the introduction.
+ * questions plus the introduction, the note and the preview, minus one.
+ * Otherwise from what the server holds: the first required question with no
+ * answer, or the note if every required one has one. A review with nothing in it
+ * opens on the introduction.
+ *
+ * There is no page for an overall mark any more: the answers stand on their
+ * own, and the mark comes from the scores, not from a figure typed at the end.
  */
 export function startIndex(
   review: Pick<ApiReviewDetail, "questions">,
   local: LocalDraft,
 ): number {
-  const last = review.questions.length + 3;
+  const last = review.questions.length + 2;
   if (local.step > 0) return Math.min(local.step, last);
 
   const hasAnswers = review.questions.some((question) =>
     filled(question, draftFrom(question)),
   );
-  if (!hasAnswers && !local.mark && !local.summary) return 0;
+  if (!hasAnswers && !local.summary) return 0;
   const open = review.questions.findIndex(
     (question) => question.required && !filled(question, draftFrom(question)),
   );

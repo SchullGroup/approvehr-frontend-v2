@@ -1,8 +1,8 @@
 "use client";
 
 import { ButtonLink, SuccessMoment, TextLink } from "@/components/ui";
-import { ratingWordsFrom, type ApiReviewDetail } from "@/lib/api/performance";
-import { useAppraisals, useRatingScale } from "@/lib/store/performance";
+import type { ApiReviewDetail } from "@/lib/api/performance";
+import { useAppraisals } from "@/lib/store/performance";
 
 /**
  * The review has gone.
@@ -17,21 +17,17 @@ import { useAppraisals, useRatingScale } from "@/lib/store/performance";
  * The buttons wait for that list. Showing "Back" first and swapping it for
  * "Next: …" a moment later moved the thing somebody was about to press.
  *
- * Every figure here is one the form already held — the number of answers and the
- * mark — and the count of what is left comes from the same list the performance
- * page reads, fetched when this appears.
+ * Every figure here is one the form already held — the number of answers — and
+ * the count of what is left comes from the same list the performance page reads,
+ * fetched when this appears.
  */
 export function SentScreen({
   review,
   answered,
-  mark,
 }: {
   review: ApiReviewDetail;
   answered: number;
-  /** The overall mark that went with it, as the level's number, or null. */
-  mark: string | null;
 }) {
-  const { scale } = useRatingScale();
   const appraisals = useAppraisals();
 
   /* Not the one just sent, whatever the list says yet. */
@@ -40,7 +36,6 @@ export function SentScreen({
   );
   const next = remaining[0];
 
-  const markWords = mark ? ratingWordsFrom(scale.levels)(Number(mark)) : null;
   const answers = `${String(answered)} ${answered === 1 ? "answer" : "answers"}`;
 
   const title =
@@ -70,7 +65,7 @@ export function SentScreen({
         focusHeading
         markSize="lg"
         title={title}
-        lead={`${answers}${markWords ? ` and an overall mark of ${markWords}` : ""}, for ${review.cycleName}.`}
+        lead={`${answers}, for ${review.cycleName}.`}
         details={details}
         actions={
           appraisals.loading ? undefined : next ? (

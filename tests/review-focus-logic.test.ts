@@ -41,7 +41,7 @@ const answered = (text: string): ApiFormQuestion["answer"] =>
     attachment: null,
   }) as unknown as ApiFormQuestion["answer"];
 
-const none = { mark: "", summary: "", step: 0 };
+const none = { summary: "", step: 0 };
 
 describe("startIndex", () => {
   it("opens a review with nothing in it on the introduction", () => {
@@ -71,23 +71,23 @@ describe("startIndex", () => {
     expect(startIndex(review, none)).toBe(3); // intro, a, b, c
   });
 
-  it("goes to the overall mark once every required question has an answer", () => {
+  it("goes to the note once every required question has an answer", () => {
     const review = {
       questions: [
         question("a", { answer: answered("done") }),
         question("b", { required: false }),
       ],
     };
-    expect(startIndex(review, none)).toBe(3); // intro, a, b, mark
+    expect(startIndex(review, none)).toBe(3); // intro, a, b, note
   });
 
   it("goes back to the page this browser remembers, clamped to the last one", () => {
     const review = { questions: [question("a"), question("b")] };
     expect(startIndex(review, { ...none, step: 2 })).toBe(2);
-    expect(startIndex(review, { ...none, step: 99 })).toBe(5); // intro a b mark note check
+    expect(startIndex(review, { ...none, step: 99 })).toBe(4); // intro a b note preview
   });
 
-  it("treats a remembered mark or note as having started", () => {
+  it("treats a remembered note as having started", () => {
     const review = { questions: [question("a"), question("b")] };
     expect(startIndex(review, { ...none, summary: "a line" })).toBe(1);
   });

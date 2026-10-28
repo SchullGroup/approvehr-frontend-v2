@@ -42,7 +42,7 @@ const useStoresReady = () =>
  * Loads the review and decides what the person is looking at.
  *
  * The form itself mounts only once the review is in hand **and** the browser
- * has hydrated. It starts from browser storage (the unsent mark and note) and
+ * has hydrated. It starts from browser storage (the unsent note) and
  * from the answers already saved, and a first render that guessed either would
  * not match what the server drew.
  */
@@ -100,9 +100,7 @@ export function ReviewFocus({ reviewId }: { reviewId: string }) {
   }
 
   if (sent) {
-    return (
-      <SentScreen review={review} answered={sent.answered} mark={sent.mark} />
-    );
+    return <SentScreen review={review} answered={sent.answered} />;
   }
 
   return <FocusForm review={review} onSent={setSent} onSending={setSending} />;

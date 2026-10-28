@@ -25,7 +25,7 @@ import {
   readLocalDraft,
   writeLocalDraft,
 } from "./draft-storage";
-import { draftForPick, pickOptions, ratingOptions } from "./focus-question";
+import { draftForPick, pickOptions } from "./focus-question";
 import {
   onRecordOf,
   savedAnswerStands,
@@ -35,7 +35,6 @@ import {
 import {
   CheckStep,
   IntroStep,
-  MarkStep,
   QuestionStep,
   SummaryStep,
   sendLabel,
@@ -58,9 +57,15 @@ import {
  * everything if they closed it any other way. A page that says it saves as you
  * go has to mean it: answers are sent to the API shortly after they stop
  * changing, on every move between pages, when the tab is hidden, when the page
- * is left, and on close. The overall mark and the closing note have no endpoint
- * of their own — they travel with the send — so those are kept in this browser
- * until it goes (`draft-storage.ts`).
+ * is left, and on close. The closing note has no endpoint of its own — it
+ * travels with the send — so it is kept in this browser until it goes
+ * (`draft-storage.ts`).
+ *
+ * ## There is no overall mark
+ *
+ * The form used to end with "Is there an overall mark?". It no longer asks: a
+ * review is its answers, and the mark comes from the scores. Nothing here sends a
+ * `rating`, and a mark held in an older draft is ignored.
  *
  * ## What is on the record is not always what is in the box
  *
@@ -71,7 +76,7 @@ import {
  * ## Sending is deliberate
  *
  * It is the one thing here that cannot be undone, so it is never reached by a
- * keystroke: Enter and Ctrl/⌘ Enter go *to* the look-over page, and only a press
+ * keystroke: Enter and Ctrl/⌘ Enter go *to* the preview page, and only a press
  * on the Send button goes past it. Key repeat is ignored everywhere, because a
  * held key walked straight through that page and sent.
  */
@@ -79,14 +84,13 @@ import {
 type Step =
   | { kind: "intro" }
   | { kind: "question"; question: ApiFormQuestion; position: number }
-  | { kind: "mark" }
   | { kind: "summary" }
   | { kind: "check" };
 
 type SaveState = "idle" | "saving" | "saved" | "failed";
 
 /** What the page needs to say about a review that has just gone. */
-export type SentInfo = { answered: number; mark: string | null };
+export type SentInfo = { answered: number };
 
 export function FocusForm({
   review,
@@ -117,7 +121,6 @@ export function FocusForm({
         question,
         position: at + 1,
       })),
-      { kind: "mark" },
       { kind: "summary" },
       { kind: "check" },
     ],
@@ -131,7 +134,6 @@ export function FocusForm({
   const [draft, setDraft] = useState<Record<string, Draft>>({});
   /** What has been saved during this visit, which the review itself does not show until it is read again. */
   const [savedHeld, setSavedHeld] = useState<Record<string, Draft>>({});
-  const [mark, setMark] = useState(local.mark);
   const [summary, setSummary] = useState(local.summary);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [failed, setFailed] = useState<string | null>(null);
@@ -287,10 +289,10 @@ export function FocusForm({
     };
   }, []);
 
-  /* The two boxes with nowhere to go before the send, and the page. */
+  /* The one box with nowhere to go before the send, and the page. */
   useEffect(() => {
-    writeLocalDraft(review.id, { mark, summary, step: index });
-  }, [review.id, mark, summary, index]);
+    writeLocalDraft(review.id, { summary, step: index });
+  }, [review.id, summary, index]);
 
   /* A move queued by picking an option is for the page it was picked on. */
   useEffect(
@@ -326,11 +328,6 @@ export function FocusForm({
     moveOnSoon(next);
   };
 
-  const pickMark = (optionValue: string) => {
-    setMark(optionValue);
-    moveOnSoon(draft);
-  };
-
   const sendIt = async () => {
     if (sendLock.current || reading) return;
     if (outstanding.length > 0) {
@@ -349,13 +346,12 @@ export function FocusForm({
     setSending(true);
     try {
       if (!(await flush(draft))) return;
-      const body: { rating?: number; summary?: string } = {};
-      if (mark) body.rating = Number(mark);
+      const body: { summary?: string } = {};
       if (summary.trim()) body.summary = summary.trim();
       onSending(true);
       await send(review.id, body, []);
       clearLocalDraft(review.id);
-      onSent({ answered, mark: mark || null });
+      onSent({ answered });
     } catch (caught) {
       onSending(false);
       setFailed(
@@ -370,7 +366,7 @@ export function FocusForm({
   };
 
   /**
-   * Go on to the next page. From the look-over page it sends — but only when
+   * Go on to the next page. From the preview page it sends — but only when
    * asked by the button, never by a key (`byKey`).
    */
   const advance = (byKey = false) => {
@@ -426,16 +422,13 @@ export function FocusForm({
       const options =
         current.kind === "question"
           ? pickOptions(current.question, scale)
-          : current.kind === "mark"
-            ? ratingOptions(scale)
-            : null;
-      if (options) {
+          : null;
+      if (current.kind === "question" && options) {
         const pressed = event.key.length === 1 ? event.key.toUpperCase() : "";
         const hit = options.find((option) => option.key === pressed);
         if (hit) {
           event.preventDefault();
-          if (current.kind === "question") pick(current.question, hit.value);
-          else pickMark(hit.value);
+          pick(current.question, hit.value);
           return;
         }
       }
@@ -457,17 +450,14 @@ export function FocusForm({
       ? `Question ${String(current.position)} of ${String(review.questions.length)}`
       : current.kind === "intro"
         ? "Before you start"
-        : current.kind === "mark"
-          ? "Overall mark"
-          : current.kind === "summary"
-            ? "Anything to add"
-            : "Look it over";
+        : current.kind === "summary"
+          ? "Anything to add"
+          : "Preview";
 
   const optionalAndEmpty =
     (current.kind === "question" &&
       !current.question.required &&
       !filled(current.question, onRecord(current.question))) ||
-    (current.kind === "mark" && !mark) ||
     (current.kind === "summary" && !summary.trim());
 
   const nextLabel =
@@ -614,14 +604,6 @@ export function FocusForm({
               onBusyChange={setReading}
             />
           )}
-          {current.kind === "mark" && (
-            <MarkStep
-              scale={scale}
-              mark={mark}
-              onPick={pickMark}
-              onClear={() => setMark("")}
-            />
-          )}
           {current.kind === "summary" && (
             <SummaryStep
               review={review}
@@ -633,9 +615,7 @@ export function FocusForm({
           {current.kind === "check" && (
             <CheckStep
               review={review}
-              scale={scale}
               onRecord={onRecord}
-              mark={mark}
               summary={summary}
               outstanding={outstanding}
               coaching={coaching}
@@ -643,11 +623,9 @@ export function FocusForm({
               languageSeen={languageSeen}
               onEdit={(where) =>
                 go(
-                  where === "mark"
+                  where === "summary"
                     ? 1 + review.questions.length
-                    : where === "summary"
-                      ? 2 + review.questions.length
-                      : 1 + review.questions.indexOf(where),
+                    : 1 + review.questions.indexOf(where),
                 )
               }
             />
