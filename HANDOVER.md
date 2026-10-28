@@ -9903,7 +9903,8 @@ rating dialog would be refused on it. Not built, on purpose: everything under "D
 
 The product owner ran the Performance module on the QA site, in front of a tester, on 2026-10-28 and sent a list.
 Each item below is what was said, what was found and what was done. Frontend #500, #501 and #504 are merged into
-`dev`. The backend half is `approvehr-backend` #236 into `staging`, and merging it is the user's.
+`dev`. The backend halves are `approvehr-backend` #236 and #237 into `staging`, merged by the user at 17:29 UTC and
+deployed to the QA backend at 17:48 and 18:10 UTC.
 
 ## The Questions dialog said an answer counts towards the mark, and it does not
 
@@ -10008,12 +10009,12 @@ no leadership question, no overall-mark page, ends on **Preview** with no mark r
 form has two questions; a manager whose employee has not sent theirs sees **Sending is not open yet.** with the
 API's sentence on the first page and on the Preview, and **Send it** is disabled.
 
-**Not exercised:** the QA site (it needs #236 on `staging` for the leadership filter and for `sendBlockedBy`), demo
+**Not exercised:** the QA site (at the time it needed #236 on `staging` for the leadership filter and for `sendBlockedBy`; it deployed at 17:48 UTC), demo
 mode, a company with a weighted Self-assessment, and the whole backend suite in one run.
 
 ## Order, and what was left
 
-The backend (#236) goes first. The web (#504) is merged and is safe against a server without the field. Not built,
+The backend (#236) went first (merged 17:29 UTC, deployed 17:48 UTC). The web (#504) was safe against a server without the field either way. Not built,
 on purpose: the Overview row above, and any change to who counts as a leader in the score register.
 
 ---
@@ -10139,3 +10140,129 @@ a company with real data.
 - **The "Fill in from the reporting line" message does not say how many forms it wrote** (`formsCreated`).
 - **On first opening By section there can be a brief flash**: the sections come from the framework's groups (no
   weights, a different order) until the API's own list arrives.
+
+---
+
+# The overall mark is a company setting, and the weights page says what that does to Self-assessment
+
+The QA round of 2026-10-28 removed "Is there an overall mark?" from the answer flow ("a review is its answers"), and
+its entry above recorded the one consequence: a company that weights **Self-assessment** has nothing to read for
+that part, because Self-assessment *is* the overall mark somebody gave themselves. The owner's answer was to put it
+back as a switch in Performance settings, off by default. Backend #238 (merged 18:05 UTC), backend #239 and
+frontend #512 are that change. #238 and #512 are merged (18:05 and 19:02 UTC); #239 is open for the user.
+
+## What the switch decides, and what it does not
+
+`OrgFeatures.overallMark`, `Boolean @default(false)`, changed with the same `PATCH /setup/features` as every other
+flag and sent with every review as `ApiReviewDetail.overallMark`, so the form needs no second request.
+
+- **It decides what a form offers.** On, the page-by-page form has a page "Is there an overall mark?" between the
+  questions and the note, the preview has an "Overall mark" row, the confirmation says "and an overall mark of
+  Meets Expectations", and the popup form (`review-form.tsx`) has the "Overall mark" field. Off, none of them.
+- **It refuses nothing.** `POST /reviews/:id/submit` takes a `rating` either way, and a review that carries one
+  shows it ("Overall mark" on the record). A mark already given is never hidden or rewritten by the switch moving.
+- **It is read once, when a form opens** (`useState(() => review.overallMark === true)` in `focus-form.tsx`). A form
+  already open keeps what it was, so nobody's pages move under them halfway through. Pinned by a test that
+  rerenders the form with the setting changed.
+- **It is not frozen onto a period** (the weights and the rating words are), and it is **not a wizard question**.
+- **A manager's overall mark is not scored.** It is `appraiserMark`, shown beside the score. Self-assessment is the
+  one exception: weighted, it is the self-review's `rating` (`levelToBp`: 5 is 100% of that part, 3 is 50%).
+  Weighted with the switch off, new self-reviews carry no rating, so the register reports that part as having no
+  data and leaves it out (the rest share the whole score; never counted as nought).
+
+The migration (`20261028180000_org_features_overall_mark`) turns the flag **on** for every company whose saved
+Self-assessment weight is above 0, or that has a running period (not a draft, not published) that froze one, so no
+score moved on deploy. Replayed against nine SQL cases (nothing weighted, a saved weight, a saved 0, a running
+period, a draft and a published one, three malformed snapshots); it changed exactly the two it should.
+
+## Where it lives on the frontend
+
+- **`overallMark: boolean | null` in the features store's `State`, outside `FEATURE_KEYS`/`FeatureFlags`.** The
+  flags are booleans by construction and what the nav filters on; this hides no screen. `useFeatureSettings()`
+  returns `overallMark` and `setOverallMark`.
+- **Null is not off.** `fromApi` reads `features.overallMark ?? null`, `fromDemo` is null, `LOADING` is null. Null
+  means the server did not say (an API one deploy behind, or no server), and **no switch is offered for it**:
+  offering "off" would be a claim about a setting that does not exist there. The card says which of loading,
+  failed, behind and no-server it is, in four different sentences.
+- **The switch is `OverallMarkCard`** (`settings/performance/overall-mark-card.tsx`), the first card on Settings >
+  Appraisal scoring > **Names of marks**, because the names are what the page offers. Modelled on
+  `ProbationPolicyCard`. Needs `MANAGE_SETTINGS`; read-only line for anybody else. On a change it toasts "It applies
+  to the next form anybody opens. Marks already given are not touched." and calls the weights `reload`, so the API's
+  own sentence about Self-assessment follows the switch.
+- **The card's one consequence** is an `AttentionMark` beside its title, shown only when it is true: the **saved**
+  Self-assessment weight is above 0 and the switch is off. It is told the saved weight, not the draft being typed
+  (a test types into the weight field and asserts the mark does not appear).
+- **The Self-assessment card on the Weights tab is flag-aware.** "Collected either way." is gone (false while the
+  mark is off). With `overallMark === false` it drops the "moves their own final mark by X" paragraph and the "What
+  we do instead" row, which describe something nobody can do, and shows one action, "Switch overall marks on under
+  Names of marks", which changes the tab without leaving the page. With true or null it reads exactly as before.
+  The API's `selfAssessmentNote` is still shown once and is the only place the consequence is worded: the first
+  version of this card wrote a second sentence of its own beside the API's, and a screenshot showed the two saying
+  "the overall mark is switched off" one under the other, so the card now offers the way out and leaves the
+  explaining to the API.
+
+## The backend sentence
+
+`selfAssessmentNote(weightBp, overallMarkOn)` in `modules/performance/scoring.ts` has four outputs, because two
+independent facts decide what is true. The 0% sentence used to claim the self-rating "is collected", which stopped
+being true once the mark became a switch that starts off. Weighted-and-off is the only state where a company has
+asked for a figure nothing can produce, and it is the one that now says so.
+
+## Decisions not to undo
+
+- **Absent is not off, and null is not off.** An absent `overallMark` on a review means the form does not ask (the
+  API still accepts a rating), but an absent one on the *features* means no switch, not an off switch.
+- **Two guards stand between a stale draft and the send**, and neither fails a test alone: the `mark` state is seeded
+  empty when the form does not ask, and the body sends `rating` only when it does. Removing both fails
+  `ignores a mark left in the browser from before the setting moved`. Keep both: a mark that cannot exist is better
+  than a mark that is filtered.
+- **The weights object has to keep its identity in a test of the weights form.** The form keeps a draft only while
+  the weights it started from are the same object, so a `useScoringWeights` mock that builds a new object per render
+  throws every keystroke away and the draft cases pass without proving anything. Found by tampering: the first
+  version of the "saved, not typed" test passed with the saved/draft distinction removed.
+
+## Verified
+
+Frontend: 46 new tests in four new files (`overall-mark-flow`, `overall-mark-card`, `review-form-overall-mark`,
+`self-assessment-overall-mark`) and three older files updated (`review-focus-logic`, `review-preview-step`,
+`review-send-blocked`); the wider run over every file with `performance`, `review`, `overall`, `self-assessment`,
+`settings`, `scoring` or `weights` in its name is 25 files and 316 tests, all passing. `npm run check` exit 0 with
+`APPROVEHR_BACKEND_DIR` pointing at the backend branch (so the cross-repo gates compared instead of skipping);
+`verify-demo` against a production build with `NEXT_PUBLIC_DEMO=off` (3,044 built files, none carrying demo copy).
+
+Each rule was broken on purpose and a test failed: a server that does not say read as yes, the setting read on every
+render, a null shown as a switch, the consequence shown at a weight of 0, off read as null on the weights page, the
+draft weight handed to the card, and the popup form asking without the setting. Two did not fail on the first try and
+were fixed (see "Decisions not to undo").
+
+Backend (#239, on top of #238): `tests/performance-overall-mark.test.ts` is 12 passing, five of them new; 21 files and
+558 tests across every `performance*` file, `appraiser-mapping`, `setup` and `tenant-isolation`. Both guards broken on
+purpose (weighted-and-off falling through to the weighted-on sentence; the service passing `true` for the setting).
+
+In a browser, against a production build and a scratch API running the backend branch: **27 of 27 checks**, run twice
+(the first run had one failure, a false one, below). Admin: the card off with no notice at the default weight;
+Self-assessment offering the switch and showing no swing; the link opening Names of marks; a saved 20% weight with the
+mark off putting the notice beside the card title, with the API's sentence saying there is nothing to count; switching
+on through the card with the server agreeing; the notice gone; Self-assessment reading as before. Employee with the
+mark off: the note page after the questions, no row on the Preview, no mark recorded. Employee with it on: the page,
+the word read back on the Preview, "and an overall mark of Meets Expectations" on the confirmation, the server
+holding 3. Manager: asked too while it is on, and not after the setting moved. 375px with touch: no sideways scroll on
+either tab, no console errors, no 5xx. Screenshots 30 to 38 in `out/answer-kinds-screenshots-2026-10-28/`.
+
+QA: backend #238 is live (its `staging` run finished 18:34 UTC; `/health` uptime at 19:02:46 UTC was 1,711 s, which is
+a process start of 18:34:15). The frontend is on `dev` only until the user merges the promotion PR (#513).
+
+## Not verified
+
+The QA site itself (the web needs #513 merged, and #239 for the sentence); iOS Safari or any real device; demo mode in a
+browser (the card's no-server sentence and the null state are covered by tests, not walked); the popup form in a
+browser (tests only); a company with real data; the whole backend suite in one run.
+
+## Found while doing it
+
+- **A browser assertion on page text can be satisfied by the period's own name.** The walk's "the preview has no
+  overall mark row" failed because the test period was called "Overall mark walk" and its name is in the header of every
+  page. The screenshot showed no row; the check was wrong. Count the exact row label, not the substring, and name test
+  periods so they cannot collide with the words under test. Same family as the earlier lesson that an assertion the
+  chrome can satisfy proves nothing.
+- **A test mock that returns a new object every render hides every draft case.** See "Decisions not to undo".

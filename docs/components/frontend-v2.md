@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `99238871` (2026-10-28) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `b36ad08b` (2026-10-28) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -31,14 +31,14 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — `/projects`](#screens--projects)                                                        |       19 |         18 |       0 |         1 |
 | [Screens — `/help`](#screens--help)                                                                |        9 |         10 |       0 |         0 |
 | [Screens — `/reports`](#screens--reports)                                                          |       12 |         15 |       0 |         7 |
-| [Screens — `/settings`](#screens--settings)                                                        |       95 |         99 |       0 |         5 |
+| [Screens — `/settings`](#screens--settings)                                                        |       96 |        100 |       0 |         5 |
 | [Screens — `/approvals`](#screens--approvals)                                                      |        2 |          2 |       0 |         0 |
 | [Screens — `/assistant`](#screens--assistant)                                                      |        2 |          2 |       0 |         0 |
 | [Screens — the rest of the signed-in app](#screens--the-rest-of-the-signed-in-app)                 |       36 |         40 |       0 |         1 |
-| [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         13 |       0 |        12 |
+| [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         14 |       0 |        12 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       45 |         50 |       0 |         6 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1165** |    **975** | **415** |  **1373** |
+| **Total**                                                                                          | **1166** |    **977** | **415** |  **1373** |
 
 ---
 
@@ -1239,6 +1239,7 @@ Screen components for the settings module, including its dialogs and panels.
 | `src/app/(app)/settings/overtime/page.tsx`                                     | `OvertimePolicyPage`                                                 | —     | —                                    | 1 const          |
 | `src/app/(app)/settings/payroll/form.tsx`                                      | `PayrollSettingsForm`                                                | —     | —                                    | —                |
 | `src/app/(app)/settings/payroll/page.tsx`                                      | `PayrollSettingsPage`                                                | —     | —                                    | 1 const          |
+| `src/app/(app)/settings/performance/overall-mark-card.tsx`                     | `OverallMarkCard`                                                    | —     | —                                    | —                |
 | `src/app/(app)/settings/performance/page.tsx`                                  | `PerformanceSettingsPage`                                            | —     | —                                    | 1 const          |
 | `src/app/(app)/settings/performance/scale-form.tsx`                            | `RatingScaleForm`                                                    | —     | `scaleProblem`                       | —                |
 | `src/app/(app)/settings/performance/tabs.ts`                                   | —                                                                    | —     | —                                    | 1 const · 1 type |
@@ -1345,17 +1346,17 @@ Everything else under `src/app/(app)`.
 
 Screens that take the whole window, with no sidebar and no top bar. Today that is answering a review one question at a time.
 
-| File                                                                 | Components                                                            | Hooks | Functions                                                     | Also    |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------- | ----- | ------------------------------------------------------------- | ------- |
-| `src/app/(focus)/layout.tsx`                                         | `FocusLayout`                                                         | —     | —                                                             | —       |
-| `src/app/(focus)/performance/reviews/[id]/answer/draft-storage.ts`   | —                                                                     | —     | `readLocalDraft`, `writeLocalDraft`, `clearLocalDraft`        | 1 type  |
-| `src/app/(focus)/performance/reviews/[id]/answer/focus-form.tsx`     | `FocusForm`                                                           | —     | —                                                             | 1 type  |
-| `src/app/(focus)/performance/reviews/[id]/answer/focus-logic.ts`     | —                                                                     | —     | `sigOf`, `startIndex`, `onRecordOf`, `savedAnswerStands`      | 1 const |
-| `src/app/(focus)/performance/reviews/[id]/answer/focus-question.tsx` | `PickList`, `WriteBox`, `FocusQuestion`                               | —     | `ratingOptions`, `pickOptions`, `draftForPick`, `pickedValue` | 1 type  |
-| `src/app/(focus)/performance/reviews/[id]/answer/focus-sent.tsx`     | `SentScreen`                                                          | —     | —                                                             | —       |
-| `src/app/(focus)/performance/reviews/[id]/answer/focus-steps.tsx`    | `SendClosed`, `IntroStep`, `QuestionStep`, `SummaryStep`, `CheckStep` | —     | `sendLabel`                                                   | —       |
-| `src/app/(focus)/performance/reviews/[id]/answer/page.tsx`           | `AnswerReviewPage`                                                    | —     | —                                                             | 1 const |
-| `src/app/(focus)/performance/reviews/[id]/answer/review-focus.tsx`   | `ReviewFocus`                                                         | —     | —                                                             | —       |
+| File                                                                 | Components                                                                        | Hooks | Functions                                                     | Also    |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------- | ------- |
+| `src/app/(focus)/layout.tsx`                                         | `FocusLayout`                                                                     | —     | —                                                             | —       |
+| `src/app/(focus)/performance/reviews/[id]/answer/draft-storage.ts`   | —                                                                                 | —     | `readLocalDraft`, `writeLocalDraft`, `clearLocalDraft`        | 1 type  |
+| `src/app/(focus)/performance/reviews/[id]/answer/focus-form.tsx`     | `FocusForm`                                                                       | —     | —                                                             | 1 type  |
+| `src/app/(focus)/performance/reviews/[id]/answer/focus-logic.ts`     | —                                                                                 | —     | `sigOf`, `startIndex`, `onRecordOf`, `savedAnswerStands`      | 1 const |
+| `src/app/(focus)/performance/reviews/[id]/answer/focus-question.tsx` | `PickList`, `WriteBox`, `FocusQuestion`                                           | —     | `ratingOptions`, `pickOptions`, `draftForPick`, `pickedValue` | 1 type  |
+| `src/app/(focus)/performance/reviews/[id]/answer/focus-sent.tsx`     | `SentScreen`                                                                      | —     | —                                                             | —       |
+| `src/app/(focus)/performance/reviews/[id]/answer/focus-steps.tsx`    | `SendClosed`, `IntroStep`, `QuestionStep`, `MarkStep`, `SummaryStep`, `CheckStep` | —     | `sendLabel`                                                   | —       |
+| `src/app/(focus)/performance/reviews/[id]/answer/page.tsx`           | `AnswerReviewPage`                                                                | —     | —                                                             | 1 const |
+| `src/app/(focus)/performance/reviews/[id]/answer/review-focus.tsx`   | `ReviewFocus`                                                                     | —     | —                                                             | —       |
 
 ---
 
