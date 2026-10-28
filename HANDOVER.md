@@ -10266,3 +10266,136 @@ browser (tests only); a company with real data; the whole backend suite in one r
   periods so they cannot collide with the words under test. Same family as the earlier lesson that an assertion the
   chrome can satisfy proves nothing.
 - **A test mock that returns a new object every render hides every draft case.** See "Decisions not to undo".
+
+# Weekly tasks can carry a weight, and four screens now say what they did
+
+Two stretches on 2026-10-28, both inside the user's scope for the day (Performance only, disregard payroll). The first
+is a teammate's pull request that had been waiting for a review and a merge (#449). The second is the five items left
+over from the tester's list after the appraisal fixes, called R1 to R5 below.
+
+## Weekly tasks are a sixth part of the mark (#449, landed through #515)
+
+Joseph Chinedu's #449, the web half of backend #214. It added no documentation, so this is it.
+
+- **Settings, Appraisal scoring** has a sixth row, **Weekly tasks**, with its own description ("How the weekly tasks
+  graded against this period's objectives were rated. Starts at 0%."). The company default is the starting point for new
+  periods. `weights-form.tsx` always sends all six, so a server whose rows do not carry the new one cannot leave the set
+  one key short.
+- **A period has its own weights.** `PeriodWeights` is one editor in two places: the period's page while it is a draft
+  (`PeriodWeightsSection`: **How the mark is made up**, **Save the weights**, **Use the company defaults**, "Set for this
+  period." or "Using the company defaults.") and the first page of the assistant's draft, under the description. Six
+  rows, whole percents from 0 to 100, **Total** badge, "These must add up to 100%." From the moment the period starts the
+  same rows are read-only ("Fixed when this period started."; a period from before snapshots reads "This period follows
+  the company's weights as they are today.").
+- **Whole percents here and two decimals in Settings, on purpose.** The rule is exactly 100%, and a field that took
+  33.33 would let three of them make 99.99 and a refusal nobody could connect to a row. A draft nobody touched is not
+  held to the rule at all: it sends no weights and follows the company's until it starts, when whatever the company holds
+  is fixed onto it.
+- **What the part counts** is the API's: the manager's grades on tasks logged against the period's objectives, where
+  **Completed** counts in full, **Partly completed** counts half, and **Not completed** and **Rejected** count nothing.
+  Somebody with no graded tasks has `NO_GRADED_TASKS` and the share is spread over the other parts. Nothing on this side
+  works out a mark.
+- **`visibleComponents` drops Weekly tasks when it is weighted at nothing** (`NOT_WEIGHTED`). Every period that existed
+  before the part did carries it at 0%, and "Weekly tasks: weighted at 0%" on every mark says nothing. Every other
+  exclusion stays, in the API's words. `weightsFromNote("period")` is the one sentence for a draft previewed on its own
+  weights, and the report names where weights came from (**Locked in**, **This period's own**, **Company's current**).
+
+### How it landed, because the history matters here
+
+The PR was 180 commits behind `dev`. It was merged in a scratch worktree as a real merge commit (`3b979f4f`, so
+Joseph's history is intact) with one separate fix commit (`432f59b8`), and then opened as #515 into `dev`; GitHub marked
+#449 merged when its tip landed. Reviewing it found one thing the gates found and I would not have: after the merge
+`verify-no-banners` failed on `period-weights-section.tsx`, where a failed save was a tinted box with a border. It is
+plain red words now (`<p role="alert" className="text-body-sm text-danger-text">`), with the message, the role and the
+test text unchanged. **A PR that was green when it was written can fail a gate that arrived later**: run the whole
+`npm run check` on the merged tree, not on the branch.
+
+## The remaining appraisal fixes (frontend #516, backend #240 and the draft #241)
+
+Four screens used to find out from a refusal, or say nothing. Each field is optional on the web and an absent one makes
+no claim, so an older server behaves as before; each case has a test with the field missing.
+
+| | What the web now says | Needs |
+| --- | --- | --- |
+| **R1** Fill in from the reporting line | The toast reads "N people given an appraiser" with "N forms written for managers to answer." (`formsCreated`, already on `staging`). Two lines sit beside the table: who was given their department head, and "Still nobody appraising X. …" read against the live map, so somebody assigned since drops off. | nothing new; the department-head line needs #241 |
+| **R3** a pick subsection | A choice anybody has picked has its score greyed: "Picked N times, so its score is fixed. Add a new choice to score it differently." Its name and place stay editable. **Record a level** opens on the choice the person already has, matched by id, and says so when that choice has since been taken off the list. | #240 (`ratingCount`, `choiceOptionId`) |
+| **R4** the Overview | A manager's **Fill it in** row carries a small mark beside the person's name with the API's sentence for why Send is closed. | #240 (`sendBlockedBy`) |
+| **R5** `employees` against `people` | Audited, nothing to change (see below). | |
+| **R2** the department head as appraiser | **Not shipped.** | #241, a draft |
+
+### Decisions worth not undoing
+
+- **R2 is a policy choice and is on its own draft backend PR (#241), stacked on #240.** For a person with no manager
+  recorded, the head of their own department stands in as appraiser, in one function (`departmentHeadsFor`) that is easy to
+  read and easy to drop. It is not a defect fix: a department head may not be who a company wants marking that person.
+  The web renders the stand-ins only for a server that sends `viaDepartmentHead`, and says nothing otherwise, so merging
+  #516 commits the product to nothing. **The Fill in tooltip used to describe that rule as if it existed.** It was
+  reworded to what the server does today. Copy that describes a rule has to be true against the server that is deployed,
+  not the one in a draft branch.
+- **The result of Fill in is two lines beside the table, not a banner.** The second is read against the live map on every
+  render, so it does not go stale when somebody is assigned by hand afterwards. The toast stays short on purpose: it clamps
+  its detail to two lines and is gone in six seconds, and the names are what somebody has to act on.
+- **A pick is preselected by its id, never its label.** The agent that built this matched on the label, under a file
+  header that said not to, and the test written for exactly that case failed on its first run. Two choices can share a
+  name, and picking the first "Meets" for somebody who had the second would silently change their score. The header was
+  right and the code under it was not: a comment describing a rule is not a test of it.
+- **A score is shown fixed before the save, not only after a refusal.** The refusal is still the API's own sentence if it
+  ever arrives. `scoreIsFixed` is true only for a saved choice that a server said was picked: a choice added in the editor
+  has no ratings, and one from a server that sends no count is not claimed to be fixed.
+- **`sendBlockedBy` is the API's sentence and one rule.** The backend's Send rule is two pure functions
+  (`sendIsOpenWithoutLooking`, `selfAppraisalSentence`) shared by the refusal, the review detail and the list, so a form,
+  a refusal and a row cannot say three different things. The list reads the subjects' self-appraisals once for all rows.
+  The web shows the mark only on the row that is owed, and never writes the sentence: it names the person and, when the
+  period has a due date, the date, and only the API knows either.
+
+### R5, the audit
+
+`useEmployeeDirectory` has two lists and a caller without the records permission only gets one (`people`, lookup rows;
+`employees` is empty for them). Every reader of `employees` in the Performance screens and the bulk window was read. The
+three left are the appraiser map and its dialog, Ask for feedback, and the bulk window's email suggestions. The first two
+are on screens that need `EDIT_RECORDS` to open at all, and the bulk window documents its fallback (a department head's
+staff list has no emails, so the Assigned to box is a plain email box). Everywhere a manager needs people already reads
+`people` (#507 fixed the last one). No change.
+
+## Found, and not changed
+
+- **The appraiser map counts people the period does not appraise.** In the walk, **Nobody appraising** read 2 while the new
+  Fill in line named one person. The other was the HR manager, who has a manager recorded and holds the HR manager role,
+  and the period had **Appraise the HR manager** off, so it never gave her a form. The map is deliberately a view over
+  people and not over the period (its `cycle` argument is absent on purpose, and the comment says so), so it lists and
+  counts her. The Fill in line comes from the server's `withoutManager`, which is about the period, so it is the one that
+  matches what will happen. Whether the tile should leave such people out is a backend and product call.
+- **`out/removed-2026-10-28c/` held an agent's unfinished work for R1 to R5.** It had stopped without reporting. Its
+  backend half was rebuilt on a fresh `staging` and its frontend half on a fresh `dev`, then reviewed and tested as new
+  code, and the preselect defect above is why that was worth doing.
+
+## Verified
+
+Backend (#240): `tests/competency-choice-picks.test.ts` (9) and `tests/performance-reviews-mine-send-blocked.test.ts`
+(10) are new; with the neighbouring competency, performance, appraiser-mapping, job-role and tenant-isolation files that is
+25 files and 633 tests on a scratch database migrated to `staging`. Four rules were broken on purpose and the test written
+for each failed: a count that reads nothing, a count that reads only ratings filed in a period, a list that never says
+Send is closed, and a self-appraisal matched without its period. `verify-lockstep`, `verify-legacy-permissions`,
+`verify-staging-gate`, `verify-permission-queries`, `verify-permission-checks`, typecheck, lint (891 files) and
+`format:check` exit 0. The draft (#241) adds 470 lines of test; with the files around it, 145 tests pass.
+
+Frontend (#516): five new test files and two lines in two others; with the answer-kind, direct-answer-panel and skill-row
+tests, 10 files and 126 tests. `npm run check` exit 0 with `APPROVEHR_BACKEND_DIR` pointing at the backend branch, so the
+cross-repo gates compared instead of skipping. The changed files have no lint warnings.
+
+In a browser, against a production build and a scratch API running the backend branch, as the administrator and as a
+line manager: the Overview mark with the API's sentence on both forms; Fill in giving "1 person given an appraiser" and
+"1 form written for managers to answer." with the still-without line beside the table; the picked choice's score greyed
+with its explanation and the other two scores editable; **Record a level** opening on "Meets"; and the weights card on a
+draft with six rows. Twelve checks, all passing. Screenshots 39 to 43 are in `out/answer-kinds-screenshots-2026-10-28/`.
+
+## Not verified
+
+The QA site (it needs #240 on `staging` and the frontend on `test`); iOS Safari or any real device; demo mode in a
+browser; the department-head line against a server that sends it (tests only); the weights card's save, reset and the
+assistant's page in a browser (only its rendering on a draft was seen); a mark breakdown with Weekly tasks weighted above
+0%; the whole backend suite in one run.
+
+## Order
+
+Backend #240 first. #516 is safe against a server without it. #241 is a decision for the user and nothing depends on it.

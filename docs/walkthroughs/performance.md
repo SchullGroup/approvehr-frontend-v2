@@ -251,9 +251,10 @@ The first card on that same tab decides whether a form asks for one of those wor
 
 #### 3. Set what the mark is made of
 
-Five parts — objectives, core competencies, behavioural competencies, leadership, and what somebody
-said about themselves. You choose the percentage each one carries. That last one is the overall mark
-somebody gave themselves, so it only has anything to count while overall marks are switched on (step 2).
+Six parts — objectives, weekly tasks, core competencies, behavioural competencies, leadership, and what
+somebody said about themselves. You choose the percentage each one carries. That last one is the overall
+mark somebody gave themselves, so it only has anything to count while overall marks are switched on
+(step 2). **Weekly tasks** start at 0%, so a company that has never weighted them sees no change.
 
 |                |                                                                                                      |
 | -------------- | ---------------------------------------------------------------------------------------------------- |
@@ -261,6 +262,13 @@ somebody gave themselves, so it only has anything to count while overall marks a
 | **Who**        | HR / Owner                                                                                           |
 | **Click**      | Type a whole percentage into each **Weight** box until the running total reads 100%, then save       |
 | **You'll see** | Save stays dead until the total is exactly 100%, with a line telling you how much to add or take off |
+
+> 💡 **What Weekly tasks counts.** When it carries a weight, the part is how the manager graded the tasks
+> people logged against the period's objectives (step 18): **Completed** counts in full, **Partly
+> completed** counts half, and **Not completed** and **Rejected** count nothing. Somebody with no graded
+> tasks is not marked down: their share is spread over the other parts. A mark with Weekly tasks weighted
+> at 0% does not list it at all. These are the company's starting weights; a single period can change them
+> (step 4).
 
 > 💡 **Worth showing a stakeholder.** With overall marks on, the self-assessment card underneath does
 > the arithmetic out loud: at 20%, somebody who rates themselves 5 out of 5 rather than 3 out of 5
@@ -302,6 +310,24 @@ The five collapsed sections, in the order you meet them:
 
 > ⚠️ **Careful.** The button reads "Start an appraisal period" but it only _creates_ one. Nothing is
 > sent and nobody is told. Starting it is a separate press, at step 16.
+
+**The weights for this one period.** A period follows the company's weights from step 3 until you change
+them on its own page.
+
+|                |                                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Where**      | `/performance/periods/{id}`, on a draft: the card **How the mark is made up**                                                                    |
+| **Who**        | HR / Owner                                                                                                                                       |
+| **Click**      | Type a whole number from 0 to 100 into each of the six parts, then **Save the weights**. **Use the company defaults** puts the company's back    |
+| **You'll see** | **Using the company defaults.** becomes **Set for this period.** While the **Total** badge is red the card says **These must add up to 100%.**   |
+
+Two things about it. Whole numbers only: the company defaults in Settings take two decimal places, but here
+the rule is exactly 100%, and a field that took 33.33 would let three of them make 99.99. And an untouched
+card does nothing: the period keeps following the company's weights, and when it starts whatever the company
+holds at that moment is fixed onto it. From the moment it starts the card is read-only and reads **Fixed
+when this period started.** (a period from before this existed reads **This period follows the company's
+weights as they are today.**). The assistant's draft (step 5) shows the same card on its first page, under
+the description, and **Draft it** stays off while a total you typed is not 100%.
 
 #### 5. _Optional_ — let the assistant draft it instead
 
@@ -361,7 +387,9 @@ Open a subsection and it has two tabs, which are two views of one subsection and
 - **Rated directly** — how a manager records an answer on the subsection itself, under **Competency
   ratings** (step 22). **How it is answered** is **A level on a scale, 1 to 5**, **Yes or no** (yes scores
   100%, no scores 0%) or **Pick one from a list**, where you write the choices and give each a score in
-  percent, then **Save choices**. The kind is written the moment you pick it, and it is fixed once anybody has
+  percent, then **Save choices**. A choice that anybody has picked keeps its score for good: its score box is
+  greyed and reads _Picked 1 time, so its score is fixed. Add a new choice to score it differently._ Its name
+  and its place in the list can still change. The kind is written the moment you pick it, and it is fixed once anybody has
   recorded an answer on the subsection (the screen says so; start a new subsection to change it). A yes or
   no and a pick have no target, so they are left out of the gap list and the heatmap.
 - **Answered by questions** — this period's questions filed under that subsection, and the question form.
@@ -681,7 +709,12 @@ exited, tells them in the app, and the period can never be deleted again.
 > `/performance/appraisers`, which now writes the manager's form as well as the mapping on a period that
 > has started (press it again if you pressed it before and the manager still has nothing), or by choosing
 > the appraiser on that screen. The default is built from the manager on each person's record only, so
-> somebody with none, or a department head who is nobody's recorded manager, gets no form.
+> somebody with none, or a department head who is nobody's recorded manager, gets no form. After the press
+> it says what it did: _1 person given an appraiser_ and, on a running period, _1 form written for managers
+> to answer._, with a line beside the table naming anybody still without one (_Still nobody appraising Amara
+> Nwachukwu. They have no manager either. Assign somebody by hand._). That line is about the people **the
+> period covers**. The table beside it lists everybody, so its **Nobody appraising** tile can read higher by
+> the Owner or HR manager the period leaves out (step 8). The (i) beside the button says what Fill in does.
 >
 > **"3 people have no agreed objective: …"** — these people have nothing agreed to be judged on, so the
 > objectives part of their mark is empty and the rest is reweighted around it.
@@ -777,7 +810,9 @@ text if you cannot.
 > it."_ Three things open it: they send theirs; the period's **due date** passes (HR can move it to a
 > date in the past and every manager in the period is released at once); or you hold the records
 > permission (**Edit records**). A period with no self-review has nothing to wait for. This is the
-> answer to "I cannot finish the manager appraisal": almost always it is waiting for the person.
+> answer to "I cannot finish the manager appraisal": almost always it is waiting for the person. The row
+> says it too: on **Waiting on you**, a small mark beside the person's name on **Fill it in** carries the same
+> sentence when you hover or tap it.
 
 > 💡 **The language check — worth demonstrating.** Press Send and the product reads what you wrote
 > first. It flags language describing a _person_ rather than their _work_, absolutes, comparisons to
@@ -803,8 +838,10 @@ built from their objectives alone.
 A line manager is offered the people who report to them, and somebody with **Edit records** is offered
 everybody but themselves. What the form then asks for follows how the skill is answered (step 6): a level and
 an optional target for a rated skill, **Answer** yes or no for a yes-or-no skill, and one of the skill's own
-choices for a pick-one skill (the choice, never its score). A pick-one skill with no choices yet says so and
-cannot be saved. On the **Your skills** list a yes, a no and a pick show as a plain label with no scale, and
+choices for a pick-one skill (the choice, never its score). A pick-one skill opens on the choice the person
+already has, so correcting an answer is changing one choice; if that choice has since been taken off the list
+it says _Their current answer is “Meets”, which is no longer on the list. Pick one of the choices to replace
+it._ A pick-one skill with no choices yet says so and cannot be saved. On the **Your skills** list a yes, a no and a pick show as a plain label with no scale, and
 _Not assessed yet_ means nobody has answered it.
 
 > 🛑 **The same trap as step 9.** **Appraisal period** is on this dialog too. Leave it blank and the level is
@@ -1001,6 +1038,9 @@ else's review moves.
 > Three lists name people rather than counting them: _nobody marked them_, _written but not
 > finalised_, and _told, and no answer yet_. Those are the three things that stop a period from being
 > finished.
+>
+> The report also says where the weights came from: **Locked in** (fixed when the period started),
+> **This period's own** (a draft previewed on the weights set for it) or **Company's current**.
 
 #### 33. Read one person across every period
 
@@ -1133,7 +1173,7 @@ on purpose — they are the arguments the module is built on.
 | **You cannot agree your own objective.** | Whatever permissions you hold, your own never appears in your own queue. Same rule as payroll: the person who proposes something is not the person who signs it off. |
 | **An agreed objective cannot be edited.** | Not the title, not the period, not any target, and no new measure — because adding one changes what delivering it means. **Reopen the target** is the only way through and it records who, when and why. |
 | **A refusal is final.** | A refused objective cannot be resubmitted. The answer to a refused objective is a *different* objective, so the refusal stays on the record instead of being written over. |
-| **Changing the weights does not move a running period.** | A period keeps the weights and the scale words it started with. Otherwise a mark somebody was told in March would quietly become a different mark in June. |
+| **Changing the weights does not move a running period.** | A period keeps the weights and the scale words it started with. Otherwise a mark somebody was told in March would quietly become a different mark in June. Weights set on a draft period's own page lock in at the same moment. |
 | **"Make it final" only appears at calibration.** | A manager at the manager-review stage has nothing to make final and correctly sees no such button. Move the period to calibration and the rows appear. |
 | **A measure nobody has read is not a measure at 0%.** | A number added with no current value reads *Not read yet* and is left out of the objective's progress until somebody enters a figure, and an objective with nothing read shows *No reading yet* instead of a percentage. A zero would claim the work had not moved, which is a different fact from nobody having looked. Typing the starting figure as a first reading is a reading. |
 | **Only a manager says a milestone is done.** | A *Done or not done* measure has no number to type, and the person whose work it is never sees a Confirm button. Until it is confirmed it counts as *not done*, because a milestone nobody confirmed by the end of the period was not met. |
@@ -1191,9 +1231,10 @@ seeded accounts to use.
 
 ---
 
-*Written against the product as it stands on 20 October 2026, except steps 6 (the questions and the
-subsections), 16 (the no-appraiser warning), 17 and 21 (answering a review) and 22 (recording a level), the
-twelfth surprise and demo step 8, which were brought up to 28 October 2026. Every button label, field name and
+*Written against the product as it stands on 20 October 2026, except steps 3 and 4 (the six parts and a
+period's own weights), 6 (the questions and the subsections), 16 (the no-appraiser warning), 17 and 21
+(answering a review), 22 (recording a level) and 32 (the report), the twelfth surprise and demo step 8, which
+were brought up to 28 October 2026. Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._
