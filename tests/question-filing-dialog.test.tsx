@@ -100,7 +100,7 @@ describe("the sentence under Section and Subsection", () => {
     mount();
     expect(
       screen.getByText(
-        "Answers to a question do not count towards the mark. The mark comes from the level recorded on each subsection, under Competency ratings.",
+        "Answers to a question do not count towards the mark. The mark comes from what is recorded on each subsection, under Competency ratings.",
       ),
     ).toBeInTheDocument();
   });

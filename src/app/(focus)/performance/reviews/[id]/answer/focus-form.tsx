@@ -170,6 +170,9 @@ export function FocusForm({
     filled(question, onRecord(question)),
   ).length;
 
+  /** The API says Send would be refused right now, and why. See `ApiReviewDetail`. */
+  const sendClosed = Boolean(review.sendBlockedBy);
+
   /** Manager and peer forms get the language check; a self-review does not. */
   const coaching = review.kind !== "SELF";
   const languageTexts = coaching
@@ -329,7 +332,7 @@ export function FocusForm({
   };
 
   const sendIt = async () => {
-    if (sendLock.current || reading) return;
+    if (sendLock.current || reading || sendClosed) return;
     if (outstanding.length > 0) {
       /* Walk them to the first one rather than telling them where it is. */
       const first = review.questions.indexOf(outstanding[0] as ApiFormQuestion);
@@ -646,7 +649,7 @@ export function FocusForm({
           variant="accent"
           size="lg"
           loading={sending}
-          disabled={reading}
+          disabled={reading || (current.kind === "check" && sendClosed)}
           onClick={() => advance()}
         >
           {nextLabel}
