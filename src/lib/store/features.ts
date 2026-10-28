@@ -81,6 +81,18 @@ type State = {
    */
   probationMonths: number;
   /**
+   * Whether an appraisal form ends with an overall mark. **Null when the server
+   * has not said**: an API one deploy behind, or demo mode, which has no company
+   * setting to carry. Null is not "off", because a switch is offered only for a
+   * setting the server actually has, and "this server cannot say" is not a
+   * company's answer.
+   *
+   * Not in `flags`, which is booleans by construction and what the nav filters
+   * on: this hides no screen, it is a choice about one form, and its switch is in
+   * Appraisal scoring.
+   */
+  overallMark: boolean | null;
+  /**
    * Whether ApproveHR lets this company offer early pay. Not in `flags`: the
    * company cannot set it, so it must not turn up as a toggle. The sidebar
    * reads it through `NavFacts.earlyPay`.
@@ -206,6 +218,7 @@ const LOADING: State = {
      same and nothing is gated on it, so an empty default is safe here. */
   stepUpActions: [],
   probationMonths: PROBATION_MONTHS_FALLBACK,
+  overallMark: null,
   /* Hidden until the server answers: a row that appears late is better than
      one that vanishes under somebody's pointer. */
   earlyPay: false,
@@ -748,6 +761,9 @@ function fromApi(features: ApiFeatures): State {
     deductions: null,
     stepUpActions: features.stepUpActions,
     probationMonths: features.probationMonths,
+    /* Absent from an API one deploy behind, and kept as null rather than read as
+       off: that server has no such setting, so no switch is offered for it. */
+    overallMark: features.overallMark ?? null,
     /* An API one deploy behind does not send it, and that API has no switch
        to have turned anybody off. */
     earlyPay: features.earlyPay ?? true,
@@ -804,6 +820,10 @@ function fromDemo(demo: DemoState): State {
        answer to carry, and a number somebody had "set" here would describe a
        policy no employee record in this browser was created under. */
     probationMonths: PROBATION_MONTHS_FALLBACK,
+    /* No company setting to carry in this browser, for the reason the probation
+       switch gives above: a demo company with the mark "on" would read as asking
+       for one while no form drawn here ever did. */
+    overallMark: null,
     /* Nobody switches a demo company off. */
     earlyPay: true,
     earnedWage: null,
@@ -959,16 +979,16 @@ export function useFeatures(): FeatureFlags & {
 export function useFeatureSettings() {
   const state = useLoadedState();
   const { isConnected, can } = useSession();
-  const [saving, setSaving] = useState<FeatureKey | "headcountBand" | null>(
-    null,
-  );
+  const [saving, setSaving] = useState<
+    FeatureKey | "headcountBand" | "overallMark" | null
+  >(null);
 
   const editable = !isConnected || can("MANAGE_SETTINGS");
 
   const save = useCallback(
     async (
       patch: FeaturePatch,
-      field: FeatureKey | "headcountBand",
+      field: FeatureKey | "headcountBand" | "overallMark",
     ): Promise<FeatureFlags & { headcountBand: HeadcountBand }> => {
       setSaving(field);
       try {
@@ -1059,6 +1079,16 @@ export function useFeatureSettings() {
       [save],
     ),
     probationMonths: state.probationMonths,
+    /** See `State.overallMark`. */
+    overallMark: state.overallMark,
+    /**
+     * Whether appraisal forms end with an overall mark. Takes effect on the next
+     * form anybody opens; a mark already given is never touched.
+     */
+    setOverallMark: useCallback(
+      (overallMark: boolean) => save({ overallMark }, "overallMark"),
+      [save],
+    ),
   };
 }
 

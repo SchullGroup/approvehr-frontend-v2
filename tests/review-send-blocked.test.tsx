@@ -4,7 +4,7 @@ import {
   CheckStep,
   IntroStep,
 } from "@/app/(focus)/performance/reviews/[id]/answer/focus-steps";
-import type { ApiReviewDetail } from "@/lib/api/performance";
+import type { ApiRatingScale, ApiReviewDetail } from "@/lib/api/performance";
 
 /**
  * A manager is told, at the start, that Send is not open yet.
@@ -18,6 +18,8 @@ import type { ApiReviewDetail } from "@/lib/api/performance";
  * The sentence is the API's own and is shown as it comes: it names the person and
  * the date that would release it, and nothing on this side can write either.
  */
+
+const scale: ApiRatingScale = { source: "default", max: 5, levels: [] };
 
 const REASON =
   "Chidi has not sent their self-appraisal yet, and it should inform yours. Once they send it, you will see it beside this form. Ask HR to set a due date on this period if you need a deadline to work to.";
@@ -53,6 +55,9 @@ const preview = (over: Partial<ApiReviewDetail> = {}) =>
   render(
     <CheckStep
       review={review(over)}
+      scale={scale}
+      withMark={false}
+      mark=""
       onRecord={() => ({})}
       summary=""
       outstanding={[]}

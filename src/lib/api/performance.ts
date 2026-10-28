@@ -787,6 +787,15 @@ export type ApiReviewDetail = ApiReview & {
   /** Whether *this* caller is the one who has to fill it in. */
   mine: boolean;
   /**
+   * Whether the company's appraisal forms end with an overall mark: its setting
+   * in Appraisal scoring, sent with the form so the page that draws it needs no
+   * second request. **Absent from a server that predates the setting, and absent
+   * means off**, never on: a form must not ask for something the company has not
+   * chosen. The API takes a `rating` either way, and a review that already
+   * carries one still shows it.
+   */
+  overallMark?: boolean;
+  /**
    * Why Send would be refused right now, in the API's own sentence, or `null`
    * when it would not.
    *
