@@ -36,6 +36,7 @@ import {
 } from "@/lib/store/performance";
 import { NoticeLine } from "@/components/portal/notice-line";
 import { QUESTION_BANK } from "@/lib/performance/question-bank";
+import { filingNote } from "./question-filing";
 
 /** Who a question is put to. `REPORT` exists in the enum and nothing reaches it. */
 const AUDIENCES: { value: ReviewAudience; label: string }[] = [
@@ -255,7 +256,7 @@ export function QuestionsDialog({
    * nothing else — a question is filed under a subsection, and its section
    * follows from that. So a section with no subsection files the question
    * under nothing, and `FiledUnderPicker` says so at the moment it happens
-   * rather than leaving somebody to find out from a mark.
+   * rather than leaving somebody to find it in the list afterwards.
    */
   const [sectionId, setSectionId] = useState("");
   const [options, setOptions] = useState<string[]>(["", ""]);
@@ -542,11 +543,10 @@ export function QuestionsDialog({
           {/* Where it goes, before what it says.
 
               This used to sit below the question, the answer kind and the
-              audience, which put the one choice that decides whether an answer
-              counts towards anything last — after the decision it qualifies.
-              Leading with it also makes the section an explicit choice rather
-              than something implied by which group an option happened to sit
-              in. */}
+              audience, which put the choice of where the question is grouped
+              last, after the decisions it qualifies. Leading with it also
+              makes the section an explicit choice rather than something
+              implied by which group an option happened to sit in. */}
           <FiledUnderPicker
             sectionId={sectionId}
             competencyId={competencyId}
@@ -672,8 +672,8 @@ export function QuestionsDialog({
  * Which means a section chosen with no subsection picked files the question
  * under **nothing**. That is a real intermediate state while somebody is
  * choosing, and it is also a saveable mistake, so it is named on screen the
- * moment it exists rather than left to be discovered when a mark comes out
- * lower than anybody expected.
+ * moment it exists rather than left to be discovered afterwards, when the
+ * question is not where anybody looked for it.
  *
  * This was one control: a single select with the sections as its optgroup
  * headings. That made the section something you inherited from whichever
@@ -742,6 +742,17 @@ function FiledUnderPicker({
   const inSection = framework.competencies.filter(
     (competency) => (competency.sectionId ?? "") === sectionId,
   );
+  const subsection = framework.competencies.find(
+    (competency) => competency.id === competencyId,
+  );
+  const note = filingNote({
+    sectionId,
+    competencyId,
+    ...(chosen
+      ? { section: { name: chosen.name, weightBp: chosen.weightBp } }
+      : {}),
+    ...(subsection ? { subsectionName: subsection.name } : {}),
+  });
 
   const label = (option: (typeof options)[number]) => {
     if (option.weightBp === undefined) return option.name;
@@ -797,7 +808,7 @@ function FiledUnderPicker({
                rather than asking for it a second time. */
             chosen
               ? `It will be filed under ${chosen.name}.`
-              : "It will not be filed under a section, so answers to it count towards no part of the mark."
+              : "It will not be filed under a section, so a level recorded on it counts towards no part of the mark."
           }
         >
           <Input
@@ -865,31 +876,17 @@ function FiledUnderPicker({
       </div>
 
       {/* One sentence under both controls, because it is one fact about the
-          pair of them. Four states, and the middle one is the whole reason
-          this is two selects rather than one. */}
-      <NoticeLine
-        tone={competencyId === "" && sectionId !== "" ? "warning" : "muted"}
-      >
-        <span>
-          {competencyId !== ""
-            ? chosen === undefined
-              ? "This is not filed under a section, so answers to it count towards no part of the mark."
-              : chosen.weightBp === null
-                ? `${chosen.name} is not weighted, so answers to this count towards no part of the mark.`
-                : chosen.weightBp === undefined
-                  ? `Answers to this count towards ${chosen.name}.`
-                  : `Answers to this count towards ${chosen.name}, which is ${weightLabel(chosen.weightBp)} of the mark.`
-            : sectionId !== ""
-              ? "Pick a subsection for this question, or it will be asked and answered but count towards no part of the mark."
-              : "Unfiled questions are asked and answered, and count towards no part of the mark."}
-        </span>
+          pair of them. `filingNote` is where its states are written, and why
+          it no longer says an answer counts towards the mark. */}
+      <NoticeLine tone={note.tone}>
+        <span>{note.text}</span>
       </NoticeLine>
 
       {sectionId !== "" && inSection.length === 0 && (
         <NoticeLine tone="muted">
           <span>
-            Nothing is filed under {chosen?.name ?? "that section"} yet. Add a
-            subsection to score answers against it.
+            {chosen?.name ?? "That section"} has no subsections yet. Add one to
+            file this question under it.
           </span>
         </NoticeLine>
       )}
