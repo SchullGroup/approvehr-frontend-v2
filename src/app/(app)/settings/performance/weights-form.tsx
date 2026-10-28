@@ -25,10 +25,12 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   FULL_WEIGHT_BP,
+  SCORE_COMPONENT_ORDER,
   scoringWeightProblem,
   weightLabel,
   type ApiScoringWeights,
   type ScoreComponent,
+  type WeightSet,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
 import { useFeatureSettings } from "@/lib/store/features";
@@ -99,6 +101,8 @@ const STEP = "0.01";
 const COMPONENT_SOURCE: Record<ScoreComponent, string> = {
   OBJECTIVES:
     "Progress on the objectives agreed for the cycle. Draft and unapproved ones are not read.",
+  TASKS:
+    "How the weekly tasks graded against this period's objectives were rated. Starts at 0%.",
   CORE_COMPETENCY: "Ratings against competencies filed under Core competency.",
   BEHAVIOURAL_COMPETENCY:
     "Ratings against competencies filed under Behavioural competency.",
@@ -204,9 +208,15 @@ export function ScoringWeightsForm({
     if (draft === null) return;
     setSaving(true);
     try {
-      const payload = entries.reduce<Record<ScoreComponent, number>>(
-        (out, row) => ({ ...out, [row.component]: row.weightBp }),
-        {} as Record<ScoreComponent, number>,
+      /* All six, always: Weekly tasks is sent even when the API's rows did
+         not carry it, so a save can never leave the set one key short. */
+      const payload = SCORE_COMPONENT_ORDER.reduce<WeightSet>(
+        (out, component) => ({
+          ...out,
+          [component]:
+            entries.find((row) => row.component === component)?.weightBp ?? 0,
+        }),
+        {} as WeightSet,
       );
       const saved = await save(payload);
       setEdited(null);
@@ -324,6 +334,9 @@ export function ScoringWeightsForm({
                     action={<Total totalBp={totalBp} />}
                   />
                   <CardBody className="flex flex-col gap-5">
+                    <p className="text-meta text-muted">
+                      This is the starting point for new appraisal periods.
+                    </p>
                     {entries.map((row) => (
                       <div
                         key={row.component}
