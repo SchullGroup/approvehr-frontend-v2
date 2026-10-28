@@ -6,7 +6,6 @@ import {
   Button,
   Field,
   Modal,
-  Select,
   Spinner,
   Textarea,
   TextLink,
@@ -25,11 +24,7 @@ import {
   type AnswerBody,
   type ApiFormQuestion,
 } from "@/lib/api/performance";
-import {
-  useRatingScale,
-  useReview,
-  useReviewMutations,
-} from "@/lib/store/performance";
+import { useReview, useReviewMutations } from "@/lib/store/performance";
 import {
   AnswerField,
   AppraiserStrip,
@@ -38,7 +33,6 @@ import {
   answerBodyFor,
   draftFrom,
   filled,
-  ratingOptionsFrom,
   type Draft,
 } from "./review-parts";
 import { SelfEvidence } from "./self-evidence";
@@ -102,9 +96,6 @@ export function ReviewFormModal({
 }) {
   const { review, loading, error } = useReview(reviewId);
   const { save, send } = useReviewMutations();
-  /* The company's own five words, for the overall mark. The per-question
-     pickers read the same hook themselves — one request, cached by key. */
-  const { scale } = useRatingScale();
 
   const [draft, setDraft] = useState<Record<string, Draft>>({});
   /**
@@ -115,7 +106,6 @@ export function ReviewFormModal({
    * drop the evidence — which looks to the person exactly like it worked.
    */
   const [reading, setReading] = useState(false);
-  const [mark, setMark] = useState<string>("");
   const [summary, setSummary] = useState<string>("");
   const [failed, setFailed] = useState<string | null>(null);
   const [busy, setBusy] = useState<"save" | "send" | null>(null);
@@ -224,8 +214,10 @@ export function ReviewFormModal({
       const pending = answers();
       if (pending.length > 0) await save(review.id, pending);
       if (kind === "send") {
-        const body: { rating?: number; summary?: string } = {};
-        if (mark) body.rating = Number(mark);
+        /* No overall mark: a review is its answers. The API still accepts a
+           `rating`, and older reviews still carry one, so reading one back is
+           unchanged; this form just never asks for one. */
+        const body: { summary?: string } = {};
         if (summary.trim()) body.summary = summary.trim();
         await send(review.id, body, outstanding);
       }
@@ -400,23 +392,6 @@ export function ReviewFormModal({
 
         {editable && review.questions.length > 0 && (
           <div className="flex flex-col gap-4 border-t border-line pt-5">
-            <Field
-              optional
-              label="Overall mark"
-              help="Leave it blank if the answers say enough."
-            >
-              <Select
-                value={mark}
-                placeholder="No overall mark"
-                onChange={(event) => setMark(event.target.value)}
-              >
-                {ratingOptionsFrom(scale).map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
             <Field optional label="Anything to add">
               <Textarea
                 rows={3}
