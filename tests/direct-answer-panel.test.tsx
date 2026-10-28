@@ -119,6 +119,40 @@ describe("how it is answered", () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
   });
 
+  it("shows the kind the API has just accepted at once, and does not flip back while the framework is read again", async () => {
+    show(competency());
+    await userEvent.selectOptions(kindSelect(), "Yes or no");
+    await waitFor(() => expect(updateCompetency).toHaveBeenCalled());
+
+    /* The panel is still handed the competency it had, which says a level. A
+       picker driven by that alone would show a level again until the read
+       landed, which reads as a change that did not take. */
+    await waitFor(() => expect(kindSelect().value).toBe("BOOLEAN"));
+    expect(
+      screen.getByText(/Yes scores 100% and no scores 0%/),
+    ).toBeInTheDocument();
+  });
+
+  it("believes what the API holds once the framework hands over a newer competency", async () => {
+    const view = show(competency());
+    await userEvent.selectOptions(kindSelect(), "Yes or no");
+    await waitFor(() => expect(kindSelect().value).toBe("BOOLEAN"));
+
+    /* The next read: a new competency, and somebody else has since moved it on. */
+    view.rerender(
+      <ToastProvider>
+        <DirectAnswerPanel
+          competency={competency({ answerKind: "CHOICE", choiceOptions: TWO })}
+          section={{ name: "Core competency", weightBp: 4000 }}
+          editable
+          whyNot={null}
+          onChanged={vi.fn()}
+        />
+      </ToastProvider>,
+    );
+    expect(kindSelect().value).toBe("CHOICE");
+  });
+
   it("says, for each kind, what it means and where it is not shown", () => {
     const { unmount } = show(competency());
     expect(

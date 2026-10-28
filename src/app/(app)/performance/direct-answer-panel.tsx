@@ -55,6 +55,14 @@ import { actionMessage } from "@/lib/use-action";
  * driven by what the API holds, so a refusal leaves it where it was and shows the
  * API's own sentence beside it. There is no draft to get out of step.
  *
+ * Once the API has said yes, the picker shows the new kind straight away and not
+ * after the framework has been read again. A read takes a moment, and for that
+ * moment the list this panel is given still says the old kind: a picker that
+ * flipped back and then forward again would read as a change that did not take.
+ * What was confirmed is kept with the competency it was confirmed for, and is
+ * used only while that is still the competency the panel is handed, so the next
+ * read, which hands over a new one, is believed instead.
+ *
  * ## The kind is fixed once a rating exists
  *
  * `ratingCount` already says so, so the picker is disabled with the reason before
@@ -80,7 +88,14 @@ export function DirectAnswerPanel({
   onChanged: () => void;
 }) {
   const { updateCompetency } = useFrameworkActions();
-  const kind = answerKindOf(competency);
+  const [confirmed, setConfirmed] = useState<{
+    from: ApiCompetency;
+    kind: AnswerKind;
+  } | null>(null);
+  const kind =
+    confirmed && confirmed.from === competency
+      ? confirmed.kind
+      : answerKindOf(competency);
   const frozen = competency.ratingCount > 0;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +106,7 @@ export function DirectAnswerPanel({
     setError(null);
     try {
       await updateCompetency(competency.id, { answerKind: next });
+      setConfirmed({ from: competency, kind: next });
       onChanged();
     } catch (caught) {
       /* The API's own sentence: it names the subsection, and for a job role
