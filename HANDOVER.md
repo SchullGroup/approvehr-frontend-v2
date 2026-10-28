@@ -9731,3 +9731,160 @@ at build for thumbnails; a site that has it for CVs has it.
 Open: the drawer defect above. Not built, on purpose: a demo-mode path for the two new screens, sub-tasks in a
 personal task opened by id or from Team tasks (from the code: the drawer is handed no list to find them in),
 and inline viewing of an image or PDF in the new tab (the API's link says `attachment`).
+
+---
+
+# A subsection can be answered yes or no, or by picking from a list, and the web has not been told
+
+A subsection of an appraisal (a `Competency`: "Communication" under "Behavioural competency") was answered one
+way, a whole-number level from 1 to its scale. It now has an `answerKind`. `RATING` is that, and is still the
+default. `BOOLEAN` is a yes or a no. `CHOICE` is one pick from a list the company writes, each choice carrying a
+score somebody set by hand. The backend half is built and **nothing in the web knows about it**: no screen can
+make one of the two new kinds, record an answer in one, or draw one. The backend's own note, with every route,
+shape and refusal in the API's words, is `docs/backend/answer-kinds-handover.md` in `approvehr-backend` and is
+committed with the change; read it first. This entry is what that note does not carry: the reasoning, the traps
+for the screens, and what was left.
+
+**Where it is.** Migration `20261028083435_competency_answer_kinds` in `approvehr-backend`. This entry was
+written on 2026-10-28, before that change was committed, so before building on it check that it has reached
+`staging`. Until it has, `npm run docs` will not list `PUT /performance/competencies/:id/choice-options`, because
+the API inventory is read from `origin/staging`. Once it has, re-running it adds that endpoint, three exported
+functions (`setChoiceOptions`, `competencyRatingBp`, `rolesExpecting`) and the counts that go with them, and
+nothing else. That was measured, by generating the inventory from a snapshot of the uncommitted work and
+comparing it with the same inventory without it, so it is a check and not a guess.
+
+## What changed
+
+- **A subsection has `answerKind` and, for `CHOICE`, a list of `choiceOptions`.** One new route replaces the whole
+  list: `PUT /performance/competencies/:id/choice-options`. `POST .../rate` takes whichever of `level`,
+  `boolValue` and `choiceOptionId` the subsection's kind needs, and refuses the others by name.
+- **Every kind reduces to the same 0 to 10,000 basis points, in one place, `competencyRatingBp`**, so the score
+  register, its averages and every component are untouched. A yes is 100% and a no is 0%. A choice scores what
+  its own `scoreBp` says. An answer with nothing in its field is `null` and is left out, never 0 (ADR 0003).
+- **Targets, gaps, the heatmap, promotion readiness, the assistant's development suggestions and a job role's
+  expected levels stay about levels, so they are `RATING` only.** A numeric gap between a yes and a no, or
+  between two picks whose scores nobody ordered, would be arithmetic about nothing.
+- **Nothing existing moved.** The migration backfills nothing: the default is `RATING`, every existing rating
+  keeps its level, and a body that never mentions the new fields is what it always was. One thing did loosen:
+  `level` can now be `null`, on a rating and on a row of a person's skills.
+
+## Decisions not to undo
+
+1. **Choices are their own table, and each choice's score is set by a person.** Not JSON, and not a label matched
+   by string the way `ReviewResponse.choiceValue` works against `ReviewQuestion.options`, because those labels
+   never drive a score and these do. `levelToBp` is honest because a rating scale is evenly spaced points on a
+   line. "Exceeds", "Meets" and "Not applicable" are not, so nothing derives a score for a choice.
+2. **A yes or no is 0% or 100% and cannot be configured.** The one earlier non-numeric kind, `MeasureKind.DONE`,
+   has no setting either. A company that wants an asymmetric "no" is describing a two-choice list with its own
+   scores, which is what `CHOICE` already is.
+3. **A rating carries exactly one of `level`, `boolValue` and `choiceOptionId`, and the other two are explicit
+   `null`**, not unset: the sparse-column discipline `ReviewResponse` already follows, so a stale value cannot
+   sit in a column nothing reads.
+4. **The kind is frozen by the first rating.** Before it, nothing has acted on the kind, so a mistake in the
+   setup can be fixed. After it, changing the kind would make every earlier rating mean something else, so the
+   answer is to archive the subsection and start another: a changed mind is a new record.
+5. **A choice that anybody has picked keeps its score. Its label and its order stay editable.** Changing the
+   score would re-score every mark that picked it, published ones included, with no rating changed and nothing in
+   the trail to say why. A different score is a new choice: leave the old one out of the list (it is archived,
+   and the marks that picked it keep scoring at its score) and add another. The check looks at any rating in any
+   period, published or not, and does not try to guess which ones are safe to touch.
+6. **An `id` in the choices list has to be one of this subsection's own live choices.** Matched by id alone, one
+   subsection's save could rewrite another's, a repeated id would update one row twice and silently drop the
+   other half of the list, and an archived choice would be edited and left archived.
+7. **A job role's target is a level, and the refusal is made from both sides.** `setCompetencies` refuses any
+   subsection that is not `RATING`, and `updateCompetency` refuses to move a targeted `RATING` subsection to
+   another kind. Without the second one, attach a never-rated subsection to a role, switch it to yes or no, and
+   the role goes on expecting "level 4" of an answer that has no levels. Archived roles count, because they can
+   be restored.
+8. **"Rated" means any answer.** `summary.rated` on a person's skills list counted the rows that carry a
+   `level`. With `level` nullable it would have said "1 of 3 rated" over three answers in three kinds, and that
+   is the exact string the Skills tab builds (`${summary.rated} of ${summary.total}` in `skills.tsx`). It counts
+   `ratedAt` now. It was found while this entry was being written, and **nothing in the diff pointed at it**:
+   the line had not changed, only what it meant. When a column becomes nullable, grep every reader of it, not
+   only the ones the diff touches. (The other readers, gaps, the heatmap, readiness and the assistant, were
+   checked the same way and already handle it.)
+
+## What the web has to do
+
+The web was written when every subsection was a level, and several things it says stop being true.
+
+- **`level: null` no longer means "never assessed".** `ApiCompetencyRow` in `lib/api/performance.ts` says it does.
+  "Never answered" is `ratedAt === null`. A yes, a no and a pick all have a `null` level.
+- **The rating dialog (`rating-dialog.tsx`) always sends a `level`, and has no way to tell the kinds apart.**
+  Against a `BOOLEAN` or `CHOICE` subsection the API answers 422 in plain words (`"X" is a yes or a no.`). The
+  dialog has to ask for the answer the kind needs, and offer no target for the other two.
+- **The types and calls in `lib/api/performance.ts` need the new fields:** `ApiCompetency` (`answerKind`,
+  `choiceOptions`), `ApiCompetencyRow` (`answerKind`, `boolValue`, `choiceOptionLabel`), `ApiRating` and
+  `RateBody` (`boolValue`, `choiceOptionId`, `level` optional), and a call for the choices route.
+- **The framework editor (`sections-dialog.tsx`) needs a kind picker and a choices editor.** It already sends
+  `scaleMax: 5` when it makes a subsection, which is right: `scaleMax` is still required for every kind and
+  means nothing for two of them. A `CHOICE` subsection has no choices until the route above is called, and
+  nothing can be rated against it until it has two.
+- **Whichever screen sets a role's competencies (`jobRolesApi.setCompetencies`) must offer only `RATING`
+  subsections**, or its save is refused with the API's sentence.
+- **Read `choiceOptions` only when `answerKind` is `CHOICE`.** A subsection switched away from `CHOICE` before
+  its first rating keeps its old choices, and they are still listed.
+- **Draw no target, gap or scale for a yes or no or a pick.**
+- **Demo mode is a decision for whoever builds the screens, and has not been made.** The repo's rule is that no
+  demo path reaches a production build (ADR 0004), and the nearest precedent for a write that would put a
+  locally invented standard on screen is job roles, which refuse writes offline.
+
+## Found, and not changed
+
+- **A skills row has the picked choice's label and not its id.** The rate response has the id. A form that
+  preselects somebody's current pick cannot do it reliably from that list: labels are not unique, and the picked
+  choice may have been archived since. The fix is one additive field on the row, `choiceOptionId`, from the
+  rating the row already holds. Left for whoever builds the form, because a wire shape should grow when the thing
+  that reads it asks.
+- **The editor cannot tell which choices are frozen** until a save is refused, and the refusal names them all. A
+  count of ratings per choice on the wire would let it say so beforehand.
+- **Two choices in one list can share a label.** Not refused.
+- **The freeze is strict, including for a choice picked only in an unpublished period.** Relaxing it is a product
+  decision, not made here.
+- **The check and the write share a transaction and no row lock**, so a rating that lands between them can slip
+  past the freeze. The window is milliseconds, on a screen few people use. A lock is the fix if it ever matters.
+- **The checkout this was built in is six commits behind `origin/staging`, and five neighbouring test files in it
+  fail** (`performance-defensibility`, `-gaps`, `-report`, `-review-flags` and `-fairness`: 27 assertions, one
+  cause). Their fixtures make sections with a name and no `component`, which the code now reads as unmapped, so
+  the score comes back null and everything after it differs. They are stale tests, fixed upstream by `5a9db5f`:
+  run as copies taken from `origin/staging` they pass, 193 of 193. Nothing here causes them and nothing here
+  fixes them. The uncommitted work merges cleanly with `origin/staging`, and its migration sorts after
+  staging's newest.
+
+## Deliberately not done
+
+- **Role targets for yes or no and for a pick.** `setCompetencies` points here for why it refuses them. It is a
+  guard and not a feature. A target that works for every kind needs somewhere to store "yes", or "at least this
+  choice", per role and per subsection, and a definition of "below what the role expects" for a pick, whose
+  scores are hand-set and not points on a line (decision 1). Nobody has asked for it, and building a guess
+  would be a second scoring rule. If it is wanted, it is columns or a table beside `JobRoleCompetency` and a
+  product answer about what a gap is for a pick. Until then a role cannot expect anything of a yes or no, and the
+  API says so.
+- **Text and file answers.** They exist as review-question kinds that never score, and a score is never made up
+  from a paragraph. A subsection that only wants narrative keeps `RATING` and simply never gets a rating.
+- **An importer** for subsections, choices or ratings.
+- **The web, all of it:** the types, the rating form, the framework editor, the skills and job-role screens, and
+  whatever demo mode does.
+
+## Verified, and what was not
+
+Backend. `tests/competency-answer-kinds.test.ts` (34 tests), two more cases in `tests/job-roles.test.ts` and one
+in `tests/tenant-isolation.test.ts`. The five guards in `updateCompetency` and `setChoiceOptions` (the job-role
+refusal, a repeated id, an unknown id, an archived id and a rescored pick) were each replaced with `if (false)` in
+a scratch run: exactly the seven tests written for them failed and nothing else, and the file was restored. The
+skills-list count was written as a failing test first (`expected 1 to be 3`) and passes on the one-line change.
+Typecheck, ESLint and Prettier are clean on the files touched, and the migration replays to exactly the schema
+(`verify-migrations-match-schema`). The neighbouring performance, scoring, job-role, promotion and tenant tests
+(20 files) pass except for the five stale ones above.
+
+**Not exercised:** any screen (none exists), the whole backend suite in one run, the assistant with a real key,
+and a company with real data. The migration adds a column with a constant default, a nullable column and one
+table, and drops one `NOT NULL`, so nothing is rewritten, but it was not run against a database of production
+size.
+
+## Order, and what was left
+
+The backend goes first, as always. A web that predates it keeps working against it for every subsection that
+exists, because every existing one is `RATING`. The trap is only for somebody who makes a `BOOLEAN` or `CHOICE`
+subsection over the API before the screens are built: it would read as never assessed on the Skills tab, and the
+rating dialog would be refused on it. Not built, on purpose: everything under "Deliberately not done".
