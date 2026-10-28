@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { Button, Field, Modal, Select, Textarea } from "@/components/ui";
+import { NoticeLine } from "@/components/portal/notice-line";
 import type { RateBody } from "@/lib/api/performance";
+import { answerKindOf, choicesOf } from "@/lib/performance/answer-kind";
 import { useAppraisals, useFramework } from "@/lib/store/performance";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useCan } from "@/lib/permissions";
@@ -39,6 +41,29 @@ import { useSession } from "@/lib/store/session";
  * A level with no target produces no gap, and a gap is the only actionable thing
  * on the skills screen. Asking for both in one form is what makes "two levels
  * below target" arithmetic rather than an opinion somebody has to supply later.
+ *
+ * ## What is asked depends on how the subsection is answered
+ *
+ * A subsection is answered one of three ways, and the form asks for the one the
+ * chosen subsection names: a level and a target, a yes or a no, or one of the
+ * subsection's own choices. **Exactly one of the three goes in the body**, because
+ * the API refuses any other by name, and a form that always sent a level would be
+ * refused on two of the three. A yes or no and a pick have no target: there is no
+ * honest distance between two answers that are not on a scale, so the field is not
+ * offered and not sent.
+ *
+ * What a pick is worth is the choice's own score, set by whoever built the list,
+ * and is worked out on the API. This form shows the choice and never a number, so
+ * the person marking decides which description fits and not which score they want.
+ *
+ * Until a subsection is chosen the form shows the level controls, which is what it
+ * always showed, and choosing one swaps them. A subsection that is answered by
+ * picking and has no choices yet cannot be answered at all, so the form says so and
+ * does not offer to save.
+ *
+ * The title stays "Record a level". It is what the button that opens this says and
+ * what everybody calls it, and "Record an answer" would be a new name for a screen
+ * that has not moved.
  */
 export function RecordLevelDialog({
   open,
@@ -63,6 +88,9 @@ export function RecordLevelDialog({
   const [competency, setCompetency] = useState("");
   const [level, setLevel] = useState("");
   const [target, setTarget] = useState("");
+  /** `""` until somebody picks, then `"yes"` or `"no"`. */
+  const [boolValue, setBoolValue] = useState("");
+  const [choiceOptionId, setChoiceOptionId] = useState("");
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -96,6 +124,12 @@ export function RecordLevelDialog({
   );
 
   const chosen = framework.competencies.find((one) => one.id === competency);
+  /* A level until a subsection says otherwise, which is what this form always
+     asked for and what the API means by a subsection that does not say. */
+  const kind = chosen ? answerKindOf(chosen) : "RATING";
+  const choices = chosen ? choicesOf(chosen) : [];
+  /* Nothing can be recorded on a pick-a-list subsection that has no choices. */
+  const nothingToPick = kind === "CHOICE" && choices.length === 0;
   const scaleMax = chosen?.scaleMax ?? 5;
   const steps = Array.from({ length: scaleMax }, (_, index) => index + 1);
 
@@ -103,15 +137,31 @@ export function RecordLevelDialog({
     const found: Record<string, string> = {};
     if (!person) found["person"] = "Pick who this is about.";
     if (!competency) found["competency"] = "Pick the skill.";
-    if (!level) found["level"] = "Pick the level they are at.";
+    if (kind === "RATING" && !level) {
+      found["level"] = "Pick the level they are at.";
+    }
+    if (kind === "BOOLEAN" && !boolValue) found["answer"] = "Pick yes or no.";
+    if (kind === "CHOICE" && !choiceOptionId) {
+      found["answer"] = "Pick one of the choices.";
+    }
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
     setSaving(true);
     try {
-      const body: RateBody = { employeeId: person, level: Number(level) };
+      /* Exactly one of level, boolValue and choiceOptionId, the one this
+         subsection's kind names. The API refuses the other two by name, so
+         sending all three and letting it sort them out would be a refusal. */
+      const body: RateBody = { employeeId: person };
+      if (kind === "RATING") {
+        body.level = Number(level);
+        if (target) body.target = Number(target);
+      } else if (kind === "BOOLEAN") {
+        body.boolValue = boolValue === "yes";
+      } else {
+        body.choiceOptionId = choiceOptionId;
+      }
       if (reviewCycleId) body.reviewCycleId = reviewCycleId;
-      if (target) body.target = Number(target);
       if (note.trim()) body.note = note.trim();
       await onSave(competency, body);
     } finally {
@@ -131,6 +181,7 @@ export function RecordLevelDialog({
           <Button
             variant="accent"
             loading={saving}
+            disabled={nothingToPick}
             onClick={() => void submit()}
           >
             Save it
@@ -166,9 +217,14 @@ export function RecordLevelDialog({
             value={competency}
             placeholder="Pick a skill"
             onChange={(event) => {
+              /* Everything that belonged to the last subsection goes with it: a
+                 level typed against a five-point scale means nothing against a
+                 yes or no, and a pick is one of *that* subsection's choices. */
               setCompetency(event.target.value);
               setLevel("");
               setTarget("");
+              setBoolValue("");
+              setChoiceOptionId("");
             }}
           >
             {framework.groups.map((group) => (
@@ -183,38 +239,91 @@ export function RecordLevelDialog({
           </Select>
         </Field>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        {kind === "RATING" && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Current level"
+              required
+              {...(errors["level"] ? { error: errors["level"] } : {})}
+            >
+              <Select
+                value={level}
+                placeholder="Pick a level"
+                onChange={(event) => setLevel(event.target.value)}
+              >
+                {steps.map((step) => (
+                  <option key={step} value={String(step)}>
+                    {step} of {scaleMax}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field
+              optional
+              label="Target level"
+              help="This is what makes a gap."
+            >
+              <Select
+                value={target}
+                placeholder="No target"
+                onChange={(event) => setTarget(event.target.value)}
+              >
+                {steps.map((step) => (
+                  <option key={step} value={String(step)}>
+                    {step} of {scaleMax}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        )}
+
+        {kind === "BOOLEAN" && (
           <Field
-            label="Current level"
+            label="Answer"
             required
-            {...(errors["level"] ? { error: errors["level"] } : {})}
+            {...(errors["answer"] ? { error: errors["answer"] } : {})}
           >
             <Select
-              value={level}
-              placeholder="Pick a level"
-              onChange={(event) => setLevel(event.target.value)}
+              value={boolValue}
+              placeholder="Pick yes or no"
+              onChange={(event) => setBoolValue(event.target.value)}
             >
-              {steps.map((step) => (
-                <option key={step} value={String(step)}>
-                  {step} of {scaleMax}
-                </option>
-              ))}
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
             </Select>
           </Field>
-          <Field optional label="Target level" help="This is what makes a gap.">
-            <Select
-              value={target}
-              placeholder="No target"
-              onChange={(event) => setTarget(event.target.value)}
+        )}
+
+        {kind === "CHOICE" &&
+          (nothingToPick ? (
+            <NoticeLine tone="muted">
+              <span>
+                {chosen?.name ?? "That skill"} is answered by picking from a
+                list, and the list has no choices yet, so nothing can be
+                recorded on it. Somebody who can manage settings adds them under
+                Questions, By section.
+              </span>
+            </NoticeLine>
+          ) : (
+            <Field
+              label="Answer"
+              required
+              {...(errors["answer"] ? { error: errors["answer"] } : {})}
             >
-              {steps.map((step) => (
-                <option key={step} value={String(step)}>
-                  {step} of {scaleMax}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
+              <Select
+                value={choiceOptionId}
+                placeholder="Pick a choice"
+                onChange={(event) => setChoiceOptionId(event.target.value)}
+              >
+                {choices.map((choice) => (
+                  <option key={choice.id} value={choice.id}>
+                    {choice.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ))}
 
         {openPeriods.length > 0 && (
           <Field
@@ -223,7 +332,9 @@ export function RecordLevelDialog({
             help={
               reviewCycleId
                 ? "Counts towards this person's mark for that period. Each person has one rating per period, so rating them again corrects this one."
-                : "This will not affect any appraisal mark. It is a snapshot of where they are now, and it fills the skills gap table and heatmap."
+                : kind === "RATING"
+                  ? "This will not affect any appraisal mark. It is a snapshot of where they are now, and it fills the skills gap table and heatmap."
+                  : "This will not affect any appraisal mark. It is a snapshot of where they are now, and it does not appear in the skills gap table or heatmap, which are about levels."
             }
           >
             <Select
