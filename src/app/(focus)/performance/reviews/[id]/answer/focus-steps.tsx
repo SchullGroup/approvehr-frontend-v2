@@ -12,6 +12,7 @@ import {
 import type { useDevelopmentSuggestions } from "@/lib/store/ai";
 import {
   dayLabel,
+  ratingWordsFrom,
   type ApiFormQuestion,
   type ApiRatingScale,
   type ApiReviewDetail,
@@ -23,7 +24,12 @@ import {
   filled,
   type Draft,
 } from "@/app/(app)/performance/review-parts";
-import { FocusQuestion, WriteBox } from "./focus-question";
+import {
+  FocusQuestion,
+  PickList,
+  WriteBox,
+  ratingOptions,
+} from "./focus-question";
 
 /**
  * What each page of the review says.
@@ -267,6 +273,47 @@ export function QuestionStep({
   );
 }
 
+export function MarkStep({
+  scale,
+  mark,
+  onPick,
+  onClear,
+}: {
+  scale: ApiRatingScale;
+  mark: string;
+  onPick: (value: string) => void;
+  onClear: () => void;
+}) {
+  return (
+    <Frame
+      headingId={HEADING}
+      title="Is there an overall mark?"
+      lead="Optional. Leave it if the answers say enough."
+    >
+      <div className="flex flex-col gap-3">
+        <PickList
+          name="overall-mark"
+          options={ratingOptions(scale)}
+          value={mark || undefined}
+          onPick={onPick}
+        />
+        <p className="text-meta text-muted">
+          Pick one, or press its number.{" "}
+          {mark && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="cursor-pointer font-medium text-accent-text underline underline-offset-4"
+            >
+              Leave it blank instead
+            </button>
+          )}
+        </p>
+      </div>
+    </Frame>
+  );
+}
+
 export function SummaryStep({
   review,
   summary,
@@ -334,7 +381,10 @@ export function SummaryStep({
 
 export function CheckStep({
   review,
+  scale,
   onRecord,
+  withMark,
+  mark,
   summary,
   outstanding,
   coaching,
@@ -343,17 +393,22 @@ export function CheckStep({
   onEdit,
 }: {
   review: ApiReviewDetail;
+  scale: ApiRatingScale;
   /** What will be on the record for a question — see `onRecordOf`. */
   onRecord: (question: ApiFormQuestion) => Draft;
+  /** Whether the company asks for an overall mark, so whether it has a row here. */
+  withMark: boolean;
+  mark: string;
   summary: string;
   outstanding: ApiFormQuestion[];
   /** A manager or peer form: the language check applies. */
   coaching: boolean;
   languageTexts: string[];
   languageSeen: boolean;
-  /** Jump to the page where a question (or the note) is answered. */
-  onEdit: (where: ApiFormQuestion | "summary") => void;
+  /** Jump to the page where a question (or the mark, or the note) is answered. */
+  onEdit: (where: ApiFormQuestion | "mark" | "summary") => void;
 }) {
+  const words = ratingWordsFrom(scale.levels);
   return (
     <Frame
       headingId={HEADING}
@@ -408,6 +463,20 @@ export function CheckStep({
             </li>
           );
         })}
+        {withMark && (
+          <li>
+            <button
+              type="button"
+              onClick={() => onEdit("mark")}
+              className="block w-full cursor-pointer rounded-lg border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-control-line hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+            >
+              <p className="text-meta font-medium text-muted">Overall mark</p>
+              <p className="mt-1 text-body-sm leading-relaxed text-ink">
+                {mark ? (words(Number(mark)) ?? mark) : "No overall mark"}
+              </p>
+            </button>
+          </li>
+        )}
         <li>
           <button
             type="button"

@@ -192,6 +192,16 @@ export type FeaturePatch = {
    * from then on. The API clamps it to 1–24.
    */
   probationMonths?: number;
+  /**
+   * Whether an appraisal ends with an overall mark.
+   *
+   * A boolean, but deliberately not a member of `FEATURE_KEYS`: it hides no
+   * screen and no field of the product's own, it is a choice about one form, and
+   * its switch is rendered in Appraisal scoring rather than on
+   * `/settings/features`. The store carries it as `overallMark: boolean | null`
+   * for the reason `ApiFeatures.overallMark` gives.
+   */
+  overallMark?: boolean;
 } & {
   [K in FeatureKey]?: boolean;
 } & { headcountBand?: HeadcountBand };
@@ -231,6 +241,16 @@ export type ApiFeatures = {
   leaveTwoStepApproval: boolean;
   /** New hires get a probation end date, and it is chased. Off by default. */
   probationTracking: boolean;
+  /**
+   * Whether an appraisal form ends with an overall mark. Off by default, and the
+   * switch lives in Appraisal scoring beside the Self-assessment weight that
+   * depends on it.
+   *
+   * Optional because an API one deploy behind does not send it, and **absent is
+   * not off**: a server that has no such setting is a server on which the switch
+   * cannot be offered, which is a different thing from a company that chose no.
+   */
+  overallMark?: boolean;
   /**
    * The weekly text message digest. Off by default.
    *
