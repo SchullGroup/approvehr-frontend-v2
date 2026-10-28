@@ -203,7 +203,7 @@ const ONGOING = [
     href: "/settings/performance",
     title: "Appraisal scoring",
     description:
-      "How much each part of an appraisal counts. The weights must make 100% exactly, and they are frozen onto an appraisal period when it starts.",
+      "How much each part of an appraisal counts, what each mark is called, and whether forms end with an overall mark. The weights must make 100% exactly, and they are frozen onto an appraisal period when it starts.",
     icon: <Gauge aria-hidden="true" />,
   },
   {

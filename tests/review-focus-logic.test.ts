@@ -41,7 +41,7 @@ const answered = (text: string): ApiFormQuestion["answer"] =>
     attachment: null,
   }) as unknown as ApiFormQuestion["answer"];
 
-const none = { summary: "", step: 0 };
+const none = { mark: "", summary: "", step: 0 };
 
 describe("startIndex", () => {
   it("opens a review with nothing in it on the introduction", () => {
@@ -90,6 +90,34 @@ describe("startIndex", () => {
   it("treats a remembered note as having started", () => {
     const review = { questions: [question("a"), question("b")] };
     expect(startIndex(review, { ...none, summary: "a line" })).toBe(1);
+  });
+});
+
+describe("startIndex where the company asks for an overall mark", () => {
+  const review = { questions: [question("a"), question("b")] };
+
+  it("has one more page, so the last one is one further on", () => {
+    expect(startIndex(review, { ...none, step: 99 }, true)).toBe(5); // intro a b mark note preview
+    expect(startIndex(review, { ...none, step: 99 }, false)).toBe(4);
+  });
+
+  it("goes to the mark once every required question has an answer", () => {
+    const answeredAll = {
+      questions: [
+        question("a", { answer: answered("done") }),
+        question("b", { answer: answered("done") }),
+      ],
+    };
+    /* Pages: intro, a, b, mark, note, preview. Without a mark the same index is the note. */
+    expect(startIndex(answeredAll, none, true)).toBe(3);
+    expect(startIndex(answeredAll, none, false)).toBe(3);
+  });
+
+  it("treats a remembered mark as having started, but only while one is asked for", () => {
+    const empty = { questions: [] };
+    expect(startIndex(empty, { ...none, mark: "4" }, true)).toBe(1);
+    /* A mark left in a draft from before the setting moved is not progress. */
+    expect(startIndex(empty, { ...none, mark: "4" }, false)).toBe(0);
   });
 });
 
