@@ -44,6 +44,7 @@ import {
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
+import { standInSentence } from "@/lib/performance/appraiser-fill";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
@@ -177,6 +178,10 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
   const [noObjectives, setNoObjectives] = useState<string[] | null>(null);
+  /* Who Start gave their department head, because nobody is recorded as their
+     manager. A policy applied on their behalf, so it is said where it can be
+     checked rather than found afterwards in a manager's list. */
+  const [viaHead, setViaHead] = useState<string[] | null>(null);
 
   const period = detail.cycle;
   const outstanding = outstandingIn(detail.participants);
@@ -221,6 +226,11 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
       setNoObjectives(
         result.withoutAgreedObjectives.length > 0
           ? result.withoutAgreedObjectives
+          : null,
+      );
+      setViaHead(
+        result.viaDepartmentHead && result.viaDepartmentHead.length > 0
+          ? result.viaDepartmentHead
           : null,
       );
       detail.reload();
@@ -585,6 +595,9 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               `activateCycle`), so this cannot open the dialog on one person
               directly. Scrolling to the card that can is the honest
               affordance rather than a control that guesses. */}
+          {viaHead && (
+            <NoticeLine tone="muted">{standInSentence(viaHead)}</NoticeLine>
+          )}
           {noObjectives && (
             <NoticeLine tone="warning">
               <span>

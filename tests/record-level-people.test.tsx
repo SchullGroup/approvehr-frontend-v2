@@ -85,6 +85,12 @@ vi.mock("@/lib/store/performance", () => ({
     error: null,
   }),
   useAppraisals: () => ({ cycles: [], loading: false }),
+  useSkills: () => ({
+    skills: null,
+    loading: false,
+    error: null,
+    reload: () => {},
+  }),
 }));
 vi.mock("@/lib/store/employees-api", () => ({
   /* What the real hook returns for a caller without `EDIT_RECORDS`: the full

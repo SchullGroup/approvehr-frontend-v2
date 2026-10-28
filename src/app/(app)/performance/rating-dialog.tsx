@@ -5,7 +5,11 @@ import { Button, Field, Modal, Select, Textarea } from "@/components/ui";
 import { NoticeLine } from "@/components/portal/notice-line";
 import type { RateBody } from "@/lib/api/performance";
 import { answerKindOf, choicesOf } from "@/lib/performance/answer-kind";
-import { useAppraisals, useFramework } from "@/lib/store/performance";
+import {
+  useAppraisals,
+  useFramework,
+  useSkills,
+} from "@/lib/store/performance";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
@@ -56,6 +60,16 @@ import { useSession } from "@/lib/store/session";
  * and is worked out on the API. This form shows the choice and never a number, so
  * the person marking decides which description fits and not which score they want.
  *
+ * ## The person's current pick is already chosen
+ *
+ * Rating somebody again corrects their answer, so on a pick-a-list subsection the
+ * dropdown opens on the choice they already have. It is found by the choice's
+ * **id**, which their skills row carries: the label cannot do it, because two
+ * choices can share one, and the choice may have been taken off the list since, in
+ * which case nothing is chosen and the form says what their answer was. A server
+ * that does not send the id preselects nothing, and a person who picks something
+ * else keeps their pick until they choose somebody or something else.
+ *
  * Until a subsection is chosen the form shows the level controls, which is what it
  * always showed, and choosing one swaps them. A subsection that is answered by
  * picking and has no choices yet cannot be answered at all, so the form says so and
@@ -90,7 +104,11 @@ export function RecordLevelDialog({
   const [target, setTarget] = useState("");
   /** `""` until somebody picks, then `"yes"` or `"no"`. */
   const [boolValue, setBoolValue] = useState("");
-  const [choiceOptionId, setChoiceOptionId] = useState("");
+  /* What was picked over the person's current answer, or `null` while nothing has
+     been. It is cleared whenever the person or the skill changes, so the default is
+     always the current answer of whoever is chosen, never a pick left over from
+     somebody else or from the last list. */
+  const [typedChoice, setTypedChoice] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -140,6 +158,29 @@ export function RecordLevelDialog({
   const choices = chosen ? choicesOf(chosen) : [];
   /* Nothing can be recorded on a pick-a-list subsection that has no choices. */
   const nothingToPick = kind === "CHOICE" && choices.length === 0;
+
+  /* The chosen person's own answer on this subsection. Only a connected server
+     has one to give: offline the skills are derived and carry no pick id, so
+     nothing is preselected there. */
+  const { skills } = useSkills(person === "" ? null : person);
+  const current = chosen
+    ? skills?.rows.find((row) => row.competencyId === chosen.id)
+    : undefined;
+  const currentPickId =
+    kind === "CHOICE" ? (current?.choiceOptionId ?? null) : null;
+  /* Preselected only while that choice is still on the list, and matched by id,
+     never by label: two choices can share a name, and the one picked may have been
+     taken off since. In that case it is said below instead of offered. */
+  const preselected =
+    currentPickId !== null &&
+    choices.some((choice) => choice.id === currentPickId)
+      ? currentPickId
+      : "";
+  const choiceOptionId = typedChoice ?? preselected;
+  const takenOffPick =
+    currentPickId !== null && preselected === ""
+      ? (current?.choiceOptionLabel ?? null)
+      : null;
   const scaleMax = chosen?.scaleMax ?? 5;
   const steps = Array.from({ length: scaleMax }, (_, index) => index + 1);
 
@@ -208,7 +249,10 @@ export function RecordLevelDialog({
           <Select
             value={person}
             placeholder="Pick a person"
-            onChange={(event) => setPerson(event.target.value)}
+            onChange={(event) => {
+              setPerson(event.target.value);
+              setTypedChoice(null);
+            }}
           >
             {options.map((one) => (
               <option key={one.id} value={one.id}>
@@ -234,7 +278,7 @@ export function RecordLevelDialog({
               setLevel("");
               setTarget("");
               setBoolValue("");
-              setChoiceOptionId("");
+              setTypedChoice(null);
             }}
           >
             {framework.groups.map((group) => (
@@ -324,7 +368,7 @@ export function RecordLevelDialog({
               <Select
                 value={choiceOptionId}
                 placeholder="Pick a choice"
-                onChange={(event) => setChoiceOptionId(event.target.value)}
+                onChange={(event) => setTypedChoice(event.target.value)}
               >
                 {choices.map((choice) => (
                   <option key={choice.id} value={choice.id}>
@@ -334,6 +378,15 @@ export function RecordLevelDialog({
               </Select>
             </Field>
           ))}
+
+        {kind === "CHOICE" && takenOffPick !== null && (
+          <NoticeLine tone="muted">
+            <span>
+              Their current answer is &ldquo;{takenOffPick}&rdquo;, which is no
+              longer on the list. Pick one of the choices to replace it.
+            </span>
+          </NoticeLine>
+        )}
 
         {openPeriods.length > 0 && (
           <Field

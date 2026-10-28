@@ -21,11 +21,13 @@ import {
   choicesOf,
   directCounts,
   draftsFrom,
+  fixedScoreReason,
   kindLine,
   kindOptionLabel,
   payloadFrom,
   repeatedLabels,
   sameChoices,
+  scoreIsFixed,
   type ChoiceDraft,
 } from "@/lib/performance/answer-kind";
 import { useFrameworkActions } from "@/lib/store/performance";
@@ -357,6 +359,10 @@ function ScoredChoiceEditor({
           const badScore = rowProblems.some(
             (problem) => problem.field === "score",
           );
+          /* A choice somebody has already picked keeps its score for good, so the
+             field says so here instead of letting a save be refused. Its label
+             and its place in the list stay editable. */
+          const fixed = editable && scoreIsFixed(row);
           return (
             <li key={row.key} className="flex flex-col gap-1">
               <div className="flex flex-wrap items-start gap-2">
@@ -379,7 +385,10 @@ function ScoredChoiceEditor({
                     inputMode="decimal"
                     value={row.score}
                     aria-invalid={badScore || undefined}
-                    disabled={!editable || saving}
+                    aria-describedby={
+                      fixed ? `fixed-score-${row.key}` : undefined
+                    }
+                    disabled={!editable || saving || fixed}
                     onChange={(event) =>
                       setRow(row.key, { score: event.target.value })
                     }
@@ -413,6 +422,14 @@ function ScoredChoiceEditor({
                   </span>
                 )}
               </div>
+              {fixed && (
+                <p
+                  id={`fixed-score-${row.key}`}
+                  className="text-meta text-muted"
+                >
+                  {fixedScoreReason(row.picks ?? 0)}
+                </p>
+              )}
               {rowProblems.map((problem) => (
                 <p
                   key={problem.field}

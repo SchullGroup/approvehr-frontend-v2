@@ -355,6 +355,14 @@ export type ApiChoiceOption = {
    */
   scoreBp: number;
   sortOrder: number;
+  /**
+   * How many ratings, in any period, picked this choice. Above 0 means its score
+   * is fixed, which is the API's rule above, so an editor can say so before a
+   * save is refused instead of after. Optional because a server one deploy behind
+   * does not send it, and an absent count claims nothing: such a choice is not
+   * shown as fixed.
+   */
+  ratingCount?: number;
 };
 
 export type ApiCompetency = {
@@ -418,9 +426,14 @@ export type ApiCompetencyRow = {
   /** `BOOLEAN` only. `null` until somebody answers it. */
   boolValue?: boolean | null;
   /**
-   * `CHOICE` only: the label of the pick, **not its id**. Labels are not unique,
-   * so a form cannot preselect a current pick by matching on this.
+   * `CHOICE` only: the id of the pick, which is what a form preselects by. Labels
+   * are not unique and the pick may have been taken off the list since, so the
+   * label below cannot stand in for it. `null` on any other kind and while
+   * unanswered. Optional because a server one deploy behind does not send it, and
+   * then nothing is preselected.
    */
+  choiceOptionId?: string | null;
+  /** `CHOICE` only: the label of the pick, which is shown but never matched on. */
   choiceOptionLabel?: string | null;
   target: number | null;
   gap: number | null;
@@ -591,6 +604,12 @@ export type ApiCycleActivated = ApiCycle & {
    */
   withoutAppraiser: string[];
   /**
+   * Who was given their department head because nobody is recorded as their
+   * manager, by name. Only a server with that rule sends it (today's does not), so
+   * it is optional: absent says nothing and an empty list says nobody was.
+   */
+  viaDepartmentHead?: string[];
+  /**
    * Anybody with nothing agreed to be scored against, by name.
    *
    * Named for the same reason. Delivery against objectives is one of the four
@@ -752,6 +771,16 @@ export type ApiReview = {
    * dispute — so a non-null value here does not tell you which act it was.
    */
   employeeComment: string | null;
+  /**
+   * On a form in the list of what you have to write: why Send would be refused
+   * right now, in the API's own sentence, or `null` when it would not. The same
+   * rule and the same sentence as the form's own `sendBlockedBy`, so the row can
+   * say it before the form is opened.
+   *
+   * **Absent from a server that predates it, and from any list that is not a work
+   * list, and absent means there is nothing to say**, never "Send is open".
+   */
+  sendBlockedBy?: string | null;
 };
 
 /**
@@ -1012,8 +1041,27 @@ export type ApiAppraisersSet = {
 export type ApiAutoAssigned = {
   cycleId: string;
   created: number;
-  /** Named, never counted: these are the people who would get no mark. */
+  /**
+   * Manager forms this press wrote on a running period, so a manager's list holds
+   * what the mapping now says they owe. 0 where there was nothing to write (a
+   * draft gets its forms when it starts, and a period that already had them all
+   * needs none). Optional because a server one deploy behind does not send it, and
+   * an absent count claims nothing about forms.
+   */
+  formsCreated?: number;
+  /**
+   * Named, never counted: these are the people who would get no mark. Nobody is
+   * recorded as their manager and, from a server that sends `viaDepartmentHead`,
+   * no department head could stand in either.
+   */
   withoutManager: string[];
+  /**
+   * The people given their department head as appraiser because nobody is
+   * recorded as their manager, by name so they can be checked. Only a server with
+   * that rule sends it (today's does not), so it is optional: absent says nothing,
+   * and an empty list says nobody was.
+   */
+  viaDepartmentHead?: string[];
 };
 
 /* -------------------------------------------------------- the composite score
