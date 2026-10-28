@@ -331,10 +331,32 @@ The three settings on a question:
 > ✅ **Shortcut.** There is a **Copy from** control that lifts every question off a previous period.
 > On a second period this is the whole of this step.
 
-Beside **Write the questions** there is also **Sections and subsections**. That is the company's own
-framework of what an appraisal is made of — it starts with Core competency, Behavioural competency,
-Key result area and Leadership — and it is shared by every period, past and future, so renaming
-something there is not a change to this period alone. You never have to open it to run a period.
+The dialog has two views, switched at the top: **All questions** (the form as described above, and the
+one it opens on) and **By section**. **By section** lays the same questions out under the company's own
+framework of what an appraisal is made of: it starts with Core competency, Behavioural competency, Key
+result area and Leadership, each with its weight (_15% of the mark_, or _Not weighted_) and how many
+subsections it has. It is shared by every period, past and future, so a change there is not a change to this
+period alone, and the screen says so in its first sentence.
+
+Open a subsection and it has two tabs, which are two views of one subsection and never a choice between them:
+
+- **Rated directly** — how a manager records an answer on the subsection itself, under **Competency
+  ratings** (step 22). **How it is answered** is **A level on a scale, 1 to 5**, **Yes or no** (yes scores
+  100%, no scores 0%) or **Pick one from a list**, where you write the choices and give each a score in
+  percent, then **Save choices**. The kind is written the moment you pick it, and it is fixed once anybody has
+  recorded an answer on the subsection (the screen says so; start a new subsection to change it). A yes or
+  no and a pick have no target, so they are left out of the gap list and the heatmap.
+- **Answered by questions** — this period's questions filed under that subsection, and the question form.
+
+**Add a section** (a name and **Counts towards**: Core competencies, Behavioural competencies, Leadership, or
+_No part of the mark_) and, inside a section, **New subsection** with **Answered by** both stay open after
+each add, so several can be typed in a row. **Counts towards** is what ties a new section back to the mark:
+a section with no mapping is recorded and never scored, weights belong to those three parts and not to
+sections, and two sections on one part are averaged together. Only somebody who can manage settings sees the
+controls, and not in demo mode, where the framework is fixed.
+
+Beside **Write the questions** there is also **Sections and subsections**, where a subsection is renamed,
+moved or archived. You never have to open either to run a period.
 
 #### 7. _Optional_ — let managers add their own questions
 
@@ -635,8 +657,13 @@ exited, tells them in the app, and the period can never be deleted again.
 > they are the only time anybody is told. Each is a single line on the period screen, and names the
 > person when it is only one ("Tunde Bakare has no appraiser"):
 >
-> **"3 people have no appraiser: …"** — these people will finish the period with no mark at all. Fix
-> it on `/performance/appraisers` or by setting their manager on their record.
+> **"3 people have no appraiser: …"** — these people will finish the period with no mark at all, and
+> **nobody has a form to fill in about them**: a manager sees only their own self-appraisal for them. Fix
+> it by setting their manager on their record and pressing **Fill in from the reporting line** on
+> `/performance/appraisers`, which now writes the manager's form as well as the mapping on a period that
+> has started (press it again if you pressed it before and the manager still has nothing), or by choosing
+> the appraiser on that screen. The default is built from the manager on each person's record only, so
+> somebody with none, or a department head who is nobody's recorded manager, gets no form.
 >
 > **"3 people have no agreed objective: …"** — these people have nothing agreed to be judged on, so the
 > objectives part of their mark is empty and the rest is reweighted around it.
@@ -653,15 +680,21 @@ the module, so it is worth walking properly.
 | -------------- | ----------------------------------------------------------------------- |
 | **Where**      | `/performance` → **Waiting on you**                                     |
 | **Who**        | The person                                                              |
-| **Click**      | **Fill it in** on the row, answer the questions, then **Send it**       |
+| **Click**      | **Fill it in** on the row, answer the questions, read the **Preview**, then **Send it** |
 | **You'll see** | The row leaves _Waiting on you_, and a _Sent_ badge appears on the form |
 
 - **Save and finish later** keeps a half-typed answer without sending it. Nobody else can see a form
   that has not been sent.
-- **Overall mark** is optional. Leaving it blank is a real choice — it means the answers say enough —
-  and it is not read as a zero anywhere.
+- The form ends on **Preview**. It reads every answer back and sends nothing: press anything on it
+  to change it, and **Send it** is what sends. There is no overall mark to give. A review is its
+  answers, and the mark comes from the scores (step 22).
 - Questions marked as required must be answered before Send will work. The screen counts what is
   still missing.
+- **The leadership question is only on a form about somebody who leads others** — people report to
+  them, they lead a team, or they head a department. A form about somebody who leads nobody never
+  carries it, whether they fill it in themselves or their manager or a colleague does, so an
+  ordinary employee who sees no leadership question is seeing it work. An answer that was already
+  recorded stays on record.
 
 #### 18. _Optional_ — log what you did each week
 
@@ -710,8 +743,20 @@ text if you cannot.
 | -------------- | ------------------------------------------------------------------------------------------------- |
 | **Where**      | `/performance` → **Waiting on you**                                                               |
 | **Who**        | Line manager                                                                                      |
-| **Click**      | **Fill it in**, answer, set an **Overall mark**, then **Send it**                                 |
+| **Click**      | **Fill it in**, answer, read the **Preview**, then **Send it**                                    |
 | **You'll see** | Their self-review is readable beside your own form, under _What they said about their own period_ |
+
+> 🛑 **Send can be closed, and the form says so before you start.** You can open and answer a manager
+> review at any time, but **Send it** stays shut until the person has sent their own self-appraisal,
+> because theirs is meant to inform yours. The first page and the **Preview** both read **Sending is
+> not open yet.** and then the reason, in the product's own words: _"Emeka has not sent their
+> self-appraisal yet, and it should inform yours. Once they send it, you will see it beside this form.
+> Ask HR to set a due date on this period if you need a deadline to work to."_ When the period has a
+> due date the last sentence gives it instead: _"If they miss 2026-11-15, you can send yours without
+> it."_ Three things open it: they send theirs; the period's **due date** passes (HR can move it to a
+> date in the past and every manager in the period is released at once); or you hold the records
+> permission (**Edit records**). A period with no self-review has nothing to wait for. This is the
+> answer to "I cannot finish the manager appraisal": almost always it is waiting for the person.
 
 > 💡 **The language check — worth demonstrating.** Press Send and the product reads what you wrote
 > first. It flags language describing a _person_ rather than their _work_, absolutes, comparisons to
@@ -733,6 +778,13 @@ built from their objectives alone.
 | **Who**        | Line manager · HR / Owner                                                       |
 | **Click**      | **Record a level** → who, which skill, where they are now, where they should be |
 | **You'll see** | The _Below target_ count and the department heatmap both move as you record     |
+
+A line manager is offered the people who report to them, and somebody with **Edit records** is offered
+everybody but themselves. What the form then asks for follows how the skill is answered (step 6): a level and
+an optional target for a rated skill, **Answer** yes or no for a yes-or-no skill, and one of the skill's own
+choices for a pick-one skill (the choice, never its score). A pick-one skill with no choices yet says so and
+cannot be saved. On the **Your skills** list a yes, a no and a pick show as a plain label with no scale, and
+_Not assessed yet_ means nobody has answered it.
 
 > 🛑 **The same trap as step 9.** **Appraisal period** is on this dialog too. Leave it blank and the level is
 > recorded but counts towards no period's mark.
@@ -1047,7 +1099,7 @@ Not a role at all — anybody can be asked, once, about one person.
 
 ---
 
-## 6. Eleven things that will surprise you
+## 6. Twelve things that will surprise you
 
 Every one of these is deliberate. If you are demonstrating the product, several are worth pointing at
 on purpose — they are the arguments the module is built on.
@@ -1064,6 +1116,7 @@ on purpose — they are the arguments the module is built on.
 | **"Make it final" only appears at calibration.** | A manager at the manager-review stage has nothing to make final and correctly sees no such button. Move the period to calibration and the rows appear. |
 | **A measure nobody has read is not a measure at 0%.** | A number added with no current value reads *Not read yet* and is left out of the objective's progress until somebody enters a figure, and an objective with nothing read shows *No reading yet* instead of a percentage. A zero would claim the work had not moved, which is a different fact from nobody having looked. Typing the starting figure as a first reading is a reading. |
 | **Only a manager says a milestone is done.** | A *Done or not done* measure has no number to type, and the person whose work it is never sees a Confirm button. Until it is confirmed it counts as *not done*, because a milestone nobody confirmed by the end of the period was not met. |
+| **A manager cannot press Send until the person has sent theirs.** | Their self-appraisal is meant to inform the manager's, so **Send it** stays shut and the form says **Sending is not open yet.** with the reason, on the first page and on the **Preview**. Answering is never blocked. The due date passing, **Edit records**, or a period with no self-review all open it (step 21). |
 | **The Owner and the HR manager get no form.** | Both off on every new period, and each is its own tick box. The Owner reports to nobody, so the reporting line has no one to put on their form; the HR manager would otherwise be marking themselves against questions they wrote. Neither is let off anything — both still appraise their own teams. Tick either box on the period to include them (step 8). |
 
 ---
@@ -1106,7 +1159,7 @@ seeded accounts to use.
 | 5   | **Manager** — `/performance`. The same objective is in **Waiting on you**. Open the queue and agree it.                     | Both sides of one action, thirty seconds apart. **This is the moment the demo lands.**                                             |
 | 6   | **Manager** — go back to KPIs and try to change the target you just agreed.                                                 | The controls are gone and a sentence above says why. Not a refusal after the click — the offer was never made.                     |
 | 7   | **HR** — **Start the period**. Confirm, then read the result out loud.                                                      | How many forms, how many told, and any names it gives you. "Nobody is appraising them" if it appears.                              |
-| 8   | **Employee** — **Fill it in**. Answer, leave the overall mark blank on purpose, send it.                                    | Blank is a choice, and nothing downstream reads it as zero.                                                                        |
+| 8   | **Employee** — **Fill it in**. Answer, read the **Preview**, send it.                                                       | The Preview reads everything back and sends nothing. There is no overall mark to give: the answers are the review.                 |
 | 9   | **HR** — **Move to manager review**.                                                                                        | Self-reviews already in are kept. Say it; people assume otherwise.                                                                 |
 | 10  | **Manager** — write the review. Type _"Chidera is quite disorganised"_ and press Send.                                      | It quotes the phrase back at you and the button becomes **Send anyway**. It never blocks — and nothing you typed left the product. |
 | 11  | **HR** — **Move to calibration**, then **Change the mark** on one person with a reason.                                       | The row keeps both figures: what the answers produced, and what it was moved to.                                                   |
@@ -1116,7 +1169,9 @@ seeded accounts to use.
 
 ---
 
-*Written against the product as it stands on 20 October 2026. Every button label, field name and
+*Written against the product as it stands on 20 October 2026, except steps 6 (the questions and the
+subsections), 16 (the no-appraiser warning), 17 and 21 (answering a review) and 22 (recording a level), the
+twelfth surprise and demo step 8, which were brought up to 28 October 2026. Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._

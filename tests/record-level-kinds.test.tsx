@@ -15,19 +15,21 @@ import { RecordLevelDialog } from "@/app/(app)/performance/rating-dialog";
  * body that sends all three. What goes in the body is the thing to test.
  */
 
-const EMPLOYEES = [
+/* Lookup-shaped, as the directory hands every caller: a full name and no first
+   or last name. The dialog reads these from `people`, never from `employees`. */
+const PEOPLE = [
   {
     id: "e-chidi",
-    firstName: "Chidi",
-    lastName: "Nwosu",
+    fullName: "Chidi Nwosu",
     jobTitle: "Engineer",
+    department: "Engineering",
     managerId: "me",
   },
   {
     id: "e-emeka",
-    firstName: "Emeka",
-    lastName: "Anyanwu",
+    fullName: "Emeka Anyanwu",
     jobTitle: "Analyst",
+    department: "Engineering",
     managerId: "me",
   },
 ];
@@ -90,7 +92,7 @@ vi.mock("@/lib/store/performance", () => ({
   useAppraisals: () => ({ cycles, loading: false }),
 }));
 vi.mock("@/lib/store/employees-api", () => ({
-  useEmployeeDirectory: () => ({ employees: EMPLOYEES }),
+  useEmployeeDirectory: () => ({ people: PEOPLE }),
 }));
 vi.mock("@/lib/store/session", () => ({
   useSession: () => ({ employeeId: "me" }),
