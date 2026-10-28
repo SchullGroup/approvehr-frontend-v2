@@ -12,6 +12,7 @@ import {
   Field,
   IconButton,
   Input,
+  LoadFailure,
   Modal,
   SegmentedControl,
   Select,
@@ -24,6 +25,7 @@ import { actionMessage } from "@/lib/use-action";
 import type {
   ApiCompetency,
   ApiQuestion,
+  ApiSection,
   CreateQuestionBody,
   ReviewAudience,
   ReviewQuestionKind,
@@ -37,6 +39,8 @@ import {
   useFrameworkActions,
   useSections,
 } from "@/lib/store/performance";
+import type { FrameworkGroup } from "@/lib/store/performance";
+import { useHeld } from "@/lib/use-held";
 import { NoticeLine } from "@/components/portal/notice-line";
 import { answerKindOf } from "@/lib/performance/answer-kind";
 import { QUESTION_BANK } from "@/lib/performance/question-bank";
@@ -47,6 +51,7 @@ import {
   sectionOptionsOf,
   subsectionNameProblem,
 } from "./subsection-tree";
+import type { SectionOption } from "./subsection-tree";
 
 /** Who a question is put to. `REPORT` exists in the enum and nothing reaches it. */
 const AUDIENCES: { value: ReviewAudience; label: string }[] = [
@@ -152,6 +157,27 @@ function evidenceAudienceRefusal(
  * who wants to say something the list didn't anticipate. The suggested
  * phrasings come from `QUESTION_BANK`, filtered by the chosen subsection —
  * a starting point to edit or ignore, never a requirement.
+ *
+ * ## Two views of the same form
+ *
+ * **All questions** is the form as it was: every question in this period, in the
+ * order they are asked, and one form to add or change one, with the section and
+ * the subsection to file it under chosen in the form itself.
+ *
+ * **By section** is the same questions laid out under the framework they belong
+ * to: the company's sections, the subsections in each, and for each subsection
+ * two tabs, one for how it is answered when somebody records an answer on it
+ * directly and one for this period's questions filed under it. It exists so that
+ * deciding how a subsection is answered, and writing its questions, are one trip
+ * rather than two screens. The two tabs are a view switch and never a choice: a
+ * subsection can be answered directly and also carry questions, and neither
+ * affects the other.
+ *
+ * The form is the same form in both. In the section view it sits under the
+ * subsection that is open and files its question there, so the picker is not
+ * shown; which subsection a question is filed under is whichever is open, read
+ * at the moment it is saved, so saving or cancelling an edit cannot leave the
+ * next question filed under nothing.
  */
 export function QuestionsDialog({
   open,
@@ -192,6 +218,13 @@ export function QuestionsDialog({
 }) {
   const { questions, loading, reload } = useCycleQuestions(cycleId);
   const framework = useFramework();
+  const { editable: apiConnected } = useFrameworkActions();
+  const canManage = useCan("MANAGE_SETTINGS");
+
+  /** Which of the two views of the form is showing. Never persisted. */
+  const [view, setView] = useState<"all" | "sections">("all");
+  /** The subsection open in the section view, or `null` while none is. */
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   /**
    * The arrangement somebody has just dragged, held until the server's own
@@ -327,6 +360,58 @@ export function QuestionsDialog({
     clearErrors();
   };
 
+  /**
+   * The subsection the question being written is filed under.
+   *
+   * In the full list that is what the picker holds. In the section view it is the
+   * subsection that is open, read here and not copied into the picker's state:
+   * `cancelEdit` clears the picker's, and a copy would leave the next question
+   * after a saved edit filed under nothing while the screen still showed it under
+   * the open subsection.
+   */
+  const filedUnder = view === "sections" ? (selectedId ?? "") : competencyId;
+
+  /**
+   * Move between the two views.
+   *
+   * An edit in progress is dropped, because the question being edited may not be
+   * on the other view at all, and so is what was chosen to file under. What
+   * somebody has typed into a new question is kept: it does not belong to either
+   * view, and losing a sentence to a toggle is worse than carrying it across.
+   */
+  const switchView = (next: "all" | "sections") => {
+    if (next === view) return;
+    if (editing) cancelEdit();
+    clearErrors();
+    setSelectedId(null);
+    setSectionId("");
+    setCompetencyId("");
+    setView(next);
+  };
+
+  /** Open a subsection in the section view, or close the open one with `null`. */
+  const selectSubsection = (subsection: ApiCompetency | null) => {
+    if (editing) cancelEdit();
+    clearErrors();
+    setSelectedId(subsection?.id ?? null);
+  };
+
+  /** Questions in this period by the subsection they are filed under. */
+  const questionCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const question of questions) {
+      if (!question.competencyId) continue;
+      counts.set(
+        question.competencyId,
+        (counts.get(question.competencyId) ?? 0) + 1,
+      );
+    }
+    return counts;
+  }, [questions]);
+  const unfiledQuestionCount = questions.filter(
+    (question) => !question.competencyId,
+  ).length;
+
   const save = async () => {
     if (prompt.trim().length < 5) {
       fail("prompt", "Write the question out.");
@@ -367,12 +452,12 @@ export function QuestionsDialog({
         ...(kind === "CHOICE"
           ? { options: cleanOptions, allowCustom }
           : { options: [], allowCustom: false }),
-        ...(competencyId ? { competencyId } : {}),
+        ...(filedUnder ? { competencyId: filedUnder } : {}),
       };
       if (editing) {
         await onUpdate(editing.id, {
           ...shared,
-          competencyId: competencyId || null,
+          competencyId: filedUnder || null,
         });
         cancelEdit();
       } else {
@@ -431,6 +516,241 @@ export function QuestionsDialog({
   const competencyName = (id: string) =>
     framework.competencies.find((c) => c.id === id)?.name ?? null;
 
+  /** The section view can change the framework only when it can reach it. */
+  const treeEditable = apiConnected === true && canManage;
+  const whyNot =
+    apiConnected !== true
+      ? "Changing sections, subsections and how they are answered needs the API: the demo framework is fixed."
+      : !canManage
+        ? "Only somebody who can manage settings can change sections, subsections and how they are answered."
+        : null;
+
+  /**
+   * The form that adds and changes a question.
+   *
+   * One form, rendered in one of two places, and never in both: under the list in
+   * the full view, and under the open subsection in the section view. A function
+   * returning markup and not a component, on purpose: a component declared in
+   * here would be a new type on every render and would throw away what somebody
+   * was typing each time anything changed.
+   */
+  const renderForm = (place: FormPlace) => {
+    const filingLine =
+      place.where === "subsection"
+        ? filingNote({
+            sectionId: place.section?.id ?? "",
+            competencyId: place.subsection.id,
+            ...(place.section
+              ? {
+                  section: {
+                    name: place.section.name,
+                    weightBp: place.section.weightBp,
+                  },
+                }
+              : {}),
+            subsectionName: place.subsection.name,
+            answerKind: answerKindOf(place.subsection),
+          })
+        : null;
+    return (
+      <div
+        className={cn(
+          "flex flex-col gap-4",
+          place.where === "all" && "border-t border-line pt-5",
+        )}
+      >
+        {/* Belongs to the whole form, so it sits above it rather than
+            accusing the first field. */}
+        {formError && (
+          <Callout tone="danger" title="That did not go through">
+            {formError}
+          </Callout>
+        )}
+
+        {/* Where it goes, before what it says.
+
+            This used to sit below the question, the answer kind and the
+            audience, which put the choice of where the question is grouped
+            last, after the decisions it qualifies. Leading with it also
+            makes the section an explicit choice rather than something
+            implied by which group an option happened to sit in. */}
+        {place.where === "all" ? (
+          <FiledUnderPicker
+            sectionId={sectionId}
+            competencyId={competencyId}
+            onChange={(next) => {
+              setSectionId(next.sectionId);
+              setCompetencyId(next.competencyId);
+            }}
+            /* The picker reads the framework through its own hook, so a
+               subsection made there has to be announced to this one, or the
+               list this dialog keeps is the one that never heard of it. */
+            onSubsectionAdded={() => framework.reload()}
+          />
+        ) : (
+          /* Nothing to choose: the question goes under the subsection that is
+             open, and this says what that means for the mark. */
+          filingLine && (
+            <NoticeLine tone={filingLine.tone}>
+              <span>{filingLine.text}</span>
+            </NoticeLine>
+          )
+        )}
+
+        <Field
+          label={editing ? "Edit the question" : "Add a question"}
+          required
+          {...(errors["prompt"] ? { error: errors["prompt"] } : {})}
+        >
+          <Input
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            placeholder="What went well for you this period?"
+          />
+        </Field>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="How they answer">
+            <Select
+              value={kind}
+              onChange={(event) =>
+                setKind(event.target.value as ReviewQuestionKind)
+              }
+            >
+              {KINDS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Who is asked">
+            <Select
+              value={narrowed ? "SOME" : "ALL"}
+              onChange={(event) => setNarrowed(event.target.value === "SOME")}
+            >
+              <option value="ALL">Everyone on the form</option>
+              <option value="SOME">Only certain people</option>
+            </Select>
+          </Field>
+        </div>
+
+        {narrowed && (
+          <>
+            <AudiencePicker value={audiences} onChange={setAudiences} />
+            {/* Under the control it is about. It used to appear under the
+                question text, which is a different field entirely. */}
+            {errors["audience"] && (
+              <p className="text-body-sm text-danger-text">
+                {errors["audience"]}
+              </p>
+            )}
+          </>
+        )}
+
+        {/* The rule while somebody is choosing, not after they save.
+            `evidenceAudienceRefusal` is the same function `save` calls, so
+            the note and the refusal cannot come to say different things. */}
+        {evidenceAudienceRefusal(kind, narrowed, audiences) && (
+          <NoticeLine tone="warning">
+            <span>{evidenceAudienceRefusal(kind, narrowed, audiences)}</span>
+          </NoticeLine>
+        )}
+
+        {kind === "CHOICE" && (
+          <>
+            <ChoiceEditor
+              options={options}
+              onChange={setOptions}
+              allowCustom={allowCustom}
+              onAllowCustomChange={setAllowCustom}
+              competencyId={filedUnder}
+            />
+            {errors["options"] && (
+              <p className="text-body-sm text-danger-text">
+                {errors["options"]}
+              </p>
+            )}
+          </>
+        )}
+
+        <Checkbox
+          label="It must be answered before the form can be sent"
+          checked={required}
+          onChange={(event) => setRequired(event.target.checked)}
+        />
+
+        <div className="flex gap-2">
+          <Button variant="accent" loading={saving} onClick={() => void save()}>
+            {editing ? "Save changes" : "Add question"}
+          </Button>
+          {editing && (
+            <Button variant="ghost" disabled={saving} onClick={cancelEdit}>
+              Cancel
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  /**
+   * What the "Answered by questions" tab holds: this period's questions filed
+   * under the subsection, and the form to add another to it.
+   *
+   * In the order the full list has them, and plain: rearranging is done in the
+   * full list, where every question is in view at once.
+   */
+  const renderSubsectionQuestions = (
+    subsection: ApiCompetency,
+    section: SectionOption | null,
+  ) => {
+    const own = ordered.filter(
+      (question) => question.competencyId === subsection.id,
+    );
+    return (
+      <div className="flex flex-col gap-4">
+        {loading ? (
+          <span className="flex items-center gap-2 text-body-sm text-muted">
+            <Spinner size="sm" />
+            Loading the form
+          </span>
+        ) : own.length === 0 ? (
+          <p className="text-body-sm text-muted">
+            Nothing in {periodName} is filed under {subsection.name} yet.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {own.map((question) => (
+              <li
+                key={question.id}
+                className={cn(
+                  "flex flex-wrap items-start justify-between gap-3 rounded-md border p-3",
+                  editing?.id === question.id
+                    ? "border-accent-line bg-accent-soft"
+                    : "border-line",
+                )}
+              >
+                <QuestionSummary
+                  question={question}
+                  competencyName={competencyName}
+                  showFiling={false}
+                />
+                <QuestionRowActions
+                  question={question}
+                  disabled={saving}
+                  onEdit={() => startEdit(question)}
+                  onRemove={() => void remove(question.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+        {renderForm({ where: "subsection", subsection, section })}
+      </div>
+    );
+  };
+
   return (
     <Modal
       open={open}
@@ -441,231 +761,271 @@ export function QuestionsDialog({
       footer={<Button onClick={onClose}>Done</Button>}
     >
       <div className="flex flex-col gap-5">
-        {loading ? (
-          <span className="flex items-center gap-2 text-body-sm text-muted">
-            <Spinner size="sm" />
-            Loading the form
-          </span>
-        ) : questions.length === 0 ? (
-          /* The blank page this whole feature exists for. Offered **only** while
-             the form is empty: the API refuses a copy onto a period that already
-             has questions, and a button that returns "that is refused" was a
-             design failure two clicks earlier.
+        <SegmentedControl
+          label="View"
+          value={view}
+          onChange={switchView}
+          options={[
+            { value: "all", label: "All questions" },
+            { value: "sections", label: "By section" },
+          ]}
+        />
 
-             Nothing is shared — the questions arrive as this period's own rows,
-             so editing one here does not touch the period it came from. */
-          onCopyFrom && (
-            <CopyFromPeriod cycleId={cycleId} busy={saving} onCopy={copyFrom} />
-          )
+        {view === "sections" ? (
+          <SectionsView
+            periodName={periodName}
+            framework={framework}
+            questionCounts={questionCounts}
+            unfiledQuestionCount={unfiledQuestionCount}
+            editable={treeEditable}
+            whyNot={whyNot}
+            selectedId={selectedId}
+            onSelect={selectSubsection}
+            renderQuestions={renderSubsectionQuestions}
+          />
         ) : (
           <>
-            {orderError && (
-              <p className="text-body-sm text-danger-text">{orderError}</p>
-            )}
-            {onReorder ? (
-              <Sortable
-                items={ordered}
-                keyOf={(question) => question.id}
-                labelOf={(question) => question.prompt}
-                onReorder={(ids) => void reorder(ids)}
-                gap={8}
-              >
-                {(question, args) => (
-                  <div
-                    className={cn(
-                      "flex flex-wrap items-start gap-3 rounded-md border p-3",
-                      editing?.id === question.id
-                        ? "border-accent-line bg-accent-soft"
-                        : "border-line",
-                    )}
-                  >
-                    <SortableHandle handleProps={args.handleProps} />
-                    <QuestionSummary
-                      question={question}
-                      competencyName={competencyName}
-                    />
-                    <QuestionRowActions
-                      question={question}
-                      disabled={saving}
-                      onEdit={() => startEdit(question)}
-                      onRemove={() => void remove(question.id)}
-                    />
-                  </div>
-                )}
-              </Sortable>
+            {loading ? (
+              <span className="flex items-center gap-2 text-body-sm text-muted">
+                <Spinner size="sm" />
+                Loading the form
+              </span>
+            ) : questions.length === 0 ? (
+              /* The blank page this whole feature exists for. Offered **only**
+                 while the form is empty: the API refuses a copy onto a period
+                 that already has questions, and a button that returns "that is
+                 refused" was a design failure two clicks earlier.
+
+                 Nothing is shared — the questions arrive as this period's own
+                 rows, so editing one here does not touch the period it came
+                 from. */
+              onCopyFrom && (
+                <CopyFromPeriod
+                  cycleId={cycleId}
+                  busy={saving}
+                  onCopy={copyFrom}
+                />
+              )
             ) : (
-              <ul className="flex flex-col gap-2">
-                {ordered.map((question) => (
-                  <li
-                    key={question.id}
-                    className={cn(
-                      "flex flex-wrap items-start justify-between gap-3 rounded-md border p-3",
-                      editing?.id === question.id
-                        ? "border-accent-line bg-accent-soft"
-                        : "border-line",
-                    )}
+              <>
+                {orderError && (
+                  <p className="text-body-sm text-danger-text">{orderError}</p>
+                )}
+                {onReorder ? (
+                  <Sortable
+                    items={ordered}
+                    keyOf={(question) => question.id}
+                    labelOf={(question) => question.prompt}
+                    onReorder={(ids) => void reorder(ids)}
+                    gap={8}
                   >
-                    <QuestionSummary
-                      question={question}
-                      competencyName={competencyName}
-                    />
-                    <QuestionRowActions
-                      question={question}
-                      disabled={saving}
-                      onEdit={() => startEdit(question)}
-                      onRemove={() => void remove(question.id)}
-                    />
-                  </li>
-                ))}
-              </ul>
+                    {(question, args) => (
+                      <div
+                        className={cn(
+                          "flex flex-wrap items-start gap-3 rounded-md border p-3",
+                          editing?.id === question.id
+                            ? "border-accent-line bg-accent-soft"
+                            : "border-line",
+                        )}
+                      >
+                        <SortableHandle handleProps={args.handleProps} />
+                        <QuestionSummary
+                          question={question}
+                          competencyName={competencyName}
+                        />
+                        <QuestionRowActions
+                          question={question}
+                          disabled={saving}
+                          onEdit={() => startEdit(question)}
+                          onRemove={() => void remove(question.id)}
+                        />
+                      </div>
+                    )}
+                  </Sortable>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {ordered.map((question) => (
+                      <li
+                        key={question.id}
+                        className={cn(
+                          "flex flex-wrap items-start justify-between gap-3 rounded-md border p-3",
+                          editing?.id === question.id
+                            ? "border-accent-line bg-accent-soft"
+                            : "border-line",
+                        )}
+                      >
+                        <QuestionSummary
+                          question={question}
+                          competencyName={competencyName}
+                        />
+                        <QuestionRowActions
+                          question={question}
+                          disabled={saving}
+                          onEdit={() => startEdit(question)}
+                          onRemove={() => void remove(question.id)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
-          </>
-        )}
 
-        {onAddStandard && !editing && (
-          /* The testing doc's six, offered whether or not HR has already
-             typed questions of their own — unlike `onCopyFrom`, this is not
-             confined to a blank form. Pressing it twice is refused by the
-             API in words naming which of the six are already there, rather
-             than hidden pre-emptively, so this needs no "already added"
-             tracking of its own. */
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="self-start"
-            loading={saving}
-            onClick={() => void addStandard()}
-          >
-            Add the standard self/manager questions
-          </Button>
-        )}
-
-        <div className="flex flex-col gap-4 border-t border-line pt-5">
-          {/* Belongs to the whole form, so it sits above it rather than
-              accusing the first field. */}
-          {formError && (
-            <Callout tone="danger" title="That did not go through">
-              {formError}
-            </Callout>
-          )}
-
-          {/* Where it goes, before what it says.
-
-              This used to sit below the question, the answer kind and the
-              audience, which put the choice of where the question is grouped
-              last, after the decisions it qualifies. Leading with it also
-              makes the section an explicit choice rather than something
-              implied by which group an option happened to sit in. */}
-          <FiledUnderPicker
-            sectionId={sectionId}
-            competencyId={competencyId}
-            onChange={(next) => {
-              setSectionId(next.sectionId);
-              setCompetencyId(next.competencyId);
-            }}
-          />
-
-          <Field
-            label={editing ? "Edit the question" : "Add a question"}
-            required
-            {...(errors["prompt"] ? { error: errors["prompt"] } : {})}
-          >
-            <Input
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              placeholder="What went well for you this period?"
-            />
-          </Field>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="How they answer">
-              <Select
-                value={kind}
-                onChange={(event) =>
-                  setKind(event.target.value as ReviewQuestionKind)
-                }
+            {onAddStandard && !editing && (
+              /* The testing doc's six, offered whether or not HR has already
+                 typed questions of their own — unlike `onCopyFrom`, this is
+                 not confined to a blank form. Pressing it twice is refused by
+                 the API in words naming which of the six are already there,
+                 rather than hidden pre-emptively, so this needs no "already
+                 added" tracking of its own. */
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="self-start"
+                loading={saving}
+                onClick={() => void addStandard()}
               >
-                {KINDS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Who is asked">
-              <Select
-                value={narrowed ? "SOME" : "ALL"}
-                onChange={(event) => setNarrowed(event.target.value === "SOME")}
-              >
-                <option value="ALL">Everyone on the form</option>
-                <option value="SOME">Only certain people</option>
-              </Select>
-            </Field>
-          </div>
-
-          {narrowed && (
-            <>
-              <AudiencePicker value={audiences} onChange={setAudiences} />
-              {/* Under the control it is about. It used to appear under the
-                  question text, which is a different field entirely. */}
-              {errors["audience"] && (
-                <p className="text-body-sm text-danger-text">
-                  {errors["audience"]}
-                </p>
-              )}
-            </>
-          )}
-
-          {/* The rule while somebody is choosing, not after they save.
-              `evidenceAudienceRefusal` is the same function `save` calls, so
-              the note and the refusal cannot come to say different things. */}
-          {evidenceAudienceRefusal(kind, narrowed, audiences) && (
-            <NoticeLine tone="warning">
-              <span>{evidenceAudienceRefusal(kind, narrowed, audiences)}</span>
-            </NoticeLine>
-          )}
-
-          {kind === "CHOICE" && (
-            <>
-              <ChoiceEditor
-                options={options}
-                onChange={setOptions}
-                allowCustom={allowCustom}
-                onAllowCustomChange={setAllowCustom}
-                competencyId={competencyId}
-              />
-              {errors["options"] && (
-                <p className="text-body-sm text-danger-text">
-                  {errors["options"]}
-                </p>
-              )}
-            </>
-          )}
-
-          <Checkbox
-            label="It must be answered before the form can be sent"
-            checked={required}
-            onChange={(event) => setRequired(event.target.checked)}
-          />
-
-          <div className="flex gap-2">
-            <Button
-              variant="accent"
-              loading={saving}
-              onClick={() => void save()}
-            >
-              {editing ? "Save changes" : "Add question"}
-            </Button>
-            {editing && (
-              <Button variant="ghost" disabled={saving} onClick={cancelEdit}>
-                Cancel
+                Add the standard self/manager questions
               </Button>
             )}
-          </div>
-        </div>
+
+            {renderForm({ where: "all" })}
+          </>
+        )}
       </div>
     </Modal>
+  );
+}
+
+/** Where the question form is drawn. See `renderForm`. */
+type FormPlace =
+  | { where: "all" }
+  | {
+      where: "subsection";
+      subsection: ApiCompetency;
+      /** The section the subsection is filed under, or `null` when it is under none. */
+      section: SectionOption | null;
+    };
+
+/** What the section view is drawn from. */
+type FrameworkSnapshot = {
+  competencies: ApiCompetency[];
+  groups: FrameworkGroup[];
+  sections: ApiSection[];
+};
+
+/**
+ * Whether two answers are the same one.
+ *
+ * Identity first, because the hooks hand back the same array until the data
+ * changes and that is the case worth being cheap. Then by value, so that
+ * something which rebuilds its arrays on every render, as a test double does,
+ * still settles and does not render for ever.
+ */
+const sameData = (a: unknown, b: unknown) =>
+  a === b || JSON.stringify(a) === JSON.stringify(b);
+
+const sameSnapshot = (a: FrameworkSnapshot, b: FrameworkSnapshot) =>
+  sameData(a.competencies, b.competencies) &&
+  sameData(a.groups, b.groups) &&
+  sameData(a.sections, b.sections);
+
+/**
+ * The section view: the company's sections and subsections, drawn by
+ * `SubsectionTree`.
+ *
+ * ## Its own component, so the sections are only read when somebody asks
+ *
+ * `QuestionsDialog` is mounted whenever the period screen is, closed or not, and
+ * its hooks fetch on mount. The sections read belongs to this view alone, so it is
+ * made here, and a company that never opens the view never pays for it.
+ *
+ * ## The list is held while it is re-read
+ *
+ * Every write in the tree ends by asking the framework again, and a re-read
+ * blanks what it returns until it answers. The add forms are inside that list, so
+ * letting it blank would unmount the form somebody is typing the next subsection
+ * into, and take their cursor with it. `useHeld` keeps the last complete answer
+ * on screen until the next one lands. The very first read has nothing to hold and
+ * shows the loading line.
+ *
+ * ## A failed read is not an empty company
+ *
+ * With nothing loaded the tree would say there are no sections yet, which is a
+ * claim about the company and not about the request.
+ */
+function SectionsView({
+  periodName,
+  framework,
+  questionCounts,
+  unfiledQuestionCount,
+  editable,
+  whyNot,
+  selectedId,
+  onSelect,
+  renderQuestions,
+}: {
+  periodName: string;
+  framework: ReturnType<typeof useFramework>;
+  questionCounts: ReadonlyMap<string, number>;
+  unfiledQuestionCount: number;
+  editable: boolean;
+  whyNot: string | null;
+  selectedId: string | null;
+  onSelect: (competency: ApiCompetency | null) => void;
+  renderQuestions: (
+    competency: ApiCompetency,
+    section: SectionOption | null,
+  ) => React.ReactNode;
+}) {
+  const {
+    sections,
+    loading: sectionsLoading,
+    reload: reloadSections,
+  } = useSections();
+  const ready = !framework.loading && !sectionsLoading;
+  const shown = useHeld<FrameworkSnapshot>(
+    {
+      competencies: framework.competencies,
+      groups: framework.groups,
+      sections,
+    },
+    ready,
+    sameSnapshot,
+  );
+  const options = sectionOptionsOf(shown.sections, shown.groups);
+
+  if (framework.error) {
+    return (
+      <LoadFailure
+        subject="the sections and subsections"
+        error={framework.error}
+        onRetry={framework.reload}
+      />
+    );
+  }
+
+  return (
+    <SubsectionTree
+      periodName={periodName}
+      sections={options}
+      competencies={shown.competencies}
+      loading={
+        !ready && shown.competencies.length === 0 && options.length === 0
+      }
+      questionCounts={questionCounts}
+      unfiledQuestionCount={unfiledQuestionCount}
+      editable={editable}
+      whyNot={whyNot}
+      selectedId={selectedId}
+      onSelect={onSelect}
+      onChanged={() => {
+        framework.reload();
+        reloadSections();
+      }}
+      renderQuestions={renderQuestions}
+    />
   );
 }
 
@@ -710,12 +1070,19 @@ function FiledUnderPicker({
   sectionId,
   competencyId,
   onChange,
+  onSubsectionAdded,
 }: {
   /** `""` is "not filed under a section". */
   sectionId: string;
   /** `""` is "no subsection", which is what actually gets saved as unfiled. */
   competencyId: string;
   onChange: (next: { sectionId: string; competencyId: string }) => void;
+  /**
+   * Called once a subsection has been made here, after this picker has re-read
+   * the framework itself. The dialog holds its own copy of the framework, read
+   * through its own hook, and this is how it is told its copy is out of date.
+   */
+  onSubsectionAdded?: () => void;
 }) {
   const framework = useFramework();
   const { sections } = useSections();
@@ -729,24 +1096,7 @@ function FiledUnderPicker({
      chose and what each section is worth. The framework's groups otherwise, so
      this still works with no API. A group with no section id is the unfiled
      bucket, which is the empty option below rather than a section. */
-  const options: {
-    id: string;
-    name: string;
-    weightBp: number | null | undefined;
-  }[] =
-    sections.length > 0
-      ? sections.map((section) => ({
-          id: section.id,
-          name: section.name,
-          weightBp: section.weightBp,
-        }))
-      : framework.groups
-          .filter((group) => group.sectionId)
-          .map((group) => ({
-            id: group.sectionId ?? "",
-            name: group.sectionName,
-            weightBp: undefined,
-          }));
+  const options = sectionOptionsOf(sections, framework.groups);
 
   const chosen = options.find((option) => option.id === sectionId);
   const inSection = framework.competencies.filter(
@@ -761,7 +1111,12 @@ function FiledUnderPicker({
     ...(chosen
       ? { section: { name: chosen.name, weightBp: chosen.weightBp } }
       : {}),
-    ...(subsection ? { subsectionName: subsection.name } : {}),
+    ...(subsection
+      ? {
+          subsectionName: subsection.name,
+          answerKind: answerKindOf(subsection),
+        }
+      : {}),
   });
 
   const label = (option: (typeof options)[number]) => {
@@ -775,19 +1130,23 @@ function FiledUnderPicker({
   };
 
   const addSubsection = async () => {
-    if (newName.trim().length < 2) {
-      setAddError("Give it a name.");
+    const problem = subsectionNameProblem(newName);
+    if (problem) {
+      setAddError(problem);
       return;
     }
     setAddError(null);
     setBusy(true);
     try {
-      const competency = await actions.createCompetency({
-        name: newName.trim(),
-        scaleMax: 5,
-        ...(sectionId ? { sectionId } : {}),
-      });
+      const competency = await actions.createCompetency(
+        newSubsectionBody({ name: newName, sectionId }),
+      );
       onChange({ sectionId, competencyId: competency.id });
+      /* Without this the list below never hears of what was just made: the new
+         subsection is chosen and has no option in the select, so the picker
+         shows "None" beside a note about a subsection it cannot name. */
+      framework.reload();
+      onSubsectionAdded?.();
       setAdding(false);
       setNewName("");
     } catch (caught) {
@@ -925,9 +1284,16 @@ function FiledUnderPicker({
 function QuestionSummary({
   question,
   competencyName,
+  showFiling = true,
 }: {
   question: ApiQuestion;
   competencyName: (id: string) => string | null;
+  /**
+   * Whether to say which subsection the question is filed under. The section
+   * view lists a subsection's own questions under its name, where saying so on
+   * every row is the same word repeated.
+   */
+  showFiling?: boolean;
 }) {
   return (
     <span className="min-w-0 flex-1">
@@ -948,7 +1314,7 @@ function QuestionSummary({
             Must be answered
           </Badge>
         )}
-        {question.competencyId && (
+        {showFiling && question.competencyId && (
           <Badge tone="neutral" size="sm">
             {competencyName(question.competencyId) ?? "Filed"}
           </Badge>

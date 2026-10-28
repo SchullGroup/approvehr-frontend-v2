@@ -267,8 +267,7 @@ function ScoredChoiceEditor({
     ]);
   };
 
-  const remove = (key: string) =>
-    update(rows.filter((row) => row.key !== key));
+  const remove = (key: string) => update(rows.filter((row) => row.key !== key));
 
   const move = (index: number, delta: -1 | 1) => {
     const next = [...rows];
@@ -306,10 +305,12 @@ function ScoredChoiceEditor({
   const countProblem = tried
     ? problems.find((problem) => problem.field === "count")
     : undefined;
-  const problemFor = (key: string) =>
+  /* Every problem a row has, not the first: a row with no label and no score
+     says both, so fixing one does not uncover the other on the next press. */
+  const problemsFor = (key: string) =>
     tried
-      ? problems.find((problem) => "key" in problem && problem.key === key)
-      : undefined;
+      ? problems.filter((problem) => "key" in problem && problem.key === key)
+      : [];
 
   return (
     <div className="flex flex-col gap-3 rounded-md border border-line bg-canvas p-3">
@@ -318,7 +319,8 @@ function ScoredChoiceEditor({
       {saved.length === 0 && (
         <NoticeLine tone="warning">
           <span>
-            It has no choices yet, so nobody can answer it. Give it at least two.
+            It has no choices yet, so nobody can answer it. Give it at least
+            two.
           </span>
         </NoticeLine>
       )}
@@ -332,7 +334,13 @@ function ScoredChoiceEditor({
       <ul className="flex flex-col gap-2">
         {rows.map((row, index) => {
           const number = index + 1;
-          const problem = problemFor(row.key);
+          const rowProblems = problemsFor(row.key);
+          const badLabel = rowProblems.some(
+            (problem) => problem.field === "label",
+          );
+          const badScore = rowProblems.some(
+            (problem) => problem.field === "score",
+          );
           return (
             <li key={row.key} className="flex flex-col gap-1">
               <div className="flex flex-wrap items-start gap-2">
@@ -341,6 +349,7 @@ function ScoredChoiceEditor({
                     aria-label={`Choice ${String(number)}`}
                     placeholder={`Choice ${String(number)}`}
                     value={row.label}
+                    aria-invalid={badLabel || undefined}
                     disabled={!editable || saving}
                     onChange={(event) =>
                       setRow(row.key, { label: event.target.value })
@@ -353,6 +362,7 @@ function ScoredChoiceEditor({
                     placeholder="Score, %"
                     inputMode="decimal"
                     value={row.score}
+                    aria-invalid={badScore || undefined}
                     disabled={!editable || saving}
                     onChange={(event) =>
                       setRow(row.key, { score: event.target.value })
@@ -387,11 +397,14 @@ function ScoredChoiceEditor({
                   </span>
                 )}
               </div>
-              {problem && (
-                <p className="text-body-sm text-danger-text">
+              {rowProblems.map((problem) => (
+                <p
+                  key={problem.field}
+                  className="text-body-sm text-danger-text"
+                >
                   {problem.message}
                 </p>
-              )}
+              ))}
             </li>
           );
         })}

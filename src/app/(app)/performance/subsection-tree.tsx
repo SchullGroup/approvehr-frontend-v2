@@ -182,8 +182,15 @@ export function SubsectionTree({
   onSelect: (competency: ApiCompetency | null) => void;
   /** Re-ask the sections and the framework. */
   onChanged: () => void;
-  /** What the "Answered by questions" tab holds for a subsection. */
-  renderQuestions: (competency: ApiCompetency) => React.ReactNode;
+  /**
+   * What the "Answered by questions" tab holds for a subsection, given the
+   * section it is filed under (`null` when it is filed under none), so whoever
+   * renders it can say what the section is worth without asking again.
+   */
+  renderQuestions: (
+    competency: ApiCompetency,
+    section: SectionOption | null,
+  ) => React.ReactNode;
 }) {
   const baseId = useId();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -244,7 +251,9 @@ export function SubsectionTree({
                 </Badge>
                 {questions > 0 && (
                   <Badge tone="neutral" size="sm">
-                    {questions === 1 ? "1 question" : `${String(questions)} questions`}
+                    {questions === 1
+                      ? "1 question"
+                      : `${String(questions)} questions`}
                   </Badge>
                 )}
               </span>
@@ -279,7 +288,7 @@ export function SubsectionTree({
                       onChanged={onChanged}
                     />
                   ) : (
-                    renderQuestions(competency)
+                    renderQuestions(competency, section)
                   )}
                 </Tabs>
               )}
@@ -290,8 +299,7 @@ export function SubsectionTree({
     </ul>
   );
 
-  const nothingYet =
-    !loading && sections.length === 0 && unfiled.length === 0;
+  const nothingYet = !loading && sections.length === 0 && unfiled.length === 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -449,6 +457,8 @@ function AddSection({
   }
 
   const add = async () => {
+    if (busy) return;
+    const submitted = name;
     const clean = name.trim();
     if (clean.length < 2) {
       setError("Give the section a name.");
@@ -464,9 +474,14 @@ function AddSection({
         order: sectionCount,
         ...(component ? { component } : {}),
       });
-      setName("");
+      /* Cleared only if it still reads what was sent. Somebody who has already
+         started the next name while this was on its way is not finished with the
+         field, and wiping it would lose what they typed. */
+      setName((current) => (current === submitted ? "" : current));
       setComponent("");
       onAdded();
+      /* Back in the name when the button was pressed, so the next one can be
+         typed at once. Already there when Enter was. */
       input.current?.focus();
     } catch (caught) {
       setError(actionMessage(caught, "the section"));
@@ -489,11 +504,13 @@ function AddSection({
           className="min-w-0 flex-1 basis-48"
           {...(error ? { error } : {})}
         >
+          {/* Not disabled while a section is being made. A disabled field cannot
+              keep the cursor, and the point of this form is that the next name
+              can be typed the moment the last one is sent. */}
           <Input
             ref={input}
             autoFocus
             value={name}
-            disabled={busy}
             placeholder="Behavioural competency"
             onChange={(event) => setName(event.target.value)}
           />
@@ -550,6 +567,8 @@ function AddSubsection({
   const input = useRef<HTMLInputElement>(null);
 
   const add = async () => {
+    if (busy) return;
+    const submitted = name;
     const problem = subsectionNameProblem(name);
     if (problem) {
       setError(problem);
@@ -561,7 +580,9 @@ function AddSubsection({
       await createCompetency(
         newSubsectionBody({ name, sectionId, answerKind: kind }),
       );
-      setName("");
+      /* Only if it still reads what was sent: see `AddSection`. The kind is kept,
+         so ten yes-or-no subsections in a row are not ten choices of it. */
+      setName((current) => (current === submitted ? "" : current));
       onAdded();
       input.current?.focus();
     } catch (caught) {
@@ -587,7 +608,6 @@ function AddSubsection({
         <Input
           ref={input}
           value={name}
-          disabled={busy}
           placeholder="Communication"
           onChange={(event) => setName(event.target.value)}
         />
