@@ -13,6 +13,7 @@ import {
   IconButton,
   Input,
   Modal,
+  SegmentedControl,
   Select,
   Sortable,
   SortableHandle,
@@ -21,12 +22,14 @@ import {
 import { ApiError } from "@/lib/api/client";
 import { actionMessage } from "@/lib/use-action";
 import type {
+  ApiCompetency,
   ApiQuestion,
   CreateQuestionBody,
   ReviewAudience,
   ReviewQuestionKind,
   UpdateQuestionBody,
 } from "@/lib/api/performance";
+import { useCan } from "@/lib/permissions";
 import {
   useAppraisals,
   useCycleQuestions,
@@ -35,8 +38,15 @@ import {
   useSections,
 } from "@/lib/store/performance";
 import { NoticeLine } from "@/components/portal/notice-line";
+import { answerKindOf } from "@/lib/performance/answer-kind";
 import { QUESTION_BANK } from "@/lib/performance/question-bank";
 import { filingNote } from "./question-filing";
+import {
+  SubsectionTree,
+  newSubsectionBody,
+  sectionOptionsOf,
+  subsectionNameProblem,
+} from "./subsection-tree";
 
 /** Who a question is put to. `REPORT` exists in the enum and nothing reaches it. */
 const AUDIENCES: { value: ReviewAudience; label: string }[] = [
