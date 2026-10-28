@@ -74,7 +74,7 @@ export function RecordLevelDialog({
   onClose: () => void;
   onSave: (competencyId: string, body: RateBody) => Promise<void>;
 }) {
-  const { employees } = useEmployeeDirectory({ pageSize: 200 });
+  const { people } = useEmployeeDirectory({ pageSize: 200 });
   const { employeeId } = useSession();
   const canRateAnyone = useCan("EDIT_RECORDS");
   const framework = useFramework();
@@ -112,15 +112,25 @@ export function RecordLevelDialog({
    * `goal-dialogs.tsx` in this same module already writes this rule out, with
    * a comment about not putting "a name in front of them that the save would
    * refuse". Twenty lines away, and this dialog did not have it.
+   *
+   * ## The people come from `people`, not `employees`
+   *
+   * A caller without `EDIT_RECORDS`, which is every line manager, is sent lookup
+   * rows, and `useEmployeeDirectory` keeps the full rows in `employees` and
+   * everybody's in `people`. This read `employees`, so for exactly the people
+   * this dialog is for the list was empty and they could not record a level at
+   * all: the Employee picker held only its placeholder. Only somebody holding
+   * `EDIT_RECORDS` saw anybody. `people` is what every caller can read, carries
+   * `managerId`, and has `fullName` rather than a first and last name.
    */
   const options = useMemo(
     () =>
-      employees.filter(
+      people.filter(
         (one) =>
           one.id !== employeeId &&
           (canRateAnyone || one.managerId === employeeId),
       ),
-    [employees, employeeId, canRateAnyone],
+    [people, employeeId, canRateAnyone],
   );
 
   const chosen = framework.competencies.find((one) => one.id === competency);
@@ -202,7 +212,7 @@ export function RecordLevelDialog({
           >
             {options.map((one) => (
               <option key={one.id} value={one.id}>
-                {one.firstName} {one.lastName} · {one.jobTitle}
+                {one.fullName} · {one.jobTitle}
               </option>
             ))}
           </Select>
