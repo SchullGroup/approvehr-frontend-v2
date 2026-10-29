@@ -129,14 +129,16 @@ export function RatingScaleForm() {
   const draft: Draft =
     edited && edited.from === scale ? edited.value : draftFrom(scale);
 
-  const set = (level: number, part: "label" | "meaning", text: string) =>
+  /* Changes the one field it was given and keeps the level's other one: a
+     level's word and its meaning are edited separately, and typing in one must
+     not wipe the other. */
+  const set = (level: number, part: "label" | "meaning", text: string) => {
+    const current = draft[level] ?? { label: "", meaning: "" };
     setEdited({
       from: scale,
-      value: {
-        ...draft,
-        [level]: { ...draft[level], label: "", meaning: "", [part]: text },
-      },
+      value: { ...draft, [level]: { ...current, [part]: text } },
     });
+  };
 
   const entries: ApiRatingLevel[] = scale.levels.map((entry) => ({
     level: entry.level,
