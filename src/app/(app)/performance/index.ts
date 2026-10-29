@@ -42,7 +42,6 @@ export { ApprovalReasonDialog, type ApprovalAct } from "./approval-dialogs";
  * write its own copy of what a question looks like.
  */
 export {
-  AnswerField,
   AppraiserStrip,
   AttachedEvidence,
   PeriodFraming,
@@ -50,6 +49,5 @@ export {
   draftFrom,
   filled,
   periodWords,
-  ratingOptionsFrom,
   type Draft,
 } from "./review-parts";

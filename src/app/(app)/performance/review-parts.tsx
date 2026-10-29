@@ -2,17 +2,7 @@
 
 import { useState } from "react";
 import { Download } from "lucide-react";
-import {
-  Badge,
-  Button,
-  Field,
-  FileField,
-  RadioCard,
-  Select,
-  Textarea,
-  TextLink,
-  useToast,
-} from "@/components/ui";
+import { Badge, Button, TextLink, useToast } from "@/components/ui";
 import {
   performanceApi,
   ratingWordsFrom,
@@ -20,7 +10,6 @@ import {
   type ApiAppraiserContext,
   type AnswerBody,
   type ApiFormQuestion,
-  type ApiRatingScale,
 } from "@/lib/api/performance";
 import type { InlineFile } from "@/lib/api/uploads";
 import { cn } from "@/lib/cn";
@@ -29,9 +18,6 @@ import {
   isLivePick,
   isSubsectionQuestion,
   questionKind,
-  selfAnswerWords,
-  subsectionLevels,
-  type SubsectionQuestion,
 } from "@/lib/performance/subsection-answer";
 import { shortDate } from "@/lib/today";
 import { useRatingScale } from "@/lib/store/performance";
@@ -51,39 +37,6 @@ import { useRatingScale } from "@/lib/store/performance";
  * So the question, the answer, the scale and the appraiser strip live here once.
  * Neither surface owns them.
  */
-
-/**
- * The scale, in **this company's** words, ready for a picker.
- *
- * ## Three sets became one, and then the one became configurable
- *
- * This file used to define its own — "3: Did what was needed" — while two
- * other sets said "Meets Expectations" and had no importers between them.
- * `verify-rating-scale` closed that. Then #117 let a company choose its own
- * five words, which moves the authority again: the constant in
- * `lib/api/performance` is now the **fallback** the API serves when nobody has
- * chosen, and the words on screen come from `GET /performance/rating-scale`.
- *
- * So this is a hook rather than a constant. A module-level `Record` cannot
- * read a company's own scale, and a screen still importing one is quoting a
- * scale that company may not use — the same failure the verifier exists for,
- * one level up.
- *
- * `value` is the level as a **string** because the inputs are. `label` carries
- * the number as well as the word: the picker keeps its coordinates because
- * they are what people use to talk to each other while marking — "I gave her a
- * four" — and because five prose options with no ordering cue are hard to
- * scan. A record that is *read* drops the digit; see `ReadAnswer`.
- */
-export function ratingOptionsFrom(
-  scale: ApiRatingScale,
-): { value: string; label: string; meaning: string }[] {
-  return scale.levels.map((entry) => ({
-    value: String(entry.level),
-    label: `${String(entry.level)}: ${entry.label}`,
-    meaning: entry.meaning,
-  }));
-}
 
 /** What is in one answer box right now, before anything is saved. */
 export type Draft = {
@@ -430,32 +383,6 @@ export function AppraiserStrip({
   );
 }
 
-type AnswerFieldProps = {
-  question: ApiFormQuestion;
-  held: Draft;
-  /** Needed by the `FILE` branch, to open what is already attached. */
-  reviewId: string;
-  onChange: (next: Draft) => void;
-  /** So the form can hold its own save while a file is being read. */
-  onBusyChange?: (busy: boolean) => void;
-};
-
-/**
- * One question's input, in the popup form.
- *
- * A question that is a directly rated subsection's own answer is drawn from the
- * subsection (its own scale, its own choices, the subject's own answer beside the
- * manager's) and **everything else goes through `PlainAnswerField` exactly as it
- * always did**, so a server that sends none of the subsection fields cannot reach
- * the new code at all.
- */
-export function AnswerField(props: AnswerFieldProps) {
-  if (!isSubsectionQuestion(props.question)) {
-    return <PlainAnswerField {...props} />;
-  }
-  return <SubsectionAnswerField {...props} question={props.question} />;
-}
-
 /**
  * The line beside a manager's control: what the person said of themselves.
  *
@@ -466,240 +393,6 @@ export function AnswerField(props: AnswerFieldProps) {
 export function SelfAnswerLine({ words }: { words: string | null }) {
   if (words === null) return null;
   return <p className="text-meta text-muted">Their own answer: {words}</p>;
-}
-
-/**
- * A subsection's own answer: a level on its scale, a yes or no, or one of its
- * choices.
- *
- * ## The levels are the subsection's, not the company's
- *
- * One card for each level from 1 to the subsection's own ceiling, however many
- * words the company's scale has. The company's words are used only where its
- * scale is this one (`subsectionLevels`), and a level is otherwise said as
- * `4 of 10`.
- *
- * ## The pick is held as the choice's id
- *
- * The select's values are ids and its labels are the choices' labels, so two
- * choices with one name are two options, and the answer sent is the id. A score
- * is not on the question and not on screen.
- *
- * A yes or no is the ordinary yes-or-no control, so it is drawn by it; only the
- * line for the subject's own answer is added.
- */
-function SubsectionAnswerField({
-  question,
-  held,
-  reviewId,
-  onChange,
-  onBusyChange,
-}: AnswerFieldProps & { question: SubsectionQuestion }) {
-  const { scale } = useRatingScale();
-  const { subsection } = question;
-  const own = <SelfAnswerLine words={selfAnswerWords(question, scale)} />;
-
-  if (subsection.answerKind === "RATING") {
-    return (
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-1 text-body-sm font-medium text-ink">
-          {question.prompt}
-          {question.required && (
-            <span className="ml-0.5 text-danger-text" aria-hidden="true">
-              *
-            </span>
-          )}
-          {question.required && (
-            <span className="sr-only-focusable"> required</span>
-          )}
-        </legend>
-        {own}
-        <div className="grid gap-2">
-          {subsectionLevels(subsection.scaleMax, scale).map((entry) => (
-            <RadioCard
-              key={entry.level}
-              name={`rating-${question.id}`}
-              value={String(entry.level)}
-              label={
-                entry.words === null
-                  ? `${String(entry.level)} of ${String(subsection.scaleMax)}`
-                  : `${String(entry.level)}: ${entry.words}`
-              }
-              {...(entry.meaning ? { description: entry.meaning } : {})}
-              checked={held.rating === String(entry.level)}
-              onChange={() => onChange({ rating: String(entry.level) })}
-            />
-          ))}
-        </div>
-      </fieldset>
-    );
-  }
-
-  if (subsection.answerKind === "CHOICE") {
-    return (
-      <div className="flex flex-col gap-1.5">
-        <Field label={question.prompt} required={question.required}>
-          <Select
-            /* Empty for a pick that has since been taken off the list: the
-               select would otherwise hold a value it has no option for. */
-            value={isLivePick(question, held.choice) ? (held.choice ?? "") : ""}
-            placeholder="Pick one"
-            onChange={(event) => onChange({ choice: event.target.value })}
-          >
-            {subsection.choices.map((choice) => (
-              <option key={choice.id} value={choice.id}>
-                {choice.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        {own}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <PlainAnswerField
-        question={question}
-        held={held}
-        reviewId={reviewId}
-        onChange={onChange}
-        {...(onBusyChange ? { onBusyChange } : {})}
-      />
-      {own}
-    </div>
-  );
-}
-
-function PlainAnswerField({
-  question,
-  held,
-  reviewId,
-  onChange,
-  onBusyChange,
-}: AnswerFieldProps) {
-  const { scale, editable } = useRatingScale();
-
-  if (question.kind === "RATING") {
-    return (
-      /* A `fieldset` and a `legend`, not a `Field`: a `Field` wires one
-         `<label for>` at one control and a scale has five. Same shape as the
-         conduct dialog's severity picker, which is the established one here.
-
-         Cards rather than the `<Select>` this was, because `meaning` had
-         nowhere to go inside an `<option>`. `ratingOptionsFrom` has always
-         returned it and every caller dropped it — so the sentence
-         `RatingScaleLevel.meaning` exists to carry ("What it means, so the word
-         is not left to interpretation") reached nobody at the one moment it is
-         load-bearing, which is while somebody is choosing a level. A scale
-         everybody reads differently is not a scale. */
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-1 text-body-sm font-medium text-ink">
-          {question.prompt}
-          {question.required && (
-            <span className="ml-0.5 text-danger-text" aria-hidden="true">
-              *
-            </span>
-          )}
-          {question.required && (
-            <span className="sr-only-focusable"> required</span>
-          )}
-        </legend>
-        <div className="grid gap-2">
-          {ratingOptionsFrom(scale).map((option) => (
-            <RadioCard
-              key={option.value}
-              name={`rating-${question.id}`}
-              value={option.value}
-              label={option.label}
-              /* A company may leave a level's meaning blank — the column
-                 defaults to empty. An empty description renders an empty line,
-                 so it is absent rather than blank. */
-              {...(option.meaning ? { description: option.meaning } : {})}
-              checked={held.rating === option.value}
-              onChange={() => onChange({ rating: option.value })}
-            />
-          ))}
-        </div>
-      </fieldset>
-    );
-  }
-
-  if (question.kind === "FILE") {
-    const attached = question.answer?.attachment ?? null;
-    return (
-      <div className="flex flex-col gap-2">
-        <FileField
-          label={question.prompt}
-          {...(question.required ? { required: true } : {})}
-          help={
-            attached
-              ? "Choosing another file replaces the one on this answer."
-              : "A report, a dashboard, a screenshot. PDFs, images and Office documents."
-          }
-          onAttached={(file) => onChange({ file: file ?? undefined })}
-          {...(onBusyChange ? { onBusyChange } : {})}
-        />
-        {/* What is already on the record, and a way to read it. Shown
-            **alongside** the picker rather than instead of it: somebody
-            reopening a form wants to see what they attached before deciding
-            whether to replace it, and a picker that hid the current answer
-            would make replacing it the only way to find out. */}
-        {attached && !held.file && (
-          <AttachedEvidence
-            reviewId={reviewId}
-            questionId={question.id}
-            attachment={attached}
-            canOpen={editable}
-          />
-        )}
-      </div>
-    );
-  }
-
-  if (question.kind === "CHOICE") {
-    return (
-      <Field label={question.prompt} required={question.required}>
-        <Select
-          value={held.choice ?? ""}
-          placeholder="Pick one"
-          onChange={(event) => onChange({ choice: event.target.value })}
-        >
-          {question.options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </Select>
-      </Field>
-    );
-  }
-
-  if (question.kind === "BOOLEAN") {
-    return (
-      <Field label={question.prompt} required={question.required}>
-        <Select
-          value={held.bool ?? ""}
-          placeholder="Yes or no"
-          onChange={(event) => onChange({ bool: event.target.value })}
-        >
-          <option value="yes">Yes</option>
-          <option value="no">No</option>
-        </Select>
-      </Field>
-    );
-  }
-
-  return (
-    <Field label={question.prompt} required={question.required}>
-      <Textarea
-        rows={4}
-        value={held.text ?? ""}
-        onChange={(event) => onChange({ text: event.target.value })}
-      />
-    </Field>
-  );
 }
 
 /**
