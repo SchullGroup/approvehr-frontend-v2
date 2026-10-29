@@ -130,6 +130,7 @@ const ADOPTED = [
   "src/app/(app)/settings/notifications/settings.tsx",
   "src/app/(app)/settings/payroll/form.tsx",
   "src/app/(app)/settings/policies/policies-screen.tsx",
+  "src/app/(app)/settings/required-details/required-details-screen.tsx",
   "src/app/(app)/settings/roles/roles-screen.tsx",
   "src/app/(app)/settings/webhooks/[id]/log.tsx",
   "src/app/(app)/settings/webhooks/webhooks-screen.tsx",
