@@ -10623,10 +10623,23 @@ cross-repo gates compared against it and did not print `skip`. `tsc`, ESLint and
 changed. `npm run docs -- --only frontend-components` regenerated the components inventory: it gains the row for
 `src/lib/assistant-openers.ts`, and a few others that earlier merges had not added since its last snapshot.
 
+In a browser, this branch under `next dev` against a scratch API running the backend's `staging`, signed in for real as five
+seeded people: the employee (Chidi Nwosu), the line manager (Adaeze Okonkwo), the HR manager (Fatima Bello), the
+administrator (Amara Nwachukwu) and the Payroll analyst (Grace Effiong). Each was shown exactly the buttons and the sentence
+in the table above, the same at first paint and three seconds later, and the line manager was not offered either team-leave
+question. Pressing the first button put it in "Your message" and sent nothing. There was no sideways scroll at 1280px, and
+none for the Payroll analyst at 375px with a touch pointer, where the longest button wraps inside its pill. No console
+errors in the five. One thing was stubbed: `GET /ai/status`, because the scratch API has no assistant key and without it the
+page renders no chat at all. No message was sent, so no model was called.
+
+A first sign-in opens the product's own tour ("A quick look round", 1 of 5) over the page, and it covers the buttons until it
+is skipped. The walk skips it, as a person would.
+
 ## Not exercised
 
-The Assistant page in a browser, as the five roles, and a real assistant key. The first is the next step after this is
-pushed, and this section is rewritten from what it finds.
+A real assistant key, so what the model says to each question; the standalone sales demo (`SALES_SCRIPT_ENABLED`), whose
+branch this change left as it was; a company with a custom role, for example one that holds `APPROVE_LEAVE_ALL` and nothing
+else, which the unit tests cover and no browser has seen; Safari or any real device.
 
 ## Not done
 
