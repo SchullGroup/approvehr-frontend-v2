@@ -10446,8 +10446,10 @@ off the source, which is why the one thing that looked likely and was not is on 
   no sentence**, Remove then Keep, in the place of the two icons: the first version added "Remove this question?" beside
   them and it had no job. Which question it is cannot be in doubt (it is the row the buttons are on), the group is named
   `Remove "<question>"?` for assistive technology, and the sentence only made the row wrap on a phone, with **Keep**
-  alone on a second line. Each button has a hover `title`, which adds to the name and never replaces it, because a touch
-  screen has no hover. **Keep is last, where the bin was**, so a second tap on the bin lands on the safe answer. Keep also
+  alone on a second line. Each button has a hover `title` that says what it does (Remove: from this period for good, no
+  longer asked on anybody's form, cannot be undone; Keep: nothing is changed), which adds to the name and never replaces
+  it, because a touch screen has no hover. What Remove does on the server is `removeQuestion`: a hard delete, refused with
+  a 409 ("N answers already reference this question. Leave it, or mark it not required.") when somebody has answered it. **Keep is last, where the bin was**, so a second tap on the bin lands on the safe answer. Keep also
   returns the focus to the bin: the button that had it is gone once the ask closes, and the focus would fall to the page.
   Removing a row does not do that (the row is gone, and so is the place to return to).
 - **Closing with an unsent question asks** (`unsentQuestion`, `requestClose`). Done, the cross and Escape all come through

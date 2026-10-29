@@ -1639,7 +1639,7 @@ function QuestionRowActions({
           type="button"
           variant="danger"
           size="sm"
-          title="Remove this question for good"
+          title="Remove this question from this period for good. It is no longer asked on anybody's form, and this cannot be undone."
           disabled={disabled}
           onClick={() => {
             setConfirming(false);
@@ -1652,7 +1652,7 @@ function QuestionRowActions({
           type="button"
           variant="ghost"
           size="sm"
-          title="Keep this question"
+          title="Keep this question. Nothing is changed."
           autoFocus
           onClick={() => {
             returnFocus.current = true;

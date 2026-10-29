@@ -532,11 +532,11 @@ describe("removing a question", () => {
 
     expect(screen.getByRole("button", { name: "Remove" })).toHaveAttribute(
       "title",
-      "Remove this question for good",
+      "Remove this question from this period for good. It is no longer asked on anybody's form, and this cannot be undone.",
     );
     expect(screen.getByRole("button", { name: "Keep" })).toHaveAttribute(
       "title",
-      "Keep this question",
+      "Keep this question. Nothing is changed.",
     );
   });
 
