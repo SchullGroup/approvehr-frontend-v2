@@ -10441,17 +10441,23 @@ off the source, which is why the one thing that looked likely and was not is on 
 - **Edit takes the row's place** (`renderRow`). The form used to be drawn once under the list whichever row the pencil was
   on. The form under the list steps aside while one is open; if the question being changed is not in the list (somebody
   else removed it) it comes back, so there is never a dead end with no form.
-- **Remove asks on the row**, not in a second dialog over this one, with focus on **Keep**. A failure is reported **on that
-  row** (`rowErrors`) and not above the form at the bottom, which is where it used to land. The ask is **two buttons and
-  no sentence**, Remove then Keep, in the place of the two icons: the first version added "Remove this question?" beside
-  them and it had no job. Which question it is cannot be in doubt (it is the row the buttons are on), the group is named
-  `Remove "<question>"?` for assistive technology, and the sentence only made the row wrap on a phone, with **Keep**
-  alone on a second line. Each button has a hover `title` that says what it does (Remove: from this period for good, no
-  longer asked on anybody's form, cannot be undone; Keep: nothing is changed), which adds to the name and never replaces
-  it, because a touch screen has no hover. What Remove does on the server is `removeQuestion`: a hard delete, refused with
-  a 409 ("N answers already reference this question. Leave it, or mark it not required.") when somebody has answered it. **Keep is last, where the bin was**, so a second tap on the bin lands on the safe answer. Keep also
-  returns the focus to the bin: the button that had it is gone once the ask closes, and the focus would fall to the page.
-  Removing a row does not do that (the row is gone, and so is the place to return to).
+- **Remove asks on the row**, not in a second dialog over this one. The bin has a very light red behind it (`bg-danger/10`,
+  the red at 10%, which reads the same in both themes; `danger-soft` is the ochre and was not used). Pressing it turns it into
+  a red **Remove** with the same bin on it, in the same place, and one more press removes the question. **There is no Keep.**
+  The first version had Remove and Keep beside a sentence, "Remove this question?", and the product owner asked twice whether
+  it had a reason; it had none, and then asked the same of Keep, which only ever backed out. Leaving a question alone needs no
+  button: pressing anywhere else (`pointerdown`, so it works on a phone, where tapping a blank area does not blur a button),
+  tabbing away or Escape puts the bin back. The first Escape does only that and the dialog stays open, as the help hints do.
+  Two things stand in for what Keep gave. A double tap on the bin would land its second tap on Remove, in the bin's own spot,
+  so a press in the first half second is ignored (`REMOVE_GUARD_MS`, a timer and a ref; the button is not greyed, because a
+  button that looks off for half a second reads as broken). And focus goes to Remove when it appears, the bin it came from
+  being gone, and back to the bin when Escape drops the ask, so a keyboard keeps its place. The title says what Remove does
+  (from this period for good, no longer asked on anybody's form, cannot be undone); a touch screen has no hover, so the name,
+  the bin and the word, carries the meaning and the title only adds to it. What Remove does on the server is
+  `removeQuestion`: a hard delete, refused with a 409 ("N answers already reference this question. Leave it, or mark it not
+  required.") when somebody has answered it, and a failure is reported **on that row** (`rowErrors`), not above the form.
+  The jsdom tests cannot Tab (the dialog's focus trap cannot see layout there, so focus never leaves the button): the blur is
+  tested directly and the real Tab, Escape, double click and press-elsewhere were walked in a browser.
 - **Closing with an unsent question asks** (`unsentQuestion`, `requestClose`). Done, the cross and Escape all come through
   it. A new question counts once it has words in it; a changed one counts when any of the words, the kind, the
   requirement, the audience, the filing or the choices differ from what was saved. **Add it and close** closes only if
@@ -10484,15 +10490,17 @@ off the source, which is why the one thing that looked likely and was not is on 
 
 223 tests in the nine files that touch the dialog. Every behaviour above was broken on purpose and a test failed for it,
 in five runs (13 cases, 8 cases, four for the manager popup, the three ways the Subsection label can be wrong, and the
-four ways the Remove / Keep ask can be wrong), plus the shadowing bug reproduced faithfully: it fails exactly the four
+seven ways the Remove ask can be wrong: no guard on a quick second press, Escape not stopping at the ask, Escape not
+returning focus, a press elsewhere not dropping it, the focus moving on not dropping it, focus not going to Remove, no tint), plus the shadowing bug reproduced faithfully: it fails exactly the four
 pick-from-a-list tests. The typecheck caught one real error (two calls to `questionCounter` cannot be narrowed to a
 string, so `help` could be `null`).
 
 In a real browser (a dev server of this branch against the scratch API), at 1280 wide and at 375x812 with a touch
 pointer: five questions added by Enter with the cursor staying in the box; Edit opening in the row's place with the
-cursor in the field; Remove asking on the row, the two buttons in the exact place of the two icons (same position and
-right edge, so the row does not grow), focus on Keep, and after Keep from the keyboard the focus on that row's bin; Add
-question on the By-section rows opening on Questions; two added there and the same seven in All questions; no console
+cursor in the field; the bin tinted light red and the pencil not, Remove replacing the bin on the same right edge with
+focus on it and no Keep anywhere, a real double click (and two taps) not removing anything, a real Escape putting the bin
+back with the focus on it and the dialog still open, a real Tab and a press elsewhere dropping it, and a real removal;
+Add question on the By-section rows opening on Questions; two added there and the same seven in All questions; no console
 errors and no sideways scroll. Screens are in `/tmp/pv` only, not committed. The Subsection dropdown's wording was
 checked by tests only: a native dropdown does not photograph, and the scratch company has no yes-or-no or pick-one
 subsection (adding one would have changed the state the video is recorded from).

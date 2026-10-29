@@ -1586,26 +1586,33 @@ function QuestionRow({
 }
 
 /**
+ * How long a press on Remove is ignored after it appears. See `QuestionRowActions`.
+ */
+const REMOVE_GUARD_MS = 500;
+
+/**
  * Edit and remove, labelled with the prompt so the two rows never sound alike.
  *
  * Removing asks first, on the row, and not in a second dialog over this one. It
  * deletes the question for good, and it sat one click from the pencil with nothing
- * between a slip and a gone question. The question is part of what this period's
- * people are asked, so being sure costs one more press. Focus lands on **Keep**:
- * the safe answer is the one Enter gives.
+ * between a slip and a gone question. So the bin turns into a red **Remove**, with
+ * the same bin on it, in the same place, and one more press is what removes it.
  *
- * The ask is two buttons and no sentence. They take the place of the two icons on
- * the row being removed, so which question it is cannot be in doubt, and a sentence
- * beside them only made the row wrap on a phone. The group is named for assistive
- * technology (`Remove "<question>"?`), and each button says what it does on hover.
- * A hover cannot be seen on a touch screen, so the names carry the meaning and the
- * titles only add to it. **Keep** is last, where the bin was: a second tap on the
- * bin lands on the safe answer.
+ * There is no Keep. Leaving a question alone needs no button: pressing anywhere
+ * else, tabbing away or Escape puts the bin back. The first Escape does only that,
+ * and the dialog stays open, as the help hints do (`InfoTooltip`).
  *
- * Keep puts everything back as it was, and the focus with it. The button that had
- * the focus is gone once the ask closes, and the focus would fall to the page, so
- * somebody on a keyboard would find their next Tab starting from the top of the
- * dialog. It returns to the bin they pressed instead.
+ * Two things stand in for what a Keep button gave:
+ *
+ * - A double tap on the bin would land its second tap on Remove, in the very spot
+ *   the bin was. A press in the first half second (`REMOVE_GUARD_MS`) is ignored.
+ *   The button is not greyed for it, because a button that looks off for half a
+ *   second reads as broken.
+ * - Focus goes to Remove when it appears, the bin it came from being gone, and back
+ *   to the bin when Escape drops the ask, so somebody on a keyboard keeps their place.
+ *
+ * Its hover title says what Remove does. A touch screen has no hover, so its name,
+ * the bin and the word, carries the meaning and the title only adds to it.
  */
 function QuestionRowActions({
   question,
@@ -1618,55 +1625,48 @@ function QuestionRowActions({
   onEdit: () => void;
   onRemove: () => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
+  const [armed, setArmed] = useState(false);
   const bin = useRef<HTMLButtonElement>(null);
+  const remove = useRef<HTMLButtonElement>(null);
+  const pressable = useRef(false);
   const returnFocus = useRef(false);
 
   useEffect(() => {
-    if (confirming || !returnFocus.current) return;
-    returnFocus.current = false;
-    bin.current?.focus();
-  }, [confirming]);
+    if (!armed) {
+      if (returnFocus.current) {
+        returnFocus.current = false;
+        bin.current?.focus();
+      }
+      return;
+    }
+    remove.current?.focus();
+    pressable.current = false;
+    const timer = window.setTimeout(() => {
+      pressable.current = true;
+    }, REMOVE_GUARD_MS);
 
-  if (confirming) {
-    return (
-      <span
-        role="group"
-        aria-label={`Remove "${question.prompt}"?`}
-        className="ml-auto flex shrink-0 gap-2"
-      >
-        <Button
-          type="button"
-          variant="danger"
-          size="sm"
-          title="Remove this question from this period for good. It is no longer asked on anybody's form, and this cannot be undone."
-          disabled={disabled}
-          onClick={() => {
-            setConfirming(false);
-            onRemove();
-          }}
-        >
-          Remove
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          title="Keep this question. Nothing is changed."
-          autoFocus
-          onClick={() => {
-            returnFocus.current = true;
-            setConfirming(false);
-          }}
-        >
-          Keep
-        </Button>
-      </span>
-    );
-  }
+    const dropOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      returnFocus.current = true;
+      setArmed(false);
+    };
+    const dropOnPressElsewhere = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && remove.current?.contains(target)) return;
+      setArmed(false);
+    };
+    window.addEventListener("keydown", dropOnEscape, true);
+    document.addEventListener("pointerdown", dropOnPressElsewhere, true);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", dropOnEscape, true);
+      document.removeEventListener("pointerdown", dropOnPressElsewhere, true);
+    };
+  }, [armed]);
 
   return (
-    <span className="ml-auto flex shrink-0 gap-1">
+    <span className="ml-auto flex shrink-0 items-center gap-1">
       <IconButton
         label={`Edit "${question.prompt}"`}
         disabled={disabled}
@@ -1674,14 +1674,42 @@ function QuestionRowActions({
       >
         <Pencil aria-hidden="true" />
       </IconButton>
-      <IconButton
-        ref={bin}
-        label={`Remove "${question.prompt}"`}
-        disabled={disabled}
-        onClick={() => setConfirming(true)}
-      >
-        <Trash2 aria-hidden="true" />
-      </IconButton>
+      {armed ? (
+        <Button
+          ref={remove}
+          type="button"
+          variant="danger"
+          size="sm"
+          aria-label={`Remove "${question.prompt}" for good`}
+          title="Remove this question from this period for good. It is no longer asked on anybody's form, and this cannot be undone."
+          disabled={disabled}
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setArmed(false);
+            }
+          }}
+          onClick={() => {
+            if (!pressable.current) return;
+            setArmed(false);
+            onRemove();
+          }}
+        >
+          <Trash2 aria-hidden="true" className="size-3.5" />
+          Remove
+        </Button>
+      ) : (
+        <IconButton
+          ref={bin}
+          /* A very light red behind it, so the one control that deletes is the
+             one that looks like it. The red at 10% reads the same in both themes. */
+          className="bg-danger/10 hover:bg-danger/20"
+          label={`Remove "${question.prompt}"`}
+          disabled={disabled}
+          onClick={() => setArmed(true)}
+        >
+          <Trash2 aria-hidden="true" />
+        </IconButton>
+      )}
     </span>
   );
 }

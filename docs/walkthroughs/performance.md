@@ -391,13 +391,14 @@ Writing them, in either view:
 - A question is read only until you press its **pencil**. The form then opens _in that row's place_, filled
   in, with the cursor in it, and **Save changes** or **Cancel** puts the row back. The form under the list
   steps aside until then.
-- The **bin** asks on the row first: **Remove** and **Keep** take the place of the pencil and the bin, and
-  hovering either says what it does. **Remove** deletes the question from this period for good: it is gone
-  from both views at once, nobody is asked it any more, and there is no undo. The one thing the server
-  refuses is a question somebody has already answered; nothing is deleted, and the reason is under that row
-  in the server's own words (_2 answers already reference this question. Leave it, or mark it not
-  required._). **Keep** changes nothing: the row goes back exactly as it was, with the focus on the bin.
-  Focus starts on **Keep**, so pressing Enter keeps the question.
+- The **bin**, on a very light red, asks on the row first: it turns into a red **Remove** with the bin on it,
+  in the same place. Press it and the question is removed. To leave the question alone, press anywhere else,
+  tab away or press Escape; the first Escape only puts the bin back and leaves the dialog open. **Remove**
+  deletes the question from this period for good: it is gone from both views at once, nobody is asked it any
+  more, and there is no undo (hover it for that). The one thing the server refuses is a question somebody has
+  already answered; nothing is deleted, and the reason is under that row in the server's own words (_2 answers
+  already reference this question. Leave it, or mark it not required._). A press in the half second after the
+  bin is ignored, so a double tap cannot remove a question.
 - A question can be up to 300 characters. The box counts from 250 (_260 of 300 characters_), and one over
   the limit is refused before it is sent. A pick-from-a-list question takes up to ten choices, and **Add a
   choice** is switched off at ten (_Ten is the most a question can have._).

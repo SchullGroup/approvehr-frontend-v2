@@ -495,92 +495,144 @@ describe("removing a question", () => {
 
   const bin = (text: string) =>
     screen.getByRole("button", { name: `Remove "${text}"` });
+  const confirm = (text: string) =>
+    screen.getByRole("button", { name: `Remove "${text}" for good` });
 
-  it("asks on the row first, and removes nothing until it is answered", async () => {
+  /* A press on Remove in the half second after it appears is ignored, so a double tap
+     on the bin cannot land on it. The tests that mean to remove wait that out. */
+  const confirmRemoval = async (text: string) => {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await userEvent.click(confirm(text));
+  };
+
+  it("has a very light red behind the bin, so the control that deletes looks like it", () => {
+    mount();
+
+    expect(bin(GOT_IN_THE_WAY)).toHaveClass("bg-danger/10");
+    /* The pencil beside it is not tinted. */
+    expect(
+      screen.getByRole("button", { name: `Edit "${GOT_IN_THE_WAY}"` }),
+    ).not.toHaveClass("bg-danger/10");
+  });
+
+  it("turns the bin into Remove on that row, and removes nothing yet", async () => {
     const { onRemove } = mount();
 
     await userEvent.click(bin(GOT_IN_THE_WAY));
 
-    const ask = screen.getByRole("group", {
-      name: `Remove "${GOT_IN_THE_WAY}"?`,
-    });
-    expect(rowOf(GOT_IN_THE_WAY)).toContainElement(ask);
+    const row = rowOf(GOT_IN_THE_WAY) as HTMLElement;
+    expect(
+      within(row).getByRole("button", {
+        name: `Remove "${GOT_IN_THE_WAY}" for good`,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(row).queryByRole("button", {
+        name: `Remove "${GOT_IN_THE_WAY}"`,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(row).getByRole("button", { name: `Edit "${GOT_IN_THE_WAY}"` }),
+    ).toBeInTheDocument();
     expect(onRemove).not.toHaveBeenCalled();
   });
 
-  it("is two buttons and no sentence, with Keep last, where the bin was", async () => {
+  it("has the bin on it and the word Remove, and there is no Keep", async () => {
     mount();
     await userEvent.click(bin(GOT_IN_THE_WAY));
 
-    const ask = screen.getByRole("group", {
-      name: `Remove "${GOT_IN_THE_WAY}"?`,
-    });
-    /* The buttons replace the icons on that row, so which question it is is not in
-       doubt, and a sentence beside them is what made the row wrap on a phone. Keep
-       is last so that a second tap on the bin lands on the safe answer. */
-    expect(ask).toHaveTextContent(/^RemoveKeep$/);
+    const button = confirm(GOT_IN_THE_WAY);
+
+    /* Nothing needs pressing to leave a question alone, and a sentence beside the
+       button is what made the row wrap on a phone. */
+    expect(button).toHaveTextContent(/^Remove$/);
+    expect(button.querySelector("svg")).not.toBeNull();
     expect(
-      within(ask)
-        .getAllByRole("button")
-        .map((button) => button.textContent),
-    ).toEqual(["Remove", "Keep"]);
+      screen.queryByRole("button", { name: /^Keep/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("group")).not.toBeInTheDocument();
   });
 
-  it("says what each button does on hover, because a touch screen has the names", async () => {
+  it("says what it does on hover, because a touch screen has the name", async () => {
     mount();
     await userEvent.click(bin(GOT_IN_THE_WAY));
 
-    expect(screen.getByRole("button", { name: "Remove" })).toHaveAttribute(
+    expect(confirm(GOT_IN_THE_WAY)).toHaveAttribute(
       "title",
       "Remove this question from this period for good. It is no longer asked on anybody's form, and this cannot be undone.",
     );
-    expect(screen.getByRole("button", { name: "Keep" })).toHaveAttribute(
-      "title",
-      "Keep this question. Nothing is changed.",
-    );
   });
 
-  it("puts the focus on Keep, so the answer Enter gives is the safe one", async () => {
+  it("puts the focus on Remove when it appears, the bin it came from being gone", async () => {
     mount();
     await userEvent.click(bin(GOT_IN_THE_WAY));
-    expect(screen.getByRole("button", { name: "Keep" })).toHaveFocus();
+    expect(confirm(GOT_IN_THE_WAY)).toHaveFocus();
   });
 
-  it("keeps it when Keep is pressed", async () => {
+  it("ignores a press straight after the bin, so a double tap cannot remove it", async () => {
     const { onRemove } = mount();
     await userEvent.click(bin(GOT_IN_THE_WAY));
 
-    await userEvent.click(screen.getByRole("button", { name: "Keep" }));
+    await userEvent.click(confirm(GOT_IN_THE_WAY));
 
     expect(onRemove).not.toHaveBeenCalled();
-    expect(screen.queryByRole("group")).not.toBeInTheDocument();
+    expect(confirm(GOT_IN_THE_WAY)).toBeInTheDocument();
+
+    await confirmRemoval(GOT_IN_THE_WAY);
+    await waitFor(() => expect(onRemove).toHaveBeenCalledWith("q-2"));
+  });
+
+  it("puts the bin back when somebody presses anywhere else", async () => {
+    const { onRemove } = mount();
+    await userEvent.click(bin(GOT_IN_THE_WAY));
+
+    /* A press and nothing else: no focus change. On a phone, tapping a blank part of
+       the page does not take the focus off a button, so the press has to be enough. */
+    fireEvent.pointerDown(screen.getByText(WENT_WELL));
+
     expect(bin(GOT_IN_THE_WAY)).toBeInTheDocument();
+    expect(onRemove).not.toHaveBeenCalled();
   });
 
-  it("puts the focus back on the bin when Keep is pressed, so the next Tab starts from the row", async () => {
-    mount();
-    await userEvent.click(bin(GOT_IN_THE_WAY));
-
-    await userEvent.click(screen.getByRole("button", { name: "Keep" }));
-
-    expect(bin(GOT_IN_THE_WAY)).toHaveFocus();
-  });
-
-  it("does the same when Keep is answered from the keyboard, where it already has the focus", async () => {
+  it("puts the bin back when the focus moves on", async () => {
     const { onRemove } = mount();
     await userEvent.click(bin(GOT_IN_THE_WAY));
 
-    await userEvent.keyboard("{Enter}");
+    /* The blur itself, not a Tab: the dialog's focus trap cannot see layout in
+       jsdom, so a Tab here never leaves the button. The real key is walked in a
+       browser. */
+    fireEvent.blur(confirm(GOT_IN_THE_WAY));
 
+    expect(bin(GOT_IN_THE_WAY)).toBeInTheDocument();
     expect(onRemove).not.toHaveBeenCalled();
+  });
+
+  it("puts the bin back on Escape, with the focus on it, and leaves the dialog open", async () => {
+    const { onRemove, onClose } = mount();
+    await userEvent.click(bin(GOT_IN_THE_WAY));
+
+    await userEvent.keyboard("{Escape}");
+
     expect(bin(GOT_IN_THE_WAY)).toHaveFocus();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onRemove).not.toHaveBeenCalled();
+  });
+
+  it("closes the dialog on the Escape after that, as it always did", async () => {
+    const { onClose } = mount();
+    await userEvent.click(bin(GOT_IN_THE_WAY));
+    await userEvent.keyboard("{Escape}");
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("removes that question, and only it, when Remove is pressed", async () => {
     const { onRemove } = mount();
     await userEvent.click(bin(GOT_IN_THE_WAY));
 
-    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await confirmRemoval(GOT_IN_THE_WAY);
 
     await waitFor(() => expect(onRemove).toHaveBeenCalledWith("q-2"));
     await waitFor(() =>
@@ -598,7 +650,7 @@ describe("removing a question", () => {
         .mockRejectedValue(new ApiError(409, "conflict", refusal)),
     });
     await userEvent.click(bin(GOT_IN_THE_WAY));
-    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await confirmRemoval(GOT_IN_THE_WAY);
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(refusal);
@@ -621,11 +673,11 @@ describe("removing a question", () => {
       .mockResolvedValue(undefined);
     mount({ onRemove });
     await userEvent.click(bin(GOT_IN_THE_WAY));
-    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await confirmRemoval(GOT_IN_THE_WAY);
     expect(await screen.findByRole("alert")).toHaveTextContent("It is in use.");
 
     await userEvent.click(bin(GOT_IN_THE_WAY));
-    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await confirmRemoval(GOT_IN_THE_WAY);
 
     await waitFor(() =>
       expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
@@ -641,7 +693,7 @@ describe("removing a question", () => {
 
     await userEvent.click(bin(GOT_IN_THE_WAY));
 
-    expect(screen.getByRole("button", { name: "Keep" })).toBeInTheDocument();
+    expect(confirm(GOT_IN_THE_WAY)).toBeInTheDocument();
     expect(onRemove).not.toHaveBeenCalled();
   });
 });
