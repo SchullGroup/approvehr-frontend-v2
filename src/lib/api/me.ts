@@ -85,6 +85,10 @@ export type ApiTodayNotice = {
   postedByName: string | null;
   /** Empty when it is for everybody. */
   departmentNames: string[];
+  /** Sent to named people, the reader among them. */
+  personal?: boolean;
+  /** A picture comes with it: `announcementsApi.image(id)`. */
+  hasImage?: boolean;
   read: boolean;
   readAt: string | null;
 };
