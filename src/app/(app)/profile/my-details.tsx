@@ -137,8 +137,8 @@ const GROUPS: Group[] = [
     fields: ["phone", "addressLine"] as (keyof Draft)[],
   },
   {
-    id: "about",
-    title: "About you",
+    id: "marital",
+    title: "Marital status",
     icon: <Heart aria-hidden="true" className="size-4" />,
     tier: "immediate",
     fields: ["maritalStatus"],

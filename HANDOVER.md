@@ -10524,6 +10524,134 @@ subsection (adding one would have changed the state the video is recorded from).
 
 ---
 
+# The assistant's suggested questions only ask what the person's lookups can answer
+
+The permission-aware suggested questions on the Assistant page (Tolu Joel's, merged into `main` as #450 on 23 October and
+carried to `dev` by #511) were reviewed on 29 October, when the older copy of the same change, #419, turned out to be a
+duplicate and was closed. The review found two places where a button asked something the assistant cannot answer for the
+person it was offered to. This is the fix, and the test that stops the next one.
+
+## What was wrong
+
+The assistant answers from seven lookups in the API (`src/modules/ai/reads.ts`: `headcount`, `find_people`,
+`payroll_periods`, `payroll_settings`, `my_payslip`, `leave_requests`, `review_periods`), each narrowed to the caller.
+`find_people` needs `EDIT_RECORDS`, the two payroll ones need `VIEW_SALARIES`, and `leave_requests` narrows inside: a
+holder of `APPROVE_LEAVE_ALL` or `EDIT_RECORDS` is given everybody's requests and everybody else their own, the same rule
+as `GET /leave/requests`.
+
+- **A line manager was offered two questions about their team's leave.** "Whose leave requests are waiting for me?" and
+  "Who on my team is on leave?" can only be answered from `leave_requests`, and for a line manager (the seeded role holds
+  `APPROVE_LEAVE` and `MANAGE_HIRING`) that is their own requests: `APPROVE_LEAVE` reaches one report's request when it is
+  decided and lists nobody's. A manager decides their reports' requests in the approvals inbox, which is not one of the
+  assistant's lookups. "There are no approved leave requests" would have been a claim about a team the lookup never
+  looked at, the absent-is-not-zero defect in a sentence.
+- **The Payroll analyst and the Finance approver were offered no payroll question.** It sat inside the `EDIT_RECORDS`
+  branch, and both roles hold `VIEW_SALARIES` and not `EDIT_RECORDS`, while `payroll_periods` and `payroll_settings`, the
+  lookups only they can use, had no button at all.
+
+## What it is now
+
+`lib/assistant-openers.ts` is one table, `OPENERS`. Each question says which lookups answer it (`reads`) and who is
+offered it, by what the person holds and not by the name of a role (a company can make any role it likes, and the API
+decides by permission). That is a `Standing` of three booleans, `EDIT_RECORDS`, `VIEW_SALARIES` and `APPROVE_LEAVE_ALL`,
+read from the permission set once by `standingFrom`. A person is shown the first three that apply, then "What can you do
+for me?".
+
+| Holds | Is offered |
+| --- | --- |
+| none of the three (an employee, **and a line manager**) | their last net pay, the leave they have asked for, the review periods |
+| `EDIT_RECORDS` and `VIEW_SALARIES` (the HR manager, the administrator) | the people with no bank account, the leave still waiting, who is missing something before payday |
+| `VIEW_SALARIES` only (the Payroll analyst, the Finance approver) | who is missing something before payday, what was paid last month, their last net pay |
+| `EDIT_RECORDS` only | the people with no bank account, the leave still waiting, their last net pay |
+| `APPROVE_LEAVE_ALL` only | the leave still waiting, their last net pay, the review periods |
+
+"What leave have I asked for?" is offered only to somebody who is given their own requests: for a holder of
+`APPROVE_LEAVE_ALL` or `EDIT_RECORDS` the lookup returns everybody's, and "mine" would be the wrong word for it. For
+somebody who holds only `VIEW_SALARIES` the payday question is answered with counts (`headcount`); naming the people needs
+`find_people`, which is `EDIT_RECORDS`.
+
+**The sentence above the buttons is made from the buttons.** Each carries the topics it is about and the sentence is those
+topics, in order, with no repeats, so it cannot promise something no button offers. An employee's sentence is the same as
+before, word for word. The administrator's lost "or what you deduct": it was the one topic no button asked (the lookup is
+`payroll_settings`, which still answers if somebody types the question).
+
+## The test that stops the next one
+
+`tests/assistant-openers-lookups.test.ts` reads the API's `reads.ts` as text, the way `verify-template` and the other
+cross-repo gates read theirs, and fails when the table asks something the API would not answer for the person it is
+offered to: a lookup that is gone, a lookup whose permission the person does not hold, a question about everybody's leave
+offered to somebody who is given their own, or the reverse. It also fails when `leave_requests` starts giving
+everybody's requests to a permission `standingFrom` does not look at, and when it stops narrowing everybody else to their
+own. Six cases feed the same checker a source written for the purpose, which is the proof that it can fail; against the
+real file it was also broken three ways in a copy of the backend. It is a vitest file, so it is not in CI's `check`, and
+it skips when there is no backend checkout beside this repo (`scripts/backend-source.ts` says where it looks, and
+`APPROVEHR_BACKEND_DIR` points it at one).
+
+## What did not change
+
+- **The standalone sales demo.** It still offers its four prepared questions to the person it presents as the
+  administrator (`SALES_SCRIPT_ENABLED && who.editsRecords`), and the ternary still sits inside the component function so a
+  production build folds it away with its strings.
+- **What the assistant answers.** Only which questions it is offered.
+- **`/ask`** (the `/ai2` assistant) has three fixed questions, including "What did we spend on overtime last month?".
+  Nothing in the nav or the code links to it, so it is reachable only by typing the address, and it was not touched.
+
+## Verified
+
+Three new test files, 59 tests, all passing (`npx vitest run` on them, with `APPROVEHR_BACKEND_DIR` pointing at the
+backend's `staging`):
+
+- `tests/assistant-openers.test.ts` (44): the table person by person from what the API's seed gives each role, the
+  sentence above the buttons, `standingFrom`, and every combination of the three permissions (eight of them), each of which
+  must show three questions and then the open-ended one, offer only what is in the catalogue for that person, never mix
+  everybody's leave with "mine", and say every topic of every button it shows.
+- `tests/assistant-openers-lookups.test.ts` (10): the check against `reads.ts`; six cases on a source written for the
+  purpose and two on the real file.
+- `tests/assistant-chat-openers.test.tsx` (5): the page itself, rendered with the permission set of an employee, a line
+  manager, the Payroll analyst and the HR manager; and pressing a question puts it in "Your message" and sends nothing.
+
+Twelve deliberate breaks, each made by editing the source and each failing the tests written for it, then restored (the
+three files pass again afterwards, 59 of 59): a question about everybody's leave offered to everyone; the payroll question
+offered to everyone; the payday question put back inside the `EDIT_RECORDS` branch, which is the first version's mistake;
+`seesAllLeave` forgetting `APPROVE_LEAVE_ALL`; "my leave" offered to everyone; the sentence hard-coded to the employee's;
+four questions shown instead of three; the page ignoring what the person holds; the page printing its own sentence; and, in
+a copy of the backend's `reads.ts`, `payroll_periods` gated on `EDIT_RECORDS`, `leave_requests` giving everybody's requests
+to `APPROVE_LEAVE` holders as well, and `leave_requests` no longer narrowing everybody else to their own.
+
+`npm run check` exits 0 with `APPROVEHR_BACKEND_DIR` pointing at a checkout of the backend's `staging` (`83863db`), so the
+cross-repo gates compared against it and did not print `skip`. `tsc`, ESLint and `prettier --check` are clean on the files
+changed. `npm run docs -- --only frontend-components` regenerated the components inventory: it gains the row for
+`src/lib/assistant-openers.ts`, and a few others that earlier merges had not added since its last snapshot.
+
+In a browser, this branch under `next dev` against a scratch API running the backend's `staging`, signed in for real as five
+seeded people: the employee (Chidi Nwosu), the line manager (Adaeze Okonkwo), the HR manager (Fatima Bello), the
+administrator (Amara Nwachukwu) and the Payroll analyst (Grace Effiong). Each was shown exactly the buttons and the sentence
+in the table above, the same at first paint and three seconds later, and the line manager was not offered either team-leave
+question. Pressing the first button put it in "Your message" and sent nothing. There was no sideways scroll at 1280px, and
+none for the Payroll analyst at 375px with a touch pointer, where the longest button wraps inside its pill. No console
+errors in the five. One thing was stubbed: `GET /ai/status`, because the scratch API has no assistant key and without it the
+page renders no chat at all. No message was sent, so no model was called.
+
+A first sign-in opens the product's own tour ("A quick look round", 1 of 5) over the page, and it covers the buttons until it
+is skipped. The walk skips it, as a person would.
+
+## Not exercised
+
+A real assistant key, so what the model says to each question; the standalone sales demo (`SALES_SCRIPT_ENABLED`), whose
+branch this change left as it was; a company with a custom role, for example one that holds `APPROVE_LEAVE_ALL` and nothing
+else, which the unit tests cover and no browser has seen; Safari or any real device.
+
+## Not done
+
+- **A lookup for managers.** A line manager has no question about their team's leave because nothing the assistant can
+  look up answers it. Adding one means the assistant reading the approvals inbox, which is a backend change and a product
+  decision (it would also let a manager find the request ids the assistant's "decide a leave request" action needs).
+- **`payroll_settings` has no button.** Nothing asks "what do we deduct" any more, though it can still be typed.
+- **What the model says to each question** was not tested: there is no assistant key on the machine this was built on, so
+  the tests prove which questions are offered and that the lookups can answer them, not the wording of the answers.
+
+---
+
 # A period can ask a directly rated subsection on its review form
 
 The product owner's words: _"I wanna add Adaptability as a question that is a directly rated subsection"_, and _"we might have
