@@ -3,6 +3,8 @@ import { Card, CardBody, Field, Select } from "@/components/ui";
 import { HOLIDAYS } from "@/lib/imports/holidays";
 import type { ImportSurface } from "@/lib/imports/surface";
 import { usePermissions } from "@/lib/permissions";
+import { useOrgTimezone } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
 
 /**
  * Whoever may add a holiday by hand may import them: `MANAGE_SETTINGS`, or the
@@ -14,8 +16,7 @@ function useCanImportHolidays(): boolean {
 }
 
 /** The years offered: last year, then the next few. Plus the default, if outside. */
-function yearsAround(defaultYear: number): number[] {
-  const now = new Date().getFullYear();
+function yearsAround(now: number, defaultYear: number): number[] {
   const years = new Set<number>([defaultYear]);
   for (let year = now - 1; year <= now + 4; year += 1) years.add(year);
   return [...years].sort((a, b) => a - b);
@@ -28,7 +29,12 @@ function yearsAround(defaultYear: number): number[] {
  * the same sheet imports into any of them. Sent to the API as `context.year`
  * with both steps; changing it after a check sends the flow back to re-check.
  */
-function useHolidayYear(defaultYear: number) {
+function useHolidayYear(requestedYear: number | undefined) {
+  const timeZone = useOrgTimezone();
+  /* The company's current year, not the browser's: in the first hours of a
+     January the two can be a year apart. */
+  const thisYear = Number(todayIn(timeZone).slice(0, 4));
+  const defaultYear = requestedYear ?? thisYear;
   const [year, setYear] = useState(String(defaultYear));
   return {
     values: { year },
@@ -44,7 +50,7 @@ function useHolidayYear(defaultYear: number) {
                 value={year}
                 onChange={(event) => setYear(event.target.value)}
               >
-                {yearsAround(defaultYear).map((option) => (
+                {yearsAround(thisYear, defaultYear).map((option) => (
                   <option key={option} value={String(option)}>
                     {option}
                   </option>
@@ -61,11 +67,14 @@ function useHolidayYear(defaultYear: number) {
 /**
  * What the import screen says when the rows are a year's public holidays.
  *
- * A function of the default year, which is the year the holiday calendar was
- * showing when somebody pressed "Import from Excel". No prerequisites: a holiday
- * names nothing else that has to exist first.
+ * A function of the year a link asked for, which is the year the holiday calendar
+ * was showing when somebody pressed "Import from Excel" (absent when somebody
+ * arrived without one). No prerequisites: a holiday names nothing else that has to
+ * exist first.
  */
-export function holidayImportSurface(defaultYear: number): ImportSurface {
+export function holidayImportSurface(
+  requestedYear: number | undefined,
+): ImportSurface {
   return {
     dictionary: HOLIDAYS,
     title: "Import public holidays",
@@ -79,7 +88,7 @@ export function holidayImportSurface(defaultYear: number): ImportSurface {
     },
     prerequisites: {},
     useAccess: useCanImportHolidays,
-    useImportContext: () => useHolidayYear(defaultYear),
+    useImportContext: () => useHolidayYear(requestedYear),
     noAccess: {
       title: "Importing holidays is for people who manage company settings",
       description:

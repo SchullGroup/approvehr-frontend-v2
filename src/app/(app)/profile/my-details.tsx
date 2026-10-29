@@ -35,6 +35,8 @@ import {
   useMyPendingChanges,
   useMyRecordMutations,
 } from "@/lib/store/my-record";
+import { useOrgTimezone } from "@/lib/store/session";
+import { todayIn } from "@/lib/time";
 import type { Employee } from "@/lib/types";
 
 /**
@@ -264,6 +266,7 @@ export function MyDetails({
   const toast = useToast();
   const pending = useMyPendingChanges();
   const { save, editable } = useMyRecordMutations();
+  const timeZone = useOrgTimezone();
 
   const initial = useMemo<Draft>(() => {
     if (!me) return EMPTY;
@@ -536,7 +539,7 @@ export function MyDetails({
                           <Input
                             type="date"
                             value={draft[key]}
-                            max={new Date().toISOString().slice(0, 10)}
+                            max={todayIn(timeZone)}
                             disabled={!editable}
                             onChange={(event) => set(key, event.target.value)}
                           />

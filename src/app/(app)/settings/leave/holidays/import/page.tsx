@@ -19,9 +19,12 @@ export default async function HolidaysImportPage({
 }) {
   const { year } = await searchParams;
   const single = Number(Array.isArray(year) ? year[0] : year);
+  /* Only a year the link asked for. Without one the screen falls back to the
+     company's current year, which needs the company's zone: this page is
+     rendered on the server and has no way to know it. */
   const defaultYear =
     Number.isInteger(single) && single >= 2000 && single <= 2100
       ? single
-      : new Date().getFullYear();
+      : undefined;
   return <HolidaysImport defaultYear={defaultYear} />;
 }
