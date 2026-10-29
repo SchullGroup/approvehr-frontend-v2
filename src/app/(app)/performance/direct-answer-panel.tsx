@@ -37,6 +37,7 @@ import {
   askedChoiceOf,
   askedOfChoice,
   periodStartedReason,
+  savedWords,
   type AskedChoice,
   type SubsectionAsk,
 } from "@/lib/performance/subsection-ask";
@@ -277,6 +278,7 @@ function AskOnForm({
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   /* From the choices the framework holds now. `choicesOf` reads the kind the
      framework has, which is the old one for the moment after it was changed. */
@@ -298,6 +300,12 @@ function AskOnForm({
       if (body === null) await ask.onStop(competency.id);
       else await ask.onAsk(competency.id, body);
       setMine({ value: next, base: server });
+      /* There is no Add button, so this is the only thing that says it took. Only
+         after the API has said yes: a refusal shows its own sentence instead. */
+      toast.push({
+        ...savedWords(next, competency.name, shown),
+        tone: "success",
+      });
       onChanged();
     } catch (caught) {
       /* The API's own sentence: it names the subsection and the period. The

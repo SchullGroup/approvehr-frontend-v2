@@ -7,6 +7,7 @@ import {
   askedOfChoice,
   askedWho,
   periodStartedReason,
+  savedWords,
   type AskedChoice,
 } from "@/lib/performance/subsection-ask";
 
@@ -129,5 +130,49 @@ describe("why it cannot be changed", () => {
     expect(NEEDS_CHOICES).toBe(
       "It needs at least two choices before a form can ask it.",
     );
+  });
+});
+
+describe("what is said once a choice is saved", () => {
+  it("says it was added, to whom, and where to find it", () => {
+    expect(savedWords("both", "Collaboration", "none")).toEqual({
+      title: "Collaboration added to the review form",
+      detail: "Asked of both. Find it under All questions.",
+    });
+    expect(savedWords("manager", "Adaptability", "none").detail).toBe(
+      "Asked of the manager. Find it under All questions.",
+    );
+    expect(savedWords("employee", "Adaptability", "none").detail).toBe(
+      "Asked of the employee. Find it under All questions.",
+    );
+  });
+
+  it("says the form was updated, not that it was added, when it was already there", () => {
+    for (const from of ["manager", "employee", "both"] as const) {
+      expect(savedWords("both", "Collaboration", from).title).toBe(
+        "Collaboration updated on the review form",
+      );
+    }
+  });
+
+  it("says it came off, and does not send anybody looking for it", () => {
+    for (const from of ["manager", "employee", "both"] as const) {
+      expect(savedWords("none", "Collaboration", from)).toEqual({
+        title: "Collaboration taken off the review form",
+        detail: "It is no longer asked in this period.",
+      });
+    }
+  });
+
+  it("keeps the name out of the detail, so the words that say where to look are never the ones a toast cuts", () => {
+    /* A toast shows two lines of detail, about forty characters each. The name is
+       the one thing that varies, so it is in the title, which is not clamped. */
+    const name = "A subsection with a long and unwieldy name for a form";
+    for (const to of ["manager", "employee", "both", "none"] as const) {
+      const { title, detail } = savedWords(to, name, "none");
+      expect(title).toContain(name);
+      expect(detail).not.toContain(name);
+      expect(detail.length).toBeLessThanOrEqual(52);
+    }
   });
 });

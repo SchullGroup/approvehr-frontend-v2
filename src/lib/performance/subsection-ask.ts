@@ -95,6 +95,53 @@ export const ASKED_CONSEQUENCE: Record<AskedChoice, string | null> = {
   both: "The manager's answer counts. The employee's is shown beside it.",
 };
 
+/** Who a saved choice puts the question to, as it reads in a sentence. */
+const SAVED_TO: Record<Exclude<AskedChoice, "none">, string> = {
+  manager: "the manager",
+  employee: "the employee",
+  both: "both",
+};
+
+/**
+ * What is said once a choice has been written.
+ *
+ * The control has no Add button: choosing is the write. Nothing else would say it
+ * happened, and somebody who has just picked **Both** looks for the button that
+ * finishes the job, finds none, and has only a count in the subsection's header to
+ * tell them it took. So it says so, and says where to find the question, because
+ * that is the next thing anybody asks.
+ *
+ * ## The name is in the title, and the detail is short and fixed
+ *
+ * A toast clamps its detail to two lines, about forty characters each at its
+ * width, and the first draft put the name in the detail: "...It is listed under
+ * All questions." came out as "...It is listed under All...", which cut off the
+ * very words that say where to look. The title is not clamped, so the name goes
+ * there, and nothing in the detail varies with it.
+ *
+ * `from` is the choice the control showed before: putting a subsection on the form
+ * and changing who it is put to are different acts to read about.
+ */
+export function savedWords(
+  to: AskedChoice,
+  name: string,
+  from: AskedChoice,
+): { title: string; detail: string } {
+  if (to === "none") {
+    return {
+      title: `${name} taken off the review form`,
+      detail: "It is no longer asked in this period.",
+    };
+  }
+  return {
+    title:
+      from === "none"
+        ? `${name} added to the review form`
+        : `${name} updated on the review form`,
+    detail: `Asked of ${SAVED_TO[to]}. Find it under All questions.`,
+  };
+}
+
 /**
  * Who a subsection question is put to, as a row of the full list says it:
  * **Manager**, **Employee** or **Both**. `null` for a list that is neither, so a

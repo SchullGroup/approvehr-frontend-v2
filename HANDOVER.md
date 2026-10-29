@@ -10698,6 +10698,14 @@ control. Until the backend is on `staging`, `npm run docs` will not list the two
   caller that gave the dialog no way to write it.
 - **Not asked is a stop, never an empty list.** `askedOfChoice("none")` is `null`, and the panel then calls `DELETE`. An empty
   `askedOf` is a request the API refuses by name. Both is `["SELF", "MANAGER"]` and never carries a colleague.
+- **A choice says it took, because there is no Add button.** Picking is the write, and a person who had just picked **Both** asked where
+  to click Add: the only sign that it had been saved was a count in the subsection's header. `savedWords` (in `subsection-ask.ts`) is
+  the message, pushed as a toast **after** the API has said yes (a refusal shows its own sentence and no toast), and it says where the
+  row is (_Find it under All questions._). The subsection's name is in the **title** and the detail is short and fixed, because a toast
+  clamps its detail to two lines: the first wording put the name in the detail and the browser showed "...It is listed under All...",
+  cutting off the words that say where to look (a test now holds the detail to 52 characters). It is a message and not a button on
+  purpose: the kind picker above the control also writes the moment it is picked, and one control that waited for a click would be the
+  odd one out.
 - **What was just written is believed until the period moves.** After a write the list is read again, and for as long as that takes it
   still says what it said before; showing that would flip the control back and then forward. The panel keeps what it wrote with the
   value the period held when it wrote it (`base`) and drops it **in render** the moment the period holds anything else. Kept any

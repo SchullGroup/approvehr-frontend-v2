@@ -201,6 +201,71 @@ describe("choosing one", () => {
   });
 });
 
+describe("saying it was saved", () => {
+  /* There is no Add button, so a person who has picked Both looks for one. These
+     are the only sign that the pick already took. */
+  it("says it was added, to whom, and where to find it, once the write has gone through", async () => {
+    show();
+    await pick("Both");
+    expect(
+      await screen.findByText("Adaptability added to the review form"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Asked of both. Find it under All questions."),
+    ).toBeInTheDocument();
+  });
+
+  it("says the form was updated when it was already on it", async () => {
+    held = ["MANAGER"];
+    show();
+    await pick("Both");
+    expect(
+      await screen.findByText("Adaptability updated on the review form"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Adaptability added to the review form"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("says it came off for Not asked", async () => {
+    held = ["MANAGER"];
+    show();
+    await pick("Not asked");
+    expect(
+      await screen.findByText("Adaptability taken off the review form"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("It is no longer asked in this period."),
+    ).toBeInTheDocument();
+  });
+
+  it("says nothing of the kind when the API refused, and shows its sentence instead", async () => {
+    const sentence = "H2 2026 Appraisal has started.";
+    onAsk.mockRejectedValue(new ApiError(409, "conflict", sentence));
+    show();
+    await pick("Both");
+    expect(await screen.findByText(sentence)).toBeInTheDocument();
+    expect(
+      screen.queryByText("Adaptability added to the review form"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Adaptability updated on the review form"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("says nothing when the choice is the one already there", async () => {
+    held = ["MANAGER"];
+    show();
+    await pick("The manager");
+    expect(
+      screen.queryByText("Adaptability added to the review form"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Adaptability updated on the review form"),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("what choosing it means", () => {
   it("says so in one line for each choice, and nothing for Not asked", async () => {
     show();

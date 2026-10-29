@@ -440,11 +440,15 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   **Ask it on the review form**. It is **this period's**, not the company's (hover the (i) beside the
   label: _H2 2026 Appraisal only. Other periods choose for themselves._), and it has four choices:
   **Not asked** (the start, and it says nothing), **The manager**, **The employee** and **Both**. It is
-  written the moment you pick one, with nothing to save, and one short line under it says whose answer
-  counts: _Recorded when the manager sends their review._ for the manager, _Their own answer counts
-  towards the mark._ for the employee, and _The manager's answer counts. The employee's is shown beside
-  it._ for both. Colleagues cannot be asked a subsection. The API's refusals (the period has started, the
-  subsection is switched off, somebody has already answered it) are under the control in the server's own
+  written the moment you pick one, with nothing to save: there is no Add button, and a message says it
+  took (_Collaboration added to the review form_, _…updated on the review form_ or _…taken off the review
+  form_, and, under the first two, _Asked of both. Find it under All questions._). It comes only after
+  the API has accepted the choice, so a refusal shows its own sentence instead. One
+  short line under the control says whose answer counts: _Recorded when the manager sends their
+  review._ for the manager, _Their own answer counts towards the mark._ for the employee, and _The
+  manager's answer counts. The employee's is shown beside it._ for both. Colleagues cannot be asked a
+  subsection. The API's refusals (the period has started, the subsection is switched off, somebody has
+  already answered it) are under the control in the server's own
   words, and the control goes back to what the period holds. **Write the questions** is on a draft's
   **Set it up, then start it** card and nowhere else, so you only meet a period that has already started
   if somebody starts it while this dialog is open: the control is then switched off and says _H2 2026
