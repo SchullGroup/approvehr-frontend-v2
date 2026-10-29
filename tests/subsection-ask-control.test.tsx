@@ -588,13 +588,18 @@ describe("a pick-one subsection", () => {
       ["The employee", true],
       ["Both", true],
     ]);
-    expect(
-      screen.getByText(
-        "It needs at least two choices before a form can ask it.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Add its choices first.")).toBeInTheDocument();
     /* Nothing can be chosen, so the button has nothing to do. */
     expect(button(ADD)).toBeDisabled();
+  });
+
+  it("says how many choices it needs once, in the choices editor, and only what is missing under the control", () => {
+    show(competency({ answerKind: "CHOICE", choiceOptions: [] }));
+    /* The editor says "Give it at least two". The control's reason used to say
+       "at least two choices" again a few lines below, which read as two rules. */
+    expect(screen.getAllByText(/at least two/i)).toHaveLength(1);
+    expect(screen.getByText(/Give it at least two/)).toBeInTheDocument();
+    expect(screen.getByText("Add its choices first.")).toBeInTheDocument();
   });
 
   it("can still be taken off the form, which is the way out if it somehow got on", async () => {
@@ -615,9 +620,7 @@ describe("a pick-one subsection", () => {
       }),
     );
     expect(
-      screen.queryByText(
-        "It needs at least two choices before a form can ask it.",
-      ),
+      screen.queryByText("Add its choices first."),
     ).not.toBeInTheDocument();
     await choose("Both", ADD);
     await waitFor(() =>

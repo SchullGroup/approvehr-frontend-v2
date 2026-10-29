@@ -188,9 +188,8 @@ export type AnswerParts = {
 /**
  * What a subsection answer says, in words, or `null` for no answer.
  *
- * One function for the preview, the record, the popup's read-back and the line
- * beside a manager's control, so a level cannot be a word in one and a digit in
- * another.
+ * One function for the preview, the record and the line beside a manager's
+ * control, so a level cannot be a word in one and a digit in another.
  *
  * A pick is read by the **label saved with the answer** where there is one, which
  * is what the API sends for exactly this, and the record must say what was chosen
