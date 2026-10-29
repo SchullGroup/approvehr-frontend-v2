@@ -24,6 +24,7 @@ import {
   dayOf,
   ratingWordsFrom,
   scoreLabel,
+  showsOverallMark,
   visibleComponents,
   weightLabel,
   weightsFromNote,
@@ -267,6 +268,11 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
 
   const answered = review.acknowledged || review.disputed;
 
+  /* Whether anything on this page speaks of an overall mark. The company's
+     setting says whether its forms end with one, and a mark already given is
+     shown whatever the setting says now. See `showsOverallMark`. */
+  const markShown = showsOverallMark(review);
+
   return (
     <>
       <PageHeader
@@ -361,31 +367,45 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
           <Card>
             <CardHeader
               title={
-                review.kind === "MANAGER" ? "The rating" : "The self-rating"
+                review.kind === "MANAGER"
+                  ? "The rating"
+                  : markShown
+                    ? "The self-rating"
+                    : `The ${review.kindLabel.toLowerCase()}`
               }
               description={
                 review.kind === "MANAGER"
                   ? "The appraiser's overall view, in their own words, with the date it was sent."
-                  : "Shown beside the manager's rating. It does not count towards the final mark unless the company has turned that on."
+                  : markShown
+                    ? "Shown beside the manager's rating. It does not count towards the final mark unless the company has turned that on."
+                    : review.kind === "SELF"
+                      ? "Shown beside the manager's review."
+                      : undefined
               }
             />
             <CardBody className="flex flex-col gap-4">
               <div className="grid gap-4 sm:grid-cols-3">
                 {/* Absent, never zero: a form the author chose not to put a
-                    number on is not a form scored nought. */}
-                <Stat
-                  label="Overall mark"
-                  value={
-                    review.rating === null
-                      ? "None given"
-                      : (ratingWords(review.rating) as string)
-                  }
-                  {...(review.rating === null
-                    ? {
-                        hint: "No overall mark. The answers stand on their own.",
-                      }
-                    : {})}
-                />
+                    number on is not a form scored nought. And where the
+                    company does not ask for an overall mark there is no row at
+                    all: "None given" would read as something missing from a
+                    form that never had a place for it. A mark somebody already
+                    gave is shown whatever the setting says now. */}
+                {markShown && (
+                  <Stat
+                    label="Overall mark"
+                    value={
+                      review.rating === null
+                        ? "None given"
+                        : (ratingWords(review.rating) as string)
+                    }
+                    {...(review.rating === null
+                      ? {
+                          hint: "No overall mark. The answers stand on their own.",
+                        }
+                      : {})}
+                  />
+                )}
                 <Stat
                   label="Written by"
                   value={
@@ -501,6 +521,7 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
               score={score.score}
               loading={score.loading}
               subjectName={review.subjectName}
+              overallMark={review.overallMark}
               message={score.available ? score.error?.message : score.refusal}
             />
           )}
@@ -677,20 +698,24 @@ function TheirOwnAccount({
       />
       {/* Their own overall mark, beside the manager's on the card above —
           the comparison the doc feedback asked for: what did they rate
-          themselves, before you rate them. Absent, never zero. */}
-      <CardBody className="pb-0">
-        <Stat
-          label="Their overall mark"
-          value={
-            review.rating === null
-              ? "None given"
-              : (ratingWords(review.rating) as string)
-          }
-          {...(review.rating === null
-            ? { hint: "No overall mark. The answers stand on their own." }
-            : {})}
-        />
-      </CardBody>
+          themselves, before you rate them. Absent, never zero. Where the
+          company does not ask for an overall mark there is nothing to compare,
+          so no row: see `showsOverallMark`. */}
+      {showsOverallMark(review) && (
+        <CardBody className="pb-0">
+          <Stat
+            label="Their overall mark"
+            value={
+              review.rating === null
+                ? "None given"
+                : (ratingWords(review.rating) as string)
+            }
+            {...(review.rating === null
+              ? { hint: "No overall mark. The answers stand on their own." }
+              : {})}
+          />
+        </CardBody>
+      )}
       {review.summary && (
         <CardBody className="pb-0">
           <p className="text-body-sm leading-relaxed text-body">
@@ -742,11 +767,14 @@ function ScorePanel({
   loading,
   message,
   subjectName,
+  overallMark,
 }: {
   score: ApiEmployeeScore | null;
   loading: boolean;
   message: string | undefined;
   subjectName: string;
+  /** The company's setting, from the review. See `showsOverallMark`. */
+  overallMark: boolean | undefined;
 }) {
   if (loading) {
     return (
@@ -800,24 +828,32 @@ function ScorePanel({
                 : "Built from the parts that have something recorded"
             }
           />
-          <Stat
-            /* Read across the scale rather than out of five: it is a weighted
+          {/* Only where the company asks for an overall mark, or an appraiser
+              already gave one. Otherwise this is a dash under a heading about
+              a figure nobody can enter. */}
+          {showsOverallMark({
+            rating: score.appraiserMark.ratingBp,
+            overallMark,
+          }) && (
+            <Stat
+              /* Read across the scale rather than out of five: it is a weighted
                average across several appraisers, so it does not land on a whole
                mark, and rounding it to one would throw a judgement away. */
-            label="Appraisers' overall rating"
-            value={
-              score.appraiserMark.ratingBp === null ? (
-                <span className="text-faint">—</span>
-              ) : (
-                scoreLabel(score.appraiserMark.ratingBp)
-              )
-            }
-            hint={
-              score.appraiserMark.appraisers <= 1
-                ? "For reference. It does not count towards the score."
-                : `${weightLabel(score.appraiserMark.submittedWeightBp)} of the weight is in, across ${score.appraiserMark.appraisers} appraisers. For reference; it does not count towards the score.`
-            }
-          />
+              label="Appraisers' overall rating"
+              value={
+                score.appraiserMark.ratingBp === null ? (
+                  <span className="text-faint">—</span>
+                ) : (
+                  scoreLabel(score.appraiserMark.ratingBp)
+                )
+              }
+              hint={
+                score.appraiserMark.appraisers <= 1
+                  ? "For reference. It does not count towards the score."
+                  : `${weightLabel(score.appraiserMark.submittedWeightBp)} of the weight is in, across ${score.appraiserMark.appraisers} appraisers. For reference; it does not count towards the score.`
+              }
+            />
+          )}
           <Stat
             label="Objectives agreed"
             value={String(score.objectives.agreed)}
