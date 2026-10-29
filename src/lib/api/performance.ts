@@ -674,6 +674,13 @@ export type ApiCycleParticipants = {
   counts: { people: number; selfDone: number; managerDone: number };
 };
 
+/**
+ * Who a directly rated subsection can be put to on the review form. The API
+ * refuses anything else, colleagues included: a subsection's answer is given by
+ * the person or by their manager.
+ */
+export type SubsectionAudience = "SELF" | "MANAGER";
+
 export type ApiQuestion = {
   id: string;
   reviewCycleId: string;
@@ -692,12 +699,65 @@ export type ApiQuestion = {
   source: "HR" | "MANAGER";
   /** Non-empty only for a MANAGER question. */
   departmentIds: string[];
+  /**
+   * True when this question **is** a directly rated subsection's own answer, put
+   * on the form by this period (`PUT .../subsection-questions/:competencyId`).
+   * Its `prompt` is the subsection's name, its `kind` is derived from how the
+   * subsection is answered, `askedOf` is a non-empty subset of the person and
+   * their manager, and it is always required.
+   *
+   * **Optional on this side, and absent means an ordinary question.** A server
+   * that predates it sends neither this nor `competencyName`, and every screen
+   * then behaves exactly as it did.
+   */
+  answersSubsection?: boolean;
+  /** The subsection's name. Sent with a subsection question only. */
+  competencyName?: string;
+};
+
+/**
+ * What a form needs to know about the subsection a question is the answer to.
+ *
+ * `choices` is for `CHOICE` only: the active choices in `sortOrder`, **labels and
+ * ids and never their scores**. A person answering a pick-one question decides
+ * which description fits, not which score they want.
+ */
+export type ApiSubsectionOnForm = {
+  name: string;
+  answerKind: AnswerKind;
+  /** The ceiling of the subsection's own scale, which is not the company's. */
+  scaleMax: number;
+  choices: { id: string; label: string }[];
+};
+
+/**
+ * The subject's own answer to a subsection question, shown on their manager's
+ * form beside the manager's own control.
+ *
+ * Only ever present on a MANAGER form, and `null` there until the subject has
+ * **sent** their self-review: a draft is not shown to the person marking them.
+ * Null is nothing to show, never "No answer" and never a 0.
+ */
+export type ApiSelfAnswer = {
+  ratingValue: number | null;
+  boolValue: boolean | null;
+  choiceOptionId: string | null;
+  /** The label of the pick, for display. */
+  choiceValue: string | null;
+  answeredAt: string | null;
 };
 
 export type ApiAnswer = {
   ratingValue: number | null;
   textValue: string | null;
   choiceValue: string | null;
+  /**
+   * `CHOICE` subsection answers only: the id of the pick, which is what an
+   * answer is matched on (`choiceValue` is its label, and two choices can share
+   * one). Optional because a server that predates subsection questions sends no
+   * such key.
+   */
+  choiceOptionId?: string | null;
   boolValue: boolean | null;
   /**
    * The evidence attached to this answer, or null.
@@ -815,6 +875,21 @@ export type ApiFormQuestion = {
   allowCustom: boolean;
   order: number;
   answer: ApiAnswer | null;
+  /**
+   * True when this question is a directly rated subsection's own answer, so its
+   * `prompt` is the subsection's name and its answer is recorded as the person's
+   * rating of it. **Absent means an ordinary question**, which is what a server
+   * that predates it sends for every one. Read it through
+   * `isSubsectionQuestion` in `lib/performance/subsection-answer.ts`.
+   */
+  answersSubsection?: boolean;
+  /** Sent with `answersSubsection: true`, and what the form is drawn from. */
+  subsection?: ApiSubsectionOnForm;
+  /**
+   * The subject's own answer, on their manager's form only. `null` and absent
+   * are the same thing: nothing to show.
+   */
+  selfAnswer?: ApiSelfAnswer | null;
 };
 
 export type ApiReviewDetail = ApiReview & {
@@ -2050,6 +2125,14 @@ export type AnswerBody = {
   ratingValue?: number;
   textValue?: string;
   choiceValue?: string;
+  /**
+   * For a **subsection** question that is answered by picking: the id of one of
+   * the subsection's own live choices, which is what the API matches on. An
+   * ordinary pick-from-a-list question sends `choiceValue`, the text of the
+   * option. Never both, and never the label for a subsection's choice: two
+   * choices can share one.
+   */
+  choiceOptionId?: string;
   boolValue?: boolean;
   /**
    * For a `FILE` question. `readAsAttachment` in `lib/api/uploads.ts` produces
@@ -3041,6 +3124,40 @@ export const performanceApi = {
     request<{ id: string; deleted: boolean }>(`/performance/questions/${id}`, {
       method: "DELETE",
     }),
+
+  /**
+   * Put a directly rated subsection on this period's review form, or change who
+   * is asked. **Idempotent**: it creates the question or moves `askedOf`, so one
+   * call does both and there is no separate "change".
+   *
+   * `askedOf` is one or both of the person and their manager. The API refuses
+   * colleagues, an empty list, a subsection that is archived or switched off,
+   * and a period that has started, each in its own sentence naming the
+   * subsection and the period, and those sentences are shown as they come.
+   *
+   * Answers the question as the period lists it, with `answersSubsection: true`.
+   */
+  askSubsection: (
+    cycleId: string,
+    competencyId: string,
+    askedOf: SubsectionAudience[],
+  ) =>
+    request<ApiQuestion>(
+      `/performance/cycles/${cycleId}/subsection-questions/${competencyId}`,
+      { method: "PUT", body: { askedOf } },
+    ),
+
+  /**
+   * Stop asking a subsection on this period's review form. Refused once anybody
+   * has answered it, with the same rule as removing any other question, and
+   * 404 when it was not being asked. The subsection and any rating already
+   * recorded on it are untouched.
+   */
+  stopAskingSubsection: (cycleId: string, competencyId: string) =>
+    request<{ id: string; removed: boolean }>(
+      `/performance/cycles/${cycleId}/subsection-questions/${competencyId}`,
+      { method: "DELETE" },
+    ),
 
   /* --------------------------------------------------------------- sections */
 
