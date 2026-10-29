@@ -123,7 +123,10 @@ function holidayRowRules(ctx: RowContext<HolidayField>): void {
         "date",
         `"${date}" has no month ${month}. Write it as DD/MM, day first: 25/12.`,
       );
-    } else if (day < 1 || day > new Date(Date.UTC(2000, month, 0)).getUTCDate()) {
+    } else if (
+      day < 1 ||
+      day > new Date(Date.UTC(2000, month, 0)).getUTCDate()
+    ) {
       ctx.error("date", `"${date}" is not a real date.`);
     }
   }

@@ -10,6 +10,9 @@ import { holidayImportSurface } from "./surface";
  * built here from the one plain value the page can pass: the default year.
  */
 export function HolidaysImport({ defaultYear }: { defaultYear: number }) {
-  const surface = useMemo(() => holidayImportSurface(defaultYear), [defaultYear]);
+  const surface = useMemo(
+    () => holidayImportSurface(defaultYear),
+    [defaultYear],
+  );
   return <ImportFlow surface={surface} />;
 }
