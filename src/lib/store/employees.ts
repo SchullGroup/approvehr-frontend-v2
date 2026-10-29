@@ -251,15 +251,8 @@ export function validateEmployee(patch: Partial<Employee>): FieldError[] {
     }
   }
 
-  if (has("grossMonthly")) {
-    const v = Number(patch.grossMonthly);
-    if (!Number.isFinite(v) || v <= 0) {
-      errors.push({
-        field: "grossMonthly",
-        message: "Gross pay must be greater than zero.",
-      });
-    }
-  }
+  /* Gross pay is not checked: any figure HR enters, zero and negative
+     included, is taken as it is (the product owner's instruction). */
 
   if (has("dateOfBirth") && patch.dateOfBirth) {
     const dob = new Date(patch.dateOfBirth);

@@ -17,6 +17,7 @@ import { useSessionRoles, roleTier, type RoleTier } from "@/lib/roles";
 import { useDashboard, useReports } from "@/lib/store/insights";
 import { useSetupChecklist } from "@/lib/store/setup-checklist";
 import { checklistRows } from "../settings/checklist";
+import { CompleteDetailsPrompt } from "./complete-details";
 import { SetupGuide } from "./setup-guide";
 import { DashboardHeader } from "./header";
 import { WIDGET_COMPONENTS } from "./widgets";
@@ -187,6 +188,7 @@ export function DashboardScreen() {
         {/* What is still not set up, where somebody actually is. Absent once
             everything is done. */}
         <SetupPrompt />
+        <CompleteDetailsPrompt />
 
         <div className="flex flex-col gap-4">
           {sections.map((section) => (
