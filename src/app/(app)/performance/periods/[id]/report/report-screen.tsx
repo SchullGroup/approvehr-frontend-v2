@@ -34,6 +34,7 @@ import type { TabItem } from "@/components/ui";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import {
   scoreLabel,
+  weightedParts,
   weightLabel,
   weightsFromNote,
   type ApiBandCount,
@@ -825,8 +826,13 @@ function WhatCameIn({ report }: { report: ApiCycleReport }) {
  * The average per component is over the people it counted for and the column
  * heading says so. A component counted for nobody reads "Counted for nobody"
  * rather than 0%.
+ *
+ * A part the period weights at 0% is not here: the company is not appraising on
+ * it, so a row saying it is "shown but not counted" is a row about nothing. The
+ * weights, all six, are on the period page, and the link above changes them.
  */
-function Parts({ report }: { report: ApiCycleReport }) {
+export function Parts({ report }: { report: ApiCycleReport }) {
+  const parts = weightedParts(report.components);
   return (
     <Card>
       <CardHeader
@@ -849,7 +855,7 @@ function Parts({ report }: { report: ApiCycleReport }) {
               <TH>Left out because</TH>
             </THead>
             <TBody>
-              {report.components.map((part) => (
+              {parts.map((part) => (
                 <TR key={part.component}>
                   <TD>
                     <span className="font-medium text-ink">{part.label}</span>
@@ -903,7 +909,7 @@ function Parts({ report }: { report: ApiCycleReport }) {
         </div>
 
         <ul className="divide-y divide-line sm:hidden">
-          {report.components.map((part) => (
+          {parts.map((part) => (
             <li key={part.component} className="flex flex-col gap-2 p-4">
               <div className="flex items-start justify-between gap-3">
                 <p className="font-medium text-ink">{part.label}</p>

@@ -1155,6 +1155,22 @@ export function visibleComponents<
   );
 }
 
+/**
+ * The parts a period actually appraises on: every part with a weight above nothing.
+ *
+ * A company that sets a part to 0% has chosen not to appraise on it, so a table
+ * about how the mark came out has no row to give it. This is not
+ * `visibleComponents`, which is about one person's mark and keeps a part the
+ * company weighted at nothing for every reason but one; here the weight alone
+ * decides, because the table is about the period and the period's weights are
+ * fixed when it starts.
+ */
+export function weightedParts<T extends { weightBp: number }>(
+  parts: readonly T[],
+): T[] {
+  return parts.filter((part) => part.weightBp > 0);
+}
+
 export type ApiComponentScore = {
   component: ScoreComponent;
   /** The API's wording. Do not keep a second copy of these five labels. */
