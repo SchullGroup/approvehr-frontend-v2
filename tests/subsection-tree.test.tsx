@@ -127,8 +127,17 @@ function Harness(props: Partial<TreeProps> & { startOpen?: string | null }) {
   );
 }
 
-const open = async (name: RegExp | string) =>
-  userEvent.click(screen.getByRole("button", { name }));
+/**
+ * Presses the toggle that opens or closes a section or a subsection. A subsection's
+ * row also holds an Add question button that carries its name, so a name alone can
+ * match two; the toggle is the one that says whether it is open.
+ */
+const open = async (name: RegExp | string) => {
+  const toggle = screen
+    .getAllByRole("button", { name })
+    .find((button) => button.hasAttribute("aria-expanded"));
+  await userEvent.click(toggle ?? screen.getByRole("button", { name }));
+};
 
 beforeEach(() => {
   createSection = vi.fn().mockResolvedValue({});
@@ -225,54 +234,45 @@ describe("reading the framework", () => {
   });
 });
 
+const ratedTab = () => screen.getByRole("tab", { name: "How it is rated" });
+const questionsTab = (name: string | RegExp = "Questions") =>
+  screen.getByRole("tab", { name });
+
 describe("the two tabs under a subsection", () => {
-  it("are 'Rated directly' and 'Answered by questions', with the count on the second", async () => {
+  it("are 'Questions' and 'How it is rated', with the count on the first", async () => {
     render(<Harness questionCounts={new Map([["c-punct", 2]])} />);
     await open(/Core competency/);
     await open(/Punctuality/);
 
-    expect(
-      screen.getByRole("tab", { name: "Rated directly" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("tab", { name: /Answered by questions/ }),
-    ).toHaveTextContent("2");
+    expect(ratedTab()).toBeInTheDocument();
+    expect(questionsTab(/Questions/)).toHaveTextContent("2");
   });
 
-  it("open on the questions for a level subsection that already has some", async () => {
-    render(<Harness questionCounts={new Map([["c-punct", 2]])} />);
+  /* This is the Questions dialog, so what somebody opens a subsection to do is
+     write or read its questions. It used to open on how the subsection is answered
+     unless a level one already had questions, which put the form behind a second
+     tab on every yes-or-no, every pick-one and every new subsection. */
+  it.each([
+    ["a level subsection that has questions", "c-punct", 2],
+    ["a level subsection with none yet", "c-punct", 0],
+    ["a yes or no with questions", "c-safety", 4],
+    ["a yes or no with none yet", "c-safety", 0],
+    ["a pick-one subsection", "c-feedback", 0],
+  ])("open on the questions for %s", async (_label, id, count) => {
+    const name = COMPETENCIES.find((one) => one.id === id)?.name ?? "";
+    render(
+      <Harness
+        questionCounts={count > 0 ? new Map([[id, count]]) : new Map()}
+      />,
+    );
     await open(/Core competency/);
-    await open(/Punctuality/);
+    await open(new RegExp(name));
 
-    expect(
-      screen.getByRole("tab", { name: /Answered by questions/ }),
-    ).toHaveAttribute("aria-selected", "true");
+    expect(questionsTab(/Questions/)).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("questions-panel")).toHaveTextContent(
-      "Questions for Punctuality",
+      `Questions for ${name}`,
     );
-  });
-
-  it("open on how it is answered for a level subsection with no questions yet", async () => {
-    render(<Harness />);
-    await open(/Core competency/);
-    await open(/Punctuality/);
-
-    expect(screen.getByRole("tab", { name: "Rated directly" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(screen.getByLabelText("How it is answered")).toBeInTheDocument();
-  });
-
-  it("open on how it is answered for a yes or no that has questions, because its next decision is how it is answered", async () => {
-    render(<Harness questionCounts={new Map([["c-safety", 4]])} />);
-    await open(/Core competency/);
-    await open(/Follows safety procedures/);
-
-    expect(screen.getByRole("tab", { name: "Rated directly" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(ratedTab()).toHaveAttribute("aria-selected", "false");
   });
 
   it("are a view switch and nothing else: both are always reachable and nothing is written by moving between them", async () => {
@@ -280,27 +280,28 @@ describe("the two tabs under a subsection", () => {
     await open(/Core competency/);
     await open(/Follows safety procedures/);
 
-    await userEvent.click(
-      screen.getByRole("tab", { name: /Answered by questions/ }),
-    );
     expect(screen.getByTestId("questions-panel")).toBeInTheDocument();
     expect(
       screen.queryByLabelText("How it is answered"),
     ).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("tab", { name: "Rated directly" }));
+    await userEvent.click(ratedTab());
     expect(screen.getByLabelText("How it is answered")).toBeInTheDocument();
     expect(screen.queryByTestId("questions-panel")).not.toBeInTheDocument();
+
+    await userEvent.click(questionsTab(/Questions/));
+    expect(screen.getByTestId("questions-panel")).toBeInTheDocument();
 
     expect(updateCompetency).not.toHaveBeenCalled();
     expect(setChoiceOptions).not.toHaveBeenCalled();
     expect(createCompetency).not.toHaveBeenCalled();
   });
 
-  it("show the kind picker with the kind the subsection has, in the direct tab", async () => {
+  it("show the kind picker with the kind the subsection has, in the rated tab", async () => {
     render(<Harness />);
     await open(/Core competency/);
     await open(/Follows safety procedures/);
+    await userEvent.click(ratedTab());
     expect(
       (screen.getByLabelText("How it is answered") as HTMLSelectElement).value,
     ).toBe("BOOLEAN");
@@ -310,6 +311,7 @@ describe("the two tabs under a subsection", () => {
     render(<Harness />);
     await open(/Core competency/);
     await open(/Customer feedback/);
+    await userEvent.click(ratedTab());
     expect((screen.getByLabelText("Choice 1") as HTMLInputElement).value).toBe(
       "Delighted",
     );
@@ -326,16 +328,14 @@ describe("the two tabs under a subsection", () => {
     render(<Harness />);
     await open(/Core competency/);
     await open(/Punctuality/);
-    expect(
-      screen.getByRole("tab", { name: "Rated directly" }),
-    ).toBeInTheDocument();
+    expect(ratedTab()).toBeInTheDocument();
     await open(/Punctuality/);
     expect(
-      screen.queryByRole("tab", { name: "Rated directly" }),
+      screen.queryByRole("tab", { name: "How it is rated" }),
     ).not.toBeInTheDocument();
   });
 
-  it("say, in the direct tab, where an unweighted section's answers go: nowhere", async () => {
+  it("say, in the rated tab, where an unweighted section's answers go: nowhere", async () => {
     render(
       <Harness
         competencies={[
@@ -349,11 +349,116 @@ describe("the two tabs under a subsection", () => {
     );
     await open(/Key result area/);
     await open(/Revenue target/);
+    await userEvent.click(ratedTab());
     expect(
       screen.getByText(
         "Key result area is not weighted, so a level recorded on this counts towards no part of the mark.",
       ),
     ).toBeInTheDocument();
+  });
+});
+
+describe("Add question on a subsection's row", () => {
+  /* Found by a person who opened a subsection, pressed Done, and saw nothing made:
+     the form for a question was behind a tab they never opened. */
+  it("is on every subsection, before any of them is opened", async () => {
+    render(<Harness onAddQuestion={() => {}} />);
+    await open(/Core competency/);
+
+    for (const name of [
+      "Punctuality",
+      "Follows safety procedures",
+      "Customer feedback",
+    ]) {
+      expect(
+        screen.getByRole("button", { name: `Add question to ${name}` }),
+      ).toBeVisible();
+    }
+  });
+
+  it("is on the subsections that are filed under no section too", async () => {
+    render(<Harness onAddQuestion={() => {}} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: /Not filed under a section/ }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Add question to Initiative" }),
+    ).toBeVisible();
+  });
+
+  it("is not on the rows at all when nobody has said what it does", async () => {
+    render(<Harness />);
+    await open(/Core competency/);
+    expect(
+      screen.queryByRole("button", { name: /^Add question to/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens that subsection on its questions and tells whoever owns the form", async () => {
+    const onAddQuestion = vi.fn();
+    render(<Harness onAddQuestion={onAddQuestion} />);
+    await open(/Core competency/);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add question to Punctuality" }),
+    );
+
+    expect(questionsTab(/Questions/)).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("questions-panel")).toHaveTextContent(
+      "Questions for Punctuality",
+    );
+    expect(onAddQuestion).toHaveBeenCalledTimes(1);
+    expect(onAddQuestion.mock.calls[0]?.[0]).toMatchObject({ id: "c-punct" });
+  });
+
+  it("goes to the questions even when the subsection was last left on how it is rated", async () => {
+    render(<Harness onAddQuestion={() => {}} />);
+    await open(/Core competency/);
+    await open(/Punctuality/);
+    await userEvent.click(ratedTab());
+    expect(screen.queryByTestId("questions-panel")).not.toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add question to Punctuality" }),
+    );
+
+    expect(screen.getByTestId("questions-panel")).toBeInTheDocument();
+    expect(questionsTab(/Questions/)).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("never closes a subsection that is already open", async () => {
+    render(<Harness onAddQuestion={() => {}} />);
+    await open(/Core competency/);
+    await open(/Punctuality/);
+    expect(
+      screen.getByRole("button", { name: /Punctuality/, expanded: true }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add question to Punctuality" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: /Punctuality/, expanded: true }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("questions-panel")).toBeInTheDocument();
+  });
+
+  it("does not open or write anything on the other subsections", async () => {
+    render(<Harness onAddQuestion={() => {}} />);
+    await open(/Core competency/);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add question to Punctuality" }),
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: /Follows safety procedures/,
+        expanded: false,
+      }),
+    ).toBeInTheDocument();
+    expect(createCompetency).not.toHaveBeenCalled();
+    expect(updateCompetency).not.toHaveBeenCalled();
   });
 });
 
@@ -595,7 +700,18 @@ describe("for somebody who cannot change the framework", () => {
     render(<Harness {...props} />);
     await open(/Core competency/);
     await open(/Follows safety procedures/);
+    await userEvent.click(ratedTab());
     expect(screen.getByLabelText("How it is answered")).toBeDisabled();
+  });
+
+  /* A question belongs to the period, not to the framework, so what somebody may
+     do to sections and subsections says nothing about whether they may write one. */
+  it("is still offered Add question on a subsection, which is about the period", async () => {
+    render(<Harness {...props} onAddQuestion={() => {}} />);
+    await open(/Core competency/);
+    expect(
+      screen.getByRole("button", { name: "Add question to Punctuality" }),
+    ).toBeVisible();
   });
 });
 

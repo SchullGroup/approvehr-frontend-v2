@@ -92,8 +92,15 @@ const mount = () =>
 
 const pickSection = (name: string) =>
   userEvent.selectOptions(screen.getByLabelText("Section"), name);
-const pickSubsection = (name: string) =>
-  userEvent.selectOptions(screen.getByLabelText("Subsection"), name);
+/* A yes-or-no or pick-one option reads "Name, yes or no": found by its name, chosen by its value. */
+const pickSubsection = (name: string) => {
+  const select = screen.getByLabelText("Subsection") as HTMLSelectElement;
+  const option = Array.from(select.options).find(
+    (one) => one.text === name || one.text.startsWith(`${name}, `),
+  );
+  if (!option) throw new Error(`No subsection called ${name} in the picker.`);
+  return userEvent.selectOptions(select, option.value);
+};
 
 describe("the sentence under Section and Subsection", () => {
   it("says an answer does not count, before anything is chosen", () => {

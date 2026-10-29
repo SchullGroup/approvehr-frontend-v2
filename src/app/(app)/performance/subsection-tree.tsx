@@ -39,12 +39,13 @@ import { CountsTowards } from "./sections-dialog";
  *
  * ## Why it lives in the Questions dialog
  *
- * The person writing a period's questions is already deciding, subsection by
- * subsection, how each one is to be answered: by questions the form asks, or
- * directly, by a manager recording a level, a yes or no or a pick under
- * Competency ratings. Making them leave for another screen to say so, and come
- * back, was the complaint. So the two are two tabs on one subsection, and a view
- * of the dialog.
+ * The person writing a period's questions is also deciding, subsection by
+ * subsection, how each one is rated: a level, a yes or no or a pick, which a
+ * manager records on the subsection under Competency ratings. The questions are
+ * what the form asks; that rating is what the mark is made from. Making them
+ * leave for another screen to say so, and come back, was the complaint. So a
+ * subsection has two tabs, Questions and How it is rated, and the dialog has this
+ * as its second view.
  *
  * What the dialog is *about* and what the tree is about differ, and the tree says
  * so: the questions are this period's, and sections, subsections and how each is
@@ -54,11 +55,12 @@ import { CountsTowards } from "./sections-dialog";
  *
  * ## The two tabs are a view switch, never a choice
  *
- * A subsection can be answered directly and also carry questions on the form, and
- * neither affects the other: the mark's competency parts come only from what is
- * recorded on the subsection itself, and a question's answer is never read by the
- * score register. So switching tabs changes what is on screen and nothing that is
- * stored, and both may be fully populated at once.
+ * Every subsection is rated directly, and any of them may also carry questions on
+ * the form; neither affects the other: the mark's competency parts come only from
+ * what is recorded on the subsection itself, and a question's answer is never read
+ * by the score register. So switching tabs changes what is on screen and nothing
+ * that is stored, and both may be fully populated at once. A subsection opens on
+ * Questions whatever its kind, because adding one is what somebody opens it for.
  *
  * ## Several at a time
  *
@@ -136,18 +138,17 @@ export function newSubsectionBody(input: {
 type PanelTab = "direct" | "questions";
 
 /**
- * Which tab a subsection opens on, until somebody chooses.
+ * Which tab a subsection opens on, until somebody chooses: its questions.
  *
- * A level-rated subsection that already has questions filed under it is one
- * somebody is working on the questions of; every other is a subsection whose next
- * decision is how it is answered. Derived from what exists, so nothing has to be
- * remembered, and replaced the moment somebody picks a tab themselves.
+ * This is the Questions dialog, so what somebody opens a subsection to do is write
+ * or read its questions. It used to open on how the subsection is answered unless
+ * a level subsection already had questions, which put the form for adding one
+ * behind a second tab on every yes-or-no and every pick-one subsection, and on
+ * every new subsection. Somebody who opened one and pressed Done to find nothing
+ * made had never seen the form. How a subsection is rated is one tab away, and
+ * both are always reachable.
  */
-function defaultTab(competency: ApiCompetency, questions: number): PanelTab {
-  return answerKindOf(competency) === "RATING" && questions > 0
-    ? "questions"
-    : "direct";
-}
+const DEFAULT_TAB: PanelTab = "questions";
 
 const NO_PART = "Not weighted";
 
@@ -162,6 +163,7 @@ export function SubsectionTree({
   whyNot,
   selectedId,
   onSelect,
+  onAddQuestion,
   onChanged,
   renderQuestions,
 }: {
@@ -180,6 +182,12 @@ export function SubsectionTree({
   whyNot: string | null;
   selectedId: string | null;
   onSelect: (competency: ApiCompetency | null) => void;
+  /**
+   * Called when somebody presses Add question on a subsection's row, after the
+   * tree has opened that subsection on its questions. Whoever owns the form uses
+   * it to put the cursor in the question box. Absent, the row has no such button.
+   */
+  onAddQuestion?: (competency: ApiCompetency) => void;
   /** Re-ask the sections and the framework. */
   onChanged: () => void;
   /**
@@ -216,17 +224,16 @@ export function SubsectionTree({
           ? (sectionById.get(competency.sectionId) ?? null)
           : null;
         const tab =
-          picked && picked.id === competency.id
-            ? picked.tab
-            : defaultTab(competency, questions);
+          picked && picked.id === competency.id ? picked.tab : DEFAULT_TAB;
         const tabs: TabItem[] = [
-          { id: "direct", label: "Rated directly" },
           {
             id: "questions",
-            label: "Answered by questions",
+            label: "Questions",
             ...(questions > 0 ? { count: questions } : {}),
           },
+          { id: "direct", label: "How it is rated" },
         ];
+        const toggle = () => onSelect(selected ? null : competency);
         return (
           <li
             key={competency.id}
@@ -235,14 +242,19 @@ export function SubsectionTree({
               selected ? "border-accent-line bg-accent-soft" : "border-line",
             )}
           >
-            <button
-              type="button"
-              aria-expanded={selected}
-              aria-controls={panelId}
-              onClick={() => onSelect(selected ? null : competency)}
-              className="flex w-full flex-wrap items-center justify-between gap-2 rounded-md p-2.5 text-left transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
-            >
-              <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            {/* The row is the name, the way it is answered and how many questions
+                it carries, then **Add question**, then the chevron. Add question is
+                its own button beside the toggle and never inside it: a button
+                cannot hold a button, and pressing it must open the subsection and
+                never close one that is already open. */}
+            <div className="flex flex-wrap items-center gap-x-1 gap-y-0 rounded-md pr-2 transition-colors hover:bg-canvas">
+              <button
+                type="button"
+                aria-expanded={selected}
+                aria-controls={panelId}
+                onClick={toggle}
+                className="flex min-w-0 flex-1 basis-48 flex-wrap items-center gap-2 rounded-md p-2.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text"
+              >
                 <span className="text-body-sm font-medium text-ink">
                   {competency.name}
                 </span>
@@ -256,15 +268,45 @@ export function SubsectionTree({
                       : `${String(questions)} questions`}
                   </Badge>
                 )}
-              </span>
-              <ChevronDown
-                aria-hidden="true"
-                className={cn(
-                  "size-4 shrink-0 text-muted transition-transform duration-200",
-                  selected && "rotate-180",
+              </button>
+              <span className="ml-auto flex items-center gap-1">
+                {onAddQuestion && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Add question to ${competency.name}`}
+                    onClick={() => {
+                      /* Straight to the questions, whichever tab was open before. */
+                      setPicked({ id: competency.id, tab: "questions" });
+                      if (!selected) onSelect(competency);
+                      onAddQuestion(competency);
+                    }}
+                  >
+                    <Plus aria-hidden="true" className="size-3.5" />
+                    Add question
+                  </Button>
                 )}
-              />
-            </button>
+                {/* Decorative: the toggle beside the name is the control, for the
+                    keyboard and for assistive technology. This is the same press for
+                    a pointer, so the arrow is not a dead target. */}
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onClick={toggle}
+                  className="rounded-md p-1.5 text-muted"
+                >
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn(
+                      "size-4 shrink-0 transition-transform duration-200",
+                      selected && "rotate-180",
+                    )}
+                  />
+                </button>
+              </span>
+            </div>
 
             <div id={panelId} hidden={!selected} className="px-3 pb-3">
               {selected && (

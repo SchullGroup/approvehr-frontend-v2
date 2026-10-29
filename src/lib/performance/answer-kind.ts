@@ -47,6 +47,23 @@ export const KIND_BADGE: Record<AnswerKind, string> = {
   CHOICE: "Pick one",
 };
 
+/**
+ * A subsection as a picker lists it: its name, and how it is rated when that is not
+ * a level.
+ *
+ * "Teamwork, yes or no" and "Customer feedback, pick one", in the same comma form the
+ * Section picker beside it uses ("Core competency, 40% of the mark"). A subsection
+ * rated by a level stays its bare name: that is what almost every subsection is, and
+ * a tag on every option would say the same thing down the whole list. The Subsection
+ * picker said nothing for any of them, so somebody filing a question under "Teamwork"
+ * could not tell from the list that a manager answers it yes or no and not on the
+ * scale. The words are the row badge's ("Yes or no", "Pick one") in lower case.
+ */
+export function subsectionOptionLabel(name: string, kind: AnswerKind): string {
+  if (kind === "RATING") return name;
+  return `${name}, ${kind === "BOOLEAN" ? "yes or no" : "pick one"}`;
+}
+
 /** The option in the "How it is answered" picker. */
 export function kindOptionLabel(kind: AnswerKind, scaleMax: number): string {
   if (kind === "RATING") return `A level on a scale, 1 to ${String(scaleMax)}`;
