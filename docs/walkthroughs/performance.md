@@ -372,9 +372,10 @@ The three settings on a question:
   nothing is still asked and answered. Choosing a section and leaving **Subsection** on _None_ files
   it under nothing, and the dialog warns you before you save. The **Subsection** list says beside a
   subsection that a manager answers yes or no, or by picking, as _Teamwork, yes or no_ and _Customer
-  feedback, pick one_; one rated by a level is just its name. Such a subsection is not a question, so
-  it has no row in **All questions**: only the questions filed under it do, with its name on them. It
-  is rated under **Record a level**, and **By section** is where it is listed.
+  feedback, pick one_; one rated by a level is just its name. Such a subsection is not an ordinary
+  question, and it has a row in **All questions** only when this period asks it on the review form
+  (_Ask it on the review form_, under **By section**, below). Otherwise only the questions filed under it
+  do, with its name on them, and it is rated under **Record a level**.
 
 > ✅ **Shortcut.** There is a **Copy from** control that lifts every question off a previous period.
 > On a second period this is the whole of this step.
@@ -382,7 +383,8 @@ The three settings on a question:
 The dialog has two views, switched at the top: **All questions** (the form as described above, and the
 one it opens on) and **By section**. They are one list of questions seen two ways: a question written in
 either is in the other at once, with the subsection it is filed under, and the pencil and the bin work the
-same in both.
+same in both. A directly rated subsection that this period asks on the form is a row in both too, and its
+row is different (see _Ask it on the review form_ below).
 
 Writing them, in either view:
 
@@ -398,7 +400,9 @@ Writing them, in either view:
   more, and there is no undo (hover it for that). The one thing the server refuses is a question somebody has
   already answered; nothing is deleted, and the reason is under that row in the server's own words (_2 answers
   already reference this question. Leave it, or mark it not required._). A press in the half second after the
-  bin is ignored, so a double tap cannot remove a question.
+  bin is ignored, so a double tap cannot remove a question. On a row that says **Rated directly** the same
+  bin turns into **Remove**, which only stops asking that subsection on this period's form: the subsection
+  and anything already recorded on it stay (hover it for that).
 - A question can be up to 300 characters. The box counts from 250 (_260 of 300 characters_), and one over
   the limit is refused before it is sent. A pick-from-a-list question takes up to ten choices, and **Add a
   choice** is switched off at ten (_Ten is the most a question can have._).
@@ -431,6 +435,33 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   and its place in the list can still change. The kind is written the moment you pick it, and it is fixed once anybody has
   recorded an answer on the subsection (the screen says so; start a new subsection to change it). A yes or
   no and a pick have no target, so they are left out of the gap list and the heatmap.
+
+  Under that, and drawn only for somebody who can manage settings on a connected company, is
+  **Ask it on the review form**. It is **this period's**, not the company's (hover the (i) beside the
+  label: _H2 2026 Appraisal only. Other periods choose for themselves._), and it has four choices:
+  **Not asked** (the start, and it says nothing), **The manager**, **The employee** and **Both**. Picking
+  one writes nothing: the button under it does, and says what it will do. It is a switched-off **Add to
+  the review form** until you have chosen somebody, then **Add to the review form**; **Save change** when
+  the period already asks it and you have chosen somebody else; and **Take it off the form** when you
+  have chosen **Not asked**. Once the API has accepted it the button is replaced by **On the review
+  form**, and a message says what happened (_Collaboration added to the review form_, _…updated on the
+  review form_ or _…taken off the review form_, and, under the first two, _Asked of both. Find it under
+  All questions._). The message only comes after the API has said yes, so a refusal shows its own sentence
+  instead. One short line under the control says whose answer counts, for the choice you have made even
+  before you press the button: _Recorded when the manager sends their review._ for the manager, _Their own answer counts towards the mark._ for the employee, and _The
+  manager's answer counts. The employee's is shown beside it._ for both. Colleagues cannot be asked a
+  subsection. The API's refusals (the period has started, the subsection is switched off, somebody has
+  already answered it) are under the control in the server's own
+  words, and the control goes back to what the period holds. **Write the questions** is on a draft's
+  **Set it up, then start it** card and nowhere else, so you only meet a period that has already started
+  if somebody starts it while this dialog is open: the control is then switched off, with no button,
+  and says _H2 2026 Appraisal has started, so this can no longer change._ A pick-one subsection with fewer than two choices
+  cannot be asked (_It needs at least two choices before a form can ask it._), though it can be taken off.
+  Until the period's questions have been read, or if reading them failed, the control is not drawn at all
+  rather than saying **Not asked** about a form nobody has seen.
+  What it puts on the form is a row in **All questions** and in the subsection's **Questions** tab: its
+  name, a **Rated directly** badge (not **Rating**), who is asked as **Manager**, **Employee** or **Both**,
+  **Must be answered**, and no pencil, because there is nothing on it to edit.
 
 **Add a section** (a name and **Counts towards**: Core competencies, Behavioural competencies, Leadership, or
 _No part of the mark_) and, inside a section, **New subsection** with **Answered by** both stay open after
@@ -782,6 +813,13 @@ the module, so it is worth walking properly.
   the scores (step 22).
 - Questions marked as required must be answered before Send will work. The screen counts what is
   still missing.
+- **A directly rated subsection can be one of the questions** (step 6, _Ask it on the review form_). Its
+  prompt is the subsection's name and it is drawn from the subsection, not from the company's scale: a
+  level for each of its **own** levels (_1 of 7_ to _7 of 7_, or the company's five words where the
+  subsection is also five levels), a **Yes** or **No**, or its **choices** by name, with no score on
+  screen. A level is picked with its number and a choice with its letter. When the review is sent the
+  answer becomes the person's rating of that subsection: if only the employee is asked it counts, and if
+  both are asked it is the manager's that counts and the employee's is only shown to the manager.
 - **The leadership question is only on a form about somebody who leads others** — people report to
   them, they lead a team, or they head a department. A form about somebody who leads nobody never
   carries it, whether they fill it in themselves or their manager or a colleague does, so an
@@ -852,6 +890,12 @@ text if you cannot.
 > says it too: on **Waiting on you**, a small mark beside the person's name on **Fill it in** carries the same
 > sentence when you hover or tap it.
 
+> 💡 **What the person said of themselves, on a directly rated subsection.** Where a subsection is asked of
+> both, the manager's form shows a muted line beside the control, _Their own answer: Exceeds Expectations_
+> (or _6 of 7_, _Yes_, _No_, or the choice's name), once the person has sent their self-review. Until then
+> there is no line at all: not _No answer_, and never a nought. It is shown beside the manager's control and
+> never chosen for them.
+
 > 💡 **The language check — worth demonstrating.** Press Send and the product reads what you wrote
 > first. It flags language describing a _person_ rather than their _work_, absolutes, comparisons to
 > a colleague, and anything touching a protected characteristic — quoting your exact phrase back at
@@ -884,6 +928,10 @@ _Not assessed yet_ means nobody has answered it.
 
 > 🛑 **The same trap as step 9.** **Appraisal period** is on this dialog too. Leave it blank and the level is
 > recorded but counts towards no period's mark.
+
+A subsection the period asks on its review form is also recorded when the review is sent, as the same rating
+under the same period: the manager's send records the manager's answer, and an employee's send records theirs
+only where the employee alone is asked.
 
 #### 23. _Optional_ — ask colleagues for feedback
 
@@ -1272,7 +1320,8 @@ seeded accounts to use.
 *Written against the product as it stands on 20 October 2026, except steps 3 and 4 (the six parts and a
 period's own weights), 6 (the questions and the subsections), 16 (the no-appraiser warning), 17 and 21
 (answering a review), 22 (recording a level) and 32 (the report), the twelfth surprise and demo step 8, which
-were brought up to 28 October 2026. Every button label, field name and
+were brought up to 28 October 2026 (and steps 6, 17, 21 and 22 again on 29 October 2026, for a directly rated
+subsection asked on the review form). Every button label, field name and
 message quoted here is the wording actually on screen — where the product says something in its own
 words, this document quotes it rather than paraphrasing, so the two cannot drift apart. If a label
 here does not match what you are looking at, trust the screen and flag the difference._

@@ -13,12 +13,18 @@ import {
   Textarea,
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
+import { NoticeImageField } from "@/components/announcements/notice-image-field";
+import {
+  PeoplePicker,
+  type ChosenPerson,
+} from "@/components/announcements/people-picker";
 import {
   DRAFT_EFFECT,
   MANDATORY_CHANGE_RECORDED,
   MANDATORY_EFFECT,
   type AnnouncementAudience,
   type ApiAnnouncement,
+  type NoticeImageUpload,
 } from "@/lib/api/announcements";
 
 /**
@@ -62,6 +68,10 @@ export type Draft = {
   body: string;
   audience: AnnouncementAudience;
   departmentIds: string[];
+  /** Named staff, for `PEOPLE`. */
+  employeeIds: string[];
+  /** `undefined` keeps the stored picture, `null` removes it. */
+  image: NoticeImageUpload | null | undefined;
   pinned: boolean;
   /** Staff must open it. */
   mandatory: boolean;
@@ -95,6 +105,16 @@ export function AnnouncementForm({
   const [departmentIds, setDepartmentIds] = useState<string[]>(
     notice?.departmentIds ?? [],
   );
+  const [people, setPeople] = useState<ChosenPerson[]>(() =>
+    (notice?.employeeIds ?? []).map((id, index) => ({
+      id,
+      name: notice?.employeeNames?.[index] ?? "Somebody no longer on file",
+    })),
+  );
+  const [image, setImage] = useState<NoticeImageUpload | null | undefined>(
+    undefined,
+  );
+  const [reading, setReading] = useState(false);
   const [pinned, setPinned] = useState(notice?.pinned ?? false);
   const [mandatory, setMandatory] = useState(notice?.mandatory ?? false);
   const mandatoryTipId = useId();
@@ -122,14 +142,17 @@ export function AnnouncementForm({
   const audienceProblem =
     audience === "DEPARTMENTS" && departmentIds.length === 0
       ? "Choose at least one department, or address it to everybody. A notice with no department reaches nobody and still looks published."
-      : undefined;
+      : audience === "PEOPLE" && people.length === 0
+        ? "Add at least one person, or address it to a department or everybody."
+        : undefined;
 
   const complete =
     trimmedTitle.length >= 3 &&
     trimmedBody.length > 0 &&
     titleError === undefined &&
     bodyError === undefined &&
-    audienceProblem === undefined;
+    audienceProblem === undefined &&
+    !reading;
 
   function toggleDepartment(id: string, on: boolean) {
     setDepartmentIds((current) =>
@@ -146,6 +169,8 @@ export function AnnouncementForm({
           body: trimmedBody,
           audience,
           departmentIds: audience === "DEPARTMENTS" ? departmentIds : [],
+          employeeIds: audience === "PEOPLE" ? people.map((p) => p.id) : [],
+          image,
           pinned,
           mandatory,
           expiresOn,
@@ -166,7 +191,7 @@ export function AnnouncementForm({
       description={
         live
           ? "This one is on the board. Saving changes what people are reading now."
-          : "Everybody with an account sees it on their dashboard once you publish."
+          : "Once you publish, the people it is for see it on their dashboard and get it by email."
       }
       footer={
         <div className="flex flex-wrap justify-end gap-2">
@@ -258,7 +283,25 @@ export function AnnouncementForm({
             checked={audience === "DEPARTMENTS"}
             onChange={() => setAudience("DEPARTMENTS")}
           />
+          <Radio
+            name="announcement-audience"
+            label="Specific people"
+            description="Only the people you add below. Nobody else sees it."
+            checked={audience === "PEOPLE"}
+            onChange={() => setAudience("PEOPLE")}
+          />
         </fieldset>
+
+        {audience === "PEOPLE" && (
+          <div className="flex flex-col gap-2.5 rounded-lg border border-line p-3.5">
+            <PeoplePicker value={people} onChange={setPeople} />
+            {audienceProblem && (
+              <p className="text-body-sm text-warning-text">
+                {audienceProblem}
+              </p>
+            )}
+          </div>
+        )}
 
         {audience === "DEPARTMENTS" && (
           <div className="flex flex-col gap-2.5 rounded-lg border border-line p-3.5">
@@ -290,6 +333,13 @@ export function AnnouncementForm({
             )}
           </div>
         )}
+
+        <NoticeImageField
+          current={notice?.image ?? null}
+          value={image}
+          onChange={setImage}
+          onBusyChange={setReading}
+        />
 
         <Field
           label="Take it down on"

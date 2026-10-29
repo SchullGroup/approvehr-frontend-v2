@@ -37,6 +37,7 @@ import {
   useToast,
   type TabItem,
 } from "@/components/ui";
+import { NoticeImage } from "@/components/announcements/notice-image";
 import { InfoTooltip } from "@/components/ui/field";
 import { announcementsApi } from "@/lib/api/announcements";
 import { ApiError } from "@/lib/api/client";
@@ -693,6 +694,9 @@ function TodayBody({ today }: { today: MeToday }) {
       >
         {viewing && (
           <div className="flex flex-col gap-3">
+            {viewing.personal && (
+              <p className="text-meta text-muted">Sent to you</p>
+            )}
             {viewing.departmentNames.length > 0 && (
               <p className="text-meta text-muted">
                 For {viewing.departmentNames.join(", ")}
@@ -705,6 +709,9 @@ function TodayBody({ today }: { today: MeToday }) {
             <p className="whitespace-pre-line text-body-sm leading-relaxed text-body">
               {viewing.body}
             </p>
+            {viewing.hasImage && (
+              <NoticeImage id={viewing.id} alt={viewing.title} />
+            )}
           </div>
         )}
       </Modal>
