@@ -553,6 +553,15 @@ export const leaveApi = {
       method: "DELETE",
     }),
 
+  /**
+   * Delete one for good. The API refuses with a 409 once anybody has booked
+   * it, and says to switch it off instead.
+   */
+  deleteType: (id: string): Promise<{ name: string }> =>
+    request<{ name: string }>(`/leave/types/${id}/permanent`, {
+      method: "DELETE",
+    }),
+
   restoreType: (id: string): Promise<{ name: string }> =>
     request<{ name: string }>(`/leave/types/${id}/restore`, { method: "POST" }),
 

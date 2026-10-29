@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArchiveX, Check, Info, Lock, Plus, RotateCcw } from "lucide-react";
+import {
+  ArchiveX,
+  Check,
+  Info,
+  Lock,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -275,6 +283,9 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
   /** The row whose switch-off confirm is open. */
   const [archiving, setArchiving] = useState<TypeRow | null>(null);
   const [archiveBusy, setArchiveBusy] = useState(false);
+  /** The row whose delete confirm is open. */
+  const [deleting, setDeleting] = useState<TypeRow | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   /**
    * Types switched off in this session — the only restore surface there can
    * be, for now. `GET /leave/types` filters archived rows out with no way to
@@ -450,6 +461,37 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
     }
   }
 
+  /**
+   * Delete a type for good — for one added by mistake. The API refuses once
+   * anybody has booked it, and its message says to switch it off instead, so
+   * the toast passes that on rather than a generic failure.
+   */
+  async function deleteType() {
+    if (!deleting?.id) return;
+    setDeleteBusy(true);
+    try {
+      const result = await leaveApi.deleteType(deleting.id);
+      setDeleting(null);
+      setTick((t) => t + 1);
+      toast.push({
+        title: `${result.name} deleted`,
+        tone: "success",
+        detail: "Nobody had booked it, so nothing was lost.",
+      });
+    } catch (error) {
+      toast.push({
+        title: "That was not deleted",
+        tone: "danger",
+        detail:
+          error instanceof ApiError
+            ? error.message
+            : "Something went wrong. Try again.",
+      });
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
   async function restoreType(row: { id: string; name: string }) {
     try {
       await leaveApi.restoreType(row.id);
@@ -521,7 +563,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                 <Card>
                   <CardHeader
                     title="Leave types"
-                    description="Statutory minimums in Nigeria are a floor, not a ceiling: a company may grant more. Changes here save as you make them."
+                    description="Statutory minimums in Nigeria are a floor, not a ceiling: a company may grant more. Notice is how many days before the first day off someone should ask; 0 means no notice. Changes here save as you make them."
                     action={
                       <div className="flex items-center gap-2">
                         {/* Whether the last edit landed. These fields autosave on
@@ -557,7 +599,7 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                             <TH align="right">Days a year</TH>
                             <TH>Accrual</TH>
                             <TH align="right">Carry over</TH>
-                            <TH align="right">Notice</TH>
+                            <TH align="right">Notice (days)</TH>
                             <TH>Evidence</TH>
                             <TH>Who</TH>
                             {isConnected && (
@@ -671,9 +713,10 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     }
                                   />
                                 </TD>
-                                {/* Switch off, never delete. Requests and balances point
+                                {/* Switch off by default. Requests and balances point
                                 at the row, so the API archives it: history keeps
-                                resolving, the booking form drops it. Absent in demo
+                                resolving, the booking form drops it. Delete is for a
+                                type nobody has booked; the API refuses the rest. Absent in demo
                                 mode with the same reasoning as the Add button. It
                                 lives in the row's menu rather than as a button of its
                                 own: it is the least-used thing on the row and the
@@ -689,6 +732,13 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                           tone: "danger",
                                           disabled: !type.id,
                                           onSelect: () => setArchiving(type),
+                                        },
+                                        {
+                                          label: "Delete",
+                                          icon: <Trash2 aria-hidden="true" />,
+                                          tone: "danger",
+                                          disabled: !type.id,
+                                          onSelect: () => setDeleting(type),
                                         },
                                       ]}
                                     />
@@ -731,7 +781,10 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                     />
                                   </Field>
 
-                                  <Field label="Notice">
+                                  <Field
+                                    label="Notice (days)"
+                                    help="Days before the first day off that someone should ask. 0 means no notice."
+                                  >
                                     <Input
                                       type="number"
                                       min={0}
@@ -821,19 +874,34 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                                 </div>
 
                                 {isConnected && (
-                                  <Button
-                                    variant="ghost"
-                                    size="md"
-                                    className="min-h-11 self-start"
-                                    disabled={!type.id}
-                                    onClick={() => setArchiving(type)}
-                                  >
-                                    <ArchiveX
-                                      aria-hidden="true"
-                                      className="size-3.5"
-                                    />
-                                    Switch off
-                                  </Button>
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="md"
+                                      className="min-h-11"
+                                      disabled={!type.id}
+                                      onClick={() => setArchiving(type)}
+                                    >
+                                      <ArchiveX
+                                        aria-hidden="true"
+                                        className="size-3.5"
+                                      />
+                                      Switch off
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="md"
+                                      className="min-h-11"
+                                      disabled={!type.id}
+                                      onClick={() => setDeleting(type)}
+                                    >
+                                      <Trash2
+                                        aria-hidden="true"
+                                        className="size-3.5"
+                                      />
+                                      Delete
+                                    </Button>
+                                  </div>
                                 )}
                               </div>
                             </Disclosure>
@@ -1058,6 +1126,29 @@ function Policy({ initialTab }: { initialTab: LeaveTab }) {
                 The name stays taken: adding a type called{" "}
                 <strong>{archiving?.name}</strong> later is refused in favour of
                 turning this one back on.
+              </span>
+            </span>
+          }
+        />
+
+        <ConfirmDialog
+          open={deleting !== null}
+          onClose={() => setDeleting(null)}
+          onConfirm={() => void deleteType()}
+          loading={deleteBusy}
+          tone="danger"
+          title={`Delete ${deleting?.name ?? "this leave type"}?`}
+          confirmLabel="Delete it"
+          body={
+            <span className="flex flex-col gap-2.5">
+              <span>
+                Gone for good, with everybody&rsquo;s balance for it. This
+                cannot be undone, and the name is free to use again.
+              </span>
+              <span>
+                Only a type nobody has booked can be deleted. If anyone has
+                asked for it, even once, you will be told to switch it off
+                instead, so their leave keeps its record.
               </span>
             </span>
           }
