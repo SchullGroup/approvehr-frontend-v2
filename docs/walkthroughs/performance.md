@@ -378,7 +378,11 @@ The three settings on a question:
   do, with its name on them, and it is rated under **Record a level**.
 
 > ✅ **Shortcut.** There is a **Copy from** control that lifts every question off a previous period.
-> On a second period this is the whole of this step.
+> On a second period this is the whole of this step. If that period asked a subsection on its review
+> form and the subsection has since been switched off or removed, the question is left behind, and a
+> line above the list says so in the API's own words: _Copied 2 questions. Left out: "Teamwork" (it is
+> switched off)._, or _Nothing was copied._ in front of it when nothing arrived. The line goes when the
+> next copy starts or the dialog closes.
 
 The dialog has two views, switched at the top: **All questions** (the form as described above, and the
 one it opens on) and **By section**. They are one list of questions seen two ways: a question written in
