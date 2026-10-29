@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { CheckedRowFacts, Dictionary } from "./spec";
 import type { TemplateLists } from "./template-file";
 
@@ -109,6 +110,20 @@ export type ImportSurface = {
    * given surface, so it is called unconditionally.
    */
   useTemplateLists?: () => { lists: TemplateLists; ready: boolean };
+  /**
+   * What the file cannot say and the screen has to, sent with both steps as the
+   * API's `context` — the year a sheet of DD/MM holiday dates lands in.
+   *
+   * `control` is rendered under the steps, so it can be changed at any point;
+   * changing a value after a check sends the flow back to re-check, because the
+   * API's fingerprint covers the context and the old check is for other rows.
+   * Absent for every entity whose file says everything about itself. Always the
+   * same hook for a given surface, so it is called unconditionally.
+   */
+  useImportContext?: () => {
+    values: Readonly<Record<string, string>>;
+    control: ReactNode;
+  };
   /**
    * What somebody without access is told. Absent means the pay-records wording,
    * which is true of the entities that are gated by `IMPORT_DATA` and false of
