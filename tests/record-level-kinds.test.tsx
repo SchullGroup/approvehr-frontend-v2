@@ -90,6 +90,13 @@ vi.mock("@/lib/store/performance", () => ({
     error: null,
   }),
   useAppraisals: () => ({ cycles, loading: false }),
+  /* Nobody has an answer on record here: these tests are about what is asked. */
+  useSkills: () => ({
+    skills: null,
+    loading: false,
+    error: null,
+    reload: () => {},
+  }),
 }));
 vi.mock("@/lib/store/employees-api", () => ({
   useEmployeeDirectory: () => ({ people: PEOPLE }),

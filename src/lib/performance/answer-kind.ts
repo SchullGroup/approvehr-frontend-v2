@@ -159,6 +159,12 @@ export type ChoiceDraft = {
   id?: string;
   label: string;
   score: string;
+  /**
+   * How many ratings picked this choice, as the API counted them. Carried only for
+   * a saved choice from a server that says; absent means no claim, and the choice
+   * is not treated as fixed.
+   */
+  picks?: number;
 };
 
 export function draftsFrom(options: readonly ApiChoiceOption[]): ChoiceDraft[] {
@@ -167,7 +173,31 @@ export function draftsFrom(options: readonly ApiChoiceOption[]): ChoiceDraft[] {
     id: option.id,
     label: option.label,
     score: scoreText(option.scoreBp),
+    ...(option.ratingCount !== undefined ? { picks: option.ratingCount } : {}),
   }));
+}
+
+/**
+ * Whether a row's score can no longer be changed.
+ *
+ * The API refuses to change the score of a choice that any rating has picked,
+ * because it would change marks people were already given. A row is fixed only
+ * where the API said so: a choice added in this editor has not been saved and so
+ * has no ratings, and one from a server that sends no count is not claimed to be.
+ * The label and the place in the list are free either way.
+ */
+export function scoreIsFixed(draft: ChoiceDraft): boolean {
+  return draft.id !== undefined && (draft.picks ?? 0) > 0;
+}
+
+/**
+ * Why a score is fixed, and what to do instead, before a save is refused.
+ *
+ * The refusal itself, if it ever comes, is the API's own sentence and is shown as
+ * it is. This is the same fact said earlier, in the place the field is.
+ */
+export function fixedScoreReason(picks: number): string {
+  return `Picked ${String(picks)} ${picks === 1 ? "time" : "times"}, so its score is fixed. Add a new choice to score it differently.`;
 }
 
 /** The body `PUT .../choice-options` takes, or `null` if any row is not a score. */

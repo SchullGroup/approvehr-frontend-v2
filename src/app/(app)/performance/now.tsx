@@ -11,6 +11,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import {
+  AttentionMark,
   Badge,
   Button,
   ButtonLink,
@@ -1141,7 +1142,7 @@ function TaskRow({
  * it**. A single "· name" that always showed the subject printed your own name
  * back at you.
  */
-function ReviewRow({
+export function ReviewRow({
   review,
   context,
   actionLabel,
@@ -1175,6 +1176,14 @@ function ReviewRow({
         <p className="text-body-sm font-medium text-ink">
           {review.kindLabel}
           {who ? (context === "owed" ? ` · ${who}` : ` · from ${who}`) : ""}
+          {/* Send is closed on this form until the employee has sent theirs, in
+              the API's own sentence and never one written here. Beside the name
+              rather than a banner, and only where the work is: the same form
+              says it again at the start of the answer flow. Renders nothing when
+              the API sent nothing or `null`. */}
+          {context === "owed" && (
+            <AttentionMark text={review.sendBlockedBy} className="ml-1.5" />
+          )}
         </p>
         <p className="mt-1 flex flex-wrap items-center gap-2 text-meta text-muted">
           <span>{review.cycleName}</span>
