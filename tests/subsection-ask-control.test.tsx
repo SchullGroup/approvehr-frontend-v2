@@ -9,11 +9,13 @@ import type { SubsectionAsk } from "@/lib/performance/subsection-ask";
 /**
  * **Ask it on the review form**, under how a subsection is answered.
  *
- * What `tsc` cannot see: "Both" sent as one audience, "Not asked" sent as a write
- * with nobody in it, a refusal replaced by "Something went wrong", a control that
- * flips back to the old value for the second the period is being read again, a
- * control that says "Not asked" about a form nobody has read, and a control
- * offered on a period that has already started.
+ * What `tsc` cannot see: a pick that writes before anybody has pressed the button
+ * (the product owner asked twice where to click Add), a button that says Add when
+ * it is going to change or remove, "Both" sent as one audience, "Not asked" sent
+ * as a write with nobody in it, a refusal replaced by "Something went wrong", a
+ * control that flips back to the old value for the second the period is being read
+ * again, a control that says "Not asked" about a form nobody has read, and a
+ * control offered on a period that has already started.
  */
 
 let onAsk: Mock<(...args: unknown[]) => Promise<void>>;
@@ -89,6 +91,18 @@ const show = (
 const control = () =>
   screen.getByLabelText("Ask it on the review form") as HTMLSelectElement;
 const pick = (label: string) => userEvent.selectOptions(control(), label);
+const ADD = "Add to the review form";
+const SAVE = "Save change";
+const TAKE_OFF = "Take it off the form";
+/** The button that writes what is picked, by what it says it will do. */
+const button = (name: string) => screen.getByRole("button", { name });
+const press = (name: string) => userEvent.click(button(name));
+/** Pick, then press the button that says what it is going to do. */
+const choose = async (label: string, action: string) => {
+  await pick(label);
+  await press(action);
+};
+const ALL_ACTIONS = new RegExp(`^(${ADD}|${SAVE}|${TAKE_OFF})$`);
 
 const CONSEQUENCES = {
   manager: "Recorded when the manager sends their review.",
@@ -143,10 +157,98 @@ describe("the four choices", () => {
   });
 });
 
-describe("choosing one", () => {
+describe("picking one", () => {
+  it("writes nothing by itself", async () => {
+    show();
+    await pick("Both");
+    expect(onAsk).not.toHaveBeenCalled();
+    expect(onStop).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing by itself when taking it off either", async () => {
+    held = ["MANAGER"];
+    show();
+    await pick("Not asked");
+    expect(onAsk).not.toHaveBeenCalled();
+    expect(onStop).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing when the choice is the one already there, and there is nothing to press", async () => {
+    held = ["MANAGER"];
+    show();
+    await pick("The manager");
+    expect(
+      screen.queryByRole("button", { name: ALL_ACTIONS }),
+    ).not.toBeInTheDocument();
+    expect(onAsk).not.toHaveBeenCalled();
+    expect(onStop).not.toHaveBeenCalled();
+  });
+});
+
+describe("the button", () => {
+  it("is there from the start, switched off, and says Add to the review form", () => {
+    show();
+    expect(button(ADD)).toBeDisabled();
+  });
+
+  it("is switched on once somebody is chosen", async () => {
+    show();
+    await pick("Both");
+    expect(button(ADD)).toBeEnabled();
+  });
+
+  it("is switched off again when the pick goes back to Not asked", async () => {
+    show();
+    await pick("Both");
+    await pick("Not asked");
+    expect(button(ADD)).toBeDisabled();
+  });
+
+  it("is replaced by On the review form while the period asks it, with nothing to press", () => {
+    held = ["MANAGER"];
+    show();
+    expect(screen.getByText("On the review form")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: ALL_ACTIONS }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("says Save change, and not Add, when it is on the form and somebody else is chosen", async () => {
+    held = ["MANAGER"];
+    show();
+    await pick("Both");
+    expect(button(SAVE)).toBeEnabled();
+    expect(screen.queryByRole("button", { name: ADD })).not.toBeInTheDocument();
+    expect(screen.queryByText("On the review form")).not.toBeInTheDocument();
+  });
+
+  it("says Take it off the form for Not asked, and not Save change", async () => {
+    held = ["MANAGER"];
+    show();
+    await pick("Not asked");
+    expect(button(TAKE_OFF)).toBeEnabled();
+    expect(
+      screen.queryByRole("button", { name: SAVE }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("goes back to nothing to press when the pick returns to what the period holds", async () => {
+    held = ["MANAGER"];
+    show();
+    await pick("Both");
+    expect(button(SAVE)).toBeInTheDocument();
+    await pick("The manager");
+    expect(
+      screen.queryByRole("button", { name: ALL_ACTIONS }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("On the review form")).toBeInTheDocument();
+  });
+});
+
+describe("pressing it", () => {
   it("asks the manager alone", async () => {
     const { onChanged } = show();
-    await pick("The manager");
+    await choose("The manager", ADD);
     await waitFor(() => expect(onAsk).toHaveBeenCalledTimes(1));
     expect(onAsk).toHaveBeenCalledWith("c1", ["MANAGER"]);
     expect(onStop).not.toHaveBeenCalled();
@@ -155,13 +257,13 @@ describe("choosing one", () => {
 
   it("asks the employee alone", async () => {
     show();
-    await pick("The employee");
+    await choose("The employee", ADD);
     await waitFor(() => expect(onAsk).toHaveBeenCalledWith("c1", ["SELF"]));
   });
 
   it("asks both, the person and then their manager, and nobody else", async () => {
     show();
-    await pick("Both");
+    await choose("Both", ADD);
     await waitFor(() => expect(onAsk).toHaveBeenCalledTimes(1));
     expect(onAsk).toHaveBeenCalledWith("c1", ["SELF", "MANAGER"]);
   });
@@ -169,7 +271,7 @@ describe("choosing one", () => {
   it("changes who is asked with the same write that put it there", async () => {
     held = ["MANAGER"];
     show();
-    await pick("Both");
+    await choose("Both", SAVE);
     await waitFor(() =>
       expect(onAsk).toHaveBeenCalledWith("c1", ["SELF", "MANAGER"]),
     );
@@ -179,34 +281,40 @@ describe("choosing one", () => {
   it("takes it off the form for Not asked, which is a stop and never a write with nobody in it", async () => {
     held = ["MANAGER"];
     const { onChanged } = show();
-    await pick("Not asked");
+    await choose("Not asked", TAKE_OFF);
     await waitFor(() => expect(onStop).toHaveBeenCalledWith("c1"));
     expect(onAsk).not.toHaveBeenCalled();
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
   });
 
-  it("sends nothing when the choice is the one already there", async () => {
-    held = ["MANAGER"];
+  it("leaves On the review form where the button was, once it has gone through", async () => {
     show();
-    await pick("The manager");
-    expect(onAsk).not.toHaveBeenCalled();
-    expect(onStop).not.toHaveBeenCalled();
+    await choose("Both", ADD);
+    expect(await screen.findByText("On the review form")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: ALL_ACTIONS }),
+    ).not.toBeInTheDocument();
   });
 
-  it("is written the moment it is picked, with nothing to save", () => {
-    show();
-    expect(
-      screen.queryByRole("button", { name: /^Save/ }),
-    ).not.toBeInTheDocument();
+  it("goes back to a switched-off Add once it has been taken off", async () => {
+    held = ["MANAGER"];
+    const { again } = show();
+    await choose("Not asked", TAKE_OFF);
+    await waitFor(() => expect(onStop).toHaveBeenCalled());
+    held = null;
+    again();
+    expect(button(ADD)).toBeDisabled();
+    expect(screen.queryByText("On the review form")).not.toBeInTheDocument();
   });
 });
 
 describe("saying it was saved", () => {
-  /* There is no Add button, so a person who has picked Both looks for one. These
-     are the only sign that the pick already took. */
+  /* The button is replaced by On the review form, which stays. This is what says
+     what happened, to whom, and where to find the question, and it is gone in six
+     seconds. */
   it("says it was added, to whom, and where to find it, once the write has gone through", async () => {
     show();
-    await pick("Both");
+    await choose("Both", ADD);
     expect(
       await screen.findByText("Adaptability added to the review form"),
     ).toBeInTheDocument();
@@ -218,7 +326,7 @@ describe("saying it was saved", () => {
   it("says the form was updated when it was already on it", async () => {
     held = ["MANAGER"];
     show();
-    await pick("Both");
+    await choose("Both", SAVE);
     expect(
       await screen.findByText("Adaptability updated on the review form"),
     ).toBeInTheDocument();
@@ -230,7 +338,7 @@ describe("saying it was saved", () => {
   it("says it came off for Not asked", async () => {
     held = ["MANAGER"];
     show();
-    await pick("Not asked");
+    await choose("Not asked", TAKE_OFF);
     expect(
       await screen.findByText("Adaptability taken off the review form"),
     ).toBeInTheDocument();
@@ -243,7 +351,7 @@ describe("saying it was saved", () => {
     const sentence = "H2 2026 Appraisal has started.";
     onAsk.mockRejectedValue(new ApiError(409, "conflict", sentence));
     show();
-    await pick("Both");
+    await choose("Both", ADD);
     expect(await screen.findByText(sentence)).toBeInTheDocument();
     expect(
       screen.queryByText("Adaptability added to the review form"),
@@ -253,10 +361,10 @@ describe("saying it was saved", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("says nothing when the choice is the one already there", async () => {
+  it("says nothing about a pick that has not been pressed", async () => {
     held = ["MANAGER"];
     show();
-    await pick("The manager");
+    await pick("Both");
     expect(
       screen.queryByText("Adaptability added to the review form"),
     ).not.toBeInTheDocument();
@@ -305,7 +413,7 @@ describe("what choosing it means", () => {
 describe("while the period is read again after a write", () => {
   it("shows what was just written at once, and does not flip back to the old value", async () => {
     const { again } = show();
-    await pick("The manager");
+    await choose("The manager", ADD);
     await waitFor(() => expect(onAsk).toHaveBeenCalled());
 
     /* The write landed and the period has not been read again: the panel is
@@ -319,7 +427,7 @@ describe("while the period is read again after a write", () => {
 
   it("believes the period once it has moved, and a stale write does not come back", async () => {
     const { again } = show();
-    await pick("The manager");
+    await choose("The manager", ADD);
     await waitFor(() => expect(onAsk).toHaveBeenCalled());
 
     /* The read landed with what was written. */
@@ -352,12 +460,15 @@ describe("a refusal", () => {
     onStop.mockRejectedValue(new ApiError(409, "conflict", refusal));
     const { onChanged } = show();
 
-    await pick("Not asked");
+    await choose("Not asked", TAKE_OFF);
 
     expect(await screen.findByText(refusal)).toBeInTheDocument();
     expect(control().value).toBe("manager");
     expect(control()).toHaveAttribute("aria-invalid", "true");
     expect(onChanged).not.toHaveBeenCalled();
+    /* Back on what the period holds, so it does not say a thing is off the form
+       that is still on it. */
+    expect(screen.getByText("On the review form")).toBeInTheDocument();
   });
 
   it("is shown as it comes for a write that puts it on the form", async () => {
@@ -366,10 +477,11 @@ describe("a refusal", () => {
     onAsk.mockRejectedValue(new ApiError(422, "invalid", sentence));
     show();
 
-    await pick("Both");
+    await choose("Both", ADD);
 
     expect(await screen.findByText(sentence)).toBeInTheDocument();
     expect(control().value).toBe("none");
+    expect(button(ADD)).toBeDisabled();
   });
 
   it("is not a vague failure for something the server said in words", async () => {
@@ -377,7 +489,7 @@ describe("a refusal", () => {
       new ApiError(409, "conflict", "H2 2026 Appraisal has started."),
     );
     show();
-    await pick("The manager");
+    await choose("The manager", ADD);
     expect(
       await screen.findByText("H2 2026 Appraisal has started."),
     ).toBeInTheDocument();
@@ -386,18 +498,17 @@ describe("a refusal", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("goes when the next choice is made", async () => {
+  it("goes as soon as another choice is made, which is before it is pressed", async () => {
     onAsk
       .mockRejectedValueOnce(new ApiError(409, "conflict", refusal))
       .mockResolvedValueOnce(undefined);
     show();
-    await pick("The manager");
+    await choose("The manager", ADD);
     expect(await screen.findByText(refusal)).toBeInTheDocument();
 
     await pick("The employee");
-    await waitFor(() =>
-      expect(screen.queryByText(refusal)).not.toBeInTheDocument(),
-    );
+    expect(screen.queryByText(refusal)).not.toBeInTheDocument();
+    expect(onAsk).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -412,6 +523,11 @@ describe("when it cannot be changed", () => {
         "H2 2026 Appraisal has started, so this can no longer change.",
       ),
     ).toBeInTheDocument();
+    /* A button that could never be pressed is a dead control, so there is none. */
+    expect(
+      screen.queryByRole("button", { name: ALL_ACTIONS }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("On the review form")).not.toBeInTheDocument();
   });
 
   it("says nothing about a period that has not started", () => {
@@ -426,6 +542,9 @@ describe("when it cannot be changed", () => {
       whyNot: "Only somebody who can manage settings can change this.",
     });
     expect(control()).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: ALL_ACTIONS }),
+    ).not.toBeInTheDocument();
   });
 
   it("is switched off while a write is on its way, so a second press cannot cross it", async () => {
@@ -436,8 +555,10 @@ describe("when it cannot be changed", () => {
       }),
     );
     show();
-    await pick("The manager");
+    await choose("The manager", ADD);
     await waitFor(() => expect(control()).toBeDisabled());
+    expect(button(ADD)).toBeDisabled();
+    expect(button(ADD)).toHaveAttribute("aria-busy", "true");
     expect(onAsk).toHaveBeenCalledTimes(1);
 
     finish();
@@ -472,12 +593,14 @@ describe("a pick-one subsection", () => {
         "It needs at least two choices before a form can ask it.",
       ),
     ).toBeInTheDocument();
+    /* Nothing can be chosen, so the button has nothing to do. */
+    expect(button(ADD)).toBeDisabled();
   });
 
   it("can still be taken off the form, which is the way out if it somehow got on", async () => {
     held = ["MANAGER"];
     show(competency({ answerKind: "CHOICE", choiceOptions: [] }));
-    await pick("Not asked");
+    await choose("Not asked", TAKE_OFF);
     await waitFor(() => expect(onStop).toHaveBeenCalledWith("c1"));
   });
 
@@ -496,7 +619,7 @@ describe("a pick-one subsection", () => {
         "It needs at least two choices before a form can ask it.",
       ),
     ).not.toBeInTheDocument();
-    await pick("Both");
+    await choose("Both", ADD);
     await waitFor(() =>
       expect(onAsk).toHaveBeenCalledWith("c1", ["SELF", "MANAGER"]),
     );
