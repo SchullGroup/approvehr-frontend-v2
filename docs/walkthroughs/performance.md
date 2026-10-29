@@ -391,8 +391,10 @@ Writing them, in either view:
 - A question is read only until you press its **pencil**. The form then opens _in that row's place_, filled
   in, with the cursor in it, and **Save changes** or **Cancel** puts the row back. The form under the list
   steps aside until then.
-- The **bin** asks on the row first: _Remove this question?_ with **Remove** or **Keep** (focus is on
-  **Keep**). If the question cannot be removed, the reason is under that row in the server's own words.
+- The **bin** asks on the row first: **Remove** and **Keep** take the place of the pencil and the bin, and
+  hovering either says what it does. Focus is on **Keep**, so Enter keeps the question. **Keep** puts the row
+  back exactly as it was, with the focus on the bin. If the question cannot be removed, the reason is under
+  that row in the server's own words.
 - A question can be up to 300 characters. The box counts from 250 (_260 of 300 characters_), and one over
   the limit is refused before it is sent. A pick-from-a-list question takes up to ten choices, and **Add a
   choice** is switched off at ten (_Ten is the most a question can have._).

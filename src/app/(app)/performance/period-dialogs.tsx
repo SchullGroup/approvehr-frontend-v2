@@ -1593,6 +1593,19 @@ function QuestionRow({
  * between a slip and a gone question. The question is part of what this period's
  * people are asked, so being sure costs one more press. Focus lands on **Keep**:
  * the safe answer is the one Enter gives.
+ *
+ * The ask is two buttons and no sentence. They take the place of the two icons on
+ * the row being removed, so which question it is cannot be in doubt, and a sentence
+ * beside them only made the row wrap on a phone. The group is named for assistive
+ * technology (`Remove "<question>"?`), and each button says what it does on hover.
+ * A hover cannot be seen on a touch screen, so the names carry the meaning and the
+ * titles only add to it. **Keep** is last, where the bin was: a second tap on the
+ * bin lands on the safe answer.
+ *
+ * Keep puts everything back as it was, and the focus with it. The button that had
+ * the focus is gone once the ask closes, and the focus would fall to the page, so
+ * somebody on a keyboard would find their next Tab starting from the top of the
+ * dialog. It returns to the bin they pressed instead.
  */
 function QuestionRowActions({
   question,
@@ -1606,19 +1619,27 @@ function QuestionRowActions({
   onRemove: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const bin = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef(false);
+
+  useEffect(() => {
+    if (confirming || !returnFocus.current) return;
+    returnFocus.current = false;
+    bin.current?.focus();
+  }, [confirming]);
 
   if (confirming) {
     return (
       <span
         role="group"
         aria-label={`Remove "${question.prompt}"?`}
-        className="flex w-full flex-wrap items-center justify-end gap-2"
+        className="ml-auto flex shrink-0 gap-2"
       >
-        <span className="text-body-sm text-ink">Remove this question?</span>
         <Button
           type="button"
           variant="danger"
           size="sm"
+          title="Remove this question for good"
           disabled={disabled}
           onClick={() => {
             setConfirming(false);
@@ -1631,8 +1652,12 @@ function QuestionRowActions({
           type="button"
           variant="ghost"
           size="sm"
+          title="Keep this question"
           autoFocus
-          onClick={() => setConfirming(false)}
+          onClick={() => {
+            returnFocus.current = true;
+            setConfirming(false);
+          }}
         >
           Keep
         </Button>
@@ -1650,6 +1675,7 @@ function QuestionRowActions({
         <Pencil aria-hidden="true" />
       </IconButton>
       <IconButton
+        ref={bin}
         label={`Remove "${question.prompt}"`}
         disabled={disabled}
         onClick={() => setConfirming(true)}

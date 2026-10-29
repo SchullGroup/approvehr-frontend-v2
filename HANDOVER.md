@@ -10442,7 +10442,14 @@ off the source, which is why the one thing that looked likely and was not is on 
   on. The form under the list steps aside while one is open; if the question being changed is not in the list (somebody
   else removed it) it comes back, so there is never a dead end with no form.
 - **Remove asks on the row**, not in a second dialog over this one, with focus on **Keep**. A failure is reported **on that
-  row** (`rowErrors`) and not above the form at the bottom, which is where it used to land.
+  row** (`rowErrors`) and not above the form at the bottom, which is where it used to land. The ask is **two buttons and
+  no sentence**, Remove then Keep, in the place of the two icons: the first version added "Remove this question?" beside
+  them and it had no job. Which question it is cannot be in doubt (it is the row the buttons are on), the group is named
+  `Remove "<question>"?` for assistive technology, and the sentence only made the row wrap on a phone, with **Keep**
+  alone on a second line. Each button has a hover `title`, which adds to the name and never replaces it, because a touch
+  screen has no hover. **Keep is last, where the bin was**, so a second tap on the bin lands on the safe answer. Keep also
+  returns the focus to the bin: the button that had it is gone once the ask closes, and the focus would fall to the page.
+  Removing a row does not do that (the row is gone, and so is the place to return to).
 - **Closing with an unsent question asks** (`unsentQuestion`, `requestClose`). Done, the cross and Escape all come through
   it. A new question counts once it has words in it; a changed one counts when any of the words, the kind, the
   requirement, the audience, the filing or the choices differ from what was saved. **Add it and close** closes only if
@@ -10473,15 +10480,20 @@ off the source, which is why the one thing that looked likely and was not is on 
 
 ## Verified
 
-219 tests in the nine files that touch the dialog. Every behaviour above was broken on purpose and a test failed for it,
-in four runs (13 cases, 8 cases, four for the manager popup, and the three ways the Subsection label can be wrong), plus
-the shadowing bug reproduced faithfully: it fails exactly the four pick-from-a-list tests. The typecheck caught one real
-error (two calls to `questionCounter` cannot be narrowed to a string, so `help` could be `null`).
+223 tests in the nine files that touch the dialog. Every behaviour above was broken on purpose and a test failed for it,
+in five runs (13 cases, 8 cases, four for the manager popup, the three ways the Subsection label can be wrong, and the
+four ways the Remove / Keep ask can be wrong), plus the shadowing bug reproduced faithfully: it fails exactly the four
+pick-from-a-list tests. The typecheck caught one real error (two calls to `questionCounter` cannot be narrowed to a
+string, so `help` could be `null`).
 
-In a real browser (a dev server of this branch against the scratch API, 1280 wide): five questions added by Enter with the
-cursor staying in the box; Edit opening in the row's place with the cursor in the field; Remove asking on the row with
-focus on Keep; Add question on the By-section rows opening on Questions; two added there and the same seven in All
-questions; no console errors and no sideways scroll. Screens are in `/tmp/pv` only, not committed.
+In a real browser (a dev server of this branch against the scratch API), at 1280 wide and at 375x812 with a touch
+pointer: five questions added by Enter with the cursor staying in the box; Edit opening in the row's place with the
+cursor in the field; Remove asking on the row, the two buttons in the exact place of the two icons (same position and
+right edge, so the row does not grow), focus on Keep, and after Keep from the keyboard the focus on that row's bin; Add
+question on the By-section rows opening on Questions; two added there and the same seven in All questions; no console
+errors and no sideways scroll. Screens are in `/tmp/pv` only, not committed. The Subsection dropdown's wording was
+checked by tests only: a native dropdown does not photograph, and the scratch company has no yes-or-no or pick-one
+subsection (adding one would have changed the state the video is recorded from).
 
 ## Not done
 
@@ -10492,6 +10504,9 @@ questions; no console errors and no sideways scroll. Screens are in `/tmp/pv` on
   Closing it means By section reaching parity first.
 - **A question's edited words are stale for the length of one request** after it is saved, until the re-read lands. The
   list is not blanked (it never was), so it shows the old words for a moment rather than a spinner.
+- **On a blank period at 375px the question box is below the first screen** (y=851 of 812): the quick-start card, then
+  Section and Subsection, come before it, so a phone needs one scroll. Once a question exists the list sits above the box
+  anyway. Measured, not changed: a reorder would put the wording before where it is filed, which is a layout decision.
 - **How a directly rated subsection is shown on its row** is still the old badge ("Rated", "Yes or no", "Pick one"). It
   does not say a manager records it under Competency ratings, has no rating count, and gives no warning on a pick-one
   subsection that has no choices yet. Raised by the product owner and not changed here. The Subsection _dropdown_ in All

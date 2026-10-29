@@ -504,9 +504,40 @@ describe("removing a question", () => {
     const ask = screen.getByRole("group", {
       name: `Remove "${GOT_IN_THE_WAY}"?`,
     });
-    expect(ask).toHaveTextContent("Remove this question?");
     expect(rowOf(GOT_IN_THE_WAY)).toContainElement(ask);
     expect(onRemove).not.toHaveBeenCalled();
+  });
+
+  it("is two buttons and no sentence, with Keep last, where the bin was", async () => {
+    mount();
+    await userEvent.click(bin(GOT_IN_THE_WAY));
+
+    const ask = screen.getByRole("group", {
+      name: `Remove "${GOT_IN_THE_WAY}"?`,
+    });
+    /* The buttons replace the icons on that row, so which question it is is not in
+       doubt, and a sentence beside them is what made the row wrap on a phone. Keep
+       is last so that a second tap on the bin lands on the safe answer. */
+    expect(ask).toHaveTextContent(/^RemoveKeep$/);
+    expect(
+      within(ask)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Remove", "Keep"]);
+  });
+
+  it("says what each button does on hover, because a touch screen has the names", async () => {
+    mount();
+    await userEvent.click(bin(GOT_IN_THE_WAY));
+
+    expect(screen.getByRole("button", { name: "Remove" })).toHaveAttribute(
+      "title",
+      "Remove this question for good",
+    );
+    expect(screen.getByRole("button", { name: "Keep" })).toHaveAttribute(
+      "title",
+      "Keep this question",
+    );
   });
 
   it("puts the focus on Keep, so the answer Enter gives is the safe one", async () => {
@@ -524,6 +555,25 @@ describe("removing a question", () => {
     expect(onRemove).not.toHaveBeenCalled();
     expect(screen.queryByRole("group")).not.toBeInTheDocument();
     expect(bin(GOT_IN_THE_WAY)).toBeInTheDocument();
+  });
+
+  it("puts the focus back on the bin when Keep is pressed, so the next Tab starts from the row", async () => {
+    mount();
+    await userEvent.click(bin(GOT_IN_THE_WAY));
+
+    await userEvent.click(screen.getByRole("button", { name: "Keep" }));
+
+    expect(bin(GOT_IN_THE_WAY)).toHaveFocus();
+  });
+
+  it("does the same when Keep is answered from the keyboard, where it already has the focus", async () => {
+    const { onRemove } = mount();
+    await userEvent.click(bin(GOT_IN_THE_WAY));
+
+    await userEvent.keyboard("{Enter}");
+
+    expect(onRemove).not.toHaveBeenCalled();
+    expect(bin(GOT_IN_THE_WAY)).toHaveFocus();
   });
 
   it("removes that question, and only it, when Remove is pressed", async () => {
