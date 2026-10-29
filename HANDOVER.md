@@ -10521,3 +10521,333 @@ subsection (adding one would have changed the state the video is recorded from).
   does not say a manager records it under Competency ratings, has no rating count, and gives no warning on a pick-one
   subsection that has no choices yet. Raised by the product owner and not changed here. The Subsection _dropdown_ in All
   questions is changed (see the decision above).
+
+---
+
+# The assistant's suggested questions only ask what the person's lookups can answer
+
+The permission-aware suggested questions on the Assistant page (Tolu Joel's, merged into `main` as #450 on 23 October and
+carried to `dev` by #511) were reviewed on 29 October, when the older copy of the same change, #419, turned out to be a
+duplicate and was closed. The review found two places where a button asked something the assistant cannot answer for the
+person it was offered to. This is the fix, and the test that stops the next one.
+
+## What was wrong
+
+The assistant answers from seven lookups in the API (`src/modules/ai/reads.ts`: `headcount`, `find_people`,
+`payroll_periods`, `payroll_settings`, `my_payslip`, `leave_requests`, `review_periods`), each narrowed to the caller.
+`find_people` needs `EDIT_RECORDS`, the two payroll ones need `VIEW_SALARIES`, and `leave_requests` narrows inside: a
+holder of `APPROVE_LEAVE_ALL` or `EDIT_RECORDS` is given everybody's requests and everybody else their own, the same rule
+as `GET /leave/requests`.
+
+- **A line manager was offered two questions about their team's leave.** "Whose leave requests are waiting for me?" and
+  "Who on my team is on leave?" can only be answered from `leave_requests`, and for a line manager (the seeded role holds
+  `APPROVE_LEAVE` and `MANAGE_HIRING`) that is their own requests: `APPROVE_LEAVE` reaches one report's request when it is
+  decided and lists nobody's. A manager decides their reports' requests in the approvals inbox, which is not one of the
+  assistant's lookups. "There are no approved leave requests" would have been a claim about a team the lookup never
+  looked at, the absent-is-not-zero defect in a sentence.
+- **The Payroll analyst and the Finance approver were offered no payroll question.** It sat inside the `EDIT_RECORDS`
+  branch, and both roles hold `VIEW_SALARIES` and not `EDIT_RECORDS`, while `payroll_periods` and `payroll_settings`, the
+  lookups only they can use, had no button at all.
+
+## What it is now
+
+`lib/assistant-openers.ts` is one table, `OPENERS`. Each question says which lookups answer it (`reads`) and who is
+offered it, by what the person holds and not by the name of a role (a company can make any role it likes, and the API
+decides by permission). That is a `Standing` of three booleans, `EDIT_RECORDS`, `VIEW_SALARIES` and `APPROVE_LEAVE_ALL`,
+read from the permission set once by `standingFrom`. A person is shown the first three that apply, then "What can you do
+for me?".
+
+| Holds | Is offered |
+| --- | --- |
+| none of the three (an employee, **and a line manager**) | their last net pay, the leave they have asked for, the review periods |
+| `EDIT_RECORDS` and `VIEW_SALARIES` (the HR manager, the administrator) | the people with no bank account, the leave still waiting, who is missing something before payday |
+| `VIEW_SALARIES` only (the Payroll analyst, the Finance approver) | who is missing something before payday, what was paid last month, their last net pay |
+| `EDIT_RECORDS` only | the people with no bank account, the leave still waiting, their last net pay |
+| `APPROVE_LEAVE_ALL` only | the leave still waiting, their last net pay, the review periods |
+
+"What leave have I asked for?" is offered only to somebody who is given their own requests: for a holder of
+`APPROVE_LEAVE_ALL` or `EDIT_RECORDS` the lookup returns everybody's, and "mine" would be the wrong word for it. For
+somebody who holds only `VIEW_SALARIES` the payday question is answered with counts (`headcount`); naming the people needs
+`find_people`, which is `EDIT_RECORDS`.
+
+**The sentence above the buttons is made from the buttons.** Each carries the topics it is about and the sentence is those
+topics, in order, with no repeats, so it cannot promise something no button offers. An employee's sentence is the same as
+before, word for word. The administrator's lost "or what you deduct": it was the one topic no button asked (the lookup is
+`payroll_settings`, which still answers if somebody types the question).
+
+## The test that stops the next one
+
+`tests/assistant-openers-lookups.test.ts` reads the API's `reads.ts` as text, the way `verify-template` and the other
+cross-repo gates read theirs, and fails when the table asks something the API would not answer for the person it is
+offered to: a lookup that is gone, a lookup whose permission the person does not hold, a question about everybody's leave
+offered to somebody who is given their own, or the reverse. It also fails when `leave_requests` starts giving
+everybody's requests to a permission `standingFrom` does not look at, and when it stops narrowing everybody else to their
+own. Six cases feed the same checker a source written for the purpose, which is the proof that it can fail; against the
+real file it was also broken three ways in a copy of the backend. It is a vitest file, so it is not in CI's `check`, and
+it skips when there is no backend checkout beside this repo (`scripts/backend-source.ts` says where it looks, and
+`APPROVEHR_BACKEND_DIR` points it at one).
+
+## What did not change
+
+- **The standalone sales demo.** It still offers its four prepared questions to the person it presents as the
+  administrator (`SALES_SCRIPT_ENABLED && who.editsRecords`), and the ternary still sits inside the component function so a
+  production build folds it away with its strings.
+- **What the assistant answers.** Only which questions it is offered.
+- **`/ask`** (the `/ai2` assistant) has three fixed questions, including "What did we spend on overtime last month?".
+  Nothing in the nav or the code links to it, so it is reachable only by typing the address, and it was not touched.
+
+## Verified
+
+Three new test files, 59 tests, all passing (`npx vitest run` on them, with `APPROVEHR_BACKEND_DIR` pointing at the
+backend's `staging`):
+
+- `tests/assistant-openers.test.ts` (44): the table person by person from what the API's seed gives each role, the
+  sentence above the buttons, `standingFrom`, and every combination of the three permissions (eight of them), each of which
+  must show three questions and then the open-ended one, offer only what is in the catalogue for that person, never mix
+  everybody's leave with "mine", and say every topic of every button it shows.
+- `tests/assistant-openers-lookups.test.ts` (10): the check against `reads.ts`; six cases on a source written for the
+  purpose and two on the real file.
+- `tests/assistant-chat-openers.test.tsx` (5): the page itself, rendered with the permission set of an employee, a line
+  manager, the Payroll analyst and the HR manager; and pressing a question puts it in "Your message" and sends nothing.
+
+Twelve deliberate breaks, each made by editing the source and each failing the tests written for it, then restored (the
+three files pass again afterwards, 59 of 59): a question about everybody's leave offered to everyone; the payroll question
+offered to everyone; the payday question put back inside the `EDIT_RECORDS` branch, which is the first version's mistake;
+`seesAllLeave` forgetting `APPROVE_LEAVE_ALL`; "my leave" offered to everyone; the sentence hard-coded to the employee's;
+four questions shown instead of three; the page ignoring what the person holds; the page printing its own sentence; and, in
+a copy of the backend's `reads.ts`, `payroll_periods` gated on `EDIT_RECORDS`, `leave_requests` giving everybody's requests
+to `APPROVE_LEAVE` holders as well, and `leave_requests` no longer narrowing everybody else to their own.
+
+`npm run check` exits 0 with `APPROVEHR_BACKEND_DIR` pointing at a checkout of the backend's `staging` (`83863db`), so the
+cross-repo gates compared against it and did not print `skip`. `tsc`, ESLint and `prettier --check` are clean on the files
+changed. `npm run docs -- --only frontend-components` regenerated the components inventory: it gains the row for
+`src/lib/assistant-openers.ts`, and a few others that earlier merges had not added since its last snapshot.
+
+In a browser, this branch under `next dev` against a scratch API running the backend's `staging`, signed in for real as five
+seeded people: the employee (Chidi Nwosu), the line manager (Adaeze Okonkwo), the HR manager (Fatima Bello), the
+administrator (Amara Nwachukwu) and the Payroll analyst (Grace Effiong). Each was shown exactly the buttons and the sentence
+in the table above, the same at first paint and three seconds later, and the line manager was not offered either team-leave
+question. Pressing the first button put it in "Your message" and sent nothing. There was no sideways scroll at 1280px, and
+none for the Payroll analyst at 375px with a touch pointer, where the longest button wraps inside its pill. No console
+errors in the five. One thing was stubbed: `GET /ai/status`, because the scratch API has no assistant key and without it the
+page renders no chat at all. No message was sent, so no model was called.
+
+A first sign-in opens the product's own tour ("A quick look round", 1 of 5) over the page, and it covers the buttons until it
+is skipped. The walk skips it, as a person would.
+
+## Not exercised
+
+A real assistant key, so what the model says to each question; the standalone sales demo (`SALES_SCRIPT_ENABLED`), whose
+branch this change left as it was; a company with a custom role, for example one that holds `APPROVE_LEAVE_ALL` and nothing
+else, which the unit tests cover and no browser has seen; Safari or any real device.
+
+## Not done
+
+- **A lookup for managers.** A line manager has no question about their team's leave because nothing the assistant can
+  look up answers it. Adding one means the assistant reading the approvals inbox, which is a backend change and a product
+  decision (it would also let a manager find the request ids the assistant's "decide a leave request" action needs).
+- **`payroll_settings` has no button.** Nothing asks "what do we deduct" any more, though it can still be typed.
+- **What the model says to each question** was not tested: there is no assistant key on the machine this was built on, so
+  the tests prove which questions are offered and that the lookups can answer them, not the wording of the answers.
+
+---
+
+# A period can ask a directly rated subsection on its review form
+
+The product owner's words: _"I wanna add Adaptability as a question that is a directly rated subsection"_, and _"we might have
+subsections that we want employees to answer directly too by choosing the answer directly for the subsection ... for example, if I
+wanna ask employees about their adaptability in ratings"_. The design he chose: **per subsection, per appraisal period, whoever
+sets the period up picks who is asked: the manager, the employee, or both.** If one is asked, that answer counts towards the mark.
+If both are, the manager's counts and the employee's is shown beside it, the way self-assessment is handled.
+
+This is the **web half**, branch `feat/subsection-questions-20261029`, for `dev`. The backend half has the same branch name in
+`approvehr-backend` (`PUT` and `DELETE /performance/cycles/:id/subsection-questions/:competencyId`, the answer on `respond` and
+`submit`, `selfAnswer` on a manager's form) and its own note, `docs/backend/subsection-questions-handover.md`. The two were built in
+parallel from one written contract, and the web has been walked in a browser against the real backend (its commit `0ae2d61`, not
+merged when this was written): see Verified.
+
+**Merge the backend first.** Against a server that predates it the control is still drawn, because the period's questions read
+fine and none of them is a subsection's, so every subsection reads **Not asked**, and its first write is refused as a route that is
+not there. That server cannot be told apart from one with no subsection question on this period, so the web cannot hide the
+control. Until the backend is on `staging`, `npm run docs` will not list the two endpoints, because the API inventory is read from
+`origin/staging`.
+
+## What changed
+
+| Where                                                                         | What                                                                                                                                                                                                                                                                                                                 |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/api/performance.ts`                                                      | `ApiQuestion` gains `answersSubsection?` and `competencyName?`. `ApiFormQuestion` gains `answersSubsection?`, `subsection?` (name, kind, ceiling, choices as ids and labels) and `selfAnswer?`. `ApiAnswer.choiceOptionId?`, `AnswerBody.choiceOptionId?`, and the two calls `askSubsection` (PUT) and `stopAskingSubsection` (DELETE). |
+| `lib/store/performance.ts`                                                    | The two writes on `useCycleMutations`, refused offline in the sentence every period write uses.                                                                                                                                                                                                                       |
+| `lib/performance/subsection-ask.ts`                                           | The period's side, pure: the four choices, what each sends, the one line under each, `SubsectionAsk` (what the tree and the panel are handed).                                                                                                                                                                        |
+| `lib/performance/subsection-answer.ts`                                        | The form's side, pure: which questions are a subsection's own, the kind they are drawn as, the levels, an answer in words, the person's own answer in words.                                                                                                                                                          |
+| `direct-answer-panel.tsx`                                                     | **Ask it on the review form**, after how a subsection is answered (`AskOnForm`).                                                                                                                                                                                                                                      |
+| `subsection-tree.tsx`, `period-dialogs.tsx`, `period-screen.tsx`              | The dialog is told the period's stage and given the two writes; it builds `ask` for the tree; the rows of All questions and the Questions tab know a subsection question.                                                                                                                                             |
+| `review-parts.tsx`, `focus-question.tsx`, `focus-steps.tsx`, `focus-form.tsx` | The page-by-page form, the popup form and every read-back draw a subsection question from the subsection, send the right field, and show the person's own answer to a manager.                                                                                                                                       |
+| `docs/walkthroughs/performance.md`                                            | Steps 6, 17, 21 and 22 and the footer date. Every label in them was checked against the source.                                                                                                                                                                                                                       |
+
+## Decisions not to undo
+
+- **This reverses one decision of the Questions-dialog work.** "A directly rated subsection is NOT a row in All questions" is now
+  "a directly rated subsection **is** a row in All questions when the period asks it on the form, and is not otherwise". The earlier
+  entry's sentence about it is history, and the walkthrough is corrected.
+- **Absent is not none.** The control is drawn only when the period's own questions have been read and the read did not fail. Before
+  the first read, and after a failed one, **Not asked** would be a claim made without an answer, so nothing is drawn.
+  `QuestionsDialog` holds the last complete answer (`useHeld`) while the list is read again, because a re-read blanks it, and drops it
+  the moment the read fails: a held answer is for the length of a read and is never shown in place of a failed one. It is also not
+  drawn in demo (there is no API to write to, and a demo form moves no mark), for somebody who cannot manage settings, or by a
+  caller that gave the dialog no way to write it.
+- **Not asked is a stop, never an empty list.** `askedOfChoice("none")` is `null`, and the panel then calls `DELETE`. An empty
+  `askedOf` is a request the API refuses by name. Both is `["SELF", "MANAGER"]` and never carries a colleague.
+- **A choice says it took, because there is no Add button.** Picking is the write, and a person who had just picked **Both** asked where
+  to click Add: the only sign that it had been saved was a count in the subsection's header. `savedWords` (in `subsection-ask.ts`) is
+  the message, pushed as a toast **after** the API has said yes (a refusal shows its own sentence and no toast), and it says where the
+  row is (_Find it under All questions._). The subsection's name is in the **title** and the detail is short and fixed, because a toast
+  clamps its detail to two lines: the first wording put the name in the detail and the browser showed "...It is listed under All...",
+  cutting off the words that say where to look (a test now holds the detail to 52 characters). It is a message and not a button on
+  purpose: the kind picker above the control also writes the moment it is picked, and one control that waited for a click would be the
+  odd one out.
+- **What was just written is believed until the period moves.** After a write the list is read again, and for as long as that takes it
+  still says what it said before; showing that would flip the control back and then forward. The panel keeps what it wrote with the
+  value the period held when it wrote it (`base`) and drops it **in render** the moment the period holds anything else. Kept any
+  longer it would come back the next time the period happened to read `base` again and show a choice nobody made. A refusal keeps
+  nothing, so the control is where the period has it.
+- **Both writes read the period again whether they worked or not.** A refusal is usually the API saying the list is not what it
+  holds (somebody answered it, somebody removed it, the period was started in another window), and the control should show what the
+  server holds. Seen live: with the period started elsewhere the ask came back 409 and the control stayed on its old choice with the
+  API's sentence under it.
+- **A refusal is the server's sentence, under the control** (`Field`'s `error`), not a `Callout`: inside a dialog a danger `Callout`
+  is drawn on the footer row, nowhere near the select that caused it. `actionMessage` supplies the sentence and nothing paraphrases it.
+- **A pick is held, compared and sent as the choice's id.** `Draft.choice` is the text of the option for an ordinary pick question and
+  the **id** of the choice for a subsection question, because two choices can share a label and a choice can be taken off after
+  somebody picked it. The body is `choiceOptionId` and never `choiceValue`, and an ordinary question still sends `choiceValue` and
+  never an id. The label is only read, for display. A **saved** answer is read back by the label the API saved with it (the record
+  says what was chosen when it was chosen, even if the choice has been renamed since), and a pick made this visit by its id.
+- **A pick taken off the list since counts as not answered** (`filled`). The API refuses it at send; a form that called the question
+  done would say so and then fail. The person is walked to it and offered the choices as they stand.
+- **The levels are the subsection's own.** A subsection has its own scale (2 to 10), so the form offers exactly that many, however
+  many words the company has. The company's words are used only where its scale is this one (five levels, a word for each, numbered 1
+  to 5); otherwise a level is `4 of 10`. Words for a 4 of 10 would be the screen inventing a claim, and `verify-rating-scale` already
+  insists a mark is read in words and never as a bare digit. The key for a level is its digit; **a tenth level has no key, and the key
+  handler never matches an empty key**, because Shift and Tab press `""` and would otherwise have picked it. Choices take letters up
+  to the twenty-sixth, and one past that has no letter and is still in the list.
+- **The person's own answer is a muted line beside the manager's control** (`Their own answer: Exceeds Expectations`), only on a manager's
+  form and only once they have sent theirs. `null`, absent and an answer with no value in it all draw **nothing**: not "No answer", and
+  never a nought. A level below 1 is read as no answer, never as a rating. It is not in the preview or the record's read-back (the
+  record already shows their own form), and it never selects anything on the manager's behalf.
+- **The row in All questions** says **Rated directly** (not **Rating**, which reads as a question on the company's scale), who is asked
+  as **Manager**, **Employee** or **Both** (never "Self"), still says **Must be answered** (every such question is required, and a row
+  without it would read as optional beside the others), has **no pencil** (there is nothing on it to edit; who is asked is changed from
+  the subsection), and does not repeat the subsection's name as where it is filed, because the name is the prompt. Its bin turns into
+  **Remove** as every other does, but it calls **stop asking**, so it is audited as that and not as a question deleted, and its hover says
+  the subsection stays.
+- **The control sits after the shared part of the tab, with a rule above it,** not directly under the kind picker: the kind picker's
+  own lines (what it means, where it counts) and, for a pick-one subsection, the choices belong to the picker above, and splitting
+  them with a per-period control reads as if the control changed them. Its label is the period's, and its hover says so
+  (`H2 2026 Appraisal only. Other periods choose for themselves.`); the tab's first sentence now says only **how it is answered** is
+  shared by every period, and the tree's says which subsections the form asks are the period's own.
+- **A pick-one subsection with fewer than two choices cannot be asked** (the options are disabled, with the reason; **Not asked** stays
+  enabled, which is the way out if it somehow got on). A required question with nothing to pick is a form nobody can send. The
+  contract the two halves were built from had no such refusal; the backend added one (a 422 from `askSubsection`), and the web draws
+  the same rule before the click instead of waiting for it.
+- **Nothing is offered once the period has started** (the control is read only, with `H2 2026 Appraisal has started, so this can no
+  longer change.`), and an absent `stage` is not a draft. The dialog itself is only opened from **Write the questions**, which is on a
+  draft's **Set it up, then start it** card and nowhere else, so this state is reached only when somebody starts the period while the
+  dialog is open. It was reached that way in a browser, by leaving the window and coming back so that the period was read again.
+- **A server that sends none of the new fields reaches none of the new code.** `isSubsectionQuestion` needs the flag **and** the
+  subsection, so a flag with nothing behind it is the ordinary question it would have been, drawn on the company's scale with no scale
+  of the subsection's invented. The ordinary path through `AnswerField` is the old function with only its name changed
+  (`PlainAnswerField`), and a test per surface says so.
+
+## Found, and not changed
+
+- **The popup review form cannot be opened by a person today.** `ReviewFormModal` is rendered once, on the Overview, and opened from
+  the **What was said about you** list, whose rows are all sent reviews and draw **Read the review** as a link. The button that opens
+  the popup is only drawn for an unsent form, and the **Fill it in** rows go to the page-by-page flow instead. It was changed anyway
+  (it draws its questions with the same `AnswerField` and `ReadAnswer` as the flow) and has 23 tests of its own, but no browser has
+  seen it. This is from reading the code, not from clicking; nothing here made it unreachable.
+- **The contract calls two things by names this repo does not use.** `ApiReviewQuestion` is `ApiQuestion` here, and the review
+  detail's `form` is `questions` on the wire (`form` is the backend's local variable). `answerCount` is on the wire for a period's
+  questions and was already not typed here. Nothing about the wire shape was changed.
+- **`filingNote` still says "Answers to a question do not count towards the mark"** under the form that adds an ordinary question to
+  a subsection the period also asks directly. It is about the question being written, which is still true, and it is not changed
+  here; it may read oddly beside the new row.
+- **The kind picker is not switched off by this period asking the subsection,** although the API refuses a change of kind while any
+  period asks it. The web only knows about this period, and the refusal arrives as the API's own sentence naming one period, shown
+  in the picker's existing callout. Pre-empting it would be inventing a rule for the other periods.
+- **A copy can leave a subsection question behind and the screen does not say so.** `POST .../questions/copy` now answers with
+  `skipped` and `skippedNote` for a question whose subsection is switched off or gone. The web reads only `copied`, as before. A copy
+  that carries them works (walked: three subsection questions arrived as **Rated directly** rows, and Adaptability read **Both**
+  under By section); the one that leaves one behind is silent.
+- **Three limits of the backend that a screen cannot show.** Where only the employee is asked, their answer is written as their rating
+  for the period and appears in Skills, the gap list and the heatmap with nothing to say they gave it. Where a subject has several
+  appraisers and the manager is asked, the last one to send wins. A manager's hand-recorded rating of a subsection the period also
+  asks on the form is replaced by whichever is written last. The backend's note lists all three; the web warns of none.
+
+## Verified
+
+Tests, all passing: 202 new ones in nine files (`subsection-ask` 14, `subsection-answer` 24, `review-subsection-draft` 24,
+`subsection-ask-control` 29, `questions-dialog-subsection-ask` 38, `subsection-answer-flow` 33, `subsection-answer-popup` 23,
+`subsection-ask-api` 9, `period-screen-subsection-ask` 8), and the whole suite: 361 files, 5,246 tests, no failures.
+
+**Forty-eight deliberate breaks**, each made in a scratch copy of the source and each caught by a test written for it: the mapping of
+all four choices, a refusal swallowed or made vague, a draft that is not a draft, the reconciliation of what was just written, the
+held list, demo, a missing permission and an unread period each drawing the control, the badge, the audience words and the pencil,
+the bin calling the wrong route, each answer field, a taken-off pick, the level count, the person's own answer being invented or
+never shown, a flag with no subsection behind it, a **no** read as absent, a level of 0, the empty key, the two store guards, the
+verb and path of each call, the period screen's arguments, a write that does not read the period again, an immediate save, an
+inverted yes or no, and the saved label losing to the live one. Two did not fail on the first try (a failed read of the period's
+questions being treated as an answer, and a refused ask not reading the period again) and a test was added for each.
+
+`npm run check` exit 0, with `APPROVEHR_BACKEND_DIR` set so the cross-repo gates compared instead of skipping. Lint reports the
+warnings that were already there and none in these files. `verify-template` skipped one comparison, the holidays mirror, because
+that backend checkout has no such file. A production build with `NEXT_PUBLIC_DEMO=off` compiled, and `verify-demo` passed against it
+(no ungated demo copy in 1,185 source files, none in 3,023 built ones, no fabricated records).
+
+**In a browser, against the real backend** (its branch at `0ae2d61`, a scratch company, the production build of this branch), as the
+administrator, a line manager and an employee, 40 checks and all of them passed. The other employee's self-review, which the manager's
+form needed, was sent over HTTP:
+
+- **The dialog on a draft period** (10): the control on **Not asked** with its four options; **Both** writing at once (`PUT`, 201,
+  both audiences) and the line saying whose answer counts; the help hover naming the period; **The manager** the same write answered
+  200; the row in **All questions** (**Rated directly**, **Manager**, **Must be answered**, no pencil); the bin becoming **Remove**
+  and its `DELETE` answering 200; the control back on **Not asked** under **By section**; a pick-one subsection asked of the
+  employee and stopped; and at 375px with a touch pointer no sideways scroll and a 16px control.
+- **A refusal** (3): the period started elsewhere, so the ask came back 409, its sentence appeared verbatim under the control and the
+  control stayed on its old choice; then, after the period was read again, the control went read only with the started sentence.
+- **An employee answering** (9): a level on the subsection's own seven levels, a yes or no, and a pick by its name, sent as
+  `ratingValue`, `boolValue` and `choiceOptionId` and never `choiceValue`; the Preview reading each in words; the send answering 200.
+- **A manager answering** (12): `Their own answer: 5 of 7`, `Yes` and `High` beside the three controls where the employee had been
+  asked too, and nothing beside a question asked of the manager only; the sends of 6, no, a pick and 4; and the record page reading
+  all four back. The ratings were then read from the backend's own skills list.
+- **A copy** (4): an empty draft offered **Start from a previous period**; the copy carried the subsection questions as rows with who
+  is asked; under **By section** Adaptability read **Both**; stopping one in the copy left the source period asking it.
+- **A pick-one subsection with no choices** (2): the three options other than **Not asked** were disabled with the reason beside
+  them, the control stayed on **Not asked**, and trying to choose one sent nothing. Over HTTP the same ask was refused with a 422 in
+  the words of the backend's note.
+
+Against the same backend, over HTTP, the wire shapes were checked against the types here (the period's questions, the review's
+`questions`, `subsection`, `selfAnswer` being `null` until the person has sent and absent on their own form, `choiceOptionId` on an
+answer). The refusals that were actually made, each in the sentence the backend's note gives: an empty list, a colleague, stopping a
+question that is not asked, a level above the subsection's scale, a level sent to a yes or no, a pick sent by its label instead of
+its id, a pick that is not the subsection's, a period that has started (in the browser, as the ask), and a pick-one subsection with
+no choices. The rest of that table was not tried.
+
+## Not exercised
+
+iOS Safari or any real device; demo mode in a browser (the control is absent there by a test, and no demo path reaches a production
+build); the popup review form, which cannot be opened (see above); a period that started while the dialog was open, seen once and by
+waiting on the page's re-read, not by pressing Start; an employee's send being the one that writes the rating, where only the
+employee is asked (the web draws the same form for it, and the write is the backend's, covered by its tests); the mark itself, which
+was not read from the score register, only the ratings the sends wrote; several appraisers on one subject; and the QA site, which
+cannot have this until the backend is on `staging`.
+
+## Docs, and what is left to regenerate
+
+The walkthrough is done. `npm run docs` was not run, because the API inventory is read from `origin/staging`, which does not have the
+backend half yet. When it does:
+
+- `docs/components/backend-api.md` gains the two endpoints (`PUT` and `DELETE /api/v1/performance/cycles/:id/subsection-questions/:competencyId`)
+  and the backend's new exported functions.
+- `docs/components/frontend-v2.md` gains the two files `lib/performance/subsection-ask.ts` and `lib/performance/subsection-answer.ts`,
+  the exported `SelfAnswerLine` in `review-parts.tsx`, and the changed group counts.
+- `docs/pages/frontend-v2.md` does not change: no route was added.

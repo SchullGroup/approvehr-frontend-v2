@@ -397,6 +397,7 @@ export function AnnouncementsScreen() {
                             {audienceLabel(
                               notice.audience,
                               notice.departmentNames,
+                              notice.employeeNames ?? [],
                             )}
                           </TD>
                           <TD>
@@ -465,6 +466,7 @@ export function AnnouncementsScreen() {
                           {audienceLabel(
                             notice.audience,
                             notice.departmentNames,
+                            notice.employeeNames ?? [],
                           )}
                         </span>
                       </div>
@@ -542,6 +544,8 @@ export function AnnouncementsScreen() {
                 body: draft.body,
                 audience: draft.audience,
                 departmentIds: draft.departmentIds,
+                employeeIds: draft.employeeIds,
+                ...(draft.image === undefined ? {} : { image: draft.image }),
                 pinned: draft.pinned,
                 /* Only when it moved. The API records a change to it as an
                    event of its own and says nothing about a repeat, so this is
@@ -735,6 +739,8 @@ function bodyFrom(draft: Draft, publish: boolean) {
     body: draft.body,
     audience: draft.audience,
     departmentIds: draft.departmentIds,
+    employeeIds: draft.employeeIds,
+    ...(draft.image ? { image: draft.image } : {}),
     pinned: draft.pinned,
     mandatory: draft.mandatory,
     publish,
@@ -745,6 +751,12 @@ function bodyFrom(draft: Draft, publish: boolean) {
 /** What publishing this one will do, said before the toast can count it. */
 function reachSentence(notice: ApiAnnouncement): string | undefined {
   if (notice.audience === "EVERYONE") return undefined;
+  if (notice.audience === "PEOPLE") {
+    const names = notice.employeeNames ?? [];
+    return names.length > 0
+      ? `Only ${names.join(", ")} will see it.`
+      : undefined;
+  }
   return notice.departmentNames.length > 0
     ? `Only ${notice.departmentNames.join(", ")} will see it.`
     : undefined;

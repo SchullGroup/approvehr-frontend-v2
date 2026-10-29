@@ -24,6 +24,15 @@ import {
 } from "@/lib/api/performance";
 import type { InlineFile } from "@/lib/api/uploads";
 import { cn } from "@/lib/cn";
+import {
+  answerWords,
+  isLivePick,
+  isSubsectionQuestion,
+  questionKind,
+  selfAnswerWords,
+  subsectionLevels,
+  type SubsectionQuestion,
+} from "@/lib/performance/subsection-answer";
 import { shortDate } from "@/lib/today";
 import { useRatingScale } from "@/lib/store/performance";
 
@@ -79,6 +88,13 @@ export function ratingOptionsFrom(
 export type Draft = {
   text?: string;
   rating?: string;
+  /**
+   * The pick. **The text of the option for an ordinary pick-from-a-list
+   * question, and the id of the choice for a subsection question.** A subsection's
+   * choices can share a label and can be archived after somebody picked one, so
+   * what is held, compared and sent for them is the id, and the label is only ever
+   * read for display (`lib/performance/subsection-answer.ts`).
+   */
   choice?: string;
   bool?: string;
   /**
@@ -105,7 +121,11 @@ export function draftFrom(question: ApiFormQuestion): Draft {
     text: answer.textValue ?? undefined,
     rating:
       answer.ratingValue === null ? undefined : String(answer.ratingValue),
-    choice: answer.choiceValue ?? undefined,
+    /* A subsection's pick is its choice's id, never the label saved beside it. */
+    choice:
+      (isSubsectionQuestion(question)
+        ? answer.choiceOptionId
+        : answer.choiceValue) ?? undefined,
     bool:
       answer.boolValue === null ? undefined : answer.boolValue ? "yes" : "no",
     /* No `file`, and it is not an omission. The saved answer carries the
@@ -117,11 +137,16 @@ export function draftFrom(question: ApiFormQuestion): Draft {
 
 /** Whether this question has an answer of the kind it asked for. */
 export function filled(question: ApiFormQuestion, held: Draft): boolean {
-  switch (question.kind) {
+  switch (questionKind(question)) {
     case "RATING":
       return Boolean(held.rating);
     case "CHOICE":
-      return Boolean(held.choice);
+      /* A subsection's pick counts only while it is still on the list: one taken
+         off since is a pick the API will refuse at send, and a form that called
+         it answered would say a required question is done when it cannot go. */
+      return isSubsectionQuestion(question)
+        ? isLivePick(question, held.choice)
+        : Boolean(held.choice);
     case "BOOLEAN":
       return Boolean(held.bool);
     case "FILE":
@@ -149,13 +174,17 @@ export function answerBodyFor(
   held: Draft,
 ): AnswerBody | null {
   const body: AnswerBody = { questionId: question.id };
-  if (question.kind === "RATING" && held.rating) {
+  const kind = questionKind(question);
+  if (kind === "RATING" && held.rating) {
     body.ratingValue = Number(held.rating);
-  } else if (question.kind === "CHOICE" && held.choice) {
-    body.choiceValue = held.choice;
-  } else if (question.kind === "BOOLEAN" && held.bool) {
+  } else if (kind === "CHOICE" && held.choice) {
+    /* The id for a subsection's choice and the text for an ordinary one, and
+       never the other way round: the API matches each on its own. */
+    if (isSubsectionQuestion(question)) body.choiceOptionId = held.choice;
+    else body.choiceValue = held.choice;
+  } else if (kind === "BOOLEAN" && held.bool) {
     body.boolValue = held.bool === "yes";
-  } else if (question.kind === "FILE" && held.file) {
+  } else if (kind === "FILE" && held.file) {
     /* Only when a file was picked **in this session**. A question whose
        evidence is already on the record has no `file` in the draft, and
        re-sending it is not possible — the bytes are behind a download
@@ -403,13 +432,7 @@ export function AppraiserStrip({
   );
 }
 
-export function AnswerField({
-  question,
-  held,
-  reviewId,
-  onChange,
-  onBusyChange,
-}: {
+type AnswerFieldProps = {
   question: ApiFormQuestion;
   held: Draft;
   /** Needed by the `FILE` branch, to open what is already attached. */
@@ -417,7 +440,147 @@ export function AnswerField({
   onChange: (next: Draft) => void;
   /** So the form can hold its own save while a file is being read. */
   onBusyChange?: (busy: boolean) => void;
-}) {
+};
+
+/**
+ * One question's input, in the popup form.
+ *
+ * A question that is a directly rated subsection's own answer is drawn from the
+ * subsection (its own scale, its own choices, the subject's own answer beside the
+ * manager's) and **everything else goes through `PlainAnswerField` exactly as it
+ * always did**, so a server that sends none of the subsection fields cannot reach
+ * the new code at all.
+ */
+export function AnswerField(props: AnswerFieldProps) {
+  if (!isSubsectionQuestion(props.question)) {
+    return <PlainAnswerField {...props} />;
+  }
+  return <SubsectionAnswerField {...props} question={props.question} />;
+}
+
+/**
+ * The line beside a manager's control: what the person said of themselves.
+ *
+ * Absent for a form that is not a manager's, and absent until the person has
+ * sent their self-review, and then nothing is drawn at all: not "No answer",
+ * which would read as a gap somebody left, and never a nought.
+ */
+export function SelfAnswerLine({ words }: { words: string | null }) {
+  if (words === null) return null;
+  return <p className="text-meta text-muted">Their own answer: {words}</p>;
+}
+
+/**
+ * A subsection's own answer: a level on its scale, a yes or no, or one of its
+ * choices.
+ *
+ * ## The levels are the subsection's, not the company's
+ *
+ * One card for each level from 1 to the subsection's own ceiling, however many
+ * words the company's scale has. The company's words are used only where its
+ * scale is this one (`subsectionLevels`), and a level is otherwise said as
+ * `4 of 10`.
+ *
+ * ## The pick is held as the choice's id
+ *
+ * The select's values are ids and its labels are the choices' labels, so two
+ * choices with one name are two options, and the answer sent is the id. A score
+ * is not on the question and not on screen.
+ *
+ * A yes or no is the ordinary yes-or-no control, so it is drawn by it; only the
+ * line for the subject's own answer is added.
+ */
+function SubsectionAnswerField({
+  question,
+  held,
+  reviewId,
+  onChange,
+  onBusyChange,
+}: AnswerFieldProps & { question: SubsectionQuestion }) {
+  const { scale } = useRatingScale();
+  const { subsection } = question;
+  const own = <SelfAnswerLine words={selfAnswerWords(question, scale)} />;
+
+  if (subsection.answerKind === "RATING") {
+    return (
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 text-body-sm font-medium text-ink">
+          {question.prompt}
+          {question.required && (
+            <span className="ml-0.5 text-danger-text" aria-hidden="true">
+              *
+            </span>
+          )}
+          {question.required && (
+            <span className="sr-only-focusable"> required</span>
+          )}
+        </legend>
+        {own}
+        <div className="grid gap-2">
+          {subsectionLevels(subsection.scaleMax, scale).map((entry) => (
+            <RadioCard
+              key={entry.level}
+              name={`rating-${question.id}`}
+              value={String(entry.level)}
+              label={
+                entry.words === null
+                  ? `${String(entry.level)} of ${String(subsection.scaleMax)}`
+                  : `${String(entry.level)}: ${entry.words}`
+              }
+              {...(entry.meaning ? { description: entry.meaning } : {})}
+              checked={held.rating === String(entry.level)}
+              onChange={() => onChange({ rating: String(entry.level) })}
+            />
+          ))}
+        </div>
+      </fieldset>
+    );
+  }
+
+  if (subsection.answerKind === "CHOICE") {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <Field label={question.prompt} required={question.required}>
+          <Select
+            /* Empty for a pick that has since been taken off the list: the
+               select would otherwise hold a value it has no option for. */
+            value={isLivePick(question, held.choice) ? (held.choice ?? "") : ""}
+            placeholder="Pick one"
+            onChange={(event) => onChange({ choice: event.target.value })}
+          >
+            {subsection.choices.map((choice) => (
+              <option key={choice.id} value={choice.id}>
+                {choice.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {own}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <PlainAnswerField
+        question={question}
+        held={held}
+        reviewId={reviewId}
+        onChange={onChange}
+        {...(onBusyChange ? { onBusyChange } : {})}
+      />
+      {own}
+    </div>
+  );
+}
+
+function PlainAnswerField({
+  question,
+  held,
+  reviewId,
+  onChange,
+  onBusyChange,
+}: AnswerFieldProps) {
   const { scale, editable } = useRatingScale();
 
   if (question.kind === "RATING") {
@@ -566,8 +729,29 @@ export function ReadAnswer({
   const { scale, editable } = useRatingScale();
   const attached = question.answer?.attachment ?? null;
 
-  const answer =
-    question.kind === "RATING"
+  const answer = isSubsectionQuestion(question)
+    ? /* A directly rated subsection, read back from its own scale and choices:
+         a level in words where the company's scale is this one and `4 of 10`
+         where it is not, a pick by its label. Read from what is held, so the
+         preview says what is about to be sent and not only what was saved. */
+      answerWords(
+        question,
+        {
+          ratingValue: held.rating ? Number(held.rating) : null,
+          boolValue: held.bool ? held.bool === "yes" : null,
+          choiceOptionId: held.choice,
+          /* The label the API saved with the pick, for the very choice it was
+             saved with and no other: the record says what was chosen when it was
+             chosen, even if the choice has been renamed or taken off since. A pick
+             made in this visit has none yet and is found by its id. */
+          choiceLabel:
+            question.answer?.choiceOptionId === held.choice
+              ? question.answer?.choiceValue
+              : null,
+        },
+        scale,
+      )
+    : question.kind === "RATING"
       ? /* The words, not the digit, and **this company's** words. The scale
            the standup asked for was on the picker and nowhere a mark was read
            back; then it became configurable, and a read-back still quoting

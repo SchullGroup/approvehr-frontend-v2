@@ -11,6 +11,7 @@ import {
   Landmark,
   MapPin,
   ShieldCheck,
+  Sparkles,
   UserRound,
 } from "lucide-react";
 import {
@@ -34,6 +35,7 @@ import {
   SELF_SERVICE_OFFLINE,
   useMyPendingChanges,
   useMyRecordMutations,
+  useMyRequiredDetails,
 } from "@/lib/store/my-record";
 import { useOrgTimezone } from "@/lib/store/session";
 import { todayIn } from "@/lib/time";
@@ -76,6 +78,7 @@ type Draft = {
   stateOfOrigin: string;
   lgaOfOrigin: string;
   maritalStatus: string;
+  religion: string;
   dateOfBirth: string;
   gender: string;
   nextOfKinName: string;
@@ -96,6 +99,7 @@ const EMPTY: Draft = {
   stateOfOrigin: "",
   lgaOfOrigin: "",
   maritalStatus: "",
+  religion: "",
   dateOfBirth: "",
   gender: "",
   nextOfKinName: "",
@@ -142,6 +146,13 @@ const GROUPS: Group[] = [
     icon: <Heart aria-hidden="true" className="size-4" />,
     tier: "immediate",
     fields: ["maritalStatus"],
+  },
+  {
+    id: "religion",
+    title: "Religion",
+    icon: <Sparkles aria-hidden="true" className="size-4" />,
+    tier: "immediate",
+    fields: ["religion"],
   },
   {
     /* Checked first, by the people who can edit records: gender decides
@@ -204,6 +215,7 @@ const LABEL: Record<keyof Draft, string> = {
   stateOfOrigin: "State of origin",
   lgaOfOrigin: "LGA of origin",
   maritalStatus: "Marital status",
+  religion: "Religion",
   dateOfBirth: "Date of birth",
   gender: "Gender",
   nextOfKinName: "Their name",
@@ -224,7 +236,7 @@ const HR_CHECKS = new Set<string>(
 );
 
 /** The fixed answers, in the API's words. Mirrors `employeeFields` there. */
-type ChoiceField = "maritalStatus" | "gender";
+type ChoiceField = "maritalStatus" | "gender" | "religion";
 const CHOICES: Record<ChoiceField, readonly (readonly [string, string])[]> = {
   maritalStatus: [
     ["single", "Single"],
@@ -237,6 +249,15 @@ const CHOICES: Record<ChoiceField, readonly (readonly [string, string])[]> = {
     ["female", "Female"],
     ["male", "Male"],
     ["other", "Other"],
+  ],
+  /* Free text on the API (HR may have typed something else before this list
+     existed), so a stored value that is not here is offered as itself. */
+  religion: [
+    ["Christianity", "Christianity"],
+    ["Islam", "Islam"],
+    ["Traditional", "Traditional"],
+    ["None", "None"],
+    ["Other", "Other"],
   ],
 };
 
@@ -266,6 +287,7 @@ export function MyDetails({
   const toast = useToast();
   const pending = useMyPendingChanges();
   const { save, editable } = useMyRecordMutations();
+  const requiredDetails = useMyRequiredDetails();
   const timeZone = useOrgTimezone();
 
   const initial = useMemo<Draft>(() => {
@@ -280,6 +302,7 @@ export function MyDetails({
       stateOfOrigin: text("stateOfOrigin"),
       lgaOfOrigin: text("lgaOfOrigin"),
       maritalStatus: text("maritalStatus"),
+      religion: text("religion"),
       dateOfBirth: text("dateOfBirth"),
       gender: text("gender"),
       nextOfKinName: text("nextOfKinName"),
@@ -339,8 +362,24 @@ export function MyDetails({
     pending.changes.map((change) => [change.field, change]),
   );
 
+  /**
+   * Required details on this tab still blank.
+   *
+   * HR chose them (Settings → Required details), and the API refuses to empty
+   * one. Saving waits for them here, so a person filling in their phone is told
+   * what else the company needs at the moment they are looking at the form. A
+   * detail already sent for HR's approval counts as given.
+   */
+  const shownFields = GROUPS.filter(
+    (group) => !only || (group.tab ?? group.tier) === only,
+  ).flatMap((group) => group.fields);
+  const isRequired = (key: keyof Draft) => requiredDetails.required.has(key);
+  const blank = shownFields.filter(
+    (key) => isRequired(key) && draft[key].trim() === "" && !waiting.has(key),
+  );
+
   async function submit() {
-    if (changed.length === 0) return;
+    if (changed.length === 0 || blank.length > 0) return;
     setBusy(true);
     const patch: Record<string, unknown> = {};
     for (const key of changed) patch[key] = draft[key].trim() || null;
@@ -358,6 +397,7 @@ export function MyDetails({
 
     const { applied, pending: raised, refused } = result.outcome;
     pending.reload();
+    requiredDetails.reload();
     /* Everything the API accepted — written or proposed — is the new baseline.
        Anything it refused stays flagged as an unsaved change, which is honest:
        it did not go anywhere. */
@@ -420,9 +460,13 @@ export function MyDetails({
           tone="info"
           icon={<Clock3 aria-hidden="true" />}
           title={
-            pending.changes.length === 1
-              ? "One change is with payroll"
-              : `${pending.changes.length} changes are with payroll`
+            /* Named after who decides, as the toast is: date of birth and
+               gender go to HR, anything pay is worked out from to payroll. */
+            `${pending.changes.length === 1 ? "One change is" : `${pending.changes.length} changes are`} with ${
+              pending.changes.every((change) => HR_CHECKS.has(change.field))
+                ? "HR"
+                : "payroll"
+            }`
           }
         >
           <ul className="mt-1 flex flex-col gap-1">
@@ -459,6 +503,7 @@ export function MyDetails({
             (group) => !only || (group.tab ?? group.tier) === only,
           ).map((group) => {
             const held = group.fields.filter((f) => waiting.has(f)).length;
+            const needed = group.fields.filter((f) => blank.includes(f)).length;
             const edited = group.fields.filter(
               (f) => draft[f] !== baseline[f],
             ).length;
@@ -485,6 +530,11 @@ export function MyDetails({
                         {group.badge ?? "Payroll checks this"}
                       </Badge>
                     )}
+                    {needed > 0 && (
+                      <Badge tone="warning" size="sm" dot>
+                        Needs filling in
+                      </Badge>
+                    )}
                     {held > 0 && (
                       <Badge tone="info" size="sm" dot>
                         {held} waiting
@@ -505,6 +555,7 @@ export function MyDetails({
                       <Field
                         key={key}
                         label={LABEL[key]}
+                        required={isRequired(key)}
                         {...(waiting.has(key)
                           ? {
                               /* The API's own masked summary — "••••4471 →
@@ -526,7 +577,20 @@ export function MyDetails({
                             {/* Blank sends null, which clears it. Somebody
                                   who would rather not say must be able to take
                                   a value back off their record. */}
-                            <option value="">Prefer not to say</option>
+                            <option value="">
+                              {isRequired(key)
+                                ? "Choose one"
+                                : "Prefer not to say"}
+                            </option>
+                            {key === "religion" &&
+                              initial.religion !== "" &&
+                              !CHOICES.religion.some(
+                                ([value]) => value === initial.religion,
+                              ) && (
+                                <option value={initial.religion}>
+                                  {initial.religion}
+                                </option>
+                              )}
                             {CHOICES[key as ChoiceField].map(
                               ([value, label]) => (
                                 <option key={value} value={value}>
@@ -602,7 +666,14 @@ export function MyDetails({
 
         <CardBody className="flex flex-wrap items-center justify-between gap-3 border-t border-line">
           <p className="text-meta text-muted">
-            {changed.length === 0 ? (
+            {blank.length > 0 ? (
+              /* Said where the disabled button is, so nobody presses it and
+                 wonders. */
+              <span className="text-warning-text">
+                Fill in {blank.map((key) => LABEL[key]).join(", ")} first: your
+                company needs {blank.length === 1 ? "it" : "them"}.
+              </span>
+            ) : changed.length === 0 ? (
               <span className="flex items-center gap-1.5">
                 <BadgeCheck aria-hidden="true" className="size-3.5" />
                 Nothing changed yet
@@ -629,7 +700,9 @@ export function MyDetails({
               variant="accent"
               size="sm"
               loading={busy}
-              disabled={!editable || changed.length === 0 || busy}
+              disabled={
+                !editable || changed.length === 0 || blank.length > 0 || busy
+              }
               onClick={() => void submit()}
             >
               Save changes

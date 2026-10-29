@@ -28,7 +28,9 @@ import type {
   ApiSection,
   CreateQuestionBody,
   ReviewAudience,
+  ReviewCycleStage,
   ReviewQuestionKind,
+  SubsectionAudience,
   UpdateQuestionBody,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
@@ -47,6 +49,7 @@ import {
   subsectionOptionLabel,
 } from "@/lib/performance/answer-kind";
 import { QUESTION_BANK } from "@/lib/performance/question-bank";
+import { askedWho, type SubsectionAsk } from "@/lib/performance/subsection-ask";
 import {
   MAX_CHOICES,
   MAX_CHOICE_LENGTH,
@@ -199,6 +202,9 @@ export function QuestionsDialog({
   onReorder,
   onCopyFrom,
   onAddStandard,
+  stage,
+  onAskSubsection,
+  onStopAskingSubsection,
 }: {
   open: boolean;
   cycleId: string;
@@ -224,8 +230,33 @@ export function QuestionsDialog({
    * refused.
    */
   onAddStandard?: () => Promise<void>;
+  /**
+   * Where the period is. Only a draft can change which subsections its review
+   * form asks, so anything else shows that control read only, and an absent stage
+   * is not a draft.
+   */
+  stage?: ReviewCycleStage;
+  /**
+   * Put a directly rated subsection on this period's review form, or change who
+   * it is asked of (the person, their manager, or both). Absent, nothing in this
+   * dialog offers it: an older caller has no such write to make.
+   */
+  onAskSubsection?: (
+    competencyId: string,
+    askedOf: SubsectionAudience[],
+  ) => Promise<void>;
+  /**
+   * Take one off the form. Used by the bin on a subsection's row in the full
+   * list and by **Not asked** under By section, so both stop it the same way.
+   */
+  onStopAskingSubsection?: (competencyId: string) => Promise<void>;
 }) {
-  const { questions, loading, reload } = useCycleQuestions(cycleId);
+  const {
+    questions,
+    loading,
+    error: questionsError,
+    reload,
+  } = useCycleQuestions(cycleId);
   const framework = useFramework();
   const { editable: apiConnected } = useFrameworkActions();
   const canManage = useCan("MANAGE_SETTINGS");
@@ -547,12 +578,23 @@ export function QuestionsDialog({
     }
   };
 
-  const remove = async (id: string) => {
+  const remove = async (question: ApiQuestion) => {
+    const { id } = question;
     setRowErrors((current) =>
       Object.fromEntries(Object.entries(current).filter(([key]) => key !== id)),
     );
     try {
-      await onRemove(id);
+      if (
+        question.answersSubsection === true &&
+        question.competencyId !== null &&
+        onStopAskingSubsection
+      ) {
+        /* A subsection the period asks is taken off by the call that put it on,
+           so it is audited as that and not as a question deleted. */
+        await onStopAskingSubsection(question.competencyId);
+      } else {
+        await onRemove(id);
+      }
       if (editing?.id === id) cancelEdit();
       reload();
     } catch (caught) {
@@ -602,6 +644,67 @@ export function QuestionsDialog({
       : !canManage
         ? "Only somebody who can manage settings can change sections, subsections and how they are answered."
         : null;
+
+  /**
+   * Which subsections this period puts on its review form, and to whom.
+   *
+   * Read from the period's own questions and **held while they are read again**,
+   * for the reason `SectionsView` holds the framework: a write is followed by a
+   * re-read, a re-read blanks the list, and a control driven by a blank list says
+   * "Not asked" about a subsection that is. Before the first read has answered,
+   * and after one has failed, it is not known, and what is not known is not
+   * drawn: absent is not none.
+   */
+  const askedNow = useMemo(
+    () =>
+      questions.flatMap((question) =>
+        question.answersSubsection === true && question.competencyId !== null
+          ? [{ competencyId: question.competencyId, askedOf: question.askedOf }]
+          : [],
+      ),
+    [questions],
+  );
+  const askedReady = !loading && !questionsError;
+  const askedHeld = useHeld<typeof askedNow | null>(
+    askedReady ? askedNow : null,
+    askedReady,
+    sameData,
+  );
+  const asked = questionsError ? null : askedHeld;
+
+  /**
+   * What By section needs to offer **Ask it on the review form**, or nothing.
+   *
+   * Only for somebody who can change the framework and the period, connected, with
+   * both writes to make and the period's questions in hand. Both writes read the
+   * period again whether they worked or not: a refusal is the API saying the list
+   * is not what it holds (somebody answered it, somebody removed it), and the
+   * control should show what the server holds.
+   */
+  const ask: SubsectionAsk | undefined =
+    treeEditable && onAskSubsection && onStopAskingSubsection && asked !== null
+      ? {
+          periodName,
+          draft: stage === "DRAFT",
+          askedOf: (competencyId) =>
+            asked.find((row) => row.competencyId === competencyId)?.askedOf ??
+            null,
+          onAsk: async (competencyId, askedOf) => {
+            try {
+              await onAskSubsection(competencyId, askedOf);
+            } finally {
+              reload();
+            }
+          },
+          onStop: async (competencyId) => {
+            try {
+              await onStopAskingSubsection(competencyId);
+            } finally {
+              reload();
+            }
+          },
+        }
+      : undefined;
 
   /**
    * The form that adds and changes a question.
@@ -814,8 +917,13 @@ export function QuestionsDialog({
         {...(row.handle ? { handle: row.handle } : {})}
         disabled={saving}
         error={rowErrors[question.id] ?? null}
-        onEdit={() => startEdit(question)}
-        onRemove={() => void remove(question.id)}
+        /* A directly rated subsection's question has no pencil: it has nothing to
+           edit. Its prompt is the subsection's name and who is asked is changed
+           from the subsection, under By section. */
+        {...(question.answersSubsection === true
+          ? {}
+          : { onEdit: () => startEdit(question) })}
+        onRemove={() => void remove(question)}
       />
     );
 
@@ -997,6 +1105,7 @@ export function QuestionsDialog({
             onSelect={selectSubsection}
             onAddQuestion={addQuestionTo}
             renderQuestions={renderSubsectionQuestions}
+            {...(ask ? { ask } : {})}
           />
         ) : (
           <>
@@ -1158,6 +1267,7 @@ function SectionsView({
   onSelect,
   onAddQuestion,
   renderQuestions,
+  ask,
 }: {
   periodName: string;
   framework: ReturnType<typeof useFramework>;
@@ -1172,6 +1282,7 @@ function SectionsView({
     competency: ApiCompetency,
     section: SectionOption | null,
   ) => React.ReactNode;
+  ask?: SubsectionAsk;
 }) {
   const {
     sections,
@@ -1220,6 +1331,7 @@ function SectionsView({
         reloadSections();
       }}
       renderQuestions={renderQuestions}
+      {...(ask ? { ask } : {})}
     />
   );
 }
@@ -1493,6 +1605,12 @@ function QuestionSummary({
    */
   showFiling?: boolean;
 }) {
+  /* A directly rated subsection the period puts on the form. Its prompt is the
+     subsection's name, so the badge says it is rated directly (not "Rating",
+     which would read as a rating question on the company's scale), who it is put
+     to is one of three words, and the filing badge would only repeat the prompt. */
+  const direct = question.answersSubsection === true;
+  const who = direct ? askedWho(question.askedOf) : null;
   return (
     /* A basis of its own, so on a phone the pencil and the bin drop under the
        question instead of squeezing it into a strip a few words wide. */
@@ -1502,19 +1620,20 @@ function QuestionSummary({
       </span>
       <span className="mt-1.5 flex flex-wrap items-center gap-2">
         <Badge tone="neutral" size="sm">
-          {KIND_LABEL[question.kind]}
+          {direct ? "Rated directly" : KIND_LABEL[question.kind]}
         </Badge>
         <Badge tone="neutral" size="sm">
-          {question.askedOf.length === 0
-            ? "Everyone"
-            : question.askedOf.map((who) => AUDIENCE_LABEL[who]).join(", ")}
+          {who ??
+            (question.askedOf.length === 0
+              ? "Everyone"
+              : question.askedOf.map((one) => AUDIENCE_LABEL[one]).join(", "))}
         </Badge>
         {question.required && (
           <Badge tone="accent" size="sm">
             Must be answered
           </Badge>
         )}
-        {showFiling && question.competencyId && (
+        {showFiling && !direct && question.competencyId && (
           <Badge tone="neutral" size="sm">
             {competencyName(question.competencyId) ?? "Filed"}
           </Badge>
@@ -1557,7 +1676,8 @@ function QuestionRow({
   handle?: React.ReactNode;
   disabled: boolean;
   error: string | null;
-  onEdit: () => void;
+  /** Absent draws no pencil: a subsection's own question has nothing to edit. */
+  onEdit?: () => void;
   onRemove: () => void;
 }) {
   return (
@@ -1572,7 +1692,7 @@ function QuestionRow({
         <QuestionRowActions
           question={question}
           disabled={disabled}
-          onEdit={onEdit}
+          {...(onEdit ? { onEdit } : {})}
           onRemove={onRemove}
         />
       </div>
@@ -1622,9 +1742,14 @@ function QuestionRowActions({
 }: {
   question: ApiQuestion;
   disabled: boolean;
-  onEdit: () => void;
+  onEdit?: () => void;
   onRemove: () => void;
 }) {
+  /* A subsection's own question is not deleted, it stops being asked: the
+     subsection and anything recorded on it stay, and it can be asked again from
+     the subsection. The hover says so, and the armed button does not claim "for
+     good". */
+  const direct = question.answersSubsection === true;
   const [armed, setArmed] = useState(false);
   const bin = useRef<HTMLButtonElement>(null);
   const remove = useRef<HTMLButtonElement>(null);
@@ -1667,21 +1792,31 @@ function QuestionRowActions({
 
   return (
     <span className="ml-auto flex shrink-0 items-center gap-1">
-      <IconButton
-        label={`Edit "${question.prompt}"`}
-        disabled={disabled}
-        onClick={onEdit}
-      >
-        <Pencil aria-hidden="true" />
-      </IconButton>
+      {onEdit && (
+        <IconButton
+          label={`Edit "${question.prompt}"`}
+          disabled={disabled}
+          onClick={onEdit}
+        >
+          <Pencil aria-hidden="true" />
+        </IconButton>
+      )}
       {armed ? (
         <Button
           ref={remove}
           type="button"
           variant="danger"
           size="sm"
-          aria-label={`Remove "${question.prompt}" for good`}
-          title="Remove this question from this period for good. It is no longer asked on anybody's form, and this cannot be undone."
+          aria-label={
+            direct
+              ? `Remove "${question.prompt}" from the review form`
+              : `Remove "${question.prompt}" for good`
+          }
+          title={
+            direct
+              ? "Stop asking this on anybody's review form in this period. The subsection itself stays."
+              : "Remove this question from this period for good. It is no longer asked on anybody's form, and this cannot be undone."
+          }
           disabled={disabled}
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) {

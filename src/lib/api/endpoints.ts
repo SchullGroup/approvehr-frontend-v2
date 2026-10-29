@@ -420,6 +420,32 @@ export type ApiEmployee = {
   };
 };
 
+/** One personal detail, by API field name and label. */
+export type ApiDetailField = { field: string; label: string };
+
+/** Mirrors `mineRequired`: what the company requires, and what of it is still blank. */
+export type ApiMyRequired = {
+  required: ApiDetailField[];
+  /** Blank and not waiting on HR's approval. */
+  missing: ApiDetailField[];
+};
+
+/** Mirrors `overview` in `employees/required-details.ts`. */
+export type ApiRequiredOverview = {
+  required: ApiDetailField[];
+  /** Every detail HR may require. */
+  options: ApiDetailField[];
+  /** Current staff with at least one required detail blank. Names only. */
+  outstanding: {
+    employeeId: string;
+    name: string;
+    employeeNo: string;
+    missing: ApiDetailField[];
+  }[];
+  /** Current staff in all. */
+  staff: number;
+};
+
 export type EmployeeListParams = {
   page?: number;
   pageSize?: number;
@@ -645,6 +671,24 @@ export const employees = {
    */
   updateMine: (body: Record<string, unknown>) =>
     request<ApiSelfUpdateOutcome>("/employees/me", { method: "PATCH", body }),
+
+  /** The details the caller's company requires, and which they still owe. */
+  myRequired: (signal?: AbortSignal) =>
+    request<ApiMyRequired>("/employees/me/required", {
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** For HR: what is required, what can be, and who still has gaps. */
+  requiredDetails: (signal?: AbortSignal) =>
+    request<ApiRequiredOverview>("/employees/required-details", {
+      ...(signal ? { signal } : {}),
+    }),
+
+  setRequiredDetails: (fields: string[]) =>
+    request<ApiRequiredOverview>("/employees/required-details", {
+      method: "PUT",
+      body: { fields },
+    }),
 
   /** What the caller has waiting on somebody. */
   myChanges: (signal?: AbortSignal) =>

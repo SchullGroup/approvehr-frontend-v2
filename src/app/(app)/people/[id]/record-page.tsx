@@ -3,7 +3,7 @@
 import { sourceNote } from "@/lib/demo";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Archive, RotateCcw, UserRoundX } from "lucide-react";
+import { Archive, MessageSquare, RotateCcw, UserRoundX } from "lucide-react";
 import {
   Badge,
   Button,
@@ -29,9 +29,11 @@ import {
   useEmployeeMutations,
   type EmployeePatch,
 } from "@/lib/store/employees-api";
+import { useCan } from "@/lib/permissions";
 import { useSession } from "@/lib/store/session";
 import { fullName } from "@/lib/types";
 import { EmployeeRecord } from "./record";
+import { SendMessageDialog } from "./send-message";
 
 /**
  * What to tell somebody whose record did not load.
@@ -118,6 +120,11 @@ export function EmployeeRecordPage({ id }: { id: string }) {
   const balances = useEmployeeLeaveBalances(id);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [messaging, setMessaging] = useState(false);
+  /* Messages are noticeboard posts, so they need what posting needs, and a
+     live API: demo mode has nowhere to send them. */
+  const canPost = useCan("MANAGE_SETTINGS");
+  const canMessage = canPost && record.connected;
 
   const employee = record.employee;
 
@@ -218,6 +225,9 @@ export function EmployeeRecordPage({ id }: { id: string }) {
 
   const name = fullName(employee);
   const archived = record.archived;
+  /* Absent `access` is "not known" (demo mode), so it does not hide the button. */
+  const canSignIn =
+    employee.access === undefined || employee.access.state === "ACCEPTED";
   const manager = employee.managerId
     ? (directory.employees.find((e) => e.id === employee.managerId) ?? null)
     : null;
@@ -316,14 +326,26 @@ export function EmployeeRecordPage({ id }: { id: string }) {
               Restore
             </Button>
           ) : isSelf ? null : (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setConfirming(true)}
-            >
-              <Archive aria-hidden="true" className="size-3.5" />
-              Archive
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {canMessage && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setMessaging(true)}
+                >
+                  <MessageSquare aria-hidden="true" className="size-3.5" />
+                  Send message
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setConfirming(true)}
+              >
+                <Archive aria-hidden="true" className="size-3.5" />
+                Archive
+              </Button>
+            </div>
           )
         }
       />
@@ -358,6 +380,16 @@ export function EmployeeRecordPage({ id }: { id: string }) {
           onSave={save}
         />
       </PageBody>
+
+      {canMessage && (
+        <SendMessageDialog
+          open={messaging}
+          onClose={() => setMessaging(false)}
+          employeeId={employee.id}
+          name={name}
+          canSignIn={canSignIn}
+        />
+      )}
 
       <ConfirmDialog
         open={confirming}
