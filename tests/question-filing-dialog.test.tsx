@@ -107,7 +107,7 @@ describe("the sentence under Section and Subsection", () => {
     mount();
     expect(
       screen.getByText(
-        "Answers to a question do not count towards the mark. The mark comes from what is recorded on each subsection, under Competency ratings.",
+        "Answers to questions written here do not count towards the mark. The mark comes from what is recorded on each subsection, under Competency ratings.",
       ),
     ).toBeInTheDocument();
   });
@@ -118,7 +118,7 @@ describe("the sentence under Section and Subsection", () => {
     await pickSubsection("Diligence");
     expect(
       screen.getByText(
-        "Answers to a question do not count towards the mark. Core competency is 40% of the mark, and it comes from the level recorded on Diligence, under Competency ratings.",
+        "Answers to questions written here do not count towards the mark. Core competency is 40% of the mark, and it comes from the level recorded on Diligence, under Competency ratings.",
       ),
     ).toBeInTheDocument();
   });
@@ -166,7 +166,7 @@ describe("the sentence under Section and Subsection", () => {
     await pickSubsection("Punctuality");
     expect(
       screen.getByText(
-        "Answers to a question do not count towards the mark. Punctuality is not filed under a section, so a level recorded on it counts towards no part of the mark either.",
+        "Answers to questions written here do not count towards the mark. Punctuality is not filed under a section, so a level recorded on it counts towards no part of the mark either.",
       ),
     ).toBeInTheDocument();
   });

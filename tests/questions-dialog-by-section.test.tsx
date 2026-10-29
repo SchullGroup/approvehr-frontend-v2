@@ -274,7 +274,7 @@ describe("a question written from under a subsection", () => {
 
     expect(
       screen.getByText(
-        "Answers to a question do not count towards the mark. Core competency is 40% of the mark, and it comes from the answer recorded on Teamwork, under Competency ratings.",
+        "Answers to questions written here do not count towards the mark. Core competency is 40% of the mark, and it comes from the answer recorded on Teamwork, under Competency ratings.",
       ),
     ).toBeInTheDocument();
   });

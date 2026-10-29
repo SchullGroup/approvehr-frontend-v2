@@ -19,6 +19,14 @@ import { recordedWords } from "@/lib/performance/answer-kind";
  * then where the mark does come from, with the section's weight when it is known,
  * because HR choosing a section is often choosing a weight.
  *
+ * ## "Written here", and not "a question"
+ *
+ * A subsection the period asks directly (**Ask it on the review form**) is on the
+ * list of questions too, drawn above the form this sentence sits under, and its
+ * answer does count: it is recorded on the subsection. "Answers to a question do
+ * not count" read as a contradiction of the row above it. The sentence is about
+ * the questions this form writes, which is what it now says.
+ *
  * ## What is recorded depends on how the subsection is answered
  *
  * A level on a scale is "the level recorded on" it. A yes or no and a pick have
@@ -53,7 +61,8 @@ export type Filing = {
   answerKind?: AnswerKind;
 };
 
-const NOT_COUNTED = "Answers to a question do not count towards the mark.";
+const NOT_COUNTED =
+  "Answers to questions written here do not count towards the mark.";
 
 export function filingNote({
   sectionId,
