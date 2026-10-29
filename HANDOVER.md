@@ -10918,19 +10918,141 @@ render tests, and added it to `ADOPTED` in `scripts/verify-load-rule.ts`, so 92 
 **Run by the review of #539, not by CI:** the whole vitest suite on `dev` with the fix, 367 files and 5,321 tests, all passing. Vitest is
 not in CI, so this is the only whole-suite result there is for that commit.
 
-**Found by that review and not fixed**, each verified by the review against a scratch API (I have not re-run them):
-
-- A notice's picture carries over into the next notice: the create form on `/settings/announcements` is not keyed per open, so after a
-  draft with a picture, the next notice is saved with that picture while the form shows "Choose a file".
-- The people picker finds nobody for somebody who holds `MANAGE_SETTINGS` but not `EDIT_RECORDS`: it reads `employees`, which is empty
-  for lookup-only callers, who are sent `people`. The same trap #507 fixed in Record a level.
-- Clearing **Gross monthly** sends `null` and the API refuses it (_That did not save: Some fields are not valid_), while the form still
-  says to clear it if pay is no longer agreed. Either the update schema takes `null` or the form stops offering it.
-- The UI refuses people who were invited and have not accepted, where the API accepts them, and the advice _Invite them to sign in
-  first_ is wrong for them.
-- Nothing pins the `MANAGE_SETTINGS` gate on **Send message** (removing it left all twelve neighbouring tests passing).
+**Found by that review**, each verified by it against a scratch API, and all five fixed afterwards: a notice's picture carrying into the next
+notice, the people picker finding nobody for somebody who holds `MANAGE_SETTINGS` without `EDIT_RECORDS`, the API refusing `null` when
+**Gross monthly** is cleared, the screen refusing people the API accepts (invited and not yet signed in), and nothing pinning the
+`MANAGE_SETTINGS` gate on **Send message**. Four are fixed in [#547](https://github.com/SchullGroup/approvehr-frontend-v2/pull/547) and one in
+[backend #251](https://github.com/SchullGroup/approvehr-backend/pull/251); what the fixes decided is in "Five defects the review of #539 found, and what
+fixing them decided", further down.
 
 **The same day, one backend fix** ([backend #250](https://github.com/SchullGroup/approvehr-backend/pull/250)): `src/server.ts` ignored the
 argument `app.listen`'s callback receives, which is how Express 5 reports a failed bind, so a second start on a taken port ran the
 "listening" code, said nothing of the failure and ended with exit code 0. It now logs which port and exits 1. Two of its tests hold the
 Express behaviour the fix depends on.
+
+---
+
+# Five defects the review of #539 found, and what fixing them decided
+
+[#539](https://github.com/SchullGroup/approvehr-frontend-v2/pull/539) (Send message, religion, required details, gross pay) merged on 29
+October with five defects that the review of it found and verified against a scratch API. Four are fixed
+in [#547](https://github.com/SchullGroup/approvehr-frontend-v2/pull/547) and one in
+[backend #251](https://github.com/SchullGroup/approvehr-backend/pull/251). Each fix has a test that was broken on purpose and
+failed. This is what the fixes decided, because three of them are choices a reasonable person would make differently.
+
+## A notice form is a new form every time it is opened
+
+`AnnouncementForm` is mounted for good on the screen so the dialog can animate out. `Modal` unmounts its children when it closes, so every
+control inside it starts over, but the fields were held above it and did not. After a notice with a picture was saved, "Write a notice" opened
+with the previous title and text still in it and the picture still attached while the file field read "Choose a file", and the next notice went
+out carrying a picture nobody could see. Editing had a smaller version of the same fault: type over a notice, cancel, and the typing was there
+the next time.
+
+`AnnouncementForm` is a thin wrapper now and starts a new session when the dialog opens (`AnnouncementFormBody key={session}`), the rule the
+role editor already follows: re-create a form per open with a key, do not copy props into state once and hope. Three things not to undo:
+
+- **It does not start a session when `notice` is handed over again.** The board refetches when the window is focused, and a new object for
+  the same notice must not wipe what somebody is typing. A test refreshes the notice under a half-typed title.
+- **It does not start one when the dialog closes**, so what is on screen does not change while it animates out.
+- **Cancel discards what was typed**, and so does a click on the backdrop, as every other dialog here does. That is a change: a half-written
+  notice used to survive an accidental close, by accident. "Save as a draft" is the way to keep one. If keeping typed text across a cancel is
+  wanted, the answer is a draft the form keeps for itself, not fields held above a dialog.
+
+Send message did not have this fault: its `close()` clears its own fields.
+
+## The people picker lists the lookup rows
+
+The picker read `employees`, the full rows, which the API sends only to a caller with `EDIT_RECORDS`. Somebody who holds `MANAGE_SETTINGS`
+alone is sent lookup rows and no full ones, so for them "Specific people" found nobody, whoever they typed: the trap
+[#507](https://github.com/SchullGroup/approvehr-frontend-v2/pull/507) fixed in Record a level. It lists `people` now, and reads the full row
+only for what it adds: the staff number, and whether the account can sign in.
+
+A lookup row carries no `access`, and the picker treats that as **not known**, not as "cannot sign in": the Add button is on, and the API
+decides at send and names the person. The one thing lost is telling that caller beforehand who cannot be sent a message. It cannot be known
+from a lookup row.
+
+## The screen refuses what the API refuses, and no more
+
+The API (`assertPeople` in the announcements module) refuses a person with **no account** and a person whose account is **archived**. The
+picker and Send message refused everybody who had not accepted their invitation, so somebody invited and not yet signed in (`SENT`, `EXPIRED`)
+was turned away by the screen though the server takes them, and Send message told them "Invite them to sign in first", advice for somebody who
+has been invited.
+
+`noticeReach(access)` in `lib/api/announcements.ts` is the one copy of the rule, and its wording is the record's own ("Invited", "Invitation
+expired", "Access closed"):
+
+| Access | Can be addressed | What it says |
+|---|---|---|
+| `NONE` | no | "has no account yet", and to invite them first |
+| `DISABLED` | no | "no longer has access" |
+| `SENT`, `EXPIRED` | **yes** | "has not signed in yet", and that they will see it once they do |
+| `ACCEPTED`, not known | yes | nothing |
+
+`SendMessageDialog` takes `access` now instead of `canSignIn: boolean`, because a boolean cannot tell no account from invited. The screen
+follows the server. If the owner wants only people who have signed in to be messageable, that is a change to `assertPeople` first and a one-line
+change to `noticeReach` after it; the screen should not hold a stricter rule than the server.
+
+## Clearing Gross monthly: the API takes null now
+
+#539 says emptying the gross box on a record means "not agreed" (null), not ₦0. The form did that, and the API's update schema refused it
+(`grossMonthlyKobo` was a plain integer), so the one control for "pay is no longer agreed" answered "That did not save: Some fields are not
+valid". Two fixes were possible and this took the API one: the schema is `.nullable().optional()` (the reasoning `gender` already carries) and
+`toDbFields` writes `grossMonthly: null`. The form is unchanged; it had already promised this. Removing the control instead would have removed
+the only way to say "not agreed" on an existing record, and absent is not zero.
+
+What it leans on, all already true: the history records the clear as a pay change whose after is `null` (an employment change already modelled
+`grossMonthlyKobo: null`), `payroll/prepare` raises `missing_pay` as a BLOCKER naming anybody who reaches a run with no figure, and a request that
+does not mention pay still leaves it alone. **Backend first**: against a server without the change the form fails the same way as before, with the
+API's own sentence.
+
+## Send message's permission is pinned
+
+Nothing pinned `MANAGE_SETTINGS` on the Send message button (taking it out left all twelve neighbouring tests passing).
+`tests/record-page-send-message.test.tsx` renders the real record page with the data hooks and the tab component stubbed and pins: offered
+with `MANAGE_SETTINGS` and a live API; not without it, however much else the account can do; not with no API; not on an archived record; and
+that it opens the dialog for this person with where their account stands. Each was broken on purpose.
+
+## Found and not changed
+
+- **The API's refusal for an archived person says "Invite them first"**, which is wrong advice for somebody whose account was switched off. A
+  caller who is sent only lookup rows can still reach it, since the picker cannot know beforehand, and sees the server's sentence as it comes.
+  The wording is a backend change.
+- **A section opened from a link that names a field opens again after a save.** Seen on the Role card of `/people/[id]?tab=employment&field=grossMonthly`:
+  the save succeeds and the toast appears, and the editor is open again, empty. Through the Edit button the same save closes it. Nothing in
+  these changes touches that component. The likely cause is that the record remounts the section when it reloads while the address still names
+  the field, which seeds `editing` on mount; I did not confirm that. It matters because that link is how a payroll exception sends somebody to
+  fix a figure.
+- **The record's "Needed before payroll can run" list does not include pay.** `payrollGapsFor` checks the bank account, the pension PIN and the
+  TIN, so somebody whose pay was just cleared is not in it; the payroll run does name them (`missing_pay`), and the field's own help says so.
+  Whether a missing salary belongs on that list is a product call.
+- **What an absent salary reads as.** The read-only Gross monthly row says "Not provided", the section's fallback when a value is null. The
+  `Money` branch in the field's `format`, which would say "Not set yet", is never reached for a null, so a test that looks for "Not set yet"
+  on a record will not find it (my own walk looked for it first, from that comment). Both are an absence and neither is ₦0.00.
+
+## Verified
+
+**Frontend.** Five test files, 36 tests, all passing: `notice-reach`, `people-picker`, `announcement-form-per-open`,
+`record-page-send-message` and a rewritten `send-message`. Eleven deliberate breaks, each caught by the tests written for it: a form with
+no new session, a session that restarts on every re-render, one that restarts on close, a picker reading the full rows again, an invited
+person refused, a person with no account allowed, Send message without its guard, the button offered without the permission, without the
+live API, on the wrong permission, and without passing the account state on. `npm run check` exit 0 with the backend checked out beside it
+(so the four cross-repo gates compared instead of skipping); its 15 lint warnings are all on `dev` already and none is in these files.
+
+**Backend.** `tests/employees.test.ts` 70 passing, six of them new; the 33 test files around employees, 952 tests, all passing. Three deliberate
+breaks, each caught: the schema refusing `null` again (the old behaviour) fails four tests, `null` written as zero fails three, and a request
+that does not mention pay clearing it fails two. `tsc`, lint and `format:check` exit 0. The first push had two spots Prettier wraps differently,
+which the whole gate catches and no test does.
+
+**The server's rule, live**, on a real Postgres: a notice for a person with no account answered 422 and for an archived account 422, and for an
+invited person (`SENT`) and one whose invitation ran out (`EXPIRED`) 201. Published to those two, both were notified (the invited one went from
+0 to 1 notifications). Email is not configured on that stack, so nothing here claims an email goes out.
+
+**In a browser**, against a scratch API running the backend fix and `next dev`, as the administrator and as an account that holds only
+`MANAGE_SETTINGS`: 49 of 49 checks, no console errors. The notice form came up blank after a notice with a picture, and the server held the
+picture on the first notice only. The picker showed one person per access state with Add on or off to match. The settings-only account searched
+"Adaeze" and found her; on `dev`'s picker the same search said "Nobody on the staff list matches", which is the defect seen. Send message said the
+right thing for each state and sent to the invited and the expired. Gross monthly, through the Edit button, sent `{"grossMonthlyKobo":null}`,
+got 200 and read "Not provided"; typing 150000 saved 15,000,000 kobo and read ₦150,000.00.
+
+**Not exercised:** iOS Safari or any real device; demo mode (nothing here changes it: Send message and the picker need the API); a company with
+hundreds of people in the picker; the backend suite in one run (CI runs it).

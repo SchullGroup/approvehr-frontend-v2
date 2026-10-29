@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Button, Input } from "@/components/ui";
+import { noticeReach } from "@/lib/api/announcements";
 import { useEmployeeDirectory } from "@/lib/store/employees-api";
 
 /** Somebody chosen, by id, with the name to show on their chip. */
@@ -12,9 +13,11 @@ export type ChosenPerson = { id: string; name: string };
  * Who a notice for named people goes to.
  *
  * A search over the staff list rather than a select of everybody: a company of
- * four hundred is not a dropdown. Only people who can sign in can be added,
- * because the API refuses anybody else (a notice on a board they cannot open),
- * and saying so here is cheaper than finding out on Publish.
+ * four hundred is not a dropdown. Somebody with no account, or with an archived
+ * one, cannot be added, because the API refuses them (a notice on a board they
+ * cannot open), and saying so here is cheaper than finding out on Publish.
+ * `noticeReach` is that rule, and it is the API's rule rather than a stricter one:
+ * somebody who was invited and has not accepted yet is added.
  */
 export function PeoplePicker({
   value,
@@ -96,25 +99,39 @@ function Results({
   chosen: ReadonlySet<string>;
   onAdd: (person: ChosenPerson) => void;
 }) {
-  const { employees: results, loading } = useEmployeeDirectory({
+  const { employees, people, loading } = useEmployeeDirectory({
     q,
     pageSize: 8,
   });
+  /* The list is the lookup rows, because everybody is sent those. The full rows
+     are read only for what they add: the staff number and the sign-in state. A
+     caller without `EDIT_RECORDS` (somebody who holds `MANAGE_SETTINGS` alone) is
+     sent lookup rows and no full ones, so reading `employees` here gave them a
+     picker that found nobody. */
+  const full = new Map(employees.map((employee) => [employee.id, employee]));
 
   return (
     <ul className="flex flex-col divide-y divide-line rounded-lg border border-line">
-      {loading && results.length === 0 ? (
+      {loading && people.length === 0 ? (
         <li className="px-3 py-2 text-body-sm text-muted">Searching…</li>
-      ) : results.length === 0 ? (
+      ) : people.length === 0 ? (
         <li className="px-3 py-2 text-body-sm text-muted">
           Nobody on the staff list matches “{q}”.
         </li>
       ) : (
-        results.map((person) => {
-          const name = `${person.firstName} ${person.lastName}`;
-          /* Absent `access` is "not known" (demo mode), not "no account". */
-          const cannotSignIn =
-            person.access !== undefined && person.access.state !== "ACCEPTED";
+        people.map((person) => {
+          const row = full.get(person.id);
+          /* Absent `access` is "not known", not "no account": the API decides. */
+          const reach = noticeReach(row?.access);
+          const identity = [row?.employeeNo, person.jobTitle]
+            .filter(Boolean)
+            .join(" · ");
+          /* Somebody who cannot be added is described by why. Somebody who can
+             keeps their identity, because it is what tells two people of one name
+             apart, with the note after it. */
+          const subline = reach.can
+            ? [identity, reach.line].filter(Boolean).join(" · ")
+            : reach.line;
           const added = chosen.has(person.id);
           return (
             <li
@@ -123,21 +140,17 @@ function Results({
             >
               <span className="min-w-0">
                 <span className="block truncate text-body-sm text-ink">
-                  {name}
+                  {person.fullName}
                 </span>
                 <span className="block truncate text-meta text-muted">
-                  {cannotSignIn
-                    ? "Cannot sign in yet, so cannot be sent a message"
-                    : [person.employeeNo, person.jobTitle]
-                        .filter(Boolean)
-                        .join(" · ")}
+                  {subline}
                 </span>
               </span>
               <Button
                 size="sm"
                 variant="secondary"
-                disabled={added || cannotSignIn}
-                onClick={() => onAdd({ id: person.id, name })}
+                disabled={added || !reach.can}
+                onClick={() => onAdd({ id: person.id, name: person.fullName })}
               >
                 {added ? "Added" : "Add"}
               </Button>
