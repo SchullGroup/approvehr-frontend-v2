@@ -113,11 +113,13 @@ export function AnnouncementsScreen() {
   const [writing, setWriting] = useState(false);
   const [editing, setEditing] = useState<ApiAnnouncement | null>(null);
   /* The notice the edit form was last opened on, kept after it closes.
-     `AnnouncementForm` reads its fields from `notice` once, when it mounts, so
-     it has to be mounted afresh for each notice: without a key it opened on the
-     blank state it was first mounted with, and a save of an untouched edit wrote
-     that blank state over the notice. Kept rather than reset to null on close so
-     the form's exit does not flash its "write a notice" heading on the way out.
+     `AnnouncementForm` reads its fields from `notice` when it opens (it starts
+     a fresh session each time, see its header), so it has to be given the notice
+     it is opening on: without that it opened on the blank state it was first
+     mounted with, and a save of an untouched edit wrote that blank state over the
+     notice. Kept rather than reset to null on close so the form's exit does not
+     flash its "write a notice" heading on the way out. The key below is for the
+     same reason: a different notice is a different form.
      Adjusting state during render is the documented way to derive this. */
   const [editedNotice, setEditedNotice] = useState<ApiAnnouncement | null>(
     null,

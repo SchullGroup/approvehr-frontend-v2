@@ -225,9 +225,6 @@ export function EmployeeRecordPage({ id }: { id: string }) {
 
   const name = fullName(employee);
   const archived = record.archived;
-  /* Absent `access` is "not known" (demo mode), so it does not hide the button. */
-  const canSignIn =
-    employee.access === undefined || employee.access.state === "ACCEPTED";
   const manager = employee.managerId
     ? (directory.employees.find((e) => e.id === employee.managerId) ?? null)
     : null;
@@ -387,7 +384,7 @@ export function EmployeeRecordPage({ id }: { id: string }) {
           onClose={() => setMessaging(false)}
           employeeId={employee.id}
           name={name}
-          canSignIn={canSignIn}
+          access={employee.access}
         />
       )}
 
