@@ -10668,7 +10668,8 @@ that backend checkout has no such file. A production build with `NEXT_PUBLIC_DEM
 (no ungated demo copy in 1,185 source files, none in 3,023 built ones, no fabricated records).
 
 **In a browser, against the real backend** (its branch at `0ae2d61`, a scratch company, the production build of this branch), as the
-administrator, a line manager and two employees, 38 checks and all of them passed:
+administrator, a line manager and an employee, 40 checks and all of them passed. The other employee's self-review, which the manager's
+form needed, was sent over HTTP:
 
 - **The dialog on a draft period** (10): the control on **Not asked** with its four options; **Both** writing at once (`PUT`, 201,
   both audiences) and the line saying whose answer counts; the help hover naming the period; **The manager** the same write answered
@@ -10684,18 +10685,25 @@ administrator, a line manager and two employees, 38 checks and all of them passe
   all four back. The ratings were then read from the backend's own skills list.
 - **A copy** (4): an empty draft offered **Start from a previous period**; the copy carried the subsection questions as rows with who
   is asked; under **By section** Adaptability read **Both**; stopping one in the copy left the source period asking it.
+- **A pick-one subsection with no choices** (2): the three options other than **Not asked** were disabled with the reason beside
+  them, the control stayed on **Not asked**, and trying to choose one sent nothing. Over HTTP the same ask was refused with a 422 in
+  the words of the backend's note.
 
 Against the same backend, over HTTP, the wire shapes were checked against the types here (the period's questions, the review's
 `questions`, `subsection`, `selfAnswer` being `null` until the person has sent and absent on their own form, `choiceOptionId` on an
-answer) and every refusal the control or the forms can meet came back in the sentence the backend's note gives.
+answer). The refusals that were actually made, each in the sentence the backend's note gives: an empty list, a colleague, stopping a
+question that is not asked, a level above the subsection's scale, a level sent to a yes or no, a pick sent by its label instead of
+its id, a pick that is not the subsection's, a period that has started (in the browser, as the ask), and a pick-one subsection with
+no choices. The rest of that table was not tried.
 
 ## Not exercised
 
 iOS Safari or any real device; demo mode in a browser (the control is absent there by a test, and no demo path reaches a production
-build); the popup review form, which cannot be opened (see above); a pick-one subsection with fewer than two choices asked in a
-browser (the web disables the options, covered by a test, and the backend's own refusal was seen over HTTP only); a period that
-started while the dialog was open, seen once and by waiting on the page's re-read, not by pressing Start; several appraisers on one
-subject; and the QA site, which cannot have this until the backend is on `staging`.
+build); the popup review form, which cannot be opened (see above); a period that started while the dialog was open, seen once and by
+waiting on the page's re-read, not by pressing Start; an employee's send being the one that writes the rating, where only the
+employee is asked (the web draws the same form for it, and the write is the backend's, covered by its tests); the mark itself, which
+was not read from the score register, only the ratings the sends wrote; several appraisers on one subject; and the QA site, which
+cannot have this until the backend is on `staging`.
 
 ## Docs, and what is left to regenerate
 
