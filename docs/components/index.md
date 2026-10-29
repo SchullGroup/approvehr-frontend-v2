@@ -9,9 +9,9 @@ design system" both have an answer you can scan.
 | **Frontend v2**       | [`frontend-v2.md`](frontend-v2.md)             |  1169 |        980 |   415 |      1385 |
 | **Platform frontend** | [`platform-frontend.md`](platform-frontend.md) |   800 |        642 |   933 |       208 |
 | **Landing site**      | [`landing-frontend.md`](landing-frontend.md)   |    39 |         50 |     — |        17 |
-| **API**               | [`backend-api.md`](backend-api.md)             |   475 |          — |     — |      2070 |
+| **API**               | [`backend-api.md`](backend-api.md)             |   479 |          — |     — |      2087 |
 
-The API file also carries all **960 endpoints**, listed per module with their full mounted paths.
+The API file also carries all **971 endpoints**, listed per module with their full mounted paths.
 
 ## What the columns mean
 
