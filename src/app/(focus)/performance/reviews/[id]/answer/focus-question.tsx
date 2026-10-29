@@ -19,9 +19,9 @@ import { TEXT_LIMIT } from "./focus-logic";
  * The input for one question, big enough to be the only thing on the page.
  *
  * What a question *is* — its kinds, how a draft becomes an answer, what counts
- * as filled — stays in `review-parts.tsx`, shared with the popup form and the
- * record. This file only decides what it looks like when it has the page to
- * itself, and which keys pick which option.
+ * as filled — stays in `review-parts.tsx`, shared with the record. This file
+ * only decides what it looks like when it has the page to itself, and which keys
+ * pick which option.
  */
 
 /** One pickable option, with the key that picks it. */
@@ -145,8 +145,8 @@ function KeyBadge({ children }: { children: string }) {
 /**
  * Options as large cards, with their keys.
  *
- * `RadioCard` is the card the popup form already uses, so a checked option
- * looks the same in both. The key sits in the card's icon slot.
+ * `RadioCard` is the shared choice card, so a checked option looks the same
+ * wherever somebody picks one. The key sits in the card's icon slot.
  */
 export function PickList({
   name,

@@ -53,7 +53,6 @@ import {
 import { AppraisersDialog } from "./appraiser-map";
 import { ManagerQuestionButton } from "./manager-question";
 import { PeriodExceptionNotice, PeriodStatus } from "./period-status";
-import { ReviewFormModal } from "./review-form";
 import { StartPeriodButton } from "./start-period";
 
 /**
@@ -156,7 +155,6 @@ export function WhatNeedsYouTab({
   const scored = features.appraisals;
 
   const router = useRouter();
-  const [opened, setOpened] = useState<string | null>(null);
 
   const owed = appraisals.mine.toComplete;
   const record = appraisals.mine.aboutMe.filter((review) => review.submitted);
@@ -883,13 +881,7 @@ export function WhatNeedsYouTab({
           ) : (
             <div className="flex flex-col gap-2">
               {record.map((review) => (
-                <ReviewRow
-                  key={review.id}
-                  review={review}
-                  context="record"
-                  actionLabel="Read it"
-                  onOpen={() => setOpened(review.id)}
-                />
+                <ReviewRow key={review.id} review={review} context="record" />
               ))}
             </div>
           )}
@@ -1014,13 +1006,6 @@ export function WhatNeedsYouTab({
           task. `/performance/skills` shows them their own actual levels, which
           is the version of that question with an answer in it. */}
 
-      <ReviewFormModal
-        reviewId={opened}
-        open={opened !== null}
-        onClose={() => setOpened(null)}
-        onDone={appraisals.reload}
-      />
-
       {/* The same dialog the period screen uses, on the screen where the
           problem was noticed. One implementation of "who appraises this
           person"; two places it can be reached from. */}
@@ -1141,18 +1126,18 @@ function TaskRow({
  * record list the subject is always you, so the useful name is **who wrote
  * it**. A single "· name" that always showed the subject printed your own name
  * back at you.
+ *
+ * Only a row in the work list has anything to do: it takes the label and the
+ * handler of its button. A row in the record list is for reading, and only ever
+ * holds sent reviews, so it takes neither.
  */
-export function ReviewRow({
-  review,
-  context,
-  actionLabel,
-  onOpen,
-}: {
-  review: ApiReview;
-  context: "owed" | "record";
-  actionLabel: string;
-  onOpen: () => void;
-}) {
+export function ReviewRow(
+  props: { review: ApiReview } & (
+    | { context: "owed"; actionLabel: string; onOpen: () => void }
+    | { context: "record" }
+  ),
+) {
+  const { review, context } = props;
   /* The company's own words for the mark on this row. One cached request
      however many rows render it. */
   const { scale } = useRatingScale();
@@ -1216,31 +1201,25 @@ export function ReviewRow({
         {/*
          * Two acts on an unsent form, and one on a sent one.
          *
-         * This was a single button, and the reason is worth keeping because it
-         * is still half true: two buttons that both merely "showed the review"
-         * sat here once with no way to tell why there were two, and the record
-         * page for an unsent form was a column of "Not answered" reading as
-         * lost answers rather than ones still waiting.
+         * Two buttons that both merely "showed the review" sat here once with no
+         * way to tell why there were two, and the record page for an unsent form
+         * was a column of "Not answered" reading as lost answers rather than ones
+         * still waiting. The page now heads that card "3 questions still
+         * unanswered" and carries its own "Fill it in", so it says *waiting*, not
+         * *lost*, and it holds what the answer flow does not: the appraiser strip,
+         * the components behind the mark, the whole record.
          *
-         * The second half of that stopped being true. The page now heads that
-         * card "3 questions still unanswered" and carries its own "Fill it in",
-         * so it says *waiting*, not *lost* — and it holds what the modal cannot:
-         * the appraiser strip, the components behind the mark, the whole record.
+         * So both are offered, made plainly different rather than dropped.
+         * Filling it in (the page-by-page flow) is the primary act; opening the
+         * record is secondary and goes somewhere else. The labels name the
+         * destination, not the thing.
          *
-         * So both are offered, and the objection is answered by making them
-         * plainly different rather than by dropping one. Filling it in is the
-         * primary act and happens in place; opening the record is secondary and
-         * goes somewhere. The labels name the destination, not the thing.
-         *
-         * A sent form keeps one button, because there is no form left to fill —
-         * a second control here would go where the first one goes.
+         * A sent form keeps one button, because there is no form left to fill: a
+         * second control here would go where the first one goes.
          *
          * And only in the work list. The same row renders under "What was said
-         * about you", which is a reading surface: an unsent form reaches it
-         * only as this person's own self-review, which is already in the work
-         * list above with both acts on it. Offering "Read it" beside "Open the
-         * record" there would be two buttons that both just show the review,
-         * which is the exact thing this comment starts by warning about.
+         * about you", which is a reading surface and only ever holds sent
+         * reviews, so it has no form to fill in and no second button to offer.
          */}
         {review.submitted ? (
           <ButtonLink
@@ -1250,22 +1229,20 @@ export function ReviewRow({
           >
             Read the review
           </ButtonLink>
-        ) : (
+        ) : props.context === "owed" ? (
           <>
-            <Button variant="accent" size="sm" onClick={onOpen}>
-              {actionLabel}
+            <Button variant="accent" size="sm" onClick={props.onOpen}>
+              {props.actionLabel}
             </Button>
-            {context === "owed" && (
-              <ButtonLink
-                variant="secondary"
-                size="sm"
-                href={`/performance/reviews/${review.id}`}
-              >
-                Open the record
-              </ButtonLink>
-            )}
+            <ButtonLink
+              variant="secondary"
+              size="sm"
+              href={`/performance/reviews/${review.id}`}
+            >
+              Open the record
+            </ButtonLink>
           </>
-        )}
+        ) : null}
       </div>
     </div>
   );

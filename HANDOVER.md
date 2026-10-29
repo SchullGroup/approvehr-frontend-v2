@@ -10158,7 +10158,7 @@ flag and sent with every review as `ApiReviewDetail.overallMark`, so the form ne
 
 - **It decides what a form offers.** On, the page-by-page form has a page "Is there an overall mark?" between the
   questions and the note, the preview has an "Overall mark" row, the confirmation says "and an overall mark of
-  Meets Expectations", and the popup form (`review-form.tsx`) has the "Overall mark" field. Off, none of them.
+  Meets Expectations". Off, none of them.
 - **It refuses nothing.** `POST /reviews/:id/submit` takes a `rating` either way, and a review that carries one
   shows it ("Overall mark" on the record). A mark already given is never hidden or rewritten by the switch moving.
 - **It is read once, when a form opens** (`useState(() => review.overallMark === true)` in `focus-form.tsx`). A form
@@ -10682,7 +10682,7 @@ control. Until the backend is on `staging`, `npm run docs` will not list the two
 | `lib/performance/subsection-answer.ts`                                        | The form's side, pure: which questions are a subsection's own, the kind they are drawn as, the levels, an answer in words, the person's own answer in words.                                                                                                                                                          |
 | `direct-answer-panel.tsx`                                                     | **Ask it on the review form**, after how a subsection is answered (`AskOnForm`): who is asked, and the button that writes it.                                                                                                                                                                                                                                      |
 | `subsection-tree.tsx`, `period-dialogs.tsx`, `period-screen.tsx`              | The dialog is told the period's stage and given the two writes; it builds `ask` for the tree; the rows of All questions and the Questions tab know a subsection question.                                                                                                                                             |
-| `review-parts.tsx`, `focus-question.tsx`, `focus-steps.tsx`, `focus-form.tsx` | The page-by-page form, the popup form and every read-back draw a subsection question from the subsection, send the right field, and show the person's own answer to a manager.                                                                                                                                       |
+| `review-parts.tsx`, `focus-question.tsx`, `focus-steps.tsx`, `focus-form.tsx` | The page-by-page form and every read-back draw a subsection question from the subsection, send the right field, and show the person's own answer to a manager.                                                                                                                                       |
 | `docs/walkthroughs/performance.md`                                            | Steps 6, 17, 21 and 22 and the footer date. Every label in them was checked against the source.                                                                                                                                                                                                                       |
 
 ## Decisions not to undo
@@ -10766,24 +10766,42 @@ control. Until the backend is on `staging`, `npm run docs` will not list the two
 
 ## Found, and not changed
 
-- **The popup review form cannot be opened by a person today.** `ReviewFormModal` is rendered once, on the Overview, and opened from
-  the **What was said about you** list, whose rows are all sent reviews and draw **Read the review** as a link. The button that opens
-  the popup is only drawn for an unsent form, and the **Fill it in** rows go to the page-by-page flow instead. It was changed anyway
-  (it draws its questions with the same `AnswerField` and `ReadAnswer` as the flow) and has 23 tests of its own, but no browser has
-  seen it. This is from reading the code, not from clicking; nothing here made it unreachable.
+- **The popup review form is deleted.** `ReviewFormModal` was rendered once, on the Overview, and opened from the **What was said about
+  you** list. That list is filtered to sent reviews, and a sent review's row draws **Read the review** as a link; the button that opened the
+  popup was only drawn for an unsent one, and the **Fill it in** rows go to the page-by-page flow. So no click reached it, which this
+  section first said from reading the code and a second reading, for [#553](https://github.com/SchullGroup/approvehr-frontend-v2/pull/553),
+  confirmed (`record` is `aboutMe.filter(review => review.submitted)`). It went, with its two test files and its wiring (`opened` in
+  `now.tsx`, the export in `performance/index.ts`). Two things were kept because they were never the popup: how an answer is read back
+  (`ReadAnswer`, now tested in `tests/review-read-answer.test.tsx`) and everything the flow and the record page draw from
+  `review-parts.tsx`. Answering is tested through the flow (`subsection-answer-flow`, `overall-mark-flow`). A second commit removes what
+  only the popup used: `AnswerField` and `ratingOptionsFrom`, which were exported (from the file and from the barrel) and imported by
+  nothing else, and `SubsectionAnswerField` and `PlainAnswerField`, which were private to the file and which only `AnswerField` called. That
+  commit's message says all four were exported; two were not. `ReviewRow` is a union type now: a row in the work list takes a label and a
+  handler, a row in the record list takes neither. Earlier sections that call the popup a surface (the overall mark, the subsection-answer
+  table) describe code that is gone.
 - **The contract calls two things by names this repo does not use.** `ApiReviewQuestion` is `ApiQuestion` here, and the review
   detail's `form` is `questions` on the wire (`form` is the backend's local variable). `answerCount` is on the wire for a period's
   questions and was already not typed here. Nothing about the wire shape was changed.
-- **`filingNote` still says "Answers to a question do not count towards the mark"** under the form that adds an ordinary question to
-  a subsection the period also asks directly. It is about the question being written, which is still true, and it is not changed
-  here; it may read oddly beside the new row.
+- **`filingNote` said "Answers to a question do not count towards the mark" under the form that adds an ordinary question, and it read
+  as a contradiction of the row above it.** A subsection the period asks directly is on the list too, and its answer does count (it is
+  recorded on the subsection). The sentence now says "Answers to questions written here do not count towards the mark", which is about
+  the questions this form writes ([#554](https://github.com/SchullGroup/approvehr-frontend-v2/pull/554)). In the same change the reason
+  under a disabled **Ask it on the review form**, for a pick-one subsection with too few choices, is "Add its choices first." where it said
+  "It needs at least two choices before a form can ask it" a few lines under the choices editor's "Give it at least two": the number is
+  said once, by the editor. Both are pinned by a test.
 - **The kind picker is not switched off by this period asking the subsection,** although the API refuses a change of kind while any
   period asks it. The web only knows about this period, and the refusal arrives as the API's own sentence naming one period, shown
   in the picker's existing callout. Pre-empting it would be inventing a rule for the other periods.
-- **A copy can leave a subsection question behind and the screen does not say so.** `POST .../questions/copy` now answers with
-  `skipped` and `skippedNote` for a question whose subsection is switched off or gone. The web reads only `copied`, as before. A copy
-  that carries them works (walked: three subsection questions arrived as **Rated directly** rows, and Adaptability read **Both**
-  under By section); the one that leaves one behind is silent.
+- **A copy used to leave a subsection question behind without saying so, and now says.** `POST .../questions/copy` answers with
+  `skipped` and `skippedNote` for a question whose subsection is switched off or gone, because such a question is read again from the
+  subsection and not copied word for word. The dialog shows `copyNoteFor(result)` as a line above the list: _Copied 2 questions._ and
+  then the API's own sentence, unchanged (`Left out: "Teamwork" (it is switched off).`), or _Nothing was copied._ in front of it when
+  nothing arrived, which is when it matters most. It is a line and not a toast because it is something to act on (a question the new
+  period does not have) and a toast is gone in six seconds. It goes when the next copy starts and when the dialog closes. A copy that left nothing out says
+  nothing, and so does a server that sends neither field: there is no "everything was copied" line, because a server that does not say
+  is not a server that said nothing was left out. 15 tests (`question-copy`, `questions-dialog-copy-left-out`), and five deliberate
+  breaks, each caught: the dialog dropping the report, the line surviving the next copy, the API's sentence reworded, "Copied 0
+  questions", and a server that says nothing being told it left something out.
 - **Three limits of the backend that a screen cannot show.** Where only the employee is asked, their answer is written as their rating
   for the period and appears in Skills, the gap list and the heatmap with nothing to say they gave it. Where a subject has several
   appraisers and the manager is asked, the last one to send wins. A manager's hand-recorded rating of a subsection the period also
