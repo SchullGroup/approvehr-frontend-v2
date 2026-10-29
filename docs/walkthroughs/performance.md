@@ -439,20 +439,23 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   Under that, and drawn only for somebody who can manage settings on a connected company, is
   **Ask it on the review form**. It is **this period's**, not the company's (hover the (i) beside the
   label: _H2 2026 Appraisal only. Other periods choose for themselves._), and it has four choices:
-  **Not asked** (the start, and it says nothing), **The manager**, **The employee** and **Both**. It is
-  written the moment you pick one, with nothing to save: there is no Add button, and a message says it
-  took (_Collaboration added to the review form_, _…updated on the review form_ or _…taken off the review
-  form_, and, under the first two, _Asked of both. Find it under All questions._). It comes only after
-  the API has accepted the choice, so a refusal shows its own sentence instead. One
-  short line under the control says whose answer counts: _Recorded when the manager sends their
-  review._ for the manager, _Their own answer counts towards the mark._ for the employee, and _The
+  **Not asked** (the start, and it says nothing), **The manager**, **The employee** and **Both**. Picking
+  one writes nothing: the button under it does, and says what it will do. It is a switched-off **Add to
+  the review form** until you have chosen somebody, then **Add to the review form**; **Save change** when
+  the period already asks it and you have chosen somebody else; and **Take it off the form** when you
+  have chosen **Not asked**. Once the API has accepted it the button is replaced by **On the review
+  form**, and a message says what happened (_Collaboration added to the review form_, _…updated on the
+  review form_ or _…taken off the review form_, and, under the first two, _Asked of both. Find it under
+  All questions._). The message only comes after the API has said yes, so a refusal shows its own sentence
+  instead. One short line under the control says whose answer counts, for the choice you have made even
+  before you press the button: _Recorded when the manager sends their review._ for the manager, _Their own answer counts towards the mark._ for the employee, and _The
   manager's answer counts. The employee's is shown beside it._ for both. Colleagues cannot be asked a
   subsection. The API's refusals (the period has started, the subsection is switched off, somebody has
   already answered it) are under the control in the server's own
   words, and the control goes back to what the period holds. **Write the questions** is on a draft's
   **Set it up, then start it** card and nowhere else, so you only meet a period that has already started
-  if somebody starts it while this dialog is open: the control is then switched off and says _H2 2026
-  Appraisal has started, so this can no longer change._ A pick-one subsection with fewer than two choices
+  if somebody starts it while this dialog is open: the control is then switched off, with no button,
+  and says _H2 2026 Appraisal has started, so this can no longer change._ A pick-one subsection with fewer than two choices
   cannot be asked (_It needs at least two choices before a form can ask it._), though it can be taken off.
   Until the period's questions have been read, or if reading them failed, the control is not drawn at all
   rather than saying **Not asked** about a form nobody has seen.
