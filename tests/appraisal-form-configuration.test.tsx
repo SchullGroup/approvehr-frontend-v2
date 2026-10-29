@@ -5,11 +5,7 @@ import {
   ratingWordsFrom,
   type ApiFormQuestion,
 } from "@/lib/api/performance";
-import {
-  filled,
-  periodWords,
-  ratingOptionsFrom,
-} from "@/app/(app)/performance/review-parts";
+import { filled, periodWords } from "@/app/(app)/performance/review-parts";
 import { scaleProblem } from "@/app/(app)/settings/performance/scale-form";
 
 /**
@@ -88,27 +84,6 @@ describe("a mark is read back in the company's own words", () => {
     /* Only reachable on a row written before the range was enforced. It says
        what is stored — the alternative is a blank, or a word nobody chose. */
     expect(ratingWordsFrom(theirs)(7)).toBe("7 out of 5");
-  });
-
-  it("keeps the number on a picker and drops it on a record", () => {
-    const theirs = scale({
-      1: "Off track",
-      2: "Behind",
-      3: "On track",
-      4: "Ahead",
-      5: "Outstanding",
-    });
-    /* The coordinates people use while marking — "I gave her a four" — belong
-       on the control being scanned. A record is read, and should say what was
-       decided. */
-    expect(
-      ratingOptionsFrom({ levels: theirs, source: "saved", max: 5 })[2],
-    ).toEqual({
-      value: "3",
-      label: "3: On track",
-      meaning: "",
-    });
-    expect(ratingWordsFrom(theirs)(3)).toBe("On track");
   });
 });
 

@@ -10158,7 +10158,7 @@ flag and sent with every review as `ApiReviewDetail.overallMark`, so the form ne
 
 - **It decides what a form offers.** On, the page-by-page form has a page "Is there an overall mark?" between the
   questions and the note, the preview has an "Overall mark" row, the confirmation says "and an overall mark of
-  Meets Expectations", and the popup form (`review-form.tsx`) has the "Overall mark" field. Off, none of them.
+  Meets Expectations". Off, none of them.
 - **It refuses nothing.** `POST /reviews/:id/submit` takes a `rating` either way, and a review that carries one
   shows it ("Overall mark" on the record). A mark already given is never hidden or rewritten by the switch moving.
 - **It is read once, when a form opens** (`useState(() => review.overallMark === true)` in `focus-form.tsx`). A form
@@ -10682,7 +10682,7 @@ control. Until the backend is on `staging`, `npm run docs` will not list the two
 | `lib/performance/subsection-answer.ts`                                        | The form's side, pure: which questions are a subsection's own, the kind they are drawn as, the levels, an answer in words, the person's own answer in words.                                                                                                                                                          |
 | `direct-answer-panel.tsx`                                                     | **Ask it on the review form**, after how a subsection is answered (`AskOnForm`): who is asked, and the button that writes it.                                                                                                                                                                                                                                      |
 | `subsection-tree.tsx`, `period-dialogs.tsx`, `period-screen.tsx`              | The dialog is told the period's stage and given the two writes; it builds `ask` for the tree; the rows of All questions and the Questions tab know a subsection question.                                                                                                                                             |
-| `review-parts.tsx`, `focus-question.tsx`, `focus-steps.tsx`, `focus-form.tsx` | The page-by-page form, the popup form and every read-back draw a subsection question from the subsection, send the right field, and show the person's own answer to a manager.                                                                                                                                       |
+| `review-parts.tsx`, `focus-question.tsx`, `focus-steps.tsx`, `focus-form.tsx` | The page-by-page form and every read-back draw a subsection question from the subsection, send the right field, and show the person's own answer to a manager.                                                                                                                                       |
 | `docs/walkthroughs/performance.md`                                            | Steps 6, 17, 21 and 22 and the footer date. Every label in them was checked against the source.                                                                                                                                                                                                                       |
 
 ## Decisions not to undo
@@ -10766,11 +10766,19 @@ control. Until the backend is on `staging`, `npm run docs` will not list the two
 
 ## Found, and not changed
 
-- **The popup review form cannot be opened by a person today.** `ReviewFormModal` is rendered once, on the Overview, and opened from
-  the **What was said about you** list, whose rows are all sent reviews and draw **Read the review** as a link. The button that opens
-  the popup is only drawn for an unsent form, and the **Fill it in** rows go to the page-by-page flow instead. It was changed anyway
-  (it draws its questions with the same `AnswerField` and `ReadAnswer` as the flow) and has 23 tests of its own, but no browser has
-  seen it. This is from reading the code, not from clicking; nothing here made it unreachable.
+- **The popup review form is deleted.** `ReviewFormModal` was rendered once, on the Overview, and opened from the **What was said about
+  you** list. That list is filtered to sent reviews, and a sent review's row draws **Read the review** as a link; the button that opened the
+  popup was only drawn for an unsent one, and the **Fill it in** rows go to the page-by-page flow. So no click reached it, which this
+  section first said from reading the code and a second reading, for [#553](https://github.com/SchullGroup/approvehr-frontend-v2/pull/553),
+  confirmed (`record` is `aboutMe.filter(review => review.submitted)`). It went, with its two test files and its wiring (`opened` in
+  `now.tsx`, the export in `performance/index.ts`). Two things were kept because they were never the popup: how an answer is read back
+  (`ReadAnswer`, now tested in `tests/review-read-answer.test.tsx`) and everything the flow and the record page draw from
+  `review-parts.tsx`. Answering is tested through the flow (`subsection-answer-flow`, `overall-mark-flow`). A second commit removes what
+  only the popup used: `AnswerField` and `ratingOptionsFrom`, which were exported (from the file and from the barrel) and imported by
+  nothing else, and `SubsectionAnswerField` and `PlainAnswerField`, which were private to the file and which only `AnswerField` called. That
+  commit's message says all four were exported; two were not. `ReviewRow` is a union type now: a row in the work list takes a label and a
+  handler, a row in the record list takes neither. Earlier sections that call the popup a surface (the overall mark, the subsection-answer
+  table) describe code that is gone.
 - **The contract calls two things by names this repo does not use.** `ApiReviewQuestion` is `ApiQuestion` here, and the review
   detail's `form` is `questions` on the wire (`form` is the backend's local variable). `answerCount` is on the wire for a period's
   questions and was already not typed here. Nothing about the wire shape was changed.
