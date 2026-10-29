@@ -10,11 +10,10 @@ import {
   CardHeader,
   Checkbox,
   EmptyState,
-  Spinner,
+  LoadState,
   TextLink,
   useToast,
 } from "@/components/ui";
-import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { employees, type ApiRequiredOverview } from "@/lib/api/endpoints";
@@ -120,109 +119,110 @@ export function RequiredDetailsScreen() {
     <>
       {header}
       <PageBody className="flex flex-col gap-5">
-        <LoadFailure
-          subject="the required details"
+        <LoadState
+          loading={!overview && !failure}
           error={failure}
-          onRetry={() => setNonce((n) => n + 1)}
-        />
-
-        {!overview || !chosen ? (
-          !failure && (
-            <div className="flex justify-center py-10">
-              <Spinner />
-            </div>
-          )
-        ) : (
-          <>
-            <Card>
-              <CardHeader
-                level={2}
-                title="What staff must fill in"
-                description="Ticked details are marked on My profile, cannot be left blank there, and are asked for on the dashboard until filled in. Nothing else is blocked."
-              />
-              <CardBody className="flex flex-col gap-4">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {overview.options.map((option) => (
-                    <Checkbox
-                      key={option.field}
-                      label={option.label}
-                      checked={chosen.includes(option.field)}
-                      onChange={(event) => {
-                        const on = event.target.checked;
-                        setChosen((current) =>
-                          on
-                            ? [...(current ?? []), option.field]
-                            : (current ?? []).filter((f) => f !== option.field),
-                        );
-                      }}
-                    />
-                  ))}
-                </div>
-                <p className="text-meta text-muted">
-                  Bank, pension and tax numbers are not here: payroll already
-                  checks those before a run. See{" "}
-                  <TextLink href="/people/incomplete">
-                    incomplete records
-                  </TextLink>
-                  .
-                </p>
-                <div>
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    loading={busy}
-                    disabled={!dirty || busy}
-                    onClick={() => void save()}
-                  >
-                    Save
-                  </Button>
-                </div>
-              </CardBody>
-            </Card>
-
-            {overview.required.length > 0 && (
+          subject="the required details"
+          onRetry={() => {
+            setFailure(null);
+            setNonce((n) => n + 1);
+          }}
+          skeleton="list"
+        >
+          {overview && chosen && (
+            <>
               <Card>
                 <CardHeader
                   level={2}
-                  title="Who still has gaps"
-                  description={
-                    overview.outstanding.length === 0
-                      ? `All ${overview.staff} current staff have filled in everything required.`
-                      : `${overview.outstanding.length} of ${overview.staff} current staff. A detail sent for HR's approval counts as filled in.`
-                  }
+                  title="What staff must fill in"
+                  description="Ticked details are marked on My profile, cannot be left blank there, and are asked for on the dashboard until filled in. Nothing else is blocked."
                 />
-                {overview.outstanding.length > 0 && (
-                  <CardBody className="p-0">
-                    <ul className="divide-y divide-line">
-                      {overview.outstanding.map((person) => (
-                        <li
-                          key={person.employeeId}
-                          className="flex flex-wrap items-center justify-between gap-2 px-5 py-3"
-                        >
-                          <span className="min-w-0">
-                            <TextLink href={`/people/${person.employeeId}`}>
-                              {person.name}
-                            </TextLink>
-                            <span className="ml-2 text-meta text-muted">
-                              {person.employeeNo}
-                            </span>
-                          </span>
-                          <span className="flex flex-wrap gap-1.5">
-                            {person.missing.map((m) => (
-                              <Badge key={m.field} tone="warning" size="sm">
-                                {m.label}
-                              </Badge>
-                            ))}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardBody>
-                )}
+                <CardBody className="flex flex-col gap-4">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {overview.options.map((option) => (
+                      <Checkbox
+                        key={option.field}
+                        label={option.label}
+                        checked={chosen.includes(option.field)}
+                        onChange={(event) => {
+                          const on = event.target.checked;
+                          setChosen((current) =>
+                            on
+                              ? [...(current ?? []), option.field]
+                              : (current ?? []).filter(
+                                  (f) => f !== option.field,
+                                ),
+                          );
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-meta text-muted">
+                    Bank, pension and tax numbers are not here: payroll already
+                    checks those before a run. See{" "}
+                    <TextLink href="/people/incomplete">
+                      incomplete records
+                    </TextLink>
+                    .
+                  </p>
+                  <div>
+                    <Button
+                      variant="accent"
+                      size="sm"
+                      loading={busy}
+                      disabled={!dirty || busy}
+                      onClick={() => void save()}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </CardBody>
               </Card>
-            )}
-          </>
-        )}
+
+              {overview.required.length > 0 && (
+                <Card>
+                  <CardHeader
+                    level={2}
+                    title="Who still has gaps"
+                    description={
+                      overview.outstanding.length === 0
+                        ? `All ${overview.staff} current staff have filled in everything required.`
+                        : `${overview.outstanding.length} of ${overview.staff} current staff. A detail sent for HR's approval counts as filled in.`
+                    }
+                  />
+                  {overview.outstanding.length > 0 && (
+                    <CardBody className="p-0">
+                      <ul className="divide-y divide-line">
+                        {overview.outstanding.map((person) => (
+                          <li
+                            key={person.employeeId}
+                            className="flex flex-wrap items-center justify-between gap-2 px-5 py-3"
+                          >
+                            <span className="min-w-0">
+                              <TextLink href={`/people/${person.employeeId}`}>
+                                {person.name}
+                              </TextLink>
+                              <span className="ml-2 text-meta text-muted">
+                                {person.employeeNo}
+                              </span>
+                            </span>
+                            <span className="flex flex-wrap gap-1.5">
+                              {person.missing.map((m) => (
+                                <Badge key={m.field} tone="warning" size="sm">
+                                  {m.label}
+                                </Badge>
+                              ))}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardBody>
+                  )}
+                </Card>
+              )}
+            </>
+          )}
+        </LoadState>
       </PageBody>
     </>
   );

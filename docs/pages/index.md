@@ -10,7 +10,7 @@ it down.
 | **Platform frontend** | [`platform-frontend.md`](platform-frontend.md) |    152 | `approvehr-platform-frontend` — the React Router build of the product.                                                                    |
 | **Landing site**      | [`landing-frontend.md`](landing-frontend.md)   |     15 | `aprrovehr-frontend` — the standalone marketing and careers site.                                                                         |
 
-`approvehr-backend` has no pages. Its HTTP surface — 960 endpoints — is in
+`approvehr-backend` has no pages. Its HTTP surface — 971 endpoints — is in
 [`../components/backend-api.md`](../components/backend-api.md).
 
 ## How to read a row

@@ -192,6 +192,14 @@ const noControl = () =>
     screen.queryByLabelText("Ask it on the review form"),
   ).not.toBeInTheDocument();
 
+const ADD = "Add to the review form";
+const TAKE_OFF = "Take it off the form";
+/** Pick who is asked, then press the button that says what happens next. */
+const choose = async (label: string, action: string) => {
+  await userEvent.selectOptions(control(), label);
+  await userEvent.click(screen.getByRole("button", { name: action }));
+};
+
 const rowOf = (text: string) =>
   screen.getByText(text, { selector: "span.block" }).closest("li");
 
@@ -237,7 +245,7 @@ describe("By section: Ask it on the review form", () => {
     const { onAskSubsection } = mount();
     await openRated("Adaptability");
 
-    await userEvent.selectOptions(control(), "The manager");
+    await choose("The manager", ADD);
 
     await waitFor(() =>
       expect(onAskSubsection).toHaveBeenCalledWith("c-adapt", ["MANAGER"]),
@@ -250,7 +258,7 @@ describe("By section: Ask it on the review form", () => {
   it("asks both of the person and their manager with one write", async () => {
     const { onAskSubsection } = mount();
     await openRated("Adaptability");
-    await userEvent.selectOptions(control(), "Both");
+    await choose("Both", ADD);
     await waitFor(() =>
       expect(onAskSubsection).toHaveBeenCalledWith("c-adapt", [
         "SELF",
@@ -283,7 +291,7 @@ describe("By section: Ask it on the review form", () => {
     const { onAskSubsection, onStopAskingSubsection } = mount();
     await openRated("Adaptability");
 
-    await userEvent.selectOptions(control(), "Not asked");
+    await choose("Not asked", TAKE_OFF);
 
     await waitFor(() =>
       expect(onStopAskingSubsection).toHaveBeenCalledWith("c-adapt"),
@@ -300,7 +308,7 @@ describe("By section: Ask it on the review form", () => {
     );
     await openRated("Adaptability");
 
-    await userEvent.selectOptions(control(), "Not asked");
+    await choose("Not asked", TAKE_OFF);
 
     expect(await screen.findByText(REFUSAL)).toBeInTheDocument();
     expect(control().value).toBe("manager");
@@ -315,7 +323,7 @@ describe("By section: Ask it on the review form", () => {
     );
     await openRated("Adaptability");
 
-    await userEvent.selectOptions(control(), "The manager");
+    await choose("The manager", ADD);
 
     expect(
       await screen.findByText("H2 2026 Appraisal has started."),

@@ -6,6 +6,7 @@ import {
   requestStream,
   type Paged,
 } from "@/lib/api/client";
+import type { EmployeeAccess } from "@/lib/types";
 
 /**
  * The company noticeboard — `/api/v1/announcements`.
@@ -304,6 +305,91 @@ export const MANDATORY_EFFECT =
 export const DRAFT_EFFECT =
   "A draft is invisible to staff, it is not on anybody's dashboard, dimmed or " +
   "otherwise. Publishing is what puts it there.";
+
+/**
+ * Whether a notice can be addressed to somebody by name, and what to say about it.
+ *
+ * It copies the API's rule and nothing stricter (`assertPeople` in the
+ * announcements module): a person is refused when they have **no account at
+ * all** or their account is **archived**, and accepted otherwise. That includes
+ * somebody who was invited and has not accepted yet. They have an account, so
+ * the notice waits in their notifications until they sign in.
+ *
+ * The first version of this refused everybody who was not `ACCEPTED`, which
+ * turned away people the API takes and told them to invite somebody who had
+ * already been invited. A screen that is stricter than the server teaches
+ * people a rule the server does not have.
+ *
+ * `undefined` is "not known" (demo mode, or a caller who is sent lookup rows
+ * and so gets no access summary), and not known is allowed: the API decides at
+ * send, and its refusal names the person.
+ *
+ * The wording is the record's own ("Invited", "Invitation expired", "Access
+ * closed"), kept in one place so the picker's row and the Send message dialog
+ * cannot describe the same person two ways.
+ */
+export type NoticeReach = {
+  /** False exactly when the API would refuse them. */
+  can: boolean;
+  /** One short line for a row in a list. Null when there is nothing to say. */
+  line: string | null;
+  /** A phrase that follows their name, for a heading. Null when there is nothing to say. */
+  headline: string | null;
+  /** What it means for the message, and what to do. Null when there is nothing to say. */
+  detail: string | null;
+};
+
+const REACHABLE: NoticeReach = {
+  can: true,
+  line: null,
+  headline: null,
+  detail: null,
+};
+
+export function noticeReach(
+  access: Pick<EmployeeAccess, "state"> | undefined,
+): NoticeReach {
+  switch (access?.state) {
+    case "NONE":
+      return {
+        can: false,
+        line: "No account yet, so cannot be sent a message",
+        headline: "has no account yet",
+        detail:
+          "A message lands in their notifications, which they cannot open " +
+          "without an account. Invite them to sign in first.",
+      };
+    case "DISABLED":
+      return {
+        can: false,
+        line: "Access closed, so cannot be sent a message",
+        headline: "no longer has access",
+        detail:
+          "Their account is archived, so a message would sit in notifications " +
+          "they cannot open.",
+      };
+    case "SENT":
+      return {
+        can: true,
+        line: "Invited, has not signed in yet",
+        headline: "has not signed in yet",
+        detail:
+          "They have been invited and have not accepted yet. They will see " +
+          "this once they do.",
+      };
+    case "EXPIRED":
+      return {
+        can: true,
+        line: "Invitation expired, has not signed in yet",
+        headline: "has not signed in yet",
+        detail:
+          "Their invitation ran out before they used it. They will see this " +
+          "once they sign in, which needs another invitation.",
+      };
+    default:
+      return REACHABLE;
+  }
+}
 
 /* ------------------------------------------------------------------- calls */
 

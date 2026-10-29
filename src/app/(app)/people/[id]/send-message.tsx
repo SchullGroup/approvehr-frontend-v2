@@ -13,9 +13,11 @@ import {
 import { NoticeImageField } from "@/components/announcements/notice-image-field";
 import {
   announcementsApi,
+  noticeReach,
   type NoticeImageUpload,
 } from "@/lib/api/announcements";
 import { ApiError } from "@/lib/api/client";
+import type { EmployeeAccess } from "@/lib/types";
 
 /** The API's caps, the same ones the noticeboard form uses. */
 const TITLE_LIMIT = 140;
@@ -35,16 +37,20 @@ export function SendMessageDialog({
   onClose,
   employeeId,
   name,
-  canSignIn,
+  access,
 }: {
   open: boolean;
   onClose: () => void;
   employeeId: string;
   name: string;
-  /** False when we know they cannot sign in; the API would refuse. */
-  canSignIn: boolean;
+  /**
+   * Where their account stands. Absent is "not known", which is allowed: the
+   * API refuses somebody with no account or an archived one, and says which.
+   */
+  access?: EmployeeAccess | undefined;
 }) {
   const toast = useToast();
+  const reach = noticeReach(access);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [image, setImage] = useState<NoticeImageUpload | null | undefined>(
@@ -64,7 +70,7 @@ export function SendMessageDialog({
   const bodyError =
     body.length > BODY_LIMIT ? "That is too long for a message." : undefined;
   const complete =
-    canSignIn &&
+    reach.can &&
     trimmedTitle.length >= 3 &&
     trimmedBody.length > 0 &&
     !titleError &&
@@ -136,10 +142,15 @@ export function SendMessageDialog({
       }
     >
       <div className="flex flex-col gap-5">
-        {!canSignIn && (
-          <Callout tone="warning" title={`${name} cannot sign in yet`}>
-            A message lands in their notifications, which they cannot open
-            without an account. Invite them to sign in first.
+        {reach.headline && reach.detail && (
+          /* A refusal and a caution are different things: somebody with no
+             account cannot be sent this, and somebody invited and not yet
+             signed in can, and will see it when they do. */
+          <Callout
+            tone={reach.can ? "info" : "warning"}
+            title={`${name} ${reach.headline}`}
+          >
+            {reach.detail}
           </Callout>
         )}
 

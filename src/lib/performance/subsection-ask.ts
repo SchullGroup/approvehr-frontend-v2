@@ -13,8 +13,8 @@ import type { ReviewAudience, SubsectionAudience } from "@/lib/api/performance";
  * A subsection is rated under Competency ratings whatever a period does. Asking
  * it on the form is a decision of the period, made while the period is a draft:
  * the manager, the employee, or both. **Not asked** is not a fifth audience, it is
- * the absence of a question, so choosing it takes the question off the form and
- * choosing anything else puts it there or moves who it is put to. The API has the
+ * the absence of a question, so saving it takes the question off the form and
+ * saving anything else puts it there or moves who it is put to. The API has the
  * same shape (`PUT` makes or changes it, `DELETE` removes it), which is why
  * `askedOfChoice` returns `null` for it rather than an empty list: an empty list
  * is a request the API refuses.
@@ -95,6 +95,41 @@ export const ASKED_CONSEQUENCE: Record<AskedChoice, string | null> = {
   both: "The manager's answer counts. The employee's is shown beside it.",
 };
 
+/**
+ * What pressing the button would do, from what the period holds to what is chosen.
+ *
+ * The control picks who is asked and **writes nothing until a button is pressed**.
+ * The first version wrote the moment a choice was picked, and somebody who had
+ * just picked **Both** looked for the button that finishes the job, found none,
+ * and asked where to click Add. So there is one, and its label is the act:
+ *
+ * - **add**: the period does not ask it, and a choice has been made.
+ * - **change**: the period asks it, and somebody else is now chosen.
+ * - **remove**: **Not asked** is chosen for a subsection the period does ask.
+ *
+ * `null` when the choice is what the period already holds, which is when there is
+ * nothing to press: the button is then a disabled **Add** if the period does not
+ * ask it (so the way to finish is on screen from the start), and the line **On the
+ * review form** if it does.
+ */
+export type AskAction = "add" | "change" | "remove";
+
+export function askActionFor(
+  saved: AskedChoice,
+  chosen: AskedChoice,
+): AskAction | null {
+  if (chosen === saved) return null;
+  if (chosen === "none") return "remove";
+  return saved === "none" ? "add" : "change";
+}
+
+/** What each press says it does. The first is also the disabled start. */
+export const ASK_ACTION_LABEL: Record<AskAction, string> = {
+  add: "Add to the review form",
+  change: "Save change",
+  remove: "Take it off the form",
+};
+
 /** Who a saved choice puts the question to, as it reads in a sentence. */
 const SAVED_TO: Record<Exclude<AskedChoice, "none">, string> = {
   manager: "the manager",
@@ -105,11 +140,10 @@ const SAVED_TO: Record<Exclude<AskedChoice, "none">, string> = {
 /**
  * What is said once a choice has been written.
  *
- * The control has no Add button: choosing is the write. Nothing else would say it
- * happened, and somebody who has just picked **Both** looks for the button that
- * finishes the job, finds none, and has only a count in the subsection's header to
- * tell them it took. So it says so, and says where to find the question, because
- * that is the next thing anybody asks.
+ * The button that wrote it is replaced by **On the review form**, which stays, so
+ * this is the message that goes after six seconds. It says what happened, to
+ * whom, and where to find the question, because that is the next thing anybody
+ * asks.
  *
  * ## The name is in the title, and the detail is short and fixed
  *
@@ -119,8 +153,8 @@ const SAVED_TO: Record<Exclude<AskedChoice, "none">, string> = {
  * very words that say where to look. The title is not clamped, so the name goes
  * there, and nothing in the detail varies with it.
  *
- * `from` is the choice the control showed before: putting a subsection on the form
- * and changing who it is put to are different acts to read about.
+ * `from` is what the period held before: putting a subsection on the form and
+ * changing who it is put to are different acts to read about.
  */
 export function savedWords(
   to: AskedChoice,
