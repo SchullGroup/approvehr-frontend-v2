@@ -65,6 +65,7 @@ import {
   type ReviewQuestionKind,
   type SubmitReviewBody,
   type SectionBody,
+  type SubsectionAudience,
 } from "@/lib/api/performance";
 import { EMPLOYEES, employeeById } from "@/lib/mock/people";
 /* `lib/permissions` does not import this module, so this closes no cycle —
@@ -3157,6 +3158,36 @@ export function useCycleMutations() {
       async (id: string) => {
         guard("Removing a question needs the API.");
         return performanceApi.removeQuestion(id);
+      },
+      [guard],
+    ),
+
+    /**
+     * Put a directly rated subsection on a period's review form, or change who is
+     * asked. One call for both: the API creates the question or moves `askedOf`.
+     *
+     * Refused offline, in the sentence every period write uses. Nothing here is
+     * simulated: what it decides is whose answer becomes somebody's rating of a
+     * subsection when a form is sent, and a form sent in a browser moves no mark
+     * anywhere.
+     */
+    askSubsection: useCallback(
+      async (
+        cycleId: string,
+        competencyId: string,
+        askedOf: SubsectionAudience[],
+      ) => {
+        guard("Asking a subsection on the review form needs the API.");
+        return performanceApi.askSubsection(cycleId, competencyId, askedOf);
+      },
+      [guard],
+    ),
+
+    /** Take a subsection off a period's review form. The subsection stays. */
+    stopAskingSubsection: useCallback(
+      async (cycleId: string, competencyId: string) => {
+        guard("Taking a subsection off the review form needs the API.");
+        return performanceApi.stopAskingSubsection(cycleId, competencyId);
       },
       [guard],
     ),

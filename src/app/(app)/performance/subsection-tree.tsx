@@ -28,6 +28,7 @@ import {
   answerKindOf,
   kindOptionLabel,
 } from "@/lib/performance/answer-kind";
+import type { SubsectionAsk } from "@/lib/performance/subsection-ask";
 import { useFrameworkActions } from "@/lib/store/performance";
 import type { FrameworkGroup } from "@/lib/store/performance";
 import { actionMessage } from "@/lib/use-action";
@@ -68,6 +69,15 @@ import { CountsTowards } from "./sections-dialog";
  * it, so a company setting up its framework can type ten subsections in a row.
  * A new subsection is not opened for you for the same reason: the next thing
  * somebody wants is the next name, not a panel.
+ *
+ * ## Whose is whose
+ *
+ * Sections, subsections and how each is answered are the company's and are shared
+ * by every period. The questions under a subsection, and whether this period puts
+ * the subsection itself on its review form (`ask`), are the period's own. The
+ * sentence at the top says so, because the two kinds sit on one screen and a
+ * change to the first reaches every period and a change to the second reaches
+ * one.
  */
 
 /** A section as a picker or the tree lists it. */
@@ -166,6 +176,7 @@ export function SubsectionTree({
   onAddQuestion,
   onChanged,
   renderQuestions,
+  ask,
 }: {
   periodName: string;
   sections: readonly SectionOption[];
@@ -199,6 +210,13 @@ export function SubsectionTree({
     competency: ApiCompetency,
     section: SectionOption | null,
   ) => React.ReactNode;
+  /**
+   * What this period holds for each subsection, and the writes that put one on
+   * its review form. Absent where the period cannot be asked (demo, no
+   * permission, or its questions not read yet): no subsection then offers the
+   * control, rather than offering one that says "Not asked" without knowing.
+   */
+  ask?: SubsectionAsk;
 }) {
   const baseId = useId();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -328,6 +346,7 @@ export function SubsectionTree({
                       editable={editable}
                       whyNot={whyNot}
                       onChanged={onChanged}
+                      {...(ask ? { ask } : {})}
                     />
                   ) : (
                     renderQuestions(competency, section)
@@ -347,7 +366,15 @@ export function SubsectionTree({
     <div className="flex flex-col gap-4">
       <p className="text-body-sm text-muted">
         Sections, their subsections and how each is answered are shared by every
-        appraisal period. The questions under them are {periodName}&rsquo;s own.
+        appraisal period.{" "}
+        {ask ? (
+          <>
+            The questions under them, and which subsections the review form asks
+            directly, are {periodName}&rsquo;s own.
+          </>
+        ) : (
+          <>The questions under them are {periodName}&rsquo;s own.</>
+        )}
       </p>
 
       {editable ? (

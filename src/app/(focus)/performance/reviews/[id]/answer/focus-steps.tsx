@@ -21,9 +21,15 @@ import {
   AppraiserStrip,
   PeriodFraming,
   ReadAnswer,
+  SelfAnswerLine,
   filled,
   type Draft,
 } from "@/app/(app)/performance/review-parts";
+import {
+  isSubsectionQuestion,
+  questionKind,
+  selfAnswerWords,
+} from "@/lib/performance/subsection-answer";
 import {
   FocusQuestion,
   PickList,
@@ -213,11 +219,17 @@ export function QuestionStep({
   onPick: (value: string) => void;
   onBusyChange: (busy: boolean) => void;
 }) {
-  const isWriting = question.kind === "TEXT";
-  const pickKind =
-    question.kind === "RATING" ||
-    question.kind === "CHOICE" ||
-    question.kind === "BOOLEAN";
+  /* A directly rated subsection is drawn and answered as the subsection is, and
+     an ordinary question as its own kind: `questionKind` is the one place that
+     says which. */
+  const kind = questionKind(question);
+  const isWriting = kind === "TEXT";
+  const pickKind = kind === "RATING" || kind === "CHOICE" || kind === "BOOLEAN";
+  /* What the person said of themselves, on their manager's form, once they have
+     sent it. Nothing at all otherwise: not "No answer", and never a zero. */
+  const own = isSubsectionQuestion(question)
+    ? selfAnswerWords(question, scale)
+    : null;
 
   return (
     <Frame
@@ -232,6 +244,7 @@ export function QuestionStep({
       title={question.prompt}
     >
       <div className="flex flex-col gap-3">
+        <SelfAnswerLine words={own} />
         <FocusQuestion
           question={question}
           held={held}

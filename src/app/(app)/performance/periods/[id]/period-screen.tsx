@@ -772,6 +772,16 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             periods.updateQuestion(id, body).then(() => {})
           }
           onRemove={(id) => periods.removeQuestion(id).then(() => {})}
+          /* Where the period is, so the Questions dialog can say a draft may
+             change which subsections its review form asks and a started one may
+             not. The API refuses it after the start. */
+          stage={period.stage}
+          onAskSubsection={(competencyId, askedOf) =>
+            periods.askSubsection(cycleId, competencyId, askedOf).then(() => {})
+          }
+          onStopAskingSubsection={(competencyId) =>
+            periods.stopAskingSubsection(cycleId, competencyId).then(() => {})
+          }
           /* Every stage but published. The API refuses a rearrangement once
              the form is a record, so the dialog drops the handles entirely
              there rather than offering a drag that would be undone. */

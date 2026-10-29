@@ -448,7 +448,12 @@ export function FocusForm({
             : null;
       if (options) {
         const pressed = event.key.length === 1 ? event.key.toUpperCase() : "";
-        const hit = options.find((option) => option.key === pressed);
+        /* An option past what one key can name has an empty key. Shift, Tab and
+           the arrows press `""`, and must not pick it. */
+        const hit =
+          pressed === ""
+            ? undefined
+            : options.find((option) => option.key === pressed);
         if (hit) {
           event.preventDefault();
           if (current.kind === "question") pick(current.question, hit.value);
