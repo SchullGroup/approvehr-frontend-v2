@@ -868,6 +868,25 @@ export type ApiReviewDetail = ApiReview & {
   outstanding: string[];
 };
 
+/**
+ * Whether a review's overall mark belongs on the screen showing it.
+ *
+ * The company's setting decides, and a mark that was given is never hidden
+ * because the setting moved. So: a review that carries a mark shows it, and one
+ * that carries none shows "None given" only where the company asks for one.
+ * Where the company does not, a row saying nobody gave a mark is a row about
+ * something that cannot happen, and "None given" reads as something missing.
+ *
+ * The same rule the answering form follows, read from the same field. Absent
+ * means off (see `ApiReviewDetail.overallMark`), so a server that predates the
+ * setting shows no empty row either.
+ */
+export function showsOverallMark(
+  review: Pick<ApiReviewDetail, "rating" | "overallMark">,
+): boolean {
+  return review.rating !== null || review.overallMark === true;
+}
+
 /* -------------------------------------------------- multi-appraiser mapping */
 
 /** Mirrors `AppraiserRole`. */
