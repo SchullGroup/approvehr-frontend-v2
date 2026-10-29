@@ -27,6 +27,7 @@ import type {
   ApiQuestion,
   ApiSection,
   CreateQuestionBody,
+  QuestionCopy,
   ReviewAudience,
   ReviewCycleStage,
   ReviewQuestionKind,
@@ -49,6 +50,7 @@ import {
   subsectionOptionLabel,
 } from "@/lib/performance/answer-kind";
 import { QUESTION_BANK } from "@/lib/performance/question-bank";
+import { copyNoteFor } from "@/lib/performance/question-copy";
 import { askedWho, type SubsectionAsk } from "@/lib/performance/subsection-ask";
 import {
   MAX_CHOICES,
@@ -220,7 +222,7 @@ export function QuestionsDialog({
    */
   onReorder?: (ids: string[]) => Promise<void>;
   /** Absent on a period that has started — copying is refused there anyway. */
-  onCopyFrom?: (sourceCycleId: string) => Promise<{ copied: number }>;
+  onCopyFrom?: (sourceCycleId: string) => Promise<QuestionCopy>;
   /**
    * The testing doc's six standard self/manager questions — Key
    * Achievements, Key Challenges, Reason for Rating; Achievements Observed,
@@ -399,6 +401,21 @@ export function QuestionsDialog({
     setFormError(null);
   };
   const [saving, setSaving] = useState(false);
+  /**
+   * What the last copy left behind, in the API's own words, or `null`.
+   *
+   * Kept in the dialog and not in a toast: it is something to act on (a question
+   * the new period does not have), and a toast is gone in six seconds. The next copy
+   * clears it first, and closing the dialog drops it: the dialog stays mounted so it
+   * can animate out, which means state outlives a close, so it is dropped in render
+   * the moment `open` goes false and not left to come back on the next open.
+   */
+  const [copyNote, setCopyNote] = useState<string | null>(null);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (!open) setCopyNote(null);
+  }
   /**
    * Why a question could not be removed, on the row it is about.
    *
@@ -608,9 +625,11 @@ export function QuestionsDialog({
   const copyFrom = async (sourceCycleId: string) => {
     if (!onCopyFrom) return;
     clearErrors();
+    setCopyNote(null);
     setSaving(true);
     try {
-      await onCopyFrom(sourceCycleId);
+      const result = await onCopyFrom(sourceCycleId);
+      setCopyNote(copyNoteFor(result));
       reload();
     } catch (caught) {
       setFormError(actionMessage(caught, "those questions"));
@@ -1109,6 +1128,11 @@ export function QuestionsDialog({
           />
         ) : (
           <>
+            {copyNote && (
+              <NoticeLine tone="warning">
+                <span>{copyNote}</span>
+              </NoticeLine>
+            )}
             {loading ? (
               <span className="flex items-center gap-2 text-body-sm text-muted">
                 <Spinner size="sm" />

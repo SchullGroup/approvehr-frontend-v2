@@ -10780,16 +10780,26 @@ control. Until the backend is on `staging`, `npm run docs` will not list the two
 - **The contract calls two things by names this repo does not use.** `ApiReviewQuestion` is `ApiQuestion` here, and the review
   detail's `form` is `questions` on the wire (`form` is the backend's local variable). `answerCount` is on the wire for a period's
   questions and was already not typed here. Nothing about the wire shape was changed.
-- **`filingNote` still says "Answers to a question do not count towards the mark"** under the form that adds an ordinary question to
-  a subsection the period also asks directly. It is about the question being written, which is still true, and it is not changed
-  here; it may read oddly beside the new row.
+- **`filingNote` said "Answers to a question do not count towards the mark" under the form that adds an ordinary question, and it read
+  as a contradiction of the row above it.** A subsection the period asks directly is on the list too, and its answer does count (it is
+  recorded on the subsection). The sentence now says "Answers to questions written here do not count towards the mark", which is about
+  the questions this form writes ([#554](https://github.com/SchullGroup/approvehr-frontend-v2/pull/554)). In the same change the reason
+  under a disabled **Ask it on the review form**, for a pick-one subsection with too few choices, is "Add its choices first." where it said
+  "It needs at least two choices before a form can ask it" a few lines under the choices editor's "Give it at least two": the number is
+  said once, by the editor. Both are pinned by a test.
 - **The kind picker is not switched off by this period asking the subsection,** although the API refuses a change of kind while any
   period asks it. The web only knows about this period, and the refusal arrives as the API's own sentence naming one period, shown
   in the picker's existing callout. Pre-empting it would be inventing a rule for the other periods.
-- **A copy can leave a subsection question behind and the screen does not say so.** `POST .../questions/copy` now answers with
-  `skipped` and `skippedNote` for a question whose subsection is switched off or gone. The web reads only `copied`, as before. A copy
-  that carries them works (walked: three subsection questions arrived as **Rated directly** rows, and Adaptability read **Both**
-  under By section); the one that leaves one behind is silent.
+- **A copy used to leave a subsection question behind without saying so, and now says.** `POST .../questions/copy` answers with
+  `skipped` and `skippedNote` for a question whose subsection is switched off or gone, because such a question is read again from the
+  subsection and not copied word for word. The dialog shows `copyNoteFor(result)` as a line above the list: _Copied 2 questions._ and
+  then the API's own sentence, unchanged (`Left out: "Teamwork" (it is switched off).`), or _Nothing was copied._ in front of it when
+  nothing arrived, which is when it matters most. It is a line and not a toast because it is something to act on (a question the new
+  period does not have) and a toast is gone in six seconds. It goes when the next copy starts and when the dialog closes. A copy that left nothing out says
+  nothing, and so does a server that sends neither field: there is no "everything was copied" line, because a server that does not say
+  is not a server that said nothing was left out. 15 tests (`question-copy`, `questions-dialog-copy-left-out`), and five deliberate
+  breaks, each caught: the dialog dropping the report, the line surviving the next copy, the API's sentence reworded, "Copied 0
+  questions", and a server that says nothing being told it left something out.
 - **Three limits of the backend that a screen cannot show.** Where only the employee is asked, their answer is written as their rating
   for the period and appears in Skills, the gap list and the heatmap with nothing to say they gave it. Where a subject has several
   appraisers and the manager is asked, the last one to send wins. A manager's hand-recorded rating of a subsection the period also

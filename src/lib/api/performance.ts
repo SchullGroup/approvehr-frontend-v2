@@ -2090,6 +2090,23 @@ export type CycleListParams = {
   stage?: ReviewCycleStage;
 };
 
+/**
+ * What copying a period's questions did.
+ *
+ * `skipped` and `skippedNote` are only on a server that knows a subsection can be
+ * asked on the review form. A question that asks one is not copied word for word:
+ * it is read again from the subsection, and one whose subsection has since been
+ * switched off or removed is left behind, and the API says so in `skippedNote`
+ * (`Left out: "Teamwork" (it is switched off).`). A server that predates it sends
+ * neither, which reads as nothing left behind and never as an answer about it.
+ */
+export type QuestionCopy = {
+  cycleId: string;
+  copied: number;
+  skipped?: number;
+  skippedNote?: string | null;
+};
+
 export type CreateQuestionBody = {
   prompt: string;
   kind?: ReviewQuestionKind;
@@ -2674,10 +2691,10 @@ export const performanceApi = {
    * questions. Both refusals are the API's own sentences.
    */
   copyQuestions: (id: string, sourceCycleId: string) =>
-    request<{ cycleId: string; copied: number }>(
-      `/performance/cycles/${id}/questions/copy`,
-      { method: "POST", body: { sourceCycleId } },
-    ),
+    request<QuestionCopy>(`/performance/cycles/${id}/questions/copy`, {
+      method: "POST",
+      body: { sourceCycleId },
+    }),
 
   /**
    * Move one person's mark, with a reason.
