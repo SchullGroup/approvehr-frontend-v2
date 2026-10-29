@@ -25,13 +25,17 @@ import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   FULL_WEIGHT_BP,
+  SCORE_COMPONENT_ORDER,
   scoringWeightProblem,
   weightLabel,
   type ApiScoringWeights,
   type ScoreComponent,
+  type WeightSet,
 } from "@/lib/api/performance";
 import { useCan } from "@/lib/permissions";
+import { useFeatureSettings } from "@/lib/store/features";
 import { useScoringWeights } from "@/lib/store/performance";
+import { OverallMarkCard } from "./overall-mark-card";
 import { SCORING_TABS, type ScoringTabId } from "./tabs";
 
 const TAB_ITEMS: TabItem[] = [
@@ -97,6 +101,8 @@ const STEP = "0.01";
 const COMPONENT_SOURCE: Record<ScoreComponent, string> = {
   OBJECTIVES:
     "Progress on the objectives agreed for the cycle. Draft and unapproved ones are not read.",
+  TASKS:
+    "How the weekly tasks graded against this period's objectives were rated. Starts at 0%.",
   CORE_COMPETENCY: "Ratings against competencies filed under Core competency.",
   BEHAVIOURAL_COMPETENCY:
     "Ratings against competencies filed under Behavioural competency.",
@@ -143,8 +149,11 @@ export function ScoringWeightsForm({
 }) {
   const [tab, changeTab] = useUrlTab<ScoringTabId>(initialTab, SCORING_TABS);
   const canManage = useCan("MANAGE_SETTINGS");
-  const { weights, loading, error, source, editable, refusal, save } =
+  const { weights, loading, error, source, editable, refusal, save, reload } =
     useScoringWeights();
+  /* Whether forms ask for an overall mark. Self-assessment is that mark, so
+     what it can say depends on it. Null is "the server did not say", never off. */
+  const { overallMark } = useFeatureSettings();
   const toast = useToast();
 
   /* Keyed by the set it was started from, so weights arriving or changing
@@ -191,14 +200,23 @@ export function ScoringWeightsForm({
      the component's weight. Integer arithmetic on a hypothetical, not a score. */
   const selfBp = entries.find((row) => row.component === "SELF_ASSESSMENT");
   const selfSwingBp = Math.round((selfBp?.weightBp ?? 0) / 2);
+  const savedSelfBp =
+    weights?.rows.find((row) => row.component === "SELF_ASSESSMENT")
+      ?.weightBp ?? 0;
 
   const onSave = async () => {
     if (draft === null) return;
     setSaving(true);
     try {
-      const payload = entries.reduce<Record<ScoreComponent, number>>(
-        (out, row) => ({ ...out, [row.component]: row.weightBp }),
-        {} as Record<ScoreComponent, number>,
+      /* All six, always: Weekly tasks is sent even when the API's rows did
+         not carry it, so a save can never leave the set one key short. */
+      const payload = SCORE_COMPONENT_ORDER.reduce<WeightSet>(
+        (out, component) => ({
+          ...out,
+          [component]:
+            entries.find((row) => row.component === component)?.weightBp ?? 0,
+        }),
+        {} as WeightSet,
       );
       const saved = await save(payload);
       setEdited(null);
@@ -316,6 +334,9 @@ export function ScoringWeightsForm({
                     action={<Total totalBp={totalBp} />}
                   />
                   <CardBody className="flex flex-col gap-5">
+                    <p className="text-meta text-muted">
+                      This is the starting point for new appraisal periods.
+                    </p>
                     {entries.map((row) => (
                       <div
                         key={row.component}
@@ -366,12 +387,10 @@ export function ScoringWeightsForm({
                 <SelfAssessment
                   note={weights?.selfAssessmentNote ?? ""}
                   weightBp={selfBp?.weightBp ?? 0}
-                  savedWeightBp={
-                    weights?.rows.find(
-                      (row) => row.component === "SELF_ASSESSMENT",
-                    )?.weightBp ?? 0
-                  }
+                  savedWeightBp={savedSelfBp}
                   swingBp={selfSwingBp}
+                  overallMark={overallMark}
+                  onShowMarks={() => changeTab("marks")}
                 />
 
                 <Card>
@@ -452,7 +471,16 @@ export function ScoringWeightsForm({
               </>
             )}
           </div>
-          <div hidden={tab !== "marks"}>{scale}</div>
+          <div hidden={tab !== "marks"} className="flex flex-col gap-6">
+            {/* First, because it decides whether the names below are ever
+                offered on a form. */}
+            <OverallMarkCard
+              connected={source === "api"}
+              selfWeightBp={savedSelfBp}
+              onChanged={reload}
+            />
+            {scale}
+          </div>
         </Tabs>
       </PageBody>
     </>
@@ -503,20 +531,30 @@ function SelfAssessment({
   weightBp,
   savedWeightBp,
   swingBp,
+  overallMark,
+  onShowMarks,
 }: {
   note: string;
   weightBp: number;
   savedWeightBp: number;
   swingBp: number;
+  /** Whether forms ask for an overall mark. Null is "not said", not off. */
+  overallMark: boolean | null;
+  onShowMarks: () => void;
 }) {
   const on = weightBp > 0;
   const changed = weightBp !== savedWeightBp;
+  /* Self-assessment is the overall mark somebody gave themselves. With the
+     switch off nobody can give one, so everything below that talks about a
+     self-rating moving a mark would describe something that cannot happen.
+     Only an explicit `false` says so: null is a server that did not answer. */
+  const markOff = overallMark === false;
 
   return (
     <Card>
       <CardHeader
         title="Self-assessment"
-        description="Collected either way. Whether it counts is the decision on this screen."
+        description="Whether it counts is the decision on this screen."
         action={
           <Badge tone={on ? "warning" : "neutral"} size="sm" dot>
             {on
@@ -545,7 +583,19 @@ function SelfAssessment({
           </span>
         </p>
 
-        {on ? (
+        {markOff ? (
+          /* An action, not a second explanation: the API's sentence above
+             already says why this weight has nothing to count. */
+          <p className="text-body-sm">
+            <button
+              type="button"
+              onClick={onShowMarks}
+              className="font-medium text-accent-text underline-offset-4 hover:underline"
+            >
+              Switch overall marks on under Names of marks
+            </button>
+          </p>
+        ) : on ? (
           <p className="text-body-sm text-muted">
             {changed ? "If you save this: at" : "At"} {weightLabel(weightBp)},
             somebody who rates themselves 5 out of 5 rather than 3 out of 5
@@ -564,13 +614,17 @@ function SelfAssessment({
         )}
 
         <DescriptionList
-          columns={2}
+          columns={markOff ? 1 : 2}
           items={[
-            {
-              term: "What we do instead",
-              value:
-                "The self-rating is shown beside the manager's, so the gap between them is visible and can be discussed.",
-            },
+            ...(markOff
+              ? []
+              : [
+                  {
+                    term: "What we do instead",
+                    value:
+                      "The self-rating is shown beside the manager's, so the gap between them is visible and can be discussed.",
+                  },
+                ]),
             {
               term: "Why it is a setting at all",
               value:
