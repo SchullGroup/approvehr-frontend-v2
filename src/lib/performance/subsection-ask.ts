@@ -229,6 +229,9 @@ export function periodStartedReason(periodName: string): string {
 /**
  * Why a pick-one subsection cannot be asked yet. Nobody could answer a required
  * question with nothing to pick, and every form carrying it would stay unsent.
+ *
+ * It does not say how many. The choices editor above the control already does
+ * ("Give it at least two") when there are none, and the same number said twice,
+ * a few lines apart, read as two rules. This says only what is missing.
  */
-export const NEEDS_CHOICES =
-  "It needs at least two choices before a form can ask it.";
+export const NEEDS_CHOICES = "Add its choices first.";

@@ -61,7 +61,7 @@ describe("what a question's filing says about the mark", () => {
   it("says where the mark comes from when it is filed under a weighted subsection", () => {
     expect(filingNote(everyState[0]![1])).toEqual({
       tone: "muted",
-      text: "Answers to a question do not count towards the mark. Core competency is 40% of the mark, and it comes from the level recorded on Diligence, under Competency ratings.",
+      text: "Answers to questions written here do not count towards the mark. Core competency is 40% of the mark, and it comes from the level recorded on Diligence, under Competency ratings.",
     });
   });
 
@@ -108,7 +108,7 @@ describe("what a question's filing says about the mark", () => {
     /* No subsection is named, so no kind is: "what is recorded" is true of a
        level, a yes or no and a pick alike. */
     expect(filingNote(everyState[5]![1]).text).toBe(
-      "Answers to a question do not count towards the mark. The mark comes from what is recorded on each subsection, under Competency ratings.",
+      "Answers to questions written here do not count towards the mark. The mark comes from what is recorded on each subsection, under Competency ratings.",
     );
   });
 
@@ -159,8 +159,17 @@ describe("what a question's filing says about the mark", () => {
       expect(text).not.toMatch(/count towards (the )?[A-Z]/);
       /* The one place the words "do not count" may and must appear. */
       if (filing.competencyId !== "" || filing.sectionId === "") {
-        expect(text).toContain("Answers to a question do not count");
+        expect(text).toContain(
+          "Answers to questions written here do not count",
+        );
       }
+    });
+
+    it("is about the questions written here, not about every question on the list", () => {
+      /* A subsection the period asks directly is on the list too, drawn above the
+         form this sits under, and its answer does count: it is recorded on the
+         subsection. "Answers to a question do not count" contradicted that row. */
+      expect(filingNote(filing).text).not.toMatch(/answers to a question/i);
     });
 
     it("has no em dash in what somebody reads", () => {
