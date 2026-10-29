@@ -18,6 +18,7 @@ import {
   scoreBp,
   scoreText,
   type ChoiceDraft,
+  subsectionOptionLabel,
 } from "@/lib/performance/answer-kind";
 
 /**
@@ -331,5 +332,29 @@ describe("the words for each kind", () => {
       BOOLEAN: "Yes or no",
       CHOICE: "Pick one",
     });
+  });
+});
+
+describe("how a subsection reads in a picker", () => {
+  it("is the bare name for a level, which is what nearly every subsection is", () => {
+    expect(subsectionOptionLabel("Diligence", "RATING")).toBe("Diligence");
+  });
+
+  it("says yes or no, or pick one, after the name of the other two", () => {
+    expect(subsectionOptionLabel("Teamwork", "BOOLEAN")).toBe(
+      "Teamwork, yes or no",
+    );
+    expect(subsectionOptionLabel("Customer feedback", "CHOICE")).toBe(
+      "Customer feedback, pick one",
+    );
+  });
+
+  it("uses the words of the row badge", () => {
+    expect(subsectionOptionLabel("X", "BOOLEAN").toLowerCase()).toContain(
+      KIND_BADGE.BOOLEAN.toLowerCase(),
+    );
+    expect(subsectionOptionLabel("X", "CHOICE").toLowerCase()).toContain(
+      KIND_BADGE.CHOICE.toLowerCase(),
+    );
   });
 });
