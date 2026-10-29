@@ -129,9 +129,7 @@ describe("why it cannot be changed", () => {
   });
 
   it("says a pick-one subsection needs choices before a form can ask it", () => {
-    expect(NEEDS_CHOICES).toBe(
-      "It needs at least two choices before a form can ask it.",
-    );
+    expect(NEEDS_CHOICES).toBe("Add its choices first.");
   });
 });
 

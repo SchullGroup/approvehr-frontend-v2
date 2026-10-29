@@ -460,7 +460,7 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   **Set it up, then start it** card and nowhere else, so you only meet a period that has already started
   if somebody starts it while this dialog is open: the control is then switched off, with no button,
   and says _H2 2026 Appraisal has started, so this can no longer change._ A pick-one subsection with fewer than two choices
-  cannot be asked (_It needs at least two choices before a form can ask it._), though it can be taken off.
+  cannot be asked (_Add its choices first._), though it can be taken off.
   Until the period's questions have been read, or if reading them failed, the control is not drawn at all
   rather than saying **Not asked** about a form nobody has seen.
   What it puts on the form is a row in **All questions** and in the subsection's **Questions** tab: its
