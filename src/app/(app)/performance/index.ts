@@ -9,17 +9,11 @@
  * ```tsx
  * import { StartPeriodButton } from "@/app/(app)/performance";
  * ```
- *
- * `ReviewFormModal` is exported because "fill in the review that is waiting on
- * you" belongs anywhere a task list is shown — the dashboard, the approvals
- * inbox, a notification — and it should open the same form rather than a second
- * one that drifts from it.
  */
 export { AppraiserMapTab } from "./appraiser-map";
 export { KpisTab } from "./kpis";
 export { WhatNeedsYouTab } from "./now";
 export { PeriodsTab } from "./periods";
-export { ReviewFormModal } from "./review-form";
 export { SkillsTab } from "./skills";
 
 /**
@@ -35,11 +29,11 @@ export { SkillsTab } from "./skills";
 export { StartPeriodButton, StartPeriodDialog } from "./start-period";
 
 /**
- * The reason dialog is exported for the same reason `ReviewFormModal` is:
- * sending an objective back, refusing it and reopening an agreed target all
- * happen in more than one place — the approval queue and the KPI cascade — and
- * both must ask for the reason in the same words, because the wording is what
- * tells somebody what they are about to do.
+ * The reason dialog is exported because sending an objective back, refusing it
+ * and reopening an agreed target all happen in more than one place — the
+ * approval queue and the KPI cascade — and both must ask for the reason in the
+ * same words, because the wording is what tells somebody what they are about to
+ * do.
  */
 export { ApprovalReasonDialog, type ApprovalAct } from "./approval-dialogs";
 

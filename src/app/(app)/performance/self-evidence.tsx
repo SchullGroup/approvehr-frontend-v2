@@ -56,8 +56,8 @@ export function SelfEvidence({
   /**
    * What to show when nothing is logged, instead of nothing.
    *
-   * The popup form leaves it out on purpose — an empty card above the
-   * questions is noise. A drawer opened on request is different: it is an
+   * Left out where the card sits above the questions of its own accord: an empty
+   * card there is noise. A drawer opened on request is different: it is an
    * answer to a question somebody asked, and a blank one reads as broken.
    */
   whenNothing?: React.ReactNode;

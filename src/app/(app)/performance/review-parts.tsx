@@ -37,15 +37,16 @@ import { shortDate } from "@/lib/today";
 import { useRatingScale } from "@/lib/store/performance";
 
 /**
- * The pieces a review is made of, shared by the modal and the full record.
+ * The pieces a review is made of, shared by the page-by-page flow and the full
+ * record.
  *
- * There are two places a review is opened — `review-form.tsx` as a modal from a
- * task list, and `/performance/reviews/[id]` as the record of a rating — and
- * they are different acts on the same document: one fills a form in, the other
- * reads a mark and answers it. What they must **not** differ about is what a
- * question looks like, because a read-only copy that drifts eventually renders a
- * question the form has stopped asking, or renders an unanswered one as blank
- * rather than as unanswered.
+ * There are two places a review is opened — `/performance/reviews/[id]/answer`
+ * as the flow that fills a form in, and `/performance/reviews/[id]` as the record
+ * of a rating — and they are different acts on the same document: one fills a
+ * form in, the other reads a mark and answers it. What they must **not** differ
+ * about is what a question looks like, because a read-only copy that drifts
+ * eventually renders a question the form has stopped asking, or renders an
+ * unanswered one as blank rather than as unanswered.
  *
  * So the question, the answer, the scale and the appraiser strip live here once.
  * Neither surface owns them.
@@ -165,9 +166,6 @@ export function filled(question: ApiFormQuestion, held: Draft): boolean {
  *
  * Only what has actually been typed. Re-answering replaces on the API side, and
  * an empty box is not an instruction to clear an answer, so it sends nothing.
- *
- * Shared by the popup form and the full-page one, which would otherwise carry
- * two copies of "how a draft becomes a request" and drift apart.
  */
 export function answerBodyFor(
   question: ApiFormQuestion,
@@ -386,8 +384,8 @@ export function PeriodFraming({
  * ## It used to say the same thing three times
  *
  * "You are appraising Chidera Anusiobi-Uzor as their line manager, and yours is
- * the whole mark." The badge beside it already says *Line manager*. The modal
- * header above it already says *About Chidera Anusiobi-Uzor*. So two thirds of
+ * the whole mark." The badge beside it already says *Line manager*. The header
+ * above it already says *About Chidera Anusiobi-Uzor*. So two thirds of
  * that sentence was restating what was on screen, and the third — "yours is the
  * whole mark" — made a reader work out that it meant 100%.
  *
