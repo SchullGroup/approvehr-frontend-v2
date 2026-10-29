@@ -381,13 +381,8 @@ function Form() {
                       onChange={(e) => set("rcNumber", e.target.value)}
                     />
                   </Field>
-                  <Field
-                    label="Company TIN"
-                    error={errorFor("tin")}
-                    help="Ten digits."
-                  >
+                  <Field label="Company TIN" error={errorFor("tin")}>
                     <Input
-                      digits={10}
                       value={value("tin")}
                       onChange={(e) => set("tin", e.target.value)}
                     />

@@ -226,7 +226,29 @@ export type SheetSpec = {
     /** Last data row the dropdown applies to. A generous ceiling, not a count. */
     lastRow?: number;
   }[];
+  /**
+   * Columns Excel itself refuses anything but a real date in, written in one
+   * format, with a note on the cell saying so before anybody types.
+   *
+   * A formula rule on the *text*, not Excel's own date rule. Excel reads a
+   * typed date in the order of the computer's region, so the same 01/10 is 1
+   * October on one laptop and 10 January on another, and its date rule would
+   * accept both — and a DD/MM with no year is not a date to Excel at all. The
+   * columns are text-formatted (see `sheetXml`), so the cell keeps exactly what
+   * was typed and the formula checks that: two digits, a slash, two digits
+   * (and a slash and four digits for DD/MM/YYYY), and a day that month really
+   * has. The API checks the date again on upload; this only stops it sooner.
+   */
+  dateChecks?: readonly {
+    /** 0-based column index on this sheet. */
+    column: number;
+    format: DateCheckFormat;
+    lastRow?: number;
+  }[];
 };
+
+/** The formats `SheetSpec.dateChecks` can hold a column to. Day first, always. */
+export type DateCheckFormat = "DD/MM" | "DD/MM/YYYY";
 
 const SHEET_NAME_LIMIT = 31;
 
@@ -273,7 +295,7 @@ function sheetXml(sheet: SheetSpec): string {
     ? '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
     : "";
 
-  const validations = dataValidationsXml(sheet.validations);
+  const validations = dataValidationsXml(sheet.validations, sheet.dateChecks);
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${columnName(width - 1)}${Math.max(1, sheet.rows.length)}"/>${view}<cols>${cols}</cols><sheetData>${rows}</sheetData>${validations}</worksheet>`;
 }
@@ -293,9 +315,13 @@ const sheetRef = (name: string): string => `'${name.replace(/'/g, "''")}'`;
  * row is never validated, and the ceiling is generous rather than counted,
  * because nobody has told us how many rows somebody will eventually paste in.
  */
-function dataValidationsXml(validations: SheetSpec["validations"]): string {
-  if (!validations || validations.length === 0) return "";
-  const entries = validations
+function dataValidationsXml(
+  validations: SheetSpec["validations"] = [],
+  dateChecks: SheetSpec["dateChecks"] = [],
+): string {
+  const count = validations.length + dateChecks.length;
+  if (count === 0) return "";
+  const lists = validations
     .map((v) => {
       const optionsCol = columnName(v.optionsColumn ?? v.column);
       const lastRow = v.lastRow ?? 5000;
@@ -304,7 +330,67 @@ function dataValidationsXml(validations: SheetSpec["validations"]): string {
       return `<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="${sqref}"><formula1>${escapeXml(source)}</formula1></dataValidation>`;
     })
     .join("");
-  return `<dataValidations count="${validations.length}">${entries}</dataValidations>`;
+  const dates = dateChecks
+    .map((d) => {
+      const col = columnName(d.column);
+      const sqref = `${col}2:${col}${d.lastRow ?? 5000}`;
+      const words = DATE_WORDS[d.format];
+      return `<dataValidation type="custom" errorStyle="stop" allowBlank="1" showInputMessage="1" showErrorMessage="1" promptTitle="${escapeXml(words.promptTitle)}" prompt="${escapeXml(words.prompt)}" errorTitle="${escapeXml(words.errorTitle)}" error="${escapeXml(words.error)}" sqref="${sqref}"><formula1>${escapeXml(dateFormula(`${col}2`, d.format))}</formula1></dataValidation>`;
+    })
+    .join("");
+  return `<dataValidations count="${count}">${lists}${dates}</dataValidations>`;
+}
+
+/* Excel caps a title at 32 characters and a message at 255. */
+const DATE_WORDS: Record<
+  DateCheckFormat,
+  { promptTitle: string; prompt: string; errorTitle: string; error: string }
+> = {
+  "DD/MM": {
+    promptTitle: "Date: DD/MM",
+    prompt:
+      "Day, then month, with a slash. 25/12 is 25 December. No year: it is picked when you upload.",
+    errorTitle: "Write the date as DD/MM",
+    error:
+      "Day first, then the month: 25/12. Two digits for each (01/10, not 1/10), no year, and a day that month really has.",
+  },
+  "DD/MM/YYYY": {
+    promptTitle: "Date: DD/MM/YYYY",
+    prompt:
+      "Day, month, then the four-digit year, with slashes. 25/12/2026 is 25 December 2026.",
+    errorTitle: "Write the date as DD/MM/YYYY",
+    error:
+      "Day first, then the month, then the year: 25/12/2026. Use two digits for the day and the month (01/10/2026, not 1/10/2026), and a day that month really has.",
+  },
+};
+
+/**
+ * True for exactly `format` naming a real day, in `cell`.
+ *
+ * Relative, so Excel applies it to every cell in the range as it does a rule
+ * a person writes for the top-left one. Not short-circuited: a non-number
+ * makes `--` an error, and Excel treats a rule that errors as a refusal, which
+ * is the answer wanted. `DATE(year, month + 1, 0)` is the last day of the
+ * month; with no year, 2000 stands in, a leap year, so 29/02 is allowed and
+ * the year picked at upload decides whether it exists.
+ */
+function dateFormula(cell: string, format: DateCheckFormat): string {
+  const day = `--LEFT(${cell},2)`;
+  const month = `--MID(${cell},4,2)`;
+  const withYear = format === "DD/MM/YYYY";
+  const year = withYear ? `--RIGHT(${cell},4)` : "2000";
+  return [
+    `LEN(${cell})=${withYear ? 10 : 5}`,
+    `MID(${cell},3,1)="/"`,
+    ...(withYear ? [`MID(${cell},6,1)="/"`, `${year}>=2000`] : []),
+    `${month}>=1`,
+    `${month}<=12`,
+    `${day}>=1`,
+    `${day}<=DAY(DATE(${year},${month}+1,0))`,
+  ]
+    .join(",")
+    .replace(/^/, "AND(")
+    .concat(")");
 }
 
 const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="49" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1"/><xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
