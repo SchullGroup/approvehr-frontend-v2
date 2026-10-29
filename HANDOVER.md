@@ -10774,9 +10774,11 @@ control. Until the backend is on `staging`, `npm run docs` will not list the two
   `now.tsx`, the export in `performance/index.ts`). Two things were kept because they were never the popup: how an answer is read back
   (`ReadAnswer`, now tested in `tests/review-read-answer.test.tsx`) and everything the flow and the record page draw from
   `review-parts.tsx`. Answering is tested through the flow (`subsection-answer-flow`, `overall-mark-flow`). A second commit removes what
-  only the popup used: `AnswerField`, `SubsectionAnswerField`, `PlainAnswerField` and `ratingOptionsFrom`, which were exported and imported
-  by nothing else. `ReviewRow` is a union type now: a row in the work list takes a label and a handler, a row in the record list takes
-  neither. Earlier sections that call the popup a surface (the overall mark, the subsection-answer table) describe code that is gone.
+  only the popup used: `AnswerField` and `ratingOptionsFrom`, which were exported (from the file and from the barrel) and imported by
+  nothing else, and `SubsectionAnswerField` and `PlainAnswerField`, which were private to the file and which only `AnswerField` called. That
+  commit's message says all four were exported; two were not. `ReviewRow` is a union type now: a row in the work list takes a label and a
+  handler, a row in the record list takes neither. Earlier sections that call the popup a surface (the overall mark, the subsection-answer
+  table) describe code that is gone.
 - **The contract calls two things by names this repo does not use.** `ApiReviewQuestion` is `ApiQuestion` here, and the review
   detail's `form` is `questions` on the wire (`form` is the backend's local variable). `answerCount` is on the wire for a period's
   questions and was already not typed here. Nothing about the wire shape was changed.
