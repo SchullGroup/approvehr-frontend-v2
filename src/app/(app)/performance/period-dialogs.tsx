@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Copy, Pencil, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { weightLabel } from "@/lib/api/performance";
@@ -42,8 +42,17 @@ import {
 import type { FrameworkGroup } from "@/lib/store/performance";
 import { useHeld } from "@/lib/use-held";
 import { NoticeLine } from "@/components/portal/notice-line";
-import { answerKindOf } from "@/lib/performance/answer-kind";
+import {
+  answerKindOf,
+  subsectionOptionLabel,
+} from "@/lib/performance/answer-kind";
 import { QUESTION_BANK } from "@/lib/performance/question-bank";
+import {
+  MAX_CHOICES,
+  MAX_CHOICE_LENGTH,
+  questionCounter,
+  questionWordingProblem,
+} from "@/lib/performance/question-limits";
 import { filingNote } from "./question-filing";
 import {
   SubsectionTree,
@@ -274,6 +283,40 @@ export function QuestionsDialog({
 
   /** The question being changed, or `null` while the form is adding a new one. */
   const [editing, setEditing] = useState<ApiQuestion | null>(null);
+  /**
+   * The cursor, put in the question box when something asks for it.
+   *
+   * The form is drawn in one of several places (under the list, under an open
+   * subsection, in place of the row being edited) and only ever one at a time, so
+   * there is one box to point at. A counter and not a flag: asking twice has to
+   * work, and the form has to have rendered before the focus lands, which an
+   * effect that runs after the commit guarantees and a direct call does not.
+   * Pressing Add leaves the page with nothing focused, because the button is
+   * disabled while it saves, so without this the next question of ten has to be
+   * clicked into every time.
+   */
+  const promptRef = useRef<HTMLInputElement>(null);
+  const [focusRequest, setFocusRequest] = useState<{
+    count: number;
+    block: ScrollLogicalPosition;
+  }>({ count: 0, block: "nearest" });
+  /**
+   * `nearest` moves the dialog as little as it can, which is right when somebody is
+   * adding the next of several and the box is already in view. `center` is for
+   * arriving at a form: pressing Add question or the pencil should show the form
+   * with its neighbours, not leave the box on the bottom edge with the rest of it
+   * below the fold.
+   */
+  const askForFocus = (block: ScrollLogicalPosition = "nearest") =>
+    setFocusRequest((current) => ({ count: current.count + 1, block }));
+  useEffect(() => {
+    if (focusRequest.count === 0) return;
+    const input = promptRef.current;
+    if (!input) return;
+    input.focus({ preventScroll: true });
+    /* Not in every environment, and the focus is the part that matters. */
+    input.scrollIntoView?.({ block: focusRequest.block });
+  }, [focusRequest]);
   const [prompt, setPrompt] = useState("");
   const [kind, setKind] = useState<ReviewQuestionKind>("TEXT");
   /**
@@ -325,8 +368,19 @@ export function QuestionsDialog({
     setFormError(null);
   };
   const [saving, setSaving] = useState(false);
+  /**
+   * Why a question could not be removed, on the row it is about.
+   *
+   * This used to be the form's error, which is drawn above the form: a removal
+   * that failed (the period has started, or somebody has answered it) was
+   * reported at the bottom of the list, off screen from the bin that was pressed,
+   * so the question simply seemed not to go.
+   */
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
 
   const startEdit = (question: ApiQuestion) => {
+    setRowErrors({});
+    askForFocus("center");
     setEditing(question);
     setPrompt(question.prompt);
     setKind(question.kind);
@@ -412,10 +466,23 @@ export function QuestionsDialog({
     (question) => !question.competencyId,
   ).length;
 
-  const save = async () => {
-    if (prompt.trim().length < 5) {
-      fail("prompt", "Write the question out.");
-      return;
+  /**
+   * Add the question being written, or save the one being changed.
+   *
+   * Resolves to whether it was kept, so closing the dialog on an unsent question
+   * can close only when it was: a refusal leaves the form open with the reason on
+   * it, and a dialog that closed anyway would have thrown the question away.
+   */
+  const save = async (): Promise<boolean> => {
+    /* Enter in the question box reaches here as well as the button, and the
+       button is only disabled once a save is under way. */
+    if (saving) return false;
+    /* The server's own limits and sentences, said before the round trip rather
+       than as a banner after it. */
+    const wording = questionWordingProblem(prompt);
+    if (wording) {
+      fail("prompt", wording);
+      return false;
     }
     const cleanOptions = options
       .map((o) => o.trim())
@@ -425,7 +492,7 @@ export function QuestionsDialog({
         "options",
         "A pick-from-a-list question needs at least two choices.",
       );
-      return;
+      return false;
     }
     if (narrowed && audiences.length === 0) {
       fail(
@@ -433,13 +500,13 @@ export function QuestionsDialog({
         "Choose who is asked, or set it back to everyone on the form. " +
           "A question nobody is asked is never answered.",
       );
-      return;
+      return false;
     }
     /* Refuses the save and says nothing new: the same sentence is already on
        screen under the audience picker, from the same function, and has been
        since the kind was set to a file. Repeating it on the question text
        would be the defect this split is about. */
-    if (evidenceAudienceRefusal(kind, narrowed, audiences)) return;
+    if (evidenceAudienceRefusal(kind, narrowed, audiences)) return false;
     clearErrors();
     setSaving(true);
     try {
@@ -465,23 +532,34 @@ export function QuestionsDialog({
         setPrompt("");
         setOptions(["", ""]);
         setAllowCustom(false);
+        /* Back in the box for the next one. Several at a time is the point of
+           the form staying open. */
+        askForFocus();
       }
       reload();
+      return true;
     } catch (caught) {
       /* The whole form, so above the form rather than under the first field. */
       setFormError(actionMessage(caught, "the question"));
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
   const remove = async (id: string) => {
+    setRowErrors((current) =>
+      Object.fromEntries(Object.entries(current).filter(([key]) => key !== id)),
+    );
     try {
       await onRemove(id);
       if (editing?.id === id) cancelEdit();
       reload();
     } catch (caught) {
-      setFormError(actionMessage(caught, "that question"));
+      setRowErrors((current) => ({
+        ...current,
+        [id]: actionMessage(caught, "that question"),
+      }));
     }
   };
 
@@ -534,7 +612,9 @@ export function QuestionsDialog({
    * here would be a new type on every render and would throw away what somebody
    * was typing each time anything changed.
    */
-  const renderForm = (place: FormPlace) => {
+  /* `how`, not `options`: that is the choices of the question being written,
+     which the form below reads. */
+  const renderForm = (place: FormPlace, how: { inline?: boolean } = {}) => {
     const filingLine =
       place.where === "subsection"
         ? filingNote({
@@ -552,11 +632,14 @@ export function QuestionsDialog({
             answerKind: answerKindOf(place.subsection),
           })
         : null;
+    const counter = questionCounter(prompt);
     return (
       <div
         className={cn(
           "flex flex-col gap-4",
-          place.where === "all" && "border-t border-line pt-5",
+          /* A divider above the form that closes the list, and none above one
+             that has taken a row's place. */
+          place.where === "all" && !how.inline && "border-t border-line pt-5",
         )}
       >
         {/* Belongs to the whole form, so it sits above it rather than
@@ -601,10 +684,20 @@ export function QuestionsDialog({
           label={editing ? "Edit the question" : "Add a question"}
           required
           {...(errors["prompt"] ? { error: errors["prompt"] } : {})}
+          {...(counter ? { help: counter } : {})}
         >
           <Input
+            ref={promptRef}
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
+            /* Enter adds it, as the button does. Not while an input method is
+               composing a character: Enter is how that is confirmed. */
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || event.nativeEvent.isComposing)
+                return;
+              event.preventDefault();
+              void save();
+            }}
             placeholder="What went well for you this period?"
           />
         </Field>
@@ -695,19 +788,57 @@ export function QuestionsDialog({
   };
 
   /**
-   * What the "Answered by questions" tab holds: this period's questions filed
-   * under the subsection, and the form to add another to it.
+   * One row of a list: the question as it reads, or, when it is the one being
+   * changed, the form, in its place.
+   *
+   * The form used to be drawn once, under the list, whichever row the pencil was
+   * on. With a few questions that is a short scroll; with a dozen it opens out of
+   * sight and the pencil seems to have done nothing. Taking the row's place puts
+   * the change where the eye already is, and the list closes up around it again
+   * when it is saved or cancelled.
+   */
+  const renderRow = (
+    question: ApiQuestion,
+    place: FormPlace,
+    row: { handle?: React.ReactNode; showFiling: boolean },
+  ) =>
+    editing?.id === question.id ? (
+      <div className="rounded-md border border-accent-line bg-accent-soft p-3">
+        {renderForm(place, { inline: true })}
+      </div>
+    ) : (
+      <QuestionRow
+        question={question}
+        competencyName={competencyName}
+        showFiling={row.showFiling}
+        {...(row.handle ? { handle: row.handle } : {})}
+        disabled={saving}
+        error={rowErrors[question.id] ?? null}
+        onEdit={() => startEdit(question)}
+        onRemove={() => void remove(question.id)}
+      />
+    );
+
+  /**
+   * What the Questions tab of a subsection holds: this period's questions filed
+   * under it, and the form to add another.
    *
    * In the order the full list has them, and plain: rearranging is done in the
-   * full list, where every question is in view at once.
+   * full list, where every question is in view at once. The form is under the
+   * list, so each question added lands directly above the box it was typed in, and
+   * stays open for the next. It gives way only to the form of a row being changed,
+   * which has taken that row's place.
    */
   const renderSubsectionQuestions = (
     subsection: ApiCompetency,
     section: SectionOption | null,
   ) => {
+    const place: FormPlace = { where: "subsection", subsection, section };
     const own = ordered.filter(
       (question) => question.competencyId === subsection.id,
     );
+    const changingOne =
+      editing !== null && own.some((q) => q.id === editing.id);
     return (
       <div className="flex flex-col gap-4">
         {loading ? (
@@ -722,43 +853,126 @@ export function QuestionsDialog({
         ) : (
           <ul className="flex flex-col gap-2">
             {own.map((question) => (
-              <li
-                key={question.id}
-                className={cn(
-                  "flex flex-wrap items-start justify-between gap-3 rounded-md border p-3",
-                  editing?.id === question.id
-                    ? "border-accent-line bg-accent-soft"
-                    : "border-line",
-                )}
-              >
-                <QuestionSummary
-                  question={question}
-                  competencyName={competencyName}
-                  showFiling={false}
-                />
-                <QuestionRowActions
-                  question={question}
-                  disabled={saving}
-                  onEdit={() => startEdit(question)}
-                  onRemove={() => void remove(question.id)}
-                />
+              <li key={question.id}>
+                {renderRow(question, place, { showFiling: false })}
               </li>
             ))}
           </ul>
         )}
-        {renderForm({ where: "subsection", subsection, section })}
+        {!changingOne && renderForm(place)}
       </div>
     );
+  };
+
+  /**
+   * Somebody pressed Add question on a subsection's row. The tree has opened it on
+   * its questions; this puts the cursor in the box. An edit in progress is dropped
+   * first: they have said they want a new question, and the box would otherwise
+   * land in the middle of changing another.
+   */
+  const addQuestionTo = () => {
+    if (editing) cancelEdit();
+    askForFocus("center");
+  };
+
+  /** A question in the full list is being changed, so its form is in the list. */
+  const changingOneInList =
+    editing !== null && ordered.some((question) => question.id === editing.id);
+
+  /**
+   * Whether there is a question that has been written and not kept.
+   *
+   * A new question with any words in it, or a changed one that no longer reads as
+   * saved. Closing with either used to throw it away without a word, and a person
+   * who typed a question and pressed Done saw nothing made. Only what a person
+   * would call a question counts: a kind picked on an empty box is not worth
+   * stopping anyone for.
+   */
+  const unsentQuestion = (() => {
+    if (!editing) return prompt.trim().length > 0;
+    const sameList = (a: readonly string[], b: readonly string[]) =>
+      a.length === b.length && a.every((one, at) => one === b[at]);
+    const written = options.map((o) => o.trim()).filter((o) => o.length > 0);
+    return (
+      prompt.trim() !== editing.prompt.trim() ||
+      kind !== editing.kind ||
+      required !== editing.required ||
+      filedUnder !== (editing.competencyId ?? "") ||
+      !sameList(
+        narrowed ? inAudienceOrder(audiences) : [],
+        inAudienceOrder(editing.askedOf),
+      ) ||
+      (kind === "CHOICE" &&
+        (allowCustom !== editing.allowCustom ||
+          !sameList(written, editing.options)))
+    );
+  })();
+
+  /** Asked, once, what to do with the question that has not been kept. */
+  const [askingToClose, setAskingToClose] = useState(false);
+  const asking = askingToClose && unsentQuestion;
+
+  /** Done, the cross and Escape all come here. */
+  const requestClose = () => {
+    if (unsentQuestion) {
+      setAskingToClose(true);
+      return;
+    }
+    onClose();
+  };
+  const keepWriting = () => setAskingToClose(false);
+  const discardAndClose = () => {
+    cancelEdit();
+    setAskingToClose(false);
+    onClose();
+  };
+  const keepAndClose = async () => {
+    const kept = await save();
+    /* A refusal leaves the dialog open on the form, which now says why. */
+    setAskingToClose(false);
+    if (kept) onClose();
   };
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={requestClose}
       title="Questions"
       description={periodName}
       size="lg"
-      footer={<Button onClick={onClose}>Done</Button>}
+      footer={
+        asking ? (
+          <>
+            <span
+              role="alert"
+              className="min-w-0 flex-1 basis-56 text-body-sm text-ink"
+            >
+              {editing
+                ? "You changed this question and have not saved it."
+                : "You wrote a question and have not added it."}
+            </span>
+            <Button variant="ghost" onClick={keepWriting}>
+              Keep writing
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={saving}
+              onClick={discardAndClose}
+            >
+              Discard
+            </Button>
+            <Button
+              variant="accent"
+              loading={saving}
+              onClick={() => void keepAndClose()}
+            >
+              {editing ? "Save and close" : "Add it and close"}
+            </Button>
+          </>
+        ) : (
+          <Button onClick={requestClose}>Done</Button>
+        )
+      }
     >
       <div className="flex flex-col gap-5">
         <SegmentedControl
@@ -781,6 +995,7 @@ export function QuestionsDialog({
             whyNot={whyNot}
             selectedId={selectedId}
             onSelect={selectSubsection}
+            onAddQuestion={addQuestionTo}
             renderQuestions={renderSubsectionQuestions}
           />
         ) : (
@@ -819,51 +1034,28 @@ export function QuestionsDialog({
                     onReorder={(ids) => void reorder(ids)}
                     gap={8}
                   >
-                    {(question, args) => (
-                      <div
-                        className={cn(
-                          "flex flex-wrap items-start gap-3 rounded-md border p-3",
-                          editing?.id === question.id
-                            ? "border-accent-line bg-accent-soft"
-                            : "border-line",
-                        )}
-                      >
-                        <SortableHandle handleProps={args.handleProps} />
-                        <QuestionSummary
-                          question={question}
-                          competencyName={competencyName}
-                        />
-                        <QuestionRowActions
-                          question={question}
-                          disabled={saving}
-                          onEdit={() => startEdit(question)}
-                          onRemove={() => void remove(question.id)}
-                        />
-                      </div>
-                    )}
+                    {(question, args) =>
+                      renderRow(
+                        question,
+                        { where: "all" },
+                        {
+                          handle: (
+                            <SortableHandle handleProps={args.handleProps} />
+                          ),
+                          showFiling: true,
+                        },
+                      )
+                    }
                   </Sortable>
                 ) : (
                   <ul className="flex flex-col gap-2">
                     {ordered.map((question) => (
-                      <li
-                        key={question.id}
-                        className={cn(
-                          "flex flex-wrap items-start justify-between gap-3 rounded-md border p-3",
-                          editing?.id === question.id
-                            ? "border-accent-line bg-accent-soft"
-                            : "border-line",
+                      <li key={question.id}>
+                        {renderRow(
+                          question,
+                          { where: "all" },
+                          { showFiling: true },
                         )}
-                      >
-                        <QuestionSummary
-                          question={question}
-                          competencyName={competencyName}
-                        />
-                        <QuestionRowActions
-                          question={question}
-                          disabled={saving}
-                          onEdit={() => startEdit(question)}
-                          onRemove={() => void remove(question.id)}
-                        />
                       </li>
                     ))}
                   </ul>
@@ -871,7 +1063,7 @@ export function QuestionsDialog({
               </>
             )}
 
-            {onAddStandard && !editing && (
+            {onAddStandard && !changingOneInList && (
               /* The testing doc's six, offered whether or not HR has already
                  typed questions of their own — unlike `onCopyFrom`, this is
                  not confined to a blank form. Pressing it twice is refused by
@@ -890,7 +1082,7 @@ export function QuestionsDialog({
               </Button>
             )}
 
-            {renderForm({ where: "all" })}
+            {!changingOneInList && renderForm({ where: "all" })}
           </>
         )}
       </div>
@@ -964,6 +1156,7 @@ function SectionsView({
   whyNot,
   selectedId,
   onSelect,
+  onAddQuestion,
   renderQuestions,
 }: {
   periodName: string;
@@ -974,6 +1167,7 @@ function SectionsView({
   whyNot: string | null;
   selectedId: string | null;
   onSelect: (competency: ApiCompetency | null) => void;
+  onAddQuestion: (competency: ApiCompetency) => void;
   renderQuestions: (
     competency: ApiCompetency,
     section: SectionOption | null,
@@ -1020,6 +1214,7 @@ function SectionsView({
       whyNot={whyNot}
       selectedId={selectedId}
       onSelect={onSelect}
+      onAddQuestion={onAddQuestion}
       onChanged={() => {
         framework.reload();
         reloadSections();
@@ -1232,7 +1427,10 @@ function FiledUnderPicker({
               <option value="">None</option>
               {inSection.map((competency) => (
                 <option key={competency.id} value={competency.id}>
-                  {competency.name}
+                  {subsectionOptionLabel(
+                    competency.name,
+                    answerKindOf(competency),
+                  )}
                 </option>
               ))}
             </Select>
@@ -1296,7 +1494,9 @@ function QuestionSummary({
   showFiling?: boolean;
 }) {
   return (
-    <span className="min-w-0 flex-1">
+    /* A basis of its own, so on a phone the pencil and the bin drop under the
+       question instead of squeezing it into a strip a few words wide. */
+    <span className="min-w-0 flex-1 basis-56">
       <span className="block text-body-sm font-medium text-ink">
         {question.prompt}
       </span>
@@ -1329,7 +1529,71 @@ function QuestionSummary({
   );
 }
 
-/** Edit and remove, labelled with the prompt so the two rows never sound alike. */
+/**
+ * One question as a list draws it, read only: what it says and how it is set, the
+ * pencil and the bin, and, if the last removal failed, why, under the row it is
+ * about.
+ *
+ * Every list that shows questions draws them through this, so a question looks and
+ * behaves the same under a subsection as in the full list. The full list adds a
+ * drag handle in front; nothing else differs. Changing it is the pencil: the form
+ * replaces the row (see `renderRow` in `QuestionsDialog`) and this is not drawn at
+ * all while that is so.
+ */
+function QuestionRow({
+  question,
+  competencyName,
+  showFiling,
+  handle,
+  disabled,
+  error,
+  onEdit,
+  onRemove,
+}: {
+  question: ApiQuestion;
+  competencyName: (id: string) => string | null;
+  showFiling: boolean;
+  /** The drag handle, in the full list while the period can still be rearranged. */
+  handle?: React.ReactNode;
+  disabled: boolean;
+  error: string | null;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-line p-3">
+      <div className="flex flex-wrap items-start gap-3">
+        {handle}
+        <QuestionSummary
+          question={question}
+          competencyName={competencyName}
+          showFiling={showFiling}
+        />
+        <QuestionRowActions
+          question={question}
+          disabled={disabled}
+          onEdit={onEdit}
+          onRemove={onRemove}
+        />
+      </div>
+      {error && (
+        <p role="alert" className="text-body-sm text-danger-text">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Edit and remove, labelled with the prompt so the two rows never sound alike.
+ *
+ * Removing asks first, on the row, and not in a second dialog over this one. It
+ * deletes the question for good, and it sat one click from the pencil with nothing
+ * between a slip and a gone question. The question is part of what this period's
+ * people are asked, so being sure costs one more press. Focus lands on **Keep**:
+ * the safe answer is the one Enter gives.
+ */
 function QuestionRowActions({
   question,
   disabled,
@@ -1341,8 +1605,43 @@ function QuestionRowActions({
   onEdit: () => void;
   onRemove: () => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
+
+  if (confirming) {
+    return (
+      <span
+        role="group"
+        aria-label={`Remove "${question.prompt}"?`}
+        className="flex w-full flex-wrap items-center justify-end gap-2"
+      >
+        <span className="text-body-sm text-ink">Remove this question?</span>
+        <Button
+          type="button"
+          variant="danger"
+          size="sm"
+          disabled={disabled}
+          onClick={() => {
+            setConfirming(false);
+            onRemove();
+          }}
+        >
+          Remove
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          autoFocus
+          onClick={() => setConfirming(false)}
+        >
+          Keep
+        </Button>
+      </span>
+    );
+  }
+
   return (
-    <span className="flex shrink-0 gap-1">
+    <span className="ml-auto flex shrink-0 gap-1">
       <IconButton
         label={`Edit "${question.prompt}"`}
         disabled={disabled}
@@ -1353,7 +1652,7 @@ function QuestionRowActions({
       <IconButton
         label={`Remove "${question.prompt}"`}
         disabled={disabled}
-        onClick={onRemove}
+        onClick={() => setConfirming(true)}
       >
         <Trash2 aria-hidden="true" />
       </IconButton>
@@ -1441,6 +1740,10 @@ function ChoiceEditor({
     onChange(options.filter((_, i) => i !== index));
   };
 
+  /* The server takes ten. Past that the form would only be able to say so after
+     the request, as a refusal naming a limit nobody was shown. */
+  const full = options.length >= MAX_CHOICES;
+
   return (
     <div className="flex flex-col gap-3 rounded-md border border-line bg-canvas p-3">
       <span className="text-body-sm font-medium text-ink">Choices</span>
@@ -1448,6 +1751,7 @@ function ChoiceEditor({
         <div key={index} className="flex items-center gap-2">
           <Input
             value={option}
+            maxLength={MAX_CHOICE_LENGTH}
             onChange={(event) => setOption(index, event.target.value)}
             placeholder={`Choice ${index + 1}`}
           />
@@ -1461,17 +1765,24 @@ function ChoiceEditor({
           )}
         </div>
       ))}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="self-start"
-        onClick={() => onChange([...options, ""])}
-      >
-        <Plus aria-hidden="true" className="size-3.5" />
-        Add a choice
-      </Button>
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={full}
+          onClick={() => onChange([...options, ""])}
+        >
+          <Plus aria-hidden="true" className="size-3.5" />
+          Add a choice
+        </Button>
+        {full && (
+          <span className="text-meta text-muted">
+            Ten is the most a question can have.
+          </span>
+        )}
+      </span>
 
-      {suggestions.length > 0 && (
+      {suggestions.length > 0 && !full && (
         <div className="flex flex-col gap-1.5 border-t border-line pt-3">
           <span className="text-meta text-muted">
             Suggested phrasing (click to add)
@@ -1550,8 +1861,13 @@ function CopyFromPeriod({
      copy from and does not need to be told about a feature it cannot use. */
   if (sources.length === 0) return null;
 
+  /* Shorter than it was: the field label above the picker is gone (the picker is
+     named for assistive technology by what it is, and the heading above it is the
+     visible label), and the picker and its button share a line. On a blank period
+     this sits above the form for the first question, so every line of it is a line
+     the form is pushed down by. */
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-line bg-canvas p-3">
+    <div className="flex flex-col gap-2.5 rounded-md border border-line bg-canvas p-3">
       <span>
         <span className="block text-body-sm font-medium text-ink">
           Start from a previous period
@@ -1562,9 +1878,10 @@ function CopyFromPeriod({
           from.
         </span>
       </span>
-      <div className="flex flex-wrap items-end gap-2">
-        <Field label="Copy from">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-0 max-w-sm flex-1 basis-48">
           <Select
+            aria-label="Copy from"
             value={chosen}
             disabled={busy}
             onChange={(event) => setChosen(event.target.value)}
@@ -1577,7 +1894,7 @@ function CopyFromPeriod({
               </option>
             ))}
           </Select>
-        </Field>
+        </div>
         <Button
           variant="secondary"
           loading={busy}

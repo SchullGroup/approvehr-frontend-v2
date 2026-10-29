@@ -10399,3 +10399,100 @@ assistant's page in a browser (only its rendering on a draft was seen); a mark b
 ## Order
 
 Backend #240 first. #516 is safe against a server without it. #241 is a decision for the user and nothing depends on it.
+
+---
+
+# Writing a question is one flow in both views, and Done no longer throws one away
+
+A person opened a subsection under **By section**, pressed **Done**, and saw nothing made. Frontend, into `dev`; the
+dialog is `period-dialogs.tsx` and `subsection-tree.tsx`, and `tests/questions-dialog-adding.test.tsx` is the one place
+that pins the flow. Nothing on the backend changed.
+
+## What a real browser found before anything was changed
+
+Walked on a scratch company against a production build, before touching the code. Each of these was measured, not read
+off the source, which is why the one thing that looked likely and was not is on the list too.
+
+| Found                                                          | Measured                                                                     |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| No way to add from By section                                  | a yes-or-no subsection opened on _Rated directly_, **0** add buttons, **0** question boxes |
+| Enter in the question box                                      | added nothing                                                                |
+| Focus after pressing Add                                       | the page body: the button is disabled while it saves                         |
+| Edit                                                           | the form 434px below the pencil that was pressed (visible with 3 questions, not with 12) |
+| The bin                                                        | removed the question at once, no question asked                              |
+| Closing with a question typed                                  | closed and discarded it                                                      |
+| The list while a question is added                             | **did not** flash: the row count never dipped across the re-read             |
+
+## Decisions not to undo
+
+- **A subsection opens on its questions** (`DEFAULT_TAB`), whatever its kind. The tab that was first for every yes-or-no
+  and every pick-one put the form for a question behind a second tab, and the dialog is called Questions. The tabs are
+  **Questions** (with the count) and **How it is rated**. _Answered by questions_ was also wrong: a question's answer is
+  never read by the score register, so nothing is answered by them. The old names are still in earlier entries here, which
+  are history.
+- **Add question is its own button on the row, beside the toggle, never inside it** (a button cannot hold a button).
+  Pressing it opens the subsection on its questions and asks the dialog for the cursor, and it **never closes** a
+  subsection that is already open. The arrow is a second, decorative press target for a pointer (`tabIndex={-1}`,
+  `aria-hidden`); the toggle beside the name is the control. It is offered to somebody who cannot change the framework,
+  because a question belongs to the period.
+- **Focus is requested, not set.** `askForFocus` bumps a counter and an effect focuses the question box after the commit,
+  because the form is drawn in one of three places (under the list, under a subsection, in place of a row) and may not
+  have rendered when the click lands. Add, Edit and Add question all use it.
+- **Edit takes the row's place** (`renderRow`). The form used to be drawn once under the list whichever row the pencil was
+  on. The form under the list steps aside while one is open; if the question being changed is not in the list (somebody
+  else removed it) it comes back, so there is never a dead end with no form.
+- **Remove asks on the row**, not in a second dialog over this one, with focus on **Keep**. A failure is reported **on that
+  row** (`rowErrors`) and not above the form at the bottom, which is where it used to land.
+- **Closing with an unsent question asks** (`unsentQuestion`, `requestClose`). Done, the cross and Escape all come through
+  it. A new question counts once it has words in it; a changed one counts when any of the words, the kind, the
+  requirement, the audience, the filing or the choices differ from what was saved. **Add it and close** closes only if
+  the add succeeded (`save` resolves to whether it did), so a refused question leaves the form open with the reason.
+- **The form's second argument is `how`, not `options`.** Its first name shadowed the choices of the question being
+  written, and picking _Pick from a list_ crashed the form. Nothing but the new pick-from-a-list tests would have said so.
+- **The server's limits are said before the request:** 300 characters (in the server's own sentence, with a counter from
+  250) and ten choices of up to 120. Not a `maxLength` on the question box: that truncates a paste without a word.
+- **Enter adds** unless an input method is composing a character, and `save` ignores a second press while one is under
+  way, so a double Enter adds once.
+
+- **The manager's own popup got the same care** (`manager-question.tsx`, "Add your own question"). It stays mounted
+  while closed and nothing emptied it, so the question just added was still typed in the next time it opened, one press
+  from being asked twice. It is emptied after an add, a refusal from the last try is dropped when it is closed, and it
+  reads the shared limits. Nothing had tested it.
+- **The limits are one module**, `lib/performance/question-limits.ts`: the server's 5 to 300 characters, ten choices of up
+  to 120, and the server's own sentences, read by both popups through `questionWordingProblem` and `questionCounter`.
+- **Where the cursor lands.** `askForFocus(block)`: `center` for Add question and for the pencil, because arriving at a
+  form should show it with its neighbours and not leave the box on the bottom edge of the dialog with the rest below the
+  fold, and `nearest` after an add, which must not move the dialog when the box is already in view.
+- **The Subsection dropdown says how a yes-or-no or pick-one subsection is rated** (`subsectionOptionLabel`): _Teamwork,
+  yes or no_ and _Customer feedback, pick one_, in the comma form the Section picker uses (_Core competency, 40% of the
+  mark_). A level stays its bare name, because it is what nearly every subsection is and a tag on every option would say
+  the same thing down the whole list. The words are the row badge's, in lower case. **Such a subsection has no row in All
+  questions and should not:** that list is the questions the review form asks, and a manager records a yes or no or a pick
+  on the subsection under Competency ratings, not on the form. Only the questions filed under it are in the list, with its
+  name on them. A test selects the option by its value, so a label can change without moving what a question is filed under.
+
+## Verified
+
+219 tests in the nine files that touch the dialog. Every behaviour above was broken on purpose and a test failed for it,
+in four runs (13 cases, 8 cases, four for the manager popup, and the three ways the Subsection label can be wrong), plus
+the shadowing bug reproduced faithfully: it fails exactly the four pick-from-a-list tests. The typecheck caught one real
+error (two calls to `questionCounter` cannot be narrowed to a string, so `help` could be `null`).
+
+In a real browser (a dev server of this branch against the scratch API, 1280 wide): five questions added by Enter with the
+cursor staying in the box; Edit opening in the row's place with the cursor in the field; Remove asking on the row with
+focus on Keep; Add question on the By-section rows opening on Questions; two added there and the same seven in All
+questions; no console errors and no sideways scroll. Screens are in `/tmp/pv` only, not committed.
+
+## Not done
+
+- **The framework forms** (Add a section, New subsection) still lose what is typed in them when the dialog is closed
+  without pressing their own add button. The question form was the one reported, and is the one guarded.
+- **`SectionsDialog` is still there**, beside **Write the questions**, and still does what By section cannot: rename,
+  move, reorder, archive. That is the duplication the product owner asked about ("why do we have section in two ways?").
+  Closing it means By section reaching parity first.
+- **A question's edited words are stale for the length of one request** after it is saved, until the re-read lands. The
+  list is not blanked (it never was), so it shows the old words for a moment rather than a spinner.
+- **How a directly rated subsection is shown on its row** is still the old badge ("Rated", "Yes or no", "Pick one"). It
+  does not say a manager records it under Competency ratings, has no rating count, and gives no warning on a pick-one
+  subsection that has no choices yet. Raised by the product owner and not changed here. The Subsection _dropdown_ in All
+  questions is changed (see the decision above).

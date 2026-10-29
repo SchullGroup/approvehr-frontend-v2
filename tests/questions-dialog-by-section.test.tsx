@@ -137,16 +137,28 @@ const mount = () => {
 const viewSwitch = (label: "All questions" | "By section") =>
   userEvent.click(screen.getByRole("radio", { name: label }));
 
-/** Open a subsection in the section view, on whichever tab it opens on. */
+/**
+ * Open a subsection in the section view. A subsection's row holds two buttons that
+ * carry its name, the toggle that opens it and Add question, so the toggle is the
+ * one that says whether it is open.
+ */
 const openSubsection = async (name: string) => {
   await viewSwitch("By section");
   await userEvent.click(
     screen.getByRole("button", { name: /Core competency/ }),
   );
-  await userEvent.click(screen.getByRole("button", { name: new RegExp(name) }));
+  await userEvent.click(
+    screen.getByRole("button", { name: new RegExp(name), expanded: false }),
+  );
 };
+/** The toggle of a subsection, not its Add question button, which carries the name too. */
+const toggleOf = (name: string) =>
+  screen
+    .getAllByRole("button", { name: new RegExp(name) })
+    .find((button) => button.hasAttribute("aria-expanded")) as HTMLElement;
+/** Opens on the questions already; kept so a test can say it is looking at them. */
 const questionsTab = () =>
-  userEvent.click(screen.getByRole("tab", { name: /Answered by questions/ }));
+  userEvent.click(screen.getByRole("tab", { name: /^Questions/ }));
 
 const questionField = () =>
   screen.getByLabelText(/(Add|Edit) (a|the) question/) as HTMLInputElement;
@@ -227,12 +239,8 @@ describe("the two views", () => {
       screen.getByRole("button", { name: /Core competency/ }),
     );
 
-    expect(screen.getByRole("button", { name: /Diligence/ })).toHaveTextContent(
-      "2 questions",
-    );
-    expect(
-      screen.getByRole("button", { name: /Teamwork/ }),
-    ).not.toHaveTextContent("question");
+    expect(toggleOf("Diligence")).toHaveTextContent("2 questions");
+    expect(toggleOf("Teamwork")).not.toHaveTextContent("question");
     expect(
       screen.getByText(
         "1 question in this period is not filed under a subsection. They are in All questions.",
@@ -338,8 +346,8 @@ describe("a question written from under a subsection", () => {
     await openSubsection("Diligence");
     await questionsTab();
     /* Close it and open the other. */
-    await userEvent.click(screen.getByRole("button", { name: /Diligence/ }));
-    await userEvent.click(screen.getByRole("button", { name: /Teamwork/ }));
+    await userEvent.click(toggleOf("Diligence"));
+    await userEvent.click(toggleOf("Teamwork"));
     await questionsTab();
 
     await userEvent.type(questionField(), TEAM);
@@ -453,6 +461,7 @@ describe("who may change the framework from here", () => {
     canManage = false;
     mount();
     await openSubsection("Teamwork");
+    await userEvent.click(screen.getByRole("tab", { name: "How it is rated" }));
     expect(screen.getByLabelText("How it is answered")).toBeDisabled();
   });
 });
@@ -479,9 +488,7 @@ describe("while the framework is read again", () => {
     expect(
       screen.getByRole("button", { name: /Core competency/ }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Diligence/ }),
-    ).toBeInTheDocument();
+    expect(toggleOf("Diligence")).toBeInTheDocument();
     expect(
       (screen.getByLabelText("New subsection") as HTMLInputElement).value,
     ).toBe("Half typed");
@@ -494,9 +501,7 @@ describe("while the framework is read again", () => {
     frameworkLoading = false;
     again();
 
-    expect(
-      screen.getByRole("button", { name: /Initiative/ }),
-    ).toBeInTheDocument();
+    expect(toggleOf("Initiative")).toBeInTheDocument();
     expect(
       (screen.getByLabelText("New subsection") as HTMLInputElement).value,
     ).toBe("Half typed");

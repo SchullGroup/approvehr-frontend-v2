@@ -370,21 +370,54 @@ The three settings on a question:
   competency part of the mark comes from the level a manager records on the subsection itself (step
   22, **Record a level**), and the dialog says so under the two pickers. A question filed under
   nothing is still asked and answered. Choosing a section and leaving **Subsection** on _None_ files
-  it under nothing, and the dialog warns you before you save.
+  it under nothing, and the dialog warns you before you save. The **Subsection** list says beside a
+  subsection that a manager answers yes or no, or by picking, as _Teamwork, yes or no_ and _Customer
+  feedback, pick one_; one rated by a level is just its name. Such a subsection is not a question, so
+  it has no row in **All questions**: only the questions filed under it do, with its name on them. It
+  is rated under **Record a level**, and **By section** is where it is listed.
 
 > ✅ **Shortcut.** There is a **Copy from** control that lifts every question off a previous period.
 > On a second period this is the whole of this step.
 
 The dialog has two views, switched at the top: **All questions** (the form as described above, and the
-one it opens on) and **By section**. **By section** lays the same questions out under the company's own
-framework of what an appraisal is made of: it starts with Core competency, Behavioural competency, Key
-result area and Leadership, each with its weight (_15% of the mark_, or _Not weighted_) and how many
-subsections it has. It is shared by every period, past and future, so a change there is not a change to this
-period alone, and the screen says so in its first sentence.
+one it opens on) and **By section**. They are one list of questions seen two ways: a question written in
+either is in the other at once, with the subsection it is filed under, and the pencil and the bin work the
+same in both.
+
+Writing them, in either view:
+
+- **Enter** in the question box adds the question, as **Add question** does, and the cursor goes back in
+  the box, so several can be written in a row. Each lands read only, above the box.
+- A question is read only until you press its **pencil**. The form then opens _in that row's place_, filled
+  in, with the cursor in it, and **Save changes** or **Cancel** puts the row back. The form under the list
+  steps aside until then.
+- The **bin** asks on the row first: _Remove this question?_ with **Remove** or **Keep** (focus is on
+  **Keep**). If the question cannot be removed, the reason is under that row in the server's own words.
+- A question can be up to 300 characters. The box counts from 250 (_260 of 300 characters_), and one over
+  the limit is refused before it is sent. A pick-from-a-list question takes up to ten choices, and **Add a
+  choice** is switched off at ten (_Ten is the most a question can have._).
+- **Done**, the cross and Escape ask what to do when a question has been written and not added: _You wrote a
+  question and have not added it._ with **Keep writing**, **Discard** and **Add it and close**. For a
+  question you changed: _You changed this question and have not saved it._ with **Save and close**. If the
+  question is refused, the dialog stays open on the form with the reason.
+
+**By section** lays the same questions out under the company's own framework of what an appraisal is made
+of: it starts with Core competency, Behavioural competency, Key result area and Leadership, each with its
+weight (_15% of the mark_, or _Not weighted_) and how many subsections it has. It is shared by every
+period, past and future, so a change there is not a change to this period alone, and the screen says so in
+its first sentence.
+
+Every subsection has an **Add question** button on its row, before you open it. It opens the subsection on
+its questions and puts the cursor in the question box (it never closes a subsection that is already open,
+and it drops a change you had half made to another question). It is there for somebody who cannot change
+the framework too, because a question belongs to the period and not to the framework.
 
 Open a subsection and it has two tabs, which are two views of one subsection and never a choice between them:
 
-- **Rated directly** — how a manager records an answer on the subsection itself, under **Competency
+- **Questions** — this period's questions filed under that subsection, as read-only rows with a pencil and a
+  bin, and the question form under them, which stays open for the next one. A subsection opens on this tab
+  whatever its kind. The count is on the tab.
+- **How it is rated** — how a manager records an answer on the subsection itself, under **Competency
   ratings** (step 22). **How it is answered** is **A level on a scale, 1 to 5**, **Yes or no** (yes scores
   100%, no scores 0%) or **Pick one from a list**, where you write the choices and give each a score in
   percent, then **Save choices**. A choice that anybody has picked keeps its score for good: its score box is
@@ -392,7 +425,6 @@ Open a subsection and it has two tabs, which are two views of one subsection and
   and its place in the list can still change. The kind is written the moment you pick it, and it is fixed once anybody has
   recorded an answer on the subsection (the screen says so; start a new subsection to change it). A yes or
   no and a pick have no target, so they are left out of the gap list and the heatmap.
-- **Answered by questions** — this period's questions filed under that subsection, and the question form.
 
 **Add a section** (a name and **Counts towards**: Core competencies, Behavioural competencies, Leadership, or
 _No part of the mark_) and, inside a section, **New subsection** with **Answered by** both stay open after
