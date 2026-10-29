@@ -33,6 +33,10 @@ export type EmployeeAccess = {
   roles: string[];
 };
 
+/** The API's five, in its own words. See `maritalStatus` on the employee schema. */
+export type MaritalStatus =
+  "single" | "married" | "divorced" | "separated" | "widowed";
+
 export type Employee = {
   /**
    * Whether they can sign in.
@@ -57,6 +61,8 @@ export type Employee = {
   phone: string | null;
   dateOfBirth: string | null;
   gender?: "female" | "male" | "other";
+  /** Absent when not given, as `gender` is. The person's own to set. */
+  maritalStatus?: MaritalStatus;
 
   jobTitle: string;
   department: string;

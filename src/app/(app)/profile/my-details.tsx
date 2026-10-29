@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import {
   BadgeCheck,
   Banknote,
+  CalendarDays,
   Clock3,
+  Heart,
   IdCard,
   Landmark,
   MapPin,
@@ -71,6 +73,9 @@ type Draft = {
   addressLine: string;
   stateOfOrigin: string;
   lgaOfOrigin: string;
+  maritalStatus: string;
+  dateOfBirth: string;
+  gender: string;
   nextOfKinName: string;
   nextOfKinRelationship: string;
   nextOfKinPhone: string;
@@ -88,6 +93,9 @@ const EMPTY: Draft = {
   addressLine: "",
   stateOfOrigin: "",
   lgaOfOrigin: "",
+  maritalStatus: "",
+  dateOfBirth: "",
+  gender: "",
   nextOfKinName: "",
   nextOfKinRelationship: "",
   nextOfKinPhone: "",
@@ -100,14 +108,52 @@ const EMPTY: Draft = {
   nin: "",
 };
 
+type Group = {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  tier: "immediate" | "approval";
+  /**
+   * Which tab the group is on, when that is not the same as its tier. The tabs
+   * split on "what your pay is worked out from", and date of birth and gender
+   * are checked first without being pay: they belong with your other details.
+   */
+  tab?: "immediate" | "approval";
+  /** Replaces the tier's badge and note, for a group payroll is not who checks. */
+  badge?: string;
+  hint?: string;
+  fields: (keyof Draft)[];
+};
+
 /** Which group a field belongs to, and which tier that group is. */
-const GROUPS = [
+const GROUPS: Group[] = [
   {
     id: "contact",
     title: "How to reach you",
     icon: <UserRound aria-hidden="true" className="size-4" />,
     tier: "immediate" as const,
     fields: ["phone", "addressLine"] as (keyof Draft)[],
+  },
+  {
+    id: "about",
+    title: "About you",
+    icon: <Heart aria-hidden="true" className="size-4" />,
+    tier: "immediate",
+    fields: ["maritalStatus"],
+  },
+  {
+    /* Checked first, by the people who can edit records: gender decides
+       whether maternity or paternity leave is on your balance, and date of
+       birth is what pension and retirement are worked out from. Mirrors
+       `SELF_NEEDS_APPROVAL` on the API. */
+    id: "identity",
+    title: "Date of birth and gender",
+    icon: <CalendarDays aria-hidden="true" className="size-4" />,
+    tier: "approval",
+    tab: "immediate",
+    badge: "HR checks this",
+    hint: "HR checks these before they change: leave and pension are worked out from them.",
+    fields: ["dateOfBirth", "gender"],
   },
   {
     id: "kin",
@@ -155,6 +201,9 @@ const LABEL: Record<keyof Draft, string> = {
   addressLine: "Address",
   stateOfOrigin: "State of origin",
   lgaOfOrigin: "LGA of origin",
+  maritalStatus: "Marital status",
+  dateOfBirth: "Date of birth",
+  gender: "Gender",
   nextOfKinName: "Their name",
   nextOfKinRelationship: "Relationship",
   nextOfKinPhone: "Their phone",
@@ -165,6 +214,28 @@ const LABEL: Record<keyof Draft, string> = {
   tin: "Tax identification number",
   nhfNumber: "NHF number",
   nin: "National identity number",
+};
+
+/** Checked by HR rather than payroll — the "Date of birth and gender" group. */
+const HR_CHECKS = new Set<string>(
+  GROUPS.find((group) => group.id === "identity")?.fields ?? [],
+);
+
+/** The fixed answers, in the API's words. Mirrors `employeeFields` there. */
+type ChoiceField = "maritalStatus" | "gender";
+const CHOICES: Record<ChoiceField, readonly (readonly [string, string])[]> = {
+  maritalStatus: [
+    ["single", "Single"],
+    ["married", "Married"],
+    ["divorced", "Divorced"],
+    ["separated", "Separated"],
+    ["widowed", "Widowed"],
+  ],
+  gender: [
+    ["female", "Female"],
+    ["male", "Male"],
+    ["other", "Other"],
+  ],
 };
 
 const TIER_NOTE = {
@@ -205,6 +276,9 @@ export function MyDetails({
       addressLine: text("addressLine"),
       stateOfOrigin: text("stateOfOrigin"),
       lgaOfOrigin: text("lgaOfOrigin"),
+      maritalStatus: text("maritalStatus"),
+      dateOfBirth: text("dateOfBirth"),
+      gender: text("gender"),
       nextOfKinName: text("nextOfKinName"),
       nextOfKinRelationship: text("nextOfKinRelationship"),
       nextOfKinPhone: text("nextOfKinPhone"),
@@ -234,7 +308,9 @@ export function MyDetails({
    */
   const [baseline, setBaseline] = useState<Draft>(initial);
   const [open, setOpen] = useState<string | null>(
-    () => GROUPS.find((group) => !only || group.tier === only)?.id ?? null,
+    () =>
+      GROUPS.find((group) => !only || (group.tab ?? group.tier) === only)?.id ??
+      null,
   );
   const [busy, setBusy] = useState(false);
 
@@ -299,15 +375,20 @@ export function MyDetails({
     if (applied.length > 0 && raised.length === 0) {
       toast.push({ title: "Saved", tone: "success" });
     } else if (raised.length > 0) {
+      /* Named after who actually decides: date of birth and gender go to HR,
+         and anything pay is worked out from goes to payroll. */
+      const who = raised.every((one) => HR_CHECKS.has(one.field))
+        ? "HR"
+        : "payroll";
       toast.push({
         title:
           applied.length > 0
-            ? "Some saved, some sent to payroll"
-            : "Sent to payroll",
+            ? `Some saved, some sent to ${who}`
+            : `Sent to ${who}`,
         tone: "success",
         detail: `${raised.map((one) => one.label).join(", ")} ${
           raised.length === 1 ? "changes" : "change"
-        } once payroll agrees. Nothing has moved yet.`,
+        } once ${who} agrees. Nothing has moved yet.`,
       });
     }
     if (refused.length > 0) {
@@ -371,125 +452,149 @@ export function MyDetails({
           }
         />
         <CardBody className="flex flex-col gap-2">
-          {GROUPS.filter((group) => !only || group.tier === only).map(
-            (group) => {
-              const held = group.fields.filter((f) => waiting.has(f)).length;
-              const edited = group.fields.filter(
-                (f) => draft[f] !== baseline[f],
-              ).length;
-              return (
-                <Disclosure
-                  key={group.id}
-                  /* Single-open, which is the point: the record has thirty-odd
+          {GROUPS.filter(
+            (group) => !only || (group.tab ?? group.tier) === only,
+          ).map((group) => {
+            const held = group.fields.filter((f) => waiting.has(f)).length;
+            const edited = group.fields.filter(
+              (f) => draft[f] !== baseline[f],
+            ).length;
+            return (
+              <Disclosure
+                key={group.id}
+                /* Single-open, which is the point: the record has thirty-odd
                    fields and the reason this screen is not the incumbent's is
                    that only one group is ever in front of you. */
-                  open={open === group.id}
-                  onToggle={() =>
-                    setOpen((current) =>
-                      current === group.id ? null : group.id,
-                    )
-                  }
-                  title={
-                    <span className="flex items-center gap-2">
-                      <span className="text-accent-text">{group.icon}</span>
-                      {group.title}
-                    </span>
-                  }
-                  meta={
-                    <span className="flex items-center gap-1.5">
-                      {group.tier === "approval" && (
-                        <Badge tone="neutral" size="sm">
-                          Payroll checks this
-                        </Badge>
-                      )}
-                      {held > 0 && (
-                        <Badge tone="info" size="sm" dot>
-                          {held} waiting
-                        </Badge>
-                      )}
-                      {edited > 0 && (
-                        <Badge tone="warning" size="sm">
-                          {edited} unsaved
-                        </Badge>
-                      )}
-                    </span>
-                  }
-                  hint={TIER_NOTE[group.tier]}
-                >
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {group.fields.flatMap((key) => {
-                      const field = (
-                        <Field
-                          key={key}
-                          label={LABEL[key]}
-                          {...(waiting.has(key)
-                            ? {
-                                /* The API's own masked summary — "••••4471 →
+                open={open === group.id}
+                onToggle={() =>
+                  setOpen((current) => (current === group.id ? null : group.id))
+                }
+                title={
+                  <span className="flex items-center gap-2">
+                    <span className="text-accent-text">{group.icon}</span>
+                    {group.title}
+                  </span>
+                }
+                meta={
+                  <span className="flex items-center gap-1.5">
+                    {group.tier === "approval" && (
+                      <Badge tone="neutral" size="sm">
+                        {group.badge ?? "Payroll checks this"}
+                      </Badge>
+                    )}
+                    {held > 0 && (
+                      <Badge tone="info" size="sm" dot>
+                        {held} waiting
+                      </Badge>
+                    )}
+                    {edited > 0 && (
+                      <Badge tone="warning" size="sm">
+                        {edited} unsaved
+                      </Badge>
+                    )}
+                  </span>
+                }
+                hint={group.hint ?? TIER_NOTE[group.tier]}
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {group.fields.flatMap((key) => {
+                    const field = (
+                      <Field
+                        key={key}
+                        label={LABEL[key]}
+                        {...(waiting.has(key)
+                          ? {
+                              /* The API's own masked summary — "••••4471 →
                                    ••••5566" — not a generic sentence. Reading
                                    the value here is the point: it is what the
                                    Callout above already says, repeated where
                                    somebody is actually looking when a group is
                                    open and the page has scrolled past it. */
-                                help: `Already with payroll: ${waiting.get(key)?.summary}. Saving again replaces it.`,
-                              }
-                            : {})}
-                        >
-                          {key === "stateOfOrigin" ? (
-                            <Select
-                              value={draft[key]}
-                              disabled={!editable}
-                              onChange={(event) => set(key, event.target.value)}
-                            >
-                              <option value="">Not recorded</option>
-                              {NIGERIAN_STATES.map((state) => (
-                                <option key={state} value={state}>
-                                  {state}
+                              help: `Already with payroll: ${waiting.get(key)?.summary}. Saving again replaces it.`,
+                            }
+                          : {})}
+                      >
+                        {key in CHOICES ? (
+                          <Select
+                            value={draft[key]}
+                            disabled={!editable}
+                            onChange={(event) => set(key, event.target.value)}
+                          >
+                            {/* Blank sends null, which clears it. Somebody
+                                  who would rather not say must be able to take
+                                  a value back off their record. */}
+                            <option value="">Prefer not to say</option>
+                            {CHOICES[key as ChoiceField].map(
+                              ([value, label]) => (
+                                <option key={value} value={value}>
+                                  {label}
                                 </option>
-                              ))}
-                            </Select>
-                          ) : key === "bankName" ? (
-                            <Select
-                              value={draft[key]}
-                              disabled={!editable}
-                              onChange={(event) => set(key, event.target.value)}
-                            >
-                              <option value="">Not recorded</option>
-                              {banksIncluding(initial.bankName).map((bank) => (
-                                <option key={bank.label} value={bank.label}>
-                                  {bank.label}
-                                </option>
-                              ))}
-                            </Select>
-                          ) : (
-                            <Input
-                              value={draft[key]}
-                              disabled={!editable}
-                              onChange={(event) => set(key, event.target.value)}
-                            />
-                          )}
-                        </Field>
-                      );
+                              ),
+                            )}
+                          </Select>
+                        ) : key === "dateOfBirth" ? (
+                          <Input
+                            type="date"
+                            value={draft[key]}
+                            max={new Date().toISOString().slice(0, 10)}
+                            disabled={!editable}
+                            onChange={(event) => set(key, event.target.value)}
+                          />
+                        ) : key === "stateOfOrigin" ? (
+                          <Select
+                            value={draft[key]}
+                            disabled={!editable}
+                            onChange={(event) => set(key, event.target.value)}
+                          >
+                            <option value="">Not recorded</option>
+                            {NIGERIAN_STATES.map((state) => (
+                              <option key={state} value={state}>
+                                {state}
+                              </option>
+                            ))}
+                          </Select>
+                        ) : key === "bankName" ? (
+                          <Select
+                            value={draft[key]}
+                            disabled={!editable}
+                            onChange={(event) => set(key, event.target.value)}
+                          >
+                            <option value="">Not recorded</option>
+                            {banksIncluding(initial.bankName).map((bank) => (
+                              <option key={bank.label} value={bank.label}>
+                                {bank.label}
+                              </option>
+                            ))}
+                          </Select>
+                        ) : (
+                          <Input
+                            value={draft[key]}
+                            disabled={!editable}
+                            onChange={(event) => set(key, event.target.value)}
+                          />
+                        )}
+                      </Field>
+                    );
 
-                      /* BE-10: confirms the account once both fields beside it
+                    /* BE-10: confirms the account once both fields beside it
                        are filled in. Placed after `bankAccount` rather than
                        inside its `Field` — a live confirmation is not the
                        field's own help text. */
-                      if (key !== "bankAccount") return [field];
-                      return [
-                        field,
-                        <div key={`${key}-verify`} className="sm:col-span-2">
-                          <AccountVerificationHint
-                            bankName={draft.bankName}
-                            accountNumber={draft.bankAccount}
-                          />
-                        </div>,
-                      ];
-                    })}
-                  </div>
-                </Disclosure>
-              );
-            },
-          )}
+                    if (key !== "bankAccount") return [field];
+                    return [
+                      field,
+                      <div key={`${key}-verify`} className="sm:col-span-2">
+                        <AccountVerificationHint
+                          bankName={draft.bankName}
+                          accountNumber={draft.bankAccount}
+                        />
+                      </div>,
+                    ];
+                  })}
+                </div>
+              </Disclosure>
+            );
+          })}
         </CardBody>
 
         <CardBody className="flex flex-wrap items-center justify-between gap-3 border-t border-line">
