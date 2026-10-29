@@ -2,7 +2,7 @@
 
 _Repo:_ `approvehr-frontend-v2` · _Generated from_ `src/**/*.{ts,tsx}` (tests and type declarations excluded)
 
-_Snapshot:_ commit `36370cd2` (2026-10-29) · regenerate with `npm run docs`, never by hand
+_Snapshot:_ commit `d8635fc3` (2026-10-29) · regenerate with `npm run docs`, never by hand
 
 Every exported symbol, grouped by what it is for. **Components** render; **hooks** start with `use` and
 hold state or data; **functions** are plain callables. Constants and types are counted rather than listed —
@@ -18,7 +18,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [App chrome — `src/components/portal`](#app-chrome--srccomponentsportal)                           |       42 |         43 |       1 |        13 |
 | [Marketing components — `src/components/marketing`](#marketing-components--srccomponentsmarketing) |       22 |         49 |       0 |         6 |
 | [Module components — `src/components/*`](#module-components--srccomponents)                        |      126 |        180 |       7 |        29 |
-| [API wrappers — `src/lib/api`](#api-wrappers--srclibapi)                                           |       66 |          0 |       0 |       220 |
+| [API wrappers — `src/lib/api`](#api-wrappers--srclibapi)                                           |       66 |          0 |       0 |       221 |
 | [Data hooks — `src/lib/store`](#data-hooks--srclibstore)                                           |       89 |          0 |     335 |        85 |
 | [Seed data — `src/lib/mock`](#seed-data--srclibmock)                                               |       10 |          0 |       0 |        21 |
 | [Domain helpers — `src/lib/*`](#domain-helpers--srclib)                                            |      199 |          0 |      57 |       848 |
@@ -38,7 +38,7 @@ component, and so does a symbol exported through an `export { … }` list.
 | [Screens — full-window, `(focus)`](#screens--full-window-focus)                                    |        9 |         14 |       0 |        12 |
 | [Screens — public site, auth and setup](#screens--public-site-auth-and-setup)                      |       45 |         50 |       0 |         6 |
 | [Everything else](#everything-else)                                                                |        1 |          0 |       0 |         1 |
-| **Total**                                                                                          | **1184** |    **991** | **416** |  **1407** |
+| **Total**                                                                                          | **1184** |    **991** | **416** |  **1408** |
 
 ---
 
@@ -314,7 +314,7 @@ One typed wrapper per endpoint, plus the kobo-to-naira boundary and the shared e
 | `src/lib/api/advances.ts`            | —          | —     | —                                                                                                                                                                                                                                                                                                                                                                                                                                      | 2 const · 5 types                                             |
 | `src/lib/api/ai.ts`                  | —          | —     | `assistantStatus`, `suggestObjectives`, `suggestTaskSummary`, `suggestDevelopment`, `draftPeriodGoals`, `draftPeriodQuestions`, `ask`, `assistantActions`, `runAssistantAction`                                                                                                                                                                                                                                                        | 2 const · 13 types                                            |
 | `src/lib/api/ai2.ts`                 | —          | —     | `ai2Status`, `ai2Usage`, `askAi2Stream`                                                                                                                                                                                                                                                                                                                                                                                                | 6 types                                                       |
-| `src/lib/api/announcements.ts`       | —          | —     | `audienceLabel`                                                                                                                                                                                                                                                                                                                                                                                                                        | 7 const · 16 types                                            |
+| `src/lib/api/announcements.ts`       | —          | —     | `noticeReach`, `audienceLabel`                                                                                                                                                                                                                                                                                                                                                                                                         | 7 const · 17 types                                            |
 | `src/lib/api/application-history.ts` | —          | —     | `actorOf`, `describeEvent`                                                                                                                                                                                                                                                                                                                                                                                                             | 3 types                                                       |
 | `src/lib/api/approvals.ts`           | —          | —     | `naira`, `deadlineLabel`, `isPastDeadline`, `isDecidableHere`, `realScreenFor`                                                                                                                                                                                                                                                                                                                                                         | 2 const · 5 types                                             |
 | `src/lib/api/assets.ts`              | —          | —     | `naira`, `kobo`                                                                                                                                                                                                                                                                                                                                                                                                                        | 1 const · 26 types                                            |

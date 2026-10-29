@@ -79,13 +79,7 @@ export type Draft = {
   expiresOn: string;
 };
 
-export function AnnouncementForm({
-  notice,
-  departments,
-  open,
-  onClose,
-  onSave,
-}: {
+type AnnouncementFormProps = {
   /** Absent when writing a new one. */
   notice?: ApiAnnouncement;
   departments: { id: string; name: string }[];
@@ -93,7 +87,46 @@ export function AnnouncementForm({
   onClose: () => void;
   /** `publish` is what the pressed button asked for. */
   onSave: (draft: Draft, publish: boolean) => Promise<void>;
-}) {
+};
+
+/**
+ * A fresh form each time it is opened.
+ *
+ * The screen keeps this mounted so the dialog can animate out, and a component
+ * that stays mounted keeps its `useState`s. `Modal` unmounts its children when it
+ * closes, so every control inside it starts over: but the fields are held here,
+ * above it, and they did not. After a notice with a picture was saved, the next
+ * "Write a notice" opened with the previous title and text still in it, and its
+ * picture still attached while the file field read "Choose a file". The next
+ * notice then went out carrying a picture nobody could see. Editing had the
+ * smaller version of the same fault: type over a notice, cancel, and the typing
+ * was there next time.
+ *
+ * So the fields live one level down, and this decides when a new session starts:
+ * the dialog opening. It does not start one when `notice` is handed over again
+ * (the board refreshes when the window is focused, and a new object for the same
+ * notice must not wipe what somebody is typing), and it does not start one when
+ * the dialog closes, so what is on screen does not change while it animates out.
+ * Cancel therefore discards what was typed, as every other dialog here does;
+ * "Save as a draft" is the way to keep it.
+ */
+export function AnnouncementForm(props: AnnouncementFormProps) {
+  const [session, setSession] = useState(0);
+  const [wasOpen, setWasOpen] = useState(props.open);
+  if (props.open !== wasOpen) {
+    setWasOpen(props.open);
+    if (props.open) setSession((n) => n + 1);
+  }
+  return <AnnouncementFormBody key={session} {...props} />;
+}
+
+function AnnouncementFormBody({
+  notice,
+  departments,
+  open,
+  onClose,
+  onSave,
+}: AnnouncementFormProps) {
   const editing = notice !== undefined;
   const live = notice?.published === true;
 
