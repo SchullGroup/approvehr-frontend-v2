@@ -325,6 +325,8 @@ export type ApiEmployee = {
   phone: string | null;
   dateOfBirth: string | null;
   gender: string | null;
+  /** Absent from an API that predates it. */
+  maritalStatus?: string | null;
   jobTitle: string;
   departmentId: string | null;
   department: string | null;
@@ -1353,6 +1355,9 @@ export function toEmployee(api: ApiEmployee): Employee {
     phone: api.phone,
     dateOfBirth: api.dateOfBirth,
     ...(api.gender ? { gender: api.gender as Employee["gender"] } : {}),
+    ...(api.maritalStatus
+      ? { maritalStatus: api.maritalStatus as Employee["maritalStatus"] }
+      : {}),
     jobTitle: api.jobTitle,
     department: api.department ?? "—",
     managerId: api.managerId,
