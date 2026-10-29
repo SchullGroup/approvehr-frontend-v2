@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Plus, X } from "lucide-react";
 import {
   Button,
   Callout,
@@ -33,7 +33,9 @@ import {
 import {
   ASKED_CHOICES,
   ASKED_CONSEQUENCE,
+  ASK_ACTION_LABEL,
   NEEDS_CHOICES,
+  askActionFor,
   askedChoiceOf,
   askedOfChoice,
   periodStartedReason,
@@ -219,11 +221,16 @@ export function DirectAnswerPanel({
 /**
  * Whether this period puts the subsection on its review form, and to whom.
  *
- * ## Four choices, written the moment one is picked
+ * ## Four choices, and a button that writes them
  *
- * **Not asked**, **The manager**, **The employee**, **Both**. The same shape as
- * the kind picker above it: no draft to get out of step, the control is driven by
- * what the period holds, and a refusal leaves it where the server has it with the
+ * **Not asked**, **The manager**, **The employee**, **Both**. Picking one writes
+ * nothing: the button beside it does, and says what it will do (`askActionFor`).
+ * The first version wrote on the pick, like the kind picker above it, and the
+ * product owner asked twice where to click Add: a control that saves by itself
+ * leaves nobody sure it has, and a toast is gone in six seconds. So the way to
+ * finish is on screen from the start, a disabled **Add to the review form** until
+ * something is chosen, and **On the review form** takes its place once the period
+ * holds it. A refusal leaves the control where the server has it with the
  * server's own sentence under it. **Not asked** is not an audience, it is the
  * question coming off the form, so it is the `DELETE` and never a request with
  * nobody in it (`askedOfChoice`).
@@ -252,7 +259,8 @@ export function DirectAnswerPanel({
  * ## The line under it
  *
  * One short line, only where it changes the decision: whose answer counts. **Not
- * asked says nothing.**
+ * asked says nothing.** It follows the choice and not what the period holds,
+ * because it is there to help decide, which is before the button is pressed.
  */
 function AskOnForm({
   competency,
@@ -274,7 +282,14 @@ function AskOnForm({
   } | null>(null);
   /* The period has moved on from where it was when this was written. */
   if (mine !== null && server !== mine.base) setMine(null);
-  const shown = mine !== null ? mine.value : server;
+  /* What the period holds. */
+  const saved = mine !== null ? mine.value : server;
+
+  /* What the select says. Only a choice until the button is pressed, and `null`
+     while it says what the period holds. */
+  const [picked, setPicked] = useState<AskedChoice | null>(null);
+  const chosen = picked ?? saved;
+  const action = askActionFor(saved, chosen);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -291,32 +306,37 @@ function AskOnForm({
       ? NEEDS_CHOICES
       : null;
 
-  const change = async (next: AskedChoice) => {
-    if (busy || next === shown) return;
+  const write = async () => {
+    if (busy || action === null) return;
     setBusy(true);
     setError(null);
     try {
-      const body = askedOfChoice(next);
+      const body = askedOfChoice(chosen);
       if (body === null) await ask.onStop(competency.id);
       else await ask.onAsk(competency.id, body);
-      setMine({ value: next, base: server });
-      /* There is no Add button, so this is the only thing that says it took. Only
-         after the API has said yes: a refusal shows its own sentence instead. */
+      setMine({ value: chosen, base: server });
+      setPicked(null);
+      /* The button is replaced by "On the review form", which stays; this says
+         what happened and where to find it. Only after the API has said yes: a
+         refusal shows its own sentence instead. */
       toast.push({
-        ...savedWords(next, competency.name, shown),
+        ...savedWords(chosen, competency.name, saved),
         tone: "success",
       });
       onChanged();
     } catch (caught) {
       /* The API's own sentence: it names the subsection and the period. The
-         control is driven by what the period holds, so it is where it was. */
+         control goes back to what the period holds, so it never says a thing is
+         on the form that is not. */
+      setPicked(null);
       setError(actionMessage(caught, "who is asked"));
     } finally {
       setBusy(false);
     }
   };
 
-  const consequence = ASKED_CONSEQUENCE[shown];
+  const canChange = editable && ask.draft;
+  const consequence = ASKED_CONSEQUENCE[chosen];
 
   return (
     <div className="flex flex-col gap-2 border-t border-line pt-4">
@@ -326,9 +346,12 @@ function AskOnForm({
         {...(error ? { error } : {})}
       >
         <Select
-          value={shown}
-          disabled={!editable || !ask.draft || busy}
-          onChange={(event) => void change(event.target.value as AskedChoice)}
+          value={chosen}
+          disabled={!canChange || busy}
+          onChange={(event) => {
+            setPicked(event.target.value as AskedChoice);
+            setError(null);
+          }}
         >
           {ASKED_CHOICES.map((option) => (
             <option
@@ -341,6 +364,33 @@ function AskOnForm({
           ))}
         </Select>
       </Field>
+      {canChange && (
+        <div className="flex flex-wrap items-center gap-2">
+          {action !== null ? (
+            <Button
+              type="button"
+              variant={action === "remove" ? "secondary" : "accent"}
+              size="sm"
+              loading={busy}
+              onClick={() => void write()}
+            >
+              {ASK_ACTION_LABEL[action]}
+            </Button>
+          ) : saved === "none" ? (
+            <Button type="button" variant="accent" size="sm" disabled>
+              {ASK_ACTION_LABEL.add}
+            </Button>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-body-sm text-muted">
+              <Check
+                aria-hidden="true"
+                className="size-3.5 text-success-text"
+              />
+              On the review form
+            </span>
+          )}
+        </div>
+      )}
       {reason && (
         <NoticeLine tone="muted">
           <span>{reason}</span>

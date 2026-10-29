@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   ASKED_CHOICES,
   ASKED_CONSEQUENCE,
+  ASK_ACTION_LABEL,
   NEEDS_CHOICES,
+  askActionFor,
   askedChoiceOf,
   askedOfChoice,
   askedWho,
@@ -130,6 +132,56 @@ describe("why it cannot be changed", () => {
     expect(NEEDS_CHOICES).toBe(
       "It needs at least two choices before a form can ask it.",
     );
+  });
+});
+
+describe("what pressing the button does", () => {
+  const CHOICES = ASKED_CHOICES.map((choice) => choice.value);
+
+  it("is nothing when the choice is what the period already holds, for every choice", () => {
+    for (const choice of CHOICES)
+      expect(askActionFor(choice, choice)).toBeNull();
+  });
+
+  it("is an add when the period does not ask it and somebody is chosen", () => {
+    for (const chosen of ["manager", "employee", "both"] as const) {
+      expect(askActionFor("none", chosen)).toBe("add");
+    }
+  });
+
+  it("is a change when it is on the form and somebody else is chosen", () => {
+    expect(askActionFor("manager", "both")).toBe("change");
+    expect(askActionFor("manager", "employee")).toBe("change");
+    expect(askActionFor("employee", "manager")).toBe("change");
+    expect(askActionFor("both", "manager")).toBe("change");
+  });
+
+  it("is a remove when Not asked is chosen for something the period asks", () => {
+    for (const saved of ["manager", "employee", "both"] as const) {
+      expect(askActionFor(saved, "none")).toBe("remove");
+    }
+  });
+
+  it("says what it does, and the three do not read alike", () => {
+    expect(ASK_ACTION_LABEL).toEqual({
+      add: "Add to the review form",
+      change: "Save change",
+      remove: "Take it off the form",
+    });
+  });
+
+  it("is a remove exactly when the write is the stop, never a label that disagrees with the write", () => {
+    /* A button that says "Take it off the form" and sends a PUT, or one that says
+       "Add" and sends a DELETE, is well typed and does the opposite of its label. */
+    for (const saved of CHOICES) {
+      for (const chosen of CHOICES) {
+        const action = askActionFor(saved, chosen);
+        if (action === null) continue;
+        const body = askedOfChoice(chosen);
+        if (action === "remove") expect(body).toBeNull();
+        else expect(body).not.toBeNull();
+      }
+    }
   });
 });
 

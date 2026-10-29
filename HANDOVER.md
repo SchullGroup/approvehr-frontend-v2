@@ -10678,9 +10678,9 @@ control. Until the backend is on `staging`, `npm run docs` will not list the two
 | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lib/api/performance.ts`                                                      | `ApiQuestion` gains `answersSubsection?` and `competencyName?`. `ApiFormQuestion` gains `answersSubsection?`, `subsection?` (name, kind, ceiling, choices as ids and labels) and `selfAnswer?`. `ApiAnswer.choiceOptionId?`, `AnswerBody.choiceOptionId?`, and the two calls `askSubsection` (PUT) and `stopAskingSubsection` (DELETE). |
 | `lib/store/performance.ts`                                                    | The two writes on `useCycleMutations`, refused offline in the sentence every period write uses.                                                                                                                                                                                                                       |
-| `lib/performance/subsection-ask.ts`                                           | The period's side, pure: the four choices, what each sends, the one line under each, `SubsectionAsk` (what the tree and the panel are handed).                                                                                                                                                                        |
+| `lib/performance/subsection-ask.ts`                                           | The period's side, pure: the four choices, what each sends, the one line under each, what pressing the button does (`askActionFor`) and what it says, the message after a save, `SubsectionAsk` (what the tree and the panel are handed).                                                                                                                                                                        |
 | `lib/performance/subsection-answer.ts`                                        | The form's side, pure: which questions are a subsection's own, the kind they are drawn as, the levels, an answer in words, the person's own answer in words.                                                                                                                                                          |
-| `direct-answer-panel.tsx`                                                     | **Ask it on the review form**, after how a subsection is answered (`AskOnForm`).                                                                                                                                                                                                                                      |
+| `direct-answer-panel.tsx`                                                     | **Ask it on the review form**, after how a subsection is answered (`AskOnForm`): who is asked, and the button that writes it.                                                                                                                                                                                                                                      |
 | `subsection-tree.tsx`, `period-dialogs.tsx`, `period-screen.tsx`              | The dialog is told the period's stage and given the two writes; it builds `ask` for the tree; the rows of All questions and the Questions tab know a subsection question.                                                                                                                                             |
 | `review-parts.tsx`, `focus-question.tsx`, `focus-steps.tsx`, `focus-form.tsx` | The page-by-page form, the popup form and every read-back draw a subsection question from the subsection, send the right field, and show the person's own answer to a manager.                                                                                                                                       |
 | `docs/walkthroughs/performance.md`                                            | Steps 6, 17, 21 and 22 and the footer date. Every label in them was checked against the source.                                                                                                                                                                                                                       |
@@ -10698,14 +10698,20 @@ control. Until the backend is on `staging`, `npm run docs` will not list the two
   caller that gave the dialog no way to write it.
 - **Not asked is a stop, never an empty list.** `askedOfChoice("none")` is `null`, and the panel then calls `DELETE`. An empty
   `askedOf` is a request the API refuses by name. Both is `["SELF", "MANAGER"]` and never carries a colleague.
-- **A choice says it took, because there is no Add button.** Picking is the write, and a person who had just picked **Both** asked where
-  to click Add: the only sign that it had been saved was a count in the subsection's header. `savedWords` (in `subsection-ask.ts`) is
-  the message, pushed as a toast **after** the API has said yes (a refusal shows its own sentence and no toast), and it says where the
-  row is (_Find it under All questions._). The subsection's name is in the **title** and the detail is short and fixed, because a toast
-  clamps its detail to two lines: the first wording put the name in the detail and the browser showed "...It is listed under All...",
-  cutting off the words that say where to look (a test now holds the detail to 52 characters). It is a message and not a button on
-  purpose: the kind picker above the control also writes the moment it is picked, and one control that waited for a click would be the
-  odd one out.
+- **A button writes it, and it says what it will do.** Picking a choice writes nothing. The first version wrote on the pick, like the
+  kind picker above it, and the product owner asked twice where to click Add: a control that saves by itself leaves nobody sure it
+  has. So the button is on screen from the start, a switched-off **Add to the review form** until something is chosen, and its label is
+  the act (`askActionFor`): **Add to the review form** when the period does not ask it, **Save change** when it does and somebody else
+  is chosen, **Take it off the form** for **Not asked**. Once the period holds the choice the button is replaced by **On the review
+  form**, so the screen says what is true for longer than a toast does. A refusal puts the select back on what the period holds, with
+  the server's sentence under it, so it never says a thing is on the form that is not, and picking something else clears the
+  sentence. After the API has said yes, `savedWords` (in `subsection-ask.ts`) still pushes a message, because it says where the row is
+  (_Find it under All questions._). The subsection's name is in the **title** and the detail is short and fixed, because a toast clamps
+  its detail to two lines: the first wording put the name in the detail and the browser showed "...It is listed under All...",
+  cutting off the words that say where to look (a test holds the detail to 52 characters). **Once the period has started there is no
+  button**, only the read-only select and its reason: a button that could never be pressed is a dead control. The kind picker above
+  still writes the moment it is picked, and the choices list beside it has always had **Save choices**; whether the kind picker
+  should wait for a click too is not decided here.
 - **What was just written is believed until the period moves.** After a write the list is read again, and for as long as that takes it
   still says what it said before; showing that would flip the control back and then forward. The panel keeps what it wrote with the
   value the period held when it wrote it (`base`) and drops it **in render** the moment the period holds anything else. Kept any
@@ -10807,7 +10813,7 @@ that backend checkout has no such file. A production build with `NEXT_PUBLIC_DEM
 administrator, a line manager and an employee, 40 checks and all of them passed. The other employee's self-review, which the manager's
 form needed, was sent over HTTP:
 
-- **The dialog on a draft period** (10): the control on **Not asked** with its four options; **Both** writing at once (`PUT`, 201,
+- **The dialog on a draft period** (10): the control on **Not asked** with its four options; **Both** written (`PUT`, 201,
   both audiences) and the line saying whose answer counts; the help hover naming the period; **The manager** the same write answered
   200; the row in **All questions** (**Rated directly**, **Manager**, **Must be answered**, no pencil); the bin becoming **Remove**
   and its `DELETE` answering 200; the control back on **Not asked** under **By section**; a pick-one subsection asked of the
@@ -10841,13 +10847,90 @@ employee is asked (the web draws the same form for it, and the write is the back
 was not read from the score register, only the ratings the sends wrote; several appraisers on one subject; and the QA site, which
 cannot have this until the backend is on `staging`.
 
-## Docs, and what is left to regenerate
+## An Add button, because a control that saves by itself left people looking for one
 
-The walkthrough is done. `npm run docs` was not run, because the API inventory is read from `origin/staging`, which does not have the
-backend half yet. When it does:
+Asked on 29 October, after the two halves above were merged. The product owner pasted the dialog and asked _"after all the inputs, how
+do I click Add?"_ The first answer was a message after the save (`savedWords`). Then came _"why don't we just add an Add button, won't
+that be more clearer?"_, and it would be: this replaces the pick-writes design with a button. What it says and the states it has are in
+"Decisions not to undo" above (_A button writes it, and it says what it will do_); this section is what was built and how it was checked.
 
-- `docs/components/backend-api.md` gains the two endpoints (`PUT` and `DELETE /api/v1/performance/cycles/:id/subsection-questions/:competencyId`)
-  and the backend's new exported functions.
-- `docs/components/frontend-v2.md` gains the two files `lib/performance/subsection-ask.ts` and `lib/performance/subsection-answer.ts`,
-  the exported `SelfAnswerLine` in `review-parts.tsx`, and the changed group counts.
-- `docs/pages/frontend-v2.md` does not change: no route was added.
+**What changed.** `askActionFor`, `ASK_ACTION_LABEL` and the `AskAction` type in `subsection-ask.ts`. In `AskOnForm`, `picked` (a
+choice nobody has written yet) sits beside `saved` (what the period holds, or what was just written until the period says otherwise),
+the select shows `picked ?? saved`, and the slot under it holds one of three things: the button that says what pressing will do, a
+switched-off **Add to the review form** when nothing is chosen and the period does not ask it, or **On the review form** with a check
+when the period holds the choice. A refusal clears `picked`, so the select goes back to what the period holds; picking again clears the
+sentence. Three existing test files changed with it (`subsection-ask-control` was rewritten, `questions-dialog-subsection-ask` presses
+the button, `subsection-ask` gained the table of what pressing does), and the walkthrough paragraph and the decision above were
+rewritten from the new state rather than annotated.
+
+**Verified.**
+
+- **Tests**: 106 across the three files that touch the control (44 of them in `subsection-ask-control`). One invariant is worth
+  naming: for every pair of choices, the button says **Take it off the form** exactly when the write is the stop, so a label can never
+  disagree with the request it sends.
+- **Seven deliberate breaks**, each in a scratch copy and each caught: picking that writes, a label that never says change or remove, the
+  status removed, a refusal that leaves the pick showing, the line under the control following what is saved instead of the pick, a
+  button on a period that has started, and a stale pick surviving a write. **Two first attempts proved nothing and were redone.** The
+  first "picking writes at once" called `write()` from the select's handler, which still closed over the old choice, so it never wrote
+  and the tests rightly passed; the first "hide the status" added a `hidden` attribute, which jsdom still counts as present. A break
+  that does not break the rule says nothing about the tests, so check that the tampered code does what the tamper claims.
+- **In a browser**, 20 of 20 checks and no console errors, on the dev server for this branch against a scratch backend (a fresh draft
+  period, as the administrator): a switched-off Add on screen from the start; picking **Both** wrote nothing and said nothing; pressing
+  Add sent one `PUT` (201) and put **On the review form** where the button was, with the message _Collaboration added to the review
+  form. Asked of both. Find it under All questions._, gone after seven seconds while the status stayed; **The manager** then read
+  **Save change** (`PUT`, 200, _updated_); **Not asked** read **Take it off the form** (`DELETE`, 200, _taken off_) and the switched-off
+  Add came back; and, put back, the row was under **All questions** (_Collaboration, Rated directly, Both, Must be answered_). At 375px
+  with a touch pointer there was no sideways scroll on the page or the dialog, the button was inside the screen and the select was 16px.
+
+**Not exercised.** A refusal in a browser (the unit tests cover it, and the earlier walk exercised the same refusal under the old
+design); the read-only state on a period that started while the dialog was open (a test covers it); iOS Safari or any real device;
+demo mode (the control is absent there by a test); and the QA site, which cannot have this until backend #246 is on `staging`.
+
+## Docs
+
+The walkthrough is done, and both inventories were re-derived with `npm run docs`: `docs/components/frontend-v2.md` in the change that
+added the Add button, and `docs/components/backend-api.md` in [#545](https://github.com/SchullGroup/approvehr-frontend-v2/pull/545) once
+[backend #246](https://github.com/SchullGroup/approvehr-backend/pull/246) was on `staging` (it adds the two endpoints, `PUT` and `DELETE
+/api/v1/performance/cycles/:id/subsection-questions/:competencyId`). `docs/pages/frontend-v2.md` does not change: no route was added.
+
+---
+
+# A check that was red went up the line, and what it was
+
+On 29 October `check` failed on `dev`, then on `test` and `main`, from about 15:53Z until [#543](https://github.com/SchullGroup/approvehr-frontend-v2/pull/543)
+merged at 16:55Z. **Vercel was green throughout**: its deployments completed on every one of those commits. Only GitHub's `check` job was
+red, at one step, and Vercel does not wait for it.
+
+**What it was.** `verify-load-rule` refused `settings/required-details/required-details-screen.tsx`, which drew its own `LoadFailure` and
+a spinner beside an `EmptyState`, the shape that can say "nothing here" under "this did not load". The screen came in with #539, whose
+own check failed at that step on both of its pushes, and #539 was merged eleven seconds after the second. The red then travelled with the
+promotions (`dev` to `test`, `test` to `main`, and #542 to `preprod` was open and red too), because a promotion is a merge of the branch
+as it stands. #543 put the screen on `LoadState` (the real change is the wrapper; ignoring whitespace it is 15 lines), pinned it with six
+render tests, and added it to `ADOPTED` in `scripts/verify-load-rule.ts`, so 92 screens are on the rule.
+
+**Things worth keeping.**
+
+- A screen that reads data goes through `<LoadState>` (`components/ui/load-state.tsx`). The gate's baseline only shrinks: do not add to it.
+- Read a pull request's `check` before merging it, and `gh run list --branch dev --limit 3` before promoting a branch. A merge does not
+  wait for the check, and a promotion inherits whatever is red.
+- A check can be red while Vercel is green. They are separate, and a green preview says nothing about the Actions job.
+
+**Run by the review of #539, not by CI:** the whole vitest suite on `dev` with the fix, 367 files and 5,321 tests, all passing. Vitest is
+not in CI, so this is the only whole-suite result there is for that commit.
+
+**Found by that review and not fixed**, each verified by the review against a scratch API (I have not re-run them):
+
+- A notice's picture carries over into the next notice: the create form on `/settings/announcements` is not keyed per open, so after a
+  draft with a picture, the next notice is saved with that picture while the form shows "Choose a file".
+- The people picker finds nobody for somebody who holds `MANAGE_SETTINGS` but not `EDIT_RECORDS`: it reads `employees`, which is empty
+  for lookup-only callers, who are sent `people`. The same trap #507 fixed in Record a level.
+- Clearing **Gross monthly** sends `null` and the API refuses it (_That did not save: Some fields are not valid_), while the form still
+  says to clear it if pay is no longer agreed. Either the update schema takes `null` or the form stops offering it.
+- The UI refuses people who were invited and have not accepted, where the API accepts them, and the advice _Invite them to sign in
+  first_ is wrong for them.
+- Nothing pins the `MANAGE_SETTINGS` gate on **Send message** (removing it left all twelve neighbouring tests passing).
+
+**The same day, one backend fix** ([backend #250](https://github.com/SchullGroup/approvehr-backend/pull/250)): `src/server.ts` ignored the
+argument `app.listen`'s callback receives, which is how Express 5 reports a failed bind, so a second start on a taken port ran the
+"listening" code, said nothing of the failure and ended with exit code 0. It now logs which port and exits 1. Two of its tests hold the
+Express behaviour the fix depends on.
