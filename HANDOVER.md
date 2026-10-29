@@ -10886,12 +10886,51 @@ rewritten from the new state rather than annotated.
 design); the read-only state on a period that started while the dialog was open (a test covers it); iOS Safari or any real device;
 demo mode (the control is absent there by a test); and the QA site, which cannot have this until backend #246 is on `staging`.
 
-## Docs, and what is left to regenerate
+## Docs
 
-The walkthrough is done and `docs/components/frontend-v2.md` was re-derived with `npm run docs`. `docs/pages/frontend-v2.md` does not
-change: no route was added. One file is still to do, because the API inventory is read from `origin/staging`, which does not have the
-backend half until [backend #246](https://github.com/SchullGroup/approvehr-backend/pull/246) merges:
+The walkthrough is done, and both inventories were re-derived with `npm run docs`: `docs/components/frontend-v2.md` in the change that
+added the Add button, and `docs/components/backend-api.md` in [#545](https://github.com/SchullGroup/approvehr-frontend-v2/pull/545) once
+[backend #246](https://github.com/SchullGroup/approvehr-backend/pull/246) was on `staging` (it adds the two endpoints, `PUT` and `DELETE
+/api/v1/performance/cycles/:id/subsection-questions/:competencyId`). `docs/pages/frontend-v2.md` does not change: no route was added.
 
-- `docs/components/backend-api.md` gains the two endpoints (`PUT` and `DELETE /api/v1/performance/cycles/:id/subsection-questions/:competencyId`)
-  and the backend's new exported functions. After it merges: `git fetch` in `approvehr-backend`, `npm run docs`, and send that one file as
-  its own pull request.
+---
+
+# A check that was red went up the line, and what it was
+
+On 29 October `check` failed on `dev`, then on `test` and `main`, from about 15:53Z until [#543](https://github.com/SchullGroup/approvehr-frontend-v2/pull/543)
+merged at 16:55Z. **Vercel was green throughout**: its deployments completed on every one of those commits. Only GitHub's `check` job was
+red, at one step, and Vercel does not wait for it.
+
+**What it was.** `verify-load-rule` refused `settings/required-details/required-details-screen.tsx`, which drew its own `LoadFailure` and
+a spinner beside an `EmptyState`, the shape that can say "nothing here" under "this did not load". The screen came in with #539, whose
+own check failed at that step on both of its pushes, and #539 was merged eleven seconds after the second. The red then travelled with the
+promotions (`dev` to `test`, `test` to `main`, and #542 to `preprod` was open and red too), because a promotion is a merge of the branch
+as it stands. #543 put the screen on `LoadState` (the real change is the wrapper; ignoring whitespace it is 15 lines), pinned it with six
+render tests, and added it to `ADOPTED` in `scripts/verify-load-rule.ts`, so 92 screens are on the rule.
+
+**Things worth keeping.**
+
+- A screen that reads data goes through `<LoadState>` (`components/ui/load-state.tsx`). The gate's baseline only shrinks: do not add to it.
+- Read a pull request's `check` before merging it, and `gh run list --branch dev --limit 3` before promoting a branch. A merge does not
+  wait for the check, and a promotion inherits whatever is red.
+- A check can be red while Vercel is green. They are separate, and a green preview says nothing about the Actions job.
+
+**Run by the review of #539, not by CI:** the whole vitest suite on `dev` with the fix, 367 files and 5,321 tests, all passing. Vitest is
+not in CI, so this is the only whole-suite result there is for that commit.
+
+**Found by that review and not fixed**, each verified by the review against a scratch API (I have not re-run them):
+
+- A notice's picture carries over into the next notice: the create form on `/settings/announcements` is not keyed per open, so after a
+  draft with a picture, the next notice is saved with that picture while the form shows "Choose a file".
+- The people picker finds nobody for somebody who holds `MANAGE_SETTINGS` but not `EDIT_RECORDS`: it reads `employees`, which is empty
+  for lookup-only callers, who are sent `people`. The same trap #507 fixed in Record a level.
+- Clearing **Gross monthly** sends `null` and the API refuses it (_That did not save: Some fields are not valid_), while the form still
+  says to clear it if pay is no longer agreed. Either the update schema takes `null` or the form stops offering it.
+- The UI refuses people who were invited and have not accepted, where the API accepts them, and the advice _Invite them to sign in
+  first_ is wrong for them.
+- Nothing pins the `MANAGE_SETTINGS` gate on **Send message** (removing it left all twelve neighbouring tests passing).
+
+**The same day, one backend fix** ([backend #250](https://github.com/SchullGroup/approvehr-backend/pull/250)): `src/server.ts` ignored the
+argument `app.listen`'s callback receives, which is how Express 5 reports a failed bind, so a second start on a taken port ran the
+"listening" code, said nothing of the failure and ended with exit code 0. It now logs which port and exits 1. Two of its tests hold the
+Express behaviour the fix depends on.
