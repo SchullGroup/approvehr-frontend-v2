@@ -1,11 +1,12 @@
 /**
  * What a review remembers in this browser before it is sent.
  *
- * Answers to questions go to the API as they are written. The overall mark and
- * the closing note do not: they travel with the send, and there is no endpoint
- * that holds them on their own. Without this, closing the page after writing a
- * paragraph in "anything to add" would lose it — which is exactly what a person
- * trusts a page that says it saves as you go *not* to do.
+ * Answers to questions go to the API as they are written. The overall mark (where
+ * the company asks for one) and the closing note do not: they travel with the
+ * send, and there is no endpoint that holds them on their own. Without this,
+ * closing the page after writing a paragraph in "anything to add" would lose it —
+ * which is exactly what a person trusts a page that says it saves as you go
+ * *not* to do.
  *
  * It also remembers which page they were on, so coming back is coming back to
  * the same place rather than to the first question nobody answered — which is
@@ -15,6 +16,10 @@
  * a convenience: every read and write is wrapped, because storage can be absent
  * or full (private windows, blocked site data) and the page must work without
  * it. Cleared the moment the review is sent.
+ *
+ * A `mark` is only read and sent while the company asks for one (`FocusForm`
+ * decides, from `ApiReviewDetail.overallMark`), so one left in a draft from before
+ * the setting moved can never reach a send that is not asking for it.
  */
 
 export type LocalDraft = { mark: string; summary: string; step: number };

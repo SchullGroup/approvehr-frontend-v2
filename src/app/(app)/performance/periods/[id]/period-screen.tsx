@@ -44,13 +44,16 @@ import {
 } from "@/components/ui";
 import { InfoTooltip } from "@/components/ui/field";
 import { NOTICE_LINK, NoticeLine } from "@/components/portal/notice-line";
+import { standInSentence } from "@/lib/performance/appraiser-fill";
 import { LoadFailure } from "@/components/portal/load-failure";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import {
   ratingWordsFrom,
   scoreLabel,
+  visibleComponents,
   weightLabel,
+  weightsFromNote,
   type ApiComponentScore,
   type ReviewCycleStage,
   type ApiCycle,
@@ -74,6 +77,7 @@ import { SectionsDialog } from "../../sections-dialog";
 import { AskPeersButton } from "./ask-peers";
 import { CalibrationAudit } from "./fairness/calibration-audit";
 import { FairnessStatus, publishLock } from "./fairness/fairness-status";
+import { PeriodWeightsSection } from "./period-weights-section";
 
 /**
  * Running one appraisal period.
@@ -174,6 +178,10 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
   /* Named lists, not counts, and they survive the toast. Both are somebody who
      finishes the period short, and the fixes are different. */
   const [noObjectives, setNoObjectives] = useState<string[] | null>(null);
+  /* Who Start gave their department head, because nobody is recorded as their
+     manager. A policy applied on their behalf, so it is said where it can be
+     checked rather than found afterwards in a manager's list. */
+  const [viaHead, setViaHead] = useState<string[] | null>(null);
 
   const period = detail.cycle;
   const outstanding = outstandingIn(detail.participants);
@@ -218,6 +226,11 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
       setNoObjectives(
         result.withoutAgreedObjectives.length > 0
           ? result.withoutAgreedObjectives
+          : null,
+      );
+      setViaHead(
+        result.viaDepartmentHead && result.viaDepartmentHead.length > 0
+          ? result.viaDepartmentHead
           : null,
       );
       detail.reload();
@@ -561,6 +574,15 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
             </Card>
           )}
 
+          {/* Editable on a draft, and read-only from the moment it starts, so
+              it is shown to anybody who can read the period. */}
+          {period && (canManage || !draft) && (
+            <PeriodWeightsSection
+              period={period}
+              onChanged={() => detail.reload()}
+            />
+          )}
+
           {/* A line each. These were two tinted panels, each with a heading, a
               paragraph explaining the consequence, an action and a Dismiss —
               stacked, immediately after pressing Start, on the screen that
@@ -573,6 +595,9 @@ export function PeriodScreen({ cycleId }: { cycleId: string }) {
               `activateCycle`), so this cannot open the dialog on one person
               directly. Scrolling to the card that can is the honest
               affordance rather than a control that guesses. */}
+          {viaHead && (
+            <NoticeLine tone="muted">{standInSentence(viaHead)}</NoticeLine>
+          )}
           {noObjectives && (
             <NoticeLine tone="warning">
               <span>
@@ -1103,9 +1128,11 @@ function Register({
       <CardHeader
         title="Where the marks stand"
         description={
-          register.weightsFrom === "snapshot"
-            ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these marks.`
-            : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every mark here, including ones already given.`
+          register.weightsFrom === "period"
+            ? `${weightsFromNote("period")} Totalling ${weightLabel(register.weightsTotalBp)}. They lock in when the period starts.`
+            : register.weightsFrom === "snapshot"
+              ? `Scored on the weights locked in when this period started, totalling ${weightLabel(register.weightsTotalBp)}. Changing the company's weights later will not move these marks.`
+              : `Scored on the company's weights as they are today, totalling ${weightLabel(register.weightsTotalBp)}. This period never locked in its own set, so changing the company's weights would change every mark here, including ones already given.`
         }
         action={
           <span className="flex flex-wrap gap-2">
@@ -1442,8 +1469,8 @@ function RegisterCard({
  * absent is not zero, here as everywhere.
  */
 function ScoreParts({ components }: { components: ApiComponentScore[] }) {
-  if (components.length === 0) return null;
   const { counted, leftOut } = splitComponents(components);
+  if (counted.length === 0 && leftOut.length === 0) return null;
   return (
     <span className="mt-1 block text-meta leading-relaxed text-muted">
       {counted.map((part, index) => (
@@ -1463,7 +1490,8 @@ function ScoreParts({ components }: { components: ApiComponentScore[] }) {
   );
 }
 
-function splitComponents(components: ApiComponentScore[]) {
+function splitComponents(all: ApiComponentScore[]) {
+  const components = visibleComponents(all);
   const counted = components.filter(
     (part) => part.included && part.scoreBp !== null,
   );
@@ -1481,7 +1509,7 @@ function leftOutSentence(leftOut: ApiComponentScore[]): string {
 }
 
 /** The whole account of a mark in one sentence, for the table's tooltip. */
-function breakdownSentence(components: ApiComponentScore[]): string {
+export function breakdownSentence(components: ApiComponentScore[]): string {
   const { counted, leftOut } = splitComponents(components);
   const parts = counted
     .map((part) => `${part.label} ${scoreLabel(part.scoreBp ?? 0)}`)

@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { Button, Modal, SuccessMoment } from "@/components/ui";
-import { ratingWordsFrom, type ApiReviewDetail } from "@/lib/api/performance";
+import {
+  ratingWordsFrom,
+  showsOverallMark,
+  type ApiReviewDetail,
+} from "@/lib/api/performance";
 import { useRatingScale } from "@/lib/store/performance";
 import { finalisedCopy, type SignOffCopy } from "./sign-off-copy";
 
@@ -69,6 +73,7 @@ export function FinaliseDialog({
             ratingLabel:
               review.rating === null ? null : ratingWords(review.rating),
             subjectNotified: outcome.subjectNotified,
+            markShown: showsOverallMark(review),
           }),
         );
       }
@@ -126,7 +131,9 @@ export function FinaliseDialog({
             {review.subjectName} will be told, and will be asked to acknowledge
             it.{" "}
             {review.rating === null
-              ? "This form has no overall mark, so they will read the answers."
+              ? showsOverallMark(review)
+                ? "This form has no overall mark, so they will read the answers."
+                : "They will read the answers."
               : `Their rating becomes "${ratingWords(review.rating)}".`}{" "}
             It cannot be changed afterwards.
           </span>

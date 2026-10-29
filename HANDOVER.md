@@ -9731,3 +9731,793 @@ at build for thumbnails; a site that has it for CVs has it.
 Open: the drawer defect above. Not built, on purpose: a demo-mode path for the two new screens, sub-tasks in a
 personal task opened by id or from Team tasks (from the code: the drawer is handed no list to find them in),
 and inline viewing of an image or PDF in the new tab (the API's link says `attachment`).
+
+---
+
+# A subsection can be answered yes or no, or by picking from a list, and the web has not been told
+
+> **The web was told on 2026-10-28 (frontend #505).** Everything under "What the web has to do" below is built;
+> read "The answer kinds are in the web" near the end of this file for what was built and decided. One thing
+> this entry says is wrong: the kind picker and the choices editor are in the **Questions dialog**, on each
+> subsection's **Rated directly** tab, and not in the framework editor (`sections-dialog.tsx`). The rest of
+> this entry is kept because it says why the backend is shaped as it is.
+
+A subsection of an appraisal (a `Competency`: "Communication" under "Behavioural competency") was answered one
+way, a whole-number level from 1 to its scale. It now has an `answerKind`. `RATING` is that, and is still the
+default. `BOOLEAN` is a yes or a no. `CHOICE` is one pick from a list the company writes, each choice carrying a
+score somebody set by hand. The backend half is built and **nothing in the web knows about it**: no screen can
+make one of the two new kinds, record an answer in one, or draw one. The backend's own note, with every route,
+shape and refusal in the API's words, is `docs/backend/answer-kinds-handover.md` in `approvehr-backend` and is
+committed with the change; read it first. This entry is what that note does not carry: the reasoning, the traps
+for the screens, and what was left.
+
+**Where it is.** Migration `20261028083435_competency_answer_kinds` in `approvehr-backend`. This entry was
+written on 2026-10-28, before that change was committed, so before building on it check that it has reached
+`staging`. Until it has, `npm run docs` will not list `PUT /performance/competencies/:id/choice-options`, because
+the API inventory is read from `origin/staging`. Once it has, re-running it adds that endpoint, three exported
+functions (`setChoiceOptions`, `competencyRatingBp`, `rolesExpecting`) and the counts that go with them, and
+nothing else. That was measured, by generating the inventory from a snapshot of the uncommitted work and
+comparing it with the same inventory without it, so it is a check and not a guess.
+
+## What changed
+
+- **A subsection has `answerKind` and, for `CHOICE`, a list of `choiceOptions`.** One new route replaces the whole
+  list: `PUT /performance/competencies/:id/choice-options`. `POST .../rate` takes whichever of `level`,
+  `boolValue` and `choiceOptionId` the subsection's kind needs, and refuses the others by name.
+- **Every kind reduces to the same 0 to 10,000 basis points, in one place, `competencyRatingBp`**, so the score
+  register, its averages and every component are untouched. A yes is 100% and a no is 0%. A choice scores what
+  its own `scoreBp` says. An answer with nothing in its field is `null` and is left out, never 0 (ADR 0003).
+- **Targets, gaps, the heatmap, promotion readiness, the assistant's development suggestions and a job role's
+  expected levels stay about levels, so they are `RATING` only.** A numeric gap between a yes and a no, or
+  between two picks whose scores nobody ordered, would be arithmetic about nothing.
+- **Nothing existing moved.** The migration backfills nothing: the default is `RATING`, every existing rating
+  keeps its level, and a body that never mentions the new fields is what it always was. One thing did loosen:
+  `level` can now be `null`, on a rating and on a row of a person's skills.
+
+## Decisions not to undo
+
+1. **Choices are their own table, and each choice's score is set by a person.** Not JSON, and not a label matched
+   by string the way `ReviewResponse.choiceValue` works against `ReviewQuestion.options`, because those labels
+   never drive a score and these do. `levelToBp` is honest because a rating scale is evenly spaced points on a
+   line. "Exceeds", "Meets" and "Not applicable" are not, so nothing derives a score for a choice.
+2. **A yes or no is 0% or 100% and cannot be configured.** The one earlier non-numeric kind, `MeasureKind.DONE`,
+   has no setting either. A company that wants an asymmetric "no" is describing a two-choice list with its own
+   scores, which is what `CHOICE` already is.
+3. **A rating carries exactly one of `level`, `boolValue` and `choiceOptionId`, and the other two are explicit
+   `null`**, not unset: the sparse-column discipline `ReviewResponse` already follows, so a stale value cannot
+   sit in a column nothing reads.
+4. **The kind is frozen by the first rating.** Before it, nothing has acted on the kind, so a mistake in the
+   setup can be fixed. After it, changing the kind would make every earlier rating mean something else, so the
+   answer is to archive the subsection and start another: a changed mind is a new record.
+5. **A choice that anybody has picked keeps its score. Its label and its order stay editable.** Changing the
+   score would re-score every mark that picked it, published ones included, with no rating changed and nothing in
+   the trail to say why. A different score is a new choice: leave the old one out of the list (it is archived,
+   and the marks that picked it keep scoring at its score) and add another. The check looks at any rating in any
+   period, published or not, and does not try to guess which ones are safe to touch.
+6. **An `id` in the choices list has to be one of this subsection's own live choices.** Matched by id alone, one
+   subsection's save could rewrite another's, a repeated id would update one row twice and silently drop the
+   other half of the list, and an archived choice would be edited and left archived.
+7. **A job role's target is a level, and the refusal is made from both sides.** `setCompetencies` refuses any
+   subsection that is not `RATING`, and `updateCompetency` refuses to move a targeted `RATING` subsection to
+   another kind. Without the second one, attach a never-rated subsection to a role, switch it to yes or no, and
+   the role goes on expecting "level 4" of an answer that has no levels. Archived roles count, because they can
+   be restored.
+8. **"Rated" means any answer.** `summary.rated` on a person's skills list counted the rows that carry a
+   `level`. With `level` nullable it would have said "1 of 3 rated" over three answers in three kinds, and that
+   is the exact string the Skills tab builds (`${summary.rated} of ${summary.total}` in `skills.tsx`). It counts
+   `ratedAt` now. It was found while this entry was being written, and **nothing in the diff pointed at it**:
+   the line had not changed, only what it meant. When a column becomes nullable, grep every reader of it, not
+   only the ones the diff touches. (The other readers, gaps, the heatmap, readiness and the assistant, were
+   checked the same way and already handle it.)
+
+## What the web has to do
+
+The web was written when every subsection was a level, and several things it says stop being true.
+
+- **`level: null` no longer means "never assessed".** `ApiCompetencyRow` in `lib/api/performance.ts` says it does.
+  "Never answered" is `ratedAt === null`. A yes, a no and a pick all have a `null` level.
+- **The rating dialog (`rating-dialog.tsx`) always sends a `level`, and has no way to tell the kinds apart.**
+  Against a `BOOLEAN` or `CHOICE` subsection the API answers 422 in plain words (`"X" is a yes or a no.`). The
+  dialog has to ask for the answer the kind needs, and offer no target for the other two.
+- **The types and calls in `lib/api/performance.ts` need the new fields:** `ApiCompetency` (`answerKind`,
+  `choiceOptions`), `ApiCompetencyRow` (`answerKind`, `boolValue`, `choiceOptionLabel`), `ApiRating` and
+  `RateBody` (`boolValue`, `choiceOptionId`, `level` optional), and a call for the choices route.
+- **A kind picker and a choices editor are needed, and they are in the Questions dialog, not in
+  `sections-dialog.tsx`** (`direct-answer-panel.tsx`, on a subsection's **Rated directly** tab; making a
+  subsection with a kind is in `subsection-tree.tsx`). Whichever screen makes a subsection sends `scaleMax: 5`,
+  which is right: `scaleMax` is still required for every kind and means nothing for two of them. A `CHOICE`
+  subsection has no choices until the route above is called, and nothing can be rated against it until it has
+  two.
+- **Whichever screen sets a role's competencies (`jobRolesApi.setCompetencies`) must offer only `RATING`
+  subsections**, or its save is refused with the API's sentence.
+- **Read `choiceOptions` only when `answerKind` is `CHOICE`.** A subsection switched away from `CHOICE` before
+  its first rating keeps its old choices, and they are still listed.
+- **Draw no target, gap or scale for a yes or no or a pick.**
+- **Demo mode is a decision for whoever builds the screens, and has not been made.** The repo's rule is that no
+  demo path reaches a production build (ADR 0004), and the nearest precedent for a write that would put a
+  locally invented standard on screen is job roles, which refuse writes offline.
+
+## Found, and not changed
+
+- **A skills row has the picked choice's label and not its id.** The rate response has the id. A form that
+  preselects somebody's current pick cannot do it reliably from that list: labels are not unique, and the picked
+  choice may have been archived since. The fix is one additive field on the row, `choiceOptionId`, from the
+  rating the row already holds. Left for whoever builds the form, because a wire shape should grow when the thing
+  that reads it asks.
+- **The editor cannot tell which choices are frozen** until a save is refused, and the refusal names them all. A
+  count of ratings per choice on the wire would let it say so beforehand.
+- **Two choices in one list can share a label.** Not refused.
+- **The freeze is strict, including for a choice picked only in an unpublished period.** Relaxing it is a product
+  decision, not made here.
+- **The check and the write share a transaction and no row lock**, so a rating that lands between them can slip
+  past the freeze. The window is milliseconds, on a screen few people use. A lock is the fix if it ever matters.
+- **The checkout this was built in is six commits behind `origin/staging`, and five neighbouring test files in it
+  fail** (`performance-defensibility`, `-gaps`, `-report`, `-review-flags` and `-fairness`: 27 assertions, one
+  cause). Their fixtures make sections with a name and no `component`, which the code now reads as unmapped, so
+  the score comes back null and everything after it differs. They are stale tests, fixed upstream by `5a9db5f`:
+  run as copies taken from `origin/staging` they pass, 193 of 193. Nothing here causes them and nothing here
+  fixes them. The uncommitted work merges cleanly with `origin/staging`, and its migration sorts after
+  staging's newest.
+
+## Deliberately not done
+
+- **Role targets for yes or no and for a pick.** `setCompetencies` points here for why it refuses them. It is a
+  guard and not a feature. A target that works for every kind needs somewhere to store "yes", or "at least this
+  choice", per role and per subsection, and a definition of "below what the role expects" for a pick, whose
+  scores are hand-set and not points on a line (decision 1). Nobody has asked for it, and building a guess
+  would be a second scoring rule. If it is wanted, it is columns or a table beside `JobRoleCompetency` and a
+  product answer about what a gap is for a pick. Until then a role cannot expect anything of a yes or no, and the
+  API says so.
+- **Text and file answers.** They exist as review-question kinds that never score, and a score is never made up
+  from a paragraph. A subsection that only wants narrative keeps `RATING` and simply never gets a rating.
+- **An importer** for subsections, choices or ratings.
+- **The web, all of it:** the types, the rating form, the framework editor, the skills and job-role screens, and
+  whatever demo mode does.
+
+## Verified, and what was not
+
+Backend. `tests/competency-answer-kinds.test.ts` (34 tests), two more cases in `tests/job-roles.test.ts` and one
+in `tests/tenant-isolation.test.ts`. The five guards in `updateCompetency` and `setChoiceOptions` (the job-role
+refusal, a repeated id, an unknown id, an archived id and a rescored pick) were each replaced with `if (false)` in
+a scratch run: exactly the seven tests written for them failed and nothing else, and the file was restored. The
+skills-list count was written as a failing test first (`expected 1 to be 3`) and passes on the one-line change.
+Typecheck, ESLint and Prettier are clean on the files touched, and the migration replays to exactly the schema
+(`verify-migrations-match-schema`). The neighbouring performance, scoring, job-role, promotion and tenant tests
+(20 files) pass except for the five stale ones above.
+
+**Not exercised:** any screen (none exists), the whole backend suite in one run, the assistant with a real key,
+and a company with real data. The migration adds a column with a constant default, a nullable column and one
+table, and drops one `NOT NULL`, so nothing is rewritten, but it was not run against a database of production
+size.
+
+## Order, and what was left
+
+The backend goes first, as always. A web that predates it keeps working against it for every subsection that
+exists, because every existing one is `RATING`. The trap is only for somebody who makes a `BOOLEAN` or `CHOICE`
+subsection over the API before the screens are built: it would read as never assessed on the Skills tab, and the
+rating dialog would be refused on it. Not built, on purpose: everything under "Deliberately not done".
+
+---
+
+# Five things from a live test of the appraisal flow, and one of them was a question
+
+The product owner ran the Performance module on the QA site, in front of a tester, on 2026-10-28 and sent a list.
+Each item below is what was said, what was found and what was done. Frontend #500, #501 and #504 are merged into
+`dev`. The backend halves are `approvehr-backend` #236 and #237 into `staging`, merged by the user at 17:29 UTC and
+deployed to the QA backend at 17:48 and 18:10 UTC.
+
+## The Questions dialog said an answer counts towards the mark, and it does not
+
+Under **Section** and **Subsection**, a question filed under a subsection read *"Answers to this count towards Core
+competency, which is 40% of the mark."* Nothing makes that so. The competency part of the mark is built from the
+level a manager records on the subsection itself (**Competency ratings**, **Record a level**). The score register
+never reads the answer to a question, however the question is filed, and filing only groups it in the list.
+`tests/performance-question-answers-not-scored.test.ts` in the backend pins that in both directions: a sent answer
+leaves the Core part empty, and a level recorded on the subsection is what fills it.
+
+The sentence is `filingNote` in `question-filing.ts`, one function for every state the two pickers can be in, so
+the states are read and tested together. `FiledUnderPicker` in `period-dialogs.tsx` renders it. The same claim was
+taken out of the New subsection help, the empty-section notice, the **Sections and subsections** dialog (where
+"answers" meant a recorded level, and now says a level) and the walkthrough. **A sentence about what counts
+towards the mark belongs in `filingNote`, under a test.** A comment saying "answers count" is how this one lasted.
+
+## "Look it over" is "Preview", and nobody is asked for an overall mark
+
+The answer flow (`(focus)/performance/reviews/[id]/answer/`) ended on a page called **Look it over**, preceded by
+**Is there an overall mark?**. The first is **Preview** now. The second is gone from the flow, and the form no
+longer sends a `rating`: a review is its answers, and the mark comes from the scores. The pages are the
+introduction, the questions, the closing note and the preview (`startIndex` counts one fewer), `SentInfo` carries
+only `answered`, a stored draft is `{ summary, step }`, and `MarkStep`, its keyboard shortcuts, its row on the
+preview and the "and an overall mark of ..." clause on the confirmation are removed. The older popup form
+(`review-form.tsx`) lost its **Overall mark** field too.
+
+**What stays, on purpose.** The API still accepts a `rating`, and a review that already carries one still shows it
+when read back (**Overall mark** on `/performance/reviews/[id]`), so nothing recorded changes. A draft stored in a
+browser before the change carries a `mark`; `readLocalDraft` ignores it and it is never written back, so it cannot
+reach the send.
+
+**The consequence to know about.** A company that weights **Self-assessment** in Scoring settings feeds that part
+from the self-review's overall rating (`SELF_ASSESSMENT`). With no field to give one, that part has nothing
+recorded for a new self-review. The default weight is 0%, so nothing moves unless somebody turned it on. If it
+matters, the mark could come back for self-reviews only, shown only while that weight is above 0.
+
+## Leadership questions are for people who lead
+
+A question filed under a section that counts towards `LEADERSHIP` was asked of every employee, an employee's own
+self-review included, because "who is asked" was `ReviewQuestion.askedOf` alone. `questionsForAudience` now also
+takes **the person the form is about** and leaves those questions off the form of somebody who leads nobody:
+people report to them, they lead a team, or they head a department (`leadsOthers`). The department case is
+deliberate and a little wider than the score register's own `managers` set (reports and teams, no departments);
+the register is untouched.
+
+Every reader of a form's questions goes through that one function (the form, what an answer may be saved against,
+what is required before sending, and the pooled peer feedback), so they agree. The section is matched on its
+`component` and never its name, so renaming "Leadership" cannot switch it off. A question already answered by
+somebody who is not a leader stays on record; it is simply no longer on their form. **There is no web half**: the
+form simply arrives with fewer questions. One existing test file had to change with it
+(`tests/performance-feedback.test.ts` filed its gate tests' question under a Leadership section and asked it of
+somebody who leads nobody, which is the case this takes off the form, so it files it under a core section now).
+
+## "I'm still unable to do the manager appraisal" was Send, and the rule told nobody until the end
+
+Reproduced on a scratch API. A manager can open and answer a review at any time, but Send is refused until the
+employee has sent their self-appraisal: *"Chidi has not sent their self-appraisal yet, and it should inform
+yours..."*. The rule is deliberate (the product owner's own feedback asked for it) and has three releases: **a past
+due date on the period**, **the appraiser holding `EDIT_RECORDS`**, and **no self-review on the period**; the
+employee sending theirs releases it too. HR setting the period's due date to a past date releases every manager at
+once (checked). The failure was that the only place anybody learned it was the refusal, after the whole form was
+filled in.
+
+The rule is now evaluated once, in `selfAppraisalWaiting` (backend), which returns the sentence or `null`. Send
+throws it, and `GET /performance/reviews/:id` returns the same sentence as **`sendBlockedBy`** for the author of an
+unsent form (`null` for everybody else), so the form says **Sending is not open yet.** where the review starts and
+on the Preview, and keeps **Send it** shut while it stands (`SendClosed` in `focus-steps.tsx`, `sendClosed` in
+`focus-form.tsx`). A backend test asserts the refusal's message is exactly `sendBlockedBy`. A server that predates
+the field sends nothing and that reads as nothing to say, never as "Send is open". **Do not write the sentence on
+this side**: it names the person and, when the period has a due date, the date that opens it, and only the API
+knows either.
+
+**Not done.** The Overview's "Fill it in" row does not show it: that list does not carry the field, and a flag per
+row would be a second read for every row.
+
+## "Will a new section be tied back to scoring?" is a question, and the answer is on the screen now
+
+It is tied back only through the section's **Counts towards** (Core competencies, Behavioural competencies or
+Leadership). A section with no mapping is recorded and never scored: the seeded "Key result area" is one. Weights
+belong to those three *parts* (Settings, Scoring), not to sections, so two sections on one part are averaged
+together and a new section cannot have a weight of its own. An answer on a subsection (a level, a yes or no, or a
+pick) counts only when it is recorded under Competency ratings with an appraisal period chosen; with none it is
+recorded and affects no mark. **Answers to review questions never count.**
+
+## Verified, and what was not
+
+Frontend. `tests/question-filing-note.test.ts` and `tests/question-filing-dialog.test.tsx` (#500),
+`tests/review-focus-logic.test.ts` and the new `tests/review-preview-step.test.tsx` (#501), and the new
+`tests/review-send-blocked.test.tsx` (#504, four cases: the sentence on the introduction and on the preview, absent
+when the API says `null`, absent when the field is missing). `npm run check` passed in CI on each.
+
+Backend. `tests/performance-form-rules.test.ts` (16 tests: leaders by each route, non-leaders, subject versus
+author, a renamed section, an answer to a question not on the form refused, a leader still required to answer it,
+and `sendBlockedBy`: blocked, the refusal's own sentence, `null` for the employee and for a non-author reader,
+released by `EDIT_RECORDS`, by the employee sending theirs and by a past due date). Against `staging`'s service 11
+of the 16 fail. Typecheck, ESLint and Prettier are clean, and the 16 test files around it (every `performance*`
+file, `appraiser-mapping` and `tenant-isolation`; 500 tests) pass with the fixture change above.
+
+In a browser, against a scratch API built from the backend branch and a production build of `dev` (15 of 15
+checks, screenshots in `out/answer-kinds-screenshots-2026-10-28/`): an employee's self-review has one question and
+no leadership question, no overall-mark page, ends on **Preview** with no mark row, and Send is open; a leader's
+form has two questions; a manager whose employee has not sent theirs sees **Sending is not open yet.** with the
+API's sentence on the first page and on the Preview, and **Send it** is disabled.
+
+**Not exercised:** the QA site (at the time it needed #236 on `staging` for the leadership filter and for `sendBlockedBy`; it deployed at 17:48 UTC), demo
+mode, a company with a weighted Self-assessment, and the whole backend suite in one run.
+
+## Order, and what was left
+
+The backend (#236) went first (merged 17:29 UTC, deployed 17:48 UTC). The web (#504) was safe against a server without the field either way. Not built,
+on purpose: the Overview row above, and any change to who counts as a leader in the score register.
+
+---
+
+# The answer kinds are in the web, and two more reasons a manager saw only a self-appraisal
+
+Frontend #505 is the web half of backend #233 (see "A subsection can be answered yes or no..." above). The user
+merged it into `dev` at 16:43 UTC on 2026-10-28 (`1d521a4e`). The same evening a manager's complaint, "Managers
+can't do Appraisal. The system is not populating Appraisal, only self appraisals is what is on the system",
+turned up two more defects, in frontend #507 and backend #237. All three are in this entry.
+
+## What was built (#505)
+
+- **The Questions dialog has a view switch, `All questions | By section`.** All is the default and is the form as
+  it was. **By section** (`SubsectionTree` in `subsection-tree.tsx`) lays the same questions out under the
+  company's sections: each shows how many subsections it has and its weight (*15% of the mark*, or *Not
+  weighted*), and each subsection a kind badge and its question count. An open subsection has two tabs. **Rated
+  directly** is `DirectAnswerPanel` (`direct-answer-panel.tsx`): the **How it is answered** picker, and for a
+  pick the `ScoredChoiceEditor`, a score in percent per choice and **Save choices**. **Answered by questions** is
+  this period's questions filed under it, with the question form.
+- **Sections and subsections are made there, one at a time.** **Add a section** asks for a name and **Counts
+  towards**, and a subsection is made with **New subsection** and **Answered by** (a level, yes or no, or pick
+  one). Both forms stay open after an add and keep the cursor in the name, so ten can be typed in a row.
+- **Record a level (`rating-dialog.tsx`) asks for the answer the kind takes**: a level and a target for a
+  rating, **Answer** yes or no, or one of the choices (labels only, never their scores). It sends exactly one of
+  `level`, `boolValue` and `choiceOptionId`. A pick subsection with no choices says so and cannot be saved. The
+  title is still "Record a level".
+- **Skills (`skills.tsx`)**: "Not assessed yet" is decided by `ratedAt` and not by `level`; a yes, a no and a
+  pick show as a plain badge with no scale segments. The gap list and the heatmap are unchanged (they are
+  rating-only on the server).
+- **`lib/performance/answer-kind.ts`** holds the pure helpers (`answerKindOf`, the labels, `scoreBp`,
+  `payloadFrom`, `choiceProblems`, `directCounts`), `lib/api/performance.ts` the types and `setChoiceOptions`.
+- **`filingNote` is kind-aware.** With nothing chosen it says the competency part of the mark "comes from what is
+  recorded on each subsection, under Competency ratings", and for a subsection that is not rated it says "the
+  answer" and not "the level".
+
+## Decisions worth not undoing
+
+1. **It lives in the Questions dialog** because the person writing a period's questions is already deciding how
+   each subsection is answered, and sending them to another screen and back was the complaint. The two tabs are
+   **a view switch and never a choice**: a subsection can be answered directly and also carry questions, and
+   neither affects the other, because the mark's competency parts come only from what is recorded on the
+   subsection and the score register never reads the answer to a question.
+2. **The kind is written the moment it is picked**, with no draft to get out of step, and the picker shows the
+   kind the API has accepted at once instead of flipping back until the framework is read again. It is fixed
+   once `ratingCount` is above 0, and says so beforehand (`KIND_FROZEN`); a job role that targets the subsection
+   is a refusal the screen cannot know about, so it arrives as the API's sentence and is shown as it comes.
+3. **A score is typed as a percentage with up to two decimals, which is exactly a basis point, and a bad one is
+   `null` and not a clamp.** Typing 150 and being saved as 100 would be a number nobody chose. The list is saved
+   whole in one `PUT`; a choice that has been picked keeps its score, and the API names every one that was
+   changed.
+4. **`answerKind` is optional on this side and read through `answerKindOf`.** A new level subsection is made
+   without sending the word, so a server that predates kinds never hears it. Against one, the new controls are
+   refused in the server's own sentences and everything that existed works as before.
+5. **One form, drawn in one place.** `renderForm` is a function and not a component, so what somebody is typing
+   survives a render. In the section view the subsection a question is filed under is read from the open
+   subsection **at the moment of saving**; a copy in the picker's state is cleared by `cancelEdit`, and the next
+   question after a saved edit would have been filed under nothing while the screen still showed it under the
+   open one.
+6. **No demo writes.** `treeEditable` is `apiConnected && canManage`; otherwise one sentence says why. A
+   locally invented standard is what the job-role screens already refuse.
+7. **`lib/use-held.ts`.** `useFetched` blanks its data on `reload()`, and the add forms live inside the list, so
+   without a hold the form unmounted after every add and the cursor was lost. It keeps the last complete answer,
+   brought up to date during render and never shown in place of a failed read. Its `same` argument has to be able
+   to say yes, or it is an infinite render.
+8. **A danger `Callout` inside a `Modal` portals into the dialog's footer beside Done** (its house behaviour), so
+   a refused kind change, a refused choice save and a failed framework read appear at the bottom of the dialog.
+9. **`FiledUnderPicker` calls `framework.reload()` after it creates a subsection**, and tells the dialog through
+   `onSubsectionAdded`, because the dialog holds a separate copy of the framework. It never reloaded before.
+
+## Two more reasons a manager saw only a self-appraisal
+
+The Send notice (#504) answers a manager who can open the form and cannot send it. This is a manager who has no
+form to open, or no one to open it for.
+
+1. **"Fill in from the reporting line" wrote the mapping and not the forms (backend #237).** A period was started
+   before somebody had a manager, their manager was recorded afterwards, and `POST /cycles/:id/appraisers/auto`
+   answered `created: 1`, cleared the "nobody is appraising them" line, and left the manager with their own
+   self-review and no form about the new person. `activateCycle` and `setAppraisers` both write the forms; this
+   was the one path that wrote the mapping and stopped. It now writes a form for every mapped pair on a running
+   period (not a draft, which gets them when it starts, and not a published one), so **pressing it again repairs a
+   period that was already left like that**. It tells each appraiser once, and the response has `formsCreated`.
+2. **The Employee list in Record a level was empty for a line manager (#507).** The dialog read
+   `useEmployeeDirectory().employees`, which is the full rows, and a caller without `EDIT_RECORDS` is sent lookup
+   rows, which the hook keeps in `people`. It has been like that since lookup rows were introduced (`77b36061`
+   fixed the New KPI dialogs and missed this one). **`employees` is empty for everybody who is not HR; read
+   `people` for anything a manager needs.** `appraiser-map.tsx` and `add-multiple-objectives.tsx` also read
+   `employees` and were not audited here.
+3. **Not code.** The default mapping is built from `Employee.managerId` alone, so somebody with no manager
+   recorded gets no appraiser and no form, and a department head who is not anybody's recorded manager gets no
+   forms for their department. The period page names the people ("N people have no appraiser"). Deriving an
+   appraiser from a department head is a product decision and was not made. And the QA site only has these fixes
+   when the backend actually deploys: `staging`'s CI was red from 2026-10-26.
+
+## Verified, and what was not
+
+Frontend #505: seven new test files (158 tests: `answer-kind`, `direct-answer-panel`, `subsection-tree`,
+`questions-dialog-by-section`, `record-level-kinds`, `skill-row-kinds`, `use-held`); seven deliberate breaks, each
+caught by the test that guards it; `npm run check` exit 0; and the whole vitest suite on the exact merged tip,
+330 files and 4,788 tests, all passing. #507 adds three tests (reading `employees` again fails two of them).
+Backend #237 adds eight (seven fail against `staging`'s service); with the walkthrough, mapping and defensibility
+files, 114 tests pass.
+
+In a browser, against a scratch API and a production build, as an administrator and as a line manager
+(screenshots in `out/answer-kinds-screenshots-2026-10-28/`): the Questions dialog on **All questions** with the
+filing sentence; **By section** with the four sections and their weights; adding a section that counts towards
+Behavioural competencies; a yes-or-no and a pick-one subsection; three scored choices saved; the **Answered by
+questions** tab; a line manager recording a yes for one report and a pick for another in **Record a level** (their
+Employee list was empty before #507, and the dialog showed no level or target for either kind); each report's
+skills list showing the yes and the picked label with no scale; and the manager's *Waiting on you* before and
+after pressing **Fill in from the reporting line** on the fixed API (the form about the new person appears, and a
+second press writes nothing).
+
+**Not exercised:** the QA site, demo mode, iOS Safari or any real device, the whole backend suite in one run, and
+a company with real data.
+
+## Deliberately not done
+
+- **Role targets for a yes or no and for a pick** stay refused (see the earlier entry); no job-role picker offers
+  them.
+- **An importer or a bulk window for subsections or choices.**
+- **The review form still asks questions only.** An answer on a subsection is given under Competency ratings.
+- **The "Fill in from the reporting line" message does not say how many forms it wrote** (`formsCreated`).
+- **On first opening By section there can be a brief flash**: the sections come from the framework's groups (no
+  weights, a different order) until the API's own list arrives.
+
+---
+
+# The overall mark is a company setting, and the weights page says what that does to Self-assessment
+
+The QA round of 2026-10-28 removed "Is there an overall mark?" from the answer flow ("a review is its answers"), and
+its entry above recorded the one consequence: a company that weights **Self-assessment** has nothing to read for
+that part, because Self-assessment *is* the overall mark somebody gave themselves. The owner's answer was to put it
+back as a switch in Performance settings, off by default. Backend #238 (merged 18:05 UTC), backend #239 and
+frontend #512 are that change. #238 and #512 are merged (18:05 and 19:02 UTC); #239 is open for the user.
+
+## What the switch decides, and what it does not
+
+`OrgFeatures.overallMark`, `Boolean @default(false)`, changed with the same `PATCH /setup/features` as every other
+flag and sent with every review as `ApiReviewDetail.overallMark`, so the form needs no second request.
+
+- **It decides what a form offers.** On, the page-by-page form has a page "Is there an overall mark?" between the
+  questions and the note, the preview has an "Overall mark" row, the confirmation says "and an overall mark of
+  Meets Expectations", and the popup form (`review-form.tsx`) has the "Overall mark" field. Off, none of them.
+- **It refuses nothing.** `POST /reviews/:id/submit` takes a `rating` either way, and a review that carries one
+  shows it ("Overall mark" on the record). A mark already given is never hidden or rewritten by the switch moving.
+- **It is read once, when a form opens** (`useState(() => review.overallMark === true)` in `focus-form.tsx`). A form
+  already open keeps what it was, so nobody's pages move under them halfway through. Pinned by a test that
+  rerenders the form with the setting changed.
+- **It is not frozen onto a period** (the weights and the rating words are), and it is **not a wizard question**.
+- **A manager's overall mark is not scored.** It is `appraiserMark`, shown beside the score. Self-assessment is the
+  one exception: weighted, it is the self-review's `rating` (`levelToBp`: 5 is 100% of that part, 3 is 50%).
+  Weighted with the switch off, new self-reviews carry no rating, so the register reports that part as having no
+  data and leaves it out (the rest share the whole score; never counted as nought).
+
+The migration (`20261028180000_org_features_overall_mark`) turns the flag **on** for every company whose saved
+Self-assessment weight is above 0, or that has a running period (not a draft, not published) that froze one, so no
+score moved on deploy. Replayed against nine SQL cases (nothing weighted, a saved weight, a saved 0, a running
+period, a draft and a published one, three malformed snapshots); it changed exactly the two it should.
+
+## Where it lives on the frontend
+
+- **`overallMark: boolean | null` in the features store's `State`, outside `FEATURE_KEYS`/`FeatureFlags`.** The
+  flags are booleans by construction and what the nav filters on; this hides no screen. `useFeatureSettings()`
+  returns `overallMark` and `setOverallMark`.
+- **Null is not off.** `fromApi` reads `features.overallMark ?? null`, `fromDemo` is null, `LOADING` is null. Null
+  means the server did not say (an API one deploy behind, or no server), and **no switch is offered for it**:
+  offering "off" would be a claim about a setting that does not exist there. The card says which of loading,
+  failed, behind and no-server it is, in four different sentences.
+- **The switch is `OverallMarkCard`** (`settings/performance/overall-mark-card.tsx`), the first card on Settings >
+  Appraisal scoring > **Names of marks**, because the names are what the page offers. Modelled on
+  `ProbationPolicyCard`. Needs `MANAGE_SETTINGS`; read-only line for anybody else. On a change it toasts "It applies
+  to the next form anybody opens. Marks already given are not touched." and calls the weights `reload`, so the API's
+  own sentence about Self-assessment follows the switch.
+- **The card's one consequence** is an `AttentionMark` beside its title, shown only when it is true: the **saved**
+  Self-assessment weight is above 0 and the switch is off. It is told the saved weight, not the draft being typed
+  (a test types into the weight field and asserts the mark does not appear).
+- **The Self-assessment card on the Weights tab is flag-aware.** "Collected either way." is gone (false while the
+  mark is off). With `overallMark === false` it drops the "moves their own final mark by X" paragraph and the "What
+  we do instead" row, which describe something nobody can do, and shows one action, "Switch overall marks on under
+  Names of marks", which changes the tab without leaving the page. With true or null it reads exactly as before.
+  The API's `selfAssessmentNote` is still shown once and is the only place the consequence is worded: the first
+  version of this card wrote a second sentence of its own beside the API's, and a screenshot showed the two saying
+  "the overall mark is switched off" one under the other, so the card now offers the way out and leaves the
+  explaining to the API.
+
+## The backend sentence
+
+`selfAssessmentNote(weightBp, overallMarkOn)` in `modules/performance/scoring.ts` has four outputs, because two
+independent facts decide what is true. The 0% sentence used to claim the self-rating "is collected", which stopped
+being true once the mark became a switch that starts off. Weighted-and-off is the only state where a company has
+asked for a figure nothing can produce, and it is the one that now says so.
+
+## Decisions not to undo
+
+- **Absent is not off, and null is not off.** An absent `overallMark` on a review means the form does not ask (the
+  API still accepts a rating), but an absent one on the *features* means no switch, not an off switch.
+- **Two guards stand between a stale draft and the send**, and neither fails a test alone: the `mark` state is seeded
+  empty when the form does not ask, and the body sends `rating` only when it does. Removing both fails
+  `ignores a mark left in the browser from before the setting moved`. Keep both: a mark that cannot exist is better
+  than a mark that is filtered.
+- **The weights object has to keep its identity in a test of the weights form.** The form keeps a draft only while
+  the weights it started from are the same object, so a `useScoringWeights` mock that builds a new object per render
+  throws every keystroke away and the draft cases pass without proving anything. Found by tampering: the first
+  version of the "saved, not typed" test passed with the saved/draft distinction removed.
+
+## Verified
+
+Frontend: 46 new tests in four new files (`overall-mark-flow`, `overall-mark-card`, `review-form-overall-mark`,
+`self-assessment-overall-mark`) and three older files updated (`review-focus-logic`, `review-preview-step`,
+`review-send-blocked`); the wider run over every file with `performance`, `review`, `overall`, `self-assessment`,
+`settings`, `scoring` or `weights` in its name is 25 files and 316 tests, all passing. `npm run check` exit 0 with
+`APPROVEHR_BACKEND_DIR` pointing at the backend branch (so the cross-repo gates compared instead of skipping);
+`verify-demo` against a production build with `NEXT_PUBLIC_DEMO=off` (3,044 built files, none carrying demo copy).
+
+Each rule was broken on purpose and a test failed: a server that does not say read as yes, the setting read on every
+render, a null shown as a switch, the consequence shown at a weight of 0, off read as null on the weights page, the
+draft weight handed to the card, and the popup form asking without the setting. Two did not fail on the first try and
+were fixed (see "Decisions not to undo").
+
+Backend (#239, on top of #238): `tests/performance-overall-mark.test.ts` is 12 passing, five of them new; 21 files and
+558 tests across every `performance*` file, `appraiser-mapping`, `setup` and `tenant-isolation`. Both guards broken on
+purpose (weighted-and-off falling through to the weighted-on sentence; the service passing `true` for the setting).
+
+In a browser, against a production build and a scratch API running the backend branch: **27 of 27 checks**, run twice
+(the first run had one failure, a false one, below). Admin: the card off with no notice at the default weight;
+Self-assessment offering the switch and showing no swing; the link opening Names of marks; a saved 20% weight with the
+mark off putting the notice beside the card title, with the API's sentence saying there is nothing to count; switching
+on through the card with the server agreeing; the notice gone; Self-assessment reading as before. Employee with the
+mark off: the note page after the questions, no row on the Preview, no mark recorded. Employee with it on: the page,
+the word read back on the Preview, "and an overall mark of Meets Expectations" on the confirmation, the server
+holding 3. Manager: asked too while it is on, and not after the setting moved. 375px with touch: no sideways scroll on
+either tab, no console errors, no 5xx. Screenshots 30 to 38 in `out/answer-kinds-screenshots-2026-10-28/`.
+
+QA: backend #238 is live (its `staging` run finished 18:34 UTC; `/health` uptime at 19:02:46 UTC was 1,711 s, which is
+a process start of 18:34:15). The frontend is on `dev` only until the user merges the promotion PR (#513).
+
+## Not verified
+
+The QA site itself (the web needs #513 merged, and #239 for the sentence); iOS Safari or any real device; demo mode in a
+browser (the card's no-server sentence and the null state are covered by tests, not walked); the popup form in a
+browser (tests only); a company with real data; the whole backend suite in one run.
+
+## Found while doing it
+
+- **A browser assertion on page text can be satisfied by the period's own name.** The walk's "the preview has no
+  overall mark row" failed because the test period was called "Overall mark walk" and its name is in the header of every
+  page. The screenshot showed no row; the check was wrong. Count the exact row label, not the substring, and name test
+  periods so they cannot collide with the words under test. Same family as the earlier lesson that an assertion the
+  chrome can satisfy proves nothing.
+- **A test mock that returns a new object every render hides every draft case.** See "Decisions not to undo".
+
+# Weekly tasks can carry a weight, and four screens now say what they did
+
+Two stretches on 2026-10-28, both inside the user's scope for the day (Performance only, disregard payroll). The first
+is a teammate's pull request that had been waiting for a review and a merge (#449). The second is the five items left
+over from the tester's list after the appraisal fixes, called R1 to R5 below.
+
+## Weekly tasks are a sixth part of the mark (#449, landed through #515)
+
+Joseph Chinedu's #449, the web half of backend #214. It added no documentation, so this is it.
+
+- **Settings, Appraisal scoring** has a sixth row, **Weekly tasks**, with its own description ("How the weekly tasks
+  graded against this period's objectives were rated. Starts at 0%."). The company default is the starting point for new
+  periods. `weights-form.tsx` always sends all six, so a server whose rows do not carry the new one cannot leave the set
+  one key short.
+- **A period has its own weights.** `PeriodWeights` is one editor in two places: the period's page while it is a draft
+  (`PeriodWeightsSection`: **How the mark is made up**, **Save the weights**, **Use the company defaults**, "Set for this
+  period." or "Using the company defaults.") and the first page of the assistant's draft, under the description. Six
+  rows, whole percents from 0 to 100, **Total** badge, "These must add up to 100%." From the moment the period starts the
+  same rows are read-only ("Fixed when this period started."; a period from before snapshots reads "This period follows
+  the company's weights as they are today.").
+- **Whole percents here and two decimals in Settings, on purpose.** The rule is exactly 100%, and a field that took
+  33.33 would let three of them make 99.99 and a refusal nobody could connect to a row. A draft nobody touched is not
+  held to the rule at all: it sends no weights and follows the company's until it starts, when whatever the company holds
+  is fixed onto it.
+- **What the part counts** is the API's: the manager's grades on tasks logged against the period's objectives, where
+  **Completed** counts in full, **Partly completed** counts half, and **Not completed** and **Rejected** count nothing.
+  Somebody with no graded tasks has `NO_GRADED_TASKS` and the share is spread over the other parts. Nothing on this side
+  works out a mark.
+- **`visibleComponents` drops Weekly tasks when it is weighted at nothing** (`NOT_WEIGHTED`). Every period that existed
+  before the part did carries it at 0%, and "Weekly tasks: weighted at 0%" on every mark says nothing. Every other
+  exclusion stays, in the API's words. `weightsFromNote("period")` is the one sentence for a draft previewed on its own
+  weights, and the report names where weights came from (**Locked in**, **This period's own**, **Company's current**).
+
+### How it landed, because the history matters here
+
+The PR was 180 commits behind `dev`. It was merged in a scratch worktree as a real merge commit (`3b979f4f`, so
+Joseph's history is intact) with one separate fix commit (`432f59b8`), and then opened as #515 into `dev`; GitHub marked
+#449 merged when its tip landed. Reviewing it found one thing the gates found and I would not have: after the merge
+`verify-no-banners` failed on `period-weights-section.tsx`, where a failed save was a tinted box with a border. It is
+plain red words now (`<p role="alert" className="text-body-sm text-danger-text">`), with the message, the role and the
+test text unchanged. **A PR that was green when it was written can fail a gate that arrived later**: run the whole
+`npm run check` on the merged tree, not on the branch.
+
+## The remaining appraisal fixes (frontend #516, backend #240 and the draft #241)
+
+Four screens used to find out from a refusal, or say nothing. Each field is optional on the web and an absent one makes
+no claim, so an older server behaves as before; each case has a test with the field missing.
+
+| | What the web now says | Needs |
+| --- | --- | --- |
+| **R1** Fill in from the reporting line | The toast reads "N people given an appraiser" with "N forms written for managers to answer." (`formsCreated`, already on `staging`). Two lines sit beside the table: who was given their department head, and "Still nobody appraising X. …" read against the live map, so somebody assigned since drops off. | nothing new; the department-head line needs #241 |
+| **R3** a pick subsection | A choice anybody has picked has its score greyed: "Picked N times, so its score is fixed. Add a new choice to score it differently." Its name and place stay editable. **Record a level** opens on the choice the person already has, matched by id, and says so when that choice has since been taken off the list. | #240 (`ratingCount`, `choiceOptionId`) |
+| **R4** the Overview | A manager's **Fill it in** row carries a small mark beside the person's name with the API's sentence for why Send is closed. | #240 (`sendBlockedBy`) |
+| **R5** `employees` against `people` | Audited, nothing to change (see below). | |
+| **R2** the department head as appraiser | **Not shipped.** | #241, a draft |
+
+### Decisions worth not undoing
+
+- **R2 is a policy choice and is on its own draft backend PR (#241), stacked on #240.** For a person with no manager
+  recorded, the head of their own department stands in as appraiser, in one function (`departmentHeadsFor`) that is easy to
+  read and easy to drop. It is not a defect fix: a department head may not be who a company wants marking that person.
+  The web renders the stand-ins only for a server that sends `viaDepartmentHead`, and says nothing otherwise, so merging
+  #516 commits the product to nothing. **The Fill in tooltip used to describe that rule as if it existed.** It was
+  reworded to what the server does today. Copy that describes a rule has to be true against the server that is deployed,
+  not the one in a draft branch.
+- **The result of Fill in is two lines beside the table, not a banner.** The second is read against the live map on every
+  render, so it does not go stale when somebody is assigned by hand afterwards. The toast stays short on purpose: it clamps
+  its detail to two lines and is gone in six seconds, and the names are what somebody has to act on.
+- **A pick is preselected by its id, never its label.** The agent that built this matched on the label, under a file
+  header that said not to, and the test written for exactly that case failed on its first run. Two choices can share a
+  name, and picking the first "Meets" for somebody who had the second would silently change their score. The header was
+  right and the code under it was not: a comment describing a rule is not a test of it.
+- **A score is shown fixed before the save, not only after a refusal.** The refusal is still the API's own sentence if it
+  ever arrives. `scoreIsFixed` is true only for a saved choice that a server said was picked: a choice added in the editor
+  has no ratings, and one from a server that sends no count is not claimed to be fixed.
+- **`sendBlockedBy` is the API's sentence and one rule.** The backend's Send rule is two pure functions
+  (`sendIsOpenWithoutLooking`, `selfAppraisalSentence`) shared by the refusal, the review detail and the list, so a form,
+  a refusal and a row cannot say three different things. The list reads the subjects' self-appraisals once for all rows.
+  The web shows the mark only on the row that is owed, and never writes the sentence: it names the person and, when the
+  period has a due date, the date, and only the API knows either.
+
+### R5, the audit
+
+`useEmployeeDirectory` has two lists and a caller without the records permission only gets one (`people`, lookup rows;
+`employees` is empty for them). Every reader of `employees` in the Performance screens and the bulk window was read. The
+three left are the appraiser map and its dialog, Ask for feedback, and the bulk window's email suggestions. The first two
+are on screens that need `EDIT_RECORDS` to open at all, and the bulk window documents its fallback (a department head's
+staff list has no emails, so the Assigned to box is a plain email box). Everywhere a manager needs people already reads
+`people` (#507 fixed the last one). No change.
+
+## Found, and not changed
+
+- **The appraiser map counts people the period does not appraise.** In the walk, **Nobody appraising** read 2 while the new
+  Fill in line named one person. The other was the HR manager, who has a manager recorded and holds the HR manager role,
+  and the period had **Appraise the HR manager** off, so it never gave her a form. The map is deliberately a view over
+  people and not over the period (its `cycle` argument is absent on purpose, and the comment says so), so it lists and
+  counts her. The Fill in line comes from the server's `withoutManager`, which is about the period, so it is the one that
+  matches what will happen. Whether the tile should leave such people out is a backend and product call.
+- **`out/removed-2026-10-28c/` held an agent's unfinished work for R1 to R5.** It had stopped without reporting. Its
+  backend half was rebuilt on a fresh `staging` and its frontend half on a fresh `dev`, then reviewed and tested as new
+  code, and the preselect defect above is why that was worth doing.
+
+## Verified
+
+Backend (#240): `tests/competency-choice-picks.test.ts` (9) and `tests/performance-reviews-mine-send-blocked.test.ts`
+(10) are new; with the neighbouring competency, performance, appraiser-mapping, job-role and tenant-isolation files that is
+25 files and 633 tests on a scratch database migrated to `staging`. Four rules were broken on purpose and the test written
+for each failed: a count that reads nothing, a count that reads only ratings filed in a period, a list that never says
+Send is closed, and a self-appraisal matched without its period. `verify-lockstep`, `verify-legacy-permissions`,
+`verify-staging-gate`, `verify-permission-queries`, `verify-permission-checks`, typecheck, lint (891 files) and
+`format:check` exit 0. The draft (#241) adds 470 lines of test; with the files around it, 145 tests pass.
+
+Frontend (#516): five new test files and two lines in two others; with the answer-kind, direct-answer-panel and skill-row
+tests, 10 files and 126 tests. `npm run check` exit 0 with `APPROVEHR_BACKEND_DIR` pointing at the backend branch, so the
+cross-repo gates compared instead of skipping. The changed files have no lint warnings.
+
+In a browser, against a production build and a scratch API running the backend branch, as the administrator and as a
+line manager: the Overview mark with the API's sentence on both forms; Fill in giving "1 person given an appraiser" and
+"1 form written for managers to answer." with the still-without line beside the table; the picked choice's score greyed
+with its explanation and the other two scores editable; **Record a level** opening on "Meets"; and the weights card on a
+draft with six rows. Twelve checks, all passing. Screenshots 39 to 43 are in `out/answer-kinds-screenshots-2026-10-28/`.
+
+## Not verified
+
+The QA site (it needs #240 on `staging` and the frontend on `test`); iOS Safari or any real device; demo mode in a
+browser; the department-head line against a server that sends it (tests only); the weights card's save, reset and the
+assistant's page in a browser (only its rendering on a draft was seen); a mark breakdown with Weekly tasks weighted above
+0%; the whole backend suite in one run.
+
+## Order
+
+Backend #240 first. #516 is safe against a server without it. #241 is a decision for the user and nothing depends on it.
+
+---
+
+# Writing a question is one flow in both views, and Done no longer throws one away
+
+A person opened a subsection under **By section**, pressed **Done**, and saw nothing made. Frontend, into `dev`; the
+dialog is `period-dialogs.tsx` and `subsection-tree.tsx`, and `tests/questions-dialog-adding.test.tsx` is the one place
+that pins the flow. Nothing on the backend changed.
+
+## What a real browser found before anything was changed
+
+Walked on a scratch company against a production build, before touching the code. Each of these was measured, not read
+off the source, which is why the one thing that looked likely and was not is on the list too.
+
+| Found                                                          | Measured                                                                     |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| No way to add from By section                                  | a yes-or-no subsection opened on _Rated directly_, **0** add buttons, **0** question boxes |
+| Enter in the question box                                      | added nothing                                                                |
+| Focus after pressing Add                                       | the page body: the button is disabled while it saves                         |
+| Edit                                                           | the form 434px below the pencil that was pressed (visible with 3 questions, not with 12) |
+| The bin                                                        | removed the question at once, no question asked                              |
+| Closing with a question typed                                  | closed and discarded it                                                      |
+| The list while a question is added                             | **did not** flash: the row count never dipped across the re-read             |
+
+## Decisions not to undo
+
+- **A subsection opens on its questions** (`DEFAULT_TAB`), whatever its kind. The tab that was first for every yes-or-no
+  and every pick-one put the form for a question behind a second tab, and the dialog is called Questions. The tabs are
+  **Questions** (with the count) and **How it is rated**. _Answered by questions_ was also wrong: a question's answer is
+  never read by the score register, so nothing is answered by them. The old names are still in earlier entries here, which
+  are history.
+- **Add question is its own button on the row, beside the toggle, never inside it** (a button cannot hold a button).
+  Pressing it opens the subsection on its questions and asks the dialog for the cursor, and it **never closes** a
+  subsection that is already open. The arrow is a second, decorative press target for a pointer (`tabIndex={-1}`,
+  `aria-hidden`); the toggle beside the name is the control. It is offered to somebody who cannot change the framework,
+  because a question belongs to the period.
+- **Focus is requested, not set.** `askForFocus` bumps a counter and an effect focuses the question box after the commit,
+  because the form is drawn in one of three places (under the list, under a subsection, in place of a row) and may not
+  have rendered when the click lands. Add, Edit and Add question all use it.
+- **Edit takes the row's place** (`renderRow`). The form used to be drawn once under the list whichever row the pencil was
+  on. The form under the list steps aside while one is open; if the question being changed is not in the list (somebody
+  else removed it) it comes back, so there is never a dead end with no form.
+- **Remove asks on the row**, not in a second dialog over this one. The bin has a very light red behind it (`bg-danger/10`,
+  the red at 10%, which reads the same in both themes; `danger-soft` is the ochre and was not used). Pressing it turns it into
+  a red **Remove** with the same bin on it, in the same place, and one more press removes the question. **There is no Keep.**
+  The first version had Remove and Keep beside a sentence, "Remove this question?", and the product owner asked twice whether
+  it had a reason; it had none, and then asked the same of Keep, which only ever backed out. Leaving a question alone needs no
+  button: pressing anywhere else (`pointerdown`, so it works on a phone, where tapping a blank area does not blur a button),
+  tabbing away or Escape puts the bin back. The first Escape does only that and the dialog stays open, as the help hints do.
+  Two things stand in for what Keep gave. A double tap on the bin would land its second tap on Remove, in the bin's own spot,
+  so a press in the first half second is ignored (`REMOVE_GUARD_MS`, a timer and a ref; the button is not greyed, because a
+  button that looks off for half a second reads as broken). And focus goes to Remove when it appears, the bin it came from
+  being gone, and back to the bin when Escape drops the ask, so a keyboard keeps its place. The title says what Remove does
+  (from this period for good, no longer asked on anybody's form, cannot be undone); a touch screen has no hover, so the name,
+  the bin and the word, carries the meaning and the title only adds to it. What Remove does on the server is
+  `removeQuestion`: a hard delete, refused with a 409 ("N answers already reference this question. Leave it, or mark it not
+  required.") when somebody has answered it, and a failure is reported **on that row** (`rowErrors`), not above the form.
+  The jsdom tests cannot Tab (the dialog's focus trap cannot see layout there, so focus never leaves the button): the blur is
+  tested directly and the real Tab, Escape, double click and press-elsewhere were walked in a browser.
+- **Closing with an unsent question asks** (`unsentQuestion`, `requestClose`). Done, the cross and Escape all come through
+  it. A new question counts once it has words in it; a changed one counts when any of the words, the kind, the
+  requirement, the audience, the filing or the choices differ from what was saved. **Add it and close** closes only if
+  the add succeeded (`save` resolves to whether it did), so a refused question leaves the form open with the reason.
+- **The form's second argument is `how`, not `options`.** Its first name shadowed the choices of the question being
+  written, and picking _Pick from a list_ crashed the form. Nothing but the new pick-from-a-list tests would have said so.
+- **The server's limits are said before the request:** 300 characters (in the server's own sentence, with a counter from
+  250) and ten choices of up to 120. Not a `maxLength` on the question box: that truncates a paste without a word.
+- **Enter adds** unless an input method is composing a character, and `save` ignores a second press while one is under
+  way, so a double Enter adds once.
+
+- **The manager's own popup got the same care** (`manager-question.tsx`, "Add your own question"). It stays mounted
+  while closed and nothing emptied it, so the question just added was still typed in the next time it opened, one press
+  from being asked twice. It is emptied after an add, a refusal from the last try is dropped when it is closed, and it
+  reads the shared limits. Nothing had tested it.
+- **The limits are one module**, `lib/performance/question-limits.ts`: the server's 5 to 300 characters, ten choices of up
+  to 120, and the server's own sentences, read by both popups through `questionWordingProblem` and `questionCounter`.
+- **Where the cursor lands.** `askForFocus(block)`: `center` for Add question and for the pencil, because arriving at a
+  form should show it with its neighbours and not leave the box on the bottom edge of the dialog with the rest below the
+  fold, and `nearest` after an add, which must not move the dialog when the box is already in view.
+- **The Subsection dropdown says how a yes-or-no or pick-one subsection is rated** (`subsectionOptionLabel`): _Teamwork,
+  yes or no_ and _Customer feedback, pick one_, in the comma form the Section picker uses (_Core competency, 40% of the
+  mark_). A level stays its bare name, because it is what nearly every subsection is and a tag on every option would say
+  the same thing down the whole list. The words are the row badge's, in lower case. **Such a subsection has no row in All
+  questions and should not:** that list is the questions the review form asks, and a manager records a yes or no or a pick
+  on the subsection under Competency ratings, not on the form. Only the questions filed under it are in the list, with its
+  name on them. A test selects the option by its value, so a label can change without moving what a question is filed under.
+
+## Verified
+
+223 tests in the nine files that touch the dialog. Every behaviour above was broken on purpose and a test failed for it,
+in five runs (13 cases, 8 cases, four for the manager popup, the three ways the Subsection label can be wrong, and the
+seven ways the Remove ask can be wrong: no guard on a quick second press, Escape not stopping at the ask, Escape not
+returning focus, a press elsewhere not dropping it, the focus moving on not dropping it, focus not going to Remove, no tint), plus the shadowing bug reproduced faithfully: it fails exactly the four
+pick-from-a-list tests. The typecheck caught one real error (two calls to `questionCounter` cannot be narrowed to a
+string, so `help` could be `null`).
+
+In a real browser (a dev server of this branch against the scratch API), at 1280 wide and at 375x812 with a touch
+pointer: five questions added by Enter with the cursor staying in the box; Edit opening in the row's place with the
+cursor in the field; the bin tinted light red and the pencil not, Remove replacing the bin on the same right edge with
+focus on it and no Keep anywhere, a real double click (and two taps) not removing anything, a real Escape putting the bin
+back with the focus on it and the dialog still open, a real Tab and a press elsewhere dropping it, and a real removal;
+Add question on the By-section rows opening on Questions; two added there and the same seven in All questions; no console
+errors and no sideways scroll. Screens are in `/tmp/pv` only, not committed. The Subsection dropdown's wording was
+checked by tests only: a native dropdown does not photograph, and the scratch company has no yes-or-no or pick-one
+subsection (adding one would have changed the state the video is recorded from).
+
+## Not done
+
+- **The framework forms** (Add a section, New subsection) still lose what is typed in them when the dialog is closed
+  without pressing their own add button. The question form was the one reported, and is the one guarded.
+- **`SectionsDialog` is still there**, beside **Write the questions**, and still does what By section cannot: rename,
+  move, reorder, archive. That is the duplication the product owner asked about ("why do we have section in two ways?").
+  Closing it means By section reaching parity first.
+- **A question's edited words are stale for the length of one request** after it is saved, until the re-read lands. The
+  list is not blanked (it never was), so it shows the old words for a moment rather than a spinner.
+- **On a blank period at 375px the question box is below the first screen** (y=851 of 812): the quick-start card, then
+  Section and Subsection, come before it, so a phone needs one scroll. Once a question exists the list sits above the box
+  anyway. Measured, not changed: a reorder would put the wording before where it is filed, which is a layout decision.
+- **How a directly rated subsection is shown on its row** is still the old badge ("Rated", "Yes or no", "Pick one"). It
+  does not say a manager records it under Competency ratings, has no rating count, and gives no warning on a pick-one
+  subsection that has no choices yet. Raised by the product owner and not changed here. The Subsection _dropdown_ in All
+  questions is changed (see the decision above).

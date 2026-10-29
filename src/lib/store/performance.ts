@@ -9,6 +9,7 @@ import {
   RATING_MEANING,
   parseMeasure,
   performanceApi,
+  type AnswerKind,
   type ApiAnswer,
   type ApiFairness,
   type ApiClaims,
@@ -49,8 +50,9 @@ import {
   type ApiTaskForGrading,
   type ApiMyTask,
   type ScoreBand,
-  type ScoreComponent,
+  type WeightSet,
   type AnswerBody,
+  type ChoiceOptionBody,
   type CreateGoalBody,
   type UpdateGoalBody,
   type CreateKeyResultBody,
@@ -710,6 +712,16 @@ const SEED_RATINGS: readonly {
   { employeeId: "p-07", name: "Process and compliance", level: 2, target: 4 },
 ];
 
+/* What a demo period was fixed with: the shipped defaults, Weekly tasks at 0. */
+const DEMO_FROZEN_WEIGHTS: WeightSet = {
+  OBJECTIVES: 4_000,
+  TASKS: 0,
+  CORE_COMPETENCY: 2_500,
+  BEHAVIOURAL_COMPETENCY: 2_000,
+  LEADERSHIP: 1_500,
+  SELF_ASSESSMENT: 0,
+};
+
 const demoCycles: ApiCycle[] = [
   {
     id: DEMO_CYCLE_OPEN,
@@ -738,6 +750,7 @@ const demoCycles: ApiCycle[] = [
        still be rewritten by a settings change, which is the property the
        snapshot exists to remove. */
     scoringFrozen: true,
+    weights: { values: DEMO_FROZEN_WEIGHTS, basis: "frozen" },
     departmentIds: [],
     remindDaysBefore: null,
     managersCanAddQuestions: false,
@@ -767,6 +780,7 @@ const demoCycles: ApiCycle[] = [
     questionCount: 5,
     reviewCount: 18,
     scoringFrozen: true,
+    weights: { values: DEMO_FROZEN_WEIGHTS, basis: "frozen" },
     departmentIds: [],
     remindDaysBefore: null,
     managersCanAddQuestions: false,
@@ -1087,7 +1101,10 @@ function demoEmployeeCompetencies(employeeId: string): ApiEmployeeCompetencies {
     rows,
     summary: {
       total: rows.length,
-      rated: rows.filter((row) => row.level !== null).length,
+      /* `ratedAt`, not `level`: a yes or no and a pick have no level and are
+         answered all the same. Every demo subsection is a level, so the two
+         agree here, and this is the form that stays true. */
+      rated: rows.filter((row) => row.ratedAt !== null).length,
       gaps: rows.filter((row) => (row.gap ?? 0) > 0).length,
     },
   };
@@ -2599,6 +2616,7 @@ export function useFrameworkActions() {
         description?: string;
         isCore?: boolean;
         scaleMax: number;
+        answerKind?: AnswerKind;
       }) => {
         guard(
           "Adding a competency needs the API: the demo framework is fixed, " +
@@ -2672,6 +2690,7 @@ export function useFrameworkActions() {
           isCore?: boolean;
           scaleMax?: number;
           active?: boolean;
+          answerKind?: AnswerKind;
         },
       ) => {
         guard(
@@ -2679,6 +2698,26 @@ export function useFrameworkActions() {
             "but you can still rate anybody against it.",
         );
         return performanceApi.updateCompetency(id, body);
+      },
+      [guard],
+    ),
+
+    /**
+     * Replace the whole list of choices of a `CHOICE` subsection.
+     *
+     * Its own write, from its own button, the same shape as the scoring
+     * weights: the set is the unit, so it is saved as one. No demo
+     * simulation, for the reason every write in this hook has none: the
+     * framework is a company's standing configuration, and a list of scored
+     * choices kept in one browser would move no mark anywhere.
+     */
+    setChoiceOptions: useCallback(
+      async (competencyId: string, options: ChoiceOptionBody[]) => {
+        guard(
+          "Setting a subsection's choices needs the API: the demo framework " +
+            "is fixed, but you can still rate anybody against it.",
+        );
+        return performanceApi.setChoiceOptions(competencyId, options);
       },
       [guard],
     ),
@@ -2886,6 +2925,8 @@ export function useCycleMutations() {
           periodEnd?: string;
           instructions?: string;
           guideUrl?: string;
+          /** The whole set, in basis points. Sent whenever it is given. */
+          weights?: WeightSet;
         },
       ) => {
         guard("Creating an appraisal period needs the API.");
@@ -2919,6 +2960,7 @@ export function useCycleMutations() {
           ...(options?.guideUrl?.trim()
             ? { guideUrl: options.guideUrl.trim() }
             : {}),
+          ...(options?.weights ? { weights: options.weights } : {}),
         });
       },
       [guard],
@@ -3072,6 +3114,8 @@ export function useCycleMutations() {
           periodEnd?: string | null;
           instructions?: string | null;
           guideUrl?: string | null;
+          /** The whole set, or `null` for the company defaults. */
+          weights?: WeightSet | null;
         },
       ) => {
         guard("Changing a period's settings needs the API.");
@@ -3896,6 +3940,7 @@ const DEMO_WEIGHTS: ApiScoringWeights = {
       label: "Delivery against objectives",
       weightBp: 4_000,
     },
+    { component: "TASKS", label: "Weekly tasks", weightBp: 0 },
     {
       component: "CORE_COMPETENCY",
       label: "Core competencies",
@@ -4039,9 +4084,7 @@ export function useScoringWeights(): {
    * fact they can check. Same discipline as the payroll run naming the person it
    * excluded rather than counting them.
    */
-  save: (
-    weights: Record<ScoreComponent, number>,
-  ) => Promise<ApiScoringWeightsSaved>;
+  save: (weights: WeightSet) => Promise<ApiScoringWeightsSaved>;
   reload: () => void;
 } {
   const { isConnected } = useSession();
@@ -4071,7 +4114,7 @@ export function useScoringWeights(): {
     editable: isConnected,
     refusal: WEIGHTS_SAVE_OFFLINE,
     save: useCallback(
-      async (weights: Record<ScoreComponent, number>) => {
+      async (weights: WeightSet) => {
         if (!isConnected) offline(WEIGHTS_SAVE_OFFLINE);
         const saved = await performanceApi.setScoringWeights(weights);
         reload();

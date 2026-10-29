@@ -5,7 +5,7 @@
 
 - `docs/pages/` — every page on every platform (157 here, 152 platform-frontend, 15 landing).
 - `docs/components/` — every exported component, hook and function, grouped by purpose, plus all
-  949 API endpoints.
+  960 API endpoints.
 - `docs/walkthroughs/` — how the product is used rather than how it is built.
   `performance.md` walks the Performance module click by click, with every on-screen label quoted;
   `approvals.md` does the same for the approvals inbox.

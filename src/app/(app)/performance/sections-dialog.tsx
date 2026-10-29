@@ -563,7 +563,7 @@ export function SectionsDialog({
                       : `${String(unfiled.length)} subsections`}
                   </Badge>
                 }
-                hint="Answers to these count towards no part of the mark"
+                hint="A level recorded on these counts towards no part of the mark"
               >
                 <Subsections
                   items={unfiled}
@@ -669,8 +669,8 @@ export function SectionsDialog({
               left without a section until somebody re-files them.
             </p>
             <p>
-              While they are unfiled, answers to them count towards no part of
-              the mark.
+              While they are unfiled, a level recorded on them counts towards no
+              part of the mark.
             </p>
           </>
         }
@@ -853,7 +853,7 @@ const RATED_PARTS: { value: ScoreComponent; label: string }[] = [
   { value: "LEADERSHIP", label: "Leadership (managers only)" },
 ];
 
-function CountsTowards({
+export function CountsTowards({
   value,
   disabled,
   label,

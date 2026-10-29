@@ -27,6 +27,7 @@ import {
 import type { TabItem } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import type { ApiCompetencyRow, ApiHeatmapRow } from "@/lib/api/performance";
+import { answerKindOf } from "@/lib/performance/answer-kind";
 import {
   CATEGORY_ORDER,
   useGaps,
@@ -403,23 +404,81 @@ export function SkillsTab({
 
 /* -------------------------------------------------------------------------- */
 
-function SkillRow({ row }: { row: ApiCompetencyRow }) {
+/**
+ * One subsection on somebody's own list, in the words that are true of how it is
+ * answered.
+ *
+ * ## "Not assessed" is `ratedAt`, not `level`
+ *
+ * A yes or no and a pick have no level, so their rows carry `level: null` whether
+ * or not anybody has answered them. Reading a missing level as "nobody has looked"
+ * says so about every answered yes-or-no row, which is a false claim somebody
+ * would argue with. `ratedAt` is `null` only when nothing has been recorded.
+ *
+ * ## What is drawn for each kind
+ *
+ * | Kind | Answered | Not answered |
+ * |---|---|---|
+ * | A level | "Level 4 of 5 · target 5" and the segments | "Not assessed yet" and empty segments |
+ * | Yes or no | the word, "Yes" or "No" | "Not assessed yet" |
+ * | A pick | the label of the choice | "Not assessed yet" |
+ *
+ * **No segments for the last two.** They are a scale, and neither answer is on
+ * one. The pick shows its label and not a score: what it is worth is set on the
+ * subsection and worked out on the API, and a figure here would be a second
+ * implementation of it.
+ *
+ * `answerKind` is optional on the row, and absent means a level, which is what a
+ * server that predates answer kinds sends and what it means.
+ */
+export function SkillRow({ row }: { row: ApiCompetencyRow }) {
+  const kind = answerKindOf(row);
+  const answered = row.ratedAt !== null;
+
+  /* The right-hand side: the answer as a word for a yes or no and a pick, the
+     segments for a level. Absent when a yes-or-no or pick row has no answer yet,
+     because there is nothing true to draw. */
+  const answer =
+    kind === "BOOLEAN" ? (
+      answered ? (
+        <Badge tone="neutral" size="sm">
+          {row.boolValue == null ? "Answered" : row.boolValue ? "Yes" : "No"}
+        </Badge>
+      ) : null
+    ) : kind === "CHOICE" ? (
+      answered ? (
+        <Badge tone="neutral" size="sm">
+          {row.choiceOptionLabel ?? "Answered"}
+        </Badge>
+      ) : null
+    ) : (
+      <Pips level={row.level} target={row.target} scaleMax={row.scaleMax} />
+    );
+
+  /* A level has to be there to be shown. A level-kind row that is answered with
+     no level cannot be produced by the API, and "Not assessed yet" is the safe
+     reading of one. */
+  const line =
+    kind === "RATING"
+      ? !answered || row.level === null
+        ? "Not assessed yet"
+        : `Level ${row.level} of ${row.scaleMax}${
+            row.target !== null ? ` · target ${row.target}` : ""
+          }`
+      : answered
+        ? null
+        : "Not assessed yet";
+
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line p-3">
       <div className="min-w-0">
         <p className="text-body-sm font-medium text-ink">{row.name}</p>
-        <p className="tabular mt-1 text-body-sm text-muted">
-          {row.level === null
-            ? "Not assessed yet"
-            : `Level ${row.level} of ${row.scaleMax}${
-                row.target !== null ? ` · target ${row.target}` : ""
-              }`}
-        </p>
+        {line && <p className="tabular mt-1 text-body-sm text-muted">{line}</p>}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Pips level={row.level} target={row.target} scaleMax={row.scaleMax} />
-      </div>
+      {answer && (
+        <div className="flex flex-wrap items-center gap-3">{answer}</div>
+      )}
     </li>
   );
 }

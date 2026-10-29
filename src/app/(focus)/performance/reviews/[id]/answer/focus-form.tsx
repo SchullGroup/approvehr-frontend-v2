@@ -62,6 +62,16 @@ import {
  * of their own — they travel with the send — so those are kept in this browser
  * until it goes (`draft-storage.ts`).
  *
+ * ## The overall mark is the company's choice
+ *
+ * A review is its answers, and the form ends with "Is there an overall mark?"
+ * only where the company has switched that on (`ApiReviewDetail.overallMark`, set
+ * in Appraisal scoring). Where it is off there is no page for it, nothing here
+ * sends a `rating`, and a mark held in an older draft is ignored. Whether it is
+ * asked is read **once**, when the form opens: a switch moved while somebody is
+ * halfway through must not reshuffle the pages under them, and the API takes a
+ * mark either way.
+ *
  * ## What is on the record is not always what is in the box
  *
  * A saved answer cannot be taken back, only replaced (see `onRecordOf`). So
@@ -71,7 +81,7 @@ import {
  * ## Sending is deliberate
  *
  * It is the one thing here that cannot be undone, so it is never reached by a
- * keystroke: Enter and Ctrl/⌘ Enter go *to* the look-over page, and only a press
+ * keystroke: Enter and Ctrl/⌘ Enter go *to* the preview page, and only a press
  * on the Send button goes past it. Key repeat is ignored everywhere, because a
  * held key walked straight through that page and sent.
  */
@@ -109,6 +119,9 @@ export function FocusForm({
   const { scale, editable } = useRatingScale();
   const development = useDevelopmentSuggestions();
 
+  /* Read once. See "The overall mark is the company's choice" above. */
+  const [withMark] = useState(() => review.overallMark === true);
+
   const steps = useMemo<Step[]>(
     () => [
       { kind: "intro" },
@@ -117,21 +130,22 @@ export function FocusForm({
         question,
         position: at + 1,
       })),
-      { kind: "mark" },
+      ...(withMark ? [{ kind: "mark" } as Step] : []),
       { kind: "summary" },
       { kind: "check" },
     ],
-    [review.questions],
+    [review.questions, withMark],
   );
 
   const [local] = useState(() => readLocalDraft(review.id));
-  const [start] = useState(() => startIndex(review, local));
+  const [start] = useState(() => startIndex(review, local, withMark));
   const [index, setIndex] = useState(start);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [draft, setDraft] = useState<Record<string, Draft>>({});
   /** What has been saved during this visit, which the review itself does not show until it is read again. */
   const [savedHeld, setSavedHeld] = useState<Record<string, Draft>>({});
-  const [mark, setMark] = useState(local.mark);
+  /* A mark left in a draft from before the setting moved is not carried in. */
+  const [mark, setMark] = useState(withMark ? local.mark : "");
   const [summary, setSummary] = useState(local.summary);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [failed, setFailed] = useState<string | null>(null);
@@ -167,6 +181,9 @@ export function FocusForm({
   const answered = review.questions.filter((question) =>
     filled(question, onRecord(question)),
   ).length;
+
+  /** The API says Send would be refused right now, and why. See `ApiReviewDetail`. */
+  const sendClosed = Boolean(review.sendBlockedBy);
 
   /** Manager and peer forms get the language check; a self-review does not. */
   const coaching = review.kind !== "SELF";
@@ -332,7 +349,7 @@ export function FocusForm({
   };
 
   const sendIt = async () => {
-    if (sendLock.current || reading) return;
+    if (sendLock.current || reading || sendClosed) return;
     if (outstanding.length > 0) {
       /* Walk them to the first one rather than telling them where it is. */
       const first = review.questions.indexOf(outstanding[0] as ApiFormQuestion);
@@ -350,12 +367,12 @@ export function FocusForm({
     try {
       if (!(await flush(draft))) return;
       const body: { rating?: number; summary?: string } = {};
-      if (mark) body.rating = Number(mark);
+      if (withMark && mark) body.rating = Number(mark);
       if (summary.trim()) body.summary = summary.trim();
       onSending(true);
       await send(review.id, body, []);
       clearLocalDraft(review.id);
-      onSent({ answered, mark: mark || null });
+      onSent({ answered, mark: withMark && mark ? mark : null });
     } catch (caught) {
       onSending(false);
       setFailed(
@@ -370,7 +387,7 @@ export function FocusForm({
   };
 
   /**
-   * Go on to the next page. From the look-over page it sends — but only when
+   * Go on to the next page. From the preview page it sends — but only when
    * asked by the button, never by a key (`byKey`).
    */
   const advance = (byKey = false) => {
@@ -461,7 +478,7 @@ export function FocusForm({
           ? "Overall mark"
           : current.kind === "summary"
             ? "Anything to add"
-            : "Look it over";
+            : "Preview";
 
   const optionalAndEmpty =
     (current.kind === "question" &&
@@ -635,6 +652,7 @@ export function FocusForm({
               review={review}
               scale={scale}
               onRecord={onRecord}
+              withMark={withMark}
               mark={mark}
               summary={summary}
               outstanding={outstanding}
@@ -646,7 +664,7 @@ export function FocusForm({
                   where === "mark"
                     ? 1 + review.questions.length
                     : where === "summary"
-                      ? 2 + review.questions.length
+                      ? 1 + review.questions.length + (withMark ? 1 : 0)
                       : 1 + review.questions.indexOf(where),
                 )
               }
@@ -668,7 +686,7 @@ export function FocusForm({
           variant="accent"
           size="lg"
           loading={sending}
-          disabled={reading}
+          disabled={reading || (current.kind === "check" && sendClosed)}
           onClick={() => advance()}
         >
           {nextLabel}

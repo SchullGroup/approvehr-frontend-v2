@@ -18,8 +18,8 @@ import { useAppraisals, useRatingScale } from "@/lib/store/performance";
  * "Next: …" a moment later moved the thing somebody was about to press.
  *
  * Every figure here is one the form already held — the number of answers and the
- * mark — and the count of what is left comes from the same list the performance
- * page reads, fetched when this appears.
+ * mark, if one was given — and the count of what is left comes from the same list
+ * the performance page reads, fetched when this appears.
  */
 export function SentScreen({
   review,

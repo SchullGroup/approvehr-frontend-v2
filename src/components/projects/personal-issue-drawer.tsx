@@ -127,6 +127,20 @@ export function PersonalIssueDrawer({
     [],
   );
 
+  /* The overlay only stands in for a save until the caller's list is read again,
+     and then it goes. The copy this drawer loaded when it opened is applied over
+     the list's row, so it has to be the saved one, or the old title, status and
+     the rest come back into the fields the person has just changed. */
+  const keep = useCallback(
+    (row: Issue) =>
+      setLoaded((prev) =>
+        prev && prev.detail.issue.id === row.id
+          ? { ...prev, detail: { ...prev.detail, issue: row } }
+          : prev,
+      ),
+    [],
+  );
+
   const actions = useMemo<ProjectActions>(() => {
     const failed = (title: string, error: unknown) => {
       const message =
@@ -163,6 +177,7 @@ export function PersonalIssueDrawer({
         try {
           const saved = await projectsApi.updateIssue(target.id, patch);
           remember(target.id, saved);
+          keep(saved);
           onChanged?.();
           reloadThread();
           return { ok: true as const, value: saved };
@@ -175,6 +190,7 @@ export function PersonalIssueDrawer({
         try {
           const fresh = await projectsApi.getIssue(target.id);
           remember(target.id, fresh);
+          keep(fresh);
           return { ok: true as const, value: fresh };
         } catch (error) {
           return { ok: false as const, message: "", error };
@@ -235,7 +251,7 @@ export function PersonalIssueDrawer({
       startSprint: unsupported,
       completeSprint: unsupported,
     } as unknown as ProjectActions;
-  }, [all, detail, onChanged, reloadThread, remember, toast]);
+  }, [all, detail, keep, onChanged, reloadThread, remember, toast]);
 
   const ownerId = (current ?? detail?.issue)?.assigneeId ?? null;
   const meId = actor.employeeId;
