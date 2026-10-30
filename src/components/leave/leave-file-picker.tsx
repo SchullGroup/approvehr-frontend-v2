@@ -175,6 +175,69 @@ export function AttachFilesButton({
 export const fileHint = (limits: LeaveFileLimits): string =>
   `${acceptedLabels(limits)}, up to ${String(limits.maxFiles)} files of ${megabytes(limits.maxBytes)} each.`;
 
+/** The files chosen and not yet sent: name, size, progress, and why not. */
+export function StagedLeaveFileList({
+  staged,
+  disabled = false,
+}: {
+  staged: StagedLeaveFiles;
+  disabled?: boolean;
+}) {
+  if (staged.items.length === 0) return null;
+  return (
+    <ul aria-label="Files to send" className="flex flex-col gap-1">
+      {staged.items.map((item) => (
+        <li
+          key={item.id}
+          className="flex flex-col gap-1 border-b border-line py-1.5 last:border-b-0"
+        >
+          <div className="flex items-center gap-2.5">
+            <FileText
+              aria-hidden="true"
+              className="size-4 shrink-0 text-muted"
+            />
+            <span className="min-w-0 flex-1 truncate text-body-sm text-ink">
+              {item.file.name}
+            </span>
+            <span className="tabular shrink-0 text-meta text-muted">
+              {formatBytes(item.file.size)}
+            </span>
+            {item.progress === null && !disabled && (
+              <IconButton
+                label={`Remove ${item.file.name}`}
+                size="sm"
+                onClick={() => staged.remove(item.id)}
+              >
+                <X className="size-4" />
+              </IconButton>
+            )}
+          </div>
+          {item.progress !== null && (
+            <div
+              role="progressbar"
+              aria-label="Uploading"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(item.progress * 100)}
+              className="h-1 overflow-hidden rounded-full bg-sunken"
+            >
+              <div
+                className="h-full rounded-full bg-accent transition-[width] duration-150 motion-reduce:transition-none"
+                style={{ width: `${String(item.progress * 100)}%` }}
+              />
+            </div>
+          )}
+          {item.error && (
+            <p aria-live="polite" className="text-body-sm text-danger-text">
+              {item.error}
+            </p>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function LeaveFilePicker({
   staged,
   limits,
@@ -233,58 +296,7 @@ export function LeaveFilePicker({
         </p>
       )}
 
-      {staged.items.length > 0 && (
-        <ul aria-label="Files to send" className="flex flex-col gap-1">
-          {staged.items.map((item) => (
-            <li
-              key={item.id}
-              className="flex flex-col gap-1 border-b border-line py-1.5 last:border-b-0"
-            >
-              <div className="flex items-center gap-2.5">
-                <FileText
-                  aria-hidden="true"
-                  className="size-4 shrink-0 text-muted"
-                />
-                <span className="min-w-0 flex-1 truncate text-body-sm text-ink">
-                  {item.file.name}
-                </span>
-                <span className="tabular shrink-0 text-meta text-muted">
-                  {formatBytes(item.file.size)}
-                </span>
-                {item.progress === null && !disabled && (
-                  <IconButton
-                    label={`Remove ${item.file.name}`}
-                    size="sm"
-                    onClick={() => staged.remove(item.id)}
-                  >
-                    <X className="size-4" />
-                  </IconButton>
-                )}
-              </div>
-              {item.progress !== null && (
-                <div
-                  role="progressbar"
-                  aria-label="Uploading"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.round(item.progress * 100)}
-                  className="h-1 overflow-hidden rounded-full bg-sunken"
-                >
-                  <div
-                    className="h-full rounded-full bg-accent transition-[width] duration-150 motion-reduce:transition-none"
-                    style={{ width: `${String(item.progress * 100)}%` }}
-                  />
-                </div>
-              )}
-              {item.error && (
-                <p aria-live="polite" className="text-body-sm text-danger-text">
-                  {item.error}
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      <StagedLeaveFileList staged={staged} disabled={disabled} />
 
       {error && (
         <p aria-live="polite" className="text-body-sm text-danger-text">

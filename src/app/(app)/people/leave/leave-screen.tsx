@@ -48,6 +48,8 @@ import {
   type BadgeTone,
 } from "@/components/ui";
 import { DeclineDialog } from "@/components/portal/decline-dialog";
+import { LeaveHistory } from "@/components/leave/leave-history";
+import { LeaveRequestFiles } from "@/components/leave/leave-request-files";
 import { PageBody, PageHeader } from "@/components/portal/shell";
 import { ApiError } from "@/lib/api/client";
 import { daysLabel, type LeaveRow, type LeaveRowStatus } from "@/lib/api/leave";
@@ -856,6 +858,8 @@ export function LeaveScreen() {
         onSendBack={setDeclining}
         onUndo={undo}
         onWithdraw={setWithdrawing}
+        readerEmployeeId={employeeId}
+        isHr={canDecide}
       />
 
       <DeclineDialog
@@ -1008,11 +1012,17 @@ function RequestPanel({
   onSendBack,
   onUndo,
   onWithdraw,
+  readerEmployeeId,
+  isHr,
 }: {
   open: boolean;
   onClose: () => void;
   loading: boolean;
   detail: ReturnType<typeof useLeaveRequestDetail>["detail"];
+  /** Who is reading, so the files know whether this is their own leave. */
+  readerEmployeeId: string | null;
+  /** Holds `APPROVE_LEAVE_ALL`. */
+  isHr: boolean;
   actionsFor: (request: LeaveRow) => LeaveRowActions;
   canWithdraw: (request: LeaveRow) => boolean;
   onApprove: (request: LeaveRow) => void;
@@ -1159,12 +1169,44 @@ function RequestPanel({
                   ]
                 : []),
               { term: "Reason given", value: request.reason ?? "None given" },
-              {
-                term: "Decision note",
-                value: request.decisionNote ?? "—",
-              },
+              /* What was said when it was decided. With a history the same
+                 words are a line in it, so only a request that was sent back
+                 repeats its reason here: that is the one thing the person who
+                 filed it opens this to read. Without a history (demo mode, an
+                 API that predates it) the row is the only place it is. */
+              ...(detail && detail.history.length > 0
+                ? request.status === "declined" && request.decisionNote
+                  ? [
+                      {
+                        term: "Why it was sent back",
+                        value: request.decisionNote,
+                      },
+                    ]
+                  : []
+                : [
+                    {
+                      term: "Decision note",
+                      value: request.decisionNote ?? "—",
+                    },
+                  ]),
             ]}
           />
+
+          {/* Files, when the API says this reader may see them. */}
+          <LeaveRequestFiles
+            requestId={request.id}
+            employeeId={request.employeeId}
+            attachmentCount={request.attachmentCount}
+            reader={{
+              isOwner:
+                readerEmployeeId !== null &&
+                request.employeeId === readerEmployeeId,
+              isHr,
+              reduced: detail?.reduced === true,
+            }}
+          />
+
+          {detail && <LeaveHistory history={detail.history} />}
 
           {detail?.balance && (
             <DrawerSection title={`${detail.balance.leaveType} balance`}>
