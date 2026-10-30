@@ -182,7 +182,10 @@ export type Issue = {
   description: string;
   statusId: string;
   priority: Priority;
+  /** The lead: `assigneeIds[0]`. Credit for finished work follows them. */
   assigneeId: string | null;
+  /** Everybody on it, the lead first. Empty when nobody is. */
+  assigneeIds: string[];
   reporterId: string | null;
   epicId: string | null;
   parentId: string | null;
@@ -337,6 +340,8 @@ export type NewIssueInput = {
   statusId?: string;
   priority?: Priority;
   assigneeId?: string | null;
+  /** Everybody on it, the lead first. Wins over `assigneeId`. */
+  assigneeIds?: string[];
   epicId?: string | null;
   parentId?: string | null;
   sprintId?: string | null;
@@ -353,6 +358,7 @@ export type IssuePatch = Partial<{
   statusId: string;
   priority: Priority;
   assigneeId: string | null;
+  assigneeIds: string[];
   epicId: string | null;
   sprintId: string | null;
   points: number | null;

@@ -55,6 +55,12 @@ export type ProjectContextValue = {
   /** Whether the reader may comment. Absent, `canWork` decides. */
   canComment?: boolean;
   /**
+   * Whether the reader may move the issue between columns (and tick its
+   * sub-tasks). Absent, `canWork` decides. On a personal task a colleague its
+   * owner put on it may, and nothing else.
+   */
+  canChangeStatus?: boolean;
+  /**
    * Whether the reader may change the title, description and due date. Absent,
    * `canWork` decides. On a personal task the leader who set it may, though
    * everything else stays the owner's.

@@ -190,6 +190,14 @@ export function toIssue(raw: Raw): Issue {
     statusId: str(raw["statusId"]),
     priority: str(raw["priority"], "MEDIUM") as Priority,
     assigneeId: strOrNull(raw["assigneeId"]),
+    /* An API from before several people could share a task sends the lead alone. */
+    assigneeIds: Array.isArray(raw["assigneeIds"])
+      ? (raw["assigneeIds"] as unknown[]).filter(
+          (a): a is string => typeof a === "string",
+        )
+      : typeof raw["assigneeId"] === "string"
+        ? [raw["assigneeId"]]
+        : [],
     reporterId: strOrNull(raw["reporterId"]),
     epicId: strOrNull(raw["epicId"]),
     parentId: strOrNull(raw["parentId"]),
@@ -360,6 +368,8 @@ export type PersonalTask = Issue & {
   statusCategory: StatusCategory;
   /** Present only when somebody other than its owner put it on the list. */
   setBy: { id: string; name: string } | null;
+  /** Whose list it is on, when a colleague put the reader on one of theirs. */
+  sharedBy: { id: string; name: string } | null;
 };
 
 /** One personal task as the drawer needs it: the issue and its list's columns. */
@@ -386,13 +396,18 @@ const categoryOf = (v: unknown): StatusCategory =>
     : "TODO";
 
 export function toPersonalTask(raw: Raw): PersonalTask {
-  const by = raw["setBy"] as Raw | null | undefined;
+  const person = (value: unknown) => {
+    const row = value as Raw | null | undefined;
+    return row && str(row["id"])
+      ? { id: str(row["id"]), name: str(row["name"]) }
+      : null;
+  };
   return {
     ...toIssue(raw),
     statusName: str(raw["statusName"]),
     statusCategory: categoryOf(raw["statusCategory"]),
-    setBy:
-      by && str(by["id"]) ? { id: str(by["id"]), name: str(by["name"]) } : null,
+    setBy: person(raw["setBy"]),
+    sharedBy: person(raw["sharedBy"]),
   };
 }
 
@@ -545,6 +560,25 @@ export type CompletedSprint = {
   movedIssueIds: string[];
   createdSprint: Sprint | null;
 };
+
+/**
+ * A new task goes with who is on it as `assigneeIds` and the lead beside the list as
+ * `assigneeId`, always the first of it. A server that takes several people reads the
+ * list and ignores the lead (the list wins when both come). One from before it reads
+ * `assigneeId` alone and drops a key it does not know, so a person chosen on a new
+ * task would be left off it with a 201. Both take the same person as the lead. A
+ * task made with no word about people goes as it is.
+ *
+ * A create only, on purpose. A change goes as what changed, and the lead is in it
+ * when the lead changed. A change to the people who are not the lead needs a server
+ * that holds several, and one that does not refuses it ("Send at least one field"),
+ * which at least says it did not take. The lead added there would turn that refusal
+ * into a silent no-op.
+ */
+function withLead(input: NewIssueInput): NewIssueInput {
+  if (input.assigneeIds === undefined) return input;
+  return { ...input, assigneeId: input.assigneeIds[0] ?? null };
+}
 
 export const projectsApi = {
   /** The projects the caller is on. `all` is for people who hold `EDIT_RECORDS`. */
@@ -796,7 +830,7 @@ export const projectsApi = {
     toIssue(
       await request<Raw>(`/projects/${projectId}/issues`, {
         method: "POST",
-        body: input,
+        body: withLead(input),
       }),
     ),
 

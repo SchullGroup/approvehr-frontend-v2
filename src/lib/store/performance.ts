@@ -2437,9 +2437,9 @@ export function useSignOff() {
     finaliseRefusal: FINALISE_OFFLINE,
 
     finalise: useCallback(
-      async (id: string) => {
+      async (id: string, recommendation?: string) => {
         if (!isConnected) offline(FINALISE_OFFLINE);
-        return performanceApi.finaliseReview(id);
+        return performanceApi.finaliseReview(id, recommendation);
       },
       [isConnected],
     ),

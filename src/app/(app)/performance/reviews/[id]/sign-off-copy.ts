@@ -45,12 +45,15 @@ export function finalisedCopy({
   ratingLabel,
   subjectNotified,
   markShown = true,
+  recommended = false,
 }: {
   subjectName: string;
   cycleName: string;
   ratingLabel: string | null;
   subjectNotified: boolean | undefined;
   markShown?: boolean;
+  /** Whether HR's recommendation went with it. Defaults to no, the old wording. */
+  recommended?: boolean;
 }): SignOffCopy {
   const first = subjectName.split(" ")[0] ?? subjectName;
 
@@ -60,6 +63,7 @@ export function finalisedCopy({
   } else if (subjectNotified === false) {
     details.push(`${first} could not be told in the app. Tell them yourself.`);
   }
+  if (recommended) details.push("Your recommendation is saved with it.");
   details.push("It cannot be changed.");
   /* Not for somebody who could not be told: with no sign-in there is nowhere
      for them to give one, and the line would promise an answer that cannot come. */

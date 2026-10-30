@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import * as steps from "@/app/(focus)/performance/reviews/[id]/answer/focus-steps";
@@ -35,10 +35,11 @@ const review = {
 const mount = (
   onEdit = vi.fn(),
   mark: { withMark: boolean; mark: string } = { withMark: false, mark: "" },
+  kind: "MANAGER" | "SELF" | "PEER" = "MANAGER",
 ) => {
   render(
     <steps.CheckStep
-      review={review}
+      review={{ ...review, kind }}
       scale={scale}
       withMark={mark.withMark}
       mark={mark.mark}
@@ -89,9 +90,24 @@ describe("the page before a review is sent", () => {
   it("still shows the closing note and sends the person to it to change it", async () => {
     const { onEdit } = mount();
     expect(screen.getByText("Steady quarter.")).toBeInTheDocument();
+    /* A manager's closing note is their recommendations, and the row says so. */
     await userEvent.click(
-      screen.getByRole("button", { name: /Anything to add/ }),
+      screen.getByRole("button", { name: /Recommendations/ }),
     );
     expect(onEdit).toHaveBeenCalledWith("summary");
+  });
+
+  it("keeps asking the person and a peer for anything to add, not for recommendations", async () => {
+    for (const kind of ["SELF", "PEER"] as const) {
+      const { onEdit } = mount(vi.fn(), { withMark: false, mark: "" }, kind);
+      expect(
+        screen.queryByRole("button", { name: /Recommendations/ }),
+      ).toBeNull();
+      await userEvent.click(
+        screen.getByRole("button", { name: /Anything to add/ }),
+      );
+      expect(onEdit).toHaveBeenCalledWith("summary");
+      cleanup();
+    }
   });
 });
