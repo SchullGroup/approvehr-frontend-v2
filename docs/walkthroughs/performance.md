@@ -61,8 +61,10 @@ it is unmeasured, and it is left out of the objective's progress until somebody 
 How somebody works rather than what they delivered — judgement, communication, leading a team. Four
 groups come ready-made. Somebody records a level against each one, once per person per period.
 
-> _Leadership is only rated for people who actually manage somebody. For everybody else it is left
-> out, not marked low. That distinction matters and the product holds it._
+> _Leadership is only rated for people who lead others: somebody reports to them, they lead a team, or
+> they head a department. For everybody else it is left out, not marked low. That distinction matters
+> and the product holds it, and the form and the mark use the same definition, so a person who is asked
+> the leadership questions is a person whose leadership counts._
 
 ### The mark
 
@@ -71,6 +73,13 @@ exactly.
 
 > _There is no state where they do not total 100%, so there is never anything to reconcile
 > afterwards. The product refuses a set that does not add up._
+
+> _A part with nothing to count is left out, and the parts that remain share its weight, so they count
+> for more than the company set. The review page says so once, above the list of parts, and names what
+> was left out: **Delivery against objectives was left out, so the other parts share its weight and
+> count for more than the company set.** Each part that moved then says only what was set, **Set at 40%
+> by the company.** That is why a part can read 50% when 40% was set: it is not a mistake, it is a sign
+> that other parts had nothing to count._
 
 > ### The one rule that explains half the screens
 >
@@ -245,16 +254,20 @@ The first card on that same tab decides whether a form asks for one of those wor
 | **You'll see** | A toast saying it applies to the next form anybody opens, and that marks already given are not touched    |
 
 > 💡 **What it does and does not do.** A manager's overall mark is shown beside the score and is **not**
-> counted in it. The one exception is Self-assessment (step 3), which _is_ the overall mark somebody
-> gave themselves. Switching this off never hides or changes a mark already given, and a form that is
-> already open keeps the pages it opened with.
+> counted in it. Self-assessment (step 3) reads from the overall mark somebody gave themselves when
+> there is one, and from how they answered when there is not, so this switch does not decide whether
+> that part has anything to count. Switching this off never hides or changes a mark already given, and
+> a form that is already open keeps the pages it opened with.
 
 #### 3. Set what the mark is made of
 
 Six parts — objectives, weekly tasks, core competencies, behavioural competencies, leadership, and what
 somebody said about themselves. You choose the percentage each one carries. That last one is the overall
-mark somebody gave themselves, so it only has anything to count while overall marks are switched on
-(step 2). **Weekly tasks** start at 0%, so a company that has never weighted them sees no change.
+mark somebody gave themselves when there is one (step 2), and otherwise **how they answered, about
+themselves, the rated subsections their manager answers too**: the mean of those answers on a
+self-review they have sent. An answer to a subsection asked of the person alone is not counted again here,
+because it is already their rating. **Weekly tasks** start at 0%, so a company that has never weighted them
+sees no change.
 
 |                |                                                                                                      |
 | -------------- | ---------------------------------------------------------------------------------------------------- |
@@ -270,11 +283,10 @@ mark somebody gave themselves, so it only has anything to count while overall ma
 > at 0% does not list it at all. These are the company's starting weights; a single period can change them
 > (step 4).
 
-> 💡 **Worth showing a stakeholder.** With overall marks on, the self-assessment card underneath does
-> the arithmetic out loud: at 20%, somebody who rates themselves 5 out of 5 rather than 3 out of 5
-> moves their own final mark by 10%. That figure moves as you drag the weight, before you save. With
-> overall marks off it says the part has nothing to count and offers **Switch overall marks on under
-> Names of marks**, and the card on that tab carries a small notice if a weight is already saved.
+> 💡 **Worth showing a stakeholder.** The self-assessment card underneath does the arithmetic out loud:
+> at 20%, somebody who rates themselves 5 out of 5 rather than 3 out of 5 moves their own final mark
+> by 10%. That figure moves as you drag the weight, before you save, and it reads the same whether or
+> not forms ask for an overall mark. The API's own sentence above it says what the part is read from.
 
 ### Phase B — once per period: build it, and leave it as a draft
 
@@ -812,9 +824,14 @@ the module, so it is worth walking properly.
 - The form ends on **Preview**. It reads every answer back and sends nothing: press anything on it
   to change it, and **Send it** is what sends. There is no overall mark to give unless the company
   has switched one on (step 2). Then one optional page, **Is there an overall mark?**, sits between
-  the last question and **Anything to add?**, the **Preview** has an **Overall mark** row, and the
+  the last question and the closing page, the **Preview** has an **Overall mark** row, and the
   confirmation says _"… and an overall mark of Meets Expectations"_. Either way the mark comes from
   the scores (step 22).
+- **The closing page is named for who is writing.** On the person's own form, and on peer feedback, it is
+  **Anything to add?**. On a manager's form it is **Your recommendations** (_"Optional. What you recommend
+  for them, and anything else you want to say, in your own words."_), and the **Preview** row and the line
+  above the progress bar read **Recommendations**. It is one optional field either way, and it is what
+  the review page shows as the closing note.
 - Questions marked as required must be answered before Send will work. The screen counts what is
   still missing.
 - **A directly rated subsection can be one of the questions** (step 6, _Ask it on the review form_). Its
@@ -878,7 +895,7 @@ text if you cannot.
 | **Where**      | `/performance` → **Waiting on you**                                                               |
 | **Who**        | Line manager                                                                                      |
 | **Click**      | **Fill it in**, answer, read the **Preview**, then **Send it**                                    |
-| **You'll see** | Their self-review is readable beside your own form, under _What they said about their own period_ |
+| **You'll see** | On the review page, their self-review beside yours in one card, **Self review and manager review** |
 
 > 🛑 **Send can be closed, and the form says so before you start.** You can open and answer a manager
 > review at any time, but **Send it** stays shut until the person has sent their own self-appraisal,
@@ -1046,6 +1063,32 @@ tells the person.
 > 🛑 **It cannot be changed afterwards.** The confirmation says so. Once final, the mark cannot be
 > changed, and the person has been told. If a review genuinely needs redoing after this, the only
 > route is step 30.
+
+> 💡 **HR can add a recommendation as they make it final.** Somebody holding **Edit records** sees an
+> optional box in the confirmation, **Your recommendation (optional)**, with the line _"Femi will read it
+> with their rating."_ under it, on the page and not behind an icon. It is written in the same step that
+> makes the rating final, so the person is never told a rating whose recommendation was not saved. After
+> that the review page has an **HR's recommendation** card directly under the rating, and the person
+> reads it there, above the score and the reviews, not at the foot of the page. A manager who makes their own
+> rating final sees no box: the API refuses a recommendation from anybody but HR, and leaves the rating
+> not final, so the box is not offered to somebody it would cost. It is limited to 2,000 characters and the
+> box says how far over you are before you press anything.
+
+#### Reading the two reviews together
+
+The review page (`/performance/reviews/{id}`) is one record for everybody who may read it. For a manager's
+review, once the person's self-review is in, the two are one card, **Self review and manager review**: a
+column for each on a wide screen, each headed with who wrote it and when it was sent, and the same
+question answered on each side in one row. On a phone the two answers stack, each under its own label.
+A question only one of them was asked reads **Not asked**, which is not the same as **Not answered**.
+Under the questions, **Closing note and recommendations** puts the manager's recommendations beside
+anything the person added, and **Overall mark** appears as a row only where the company asks for one or
+somebody gave one. Where the self-review is not there the card is simply **Manager review**.
+
+Above it, **What the mark is made of** lists each part with what it scored, what it counts for and what
+it is based on: _Based on 4 ratings_, _Based on 1 agreed objective_. A part left out says why in the API's
+own words. When parts were left out, one sentence above the list names them and says the others count for
+more than the company set (see _The mark_), and each part that moved says only what was set.
 
 ### Phase F — the person answers: sign-off
 
@@ -1259,7 +1302,8 @@ on purpose — they are the arguments the module is built on.
 |---|---|
 | **Nothing sends email.** | People are told inside the app only — starting a period, being nudged, being told a rating is final. Every message that mentions it says so rather than leaving you to find out. |
 | **An empty figure is blank, never 0%.** | Nobody scored yet reads *No mark*. A competency nobody rated reads *Nothing recorded*. A zero would be a claim that somebody performed at nothing, which is a completely different fact from nobody having looked. |
-| **Leadership is missing for most people.** | It is only rated for people who actually manage somebody. For everybody else it is left out of the mark and the rest is reweighted, rather than being scored low. |
+| **Leadership is missing for most people.** | It is only rated for people who lead others: somebody reports to them, they lead a team, or they head a department. For everybody else it is left out of the mark and the rest is reweighted, rather than being scored low. If a figure exists for somebody who leads nobody, the page says it was rated and why it is left out, and what makes it count: record who they lead. |
+| **A part can count for more than you set.** | When other parts have nothing to count, the rest share their weight, and the review page names the parts that were left out in one sentence above the list. A mark where Core and Behavioural each show 50% against _Set at 40% by the company_, under _Delivery against objectives, Leadership and Self-assessment were left out_, is working as intended. |
 | **You cannot agree your own objective.** | Whatever permissions you hold, your own never appears in your own queue. Same rule as payroll: the person who proposes something is not the person who signs it off. |
 | **An agreed objective cannot be edited.** | Not the title, not the period, not any target, and no new measure — because adding one changes what delivering it means. **Reopen the target** is the only way through and it records who, when and why. |
 | **A refusal is final.** | A refused objective cannot be resubmitted. The answer to a refused objective is a *different* objective, so the refusal stays on the record instead of being written over. |
@@ -1268,7 +1312,7 @@ on purpose — they are the arguments the module is built on.
 | **A measure nobody has read is not a measure at 0%.** | A number added with no current value reads *Not read yet* and is left out of the objective's progress until somebody enters a figure, and an objective with nothing read shows *No reading yet* instead of a percentage. A zero would claim the work had not moved, which is a different fact from nobody having looked. Typing the starting figure as a first reading is a reading. |
 | **Only a manager says a milestone is done.** | A *Done or not done* measure has no number to type, and the person whose work it is never sees a Confirm button. Until it is confirmed it counts as *not done*, because a milestone nobody confirmed by the end of the period was not met. |
 | **A manager cannot press Send until the person has sent theirs.** | Their self-appraisal is meant to inform the manager's, so **Send it** stays shut and the form says **Sending is not open yet.** with the reason, on the first page and on the **Preview**. Answering is never blocked. The due date passing, **Edit records**, or a period with no self-review all open it (step 21). |
-| **There is no overall mark unless the company turns it on.** | A form is its answers and the score comes from them. The switch is **Overall mark on appraisals** under Names of marks, off by default, read when a form opens, and it never changes a mark already given. A manager's overall mark sits beside the score and is not counted in it; Self-assessment is the exception, because it is the mark somebody gave themselves. |
+| **There is no overall mark unless the company turns it on.** | A form is its answers and the score comes from them. The switch is **Overall mark on appraisals** under Names of marks, off by default, read when a form opens, and it never changes a mark already given. A manager's overall mark sits beside the score and is not counted in it. Self-assessment reads from the mark somebody gave themselves when there is one and from how they answered when there is not, so it counts either way. |
 | **The Owner and the HR manager get no form.** | Both off on every new period, and each is its own tick box. The Owner reports to nobody, so the reporting line has no one to put on their form; the HR manager would otherwise be marking themselves against questions they wrote. Neither is let off anything — both still appraise their own teams. Tick either box on the period to include them (step 8). |
 
 ---
@@ -1321,7 +1365,7 @@ seeded accounts to use.
 
 ---
 
-*Written against the product as it stands on 20 October 2026, except steps 3 and 4 (the six parts and a
+*Written against the product as it stands on 20 October 2026, except the reading of a mark and of the two reviews together, steps 3 and 28 and the closing page of step 17 (brought up to 30 October 2026), and steps 3 and 4 (the six parts and a
 period's own weights), 6 (the questions and the subsections), 16 (the no-appraiser warning), 17 and 21
 (answering a review), 22 (recording a level) and 32 (the report), the twelfth surprise and demo step 8, which
 were brought up to 28 October 2026 (and steps 6, 17, 21 and 22 again on 29 October 2026, for a directly rated

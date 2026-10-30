@@ -28,6 +28,7 @@ export type HistoryLookup = {
 const FIELD_LABEL: Record<string, string> = {
   statusId: "status",
   assigneeId: "assignee",
+  assigneeIds: "who is on it",
   priority: "priority",
   points: "story points",
   sprintId: "sprint",
@@ -60,6 +61,10 @@ export function formatValue(
   value: unknown,
   lookup: HistoryLookup,
 ): string {
+  if (field === "assigneeIds") {
+    const list = Array.isArray(value) ? (value as string[]) : [];
+    return list.length > 0 ? list.map(lookup.personName).join(", ") : NONE;
+  }
   if (field === "labels") {
     const list = Array.isArray(value) ? (value as string[]) : [];
     return list.length > 0 ? list.join(", ") : NONE;

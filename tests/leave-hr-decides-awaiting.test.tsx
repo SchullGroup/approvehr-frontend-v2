@@ -80,7 +80,9 @@ vi.mock("@/lib/store/leave-api", async (original) => {
       const request = rows.find((r) => r.id === id);
       return {
         loading: false,
-        detail: request ? { request, clashes: [], balance: null } : null,
+        detail: request
+          ? { request, clashes: [], balance: null, reduced: false, history: [] }
+          : null,
       };
     },
     useLeaveMutations: () => ({
@@ -123,6 +125,8 @@ const row = (
   firstApprovedByName: null,
   firstApprovedByJobTitle: null,
   decisionNote: null,
+  firstApprovalNote: null,
+  attachmentCount: 0,
   ...over,
 });
 

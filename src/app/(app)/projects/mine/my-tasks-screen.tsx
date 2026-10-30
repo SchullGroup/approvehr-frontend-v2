@@ -115,7 +115,12 @@ function Tasks() {
     data.status === "ready"
       ? [...data.open, ...data.done]
       : ([] as PersonalTask[]);
-  const top = (rows: PersonalTask[]) => rows.filter((t) => t.parentId === null);
+  /* A sub-task a colleague shared without its parent has no row to sit under,
+     so it is listed on its own. */
+  const top = (rows: PersonalTask[]) => {
+    const ids = new Set(rows.map((t) => t.id));
+    return rows.filter((t) => t.parentId === null || !ids.has(t.parentId));
+  };
 
   return (
     <>
@@ -510,7 +515,11 @@ function TaskRow({
           )}
         </span>
         <span className="col-start-2 text-meta text-muted sm:col-start-auto">
-          {task.setBy ? `Set by ${task.setBy.name}` : ""}
+          {task.sharedBy
+            ? `Shared by ${task.sharedBy.name}`
+            : task.setBy
+              ? `Set by ${task.setBy.name}`
+              : ""}
         </span>
       </button>
     </li>
