@@ -11218,3 +11218,141 @@ same create with the lead beside it assigned the lead, and a change to the list 
 result as the list alone, and the list winning when the lead disagrees).
 
 **Not run:** the screens against a server without #254 in a browser; the whole suite (CI runs `check`, not vitest).
+
+---
+
+# A mark that read as wrong, and the three reasons it did
+
+An HR manager on the QA site read a manager's review whose Core and Behavioural competencies were rated and could not
+square the figures with what the company had set:
+
+- **Self-assessment**, weighted 10%, read _Nothing recorded, not counted_, although every person had sent a self-review.
+- **Leadership** read 62.5% beside _"They manage nobody, so leadership is not rated for them"_, for somebody the
+  company thinks of as a manager.
+- **Behavioural competencies** counted for 50% where the company had set 40%.
+
+They also asked for the two reviews side by side, for a manager's recommendations to be visible, and for HR to be able
+to write recommendations as they make a rating final. The backend half is `approvehr-backend` #253
+(`fix/self-assessment-and-leadership-20261030`, merged into `staging` at 14:34 UTC on 30 October); its own note is
+`docs/backend/self-assessment-leadership-handover.md`. **The backend goes first.** Against a server that predates it every
+new field is absent and the page reads as it did, and the finalise box is not offered: that server never reads the body
+of a finalise, so a recommendation would be dropped with a 200 and the rating cannot be finalised again to add it.
+
+## What each of the three was
+
+1. **Self-assessment was read from one figure, the overall mark on the self-review.** A form only has one when the
+   company's overall-mark setting is on, and it starts off, so a person who sent a complete self-review had nothing
+   recorded for that part. It now reads the overall mark when there is one and otherwise the mean of their own answers to
+   the rated subsections their manager answers too. Never both, never summed.
+2. **Leadership had two definitions of who leads.** The form asked the leadership questions of anybody with reports, a
+   team **or a department**; the register left the part out for anybody without reports or a team. A head of department
+   was asked, answered, and was then told they manage nobody. The comment on the form's rule said _"The register is
+   untouched"_, which is how a gap read as a decision. They share `leadersAmong` now.
+3. **The 50% was not a defect.** It was the consequence of the other two: with Delivery, Leadership and Self-assessment
+   all out, the parts left (40% each) shared the whole mark. The page now says so, naming what was left out.
+
+## What changed on the web
+
+| Where                                                       | What                                                                                                                                                                                                             |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reviews/[id]/review-form-card.tsx` (new)                   | One card, **Self review and manager review**, a column for each, who wrote it and when, the same question answered on each side in one row. Replaces the two stacked cards. Alone, it is **Manager review**.     |
+| `lib/performance/review-comparison.ts` (new)                | Lines the two forms up by question id. Pure.                                                                                                                                                                     |
+| `lib/performance/score-wording.ts` (new)                    | The sentences under each part of the mark: what was counted, which parts gave up a weight, what was set. Pure.                                                                                                   |
+| `reviews/[id]/finalise-dialog.tsx`, `sign-off-copy.ts`      | HR's optional **Your recommendation**, sent with the finalise. Offered to `EDIT_RECORDS` alone, and only where the server sends `hrRecommendation`.                                                                                                                  |
+| `reviews/[id]/review-screen.tsx`                            | The card above, **HR's recommendation** directly under the rating, and the score panel's wording.                                                                                                                |
+| `(focus)/.../answer/focus-logic.ts`, `focus-steps.tsx`      | A manager's closing page is **Your recommendations**; the person's and a peer's stay **Anything to add?**. One function, `closingNoteWords`, so the page, the preview row and the progress line cannot disagree. |
+| `settings/performance/weights-form.tsx`, `overall-mark-card` | The "Switch overall marks on" action and the card's _nothing to count_ warning are gone, and the two part descriptions say what they are read from now.                                                          |
+
+## Decisions not to undo
+
+- **The comparison is matched by the question, never by its words or its position.** A question put to one of them and
+  not the other is still a row, and says **Not asked**, which is not **Not answered**. With no self review in, the card is
+  the manager review alone and says nothing about why the other is not there: it may be unsent, unreadable or offline,
+  and none of those is "they wrote nothing".
+- **Why the parts count for more than was set is said once, above the list.** On each part it was one long sentence four
+  times over, and on a phone it filled a screen. Each part that moved now says only **Set at 40% by the company.**
+- **A manager's recommendations are the closing note**, which is the field that was always there (`Review.summary`),
+  named for who is writing it. There is no second field.
+- **HR's recommendation is HR's, is read by the person, and sits under the rating.** The API refuses it from anybody else
+  and leaves the rating not final, so the box is not offered to somebody it would cost. It is stored as `hrNote`, the
+  column HR's later sign-off writes, so a sign-off note replaces it. The dialog says who will read it on the page:
+  that the person reads it is the consequence of writing it.
+- **The box is offered only where the server sends `hrRecommendation`, `null` included.** The key is on every review a
+  server that keeps a recommendation sends, so its absence is the screen's only way to know the box would write into
+  nothing. The first version offered it to anybody with Edit records and relied on the API refusing what it could not
+  keep; an older server does not refuse, it ignores. A refusal can be shown, and silence cannot.
+- **A consequence is text on the page and never behind the help icon.** The first version put "Chidi will read it with
+  their rating" in the field's `help`. A text check passed, because `help` is always in the page for assistive
+  technology, and the screenshot showed a label and nothing else. Look at the picture.
+- **With the two reviews side by side, the overall mark is one row of the comparison** and the top card does not say the
+  manager's again.
+- **"Self review" is written as it was asked for**, without the hyphen. The API's own label, the period stages and the
+  report all say **Self-review**; `SELF_REVIEW_LABEL` in `review-comparison.ts` is the one place to change.
+
+## Found by looking, and not by a gate
+
+The score panel repeating one sentence four times; the "will read it" line behind an icon; HR's recommendation at the
+foot of a three-thousand-pixel page, below the prompt to acknowledge; a screenshot taken mid-animation that could not say
+whether the details were drawn (waited for, and the opacity read); "share its weight" for two parts; and the production
+build's type check, which caught a test file the earlier `tsc` had run before it existed.
+
+## Verified
+
+**Backend** ([approvehr-backend#253](https://github.com/SchullGroup/approvehr-backend/pull/253)). The new test file has 14
+cases. Run against unmodified `staging` first, 9 failed and 5 passed (the five are the guards that must not change); with
+the change all 14 pass. Seven deliberate breaks, each caught by the tests written for it: own answers counted twice,
+answers beating a given mark, unsent answers counted, departments not leaders, the old note back, anybody allowed to
+recommend, the recommendation dropped. 28 files and 717 tests pass across it and everything that reads the register or
+finalises. `tsc`, ESLint, `prettier --check` over the whole repository and the five `verify-*` scripts that need no
+database exit 0. Not run: the whole backend suite in one go (CI does) and `verify-migrations-match-schema`, since nothing
+in `prisma/` changed.
+
+**Frontend.**
+
+- `npm run check` exit 0 on the tip after `dev` was merged in at `9ba0dda6` (#561): typecheck, lint (15 warnings, none in a
+  file this change touches), format and the 21 `verify-*` gates. It ran with `APPROVEHR_BACKEND_DIR` pointing at a
+  backend checkout of `staging` with #253 and #254's branch merged, so the cross-repo gates compared against it instead of
+  printing `skip`. The generated inventories were current on that tip (`npm run docs -- --check` for the components and
+  the API).
+- `dev` then took #562 (a change to `lib/api/projects.ts`, its test and a HANDOVER entry, nothing the review screens
+  read) and this branch took it in a second merge. The runs here were on the tip before it. The inventories were checked
+  again after it, and CI's `check` and build run on the merged tip.
+- `vitest related` on the 15 changed source files ran 163 test files and 2,202 tests, and 2,201 pass. The one failure is the
+  search test in `applications-queue`, a recruitment screen that came into the set through a shared import. It waits one
+  second for a typed search to reach the server, and it fails the same way, with the same message, when it is run alone on
+  untouched `dev` on this loaded machine (HANDOVER already records it as slow, not wrong). The 24 test files that bear on
+  the review page, the answer flow, the finalise box, the overall-mark card and the weights page: 345 tests, all passing.
+  Vitest is not in CI, so these two runs are the only place these tests are run.
+- Twelve deliberate breaks, each made in a throwaway copy of the branch and each caught by the tests written for it, the
+  copy clean afterwards: the box offered to everybody; an empty box sent as an empty string; "who will read it" behind an
+  icon; the screen offering the box to everybody; the box offered where the server sends no `hrRecommendation` (the gate,
+  which fails alone on _does not offer it where the server does not send the field at all_); HR's recommendation at the
+  foot of the page; the top card saying the mark a second time; the comparison matched by the question's words instead of
+  the question; "Not asked" reading "Not answered"; a manager not asked for recommendations; a part weighted at nothing
+  blamed for the others' weight; and the reason said again on every part.
+
+**In a browser, connected**, against a scratch API running the backend branch and a production build of this one, on a
+company set up as the report describes (a head of department with nobody reporting to them, one person who leads nobody and
+was rated on leadership, Self-assessment weighted at 10% with the overall mark off, every subsection asked of both): 48 of
+48 checks, no console errors, page errors or 5xx, as HR (the HR manager), as the person the review is about, as an
+administrator, as a manager answering, and on a 375px touch phone. The figures read from the API and checked by hand:
+for the head of department, Leadership 62.5% counting for 5.26% and Self-assessment 84.38% from 8 answers counting for
+10.53%, both of which were left out before; for the person who leads nobody, the new sentence beside a figure that is not
+counted. The pictures are in `out/self-leadership-screenshots-2026-10-30/` in the frontend checkout, thirteen of them,
+and the walk is what found most of the problems listed above. The walk was on the branch before `dev` was merged in. That
+merge brought in the projects work, leave attachments and the approve and decline dialogs, and nothing in the review,
+answer-flow or weights screens (checked by listing its 47 files), and #562, which came later, changes `lib/api/projects.ts`
+and a test, so the merged tip was not walked again; its production build is CI's.
+
+**Not exercised:** the QA site; iOS Safari or any real device; demo mode in a browser (the card without a self review is
+covered by a test, and the demo has no API to read one from); a company with real data; a team lead, which only the
+backend tests cover; the HR sign-off stage, which nothing in the product offers.
+
+## Deliberately not done
+
+- **A separate manager recommendation field.** It is the closing note.
+- **Counting leadership that was rated for somebody who leads nobody.** The rule that Leadership is rated only for people
+  who lead others is unchanged; the definition is shared and the sentence is honest.
+- **Moving the comparison above the score.** The order of the existing cards is the order they had; only HR's
+  recommendation moved up, to sit with the rating.
+- **Renaming "Self-review" across the product.**
