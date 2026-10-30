@@ -584,6 +584,9 @@ export type NewLeave = {
   to: string;
   reason?: string;
   approverId?: string;
+  /** Already uploaded: they go in the same request, so it is one write. Not in
+   *  demo mode, which has nowhere to keep a file and never offers one. */
+  attachments?: { storageKey: string; filename: string; contentType: string }[];
 };
 
 /**
@@ -649,6 +652,9 @@ export function useLeaveMutations(): LeaveMutations {
         to: input.to,
         ...(input.reason ? { reason: input.reason } : {}),
         ...(input.approverId ? { approverId: input.approverId } : {}),
+        ...(input.attachments && input.attachments.length > 0
+          ? { attachments: input.attachments }
+          : {}),
       });
       /* The API raises the matching `ApprovalRequest` in the same transaction,
          so this moves an inbox somewhere — usually somebody else's, and on the

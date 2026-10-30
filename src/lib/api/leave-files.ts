@@ -277,7 +277,11 @@ export function fileRefusal(
   if (file.size <= 0) return "That file is empty. Choose it again.";
   if (!limits) return null;
   if (file.size > limits.maxBytes) {
-    return `That file is ${String(Math.ceil(file.size / 1024 / 1024))} MB. Keep files under ${megabytes(limits.maxBytes)}.`;
+    /* The size as the list beside it shows it. The API rounds a size *up* to a
+       whole megabyte in its own sentence, which reads "7 MB" under a row that
+       says "6.0 MB". Its sentence is still what is shown if it is the one to
+       refuse. */
+    return `That file is ${megabytes(file.size)}. Keep files under ${megabytes(limits.maxBytes)}.`;
   }
   const type = declaredType(file, limits);
   if (!limits.types.some((allowed) => allowed.contentType === type)) {

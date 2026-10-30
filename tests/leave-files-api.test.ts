@@ -104,6 +104,14 @@ describe("what is refused before anything is uploaded", () => {
     );
   });
 
+  it("says a size the way the list beside it shows it, not rounded up to a number the row disagrees with", () => {
+    /* 6 MB and a byte: the row reads 6.0 MB, so the sentence must not say 7. */
+    const big = file("a.pdf", "application/pdf", 6 * 1024 * 1024 + 1);
+    expect(fileRefusal(big, LIMITS)).toBe(
+      "That file is 6.0 MB. Keep files under 5 MB.",
+    );
+  });
+
   it("refuses a kind that cannot be attached, listing what can", () => {
     expect(
       fileRefusal(file("a.xlsx", "application/vnd.ms-excel"), LIMITS),
