@@ -1201,13 +1201,20 @@ function RequestPanel({
           )}
 
           <DrawerSection title="Who else is off those days">
-            {detail && detail.clashes.length === 0 ? (
+            {detail && detail.clashes === null ? (
+              /* Withheld, not empty. A manager who decides the request gets the
+                 reduced read, and "Nobody else" here would be a statement about
+                 cover that the API did not make. */
+              <p className="text-body-sm text-muted">
+                Who else is off is not shown to you.
+              </p>
+            ) : detail && detail.clashes?.length === 0 ? (
               <p className="text-body-sm text-body">
                 Nobody else. Cover is not a problem here.
               </p>
             ) : (
               <ul className="flex flex-col gap-2">
-                {detail?.clashes.map((clash) => (
+                {detail?.clashes?.map((clash) => (
                   <li
                     key={clash.id}
                     className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-canvas px-3 py-2.5 text-body-sm"

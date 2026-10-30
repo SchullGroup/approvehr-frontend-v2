@@ -97,6 +97,9 @@ function fromSeed(request: LeaveRequest): LeaveRow {
     firstApprovedByName: null,
     firstApprovedByJobTitle: null,
     decisionNote: request.decisionNote ?? null,
+    /* The demo has one step and no files: files go to storage through the API. */
+    firstApprovalNote: null,
+    attachmentCount: 0,
   };
 }
 
@@ -344,6 +347,8 @@ export function useLeaveRequestDetail(id: string | null): LeaveDetailState {
               remaining: remainingDays(balance),
             }
           : null,
+        reduced: false,
+        history: [],
       },
       loading: false,
       connected: false,
@@ -422,6 +427,9 @@ export function useLeaveTypes(): LeaveTypesState {
         minNoticeDays: type.minNoticeDays,
         isPaid: true,
         eligibleGender: type.eligibleGender ?? null,
+        /* Files need the API. A demo type asks for none. */
+        attachmentPolicy: "NONE",
+        attachmentRequiredOverDays: null,
       })),
     [settings.leave.types],
   );

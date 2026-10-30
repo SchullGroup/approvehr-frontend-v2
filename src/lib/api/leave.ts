@@ -138,11 +138,20 @@ type WireRequest = {
   firstApprovedAt?: string | null;
   firstApprovedByName?: string | null;
   firstApprovedByJobTitle?: string | null;
+  /** The current decision's note: the one of record, and only that. */
   decisionNote: string | null;
+  /** What the first approver of a two-step request said. Optional because an
+   *  API that predates files and reasons does not send it. */
+  firstApprovalNote?: string | null;
+  /** A number and nothing else: never a name or a type. Absent on an older API. */
+  attachmentCount?: number;
 };
 
+type WireHistoryKind = LeaveHistoryKind;
+
 type WireDetail = WireRequest & {
-  clashes: {
+  /** Absent, not empty, on a reduced read. See `LeaveDetail`. */
+  clashes?: {
     id: string;
     employeeId: string;
     employeeName: string;
@@ -150,7 +159,15 @@ type WireDetail = WireRequest & {
     endDate: string;
     status: WireStatus;
   }[];
-  balance: WireBalance | null;
+  balance?: WireBalance | null;
+  reduced?: boolean;
+  history?: {
+    kind: WireHistoryKind;
+    at: string;
+    byName: string | null;
+    byJobTitle: string | null;
+    note: string | null;
+  }[];
 };
 
 type WireBalance = {
@@ -191,7 +208,19 @@ type WireType = {
   minNoticeDays: number;
   isPaid: boolean;
   eligibleGender: EligibleGender;
+  /** Optional because an API that predates files does not send them. */
+  attachmentPolicy?: LeaveAttachmentPolicy;
+  attachmentRequiredOverDays?: number | null;
 };
+
+/**
+ * Whether a leave type asks for a supporting file.
+ *
+ * `NONE` means none is asked for, not that none is allowed: a file may go on a
+ * request of any type. `REQUIRED` can only be set on a server that can store
+ * one, and the API refuses it otherwise.
+ */
+export type LeaveAttachmentPolicy = "NONE" | "OPTIONAL" | "REQUIRED";
 
 /** Null is everyone — the ordinary case. One of `GENDER_OPTIONS` narrows it. */
 export type EligibleGender = "female" | "male" | "other" | null;
@@ -246,7 +275,16 @@ export type LeaveRow = {
   firstApprovedAt: string | null;
   firstApprovedByName: string | null;
   firstApprovedByJobTitle: string | null;
+  /** The decision of record's note, and only that. A reopen clears it; the
+   *  history (`LeaveDetail.history`) is what keeps what was said. */
   decisionNote: string | null;
+  /** What the first approver said, kept apart from `decisionNote` so HR's own
+   *  words never replace it. Null when nobody has, or nothing was said. */
+  firstApprovalNote: string | null;
+  /** How many files are on it. A count, because that is all a list row may
+   *  carry: whether a control to open one is offered is decided by this and by
+   *  what `GET …/attachments` says the reader may do. Zero in demo mode. */
+  attachmentCount: number;
 };
 
 /** Somebody else off across the same dates. The cover question. */
@@ -272,11 +310,48 @@ export type LeaveBalanceRow = {
   remaining: number;
 };
 
+/** One line of a request's story, oldest first, and never rewritten. */
+export type LeaveHistoryKind =
+  | "REQUESTED"
+  | "FIRST_APPROVED"
+  | "APPROVED"
+  | "DECLINED"
+  | "REOPENED"
+  | "CANCELLED";
+
+export type LeaveHistoryEntry = {
+  kind: LeaveHistoryKind;
+  /** `YYYY-MM-DD`. */
+  at: string;
+  /** `REQUESTED` is attributed to the employee the leave is for. */
+  byName: string | null;
+  byJobTitle: string | null;
+  /** `REQUESTED` carries the employee's reason; a decision carries what was said. */
+  note: string | null;
+};
+
 export type LeaveDetail = {
   request: LeaveRow;
-  clashes: LeaveClash[];
-  /** The balance this request draws down. Null when the type has none. */
+  /**
+   * Who else is off across the same dates, or **null when the reader is not
+   * shown it**.
+   *
+   * Null and an empty list are opposite claims. `[]` is "nobody else is off,
+   * cover is fine"; null is "this read does not say". A manager who decides a
+   * request gets the reduced read, which withholds both this and `balance`, and
+   * rendering the absence as "Nobody else" would be a wrong statement about
+   * cover made to the one person deciding on it.
+   */
+  clashes: LeaveClash[] | null;
+  /** The balance this request draws down. Null when the type has none, and
+   *  null on a reduced read; check `reduced` to tell the two apart. */
   balance: LeaveBalanceRow | null;
+  /** The reader is somebody who decides it, not its owner and not HR: the
+   *  cover and the balance were withheld from them on purpose. */
+  reduced: boolean;
+  /** What happened to it, in order. Empty for an API that predates it, and in
+   *  demo mode. */
+  history: LeaveHistoryEntry[];
 };
 
 /** The wire's own casing for accrual, matching `LeaveAccrual` in the schema. */
@@ -293,6 +368,10 @@ export type LeaveTypeRow = {
   minNoticeDays: number;
   isPaid: boolean;
   eligibleGender: EligibleGender;
+  attachmentPolicy: LeaveAttachmentPolicy;
+  /** With `REQUIRED` only: "a supporting file after N days". Null is any
+   *  length. "After" is strictly longer, so 2 means a three-day request. */
+  attachmentRequiredOverDays: number | null;
 };
 
 /**
@@ -312,6 +391,9 @@ export type NewLeaveType = {
   minNoticeDays?: number;
   isPaid?: boolean;
   eligibleGender?: EligibleGender;
+  attachmentPolicy?: LeaveAttachmentPolicy;
+  /** Only with `REQUIRED`: the API refuses a number under any other policy. */
+  attachmentRequiredOverDays?: number | null;
 };
 
 /** Every field optional — `PATCH /leave/types/:id` accepts any subset. */
@@ -394,6 +476,12 @@ export type NewLeaveInput = {
   to: string;
   reason?: string;
   approverId?: string;
+  /**
+   * Files already uploaded (`lib/api/leave-files.ts`), sent with the request so
+   * the two are one write: if any file is refused, the request is not created.
+   * Up to five.
+   */
+  attachments?: { storageKey: string; filename: string; contentType: string }[];
 };
 
 /* --------------------------------------------------------------- the mapping */
@@ -448,6 +536,8 @@ function toRow(wire: WireRequest): LeaveRow {
     firstApprovedByName: wire.firstApprovedByName ?? null,
     firstApprovedByJobTitle: wire.firstApprovedByJobTitle ?? null,
     decisionNote: wire.decisionNote,
+    firstApprovalNote: wire.firstApprovalNote ?? null,
+    attachmentCount: wire.attachmentCount ?? 0,
   };
 }
 
@@ -467,15 +557,28 @@ function toBalance(wire: WireBalance): LeaveBalanceRow {
 function toDetail(wire: WireDetail): LeaveDetail {
   return {
     request: toRow(wire),
-    clashes: wire.clashes.map((clash) => ({
-      id: clash.id,
-      employeeId: clash.employeeId,
-      employeeName: clash.employeeName,
-      from: clash.startDate.slice(0, 10),
-      to: clash.endDate.slice(0, 10),
-      status: statusOf(clash.status),
-    })),
+    /* Absent stays absent. `?? []` here would turn "this read does not say"
+       into "nobody else is off", and the drawer would tell a manager cover is
+       fine on the strength of a field the API deliberately did not send. */
+    clashes: wire.clashes
+      ? wire.clashes.map((clash) => ({
+          id: clash.id,
+          employeeId: clash.employeeId,
+          employeeName: clash.employeeName,
+          from: clash.startDate.slice(0, 10),
+          to: clash.endDate.slice(0, 10),
+          status: statusOf(clash.status),
+        }))
+      : null,
     balance: wire.balance ? toBalance(wire.balance) : null,
+    reduced: wire.reduced === true,
+    history: (wire.history ?? []).map((entry) => ({
+      kind: entry.kind,
+      at: entry.at.slice(0, 10),
+      byName: entry.byName,
+      byJobTitle: entry.byJobTitle,
+      note: entry.note,
+    })),
   };
 }
 
@@ -497,6 +600,8 @@ const toType = (wire: WireType): LeaveTypeRow => ({
   minNoticeDays: wire.minNoticeDays,
   isPaid: wire.isPaid,
   eligibleGender: wire.eligibleGender,
+  attachmentPolicy: wire.attachmentPolicy ?? "NONE",
+  attachmentRequiredOverDays: wire.attachmentRequiredOverDays ?? null,
 });
 
 /* ------------------------------------------------------------------- the api */
@@ -608,6 +713,9 @@ export const leaveApi = {
           endDate: input.to,
           ...(input.reason ? { reason: input.reason } : {}),
           ...(input.approverId ? { approverId: input.approverId } : {}),
+          ...(input.attachments && input.attachments.length > 0
+            ? { attachments: input.attachments }
+            : {}),
         },
       },
     );
