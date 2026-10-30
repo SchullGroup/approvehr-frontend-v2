@@ -135,6 +135,8 @@ const review = (over: Partial<ApiReviewDetail> = {}): ApiReviewDetail =>
     disputed: false,
     disputedAt: null,
     employeeComment: null,
+    /* What a server that keeps a recommendation sends when there is none. */
+    hrRecommendation: null,
     mine: false,
     questions: [text("q1", "How did the period go?", "Steady.", 1)],
     outstanding: [],
@@ -264,6 +266,22 @@ describe("making the rating final", () => {
     expect(
       within(dialog).getByLabelText(/Your recommendation/),
     ).toBeInTheDocument();
+  });
+
+  it("does not offer it where the server does not send the field at all, because it would ignore the words", async () => {
+    /* An older server ignores the body of the finalise. The box offered there
+       would be followed by "saved" for a recommendation nobody kept, on a rating
+       that is now final. The key's absence is how the screen knows. */
+    state.review = review({ hrRecommendation: undefined });
+    mount();
+    const dialog = await open();
+    expect(within(dialog).queryByLabelText(/Your recommendation/)).toBeNull();
+    /* The rating can still be made final, as before. */
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Make it final" }),
+    );
+    await waitFor(() => expect(state.finalise).toHaveBeenCalledTimes(1));
+    expect(state.finalise).toHaveBeenCalledWith("r-1", undefined);
   });
 
   it("does not offer it to the manager who wrote the review, who cannot add one", async () => {

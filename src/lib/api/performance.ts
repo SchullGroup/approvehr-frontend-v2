@@ -925,7 +925,9 @@ export type ApiReviewDetail = ApiReview & {
    * whoever may read the review, the person it is about included once the rating
    * is theirs to read, so it is part of what they are told. **Absent from a server
    * that predates it, and absent means there is none to show**, never "HR chose
-   * to say nothing".
+   * to say nothing". It is also the screen's only way to know the server keeps a
+   * recommendation at all, so the box that writes one is offered only where the key
+   * is present (`null` counts): an older server ignores the body of the finalise.
    */
   hrRecommendation?: string | null;
   /**

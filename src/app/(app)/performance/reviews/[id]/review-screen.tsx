@@ -555,7 +555,13 @@ export function ReviewScreen({ reviewId }: { reviewId: string }) {
       <FinaliseDialog
         open={finalising}
         review={review}
-        canRecommend={canSeeCompany}
+        /* Only where the server says it keeps one. A server that predates the
+           recommendation ignores the body of the finalise, so a box offered
+           there would be followed by "saved" for words nobody kept, on a
+           rating that can no longer be changed. The key is on every review a
+           server that has the field sends (`null` when there is none), so its
+           being absent is the answer. */
+        canRecommend={canSeeCompany && review.hrRecommendation !== undefined}
         onClose={() => setFinalising(false)}
         onConfirm={async (recommendation) => {
           const outcome = await settle(() =>
