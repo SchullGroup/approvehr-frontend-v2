@@ -11074,3 +11074,285 @@ got 200 and read "Not provided"; typing 150000 saved 15,000,000 kobo and read â‚
 
 **Not exercised:** iOS Safari or any real device; demo mode (nothing here changes it: Send message and the picker need the API); a company with
 hundreds of people in the picker; the backend suite in one run (CI runs it).
+
+---
+
+# Files on a leave request, and decisions with reasons that are kept
+
+The owner asked for "the ability to attach files for a leave request, for the manager to view the file, and to
+approve or reject leave with reasons". The API side is `docs/backend/leave-attachments-handover.md` on the
+backend (read it first: routes, error codes, who may open a file, limits). **These files are often medical
+certificates**, so most of what follows is about what the web must *not* do.
+
+## What is where
+
+| File | What and why |
+| ---- | ------------ |
+| `lib/api/leave-files.ts` | Every file route, `declaredType`, `fileRefusal`, `uploadLeaveFile`, `openLeaveFile`, `fileProblem`. |
+| `lib/store/leave-files.ts` | The limits (one shared read), the rule for these dates, one request's file list. Connected only. |
+| `components/leave/leave-file-picker.tsx` | Choosing files in the request form, and the staged list the drawer reuses. |
+| `components/leave/leave-request-files.tsx` | The drawer's files: open, add, remove, the flag when one is missing. |
+| `components/leave/leave-history.tsx` | What happened to a request, from the API's own history. |
+| `components/portal/approve-dialog.tsx` | Approve with an optional note. The same shape as `DeclineDialog`. |
+
+## Rules that are about this module and not any screen
+
+- **The open link is a credential for five minutes.** `openLeaveFile` is called from a click and nowhere else; the
+  tab is opened inside the click (a browser stops one opened after an `await`) and pointed at the file when the link
+  comes back; the link goes to `location` and no further. No thumbnail, no preview, no prefetch, nothing stored,
+  logged or put in a toast. If the browser stopped the tab **no link is asked for at all**, because issuing one is
+  a look in the audit trail and there would be nothing to look with. The mode used is the one the API *returns*.
+- **A file's name is a row in the file list and nowhere else.** No toast, no message, no title is built from one, and
+  `fileProblem` uses the API's sentences, none of which carry a name. A test per component asserts it.
+- **Controls come from what the API says about this reader** (`access.canAdd`, `canRemove`, `requirement`,
+  `attachmentCount`), not from the role. The list is asked for only for the owner, HR (`APPROVE_LEAVE_ALL`) and a
+  reduced read, because it would be a 403 for anybody else; a request with no file and nobody who may add one draws
+  no heading; somebody who cannot open files is told only how many there are.
+- **Uploaded when the request is sent, not when a file is picked.** A person who picks a certificate and closes the
+  form asked for nothing to be stored. The ref is remembered per file *and per employee*, so a retry does not upload
+  twice and a file uploaded for one person is not sent for another (its key would not match).
+- **The PUT sends exactly the signed headers.** `PresignedUpload.headers` is new; with it `putToStorage` sends those
+  and nothing else. `declaredType` prefers the extension to a browser type the API does not accept (some say
+  `image/heif` for a `.heic`, some say nothing).
+
+## The contract surprise: a reduced read sends `clashes: []`
+
+The handover says cover and balance are "withheld, not empty" on a manager's read. On the wire they are **there**:
+`clashes: []`, `balance: null`, beside `reduced: true`. Read as data that says "nobody else is off, cover is
+fine", to the person deciding on cover. `toDetail` therefore keys on `reduced` and returns `clashes: null`
+whatever the list holds; the panel says "Who else is off is not shown to you." and draws no balance. Found by
+looking at the real payload: every unit test written from the document passed first.
+
+## Deciding
+
+- A manager who decides is the reader the screen cannot know from permissions (it is a relationship), so the
+  panel goes by `detail.reduced`. They get Approve and Send back **only while the request is `pending`**: a request
+  with HR is HR's to finish and the API refuses another approver, so it says "With HR now" instead of a button.
+- Approve opens a dialog with an optional note (500 characters, the API's limit); a note-less approve sends the same
+  two arguments a quick approve always did. Send back asks for a reason before sending anything. **A refusal is shown
+  in the dialog and the dialog stays open**, with what was typed: the previous flow closed it on failure and toasted.
+  The API's own "Say why, so they know what to change." (a 400 on `note`) is read from the field.
+- HR finishing a two-step request sees the first approver's note as its own row, and its own note is separate
+  (`firstApprovalNote` and `decisionNote`). The panel closes when a decision is made, so it does not go on offering
+  two buttons for a request no longer waiting.
+- **"Send back" on `/people/leave`, "Reject" in the approvals inbox.** The owner said "reject". The two words already
+  differed and still do; renaming is a decision about product voice and touches the status label and several tests.
+
+## Deployment, found by running it
+
+**The bucket's origin has to be in `NEXT_PUBLIC_UPLOAD_ORIGINS`**, or the browser refuses the PUT against
+`connect-src` before it leaves and the person is told the upload failed. Setting it is a build-time decision (it is
+read by `next.config.ts`), and the staging web build needs it as much as any other file upload. The API must also
+allow `PUT` from the web origin on the bucket (CORS), as it already does for CVs.
+
+## Verified, and what was not
+
+Unit tests (new): `leave-files-api` (32), `leave-type-supporting-file` (10), `leave-book-with-files` (18),
+`leave-request-files` (20), `leave-history` (5), `leave-request-panel` (20). Against the real API (backend at
+`abea59a`, local Postgres, a **stand-in S3-compatible server** that does not check signatures) as seven seeded
+people: the setting, the form with a required file, upload and record, open (inline) and download, add and remove,
+the last-file refusal, colleague and other-manager 403s with no file name anywhere on the page, the reduced read,
+approve with a note, send back with a reason, the two-step second step, and the audit trail (a manager's open is a
+look, the owner's is not). At 1440 and 390.
+
+**Not exercised:** a real bucket, so nothing about signatures, CORS on a real origin or response-header overrides;
+iOS Safari or a real pop-up blocker; a reader holding only `EDIT_RECORDS` in a browser (unit-tested: they are told
+how many files there are and cannot open them); the demo web build (files need a live company, and it says so).
+Three unrelated test files (`overall-mark-flow`, `subsection-answer-flow`, `record-comms-actions`) fail the same way
+on staging before this work; they are not caused by it.
+
+---
+
+# A server that has not been told about several people on a task still has to be told who the lead is
+
+Frontend #561 (several people on a task, merged into `dev` on 30 October) sends who is on a task as `assigneeIds`. It said
+its backend half, #254, should merge first, and #254 had not when #561 did. A promotion that reached the QA site before
+#254 reached `staging` would have lost something that worked, so the one place where that happens is closed in the web.
+
+## What a server from before #254 does
+
+Checked on one: the scratch stack of the day, whose code has no several-people support.
+
+- **A create with `assigneeIds` alone answers 201 and leaves the person off.** The schema strips a key it does not know, so
+  "Assign to me" in the New issue dialog, and the people chosen on a sub-task row, were dropped without a word. The first of
+  those worked before #561 and stopped working with it.
+- **A change to the list alone answers 400, _Send at least one field_**, because once the unknown key is stripped nothing is
+  left.
+
+## The fix, and what it leaves alone on purpose
+
+`withLead` in `lib/api/projects.ts`: **a create** puts the first of the list beside it as `assigneeId`. A server with #254
+reads the list and ignores the lead (checked on one: when the two disagree the list wins), so nothing changes there. The
+lead is always the first of the list, so both kinds of server take the same person.
+
+**A change is left as it is.** The store sends what changed, and the lead goes with it only when the lead changed, so a
+change that only adds or takes off somebody who is not the lead is `{ assigneeIds }` alone. A server without #254 cannot
+hold several people, and its 400 is the honest answer to being asked to: it says the change did not take. Adding the lead
+there would turn that refusal into a silent no-op, which is the failure this entry is about. Nothing that worked before #561
+depends on it, because assigning, unassigning and changing the lead all change the lead and so already carry it.
+
+The first version put the lead on changes too, on the belief that the board's patches always carried it. The browser walk of
+#561 showed they do not: adding a second person sent the list alone. Its test had also named a lead equal to the list's
+first, so the break that let a caller's lead win over the list still passed. Both are corrected.
+
+A second person is still not kept by a server without #254. It has nowhere to put them, and the lead alone comes back.
+
+> **The rule this leaves behind:** a new field that replaces an old one on the wire goes **beside** it until the server is
+> known to read it, wherever dropping it would take away something that worked. A key an old server does not know is not
+> refused. It is dropped, and a drop is silent where a refusal is shown.
+
+## Verified
+
+`tests/projects-assignees-wire.test.ts` is new, 7 cases (four on a create, three on a change), and with the two existing wire
+tests (`projects-objective-api`, `projects-open-task`) 17 tests pass. Four deliberate breaks, each caught by the tests written
+for it: a create sending the input as it is, a caller's lead kept over the list's, an empty list with no lead, and a change
+given a lead too. Prettier and ESLint are clean on both files.
+
+A whole-project `tsc` found four errors, all in this test: `NewIssueInput` requires a `type` and the calls left it out.
+Vitest and ESLint cannot see that and CI's `check` would have. They are fixed, and the test and everything it imports now
+type-check, with a probe proving the same configuration does flag the original mistake. It was run that way because a
+whole-project run takes many minutes on a loaded machine.
+
+Both bodies were also sent to real servers: to one without #254 (a create with the list alone gave 201 and no assignee, the
+same create with the lead beside it assigned the lead, and a change to the list alone gave 400) and to one with #254 (the same
+result as the list alone, and the list winning when the lead disagrees).
+
+**Not run:** the screens against a server without #254 in a browser; the whole suite (CI runs `check`, not vitest).
+
+---
+
+# A mark that read as wrong, and the three reasons it did
+
+An HR manager on the QA site read a manager's review whose Core and Behavioural competencies were rated and could not
+square the figures with what the company had set:
+
+- **Self-assessment**, weighted 10%, read _Nothing recorded, not counted_, although every person had sent a self-review.
+- **Leadership** read 62.5% beside _"They manage nobody, so leadership is not rated for them"_, for somebody the
+  company thinks of as a manager.
+- **Behavioural competencies** counted for 50% where the company had set 40%.
+
+They also asked for the two reviews side by side, for a manager's recommendations to be visible, and for HR to be able
+to write recommendations as they make a rating final. The backend half is `approvehr-backend` #253
+(`fix/self-assessment-and-leadership-20261030`, merged into `staging` at 14:34 UTC on 30 October); its own note is
+`docs/backend/self-assessment-leadership-handover.md`. **The backend goes first.** Against a server that predates it every
+new field is absent and the page reads as it did, and the finalise box is not offered: that server never reads the body
+of a finalise, so a recommendation would be dropped with a 200 and the rating cannot be finalised again to add it.
+
+## What each of the three was
+
+1. **Self-assessment was read from one figure, the overall mark on the self-review.** A form only has one when the
+   company's overall-mark setting is on, and it starts off, so a person who sent a complete self-review had nothing
+   recorded for that part. It now reads the overall mark when there is one and otherwise the mean of their own answers to
+   the rated subsections their manager answers too. Never both, never summed.
+2. **Leadership had two definitions of who leads.** The form asked the leadership questions of anybody with reports, a
+   team **or a department**; the register left the part out for anybody without reports or a team. A head of department
+   was asked, answered, and was then told they manage nobody. The comment on the form's rule said _"The register is
+   untouched"_, which is how a gap read as a decision. They share `leadersAmong` now.
+3. **The 50% was not a defect.** It was the consequence of the other two: with Delivery, Leadership and Self-assessment
+   all out, the parts left (40% each) shared the whole mark. The page now says so, naming what was left out.
+
+## What changed on the web
+
+| Where                                                       | What                                                                                                                                                                                                             |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reviews/[id]/review-form-card.tsx` (new)                   | One card, **Self review and manager review**, a column for each, who wrote it and when, the same question answered on each side in one row. Replaces the two stacked cards. Alone, it is **Manager review**.     |
+| `lib/performance/review-comparison.ts` (new)                | Lines the two forms up by question id. Pure.                                                                                                                                                                     |
+| `lib/performance/score-wording.ts` (new)                    | The sentences under each part of the mark: what was counted, which parts gave up a weight, what was set. Pure.                                                                                                   |
+| `reviews/[id]/finalise-dialog.tsx`, `sign-off-copy.ts`      | HR's optional **Your recommendation**, sent with the finalise. Offered to `EDIT_RECORDS` alone, and only where the server sends `hrRecommendation`.                                                                                                                  |
+| `reviews/[id]/review-screen.tsx`                            | The card above, **HR's recommendation** directly under the rating, and the score panel's wording.                                                                                                                |
+| `(focus)/.../answer/focus-logic.ts`, `focus-steps.tsx`      | A manager's closing page is **Your recommendations**; the person's and a peer's stay **Anything to add?**. One function, `closingNoteWords`, so the page, the preview row and the progress line cannot disagree. |
+| `settings/performance/weights-form.tsx`, `overall-mark-card` | The "Switch overall marks on" action and the card's _nothing to count_ warning are gone, and the two part descriptions say what they are read from now.                                                          |
+
+## Decisions not to undo
+
+- **The comparison is matched by the question, never by its words or its position.** A question put to one of them and
+  not the other is still a row, and says **Not asked**, which is not **Not answered**. With no self review in, the card is
+  the manager review alone and says nothing about why the other is not there: it may be unsent, unreadable or offline,
+  and none of those is "they wrote nothing".
+- **Why the parts count for more than was set is said once, above the list.** On each part it was one long sentence four
+  times over, and on a phone it filled a screen. Each part that moved now says only **Set at 40% by the company.**
+- **A manager's recommendations are the closing note**, which is the field that was always there (`Review.summary`),
+  named for who is writing it. There is no second field.
+- **HR's recommendation is HR's, is read by the person, and sits under the rating.** The API refuses it from anybody else
+  and leaves the rating not final, so the box is not offered to somebody it would cost. It is stored as `hrNote`, the
+  column HR's later sign-off writes, so a sign-off note replaces it. The dialog says who will read it on the page:
+  that the person reads it is the consequence of writing it.
+- **The box is offered only where the server sends `hrRecommendation`, `null` included.** The key is on every review a
+  server that keeps a recommendation sends, so its absence is the screen's only way to know the box would write into
+  nothing. The first version offered it to anybody with Edit records and relied on the API refusing what it could not
+  keep; an older server does not refuse, it ignores. A refusal can be shown, and silence cannot.
+- **A consequence is text on the page and never behind the help icon.** The first version put "Chidi will read it with
+  their rating" in the field's `help`. A text check passed, because `help` is always in the page for assistive
+  technology, and the screenshot showed a label and nothing else. Look at the picture.
+- **With the two reviews side by side, the overall mark is one row of the comparison** and the top card does not say the
+  manager's again.
+- **"Self review" is written as it was asked for**, without the hyphen. The API's own label, the period stages and the
+  report all say **Self-review**; `SELF_REVIEW_LABEL` in `review-comparison.ts` is the one place to change.
+
+## Found by looking, and not by a gate
+
+The score panel repeating one sentence four times; the "will read it" line behind an icon; HR's recommendation at the
+foot of a three-thousand-pixel page, below the prompt to acknowledge; a screenshot taken mid-animation that could not say
+whether the details were drawn (waited for, and the opacity read); "share its weight" for two parts; and the production
+build's type check, which caught a test file the earlier `tsc` had run before it existed.
+
+## Verified
+
+**Backend** ([approvehr-backend#253](https://github.com/SchullGroup/approvehr-backend/pull/253)). The new test file has 14
+cases. Run against unmodified `staging` first, 9 failed and 5 passed (the five are the guards that must not change); with
+the change all 14 pass. Seven deliberate breaks, each caught by the tests written for it: own answers counted twice,
+answers beating a given mark, unsent answers counted, departments not leaders, the old note back, anybody allowed to
+recommend, the recommendation dropped. 28 files and 717 tests pass across it and everything that reads the register or
+finalises. `tsc`, ESLint, `prettier --check` over the whole repository and the five `verify-*` scripts that need no
+database exit 0. Not run: the whole backend suite in one go (CI does) and `verify-migrations-match-schema`, since nothing
+in `prisma/` changed.
+
+**Frontend.**
+
+- `npm run check` exit 0 on the tip after `dev` was merged in at `9ba0dda6` (#561): typecheck, lint (15 warnings, none in a
+  file this change touches), format and the 21 `verify-*` gates. It ran with `APPROVEHR_BACKEND_DIR` pointing at a
+  backend checkout of `staging` with #253 and #254's branch merged, so the cross-repo gates compared against it instead of
+  printing `skip`. The generated inventories were current on that tip (`npm run docs -- --check` for the components and
+  the API).
+- `dev` then took #562 (a change to `lib/api/projects.ts`, its test and a HANDOVER entry, nothing the review screens
+  read) and this branch took it in a second merge. The runs here were on the tip before it. The inventories were checked
+  again after it, and CI's `check` and build run on the merged tip.
+- `vitest related` on the 15 changed source files ran 163 test files and 2,202 tests, and 2,201 pass. The one failure is the
+  search test in `applications-queue`, a recruitment screen that came into the set through a shared import. It waits one
+  second for a typed search to reach the server, and it fails the same way, with the same message, when it is run alone on
+  untouched `dev` on this loaded machine (HANDOVER already records it as slow, not wrong). The 24 test files that bear on
+  the review page, the answer flow, the finalise box, the overall-mark card and the weights page: 345 tests, all passing.
+  Vitest is not in CI, so these two runs are the only place these tests are run.
+- Twelve deliberate breaks, each made in a throwaway copy of the branch and each caught by the tests written for it, the
+  copy clean afterwards: the box offered to everybody; an empty box sent as an empty string; "who will read it" behind an
+  icon; the screen offering the box to everybody; the box offered where the server sends no `hrRecommendation` (the gate,
+  which fails alone on _does not offer it where the server does not send the field at all_); HR's recommendation at the
+  foot of the page; the top card saying the mark a second time; the comparison matched by the question's words instead of
+  the question; "Not asked" reading "Not answered"; a manager not asked for recommendations; a part weighted at nothing
+  blamed for the others' weight; and the reason said again on every part.
+
+**In a browser, connected**, against a scratch API running the backend branch and a production build of this one, on a
+company set up as the report describes (a head of department with nobody reporting to them, one person who leads nobody and
+was rated on leadership, Self-assessment weighted at 10% with the overall mark off, every subsection asked of both): 48 of
+48 checks, no console errors, page errors or 5xx, as HR (the HR manager), as the person the review is about, as an
+administrator, as a manager answering, and on a 375px touch phone. The figures read from the API and checked by hand:
+for the head of department, Leadership 62.5% counting for 5.26% and Self-assessment 84.38% from 8 answers counting for
+10.53%, both of which were left out before; for the person who leads nobody, the new sentence beside a figure that is not
+counted. The pictures are in `out/self-leadership-screenshots-2026-10-30/` in the frontend checkout, thirteen of them,
+and the walk is what found most of the problems listed above. The walk was on the branch before `dev` was merged in. That
+merge brought in the projects work, leave attachments and the approve and decline dialogs, and nothing in the review,
+answer-flow or weights screens (checked by listing its 47 files), and #562, which came later, changes `lib/api/projects.ts`
+and a test, so the merged tip was not walked again; its production build is CI's.
+
+**Not exercised:** the QA site; iOS Safari or any real device; demo mode in a browser (the card without a self review is
+covered by a test, and the demo has no API to read one from); a company with real data; a team lead, which only the
+backend tests cover; the HR sign-off stage, which nothing in the product offers.
+
+## Deliberately not done
+
+- **A separate manager recommendation field.** It is the closing note.
+- **Counting leadership that was rated for somebody who leads nobody.** The rule that Leadership is rated only for people
+  who lead others is unchanged; the definition is shared and the sentence is honest.
+- **Moving the comparison above the score.** The order of the existing cards is the order they had; only HR's
+  recommendation moved up, to sit with the rating.
+- **Renaming "Self-review" across the product.**

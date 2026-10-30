@@ -921,6 +921,16 @@ export type ApiReviewDetail = ApiReview & {
    */
   sendBlockedBy?: string | null;
   /**
+   * What HR recommended when this rating was made final, or `null`. Read by
+   * whoever may read the review, the person it is about included once the rating
+   * is theirs to read, so it is part of what they are told. **Absent from a server
+   * that predates it, and absent means there is none to show**, never "HR chose
+   * to say nothing". It is also the screen's only way to know the server keeps a
+   * recommendation at all, so the box that writes one is offered only where the key
+   * is present (`null` counts): an older server ignores the body of the finalise.
+   */
+  hrRecommendation?: string | null;
+  /**
    * What the author is to the subject, on a manager form.
    *
    * **Absent when there is no appraiser assignment** — not a role of "line
@@ -3418,10 +3428,17 @@ export const performanceApi = {
    * Only a submitted manager review: a self-review is not a mark anybody is
    * told, and peer feedback reaches its subject as an aggregate nobody signs.
    * The author, the subject's manager, or `EDIT_RECORDS`.
+   *
+   * HR can add a recommendation as they do it, which is part of what the person
+   * is told. **Only HR**: the API refuses it from anybody else and leaves the
+   * rating not final, so a caller offers the box to `EDIT_RECORDS` alone. It is
+   * sent only when there is something in it, because an empty one is refused and
+   * "no recommendation" is the absence of the key.
    */
-  finaliseReview: (id: string) =>
+  finaliseReview: (id: string, recommendation?: string) =>
     request<ApiReviewFinalised>(`/performance/reviews/${id}/finalise`, {
       method: "POST",
+      ...(recommendation === undefined ? {} : { body: { recommendation } }),
     }),
 
   /**

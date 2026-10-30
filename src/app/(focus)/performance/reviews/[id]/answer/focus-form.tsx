@@ -27,6 +27,7 @@ import {
 } from "./draft-storage";
 import { draftForPick, pickOptions, ratingOptions } from "./focus-question";
 import {
+  closingNoteWords,
   onRecordOf,
   savedAnswerStands,
   sigOf,
@@ -482,7 +483,7 @@ export function FocusForm({
         : current.kind === "mark"
           ? "Overall mark"
           : current.kind === "summary"
-            ? "Anything to add"
+            ? closingNoteWords(review.kind).row
             : "Preview";
 
   const optionalAndEmpty =

@@ -15,6 +15,39 @@ import type { LocalDraft } from "./draft-storage";
 /** What the API accepts in one written answer, and in the closing note. */
 export const TEXT_LIMIT = 4000;
 
+/**
+ * What the closing page is called, on each kind of form.
+ *
+ * It is one field, the review's closing note, and what goes in it depends on who
+ * is writing. A manager is writing about somebody else and what is worth saying
+ * after the answers is what they recommend, so their page says so and the record
+ * reads it as theirs. The person's own page and a peer's ask for anything to add.
+ * Said once, so the page, the preview row and the progress line cannot name the
+ * same box three ways.
+ */
+export function closingNoteWords(kind: ApiReviewDetail["kind"]): {
+  title: string;
+  lead: string;
+  placeholder: string;
+  /** The row on the preview, and the line above the progress bar. */
+  row: string;
+} {
+  if (kind === "MANAGER") {
+    return {
+      title: "Your recommendations",
+      lead: "Optional. What you recommend for them, and anything else you want to say, in your own words.",
+      placeholder: "Type here if you have a recommendation or more to say",
+      row: "Recommendations",
+    };
+  }
+  return {
+    title: "Anything to add?",
+    lead: "Optional. A line or two in your own words.",
+    placeholder: "Type here if there is more to say",
+    row: "Anything to add",
+  };
+}
+
 /** A signature of what is in a box, to tell "changed" from "typed and undone". */
 export const sigOf = (held: Draft): string =>
   JSON.stringify([

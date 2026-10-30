@@ -97,6 +97,9 @@ function fromSeed(request: LeaveRequest): LeaveRow {
     firstApprovedByName: null,
     firstApprovedByJobTitle: null,
     decisionNote: request.decisionNote ?? null,
+    /* The demo has one step and no files: files go to storage through the API. */
+    firstApprovalNote: null,
+    attachmentCount: 0,
   };
 }
 
@@ -344,6 +347,8 @@ export function useLeaveRequestDetail(id: string | null): LeaveDetailState {
               remaining: remainingDays(balance),
             }
           : null,
+        reduced: false,
+        history: [],
       },
       loading: false,
       connected: false,
@@ -422,6 +427,9 @@ export function useLeaveTypes(): LeaveTypesState {
         minNoticeDays: type.minNoticeDays,
         isPaid: true,
         eligibleGender: type.eligibleGender ?? null,
+        /* Files need the API. A demo type asks for none. */
+        attachmentPolicy: "NONE",
+        attachmentRequiredOverDays: null,
       })),
     [settings.leave.types],
   );
@@ -576,6 +584,9 @@ export type NewLeave = {
   to: string;
   reason?: string;
   approverId?: string;
+  /** Already uploaded: they go in the same request, so it is one write. Not in
+   *  demo mode, which has nowhere to keep a file and never offers one. */
+  attachments?: { storageKey: string; filename: string; contentType: string }[];
 };
 
 /**
@@ -641,6 +652,9 @@ export function useLeaveMutations(): LeaveMutations {
         to: input.to,
         ...(input.reason ? { reason: input.reason } : {}),
         ...(input.approverId ? { approverId: input.approverId } : {}),
+        ...(input.attachments && input.attachments.length > 0
+          ? { attachments: input.attachments }
+          : {}),
       });
       /* The API raises the matching `ApprovalRequest` in the same transaction,
          so this moves an inbox somewhere — usually somebody else's, and on the
