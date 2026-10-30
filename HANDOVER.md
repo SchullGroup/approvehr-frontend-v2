@@ -11163,6 +11163,64 @@ on staging before this work; they are not caused by it.
 
 ---
 
+# A server that has not been told about several people on a task still has to be told who the lead is
+
+Frontend #561 (several people on a task, merged into `dev` on 30 October) sends who is on a task as `assigneeIds`. It said
+its backend half, #254, should merge first, and #254 had not when #561 did. A promotion that reached the QA site before
+#254 reached `staging` would have lost something that worked, so the one place where that happens is closed in the web.
+
+## What a server from before #254 does
+
+Checked on one: the scratch stack of the day, whose code has no several-people support.
+
+- **A create with `assigneeIds` alone answers 201 and leaves the person off.** The schema strips a key it does not know, so
+  "Assign to me" in the New issue dialog, and the people chosen on a sub-task row, were dropped without a word. The first of
+  those worked before #561 and stopped working with it.
+- **A change to the list alone answers 400, _Send at least one field_**, because once the unknown key is stripped nothing is
+  left.
+
+## The fix, and what it leaves alone on purpose
+
+`withLead` in `lib/api/projects.ts`: **a create** puts the first of the list beside it as `assigneeId`. A server with #254
+reads the list and ignores the lead (checked on one: when the two disagree the list wins), so nothing changes there. The
+lead is always the first of the list, so both kinds of server take the same person.
+
+**A change is left as it is.** The store sends what changed, and the lead goes with it only when the lead changed, so a
+change that only adds or takes off somebody who is not the lead is `{ assigneeIds }` alone. A server without #254 cannot
+hold several people, and its 400 is the honest answer to being asked to: it says the change did not take. Adding the lead
+there would turn that refusal into a silent no-op, which is the failure this entry is about. Nothing that worked before #561
+depends on it, because assigning, unassigning and changing the lead all change the lead and so already carry it.
+
+The first version put the lead on changes too, on the belief that the board's patches always carried it. The browser walk of
+#561 showed they do not: adding a second person sent the list alone. Its test had also named a lead equal to the list's
+first, so the break that let a caller's lead win over the list still passed. Both are corrected.
+
+A second person is still not kept by a server without #254. It has nowhere to put them, and the lead alone comes back.
+
+> **The rule this leaves behind:** a new field that replaces an old one on the wire goes **beside** it until the server is
+> known to read it, wherever dropping it would take away something that worked. A key an old server does not know is not
+> refused. It is dropped, and a drop is silent where a refusal is shown.
+
+## Verified
+
+`tests/projects-assignees-wire.test.ts` is new, 7 cases (four on a create, three on a change), and with the two existing wire
+tests (`projects-objective-api`, `projects-open-task`) 17 tests pass. Four deliberate breaks, each caught by the tests written
+for it: a create sending the input as it is, a caller's lead kept over the list's, an empty list with no lead, and a change
+given a lead too. Prettier and ESLint are clean on both files.
+
+A whole-project `tsc` found four errors, all in this test: `NewIssueInput` requires a `type` and the calls left it out.
+Vitest and ESLint cannot see that and CI's `check` would have. They are fixed, and the test and everything it imports now
+type-check, with a probe proving the same configuration does flag the original mistake. It was run that way because a
+whole-project run takes many minutes on a loaded machine.
+
+Both bodies were also sent to real servers: to one without #254 (a create with the list alone gave 201 and no assignee, the
+same create with the lead beside it assigned the lead, and a change to the list alone gave 400) and to one with #254 (the same
+result as the list alone, and the list winning when the lead disagrees).
+
+**Not run:** the screens against a server without #254 in a browser; the whole suite (CI runs `check`, not vitest).
+
+---
+
 # A mark that read as wrong, and the three reasons it did
 
 An HR manager on the QA site read a manager's review whose Core and Behavioural competencies were rated and could not
@@ -11251,10 +11309,14 @@ in `prisma/` changed.
 
 **Frontend.**
 
-- `npm run check` exit 0 on the tip after `dev` was merged in: typecheck, lint (15 warnings, none in a file this change
-  touches), format and the 21 `verify-*` gates. It ran with `APPROVEHR_BACKEND_DIR` pointing at a backend checkout of
-  `staging` with #253 and #254's branch merged, so the cross-repo gates compared against it instead of printing `skip`.
-  The generated inventories are current on this tip (`npm run docs -- --check` for the components and the API).
+- `npm run check` exit 0 on the tip after `dev` was merged in at `9ba0dda6` (#561): typecheck, lint (15 warnings, none in a
+  file this change touches), format and the 21 `verify-*` gates. It ran with `APPROVEHR_BACKEND_DIR` pointing at a
+  backend checkout of `staging` with #253 and #254's branch merged, so the cross-repo gates compared against it instead of
+  printing `skip`. The generated inventories were current on that tip (`npm run docs -- --check` for the components and
+  the API).
+- `dev` then took #562 (a change to `lib/api/projects.ts`, its test and a HANDOVER entry, nothing the review screens
+  read) and this branch took it in a second merge. The runs here were on the tip before it. The inventories were checked
+  again after it, and CI's `check` and build run on the merged tip.
 - `vitest related` on the 15 changed source files ran 163 test files and 2,202 tests, and 2,201 pass. The one failure is the
   search test in `applications-queue`, a recruitment screen that came into the set through a shared import. It waits one
   second for a typed search to reach the server, and it fails the same way, with the same message, when it is run alone on
@@ -11279,8 +11341,8 @@ for the head of department, Leadership 62.5% counting for 5.26% and Self-assessm
 counted. The pictures are in `out/self-leadership-screenshots-2026-10-30/` in the frontend checkout, thirteen of them,
 and the walk is what found most of the problems listed above. The walk was on the branch before `dev` was merged in. That
 merge brought in the projects work, leave attachments and the approve and decline dialogs, and nothing in the review,
-answer-flow or weights screens (checked by listing its 47 files), so the merged tip was not walked again; its production
-build is CI's.
+answer-flow or weights screens (checked by listing its 47 files), and #562, which came later, changes `lib/api/projects.ts`
+and a test, so the merged tip was not walked again; its production build is CI's.
 
 **Not exercised:** the QA site; iOS Safari or any real device; demo mode in a browser (the card without a self review is
 covered by a test, and the demo has no API to read one from); a company with real data; a team lead, which only the

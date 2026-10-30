@@ -561,6 +561,25 @@ export type CompletedSprint = {
   createdSprint: Sprint | null;
 };
 
+/**
+ * A new task goes with who is on it as `assigneeIds` and the lead beside the list as
+ * `assigneeId`, always the first of it. A server that takes several people reads the
+ * list and ignores the lead (the list wins when both come). One from before it reads
+ * `assigneeId` alone and drops a key it does not know, so a person chosen on a new
+ * task would be left off it with a 201. Both take the same person as the lead. A
+ * task made with no word about people goes as it is.
+ *
+ * A create only, on purpose. A change goes as what changed, and the lead is in it
+ * when the lead changed. A change to the people who are not the lead needs a server
+ * that holds several, and one that does not refuses it ("Send at least one field"),
+ * which at least says it did not take. The lead added there would turn that refusal
+ * into a silent no-op.
+ */
+function withLead(input: NewIssueInput): NewIssueInput {
+  if (input.assigneeIds === undefined) return input;
+  return { ...input, assigneeId: input.assigneeIds[0] ?? null };
+}
+
 export const projectsApi = {
   /** The projects the caller is on. `all` is for people who hold `EDIT_RECORDS`. */
   list: async (scope: "mine" | "all" = "mine", signal?: AbortSignal) =>
@@ -811,7 +830,7 @@ export const projectsApi = {
     toIssue(
       await request<Raw>(`/projects/${projectId}/issues`, {
         method: "POST",
-        body: input,
+        body: withLead(input),
       }),
     ),
 
